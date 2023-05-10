@@ -21,3 +21,5 @@ jobs:
         run: dotnet paket install
       - name: Publish
         run: ./fake.sh Publish
+        env:
+          NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
