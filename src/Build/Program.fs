@@ -9,32 +9,19 @@ open System.Text.RegularExpressions
 let inline (==>!) x y = x ==> y |> ignore
 
 let srcDir = Path.getDirectory __SOURCE_DIRECTORY__
+let rootDir = Path.getDirectory srcDir
+let sln = rootDir </> "FSharp.ViewEngine.sln"
+let nugetsDir = rootDir </> "nugets"
 let testsDir = srcDir </> "Tests"
-
-let [<Literal>] Author = "Andrew Meier"
-
-let projects =
-    [ "FSharp.ViewEngine"
-      "FSharp.ViewEngine.Html"
-      "FSharp.ViewEngine.Htmx"
-      "FSharp.ViewEngine.Alpine" ]
 
 let getVersion () =
     let tag = Environment.environVarOrFail "GITHUB_REF_NAME"
     let m = Regex.Match(tag, @"^v(\d+\.\d+\.\d+)$")
     if m.Success then m.Groups[1].Value else failwith $"invalid tag: {tag}"
     
-let getProjectDir project = srcDir </> project
-let getProjectNugetPath project =
-    let version = getVersion ()
-    let projectDir = getProjectDir project
-    projectDir </> "bin" </> "Release" </> $"{project}.{version}.nupkg"
-
 let registerTargets() =
     
-    Target.create "Clean" <| fun _ ->
-        !!"**/Release"
-        |> Shell.cleanDirs
+    Target.create "Clean" (fun _ -> Shell.cleanDir nugetsDir)
     
     Target.create "Test" <| fun _ ->
         DotNet.test
@@ -43,23 +30,23 @@ let registerTargets() =
                     MSBuildParams = { MSBuild.CliArguments.Create() with DisableInternalBinLog  = true } })
             testsDir
     
-    let packProject project =
-        Trace.trace $"Packing {project}"
-        let projectDir = getProjectDir project
+    Target.create "Pack" <| fun _ ->
+        Trace.trace $"Packing {sln}"
         let version = getVersion()
         let customParams = [ $"/p:PackageVersion={version}" ] |> String.concat " "
         DotNet.pack
             (fun opts ->
                 { opts with
                     Configuration = DotNet.BuildConfiguration.Release
+                    OutputPath = Some nugetsDir 
                     Common = opts.Common |> DotNet.Options.withCustomParams (Some customParams)
                     MSBuildParams = { MSBuild.CliArguments.Create() with DisableInternalBinLog  = true } })
-            projectDir
+            sln
             
-    let publish project =
-        Trace.trace $"Publishing {project} nuget"
+    Target.create "Publish" <| fun _ ->
+        let nugets = !! $"{nugetsDir}/*.nupkg" |> String.concat ", "
+        Trace.trace $"Publishing {nugets}"
         let apiKey = Environment.environVarOrFail "NUGET_API_KEY"
-        let nugetPath = getProjectNugetPath project
         DotNet.nugetPush
             (fun opts ->
                 let pushParams =
@@ -67,10 +54,8 @@ let registerTargets() =
                         ApiKey = Some apiKey
                         Source = Some "https://api.nuget.org/v3/index.json" }
                 { opts with PushParams = pushParams })
-            nugetPath
+            $"{nugetsDir}/*.nupkg"
             
-    Target.create "Pack" (fun _ -> projects |> Seq.iter packProject)
-    Target.create "Publish" (fun _ -> projects |> Seq.iter publish)
     Target.create "Default" (fun _ -> Target.listAvailable())
     
     "Test" ==>! "Pack"

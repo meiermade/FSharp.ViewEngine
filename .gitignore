@@ -3,5 +3,6 @@
 .paket
 obj
 bin
+nugets
 paket-files
 *DotSettings.user
