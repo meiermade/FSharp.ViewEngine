@@ -19,5 +19,5 @@ jobs:
         run: dotnet tool restore
       - name: Install Packages
         run: dotnet paket install
-      - name: Push
-        run: ./fake.sh Push
+      - name: Publish
+        run: ./fake.sh Publish
