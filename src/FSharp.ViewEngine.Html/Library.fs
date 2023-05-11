@@ -1,6 +1,4 @@
-﻿namespace FSharp.ViewEngine.Html
-
-open FSharp.ViewEngine
+﻿namespace FSharp.ViewEngine
 
 type Html =
     static member fragment (children:Element seq) = Fragment children

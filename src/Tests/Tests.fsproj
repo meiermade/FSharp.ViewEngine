@@ -15,6 +15,7 @@
     <ProjectReference Include="..\FSharp.ViewEngine.Html\FSharp.ViewEngine.Html.fsproj" />
     <ProjectReference Include="..\FSharp.ViewEngine.Alpine\FSharp.ViewEngine.Alpine.fsproj" />
     <ProjectReference Include="..\FSharp.ViewEngine.Htmx\FSharp.ViewEngine.Htmx.fsproj" />
+    <ProjectReference Include="..\FSharp.ViewEngine.Svg\FSharp.ViewEngine.Svg.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

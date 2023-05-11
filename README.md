@@ -15,6 +15,7 @@ Optionally add helpers.
 dotnet add package FSharp.ViewEngine.Html
 dotnet add package FSharp.ViewEngine.Htmx
 dotnet add package FSharp.ViewEngine.Alpine
+dotnet add package FSharp.ViewEngine.Svg
 ```
 
 ## Usage
