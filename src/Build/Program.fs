@@ -10,6 +10,8 @@ let inline (==>!) x y = x ==> y |> ignore
 
 let srcDir = Path.getDirectory __SOURCE_DIRECTORY__
 let rootDir = Path.getDirectory srcDir
+let readme = rootDir </> "README.md"
+let license = rootDir </> "LICENSE"
 let sln = rootDir </> "FSharp.ViewEngine.sln"
 let nugetsDir = rootDir </> "nugets"
 let testsDir = srcDir </> "Tests"

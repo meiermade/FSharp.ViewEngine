@@ -1,6 +1,4 @@
-﻿namespace FSharp.ViewEngine.Htmx
-
-open FSharp.ViewEngine
+﻿namespace FSharp.ViewEngine
 
 type Htmx =
     static member _hxGet (v:string) = KeyValue ("hx-get", v)

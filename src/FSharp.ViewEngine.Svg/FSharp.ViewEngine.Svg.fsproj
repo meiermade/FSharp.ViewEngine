@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>net6.0</TargetFramework>
-    <PackageId>FSharp.ViewEngine.Alpine</PackageId>
+    <PackageId>FSharp.ViewEngine.Svg</PackageId>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Andrew Meier</Authors>

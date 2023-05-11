@@ -1,6 +1,4 @@
-﻿namespace FSharp.ViewEngine.Alpine
-
-open FSharp.ViewEngine
+﻿namespace FSharp.ViewEngine
 
 type Alpine =
     static member _xOn (event:string, v:string) = KeyValue ($"x-on:{event}", v)
