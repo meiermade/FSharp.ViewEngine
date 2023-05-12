@@ -7,6 +7,7 @@ type Attribute =
     
 and Element =
     | Raw of string                         // Raw content
+    | Text of string                        // Text content (html encoded)
     | Tag of string * Attribute seq         // e.g., <h1>Hello</h1>
     | Void of string * Attribute seq        // e.g., <br>
     | Fragment of Element seq               // Directly render children
@@ -14,13 +15,17 @@ and Element =
 
 module private ViewBuilder =
     open System.Text
+    open System.Web
     
     let inline (+=) (sb:StringBuilder) (s:string) = sb.Append(s)
     let inline (+!) (sb:StringBuilder) (s:string) = sb.Append(s) |> ignore
     
+    let encode (s:string) = HttpUtility.HtmlEncode(s)
+    
     let rec buildElement (el:Element) (sb:StringBuilder) =
         match el with
         | Raw text -> sb +! text
+        | Text text -> sb +! encode text
         | Tag (tag, attributes) ->
             sb += "<" +! tag
             let children = ResizeArray()
