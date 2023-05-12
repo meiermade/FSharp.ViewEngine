@@ -1,4 +1,4 @@
-﻿[![Release](https://github.com/ameier38/FSharp.ViewEngine/actions/workflows/release.yml/badge.svg?branch=main)](https://github.com/ameier38/FSharp.ViewEngine/actions/workflows/release.yml)
+[![Release](https://github.com/ameier38/FSharp.ViewEngine/actions/workflows/release.yml/badge.svg)](https://github.com/ameier38/FSharp.ViewEngine/actions/workflows/release.yml)
 
 # FSharp.ViewEngine
 View engine for F#. Inspired by [Giraffe.ViewEngine](https://github.com/giraffe-fsharp/Giraffe.ViewEngine) and
