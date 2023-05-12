@@ -29,6 +29,12 @@ let ``Should render html document`` () =
         <div x-show="showContent">
             <h2>Content</h2>
             <p>Some content</p>
+            <p>Some more content</p>
+            <pre class="language-html">
+                <code class="language-html">
+                    &lt;p&gt;Even more content&lt;/p&gt;
+                </code>
+            </pre>
             <ul>
                 <li>One</li>
                 <li>Two</li>
@@ -70,6 +76,18 @@ let ``Should render html document`` () =
                             _children [
                                 h2 [ _children "Content" ]
                                 p [ _children "Some content" ]
+                                raw "<p>Some more content</p>"
+                                pre [
+                                    _class "language-html"
+                                    _children [
+                                        code [
+                                            _class "language-html"
+                                            _children [
+                                                text "<p>Even more content</p>"
+                                            ]
+                                        ]
+                                    ]
+                                ]
                                 ul [
                                     _children [
                                         li [ _children "One" ]
