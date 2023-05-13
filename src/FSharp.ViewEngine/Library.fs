@@ -4,6 +4,7 @@ type Attribute =
     | KeyValue of string * string   // e.g., div [ _class "text-xl" ] -> <div class="text-xl"></div>
     | Boolean of string             // e.g., button [ _disabled ] -> <button disabled></button>
     | Children of Element seq       // e.g., div [ p "Hello" ] -> <div><p>Hello</p></div>
+    | Noop                          // No op
     
 and Element =
     | Raw of string                         // Raw content
@@ -34,6 +35,7 @@ module private ViewBuilder =
                 | KeyValue (key, value) -> sb += " " += key += "=\"" += value +! "\""
                 | Boolean key -> sb += " " +! key
                 | Children elements -> children.AddRange(elements)
+                | Attribute.Noop -> ()
             sb +! ">"
             for child in children do buildElement child sb
             sb += "</" += tag +! ">"
@@ -44,9 +46,10 @@ module private ViewBuilder =
                 | KeyValue (key, value) -> sb += " " += key += "=\"" += value +! "\""
                 | Boolean key -> sb += " " +! key
                 | Children _ -> failwith "void elements cannot have children"
+                | Attribute.Noop -> ()
             sb +! ">"
         | Fragment children -> for child in children do buildElement child sb
-        | Noop -> ()
+        | Element.Noop -> ()
 
 [<RequireQualifiedAccess>]
 module Element =
