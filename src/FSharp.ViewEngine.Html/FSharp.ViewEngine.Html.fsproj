@@ -18,8 +18,8 @@
     <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="../../LICENSE" Pack="True" Visible="false" PackagePath=""/>
-    <None Include="../../README.md" Pack="True" Visible="false" PackagePath=""/>
+    <None Include="../../LICENSE" Pack="True" Visible="false" PackagePath="" />
+    <None Include="../../README.md" Pack="True" Visible="false" PackagePath="" />
   </ItemGroup>
 
 </Project>
