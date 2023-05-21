@@ -1,5 +1,7 @@
 [![Release](https://github.com/ameier38/FSharp.ViewEngine/actions/workflows/release.yml/badge.svg)](https://github.com/ameier38/FSharp.ViewEngine/actions/workflows/release.yml)
 
+![logo](./etc/logo.svg)
+
 # FSharp.ViewEngine
 View engine for F#. Inspired by [Giraffe.ViewEngine](https://github.com/giraffe-fsharp/Giraffe.ViewEngine) and
 [Feliz.ViewEngine](https://github.com/dbrattli/Feliz.ViewEngine).
