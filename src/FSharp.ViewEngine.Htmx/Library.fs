@@ -8,5 +8,6 @@ type Htmx =
     static member _hxTrigger (v:string) = KeyValue ("hx-trigger", v)
     static member _hxTarget (v:string) = KeyValue ("hx-target", v)
     static member _hxIndicator (v:string) = KeyValue ("hx-indicator", v)
+    static member _hxInclude (v:string) = KeyValue ("hx-include", v)
     static member _hxSwap (v:string) = KeyValue ("hx-swap", v)
     static member _hxSwapOOB (v:string) = KeyValue ("hx-swap-oob", v)
