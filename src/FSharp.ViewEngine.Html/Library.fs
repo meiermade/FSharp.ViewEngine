@@ -1,6 +1,7 @@
 ﻿namespace FSharp.ViewEngine
 
 type Html =
+    static member empty = Element.Noop
     static member fragment (children:Element seq) = Fragment children
     static member raw (v:string) = Raw v
     static member text (v:string) = Text v
@@ -45,12 +46,18 @@ type Html =
     static member option (attrs:Attribute seq) = Tag("option", attrs)
     static member table (attrs:Attribute seq) = Tag("table", attrs)
     static member thead (attrs:Attribute seq) = Tag("thead", attrs)
+    static member thead (children:Element seq) = Tag("thead", [ Children children ])
     static member tr (attrs:Attribute seq) = Tag("tr", attrs)
+    static member tr (children:Element seq) = Tag("tr", [ Children children ])
     static member th (attrs:Attribute seq) = Tag("th", attrs)
     static member tbody (attrs:Attribute seq) = Tag("tbody", attrs)
     static member td (attrs:Attribute seq) = Tag("td", attrs)
+    static member dl (attrs:Attribute seq) = Tag("dl", attrs)
+    static member dt (attrs:Attribute seq) = Tag("dt", attrs)
+    static member dd (attrs:Attribute seq) = Tag("dd", attrs)
     static member template (attrs:Attribute seq) = Tag("template", attrs)
     
+    static member _empty = Attribute.Noop
     static member _id (v:string) = KeyValue ("id", v)
     static member _class (v:string) = KeyValue ("class", v)
     static member _class (v:string seq) = KeyValue ("class", v |> String.concat " ")
@@ -82,13 +89,19 @@ type Html =
     static member _hidden (v:bool) = if v then Boolean("hidden") else Attribute.Noop
     static member _required (v:bool) = if v then Boolean("required") else Attribute.Noop
     static member _disabled (v:bool) = if v then Boolean("disabled") else Attribute.Noop
+    static member _readonly (v:bool) = if v then Boolean("readonly") else Attribute.Noop
     static member _multiple (v:bool) = if v then Boolean("multiple") else Attribute.Noop
     static member _selected (v:bool) = if v then Boolean("selected") else Attribute.Noop
     static member _min (v:string) = KeyValue("min", v)
+    static member _min (v:float) = KeyValue("min", string v)
     static member _minlength (v:string) = KeyValue("minlength", v)
+    static member _minlength (v:int) = KeyValue("minlength", string v)
     static member _max (v:string) = KeyValue("max", v)
+    static member _max (v:float) = KeyValue("max", string v)
     static member _maxlength (v:string) = KeyValue("maxlength", v)
+    static member _maxlength (v:int) = KeyValue("maxlength", string v)
     static member _step (v:string) = KeyValue("step", v)
+    static member _step (v:float) = KeyValue("step", string v)
     static member _checked (v:bool) = if v then Boolean("checked") else Attribute.Noop
     static member _role (v:string) = KeyValue("role", v)
     static member _ariaLabelledby (v:string) = KeyValue("aria-labelledby", v)
