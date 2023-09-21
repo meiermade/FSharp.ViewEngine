@@ -32,7 +32,7 @@ module private ViewBuilder =
             let children = ResizeArray()
             for attr in attributes do
                 match attr with
-                | KeyValue (key, value) -> sb += " " += key += "='" += value +! "'"
+                | KeyValue (key, value) -> sb += " " += key += "=\"" += value +! "\""
                 | Boolean key -> sb += " " +! key
                 | Children elements -> children.AddRange(elements)
                 | Attribute.Noop -> ()
@@ -43,7 +43,7 @@ module private ViewBuilder =
             sb += "<" +! tag
             for attr in attributes do
                 match attr with
-                | KeyValue (key, value) -> sb += " " += key += "='" += value +! "'"
+                | KeyValue (key, value) -> sb += " " += key += "=\"" += value +! "\""
                 | Boolean key -> sb += " " +! key
                 | Children _ -> failwith "void elements cannot have children"
                 | Attribute.Noop -> ()
