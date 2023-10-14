@@ -11,6 +11,7 @@ type Html =
     static member meta (attrs:Attribute seq) = Void ("meta", attrs)
     static member link (attrs:Attribute seq) = Void ("link", attrs)
     static member script (attrs:Attribute seq) = Tag ("script", attrs)
+    static member script (value:string) = Tag ("script", [ Children [ Raw value ]])
     static member body (attrs:Attribute seq) = Tag ("body", attrs)
     static member main (attrs:Attribute seq) = Tag ("main", attrs)
     static member header (attrs:Attribute seq) = Tag ("header", attrs)
