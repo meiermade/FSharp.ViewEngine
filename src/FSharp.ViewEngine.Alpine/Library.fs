@@ -11,7 +11,11 @@ type Alpine =
     static member _xShow (v:string) = KeyValue ("x-show", v)
     static member _xIf (v:string) = KeyValue ("x-if", v)
     static member _xFor (v:string) = KeyValue ("x-for", v)
-    static member _xModel (v:string) = KeyValue ("x-model", v)
+    static member _xModel (v:string, ?modifier:string) =
+        match modifier with
+        | Some modifier -> KeyValue ($"x-model.{modifier}", v)
+        | None -> KeyValue("x-model", v)
+    static member _xModelable (v:string) = KeyValue ("x-modelable", v)
     static member _xId (v:string) = KeyValue ("x-id", v)
     static member _xEffect (v:string) = KeyValue ("x-effect", v)
     static member _xTransition (?modifier:string) =
@@ -22,3 +26,4 @@ type Alpine =
         match modifier with
         | Some m -> KeyValue ($"x-trap.{m}", v)
         | None -> KeyValue ("x-trap", v)
+    static member _xCloak = Boolean "x-cloak"
