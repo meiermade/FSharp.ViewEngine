@@ -1,4 +1,2 @@
 ﻿group Build
     Fake.Core.Target
-    Fake.Core.SemVer
-    Fake.DotNet.Cli

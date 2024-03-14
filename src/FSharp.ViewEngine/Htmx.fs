@@ -1,7 +1,7 @@
 ﻿namespace FSharp.ViewEngine
 
 type Htmx =
-    static member _hxMethod (method:string, url:string) = KeyValue ("hx-" + method, url)
+    static member _hx (key:string, value:string) = KeyValue ($"hx-{key}", value)
     static member _hxGet (v:string) = KeyValue ("hx-get", v)
     static member _hxPost (v:string) = KeyValue("hx-post", v)
     static member _hxDelete (v:string) = KeyValue("hx-delete", v)
@@ -11,3 +11,6 @@ type Htmx =
     static member _hxInclude (v:string) = KeyValue ("hx-include", v)
     static member _hxSwap (v:string) = KeyValue ("hx-swap", v)
     static member _hxSwapOOB (v:string) = KeyValue ("hx-swap-oob", v)
+    static member _hxEncoding (value:string) = KeyValue("hx-encoding", value)
+    static member _hxOn (event:string, value:string) = KeyValue($"hx-on:{event}", value)
+    static member _hxHistory (value:string) = KeyValue("hx-history", value)
