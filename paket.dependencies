@@ -1,14 +1,10 @@
 source https://api.nuget.org/v3/index.json
 storage: none
 
-nuget FSharp.Core
-
 group Build
     source https://api.nuget.org/v3/index.json
     storage: none
     nuget Fake.Core.Target
-    nuget Fake.Core.SemVer
-    nuget Fake.DotNet.Cli
     
 group Tests
     source https://api.nuget.org/v3/index.json

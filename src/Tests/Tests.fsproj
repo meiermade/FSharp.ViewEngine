@@ -1,7 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
@@ -12,10 +11,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
-    <ProjectReference Include="..\FSharp.ViewEngine.Html\FSharp.ViewEngine.Html.fsproj" />
-    <ProjectReference Include="..\FSharp.ViewEngine.Alpine\FSharp.ViewEngine.Alpine.fsproj" />
-    <ProjectReference Include="..\FSharp.ViewEngine.Htmx\FSharp.ViewEngine.Htmx.fsproj" />
-    <ProjectReference Include="..\FSharp.ViewEngine.Svg\FSharp.ViewEngine.Svg.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>
