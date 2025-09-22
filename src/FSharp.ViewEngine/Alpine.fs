@@ -1,6 +1,7 @@
 ﻿namespace FSharp.ViewEngine
 
 type Alpine =
+    static member _by(value:string) = KeyValue("by", value)
     static member _x (key:string, ?value:string) = match value with Some v -> KeyValue ($"x-{key}", v) | None -> Boolean $"x-{key}"
     static member _xOn (event:string, v:string) = KeyValue ($"x-on:{event}", v)
     static member _xOn (event:string) = Boolean $"x-on:{event}"
@@ -34,3 +35,4 @@ type Alpine =
         match modifier with
         | Some m -> KeyValue ($"x-anchor{m}", value)
         | None -> KeyValue ("x-anchor", value)
+    static member _xTeleport(value:string) = KeyValue("x-teleport", value)
