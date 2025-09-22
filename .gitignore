@@ -6,3 +6,4 @@ bin
 nugets
 paket-files
 *DotSettings.user
+scratch.fsx

@@ -117,3 +117,4 @@ type Html =
     static member _wrap value = KeyValue ("wrap", value)
     static member _size (value:int) = KeyValue ("size", string value)
     static member _colspan (value:int) = KeyValue ("colspan", string value)
+    static member _onload(value:string) = KeyValue("onload", value)

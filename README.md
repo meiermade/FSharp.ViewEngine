@@ -12,20 +12,9 @@ Add the core view engine package.
 dotnet add package FSharp.ViewEngine
 ```
 
-Optionally add helpers.
-```shell
-dotnet add package FSharp.ViewEngine.Html
-dotnet add package FSharp.ViewEngine.Htmx
-dotnet add package FSharp.ViewEngine.Alpine
-dotnet add package FSharp.ViewEngine.Svg
-```
-
 ## Usage
 ```fsharp
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Html
-open FSharp.ViewEngine.Htmx
-open FSharp.ViewEngine.Alpine
 open type Html
 open type Htmx
 open type Alpine

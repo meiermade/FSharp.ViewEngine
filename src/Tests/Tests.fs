@@ -8,6 +8,7 @@ open type Html
 open type Htmx
 open type Alpine
 open type Svg
+open type Tailwind
 
 module String =
     let replace (oldValue:string) (newValue:string) (s:string) = s.Replace(oldValue, newValue)
@@ -82,6 +83,26 @@ let ``Should render html document`` () =
                                         raw "Documentation"
                                     ]
                                 ]
+                                elSelect [
+                                    _name "status"
+                                    _value "active"
+                                    _children [
+                                        button [
+                                            _type "button"
+                                            _children [
+                                                elSelectedContent [ _children "Active" ]
+                                            ]
+                                        ]
+                                        elOptions [
+                                            _popover
+                                            _children [
+                                                elOption [ _value "active"; _children "Active" ]
+                                                elOption [ _value "inactive"; _children "Inactive" ]
+                                                elOption [ _value "archived"; _children "Archived" ]
+                                            ]
+                                        ]
+                                    ]
+                                ]
                             ]
                         ]
                     ]
@@ -123,6 +144,16 @@ let ``Should render html document`` () =
                     </svg>
                     Documentation
                 </a>
+                <el-select name="status" value="active">
+                    <button type="button">
+                        <el-selectedcontent>Active</el-selectedcontent>
+                    </button>
+                    <el-options popover>
+                        <el-option value="active">Active</el-option>
+                        <el-option value="inactive">Inactive</el-option>
+                        <el-option value="archived">Archived</el-option>
+                    </el-options>
+                </el-select>
             </div>
         </body>
     </html>
