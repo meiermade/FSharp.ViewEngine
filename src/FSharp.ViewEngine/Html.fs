@@ -118,3 +118,4 @@ type Html =
     static member _size (value:int) = KeyValue ("size", string value)
     static member _colspan (value:int) = KeyValue ("colspan", string value)
     static member _onload(value:string) = KeyValue("onload", value)
+    static member _crossorigin = Boolean("crossorigin")

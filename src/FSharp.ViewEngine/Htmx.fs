@@ -14,3 +14,4 @@ type Htmx =
     static member _hxEncoding (value:string) = KeyValue("hx-encoding", value)
     static member _hxOn (event:string, value:string) = KeyValue($"hx-on:{event}", value)
     static member _hxHistory (value:string) = KeyValue("hx-history", value)
+    static member _hxVals(value:string) = KeyValue ("hx-vals", value)

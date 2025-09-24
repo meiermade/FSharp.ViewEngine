@@ -18,6 +18,7 @@ open FSharp.ViewEngine
 open type Html
 open type Htmx
 open type Alpine
+open type Tailwind
 
 html [
     _lang "en"
