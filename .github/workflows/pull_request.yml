@@ -26,19 +26,12 @@ jobs:
     name: Preview
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
       contents: read
       pull-requests: write
     needs:
       - test
     steps:
       - uses: actions/checkout@v5
-      - name: Authenticate Pulumi
-        uses: pulumi/auth-actions@v1
-        with:
-          organization: meiermade
-          requested-token-type: urn:pulumi:token-type:access_token:personal
-          scope: user:meiermade
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
@@ -54,3 +47,5 @@ jobs:
           stack-name: prod
           diff: true
           comment-on-pr: true
+        env:
+          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_TOKEN }}
