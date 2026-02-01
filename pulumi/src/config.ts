@@ -11,8 +11,6 @@ export const identifier = `fsharp-view-engine-${env}`
 
 const rawAwsConfig = new pulumi.Config('aws')
 const rawK8sConfig = new pulumi.Config('k8s')
-const rawCloudflareConfig = new pulumi.Config('cloudflare')
-
 export const awsConfig = {
     accountId: rawAwsConfig.require('platformAccountId'),
     region: rawAwsConfig.require('region'),
@@ -21,12 +19,4 @@ export const awsConfig = {
 
 export const k8sConfig = {
     namespace: rawK8sConfig.get('namespace'),
-}
-
-export const cloudflareConfig = {
-    accountId: rawCloudflareConfig.require('accountId'),
-    apiToken: rawCloudflareConfig.requireSecret('apiToken'),
-    turnstileKey: rawCloudflareConfig.requireSecret('turnstileKey'),
-    turnstileSecret: rawCloudflareConfig.requireSecret('turnstileSecret'),
-    cloudflaredVersion: '2024.9.1'
 }

@@ -1,2 +1,1 @@
-import './cloudflared'
 import './deployment'
