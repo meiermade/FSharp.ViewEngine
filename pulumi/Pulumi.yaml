@@ -1,0 +1,3 @@
+name: fsharp-view-engine
+description: Pulumi project for FSharp.ViewEngine demo app
+runtime: nodejs
