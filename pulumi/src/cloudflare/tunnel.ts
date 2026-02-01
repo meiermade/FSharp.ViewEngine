@@ -16,7 +16,7 @@ new cloudflare.ZeroTrustTunnelCloudflaredConfig(config.identifier, {
         ingresses: [
             {
                 hostname: config.domain,
-                service: pulumi.interpolate `http://app.${config.fsharpViewEngineNamespace}`
+                service: pulumi.interpolate `http://app.${config.k8sConfig.namespace}`
             },
             {
                 service: 'http_status:404'
