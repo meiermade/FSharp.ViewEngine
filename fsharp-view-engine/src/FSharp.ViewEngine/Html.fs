@@ -1,9 +1,10 @@
 ﻿namespace FSharp.ViewEngine
+open JetBrains.Annotations
 
 type Html =
     static member empty = Element.Noop
     static member fragment (children:Element seq) = Fragment children
-    static member raw (v:string) = Raw v
+    static member raw ([<LanguageInjection("html")>]v:string) = Raw v
     static member text (v:string) = Text v
     static member html (attrs:Attribute list) = Fragment [ Void ("!DOCTYPE", [ Boolean "html" ]); Tag ("html", attrs) ]
     static member head (children:Element list) = Tag ("head", [ Children children ])

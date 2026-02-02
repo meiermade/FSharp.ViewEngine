@@ -1,13 +1,11 @@
 import * as pulumi from '@pulumi/pulumi'
 import * as path from 'path'
 
-export const env = pulumi.getStack()
-
 export const rootDir = path.dirname(path.dirname(__dirname))
 
 export const domain = 'fsharpviewengine.meiermade.com'
 
-export const identifier = `fsharp-view-engine-${env}`
+export const identifier = 'fsharp-view-engine'
 
 const rawAwsConfig = new pulumi.Config('aws')
 const rawK8sConfig = new pulumi.Config('k8s')

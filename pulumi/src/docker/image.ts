@@ -1,28 +1,22 @@
 import * as pulumi from '@pulumi/pulumi'
-import * as docker from '@pulumi/docker'
+import * as docker from '@pulumi/docker-build'
 import * as path from 'path'
 import { provider } from './provider'
-import * as repository from '../aws/repository'
+import { repo, credentials } from '../aws/repository'
 import * as config from '../config'
 
-const registry:pulumi.Output<docker.types.input.Registry> =
-    repository.credentials.apply(creds => {
-        let decoded = Buffer.from(creds.authorizationToken, 'base64').toString('utf-8')
-        let [username, password] = decoded.split(':')
-        return {
-            server: creds.proxyEndpoint,
-            username: username,
-            password: password
-        }
-    })
-
 export const image = new docker.Image(config.identifier, {
-    imageName: repository.repo.repositoryUrl,
-    build: {
-        context: path.join(config.rootDir, 'fsharp-view-engine'),
-        platform: 'linux/arm64'
+    tags: [pulumi.interpolate `${repo.repositoryUrl}:latest`],
+    push: true,
+    context: {
+        location: path.join(config.rootDir, 'fsharp-view-engine'),
     },
-    registry: registry
+    platforms: ['linux/arm64'],
+    registries: [{
+        address: repo.repositoryUrl,
+        username: credentials.userName,
+        password: credentials.password
+    }]
 }, { provider })
 
-export const imageName = image.repoDigest.apply(digest => digest!)
+export const imageRef = image.ref

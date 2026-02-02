@@ -1,4 +1,4 @@
-﻿open Fake.Core
+open Fake.Core
 open Fake.Core.TargetOperators
 open Fake.IO
 open Fake.IO.FileSystemOperators
@@ -19,38 +19,79 @@ let rootDir = Path.getDirectory srcDir
 let sln = rootDir </> "FSharp.ViewEngine.sln"
 let nugetsDir = rootDir </> "nugets"
 let testsDir = srcDir </> "Tests"
+let appDir = srcDir </> "App"
 
-let dotnet workdir args =
-    CreateProcess.fromRawCommand "dotnet" args
-    |> CreateProcess.withWorkingDirectory workdir
+let exec workDir cmd args =
+    CreateProcess.fromRawCommand cmd args
+    |> CreateProcess.withWorkingDirectory workDir
     |> CreateProcess.ensureExitCode
-    |> Proc.run
-    |> ignore
+    |> Proc.start
+    |> Async.AwaitTask
+    |> Async.Ignore
+
+let execEnv env workDir cmd args =
+    CreateProcess.fromRawCommand cmd args
+    |> CreateProcess.withEnvironmentMap env
+    |> CreateProcess.withWorkingDirectory workDir
+    |> CreateProcess.ensureExitCode
+    |> Proc.start
+    |> Async.AwaitTask
+    |> Async.Ignore
+
+let dotnet workdir args = exec workdir "dotnet" args
+let tailwindcss args = exec appDir "tailwindcss" args
 
 let getVersion () =
     let tag = Environment.environVarOrFail "GITHUB_REF_NAME"
     let m = Regex.Match(tag, @"^v(\d+\.\d+\.\d+)$")
     if m.Success then m.Groups[1].Value else failwith $"invalid tag: {tag}"
     
-Target.create "Clean" (fun _ -> Shell.cleanDir nugetsDir)
+Target.create "CleanNugets" <| fun _ -> Shell.cleanDir nugetsDir
 
-Target.create "Test" (fun _ -> dotnet testsDir ["test"])
+Target.create "Test" <| fun _ ->
+    dotnet testsDir ["test"]
+    |> Async.RunSynchronously
 
-Target.create "Pack" <| fun _ ->
+Target.create "WatchApp" (fun _ ->
+    let watchApp = dotnet appDir ["watch"; "run"; "--no-restore"]
+    let watchCss = tailwindcss ["--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--watch"]
+    Async.Parallel [| watchApp; watchCss |]
+    |> Async.RunSynchronously
+    |> ignore
+)
+
+Target.create "BuildAppCss" <| fun _ ->
+    tailwindcss [ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ]
+    |> Async.RunSynchronously
+
+Target.create "PublishApp" <| fun _ ->
+    dotnet appDir [
+        "publish"
+        "--output"; "./out"
+        "--self-contained"; "false"
+    ]
+    |> Async.RunSynchronously
+
+Target.create "Pack"  (fun _ ->
     Trace.trace $"Packing {sln}"
     let version = getVersion()
     dotnet rootDir ["pack"; sln; "--configuration"; "Release"; "--output"; nugetsDir; $"/p:PackageVersion={version}"]
+    |> Async.RunSynchronously
+)
         
-Target.create "Publish" <| fun _ ->
+Target.create "PushNugets" (fun _ ->
     let nugets = !! $"{nugetsDir}/*.nupkg" |> String.concat ", "
     Trace.trace $"Publishing {nugets}"
     let apiKey = Environment.environVarOrFail "NUGET_API_KEY"
     dotnet rootDir ["nuget"; "push"; $"{nugetsDir}/*.nupkg"; "--source"; "https://api.nuget.org/v3/index.json"; "--api-key"; apiKey]
+    |> Async.RunSynchronously
+)
         
 Target.create "Default" (fun _ -> Target.listAvailable())
 
 "Test" ==>! "Pack"
-"Clean" ==>! "Pack"
-"Pack" ==>! "Publish"
+"CleanNugets" ==>! "Pack"
+"Pack" ==>! "PushNugets"
+"BuildAppCss" ==>! "PublishApp"
         
 Target.runOrDefaultWithArguments "Default"
