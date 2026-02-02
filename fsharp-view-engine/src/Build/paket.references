@@ -1,2 +1,1 @@
-﻿group Build
-    Fake.Core.Target
+﻿Fake.Core.Target

@@ -3,23 +3,23 @@ import { provider } from './provider'
 import * as image from '../docker/image'
 import * as config from '../config'
 
-let appSecret = new k8s.core.v1.Secret('app', {
+let appConfigMap = new k8s.core.v1.ConfigMap(config.identifier, {
     metadata: {
-        name: 'app',
-        namespace: config.fsharpViewEngineNamespace
+        name: config.identifier,
+        namespace: config.k8sConfig.namespace
     },
     immutable: true,
-    stringData: {
+    data: {
         SERVER_URL: 'http://0.0.0.0:5000'
     }
 }, { provider })
 
-const labels = { 'app.kubernetes.io/name': 'app' }
+const labels = { 'app.kubernetes.io/name': config.identifier }
 
-const deployment = new k8s.apps.v1.Deployment('app', {
+const deployment = new k8s.apps.v1.Deployment(config.identifier, {
     metadata: {
-        name: 'app',
-        namespace: config.fsharpViewEngineNamespace
+        name: config.identifier,
+        namespace: config.k8sConfig.namespace
     },
     spec: {
         replicas: 1,
@@ -28,10 +28,10 @@ const deployment = new k8s.apps.v1.Deployment('app', {
             metadata: { labels: labels },
             spec: {
                 containers: [{
-                    name: 'app',
-                    image: image.imageName,
+                    name: config.identifier,
+                    image: image.imageRef,
                     imagePullPolicy: 'IfNotPresent',
-                    envFrom: [ { secretRef: { name: appSecret.metadata.name } } ],
+                    envFrom: [ { configMapRef: { name: appConfigMap.metadata.name } } ],
                     livenessProbe: {
                         tcpSocket: {
                             port: 5000
@@ -50,10 +50,10 @@ const deployment = new k8s.apps.v1.Deployment('app', {
     }
 }, { provider })
 
-new k8s.core.v1.Service('app', {
+new k8s.core.v1.Service(config.identifier, {
     metadata: {
-        name: 'app',
-        namespace: config.fsharpViewEngineNamespace
+        name: config.identifier,
+        namespace: config.k8sConfig.namespace
     },
     spec: {
         type: 'ClusterIP',

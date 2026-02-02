@@ -1,10 +1,10 @@
-[![Release](https://github.com/ameier38/FSharp.ViewEngine/actions/workflows/release.yml/badge.svg)](https://github.com/ameier38/FSharp.ViewEngine/actions/workflows/release.yml)
-
-![logo](./etc/logo.svg)
+[![Release](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/release.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/release.yml)
 
 # FSharp.ViewEngine
 View engine for F#. Inspired by [Giraffe.ViewEngine](https://github.com/giraffe-fsharp/Giraffe.ViewEngine) and
 [Feliz.ViewEngine](https://github.com/dbrattli/Feliz.ViewEngine).
+Documentation site built using FSharp.ViewEngine available at [https://fsharpviewengine.meiermade.com](https://fsharpviewengine.meiermade.com).
+> See [App](./src/App) for the source code.
 
 ## Installation
 Add the core view engine package.
