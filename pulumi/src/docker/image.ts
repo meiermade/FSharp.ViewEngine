@@ -9,7 +9,7 @@ export const image = new docker.Image(config.identifier, {
     tags: [pulumi.interpolate `${repo.repositoryUrl}:latest`],
     push: true,
     context: {
-        location: path.join(config.rootDir, 'docs'),
+        location: path.join(config.rootDir, 'src'),
     },
     platforms: ['linux/arm64'],
     registries: [{

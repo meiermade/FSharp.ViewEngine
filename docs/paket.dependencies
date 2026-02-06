@@ -1,7 +1,0 @@
-source https://api.nuget.org/v3/index.json
-storage: none
-
-nuget Fake.Core.Target
-nuget FSharp.Core
-nuget Giraffe
-nuget Markdig

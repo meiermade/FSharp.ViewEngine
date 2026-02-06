@@ -5,11 +5,22 @@
 </p>
 
 # FSharp.ViewEngine
-View engine for F#. Inspired by [Giraffe.ViewEngine](https://github.com/giraffe-fsharp/Giraffe.ViewEngine),
-[Feliz.ViewEngine](https://github.com/dbrattli/Feliz.ViewEngine), and
-[Oxpecker.ViewEngine](https://github.com/Lanayx/Oxpecker).
+A minimal, fast view engine for F#. Inspired by [Giraffe.ViewEngine](https://github.com/giraffe-fsharp/Giraffe.ViewEngine),
+[Feliz.ViewEngine](https://github.com/dbrattli/Feliz.ViewEngine),
+[Oxpecker.ViewEngine](https://github.com/Lanayx/Oxpecker), and
+[Bolero](https://github.com/fsbolero/Bolero).
+
+FSharp.ViewEngine combines ideas from several F# view engines into a clean, unified DSL:
+
+- **Computation expression syntax** (like Oxpecker.ViewEngine and Bolero) for building elements
+- **Feliz-style single sequence** of attributes and child elements — no separate attribute and children lists
+- **Attributes prefixed with underscore** by convention (like Giraffe.ViewEngine, e.g. `_class`, `_id`, `_hxGet`), giving clean syntax and nice syntax highlighting
+- **Mixed yielding** in computation expressions — you can yield strings, elements, and attributes in any order without needing a special `_children` attribute
+
+The result is a DSL that is as minimal and fast as possible while remaining expressive and type-safe.
+
 Documentation site built using FSharp.ViewEngine available at [https://fsharpviewengine.meiermade.com](https://fsharpviewengine.meiermade.com).
-> See [docs/src/Docs](./docs/src/Docs) for the source code.
+> See [src/Docs](./src/Docs) for the source code.
 
 ## Installation
 Add the core view engine package.
@@ -92,7 +103,7 @@ Environment:
 
 Command:
 ```
-cd lib && dotnet run -c Release --project src/Benchmarks/Benchmarks.fsproj
+cd src && dotnet run -c Release --project Benchmarks/Benchmarks.fsproj
 ```
 
 BuildAndRender (mean, lower is better):

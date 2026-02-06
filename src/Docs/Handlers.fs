@@ -62,5 +62,8 @@ module Handlers =
     let svgHandler : HttpHandler =
         renderPage "SVG - FSharp.ViewEngine" "svg"
 
+    let giraffeHandler : HttpHandler =
+        renderPage "Giraffe - FSharp.ViewEngine" "giraffe"
+
     let tailwindHandler : HttpHandler =
         renderPage "Tailwind - FSharp.ViewEngine" "tailwind"

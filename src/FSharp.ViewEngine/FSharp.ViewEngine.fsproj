@@ -17,9 +17,9 @@
     <Compile Include="Tailwind.fs" />
     <Compile Include="Svg.fs" />
     <Compile Include="Datastar.fs" />
-    <None Include="../../../LICENSE" Pack="True" Visible="false" PackagePath="" />
-    <None Include="../../../README.md" Pack="True" Visible="false" PackagePath="" />
+    <None Include="../../LICENSE" Pack="True" Visible="false" PackagePath="" />
+    <None Include="../../README.md" Pack="True" Visible="false" PackagePath="" />
     <Content Include="paket.references" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

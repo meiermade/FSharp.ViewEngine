@@ -4,7 +4,8 @@ Get started with FSharp.ViewEngine in just a few steps.
 
 ## Basic Usage
 
-Import the core modules and start building HTML:
+Elements are built using computation expressions. You can yield attributes (prefixed with `_`), child elements, and strings in any order — they all go into a single sequence, so there is no need for a separate children attribute:
+
 
 ```fsharp
 open FSharp.ViewEngine

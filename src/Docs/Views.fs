@@ -173,6 +173,7 @@ let private sidebarNavigation (currentPath: string) =
                     navLink currentPath "/" "Introduction"
                     navLink currentPath "/installation" "Installation"
                     navLink currentPath "/quickstart" "Quickstart"
+                    navLink currentPath "/giraffe" "Giraffe"
                 }
             }
             li {

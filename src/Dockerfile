@@ -6,7 +6,7 @@ WORKDIR /app
 RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.18/tailwindcss-linux-x64 \
     && chmod +x tailwindcss-linux-x64 \
     && mv tailwindcss-linux-x64 /usr/local/bin/tailwindcss
-    
+
 RUN tailwindcss --version
 
 # Restore paket dependencies
@@ -17,15 +17,13 @@ RUN dotnet tool restore
 COPY paket.dependencies paket.lock ./
 RUN dotnet paket install && dotnet paket restore
 
-COPY src src
-COPY fake.sh ./
-RUN chmod +x fake.sh
-RUN ./fake.sh Publish
+COPY . .
+RUN chmod +x fake.sh && ./fake.sh Publish
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
 
 WORKDIR /app
 
-COPY --from=build /app/src/Docs/out .
+COPY --from=build /app/Docs/out .
 
 ENTRYPOINT ["dotnet", "Docs.dll"]

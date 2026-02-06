@@ -22,7 +22,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\..\lib\src\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
+    <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
+  <Import Project="..\.paket\Paket.Restore.targets" />
 </Project>

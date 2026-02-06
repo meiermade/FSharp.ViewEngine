@@ -10,6 +10,7 @@ let webApp =
             route "/" >=> homeHandler
             route "/installation" >=> installationHandler
             route "/quickstart" >=> quickstartHandler
+            route "/giraffe" >=> giraffeHandler
             route "/extensions/alpine" >=> alpineHandler
             route "/extensions/datastar" >=> datastarHandler
             route "/extensions/htmx" >=> htmxHandler
