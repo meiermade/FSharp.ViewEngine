@@ -46,8 +46,11 @@ let getVersion () =
 Target.create "CleanNugets" <| fun _ -> Shell.cleanDir nugetsDir
 
 Target.create "Test" <| fun _ ->
-    dotnet testsDir ["test"]
-    |> Async.RunSynchronously
+    ["net8.0"; "net9.0"; "net10.0"]
+    |> List.iter (fun tfm ->
+        dotnet testsDir ["run"; "--framework"; tfm]
+        |> Async.RunSynchronously
+    )
 
 Target.create "Pack"  (fun _ ->
     let project = srcDir </> "FSharp.ViewEngine" </> "FSharp.ViewEngine.fsproj"
