@@ -9,7 +9,7 @@ export const image = new docker.Image(config.identifier, {
     tags: [pulumi.interpolate `${repo.repositoryUrl}:latest`],
     push: true,
     context: {
-        location: path.join(config.rootDir, 'fsharp-view-engine'),
+        location: path.join(config.rootDir, 'docs'),
     },
     platforms: ['linux/arm64'],
     registries: [{

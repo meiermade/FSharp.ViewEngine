@@ -1,0 +1,5 @@
+.paket
+obj
+bin
+paket-files
+*DotSettings.user

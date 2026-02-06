@@ -17,13 +17,13 @@ jobs:
           dotnet-version: 10.0.x
       - name: Restore Tools
         run: dotnet tool restore
-        working-directory: ./fsharp-view-engine
+        working-directory: ./lib
       - name: Install Packages
         run: dotnet paket install
-        working-directory: ./fsharp-view-engine
+        working-directory: ./lib
       - name: Publish
-        run: ./fake.sh Publish
-        working-directory: ./fsharp-view-engine
+        run: ./fake.sh PushNugets
+        working-directory: ./lib
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
   deploy:
