@@ -1,6 +1,6 @@
 # FSharp.ViewEngine Documentation
 
-A powerful F# view engine for building HTML with type safety and composability. Inspired by Giraffe.ViewEngine and Feliz.ViewEngine.
+A powerful F# view engine for building HTML with type safety and composability. Inspired by Giraffe.ViewEngine, Feliz.ViewEngine, and Oxpecker.ViewEngine.
 
 ## Key Features
 
