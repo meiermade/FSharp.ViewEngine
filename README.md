@@ -5,8 +5,9 @@
 </p>
 
 # FSharp.ViewEngine
-View engine for F#. Inspired by [Giraffe.ViewEngine](https://github.com/giraffe-fsharp/Giraffe.ViewEngine) and
-[Feliz.ViewEngine](https://github.com/dbrattli/Feliz.ViewEngine).
+View engine for F#. Inspired by [Giraffe.ViewEngine](https://github.com/giraffe-fsharp/Giraffe.ViewEngine),
+[Feliz.ViewEngine](https://github.com/dbrattli/Feliz.ViewEngine), and
+[Oxpecker.ViewEngine](https://github.com/Lanayx/Oxpecker).
 Documentation site built using FSharp.ViewEngine available at [https://fsharpviewengine.meiermade.com](https://fsharpviewengine.meiermade.com).
 > See [docs/src/Docs](./docs/src/Docs) for the source code.
 
