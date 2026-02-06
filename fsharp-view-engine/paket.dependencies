@@ -1,8 +1,0 @@
-source https://api.nuget.org/v3/index.json
-storage: none
-
-nuget Fake.Core.Target
-nuget Giraffe
-nuget JetBrains.Annotations
-nuget Markdig
-nuget Expecto

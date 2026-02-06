@@ -1,0 +1,5 @@
+BenchmarkDotNet
+FSharp.Core
+Giraffe.ViewEngine
+Feliz.ViewEngine
+Oxpecker.ViewEngine

@@ -15,13 +15,13 @@ jobs:
           dotnet-version: 10.0.x
       - name: Install Tools
         run: dotnet tool restore
-        working-directory: ./fsharp-view-engine
+        working-directory: ./lib
       - name: Install Packages
         run: dotnet paket install
-        working-directory: ./fsharp-view-engine
+        working-directory: ./lib
       - name: Test
         run: ./fake.sh Test
-        working-directory: ./fsharp-view-engine
+        working-directory: ./lib
   preview:
     name: Preview
     runs-on: ubuntu-latest
