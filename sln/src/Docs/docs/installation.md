@@ -27,13 +27,12 @@ FSharp.ViewEngine
 Add to your `.fsproj` file:
 
 ```xml
-<PackageReference Include="FSharp.ViewEngine" Version="2025.9.1" />
+<PackageReference Include="FSharp.ViewEngine" Version="2026.2.1" />
 ```
 
 ## Requirements
 
-- .NET 10.0 or later
-- F# 10 or later
+- .NET 8.0, 9.0, or 10.0
 
 ## Next Steps
 

@@ -7,6 +7,7 @@ open Docs.Handlers
 let webApp =
     choose [
         GET >=> choose [
+            route "/health" >=> text "ok"
             route "/" >=> homeHandler
             route "/installation" >=> installationHandler
             route "/quickstart" >=> quickstartHandler

@@ -33,13 +33,15 @@ const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                     imagePullPolicy: 'IfNotPresent',
                     envFrom: [ { configMapRef: { name: appConfigMap.metadata.name } } ],
                     livenessProbe: {
-                        tcpSocket: {
+                        httpGet: {
+                            path: '/health',
                             port: 5000
                         },
                         initialDelaySeconds: 5
                     },
                     readinessProbe: {
-                        tcpSocket: {
+                        httpGet: {
+                            path: '/health',
                             port: 5000
                         },
                         initialDelaySeconds: 5
