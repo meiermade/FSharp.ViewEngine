@@ -18,13 +18,13 @@ jobs:
             10.0.x
       - name: Install Tools
         run: dotnet tool restore
-        working-directory: ./src
+        working-directory: ./sln
       - name: Install Packages
         run: dotnet paket install
-        working-directory: ./src
+        working-directory: ./sln
       - name: Test
         run: ./fake.sh Test
-        working-directory: ./src
+        working-directory: ./sln
   preview:
     name: Preview
     runs-on: ubuntu-latest

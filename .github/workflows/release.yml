@@ -20,12 +20,12 @@ jobs:
             10.0.x
       - name: Restore Tools
         run: dotnet tool restore
-        working-directory: ./src
+        working-directory: ./sln
       - name: Install Packages
         run: dotnet paket install
-        working-directory: ./src
+        working-directory: ./sln
       - name: Publish
         run: ./fake.sh PushNugets
-        working-directory: ./src
+        working-directory: ./sln
         env:
           NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}

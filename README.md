@@ -22,7 +22,7 @@ FSharp.ViewEngine combines ideas from several F# view engines into a clean, unif
 The result is a DSL that is as minimal and fast as possible while remaining expressive and type-safe.
 
 Documentation site built using FSharp.ViewEngine available at [https://fsharpviewengine.meiermade.com](https://fsharpviewengine.meiermade.com).
-> See [src/Docs](./src/Docs) for the source code.
+> See [sln/src/Docs](./sln/src/Docs) for the source code.
 
 ## Installation
 Add the core view engine package.
@@ -105,7 +105,7 @@ Environment:
 
 Command:
 ```
-cd src && dotnet run -c Release --project Benchmarks/Benchmarks.fsproj
+cd sln && dotnet run -c Release --project src/Benchmarks/Benchmarks.fsproj
 ```
 
 BuildAndRender (mean, lower is better):

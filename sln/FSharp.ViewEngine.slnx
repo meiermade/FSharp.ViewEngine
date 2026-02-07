@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Benchmarks/Benchmarks.fsproj" />
+    <Project Path="src/Build/Build.fsproj" />
+    <Project Path="src/Docs/Docs.fsproj" />
+    <Project Path="src/FSharp.ViewEngine/FSharp.ViewEngine.fsproj" />
+    <Project Path="src/Tests/Tests.fsproj" />
+  </Folder>
+</Solution>

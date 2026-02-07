@@ -15,7 +15,8 @@ System.Environment.GetCommandLineArgs()
 let inline (==>!) x y = x ==> y |> ignore
 
 let srcDir = Path.getDirectory __SOURCE_DIRECTORY__
-let rootDir = Path.getDirectory srcDir
+let slnDir = Path.getDirectory srcDir
+let rootDir = Path.getDirectory slnDir
 let nugetsDir = rootDir </> "nugets"
 let testsDir = srcDir </> "Tests"
 let docsDir = srcDir </> "Docs"
@@ -70,7 +71,7 @@ Target.create "PushNugets" (fun _ ->
     |> Async.RunSynchronously
 )
 
-Target.create "Watch" (fun _ ->
+Target.create "WatchDocs" (fun _ ->
     let watchApp = dotnet docsDir ["watch"; "run"; "--no-restore"]
     let watchCss = tailwindcss ["--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--watch"]
     Async.Parallel [| watchApp; watchCss |]
@@ -78,11 +79,11 @@ Target.create "Watch" (fun _ ->
     |> ignore
 )
 
-Target.create "BuildCss" <| fun _ ->
+Target.create "BuildDocsCss" <| fun _ ->
     tailwindcss [ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ]
     |> Async.RunSynchronously
 
-Target.create "Publish" <| fun _ ->
+Target.create "PublishDocs" <| fun _ ->
     dotnet docsDir [
         "publish"
         "--output"; "./out"
@@ -95,6 +96,6 @@ Target.create "Default" (fun _ -> Target.listAvailable())
 "Test" ==>! "Pack"
 "CleanNugets" ==>! "Pack"
 "Pack" ==>! "PushNugets"
-"BuildCss" ==>! "Publish"
+"BuildDocsCss" ==>! "PublishDocs"
 
 Target.runOrDefaultWithArguments "Default"
