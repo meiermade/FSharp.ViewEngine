@@ -11,6 +11,7 @@ let webApp =
             route "/" >=> homeHandler
             route "/installation" >=> installationHandler
             route "/quickstart" >=> quickstartHandler
+            route "/custom" >=> customHandler
             route "/giraffe" >=> giraffeHandler
             route "/extensions/alpine" >=> alpineHandler
             route "/extensions/datastar" >=> datastarHandler

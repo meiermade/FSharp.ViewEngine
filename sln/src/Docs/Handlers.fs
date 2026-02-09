@@ -50,6 +50,9 @@ module Handlers =
     let quickstartHandler : HttpHandler =
         renderPage "Quickstart - FSharp.ViewEngine" "quickstart"
 
+    let customHandler : HttpHandler =
+        renderPage "Custom Elements & Attributes - FSharp.ViewEngine" "custom"
+
     let alpineHandler : HttpHandler =
         renderPage "Alpine.js - FSharp.ViewEngine" "alpine"
 
