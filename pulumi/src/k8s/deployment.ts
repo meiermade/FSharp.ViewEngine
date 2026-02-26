@@ -66,8 +66,7 @@ const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                             'tunnel',
                             '--no-autoupdate',
                             '--metrics', '0.0.0.0:2000',
-                            'run',
-                            '--token', '$(TUNNEL_TOKEN)'
+                            'run'
                         ],
                         env: [{
                             name: 'TUNNEL_TOKEN',
