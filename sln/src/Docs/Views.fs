@@ -1,5 +1,6 @@
 module Docs.Views
 
+open System
 open FSharp.ViewEngine
 open type Html
 open type Alpine
@@ -230,6 +231,12 @@ let private tableOfContents (headings: (string * string) list) =
         }
 
 let layout (pageTitle: string) (currentPath: string) (headings: (string * string) list) (content: string) =
+    let siteUrl = "https://fsharpviewengine.meiermade.com"
+    let pagePath = if String.IsNullOrWhiteSpace(currentPath) then "/" else currentPath
+    let pageUrl = if pagePath = "/" then siteUrl else siteUrl + pagePath
+    let socialDescription = "A minimal, fast view engine for F#. Documentation and examples for FSharp.ViewEngine."
+    let socialImageUrl = siteUrl + "/android-chrome-512x512.png"
+
     html {
         _lang "en"
         _class "h-full antialiased"
@@ -237,6 +244,20 @@ let layout (pageTitle: string) (currentPath: string) (headings: (string * string
             meta { _charset "utf-8" }
             meta { _name "viewport"; _content "width=device-width, initial-scale=1" }
             title pageTitle
+            link { _rel "canonical"; _href pageUrl }
+            meta { _name "description"; _content socialDescription }
+            meta { _property "og:type"; _content "website" }
+            meta { _property "og:site_name"; _content "FSharp.ViewEngine" }
+            meta { _property "og:title"; _content pageTitle }
+            meta { _property "og:description"; _content socialDescription }
+            meta { _property "og:url"; _content pageUrl }
+            meta { _property "og:image"; _content socialImageUrl }
+            meta { _property "og:image:alt"; _content "FSharp.ViewEngine logo" }
+            meta { _name "twitter:card"; _content "summary_large_image" }
+            meta { _name "twitter:title"; _content pageTitle }
+            meta { _name "twitter:description"; _content socialDescription }
+            meta { _name "twitter:image"; _content socialImageUrl }
+            meta { _name "twitter:image:alt"; _content "FSharp.ViewEngine logo" }
             script { js "let t=localStorage.getItem('theme');if(t==='dark'||(!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark')}" }
             link { _rel "stylesheet"; _href "/css/output.css" }
             script { _src "https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"; _defer true }

@@ -165,6 +165,7 @@ type Html =
     static member inline _charset (v: string) = { Name = "charset"; Value = ValueSome v }
     static member inline _name (v: string) = { Name = "name"; Value = ValueSome v }
     static member inline _content (v: string) = { Name = "content"; Value = ValueSome v }
+    static member inline _property (v: string) = { Name = "property"; Value = ValueSome v }
 
     // Link and resource attributes
     static member inline _href (v: string) = { Name = "href"; Value = ValueSome v }
