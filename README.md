@@ -1,8 +1,8 @@
-[![Publish](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/release.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/release.yml)
+[![Publish](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml)
 [![Deploy](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml)
 [![NuGet](https://img.shields.io/nuget/v/FSharp.ViewEngine)](https://www.nuget.org/packages/FSharp.ViewEngine)
 
-<p style="text-align:center;">
+<p align="center">
   <img src="etc/logo.svg" alt="FSharp.ViewEngine" width="128">
 </p>
 

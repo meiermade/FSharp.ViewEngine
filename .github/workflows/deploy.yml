@@ -1,11 +1,11 @@
 name: Deploy
 on:
   workflow_dispatch:
-  release:
+  push:
     branches:
       - main
-    types:
-      - published
+    paths-ignore:
+      - '**/*.md'
 jobs:
   deploy:
     name: Deploy
