@@ -1,4 +1,4 @@
-# Giraffe Integration
+# Usage
 
 FSharp.ViewEngine integrates with [Giraffe](https://giraffe.wiki/) by rendering elements to an HTML string and returning it via Giraffe's `htmlString` handler.
 

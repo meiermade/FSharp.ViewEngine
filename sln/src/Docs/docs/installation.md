@@ -36,4 +36,4 @@ Add to your `.fsproj` file:
 
 ## Next Steps
 
-Once you have FSharp.ViewEngine installed, head over to the [Quickstart](quickstart) guide to start building your first HTML views.
+Once you have FSharp.ViewEngine installed, head over to the [Usage](usage) guide to start building your first HTML views.

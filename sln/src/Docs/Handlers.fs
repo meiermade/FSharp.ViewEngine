@@ -47,9 +47,6 @@ module Handlers =
     let installationHandler : HttpHandler =
         renderPage "Installation - FSharp.ViewEngine" "installation"
 
-    let quickstartHandler : HttpHandler =
-        renderPage "Quickstart - FSharp.ViewEngine" "quickstart"
-
     let customHandler : HttpHandler =
         renderPage "Custom Elements & Attributes - FSharp.ViewEngine" "custom"
 
@@ -65,8 +62,8 @@ module Handlers =
     let svgHandler : HttpHandler =
         renderPage "SVG - FSharp.ViewEngine" "svg"
 
-    let giraffeHandler : HttpHandler =
-        renderPage "Giraffe - FSharp.ViewEngine" "giraffe"
+    let usageHandler : HttpHandler =
+        renderPage "Usage - FSharp.ViewEngine" "usage"
 
     let tailwindHandler : HttpHandler =
         renderPage "Tailwind - FSharp.ViewEngine" "tailwind"
