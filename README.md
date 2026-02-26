@@ -2,8 +2,8 @@
 [![Deploy](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml)
 [![NuGet](https://img.shields.io/nuget/v/FSharp.ViewEngine)](https://www.nuget.org/packages/FSharp.ViewEngine)
 
-<p align="center">
-  <img src="etc/logo.png" alt="FSharp.ViewEngine" width="128">
+<p style="text-align:center;">
+  <img src="etc/logo.svg" alt="FSharp.ViewEngine" width="128">
 </p>
 
 # FSharp.ViewEngine
@@ -97,11 +97,6 @@ html {
 
 ## Benchmarks
 Ran on February 6, 2026 with BenchmarkDotNet MediumRun only.
-
-Environment:
-- Windows 11 (10.0.26200.7623)
-- 12th Gen Intel Core i9-12900HK
-- .NET SDK 10.0.102, .NET Runtime 10.0.2 (X64 RyuJIT AVX2)
 
 Command:
 ```

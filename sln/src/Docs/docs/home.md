@@ -1,4 +1,4 @@
-# FSharp.ViewEngine Documentation
+# FSharp.ViewEngine
 
 A minimal, fast view engine for F# that combines the best ideas from several F# view engines. Inspired by [Giraffe.ViewEngine](https://github.com/giraffe-fsharp/Giraffe.ViewEngine), [Feliz.ViewEngine](https://github.com/dbrattli/Feliz.ViewEngine), [Oxpecker.ViewEngine](https://github.com/Lanayx/Oxpecker), and [Bolero](https://github.com/fsbolero/Bolero).
 
@@ -56,4 +56,4 @@ let myPage =
 
 ## Getting Started
 
-To get started with FSharp.ViewEngine, check out the [Installation](installation) guide and then follow the [Quickstart](quickstart) tutorial.
+To get started with FSharp.ViewEngine, check out the [Installation](installation) guide and then see the [Usage](usage) example.

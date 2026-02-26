@@ -8,18 +8,11 @@ open type Tailwind
 type Page =
     { title:string }
 
-let magnifyingGlassIcon = raw """
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4">
-      <path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" />
-    </svg>
-    """
-let menuIcon = raw """
-    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6">
-      <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
-    </svg>
-    """
+let magnifyingGlassIcon = raw """<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>"""
+let menuIcon = raw """<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>"""
+let xMarkIcon = raw """<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="h-6 w-6"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>"""
 let githubIcon = raw """<svg aria-hidden="true" viewBox="0 0 16 16" class="h-6 w-6 fill-slate-400 group-hover:fill-slate-500 dark:group-hover:fill-slate-300"><path d="M8 0C3.58 0 0 3.58 0 8C0 11.54 2.29 14.53 5.47 15.59C5.87 15.66 6.02 15.42 6.02 15.21C6.02 15.02 6.01 14.39 6.01 13.72C4 14.09 3.48 13.23 3.32 12.78C3.23 12.55 2.84 11.84 2.5 11.65C2.22 11.5 1.82 11.13 2.49 11.12C3.12 11.11 3.57 11.7 3.72 11.94C4.44 13.15 5.59 12.81 6.05 12.6C6.12 12.08 6.33 11.73 6.56 11.53C4.78 11.33 2.92 10.64 2.92 7.58C2.92 6.71 3.23 5.99 3.74 5.43C3.66 5.23 3.38 4.41 3.82 3.31C3.82 3.31 4.49 3.1 6.02 4.13C6.66 3.95 7.34 3.86 8.02 3.86C8.7 3.86 9.38 3.95 10.02 4.13C11.55 3.09 12.22 3.31 12.22 3.31C12.66 4.41 12.38 5.23 12.3 5.43C12.81 5.99 13.12 6.7 13.12 7.58C13.12 10.65 11.25 11.33 9.47 11.53C9.76 11.78 10.01 12.26 10.01 13.01C10.01 14.08 10 14.94 10 15.21C10 15.42 10.15 15.67 10.55 15.59C13.71 14.53 16 11.53 16 8C16 3.58 12.42 0 8 0Z"></path></svg>"""
-let sunIcon = raw """<svg class="h-5 w-5 dark:hidden stroke-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg>"""
+let sunIcon = raw """<svg class="h-5 w-5 dark:hidden text-sky-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 2ZM10 15a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 15ZM10 7a3 3 0 1 0 0 6 3 3 0 0 0 0-6ZM15.657 5.404a.75.75 0 1 0-1.06-1.06l-1.061 1.06a.75.75 0 0 0 1.06 1.06l1.06-1.06ZM6.464 14.596a.75.75 0 1 0-1.06-1.06l-1.06 1.06a.75.75 0 0 0 1.06 1.06l1.06-1.06ZM18 10a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 18 10ZM5 10a.75.75 0 0 1-.75.75h-1.5a.75.75 0 0 1 0-1.5h1.5A.75.75 0 0 1 5 10ZM14.596 15.657a.75.75 0 0 0 1.06-1.06l-1.06-1.061a.75.75 0 1 0-1.06 1.06l1.06 1.06ZM5.404 6.464a.75.75 0 0 0 1.06-1.06l-1.06-1.06a.75.75 0 1 0-1.061 1.06l1.06 1.06Z"/></svg>"""
 let moonIcon = raw """<svg class="hidden h-5 w-5 dark:block stroke-sky-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>"""
 let sunIconSmall = raw """<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg>"""
 let moonIconSmall = raw """<svg class="h-5 w-5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z"/></svg>"""
@@ -29,7 +22,7 @@ let private pageHeader =
     header {
         _class [
             "sticky top-0 z-50 flex flex-none flex-wrap items-center justify-between"
-            "bg-white px-4 py-5 shadow-md shadow-slate-900/5 transition duration-500"
+            "bg-white/75 px-4 py-5 shadow-md shadow-slate-900/5 backdrop-blur transition duration-500"
             "sm:px-6 lg:px-8 dark:shadow-none dark:bg-slate-900/75 dark:backdrop-blur"
         ]
         // Left section: hamburger + logo
@@ -40,7 +33,8 @@ let private pageHeader =
                 _class "flex lg:hidden"
                 button {
                     _type "button"
-                    _class "relative text-slate-500 hover:text-slate-600 dark:text-slate-400 dark:hover:text-slate-300"
+                    _xOn ("click", "mobileNavOpen = true")
+                    _class "relative cursor-pointer rounded-lg p-1 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
                     menuIcon
                 }
             }
@@ -48,7 +42,7 @@ let private pageHeader =
             a {
                 _href "/"
                 _class "flex items-center gap-2 text-sm font-semibold tracking-wider text-slate-700 dark:text-white"
-                img { _src "/logo.png"; _alt "FSharp.ViewEngine"; _class "h-6 w-6" }
+                img { _src "/logo.svg"; _alt "FSharp.ViewEngine"; _class "h-6 w-6" }
                 "FSharp.ViewEngine"
             }
         }
@@ -75,9 +69,9 @@ let private pageHeader =
                 button {
                     _type "button"
                     _class [
-                        "flex h-6 w-6 items-center justify-center rounded-lg shadow-md ring-1"
-                        "shadow-black/5 ring-black/5 dark:bg-slate-700 dark:ring-white/5"
-                        "dark:ring-inset"
+                        "flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg p-1"
+                        "hover:bg-slate-100 dark:hover:bg-slate-700"
+                        "transition-colors"
                     ]
                     _xOn ("click", "open = !open")
                     // Light mode icon (sun)
@@ -87,6 +81,7 @@ let private pageHeader =
                 // Dropdown menu
                 div {
                     _xShow "open"
+                    _xCloak
                     _xOn ("click.away", "open = false")
                     _xTransition ()
                     _class [
@@ -149,6 +144,7 @@ let private navLink (currentPath: string) (href': string) (label': string) =
                     + " hover:before:block dark:text-slate-400 dark:before:bg-slate-700 dark:hover:text-slate-300"
             ]
             _href href'
+            _xOn ("click", "mobileNavOpen = false")
             label'
         }
     }
@@ -172,9 +168,8 @@ let private sidebarNavigation (currentPath: string) =
                     ]
                     navLink currentPath "/" "Introduction"
                     navLink currentPath "/installation" "Installation"
-                    navLink currentPath "/quickstart" "Quickstart"
                     navLink currentPath "/custom" "Custom Elements & Attributes"
-                    navLink currentPath "/giraffe" "Giraffe"
+                    navLink currentPath "/usage" "Usage"
                 }
             }
             li {
@@ -204,7 +199,7 @@ let private sidebar (currentPath: string) =
         div {
             _class [
                 "sticky top-[4.75rem] -ml-0.5 h-[calc(100vh-4.75rem)] w-64"
-                "overflow-y-auto overflow-x-hidden py-16 pl-0.5 pr-8 xl:w-72 xl:pr-16"
+                "overflow-y-auto py-16 pl-0.5 pr-8 xl:w-72 xl:pr-16"
             ]
             sidebarNavigation currentPath
         }
@@ -251,8 +246,41 @@ let layout (pageTitle: string) (currentPath: string) (headings: (string * string
         }
         body {
             _class "min-h-full bg-white dark:bg-slate-900"
+            _xData "{ mobileNavOpen: false }"
+            _xOn ("keydown.escape.window", "mobileNavOpen = false")
             pageHeader
             div {
+                _xShow "mobileNavOpen"
+                _xCloak
+                _xTransition ()
+                _class "fixed inset-0 z-[70] lg:hidden"
+                div {
+                    _class "absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
+                    _xOn ("click", "mobileNavOpen = false")
+                }
+                div {
+                    _class "absolute inset-y-0 left-0 w-full max-w-xs overflow-y-auto bg-white px-6 py-5 shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-900 dark:ring-white/10"
+                    div {
+                        _class "mb-6 flex items-center justify-between"
+                        a {
+                            _href "/"
+                            _class "flex items-center gap-2 text-sm font-semibold tracking-wider text-slate-700 dark:text-white"
+                            _xOn ("click", "mobileNavOpen = false")
+                            img { _src "/logo.svg"; _alt "FSharp.ViewEngine"; _class "h-6 w-6" }
+                            "FSharp.ViewEngine"
+                        }
+                        button {
+                            _type "button"
+                            _class "cursor-pointer rounded p-1 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
+                            _xOn ("click", "mobileNavOpen = false")
+                            xMarkIcon
+                        }
+                    }
+                    sidebarNavigation currentPath
+                }
+            }
+            div {
+                _id "app"
                 _class [
                     "relative mx-auto flex max-w-8xl justify-center"
                     "sm:px-2 lg:px-8 xl:px-12"
@@ -260,7 +288,7 @@ let layout (pageTitle: string) (currentPath: string) (headings: (string * string
                 sidebar currentPath
                 div {
                     _class [
-                        "min-w-0 max-w-3xl flex-auto px-4 py-16"
+                        "min-w-0 max-w-3xl flex-auto px-4 pt-6 pb-12"
                         "lg:max-w-none lg:pl-8 lg:pr-0 xl:px-16"
                     ]
                     article {
@@ -275,7 +303,7 @@ let layout (pageTitle: string) (currentPath: string) (headings: (string * string
                             }
                         }
                         div {
-                            _class "prose prose-slate dark:prose-invert max-w-none"
+                            _class "prose prose-slate dark:prose-invert max-w-none [&_h1]:scroll-mt-28 [&_h2]:scroll-mt-28 [&_h3]:scroll-mt-28"
                             raw content
                         }
                     }
@@ -284,7 +312,7 @@ let layout (pageTitle: string) (currentPath: string) (headings: (string * string
                     _class [
                         "hidden xl:sticky xl:top-[4.75rem] xl:-mr-6 xl:block"
                         "xl:h-[calc(100vh-4.75rem)] xl:flex-none xl:overflow-y-auto"
-                        "xl:py-16 xl:pr-6"
+                        "xl:py-12 xl:pr-6"
                     ]
                     tableOfContents headings
                 }

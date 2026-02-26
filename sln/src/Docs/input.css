@@ -3,6 +3,10 @@
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
 
+[x-cloak] {
+  display: none !important;
+}
+
 /* Custom styles inspired by Tailwind CSS docs */
 .prose pre {
   position: relative;
