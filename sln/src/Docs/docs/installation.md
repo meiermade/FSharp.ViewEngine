@@ -5,32 +5,14 @@ FSharp.ViewEngine is distributed as a NuGet package. You can install it using yo
 ## Using .NET CLI
 
 ```bash
-dotnet add package FSharp.ViewEngine
+dotnet package add FSharp.ViewEngine
 ```
 
-## Using Paket
+## Using Paket CLI
 
-Add to your `paket.dependencies`:
-
-```text
-nuget FSharp.ViewEngine
+```bash
+dotnet paket add FSharp.ViewEngine
 ```
-
-Then add to your `paket.references`:
-
-```text
-FSharp.ViewEngine
-```
-
-## Using PackageReference
-
-Add to your `.fsproj` file:
-
-```xml
-<PackageReference Include="FSharp.ViewEngine" Version="x.y.z" />
-```
-
-> Replace `x.y.z` with the latest version from NuGet.
 
 ## Requirements
 

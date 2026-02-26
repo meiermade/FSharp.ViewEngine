@@ -25,9 +25,14 @@ Documentation site built using FSharp.ViewEngine available at [https://fsharpvie
 > See [sln/src/Docs](./sln/src/Docs) for the source code.
 
 ## Installation
-Add the core view engine package.
+Add the core view engine package with your preferred CLI.
+
 ```shell
-dotnet add package FSharp.ViewEngine
+dotnet package add FSharp.ViewEngine
+```
+
+```shell
+dotnet paket add FSharp.ViewEngine
 ```
 
 ## Usage
