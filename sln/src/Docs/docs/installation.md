@@ -27,7 +27,7 @@ FSharp.ViewEngine
 Add to your `.fsproj` file:
 
 ```xml
-<PackageReference Include="FSharp.ViewEngine" Version="2026.2.1" />
+<PackageReference Include="FSharp.ViewEngine" Version="2026.2.2" />
 ```
 
 ## Requirements
