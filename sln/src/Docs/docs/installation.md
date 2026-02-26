@@ -27,8 +27,10 @@ FSharp.ViewEngine
 Add to your `.fsproj` file:
 
 ```xml
-<PackageReference Include="FSharp.ViewEngine" Version="2026.2.2" />
+<PackageReference Include="FSharp.ViewEngine" Version="x.y.z" />
 ```
+
+> Replace `x.y.z` with the latest version from NuGet.
 
 ## Requirements
 
