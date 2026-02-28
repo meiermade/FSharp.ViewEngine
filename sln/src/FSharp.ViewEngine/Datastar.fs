@@ -2,10 +2,13 @@ namespace FSharp.ViewEngine
 
 type Datastar =
     // Core attributes
+    static member inline _dataAttr (v: string) = { Name = "data-attr"; Value = ValueSome v }
     static member inline _dataAttr (name: string, v: string) = { Name = $"data-attr:{name}"; Value = ValueSome v }
     static member inline _dataBind (name: string) = { Name = $"data-bind:{name}"; Value = ValueNone }
     static member inline _dataBind (name: string, v: string) = { Name = $"data-bind:{name}"; Value = ValueSome v }
+    static member inline _dataClass (v: string) = { Name = "data-class"; Value = ValueSome v }
     static member inline _dataClass (name: string, v: string) = { Name = $"data-class:{name}"; Value = ValueSome v }
+    static member inline _dataComputed (v: string) = { Name = "data-computed"; Value = ValueSome v }
     static member inline _dataComputed (name: string, v: string) = { Name = $"data-computed:{name}"; Value = ValueSome v }
     static member inline _dataEffect (v: string) = { Name = "data-effect"; Value = ValueSome v }
     static member inline _dataIgnore = { Name = "data-ignore"; Value = ValueNone }
@@ -23,7 +26,9 @@ type Datastar =
     static member inline _dataRef (name: string) = { Name = $"data-ref:{name}"; Value = ValueNone }
     static member inline _dataRef (name: string, v: string) = { Name = $"data-ref:{name}"; Value = ValueSome v }
     static member inline _dataShow (v: string) = { Name = "data-show"; Value = ValueSome v }
+    static member inline _dataSignals (v: string) = { Name = "data-signals"; Value = ValueSome v }
     static member inline _dataSignals (name: string, v: string) = { Name = $"data-signals:{name}"; Value = ValueSome v }
+    static member inline _dataStyle (v: string) = { Name = "data-style"; Value = ValueSome v }
     static member inline _dataStyle (prop: string, v: string) = { Name = $"data-style:{prop}"; Value = ValueSome v }
     static member inline _dataText (v: string) = { Name = "data-text"; Value = ValueSome v }
 
