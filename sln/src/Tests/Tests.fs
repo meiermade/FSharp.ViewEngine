@@ -9,6 +9,7 @@ open Expecto
 open type Html
 open type Htmx
 open type Alpine
+open type Datastar
 open type Svg
 open type Tailwind
 
@@ -143,6 +144,49 @@ let tests =
     test "ViewEngine should render html document" {
         let actual = ViewEngineApi.buildDocument() |> Render.toHtmlDocString
         Expect.equal (String.clean actual) (String.clean expectedHtml) "Rendered HTML should match expected"
+    }
+
+    test "Datastar attributes should render with data- prefix" {
+        let actual =
+            div {
+                _dataSignals ("count", "0")
+                _dataOn ("click", "$count++")
+                _dataShow "$count > 0"
+                _dataText "$count"
+                _dataBind "name"
+                _dataEffect "console.log($count)"
+                _dataClass ("active", "$isActive")
+                _dataAttr ("disabled", "$count === 0")
+                _dataComputed ("double", "$count * 2")
+                _dataInit "console.log('init')"
+                _dataIgnore
+                _dataIgnoreMorph
+                _dataStyle ("color", "red")
+                _dataRef "myInput"
+                _dataIndicator "loading"
+                _dataAnimate "fadeIn"
+                _dataPersist "count"
+                _dataScrollIntoView
+                "Content"
+            } |> Render.toString
+        Expect.stringContains actual """data-signals:count="0"""" "data-signals"
+        Expect.stringContains actual """data-on:click="$count++"""" "data-on"
+        Expect.stringContains actual """data-show="$count > 0"""" "data-show"
+        Expect.stringContains actual """data-text="$count"""" "data-text"
+        Expect.stringContains actual "data-bind:name" "data-bind"
+        Expect.stringContains actual """data-effect="console.log($count)"""" "data-effect"
+        Expect.stringContains actual """data-class:active="$isActive"""" "data-class"
+        Expect.stringContains actual """data-attr:disabled="$count === 0"""" "data-attr"
+        Expect.stringContains actual """data-computed:double="$count * 2"""" "data-computed"
+        Expect.stringContains actual """data-init="console.log('init')"""" "data-init"
+        Expect.stringContains actual "data-ignore-morph" "data-ignore-morph"
+        Expect.stringContains actual "data-ignore" "data-ignore"
+        Expect.stringContains actual """data-style:color="red"""" "data-style"
+        Expect.stringContains actual "data-ref:myInput" "data-ref"
+        Expect.stringContains actual "data-indicator:loading" "data-indicator"
+        Expect.stringContains actual """data-animate="fadeIn"""" "data-animate"
+        Expect.stringContains actual "data-persist:count" "data-persist"
+        Expect.stringContains actual "data-scroll-into-view" "data-scroll-into-view"
     }
 
     test "HtmlEncode should match HttpUtility.HtmlEncode" {
