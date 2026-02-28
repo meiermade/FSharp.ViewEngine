@@ -16,12 +16,12 @@ open type Datastar
 
 ### data-*
 
-Use `_ds` for any Datastar `data-*` attribute:
+Use `_data` for any Datastar `data-*` attribute:
 
 ```fsharp
 div {
-    _ds ("star", "true")
-    _ds "loading"
+    _data ("star", "true")
+    _data "loading"
 }
 ```
 
@@ -33,8 +33,8 @@ Define reactive signals on an element:
 
 ```fsharp
 div {
-    _dsSignals ("count", "0")
-    _dsSignals ("name", "'World'")
+    _dataSignals ("count", "0")
+    _dataSignals ("name", "'World'")
 }
 ```
 
@@ -44,7 +44,7 @@ Listen for events and run expressions:
 
 ```fsharp
 button {
-    _dsOn ("click", "$count++")
+    _dataOn ("click", "$count++")
     "Increment"
 }
 ```
@@ -54,8 +54,8 @@ button {
 Two-way bind a signal to an input element:
 
 ```fsharp
-input { _type "text"; _dsBind "name" }
-input { _type "text"; _dsBind ("name", "value") }
+input { _type "text"; _dataBind "name" }
+input { _type "text"; _dataBind ("name", "value") }
 ```
 
 ### data-show
@@ -63,7 +63,7 @@ input { _type "text"; _dsBind ("name", "value") }
 Conditionally show or hide an element:
 
 ```fsharp
-div { _dsShow "$count > 0"; "Count is positive" }
+div { _dataShow "$count > 0"; "Count is positive" }
 ```
 
 ### data-text
@@ -71,7 +71,7 @@ div { _dsShow "$count > 0"; "Count is positive" }
 Set the text content of an element reactively:
 
 ```fsharp
-span { _dsText "$count" }
+span { _dataText "$count" }
 ```
 
 ### data-effect
@@ -79,7 +79,7 @@ span { _dsText "$count" }
 Run an expression whenever its dependencies change:
 
 ```fsharp
-div { _dsEffect "console.log($count)" }
+div { _dataEffect "console.log($count)" }
 ```
 
 ### data-init
@@ -87,7 +87,7 @@ div { _dsEffect "console.log($count)" }
 Run an expression when the element is initialized:
 
 ```fsharp
-div { _dsInit "console.log('initialized')" }
+div { _dataInit "console.log('initialized')" }
 ```
 
 ### data-attr
@@ -95,7 +95,7 @@ div { _dsInit "console.log('initialized')" }
 Dynamically set an HTML attribute:
 
 ```fsharp
-div { _dsAttr ("disabled", "$count === 0") }
+div { _dataAttr ("disabled", "$count === 0") }
 ```
 
 ### data-class
@@ -103,7 +103,7 @@ div { _dsAttr ("disabled", "$count === 0") }
 Toggle a CSS class based on an expression:
 
 ```fsharp
-div { _dsClass ("active", "$isActive") }
+div { _dataClass ("active", "$isActive") }
 ```
 
 ### data-computed
@@ -111,7 +111,7 @@ div { _dsClass ("active", "$isActive") }
 Define a computed signal derived from other signals:
 
 ```fsharp
-div { _dsComputed ("double", "$count * 2") }
+div { _dataComputed ("double", "$count * 2") }
 ```
 
 ### data-style
@@ -119,7 +119,7 @@ div { _dsComputed ("double", "$count * 2") }
 Dynamically set a CSS style property:
 
 ```fsharp
-div { _dsStyle ("color", "$isError ? 'red' : 'green'") }
+div { _dataStyle ("color", "$isError ? 'red' : 'green'") }
 ```
 
 ### data-ref
@@ -127,8 +127,8 @@ div { _dsStyle ("color", "$isError ? 'red' : 'green'") }
 Reference an element by name:
 
 ```fsharp
-input { _dsRef "myInput" }
-input { _dsRef ("myInput", "value") }
+input { _dataRef "myInput" }
+input { _dataRef ("myInput", "value") }
 ```
 
 ### data-indicator
@@ -136,8 +136,8 @@ input { _dsRef ("myInput", "value") }
 Bind a loading indicator signal:
 
 ```fsharp
-button { _dsIndicator "loading" }
-button { _dsIndicator ("loading", "true") }
+button { _dataIndicator "loading" }
+button { _dataIndicator ("loading", "true") }
 ```
 
 ### data-json-signals
@@ -145,8 +145,8 @@ button { _dsIndicator ("loading", "true") }
 Merge JSON signals into the signal store:
 
 ```fsharp
-div { _dsJsonSignals """{"count": 0}""" }
-div { _dsJsonSignals () }
+div { _dataJsonSignals """{"count": 0}""" }
+div { _dataJsonSignals () }
 ```
 
 ### data-ignore
@@ -154,7 +154,7 @@ div { _dsJsonSignals () }
 Prevent Datastar from processing an element:
 
 ```fsharp
-div { _dsIgnore }
+div { _dataIgnore }
 ```
 
 ### data-ignore-morph
@@ -162,7 +162,7 @@ div { _dsIgnore }
 Prevent morphing of an element during updates:
 
 ```fsharp
-div { _dsIgnoreMorph }
+div { _dataIgnoreMorph }
 ```
 
 ### data-on-intersect
@@ -170,7 +170,7 @@ div { _dsIgnoreMorph }
 Run an expression when an element enters the viewport:
 
 ```fsharp
-div { _dsOnIntersect "$count++" }
+div { _dataOnIntersect "$count++" }
 ```
 
 ### data-on-interval
@@ -178,7 +178,7 @@ div { _dsOnIntersect "$count++" }
 Run an expression on a timed interval:
 
 ```fsharp
-div { _dsOnInterval "$count++" }
+div { _dataOnInterval "$count++" }
 ```
 
 ### data-on-signal-patch
@@ -186,7 +186,7 @@ div { _dsOnInterval "$count++" }
 Run an expression when signals are patched:
 
 ```fsharp
-div { _dsOnSignalPatch "console.log('patched')" }
+div { _dataOnSignalPatch "console.log('patched')" }
 ```
 
 ### data-on-signal-patch-filter
@@ -194,7 +194,7 @@ div { _dsOnSignalPatch "console.log('patched')" }
 Filter which signal patches trigger the expression:
 
 ```fsharp
-div { _dsOnSignalPatchFilter "count" }
+div { _dataOnSignalPatchFilter "count" }
 ```
 
 ### data-preserve-attr
@@ -202,7 +202,7 @@ div { _dsOnSignalPatchFilter "count" }
 Preserve specified attributes during morphing:
 
 ```fsharp
-div { _dsPreserveAttr "class" }
+div { _dataPreserveAttr "class" }
 ```
 
 ## Pro Attributes
@@ -212,7 +212,7 @@ div { _dsPreserveAttr "class" }
 Apply animations to an element:
 
 ```fsharp
-div { _dsAnimate "fadeIn 0.5s" }
+div { _dataAnimate "fadeIn 0.5s" }
 ```
 
 ### data-custom-validity
@@ -220,7 +220,7 @@ div { _dsAnimate "fadeIn 0.5s" }
 Set custom validation messages:
 
 ```fsharp
-input { _dsCustomValidity "$name === '' ? 'Name is required' : ''" }
+input { _dataCustomValidity "$name === '' ? 'Name is required' : ''" }
 ```
 
 ### data-on-raf
@@ -228,7 +228,7 @@ input { _dsCustomValidity "$name === '' ? 'Name is required' : ''" }
 Run an expression on every animation frame:
 
 ```fsharp
-canvas { _dsOnRaf "draw()" }
+canvas { _dataOnRaf "draw()" }
 ```
 
 ### data-on-resize
@@ -236,7 +236,7 @@ canvas { _dsOnRaf "draw()" }
 Run an expression when the element is resized:
 
 ```fsharp
-div { _dsOnResize "console.log('resized')" }
+div { _dataOnResize "console.log('resized')" }
 ```
 
 ### data-persist
@@ -244,8 +244,8 @@ div { _dsOnResize "console.log('resized')" }
 Persist signals to local storage:
 
 ```fsharp
-div { _dsPersist "count" }
-div { _dsPersist ("count", "session") }
+div { _dataPersist "count" }
+div { _dataPersist ("count", "session") }
 ```
 
 ### data-query-string
@@ -253,8 +253,8 @@ div { _dsPersist ("count", "session") }
 Sync signals with URL query parameters:
 
 ```fsharp
-div { _dsQueryString "count" }
-div { _dsQueryString () }
+div { _dataQueryString "count" }
+div { _dataQueryString () }
 ```
 
 ### data-replace-url
@@ -262,7 +262,7 @@ div { _dsQueryString () }
 Replace the current URL:
 
 ```fsharp
-div { _dsReplaceUrl "/new-path" }
+div { _dataReplaceUrl "/new-path" }
 ```
 
 ### data-rocket
@@ -270,7 +270,7 @@ div { _dsReplaceUrl "/new-path" }
 Prefetch pages for instant navigation:
 
 ```fsharp
-a { _dsRocket "true"; _href "/next-page"; "Next" }
+a { _dataRocket "true"; _href "/next-page"; "Next" }
 ```
 
 ### data-scroll-into-view
@@ -278,7 +278,7 @@ a { _dsRocket "true"; _href "/next-page"; "Next" }
 Scroll the element into view:
 
 ```fsharp
-div { _dsScrollIntoView }
+div { _dataScrollIntoView }
 ```
 
 ### data-view-transition
@@ -286,7 +286,7 @@ div { _dsScrollIntoView }
 Apply view transitions:
 
 ```fsharp
-div { _dsViewTransition "fade" }
+div { _dataViewTransition "fade" }
 ```
 
 ## Complete Example
@@ -295,19 +295,19 @@ Here's a complete example combining multiple Datastar attributes:
 
 ```fsharp
 div {
-    _dsSignals ("count", "0")
-    _dsSignals ("name", "'World'")
-    _dsComputed ("greeting", "'Hello, ' + $name + '!'")
+    _dataSignals ("count", "0")
+    _dataSignals ("name", "'World'")
+    _dataComputed ("greeting", "'Hello, ' + $name + '!'")
 
-    input { _type "text"; _dsBind "name" }
-    span { _dsText "$greeting" }
+    input { _type "text"; _dataBind "name" }
+    span { _dataText "$greeting" }
 
     button {
-        _dsOn ("click", "$count++")
-        _dsClass ("active", "$count > 0")
+        _dataOn ("click", "$count++")
+        _dataClass ("active", "$count > 0")
         "Clicked "
     }
-    span { _dsText "$count" }
-    span { _dsShow "$count > 0"; " times" }
+    span { _dataText "$count" }
+    span { _dataShow "$count > 0"; " times" }
 }
 ```
