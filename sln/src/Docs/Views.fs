@@ -49,7 +49,7 @@ let private pageHeader =
         }
         // Right section with theme toggle and GitHub
         div {
-            _class "relative flex basis-0 justify-end gap-6 sm:gap-8 md:grow"
+            _class "relative flex basis-0 items-center justify-end gap-6 sm:gap-8 md:grow"
             // Theme toggle dropdown
             div {
                 _class "relative z-10"
