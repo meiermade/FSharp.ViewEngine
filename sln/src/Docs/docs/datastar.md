@@ -12,19 +12,6 @@ open type Html
 open type Datastar
 ```
 
-## Generic Attribute
-
-### data-*
-
-Use `_data` for any Datastar `data-*` attribute:
-
-```fsharp
-div {
-    _data ("star", "true")
-    _data "loading"
-}
-```
-
 ## Core Attributes
 
 ### data-signals
@@ -55,7 +42,6 @@ Two-way bind a signal to an input element:
 
 ```fsharp
 input { _type "text"; _dataBind "name" }
-input { _type "text"; _dataBind ("name", "value") }
 ```
 
 ### data-show
@@ -128,7 +114,6 @@ Reference an element by name:
 
 ```fsharp
 input { _dataRef "myInput" }
-input { _dataRef ("myInput", "value") }
 ```
 
 ### data-indicator
@@ -137,16 +122,15 @@ Bind a loading indicator signal:
 
 ```fsharp
 button { _dataIndicator "loading" }
-button { _dataIndicator ("loading", "true") }
 ```
 
 ### data-json-signals
 
-Merge JSON signals into the signal store:
+Render signals as JSON for debugging:
 
 ```fsharp
-div { _dataJsonSignals """{"count": 0}""" }
-div { _dataJsonSignals () }
+pre { _dataJsonSignals () }
+pre { _dataJsonSignals "{include: /counter/, exclude: /temp$/}" }
 ```
 
 ### data-ignore
@@ -194,7 +178,7 @@ div { _dataOnSignalPatch "console.log('patched')" }
 Filter which signal patches trigger the expression:
 
 ```fsharp
-div { _dataOnSignalPatchFilter "count" }
+div { _dataOnSignalPatchFilter "{include: /^count$/}" }
 ```
 
 ### data-preserve-attr
@@ -241,11 +225,12 @@ div { _dataOnResize "console.log('resized')" }
 
 ### data-persist
 
-Persist signals to local storage:
+Persist signals to local storage (or session storage with modifiers):
 
 ```fsharp
-div { _dataPersist "count" }
-div { _dataPersist ("count", "session") }
+div { _dataPersist () }                                  // default key: datastar
+div { _dataPersist "mykey" }                           // custom storage key
+div { _dataPersist ("mykey", "{include: /foo/}") }    // key + filter object
 ```
 
 ### data-query-string
@@ -253,8 +238,8 @@ div { _dataPersist ("count", "session") }
 Sync signals with URL query parameters:
 
 ```fsharp
-div { _dataQueryString "count" }
 div { _dataQueryString () }
+div { _dataQueryString "{include: /foo/, exclude: /temp$/}" }
 ```
 
 ### data-replace-url
@@ -267,10 +252,10 @@ div { _dataReplaceUrl "/new-path" }
 
 ### data-rocket
 
-Prefetch pages for instant navigation:
+Create a Rocket web component:
 
 ```fsharp
-a { _dataRocket "true"; _href "/next-page"; "Next" }
+div { _dataRocket "{ endpoint: '/stream' }" }
 ```
 
 ### data-scroll-into-view

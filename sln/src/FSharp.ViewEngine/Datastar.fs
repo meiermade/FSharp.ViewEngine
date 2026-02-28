@@ -32,6 +32,7 @@ type Datastar =
     static member inline _dataCustomValidity (v: string) = { Name = "data-custom-validity"; Value = ValueSome v }
     static member inline _dataOnRaf (v: string) = { Name = "data-on-raf"; Value = ValueSome v }
     static member inline _dataOnResize (v: string) = { Name = "data-on-resize"; Value = ValueSome v }
+    static member inline _dataPersist () = { Name = "data-persist"; Value = ValueNone }
     static member inline _dataPersist (key: string) = { Name = $"data-persist:{key}"; Value = ValueNone }
     static member inline _dataPersist (key: string, v: string) = { Name = $"data-persist:{key}"; Value = ValueSome v }
     static member inline _dataQueryString (?v: string) = match v with Some v -> { Name = "data-query-string"; Value = ValueSome v } | None -> { Name = "data-query-string"; Value = ValueNone }

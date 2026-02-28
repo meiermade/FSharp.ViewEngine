@@ -165,6 +165,7 @@ let tests =
                 _dataRef "myInput"
                 _dataIndicator "loading"
                 _dataAnimate "fadeIn"
+                _dataPersist ()
                 _dataPersist "count"
                 _dataScrollIntoView
                 "Content"
@@ -185,7 +186,7 @@ let tests =
         Expect.stringContains actual "data-ref:myInput" "data-ref"
         Expect.stringContains actual "data-indicator:loading" "data-indicator"
         Expect.stringContains actual "data-animate=\"fadeIn\"" "data-animate"
-        Expect.stringContains actual "data-persist:count" "data-persist"
+        Expect.stringContains actual "data-persist data-persist:count" "data-persist"
         Expect.stringContains actual "data-scroll-into-view" "data-scroll-into-view"
     }
 
