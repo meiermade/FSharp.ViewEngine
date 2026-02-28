@@ -6,7 +6,12 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Tests.fs" />
+    <Compile Include="CoreTests.fs" />
+    <Compile Include="DatastarTests.fs" />
+    <Compile Include="HtmxTests.fs" />
+    <Compile Include="AlpineTests.fs" />
+    <Compile Include="SvgTests.fs" />
+    <Compile Include="TailwindTests.fs" />
     <Compile Include="Program.fs" />
     <Content Include="paket.references" />
   </ItemGroup>

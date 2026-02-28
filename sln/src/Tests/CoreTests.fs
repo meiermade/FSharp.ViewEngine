@@ -1,15 +1,13 @@
-module Tests
+module CoreTests
 
 open FSharp.ViewEngine
 open System.Text
 open System.Web
-open System.Text.Json
 open System.Text.RegularExpressions
 open Expecto
 open type Html
 open type Htmx
 open type Alpine
-open type Datastar
 open type Svg
 open type Tailwind
 
@@ -140,54 +138,114 @@ let expectedHtml = """
 
 [<Tests>]
 let tests =
-  testList "ViewEngine Tests" [
+  testList "Core Tests" [
     test "ViewEngine should render html document" {
         let actual = ViewEngineApi.buildDocument() |> Render.toHtmlDocString
         Expect.equal (String.clean actual) (String.clean expectedHtml) "Rendered HTML should match expected"
     }
 
-    test "Datastar attributes should render with data- prefix" {
-        let actual =
-            div {
-                _dataSignals ("count", "0")
-                _dataOn ("click", "$count++")
-                _dataShow "$count > 0"
-                _dataText "$count"
-                _dataBind "name"
-                _dataEffect "console.log($count)"
-                _dataClass ("active", "$isActive")
-                _dataAttr ("disabled", "$count === 0")
-                _dataComputed ("double", "$count * 2")
-                _dataInit "console.log('init')"
-                _dataIgnore
-                _dataIgnoreMorph
-                _dataStyle ("color", "red")
-                _dataRef "myInput"
-                _dataIndicator "loading"
-                _dataAnimate "fadeIn"
-                _dataPersist ()
-                _dataPersist "count"
-                _dataScrollIntoView
-                "Content"
-            } |> Render.toString
-        Expect.stringContains actual "data-signals:count=\"0\"" "data-signals"
-        Expect.stringContains actual "data-on:click=\"$count++\"" "data-on"
-        Expect.stringContains actual "data-show=\"$count > 0\"" "data-show"
-        Expect.stringContains actual "data-text=\"$count\"" "data-text"
-        Expect.stringContains actual "data-bind:name" "data-bind"
-        Expect.stringContains actual "data-effect=\"console.log($count)\"" "data-effect"
-        Expect.stringContains actual "data-class:active=\"$isActive\"" "data-class"
-        Expect.stringContains actual "data-attr:disabled=\"$count === 0\"" "data-attr"
-        Expect.stringContains actual "data-computed:double=\"$count * 2\"" "data-computed"
-        Expect.stringContains actual "data-init=\"console.log('init')\"" "data-init"
-        Expect.stringContains actual "data-ignore-morph" "data-ignore-morph"
-        Expect.stringContains actual "data-ignore" "data-ignore"
-        Expect.stringContains actual "data-style:color=\"red\"" "data-style"
-        Expect.stringContains actual "data-ref:myInput" "data-ref"
-        Expect.stringContains actual "data-indicator:loading" "data-indicator"
-        Expect.stringContains actual "data-animate=\"fadeIn\"" "data-animate"
-        Expect.stringContains actual "data-persist data-persist:count" "data-persist"
-        Expect.stringContains actual "data-scroll-into-view" "data-scroll-into-view"
+    test "Void elements render without closing tag" {
+        let actual = br |> Render.toString
+        Expect.equal actual "<br>" "br"
+        let actual2 = hr |> Render.toString
+        Expect.equal actual2 "<hr>" "hr"
+        let actual3 = (img { _src "/logo.png"; _alt "logo" }) |> Render.toString
+        Expect.equal actual3 "<img src=\"/logo.png\" alt=\"logo\">" "img with attrs"
+    }
+
+    test "Regular element with no children renders open and close tags" {
+        let actual = div {} |> Render.toString
+        Expect.equal actual "<div></div>" "empty div"
+    }
+
+    test "Regular element with text child and no attrs" {
+        let actual = span { "hello" } |> Render.toString
+        Expect.equal actual "<span>hello</span>" "span with text"
+    }
+
+    test "raw bypasses encoding, text encodes" {
+        let rawResult = raw "<b>hi</b>" |> Render.toString
+        Expect.equal rawResult "<b>hi</b>" "raw passes through"
+        let textResult = div { text "<b>hi</b>" } |> Render.toString
+        Expect.equal textResult "<div>&lt;b&gt;hi&lt;/b&gt;</div>" "text encodes"
+    }
+
+    test "Html.empty (NoopElement) renders nothing" {
+        let actual = div { empty } |> Render.toString
+        Expect.equal actual "<div></div>" "empty renders nothing"
+    }
+
+    test "EmptyAttr is silently dropped (boolean false)" {
+        let actual = input { _hidden false; _disabled false; _required false } |> Render.toString
+        Expect.equal actual "<input>" "no attrs when all false"
+    }
+
+    test "Boolean attributes render when true, omit when false" {
+        let actual = input { _hidden true; _disabled true; _required true; _checked true } |> Render.toString
+        Expect.stringContains actual "hidden" "hidden present"
+        Expect.stringContains actual "disabled" "disabled present"
+        Expect.stringContains actual "required" "required present"
+        Expect.stringContains actual "checked" "checked present"
+        let actual2 = input { _hidden false; _disabled false } |> Render.toString
+        Expect.isFalse (actual2.Contains("hidden")) "hidden absent"
+        Expect.isFalse (actual2.Contains("disabled")) "disabled absent"
+    }
+
+    test "_class with string seq joins with spaces" {
+        let actual = div { _class [ "a"; "b"; "c" ] } |> Render.toString
+        Expect.equal actual "<div class=\"a b c\"></div>" "class list joined"
+    }
+
+    test "_data custom data attribute" {
+        let actual = div { _data ("foo", "bar"); _data "baz" } |> Render.toString
+        Expect.stringContains actual "data-foo=\"bar\"" "data with value"
+        Expect.stringContains actual "data-baz" "data without value"
+    }
+
+    test "Custom element builders el and elVoid" {
+        let actual = (Html.el "my-component") { _id "c1"; "content" } |> Render.toString
+        Expect.equal actual "<my-component id=\"c1\">content</my-component>" "custom regular element"
+        let actual2 = (Html.elVoid "my-void") { _id "v1" } |> Render.toString
+        Expect.equal actual2 "<my-void id=\"v1\">" "custom void element"
+    }
+
+    test "title element renders correctly" {
+        let actual = title "My Page" |> Render.toString
+        Expect.equal actual "<title>My Page</title>" "title"
+    }
+
+    test "For iteration in builder" {
+        let items = [ "a"; "b"; "c" ]
+        let actual = ul { for item in items do li { item } } |> Render.toString
+        Expect.equal actual "<ul><li>a</li><li>b</li><li>c</li></ul>" "for iteration"
+    }
+
+    test "3+ attributes exercises attrRest branch" {
+        let actual = div { _id "x"; _class "y"; _style "z"; _title "w" } |> Render.toString
+        Expect.equal actual "<div id=\"x\" class=\"y\" style=\"z\" title=\"w\"></div>" "4 attrs"
+    }
+
+    test "3+ children exercises childRest branch" {
+        let actual = div { span { "a" }; span { "b" }; span { "c" } } |> Render.toString
+        Expect.equal actual "<div><span>a</span><span>b</span><span>c</span></div>" "3 children"
+    }
+
+    test "3+ attrs on void element exercises attrRest branch" {
+        let actual = input { _id "x"; _class "y"; _name "z"; _type "text" } |> Render.toString
+        Expect.equal actual "<input id=\"x\" class=\"y\" name=\"z\" type=\"text\">" "4 attrs on void"
+    }
+
+    test "Render.toHtmlDocString prepends DOCTYPE" {
+        let actual = html { body { "hi" } } |> Render.toHtmlDocString
+        Expect.isTrue (actual.StartsWith("<!DOCTYPE html>")) "starts with doctype"
+        Expect.stringContains actual "<html><body>hi</body></html>" "contains html"
+    }
+
+    test "StringBuilderPool reuse works across multiple renders" {
+        let r1 = div { "first" } |> Render.toString
+        let r2 = div { "second" } |> Render.toString
+        Expect.equal r1 "<div>first</div>" "first render"
+        Expect.equal r2 "<div>second</div>" "second render (reused pool)"
     }
 
     test "HtmlEncode should match HttpUtility.HtmlEncode" {
@@ -214,5 +272,4 @@ let tests =
 
             Expect.equal actual expected $"HtmlEncode should match HttpUtility for input: {input}"
     }
-
   ]
