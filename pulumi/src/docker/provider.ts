@@ -1,3 +1,3 @@
-import * as docker from '@pulumi/docker-build'
+import * as dockerBuild from '@pulumi/docker-build'
 
-export const provider = new docker.Provider('default')
+export const provider = new dockerBuild.Provider('default')

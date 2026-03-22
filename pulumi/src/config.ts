@@ -5,15 +5,14 @@ export const rootDir = path.dirname(path.dirname(__dirname))
 
 export const identifier = 'fsharpviewengine'
 
-const rawAwsConfig = new pulumi.Config('aws')
-const rawCloudflareConfig = new pulumi.Config('cloudflare')
-const rawK8sConfig = new pulumi.Config('k8s')
+const rawDockerConfig = new pulumi.Config('docker')
 
-export const awsConfig = {
-    accountId: rawAwsConfig.require('platformAccountId'),
-    region: rawAwsConfig.require('region'),
-    eksNodeManagerArn: rawAwsConfig.require('eksNodeManagerArn')
+export const dockerConfig = {
+    registryUri: rawDockerConfig.require('registryUri'),
+    registryAccessToken: rawDockerConfig.requireSecret('registryAccessToken'),
 }
+
+const rawCloudflareConfig = new pulumi.Config('cloudflare')
 
 export const cloudflareConfig = {
     accountId: rawCloudflareConfig.require('accountId'),
@@ -21,6 +20,8 @@ export const cloudflareConfig = {
     zoneName: rawCloudflareConfig.require('zoneName'),
     cloudflaredVersion: '2026.2.0'
 }
+
+const rawK8sConfig = new pulumi.Config('k8s')
 
 export const k8sConfig = {
     namespace: rawK8sConfig.require('namespace'),

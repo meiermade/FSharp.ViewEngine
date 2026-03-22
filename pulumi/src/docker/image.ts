@@ -1,22 +1,28 @@
 import * as pulumi from '@pulumi/pulumi'
-import * as docker from '@pulumi/docker-build'
+import * as dockerBuild from '@pulumi/docker-build'
 import * as path from 'path'
 import { provider } from './provider'
-import { repo, credentials } from '../aws/repository'
 import * as config from '../config'
 
-export const image = new docker.Image(config.identifier, {
-    tags: [pulumi.interpolate `${repo.repositoryUrl}:latest`],
-    push: true,
+const registryUri = config.dockerConfig.registryUri
+const registryHost = registryUri.split('/')[0]
+
+export const image = new dockerBuild.Image(config.identifier, {
+    tags: [
+        pulumi.interpolate`${registryUri}/${config.identifier}`
+    ],
     context: {
         location: path.join(config.rootDir, 'sln'),
     },
-    platforms: ['linux/arm64'],
+    platforms: [
+        dockerBuild.Platform.Linux_amd64
+    ],
+    push: true,
     registries: [{
-        address: repo.repositoryUrl,
-        username: credentials.userName,
-        password: credentials.password
-    }]
+        address: registryHost,
+        username: 'oauth2accesstoken',
+        password: config.dockerConfig.registryAccessToken,
+    }],
 }, { provider })
 
 export const imageRef = image.ref
