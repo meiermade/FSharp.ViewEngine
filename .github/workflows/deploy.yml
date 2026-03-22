@@ -9,20 +9,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
           node-version: 24
+      - name: Setup gcloud
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          install_components: gke-gcloud-auth-plugin
       - name: Install Packages
         run: npm install
         working-directory: ./pulumi
+      - name: Authenticate Pulumi
+        uses: pulumi/auth-actions@v1
+        with:
+          organization: meiermade
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:meiermade
       - name: Deploy
         uses: pulumi/actions@v6
         with:
           work-dir: ./pulumi
           command: up
           stack-name: prod
-        env:
-          PULUMI_ACCESS_TOKEN: ${{ secrets.PULUMI_TOKEN }}

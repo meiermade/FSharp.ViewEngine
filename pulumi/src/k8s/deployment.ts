@@ -17,15 +17,30 @@ let appConfigMap = new k8s.core.v1.ConfigMap(config.identifier, {
 
 const labels = { 'app.kubernetes.io/name': config.identifier }
 
-const tunnelSecret = new k8s.core.v1.Secret(`${config.identifier}-cloudflared`, {
+const cloudflaredSecret = new k8s.core.v1.Secret(`${config.identifier}-cloudflared`, {
     metadata: {
         name: `${config.identifier}-cloudflared`,
         namespace: config.k8sConfig.namespace
     },
     stringData: {
-        TUNNEL_TOKEN: tunnel.tunnelToken
+        TUNNEL_TOKEN: tunnel.tunnelToken,
+        TUNNEL_METRICS: '0.0.0.0:2000'
     }
 }, { provider })
+
+const podSecurityContext: k8s.types.input.core.v1.PodSecurityContext = {
+    runAsNonRoot: true,
+    seccompProfile: {
+        type: 'RuntimeDefault'
+    }
+}
+
+const containerSecurityContext: k8s.types.input.core.v1.SecurityContext = {
+    allowPrivilegeEscalation: false,
+    capabilities: {
+        drop: ['ALL']
+    }
+}
 
 const deployment = new k8s.apps.v1.Deployment(config.identifier, {
     metadata: {
@@ -38,10 +53,12 @@ const deployment = new k8s.apps.v1.Deployment(config.identifier, {
         template: {
             metadata: { labels: labels },
             spec: {
+                securityContext: podSecurityContext,
                 containers: [
                     {
                         name: config.identifier,
                         image: image.imageRef,
+                        securityContext: containerSecurityContext,
                         imagePullPolicy: 'IfNotPresent',
                         envFrom: [ { configMapRef: { name: appConfigMap.metadata.name } } ],
                         livenessProbe: {
@@ -62,35 +79,16 @@ const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                     {
                         name: 'cloudflared',
                         image: `cloudflare/cloudflared:${config.cloudflareConfig.cloudflaredVersion}`,
+                        securityContext: containerSecurityContext,
                         args: [
                             'tunnel',
                             '--no-autoupdate',
-                            '--metrics', '0.0.0.0:2000',
                             'run'
                         ],
-                        env: [{
-                            name: 'TUNNEL_TOKEN',
-                            valueFrom: {
-                                secretKeyRef: {
-                                    name: tunnelSecret.metadata.name,
-                                    key: 'TUNNEL_TOKEN'
-                                }
-                            }
-                        }],
+                        envFrom: [{ secretRef: { name: cloudflaredSecret.metadata.name } }],
                         livenessProbe: {
-                            httpGet: {
-                                path: '/ready',
-                                port: 2000
-                            },
+                            httpGet: { path: '/ready', port: 2000 },
                             failureThreshold: 1,
-                            initialDelaySeconds: 10,
-                            periodSeconds: 10
-                        },
-                        readinessProbe: {
-                            httpGet: {
-                                path: '/ready',
-                                port: 2000
-                            },
                             initialDelaySeconds: 10,
                             periodSeconds: 10
                         }
@@ -99,7 +97,7 @@ const deployment = new k8s.apps.v1.Deployment(config.identifier, {
             }
         }
     }
-}, { provider, dependsOn: tunnelSecret })
+}, { provider, dependsOn: cloudflaredSecret })
 
 new k8s.core.v1.Service(config.identifier, {
     metadata: {
