@@ -1,3 +1,5 @@
 import './provider'
+import './zone'
 import './tunnel'
 import './record'
+import './waf'
