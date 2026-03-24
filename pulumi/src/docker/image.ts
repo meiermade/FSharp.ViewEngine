@@ -7,6 +7,8 @@ import * as config from '../config'
 const registryUri = config.dockerConfig.registryUri
 const registryHost = registryUri.split('/')[0]
 
+const isGitHubActions = !!process.env.GITHUB_ACTIONS
+
 export const image = new dockerBuild.Image(config.identifier, {
     tags: [
         pulumi.interpolate`${registryUri}/${config.identifier}`
@@ -23,6 +25,8 @@ export const image = new dockerBuild.Image(config.identifier, {
         username: 'oauth2accesstoken',
         password: config.dockerConfig.registryAccessToken,
     }],
+    cacheFrom: isGitHubActions ? [{ gha: {} }] : [],
+    cacheTo: isGitHubActions ? [{ gha: { mode: dockerBuild.CacheMode.Max, ignoreError: true } }] : [],
 }, { provider })
 
 export const imageRef = image.ref
