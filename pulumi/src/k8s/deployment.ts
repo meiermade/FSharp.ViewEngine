@@ -11,7 +11,8 @@ let appConfigMap = new k8s.core.v1.ConfigMap(config.identifier, {
     },
     immutable: true,
     data: {
-        SERVER_URL: 'http://0.0.0.0:5000'
+        SERVER_URL: 'http://0.0.0.0:5000',
+        SEQ_ENDPOINT: config.seqConfig.endpoint,
     }
 }, { provider })
 

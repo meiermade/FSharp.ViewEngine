@@ -11,3 +11,7 @@ nuget FSharp.Core
 nuget Giraffe.ViewEngine
 nuget Feliz.ViewEngine
 nuget Oxpecker.ViewEngine
+nuget Serilog
+nuget Serilog.AspNetCore
+nuget Serilog.Sinks.Console
+nuget Serilog.Sinks.OpenTelemetry

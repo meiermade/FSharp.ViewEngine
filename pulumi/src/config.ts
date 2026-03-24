@@ -26,3 +26,9 @@ const rawK8sConfig = new pulumi.Config('k8s')
 export const k8sConfig = {
     namespace: rawK8sConfig.require('namespace'),
 }
+
+const rawSeqConfig = new pulumi.Config('seq')
+
+export const seqConfig = {
+    endpoint: rawSeqConfig.require('endpoint'),
+}
