@@ -16,7 +16,7 @@ new cloudflare.ZeroTrustTunnelCloudflaredConfig(config.identifier, {
         ingresses: [
             {
                 hostname: `${config.identifier}.${config.cloudflareConfig.zoneName}`,
-                service: `http://${config.identifier}.${config.k8sConfig.namespace}.svc.cluster.local:80`
+                service: 'http://localhost:80'
             },
             {
                 service: 'http_status:404'
