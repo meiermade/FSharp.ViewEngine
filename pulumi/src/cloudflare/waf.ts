@@ -1,15 +1,7 @@
 import * as cloudflare from '@pulumi/cloudflare'
 import { provider } from './provider'
 import * as config from '../config'
-
-const zone = cloudflare.getZoneOutput({
-    filter: {
-        name: config.cloudflareConfig.zoneName,
-        account: {
-            id: config.cloudflareConfig.accountId
-        }
-    }
-}, { provider })
+import { zone } from './zone'
 
 const expression = [
     // Sensitive dotfiles and directories
