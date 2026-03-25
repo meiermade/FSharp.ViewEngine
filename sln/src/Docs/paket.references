@@ -1,2 +1,6 @@
 Giraffe
 Markdig
+Serilog
+Serilog.AspNetCore
+Serilog.Sinks.Console
+Serilog.Sinks.OpenTelemetry

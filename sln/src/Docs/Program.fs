@@ -2,6 +2,9 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.Extensions.Hosting
 open Microsoft.Extensions.DependencyInjection
 open Giraffe
+open Serilog
+open Serilog.Events
+open Serilog.Sinks.OpenTelemetry
 open Docs.Handlers
 
 let webApp =
@@ -21,27 +24,60 @@ let webApp =
         ]
     ]
 
+let configureLogger (config: Docs.Config) =
+    let initialLogLevel =
+        if config.debug then LogEventLevel.Debug
+        else LogEventLevel.Information
+
+    let logger =
+        LoggerConfiguration()
+            .MinimumLevel.Is(initialLogLevel)
+            .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
+            .WriteTo.Console()
+            .WriteTo.OpenTelemetry(fun opts ->
+                opts.Endpoint <- config.seq.endpoint + "/ingest/otlp/v1/logs"
+                opts.Protocol <- OtlpProtocol.HttpProtobuf
+                opts.ResourceAttributes <- dict [ "service.name", box config.appName ])
+            .CreateLogger()
+
+    Log.Logger <- logger
+
 let configureApp (app : IApplicationBuilder) =
-    app.UseStaticFiles() |> ignore
+    app
+        .UseSerilogRequestLogging(fun opts ->
+            opts.GetLevel <- fun ctx _ _ ->
+                if ctx.Request.Path.Value = "/health" then LogEventLevel.Verbose
+                else LogEventLevel.Information)
+        .UseStaticFiles() |> ignore
     app.UseGiraffe(webApp)
 
 let configureServices (services : IServiceCollection) =
-    services.AddGiraffe() |> ignore
+    services
+        .AddSerilog()
+        .AddGiraffe() |> ignore
 
 [<EntryPoint>]
-let main args =
-    let builder = WebApplication.CreateBuilder(args)
-    configureServices builder.Services
-
-    let app = builder.Build()
-
-    if app.Environment.IsDevelopment() then
-        app.UseDeveloperExceptionPage() |> ignore
-
-    configureApp app
-
+let main _args =
     let config = Docs.Config.load()
-    app.Run(config.serverUrl)
+    configureLogger config
 
-    0 // Exit code
+    try
+        try
+            let builder = WebApplication.CreateBuilder()
+            configureServices builder.Services
 
+            let app = builder.Build()
+
+            if app.Environment.IsDevelopment() then
+                app.UseDeveloperExceptionPage() |> ignore
+
+            configureApp app
+
+            Log.Information("Starting {AppName}", config.appName)
+            app.Run(config.serverUrl)
+            0
+        with ex ->
+            Log.Fatal(ex, "Application start-up failed")
+            1
+    finally
+        Log.CloseAndFlush()

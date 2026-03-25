@@ -2,12 +2,33 @@ namespace Docs
 
 open System
 
+module Env =
+    let variable (key: string) =
+        match Environment.GetEnvironmentVariable(key) with
+        | value when String.IsNullOrEmpty(value) -> failwith $"Environment variable '{key}' is required"
+        | value -> value
+
+    let variableOrDefault (key: string) (defaultValue: string) =
+        match Environment.GetEnvironmentVariable(key) with
+        | value when String.IsNullOrEmpty(value) -> defaultValue
+        | value -> value
+
+type SeqConfig =
+    { endpoint: string }
+
+module SeqConfig =
+    let load () =
+        { endpoint = Env.variableOrDefault "SEQ_ENDPOINT" "http://localhost:5341" }
+
 type Config =
-    { serverUrl: string }
+    { debug: bool
+      appName: string
+      serverUrl: string
+      seq: SeqConfig }
 
 module Config =
     let load () =
-        { serverUrl =
-            Environment.GetEnvironmentVariable("SERVER_URL")
-            |> Option.ofObj
-            |> Option.defaultValue "https://localhost:5000" }
+        { debug = Env.variableOrDefault "DEBUG" "false" |> Boolean.Parse
+          appName = "fsharp-viewengine-docs"
+          serverUrl = Env.variableOrDefault "SERVER_URL" "https://localhost:5000"
+          seq = SeqConfig.load () }
