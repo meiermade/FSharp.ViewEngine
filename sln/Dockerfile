@@ -1,29 +1,33 @@
-FROM mcr.microsoft.com/dotnet/sdk:10.0-noble-amd64 AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-noble AS builder
 
 WORKDIR /app
 
-# Install tailwindcss
-RUN curl -sLO https://github.com/tailwindlabs/tailwindcss/releases/download/v4.1.18/tailwindcss-linux-x64 \
-    && chmod +x tailwindcss-linux-x64 \
-    && mv tailwindcss-linux-x64 /usr/local/bin/tailwindcss
+# install tailwindcss v4 CLI (match builder platform)
+RUN ARCH=$(uname -m | sed 's/aarch64/arm64/' | sed 's/x86_64/x64/') \
+    && curl -fsSLo /usr/local/bin/tailwindcss "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.2.1/tailwindcss-linux-${ARCH}" \
+    && chmod +x /usr/local/bin/tailwindcss
 
-
-# Restore paket dependencies
-COPY .config/ .config/
+# restore tools
+COPY .config .config
 RUN dotnet tool restore
 
-# Install F# dependencies
+# install F# dependencies
 COPY paket.dependencies paket.lock ./
 RUN dotnet paket install && dotnet paket restore
 
-COPY fake.sh ./
-COPY src/ src/
-RUN chmod +x fake.sh && ./fake.sh PublishDocs
+# copy projects and build script
+COPY src src
+COPY fake.sh .
+RUN chmod +x ./fake.sh
 
-FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled
+# publish the docs app
+RUN ./fake.sh PublishDocs
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS runner
 
 WORKDIR /app
 
-COPY --from=build /app/src/Docs/out .
+# copy compiled code from build image
+COPY --from=builder /app/src/Docs/out .
 
 ENTRYPOINT ["dotnet", "Docs.dll"]
