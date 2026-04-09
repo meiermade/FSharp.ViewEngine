@@ -62,6 +62,10 @@ const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                         securityContext: containerSecurityContext,
                         imagePullPolicy: 'IfNotPresent',
                         envFrom: [ { configMapRef: { name: appConfigMap.metadata.name } } ],
+                        resources: {
+                            requests: { cpu: '25m', memory: '64Mi' },
+                            limits: { cpu: '250m', memory: '256Mi' },
+                        },
                         livenessProbe: {
                             httpGet: {
                                 path: '/health',
@@ -87,6 +91,10 @@ const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                             'run'
                         ],
                         envFrom: [{ secretRef: { name: cloudflaredSecret.metadata.name } }],
+                        resources: {
+                            requests: { cpu: '10m', memory: '32Mi' },
+                            limits: { cpu: '100m', memory: '128Mi' },
+                        },
                         livenessProbe: {
                             httpGet: { path: '/ready', port: 2000 },
                             failureThreshold: 1,
