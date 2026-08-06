@@ -2,13 +2,13 @@
     "name": "fsharp-view-engine",
     "main": "index.ts",
     "devDependencies": {
-        "@types/node": "^24.12.2",
+        "@types/node": "^24.13.3",
         "typescript": "^5.9.3"
     },
     "dependencies": {
-        "@pulumi/cloudflare": "^6.14.0",
-        "@pulumi/docker-build": "^0.0.15",
-        "@pulumi/kubernetes": "^4.28",
-        "@pulumi/pulumi": "^3.229"
+        "@pulumi/cloudflare": "^6.19.0",
+        "@pulumi/docker-build": "^0.0.22",
+        "@pulumi/kubernetes": "^4.33.0",
+        "@pulumi/pulumi": "^3.256.0"
     }
 }

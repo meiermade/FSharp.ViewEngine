@@ -2,6 +2,7 @@ module CoreTests
 
 open FSharp.ViewEngine
 open System.Text
+open System.Globalization
 open System.Web
 open System.Text.RegularExpressions
 open Expecto
@@ -9,7 +10,7 @@ open type Html
 open type Htmx
 open type Alpine
 open type Svg
-open type Tailwind
+open type TailwindElements
 
 module String =
     let replace (oldValue:string) (newValue:string) (s:string) = s.Replace(oldValue, newValue)
@@ -20,7 +21,7 @@ module ViewEngineApi =
     open type Htmx
     open type Alpine
     open type Svg
-    open type Tailwind
+    open type TailwindElements
 
     let buildDocument () =
         html {
@@ -151,6 +152,8 @@ let tests =
         Expect.equal actual2 "<hr>" "hr"
         let actual3 = (img { _src "/logo.png"; _alt "logo" }) |> Render.toString
         Expect.equal actual3 "<img src=\"/logo.png\" alt=\"logo\">" "img with attrs"
+        let actual4 = (br { _class "clear-both" }) |> Render.toString
+        Expect.equal actual4 "<br class=\"clear-both\">" "br with global attrs"
     }
 
     test "Regular element with no children renders open and close tags" {
@@ -202,6 +205,175 @@ let tests =
         Expect.stringContains actual "data-baz" "data without value"
     }
 
+    test "Attribute values are HTML encoded" {
+        let actual =
+            div {
+                _title "\"Tom & Jerry's <tag>\""
+                _data ("json", """{"key":"<value>&"}""")
+            }
+            |> Render.toString
+
+        Expect.equal
+            actual
+            "<div title=\"&quot;Tom &amp; Jerry&#39;s &lt;tag&gt;&quot;\" data-json=\"{&quot;key&quot;:&quot;&lt;value&gt;&amp;&quot;}\"></div>"
+            "attribute values should be encoded without changing their browser-decoded values"
+    }
+
+    test "Encoding handles null and malformed text" {
+        let nullText = div { Html.text null } |> Render.toString
+        Expect.equal nullText "<div></div>" "null text should render as empty"
+
+        let nullAttribute = div { _attr ("data-value", null) } |> Render.toString
+        Expect.equal nullAttribute "<div data-value=\"\"></div>" "null attribute values should render as empty"
+
+        let malformedSurrogates = div { Html.text "\uD800x\uDC00" } |> Render.toString
+        Expect.equal malformedSurrogates "<div>�x�</div>" "malformed surrogates should use replacement characters"
+    }
+
+    test "Encoding handles large values" {
+        let value = System.String('&', 10_000)
+        let actual = div { _attr ("data-value", value) } |> Render.toString
+        let encodedValue = value.Replace("&", "&amp;")
+        let expected = $"<div data-value=\"{encodedValue}\"></div>"
+        Expect.equal actual expected "large attribute values should be fully encoded"
+    }
+
+    test "Numeric attributes use invariant formatting" {
+        let originalCulture = CultureInfo.CurrentCulture
+
+        try
+            CultureInfo.CurrentCulture <- CultureInfo.GetCultureInfo("de-DE")
+
+            let actual =
+                meter {
+                    _min 1.5
+                    _max 2.5
+                    _high 2.25
+                    _low 1.25
+                    _optimum 1.75
+                }
+                |> Render.toString
+
+            Expect.equal
+                actual
+                "<meter min=\"1.5\" max=\"2.5\" high=\"2.25\" low=\"1.25\" optimum=\"1.75\"></meter>"
+                "numeric attributes should be culture-independent"
+        finally
+            CultureInfo.CurrentCulture <- originalCulture
+    }
+
+    test "Living Standard HTML attributes render correctly" {
+        let actual =
+            div {
+                _abbr "summary"
+                _acceptCharset "UTF-8"
+                _allowfullscreen true
+                _alpha true
+                _as "script"
+                _autocapitalize "sentences"
+                _autocorrect "on"
+                _blocking "render"
+                _closedby "any"
+                _color "#ffffff"
+                _colorspace "display-p3"
+                _command "show-modal"
+                _commandfor "dialog-id"
+                _objectData "/document.pdf"
+                _headingoffset 2
+                _headingreset true
+                _hreflang "en"
+                _httpEquiv "refresh"
+                _imagesizes "100vw"
+                _imagesrcset "/image-2x.png 2x"
+                _nomodule true
+                _ping "/analytics"
+                _playsinline true
+                _shadowrootclonable true
+                _shadowrootcustomelementregistry true
+                _shadowrootdelegatesfocus true
+                _shadowrootmode "open"
+                _shadowrootserializable true
+                _shadowrootslotassignment "named"
+                _span 2
+                _srcdoc "<p>Embedded</p>"
+                _writingsuggestions false
+            }
+            |> Render.toString
+
+        Expect.equal
+            actual
+            "<div abbr=\"summary\" accept-charset=\"UTF-8\" allowfullscreen alpha as=\"script\" autocapitalize=\"sentences\" autocorrect=\"on\" blocking=\"render\" closedby=\"any\" color=\"#ffffff\" colorspace=\"display-p3\" command=\"show-modal\" commandfor=\"dialog-id\" data=\"/document.pdf\" headingoffset=\"2\" headingreset hreflang=\"en\" http-equiv=\"refresh\" imagesizes=\"100vw\" imagesrcset=\"/image-2x.png 2x\" nomodule ping=\"/analytics\" playsinline shadowrootclonable shadowrootcustomelementregistry shadowrootdelegatesfocus shadowrootmode=\"open\" shadowrootserializable shadowrootslotassignment=\"named\" span=\"2\" srcdoc=\"&lt;p&gt;Embedded&lt;/p&gt;\" writingsuggestions=\"false\"></div>"
+            "all attributes should use their standard serialized names"
+    }
+
+    test "WAI-ARIA 1.2 attributes render correctly" {
+        let actual =
+            div {
+                _ariaActivedescendant "option-1"
+                _ariaAutocomplete "list"
+                _ariaColcount "4"
+                _ariaColindex "2"
+                _ariaColspan "1"
+                _ariaDetails "details-id"
+                _ariaErrormessage "error-id"
+                _ariaFlowto "next-id"
+                _ariaKeyshortcuts "Control+S"
+                _ariaLevel "2"
+                _ariaMultiline "true"
+                _ariaMultiselectable "false"
+                _ariaOrientation "vertical"
+                _ariaOwns "owned-id"
+                _ariaPosinset "2"
+                _ariaReadonly "true"
+                _ariaRelevant "additions text"
+                _ariaRowcount "10"
+                _ariaRowindex "3"
+                _ariaRowspan "2"
+                _ariaSetsize "5"
+                _ariaSort "ascending"
+                _aria ("description", "Future-compatible description")
+            }
+            |> Render.toString
+
+        Expect.equal
+            actual
+            "<div aria-activedescendant=\"option-1\" aria-autocomplete=\"list\" aria-colcount=\"4\" aria-colindex=\"2\" aria-colspan=\"1\" aria-details=\"details-id\" aria-errormessage=\"error-id\" aria-flowto=\"next-id\" aria-keyshortcuts=\"Control+S\" aria-level=\"2\" aria-multiline=\"true\" aria-multiselectable=\"false\" aria-orientation=\"vertical\" aria-owns=\"owned-id\" aria-posinset=\"2\" aria-readonly=\"true\" aria-relevant=\"additions text\" aria-rowcount=\"10\" aria-rowindex=\"3\" aria-rowspan=\"2\" aria-setsize=\"5\" aria-sort=\"ascending\" aria-description=\"Future-compatible description\"></div>"
+            "ARIA attributes should use their standard serialized names"
+    }
+
+    test "Boolean ARIA overloads render true and false values" {
+        let actual =
+            div {
+                _ariaAtomic true
+                _ariaBusy false
+                _ariaChecked true
+                _ariaCurrent false
+                _ariaDisabled true
+                _ariaExpanded false
+                _ariaHaspopup true
+                _ariaHidden false
+                _ariaInvalid true
+                _ariaModal false
+                _ariaMultiline true
+                _ariaMultiselectable false
+                _ariaPressed true
+                _ariaReadonly false
+                _ariaRequired true
+                _ariaSelected false
+            }
+            |> Render.toString
+
+        Expect.equal
+            actual
+            "<div aria-atomic=\"true\" aria-busy=\"false\" aria-checked=\"true\" aria-current=\"false\" aria-disabled=\"true\" aria-expanded=\"false\" aria-haspopup=\"true\" aria-hidden=\"false\" aria-invalid=\"true\" aria-modal=\"false\" aria-multiline=\"true\" aria-multiselectable=\"false\" aria-pressed=\"true\" aria-readonly=\"false\" aria-required=\"true\" aria-selected=\"false\"></div>"
+            "boolean ARIA values should remain explicit"
+    }
+
+    test "selectedcontent element renders correctly" {
+        let actual = selectedcontent { "Current option" } |> Render.toString
+        Expect.equal actual "<selectedcontent>Current option</selectedcontent>" "selectedcontent"
+    }
+
     test "Custom element builders el and elVoid" {
         let actual = (Html.el "my-component") { _id "c1"; "content" } |> Render.toString
         Expect.equal actual "<my-component id=\"c1\">content</my-component>" "custom regular element"
@@ -212,6 +384,11 @@ let tests =
     test "title element renders correctly" {
         let actual = title "My Page" |> Render.toString
         Expect.equal actual "<title>My Page</title>" "title"
+    }
+
+    test "title builder supports attributes and child content" {
+        let actual = titleBuilder { _lang "en"; "My Page" } |> Render.toString
+        Expect.equal actual "<title lang=\"en\">My Page</title>" "title builder"
     }
 
     test "For iteration in builder" {

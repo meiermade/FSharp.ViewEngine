@@ -1,30 +1,25 @@
-namespace Docs
+namespace Docs.Common
 
 open System
 
 module Env =
-    let variable (key: string) =
-        match Environment.GetEnvironmentVariable(key) with
-        | value when String.IsNullOrEmpty(value) -> failwith $"Environment variable '{key}' is required"
-        | value -> value
-
-    let variableOrDefault (key: string) (defaultValue: string) =
+    let variableOrDefault (key:string) (defaultValue:string) =
         match Environment.GetEnvironmentVariable(key) with
         | value when String.IsNullOrEmpty(value) -> defaultValue
         | value -> value
 
 type SeqConfig =
-    { endpoint: string }
+    { endpoint:string }
 
 module SeqConfig =
     let load () =
         { endpoint = Env.variableOrDefault "SEQ_ENDPOINT" "http://localhost:5341" }
 
 type Config =
-    { debug: bool
-      appName: string
-      serverUrl: string
-      seq: SeqConfig }
+    { debug:bool
+      appName:string
+      serverUrl:string
+      seq:SeqConfig }
 
 module Config =
     let load () =

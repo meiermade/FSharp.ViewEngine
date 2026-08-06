@@ -3,52 +3,106 @@ module TailwindTests
 open FSharp.ViewEngine
 open Expecto
 open type Html
-open type Tailwind
+open type TailwindElements
+
+let private expectedElements =
+    [
+        "elAutocomplete", "el-autocomplete"
+        "elCommandGroup", "el-command-group"
+        "elCommandList", "el-command-list"
+        "elCommandPalette", "el-command-palette"
+        "elCommandPreview", "el-command-preview"
+        "elCopyable", "el-copyable"
+        "elDefaults", "el-defaults"
+        "elDialog", "el-dialog"
+        "elDialogBackdrop", "el-dialog-backdrop"
+        "elDialogPanel", "el-dialog-panel"
+        "elDisclosure", "el-disclosure"
+        "elDropdown", "el-dropdown"
+        "elMenu", "el-menu"
+        "elNoResults", "el-no-results"
+        "elOption", "el-option"
+        "elOptions", "el-options"
+        "elPopover", "el-popover"
+        "elPopoverGroup", "el-popover-group"
+        "elSelect", "el-select"
+        "elSelectedContent", "el-selectedcontent"
+        "elTabGroup", "el-tab-group"
+        "elTabList", "el-tab-list"
+        "elTabPanels", "el-tab-panels"
+    ]
+
+let private expectedElementHelpers = expectedElements |> List.map fst |> Set.ofList
 
 [<Tests>]
 let tests =
-  testList "Tailwind Tests" [
-    test "Tailwind custom elements render correctly" {
-        let actual =
-            div {
-                elAutocomplete { _id "ac"; "search" }
-                elDropdown { elMenu { "item" } }
-                elDialog {
-                    elDialogBackdrop { }
-                    elDialogPanel { "panel content" }
-                }
-                elCommandPalette {
-                    elCommandList {
-                        elCommandGroup { "group" }
-                    }
-                    elCommandPreview { "preview" }
-                }
-                elDefaults { }
-                elNoResults { "No results" }
-                elTabGroup {
-                    elTabList { "tabs" }
-                    elTabPanels { "panels" }
-                }
-            } |> Render.toString
-        Expect.stringContains actual "<el-autocomplete id=\"ac\">search</el-autocomplete>" "el-autocomplete"
-        Expect.stringContains actual "<el-dropdown><el-menu>item</el-menu></el-dropdown>" "el-dropdown/menu"
-        Expect.stringContains actual "<el-dialog>" "el-dialog"
-        Expect.stringContains actual "<el-dialog-backdrop></el-dialog-backdrop>" "el-dialog-backdrop"
-        Expect.stringContains actual "<el-dialog-panel>panel content</el-dialog-panel>" "el-dialog-panel"
-        Expect.stringContains actual "<el-command-palette>" "el-command-palette"
-        Expect.stringContains actual "<el-command-list>" "el-command-list"
-        Expect.stringContains actual "<el-command-group>group</el-command-group>" "el-command-group"
-        Expect.stringContains actual "<el-command-preview>preview</el-command-preview>" "el-command-preview"
-        Expect.stringContains actual "<el-defaults></el-defaults>" "el-defaults"
-        Expect.stringContains actual "<el-no-results>No results</el-no-results>" "el-no-results"
-        Expect.stringContains actual "<el-tab-group>" "el-tab-group"
-        Expect.stringContains actual "<el-tab-list>tabs</el-tab-list>" "el-tab-list"
-        Expect.stringContains actual "<el-tab-panels>panels</el-tab-panels>" "el-tab-panels"
-    }
+    testList "Tailwind Plus Elements Tests" [
+        test "TailwindElements exposes the complete 1.0.22 element inventory" {
+            let actual =
+                typeof<TailwindElements>.GetProperties()
+                |> Array.map _.Name
+                |> Array.filter (fun name -> name.StartsWith("el"))
+                |> Set.ofArray
 
-    test "Tailwind _popover and _anchor attributes" {
-        let actual = div { _popover; _anchor "bottom" } |> Render.toString
-        Expect.stringContains actual "popover" "_popover"
-        Expect.stringContains actual "anchor=\"bottom\"" "_anchor"
-    }
-  ]
+            Expect.equal actual expectedElementHelpers "all 23 published custom elements"
+        }
+
+        test "Tailwind Plus custom elements render correctly" {
+            let actual =
+                div {
+                    elAutocomplete {
+                        elOptions {
+                            elOption { "Autocomplete option" }
+                        }
+                    }
+                    elCommandPalette {
+                        elCommandList {
+                            elDefaults { "Defaults" }
+                            elCommandGroup { "Group" }
+                        }
+                        elNoResults { "No results" }
+                        elCommandPreview { "Preview" }
+                    }
+                    elCopyable { "Copy me" }
+                    elDialog {
+                        dialog {
+                            elDialogBackdrop { }
+                            elDialogPanel { "Panel" }
+                        }
+                    }
+                    elDisclosure { "Disclosure" }
+                    elDropdown { elMenu { "Menu item" } }
+                    elPopoverGroup { elPopover { "Popover" } }
+                    elSelect { elSelectedContent { "Selected" } }
+                    elTabGroup {
+                        elTabList { "Tabs" }
+                        elTabPanels { "Panels" }
+                    }
+                }
+                |> Render.toString
+
+            for helper, tag in expectedElements do
+                Expect.stringContains actual $"<{tag}" helper
+                Expect.stringContains actual $"</{tag}>" helper
+        }
+
+        test "Tailwind Plus custom attributes serialize correctly" {
+            let actual =
+                elPopover {
+                    _popover
+                    _anchor "bottom start"
+                    _anchorStrategy "fixed"
+                }
+                |> Render.toString
+
+            Expect.equal
+                actual
+                "<el-popover popover anchor=\"bottom start\" anchor-strategy=\"fixed\"></el-popover>"
+                "presence and valued attributes"
+        }
+
+        test "Tailwind compatibility type is removed" {
+            let legacyType = typeof<TailwindElements>.Assembly.GetType("FSharp.ViewEngine.Tailwind")
+            Expect.isNull legacyType "TailwindElements is the only public type"
+        }
+    ]

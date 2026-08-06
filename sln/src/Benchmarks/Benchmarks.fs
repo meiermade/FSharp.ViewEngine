@@ -1,9 +1,5 @@
 module Benchmarks
 open BenchmarkDotNet.Attributes
-open BenchmarkDotNet.Configs
-open BenchmarkDotNet.Jobs
-open BenchmarkDotNet.Running
-open BenchmarkDotNet.Toolchains.InProcess.NoEmit
 
 module ViewEngineApi =
     open FSharp.ViewEngine
@@ -458,15 +454,3 @@ type BuildOnly() =
     [<Benchmark>]
     member _.FelizApi() =
         FelizApi.buildDocument()
-
-let runBenchmarks () =
-    let medJob =
-        Job.MediumRun
-            .WithToolchain(InProcessNoEmitToolchain.Instance)
-
-    let config =
-        ManualConfig.Create(DefaultConfig.Instance)
-            .AddJob(medJob)
-    BenchmarkRunner.Run<BuildAndRender>(config) |> ignore
-    BenchmarkRunner.Run<RenderOnly>(config) |> ignore
-    BenchmarkRunner.Run<BuildOnly>(config) |> ignore

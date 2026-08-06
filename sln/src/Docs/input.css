@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@source "./{*.fs,**/*.fs}";
+@source "./src/**/*.fs";
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
 

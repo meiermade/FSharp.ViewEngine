@@ -1,17 +1,27 @@
 name: Publish
 on:
   release:
-    branches:
-      - main
     types:
       - published
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: fsharp-viewengine-release
+  cancel-in-progress: false
+
 jobs:
+  deploy-and-verify:
+    name: Deploy and verify Docs
+    uses: ./.github/workflows/deploy.yml
+    secrets: inherit
+
   publish:
-    name: Publish
+    name: Publish NuGet
+    needs: deploy-and-verify
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@v5
       - name: Setup dotnet
@@ -25,7 +35,9 @@ jobs:
         run: dotnet tool restore
         working-directory: ./sln
       - name: Install Packages
-        run: dotnet paket install
+        run: |
+          dotnet paket install
+          dotnet restore FSharp.ViewEngine.slnx
         working-directory: ./sln
       - name: Authenticate Pulumi
         uses: pulumi/auth-actions@v1
@@ -33,6 +45,6 @@ jobs:
           organization: meiermade
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:meiermade
-      - name: Publish
+      - name: Publish verified package
         run: pulumi env run fsharpviewengine/nuget -- ./fake.sh PushNugets
         working-directory: ./sln

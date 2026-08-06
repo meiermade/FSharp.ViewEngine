@@ -60,20 +60,20 @@ let run (mode: Mode) (api: Api) (durationMs: int) =
         | Giraffe -> Benchmarks.GiraffeApi.buildDocument() |> ignore
         | Feliz -> Benchmarks.FelizApi.buildDocument() |> ignore
 
-    let renderOnly () =
+    let renderOnly =
         match api with
         | ViewEngine ->
             let doc = Benchmarks.ViewEngineApi.buildDocument()
-            doc |> FSharp.ViewEngine.Render.toHtmlDocString |> ignore
+            fun () -> doc |> FSharp.ViewEngine.Render.toHtmlDocString |> ignore
         | Oxpecker ->
             let doc = Benchmarks.OxpeckerApi.buildDocument()
-            doc |> Oxpecker.ViewEngine.Render.toHtmlDocString |> ignore
+            fun () -> doc |> Oxpecker.ViewEngine.Render.toHtmlDocString |> ignore
         | Giraffe ->
             let doc = Benchmarks.GiraffeApi.buildDocument()
-            doc |> Giraffe.ViewEngine.RenderView.AsString.htmlDocument |> ignore
+            fun () -> doc |> Giraffe.ViewEngine.RenderView.AsString.htmlDocument |> ignore
         | Feliz ->
             let doc = Benchmarks.FelizApi.buildDocument()
-            doc |> Feliz.ViewEngine.Render.htmlDocument |> ignore
+            fun () -> doc |> Feliz.ViewEngine.Render.htmlDocument |> ignore
 
     let invoke =
         match mode with
@@ -106,5 +106,5 @@ let main args =
         run mode api durationMs
         0
     else
-        Benchmarks.runBenchmarks ()
+        Runner.runBenchmarks args
         0

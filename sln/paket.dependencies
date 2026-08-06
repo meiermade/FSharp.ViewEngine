@@ -2,16 +2,10 @@ source https://api.nuget.org/v3/index.json
 storage: none
 
 nuget Fake.Core.Target
-nuget Giraffe
-nuget JetBrains.Annotations
-nuget Markdig
-nuget Expecto
-nuget BenchmarkDotNet 0.14.0
-nuget FSharp.Core
-nuget Giraffe.ViewEngine
-nuget Feliz.ViewEngine
-nuget Oxpecker.ViewEngine
-nuget Serilog
+nuget Giraffe 8.3.0
+nuget Expecto 11.1.0
+nuget FSharp.Core 10.0.102
+nuget Serilog 4.4.0
 nuget Serilog.AspNetCore
 nuget Serilog.Sinks.Console
 nuget Serilog.Sinks.OpenTelemetry

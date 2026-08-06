@@ -1,8 +1,12 @@
 name: Deploy
 on:
+  workflow_call:
   workflow_dispatch:
-  release:
-    types: [published]
+
+concurrency:
+  group: fsharp-viewengine-deploy
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Deploy
@@ -21,7 +25,7 @@ jobs:
         with:
           install_components: gke-gcloud-auth-plugin
       - name: Install Packages
-        run: npm install
+        run: npm ci
         working-directory: ./pulumi
       - name: Authenticate Pulumi
         uses: pulumi/auth-actions@v1
@@ -35,3 +39,49 @@ jobs:
           work-dir: ./pulumi
           command: up
           stack-name: prod
+
+  e2e:
+    name: E2E
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Install E2E packages
+        run: npm ci
+        working-directory: ./e2e
+      - name: Install Firefox
+        run: npx playwright install --with-deps firefox
+        working-directory: ./e2e
+      - name: Wait for deployed Docs
+        run: |
+          for _ in $(seq 1 60); do
+            if curl --fail --silent --show-error https://fsharpviewengine.meiermade.com/health >/dev/null; then
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "FSharp.ViewEngine Docs did not become ready." >&2
+          exit 1
+      - name: Test deployed Docs
+        run: npm run test:published
+        working-directory: ./e2e
+        env:
+          DOCS_E2E_BASE_URL: https://fsharpviewengine.meiermade.com
+      - name: Upload E2E diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fsharp-viewengine-deploy-e2e
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          if-no-files-found: ignore
