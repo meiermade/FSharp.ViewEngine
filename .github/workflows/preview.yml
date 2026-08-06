@@ -5,7 +5,7 @@ on:
       - main
 jobs:
   unit:
-    name: Test
+    name: Unit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -70,7 +70,8 @@ jobs:
           if-no-files-found: ignore
 
   preview:
-    name: Preview
+    # Keep this terminal job named Test because it is the protected branch check.
+    name: Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
