@@ -24,7 +24,6 @@ let testsDir = srcDir </> "Tests"
 let docsDir = srcDir </> "Docs"
 let docsTestsDir = srcDir </> "Docs.Tests"
 let benchmarksDir = srcDir </> "Benchmarks"
-let scriptsDir = slnDir </> "scripts"
 
 let exec workDir cmd args =
     CreateProcess.fromRawCommand cmd args
@@ -83,8 +82,9 @@ Target.create "VerifyPackage" (fun _ ->
         | [ package ] -> package
         | _ -> failwith $"Expected exactly one package, found {nugets.Length}"
 
-    exec slnDir "bash" [ scriptsDir </> "verify-package.sh"; package ]
-    |> Async.RunSynchronously
+    PackageVerification.verify
+        (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)
+        package
 )
 
 Target.create "PushNugets" (fun _ ->
