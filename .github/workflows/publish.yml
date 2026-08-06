@@ -13,17 +13,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy-and-verify:
-    name: Deploy and verify Docs
-    uses: ./.github/workflows/deploy.yml
-    secrets: inherit
-
-  publish:
-    name: Publish NuGet
-    needs: deploy-and-verify
+  package:
+    name: Package
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Resolve release metadata
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Invalid release tag: $RELEASE_TAG" >&2
+            exit 1
+          fi
+
+          {
+            echo "tag=$RELEASE_TAG"
+            echo "version=${RELEASE_TAG#v}"
+            echo "commit=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
         with:
@@ -39,6 +54,51 @@ jobs:
           dotnet paket install
           dotnet restore FSharp.ViewEngine.slnx
         working-directory: ./sln
+      - name: Build, test, pack, and verify release
+        run: ./fake.sh VerifyPackage
+        working-directory: ./sln
+      - name: Record package checksums
+        run: sha256sum ./*.nupkg ./*.snupkg > SHA256SUMS
+        working-directory: ./nugets
+      - name: Upload verified package
+        uses: actions/upload-artifact@v4
+        with:
+          name: fsharp-viewengine-nuget
+          path: |
+            nugets/*.nupkg
+            nugets/*.snupkg
+            nugets/SHA256SUMS
+          if-no-files-found: error
+
+  deploy-and-verify:
+    name: Deploy and verify Docs
+    needs: package
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ needs.package.outputs.tag }}
+      expectedVersion: ${{ needs.package.outputs.version }}
+      expectedCommit: ${{ needs.package.outputs.commit }}
+    secrets: inherit
+
+  publish:
+    name: Publish NuGet
+    needs:
+      - package
+      - deploy-and-verify
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Download verified package
+        uses: actions/download-artifact@v5
+        with:
+          name: fsharp-viewengine-nuget
+          path: ${{ runner.temp }}/package
+      - name: Verify package checksums
+        run: sha256sum --check SHA256SUMS
+        working-directory: ${{ runner.temp }}/package
       - name: Authenticate Pulumi
         uses: pulumi/auth-actions@v1
         with:
@@ -46,5 +106,25 @@ jobs:
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:meiermade
       - name: Publish verified package
-        run: pulumi env run fsharpviewengine/nuget -- ./fake.sh PushNugets
-        working-directory: ./sln
+        env:
+          PACKAGE_PATH: ${{ runner.temp }}/package/FSharp.ViewEngine.${{ needs.package.outputs.version }}.nupkg
+        run: |
+          pulumi env run fsharpviewengine/nuget -- \
+            bash -euo pipefail -c \
+            "dotnet nuget push \"$PACKAGE_PATH\" --source https://api.nuget.org/v3/index.json --api-key \"\$NUGET_API_KEY\" --skip-duplicate"
+      - name: Wait for NuGet availability
+        env:
+          VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          package_url="https://api.nuget.org/v3-flatcontainer/fsharp.viewengine/$VERSION/fsharp.viewengine.$VERSION.nupkg"
+
+          for _ in $(seq 1 60); do
+            if curl --fail --silent --show-error --output /dev/null "$package_url"; then
+              echo "FSharp.ViewEngine $VERSION is available from NuGet."
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "FSharp.ViewEngine $VERSION was not available from NuGet after 10 minutes." >&2
+          exit 1

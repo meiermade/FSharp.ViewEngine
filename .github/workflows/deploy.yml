@@ -1,21 +1,85 @@
 name: Deploy
 on:
   workflow_call:
+    inputs:
+      ref:
+        description: Git ref containing the Docs release
+        required: true
+        type: string
+      expectedVersion:
+        description: Release version expected from the deployed health endpoint
+        required: true
+        type: string
+      expectedCommit:
+        description: Commit expected from the deployed health endpoint
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref to deploy
+        required: true
+        default: main
+        type: string
+      expectedVersion:
+        description: Optional release version; inferred from version tags or reported as unreleased
+        required: false
+        type: string
+      expectedCommit:
+        description: Optional commit assertion; defaults to the selected ref's commit
+        required: false
+        type: string
 
 concurrency:
-  group: fsharp-viewengine-deploy
+  group: fsharp-viewengine-production
   cancel-in-progress: false
 
 jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://fsharpviewengine.meiermade.com
     permissions:
       contents: read
       id-token: write
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ inputs.ref }}
+      - name: Resolve release metadata
+        id: release
+        env:
+          REQUESTED_VERSION: ${{ inputs.expectedVersion }}
+          EXPECTED_COMMIT: ${{ inputs.expectedCommit }}
+          DEPLOY_REF: ${{ inputs.ref }}
+        run: |
+          version="$REQUESTED_VERSION"
+          if [[ -z "$version" ]]; then
+            if [[ "$DEPLOY_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              version="${DEPLOY_REF#v}"
+            else
+              version="unreleased"
+            fi
+          fi
+
+          commit="$EXPECTED_COMMIT"
+          if [[ -z "$commit" ]]; then
+            commit="$(git rev-parse HEAD)"
+          fi
+
+          actual_commit="$(git rev-parse HEAD)"
+          if [[ "$commit" != "$actual_commit" ]]; then
+            echo "Expected commit $commit, but $DEPLOY_REF resolved to $actual_commit." >&2
+            exit 1
+          fi
+
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
@@ -35,6 +99,9 @@ jobs:
           scope: user:meiermade
       - name: Deploy
         uses: pulumi/actions@v6
+        env:
+          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
         with:
           work-dir: ./pulumi
           command: up
@@ -49,6 +116,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.deploy.outputs.commit }}
       - name: Setup Node
         uses: actions/setup-node@v5
         with:
@@ -61,21 +130,34 @@ jobs:
       - name: Install Firefox
         run: npx playwright install --with-deps firefox
         working-directory: ./e2e
-      - name: Wait for deployed Docs
+      - name: Wait for deployed Docs release
+        env:
+          EXPECTED_VERSION: ${{ needs.deploy.outputs.version }}
+          EXPECTED_COMMIT: ${{ needs.deploy.outputs.commit }}
         run: |
           for _ in $(seq 1 60); do
-            if curl --fail --silent --show-error https://fsharpviewengine.meiermade.com/health >/dev/null; then
+            health="$(curl --fail --silent --show-error https://fsharpviewengine.meiermade.com/health || true)"
+            status="$(jq -r '.status // empty' <<< "$health" 2>/dev/null || true)"
+            version="$(jq -r '.version // empty' <<< "$health" 2>/dev/null || true)"
+            commit="$(jq -r '.commit // empty' <<< "$health" 2>/dev/null || true)"
+
+            if [[ "$status" == "ok" && "$version" == "$EXPECTED_VERSION" && "$commit" == "$EXPECTED_COMMIT" ]]; then
               exit 0
             fi
+
+            echo "Waiting for Docs $EXPECTED_VERSION at $EXPECTED_COMMIT; found version=${version:-unknown}, commit=${commit:-unknown}."
             sleep 5
           done
-          echo "FSharp.ViewEngine Docs did not become ready." >&2
+
+          echo "FSharp.ViewEngine Docs did not report the expected release." >&2
           exit 1
       - name: Test deployed Docs
         run: npm run test:published
         working-directory: ./e2e
         env:
           DOCS_E2E_BASE_URL: https://fsharpviewengine.meiermade.com
+          DOCS_EXPECTED_VERSION: ${{ needs.deploy.outputs.version }}
+          DOCS_EXPECTED_COMMIT: ${{ needs.deploy.outputs.commit }}
       - name: Upload E2E diagnostics
         if: failure()
         uses: actions/upload-artifact@v4

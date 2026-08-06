@@ -62,6 +62,10 @@ const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                         securityContext: containerSecurityContext,
                         imagePullPolicy: 'IfNotPresent',
                         envFrom: [ { configMapRef: { name: appConfigMap.metadata.name } } ],
+                        env: [
+                            { name: 'RELEASE_VERSION', value: config.releaseConfig.version },
+                            { name: 'RELEASE_COMMIT', value: config.releaseConfig.commit },
+                        ],
                         resources: {
                             requests: { cpu: '25m', memory: '64Mi' },
                             limits: { cpu: '250m', memory: '256Mi' },

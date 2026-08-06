@@ -7,10 +7,10 @@ open Serilog
 open Serilog.Events
 open Serilog.Sinks.OpenTelemetry
 
-let webApp =
+let webApp (config:Config) =
     choose [
         GET >=> choose [
-            route "/health" >=> text "ok"
+            route "/health" >=> json {| status = "ok"; version = config.release.version; commit = config.release.commit |}
             Handler.routes
         ]
         setStatusCode 404 >=> text "Not found"
@@ -32,7 +32,7 @@ let configureLogger (config:Config) =
                 options.ResourceAttributes <- dict [ "service.name", box config.appName ])
             .CreateLogger()
 
-let configureApp (app:IApplicationBuilder) =
+let configureApp (config:Config) (app:IApplicationBuilder) =
     app
         .UseSerilogRequestLogging(fun options ->
             options.GetLevel <- fun context _ _ ->
@@ -40,7 +40,7 @@ let configureApp (app:IApplicationBuilder) =
                 else LogEventLevel.Information)
         .UseStaticFiles()
     |> ignore
-    app.UseGiraffe webApp
+    app.UseGiraffe(webApp config)
 
 let configureServices (services:IServiceCollection) =
     services
@@ -62,8 +62,13 @@ let main args =
             if app.Environment.IsDevelopment() then
                 app.UseDeveloperExceptionPage() |> ignore
 
-            configureApp app
-            Log.Information("Starting {AppName}", config.appName)
+            configureApp config app
+            Log.Information(
+                "Starting {AppName} version {ReleaseVersion} at commit {ReleaseCommit}",
+                config.appName,
+                config.release.version,
+                config.release.commit)
+
             app.Run(config.serverUrl)
             0
         with ex ->

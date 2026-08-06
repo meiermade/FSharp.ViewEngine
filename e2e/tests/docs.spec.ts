@@ -32,6 +32,9 @@ test.describe('public documentation routes', () => {
       const response = await page.goto(route.path, { waitUntil: 'domcontentloaded' })
 
       expect(response?.status(), `${route.path} status`).toBe(200)
+      const serverHtml = await response!.text()
+      expect(serverHtml, `${route.path} server-rendered article`).toContain('<article>')
+      expect(serverHtml, `${route.path} complete HTML document`).toContain('<!DOCTYPE html>')
       await expect(page.getByRole('heading', { level: 1, name: route.heading, exact: true })).toBeVisible()
       await expect(page.locator('article')).toBeVisible()
       const canonicalURL = route.path === '/' ? productionOrigin : `${productionOrigin}${route.path}`
@@ -45,7 +48,17 @@ test.describe('public documentation routes', () => {
 test('health and pinned application assets are available', async ({ request }) => {
   const health = await request.get('/health')
   expect(health.status()).toBe(200)
-  expect(await health.text()).toBe('ok')
+  const healthBody = await health.json()
+  expect(healthBody).toMatchObject({ status: 'ok' })
+  expect(healthBody.version).toBeTruthy()
+  expect(healthBody.commit).toBeTruthy()
+
+  if (process.env.DOCS_EXPECTED_VERSION) {
+    expect(healthBody.version).toBe(process.env.DOCS_EXPECTED_VERSION)
+  }
+  if (process.env.DOCS_EXPECTED_COMMIT) {
+    expect(healthBody.commit).toBe(process.env.DOCS_EXPECTED_COMMIT)
+  }
 
   const css = await request.get('/css/output.css')
   expect(css.status()).toBe(200)

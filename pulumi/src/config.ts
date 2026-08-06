@@ -5,6 +5,11 @@ export const rootDir = path.dirname(path.dirname(__dirname))
 
 export const identifier = 'fsharpviewengine'
 
+export const releaseConfig = {
+    version: process.env.RELEASE_VERSION || 'development',
+    commit: process.env.RELEASE_COMMIT || 'local',
+}
+
 const rawDockerConfig = new pulumi.Config('docker')
 
 export const dockerConfig = {
