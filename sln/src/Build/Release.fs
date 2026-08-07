@@ -1,11 +1,11 @@
 module Release
 
 open System
-open System.Diagnostics
 open System.Globalization
 open System.IO
 open System.Text.Json
 open System.Text.RegularExpressions
+open Fake.Tools.Git
 
 [<Struct>]
 type private CalendarVersion =
@@ -38,47 +38,23 @@ let private parseVersion (value:string) =
 
     version
 
-let private runGit (repository:string) (arguments:string list) =
-    let startInfo = ProcessStartInfo "git"
-    startInfo.WorkingDirectory <- repository
-    startInfo.RedirectStandardOutput <- true
-    startInfo.RedirectStandardError <- true
-    startInfo.UseShellExecute <- false
-    for argument in arguments do
-        startInfo.ArgumentList.Add argument
-
-    use git = Process.Start startInfo
-    let standardOutput = git.StandardOutput.ReadToEndAsync()
-    let standardError = git.StandardError.ReadToEndAsync()
-    git.WaitForExit()
-    let output = standardOutput.GetAwaiter().GetResult().Trim()
-    let error = standardError.GetAwaiter().GetResult().Trim()
-
-    if git.ExitCode <> 0 then
-        let command = String.concat " " arguments
-        raise (InvalidOperationException $"git {command} failed: {error}")
-
-    output
-
-let private lines (value:string) =
-    value.Split([| '\r'; '\n' |], StringSplitOptions.RemoveEmptyEntries ||| StringSplitOptions.TrimEntries)
-    |> Array.toList
+let private gitValue repository command =
+    CommandHelper.runSimpleGitCommand repository command
 
 let private knownTags (repository:string) =
-    runGit repository [ "tag"; "--list" ]
-    |> lines
+    CommandHelper.getGitResult repository "tag --list"
     |> List.choose (fun tag ->
         let matched = versionPattern.Match tag
         if not matched.Success then None
         else
             let version = parseVersion tag
-            let commit = runGit repository [ "rev-list"; "-n"; "1"; tag ]
+            let commit = gitValue repository $"rev-list -n 1 {tag}"
             Some(tag, version, commit))
 
 let private versionKey (version:CalendarVersion) = version.year, version.month, version.minor
 
 let private resolveMetadata (repository:string) (now:DateTimeOffset) (versionOverride:string option) =
-    let commit = runGit repository [ "rev-parse"; "HEAD" ]
+    let commit = Information.getCurrentSHA1 repository
     let tags = knownTags repository
 
     let selectedTag, selectedVersion =
@@ -137,7 +113,7 @@ let prepare (repository:string) (outputPath:string) (versionOverride:string opti
     metadata
 
 let tag (repository:string) (metadata:Metadata) =
-    let actualCommit = runGit repository [ "rev-parse"; "HEAD" ]
+    let actualCommit = Information.getCurrentSHA1 repository
     if actualCommit <> metadata.commit then
         raise (InvalidOperationException $"Release metadata identifies {metadata.commit}, but HEAD is {actualCommit}")
 
@@ -150,6 +126,6 @@ let tag (repository:string) (metadata:Metadata) =
     | Some commit when commit <> metadata.commit ->
         raise (InvalidOperationException $"Release tag {metadata.tag} already points to {commit}, not {metadata.commit}")
     | Some _ -> ()
-    | None -> runGit repository [ "tag"; metadata.tag; metadata.commit ] |> ignore
+    | None -> Branches.tag repository metadata.tag
 
-    runGit repository [ "push"; "origin"; metadata.tag ] |> ignore
+    Branches.pushTag repository "origin" metadata.tag

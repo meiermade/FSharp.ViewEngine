@@ -2,6 +2,7 @@ source https://api.nuget.org/v3/index.json
 storage: none
 
 nuget Fake.Core.Target
+nuget Fake.Tools.Git 6.1.4
 nuget Giraffe 8.3.0
 nuget Expecto 11.1.0
 nuget FSharp.Core 10.0.102
