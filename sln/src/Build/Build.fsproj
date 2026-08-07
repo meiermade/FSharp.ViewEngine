@@ -6,6 +6,7 @@
     <NoWarn>$(NoWarn);NU1510</NoWarn>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Release.fs" />
     <Compile Include="PackageVerification.fs" />
     <Compile Include="Program.fs" />
     <Content Include="paket.references" />

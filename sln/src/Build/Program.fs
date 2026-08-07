@@ -24,6 +24,11 @@ let testsDir = srcDir </> "Tests"
 let docsDir = srcDir </> "Docs"
 let docsTestsDir = srcDir </> "Docs.Tests"
 let benchmarksDir = srcDir </> "Benchmarks"
+let releaseRepository = Environment.environVarOrDefault "RELEASE_REPOSITORY" rootDir
+let releaseMetadataPath =
+    Environment.environVarOrDefault
+        "RELEASE_METADATA_PATH"
+        (__SOURCE_DIRECTORY__ </> "obj" </> "release-metadata.json")
 
 let exec workDir cmd args =
     CreateProcess.fromRawCommand cmd args
@@ -51,9 +56,24 @@ let availableLocalPort () =
     (listener.LocalEndpoint :?> IPEndPoint).Port
 
 let getVersion () =
-    let tag = Environment.environVarOrFail "GITHUB_REF_NAME"
-    let m = Regex.Match(tag, @"^v(\d+\.\d+\.\d+)$")
-    if m.Success then m.Groups[1].Value else failwith $"invalid tag: {tag}"
+    let value =
+        match Environment.environVarOrNone "PACKAGE_VERSION" with
+        | Some version -> version
+        | None -> Environment.environVarOrFail "GITHUB_REF_NAME"
+
+    let matched = Regex.Match(value, @"^v?(\d+\.\d+\.\d+)$")
+    if matched.Success then matched.Groups[1].Value else failwith $"invalid package version: {value}"
+
+Target.create "PrepareRelease" <| fun _ ->
+    let versionOverride = Environment.environVarOrNone "RELEASE_VERSION_OVERRIDE"
+    let metadata = Release.prepare releaseRepository releaseMetadataPath versionOverride
+    Trace.trace $"Prepared {metadata.tag} for {metadata.commit}"
+    Trace.trace $"Release metadata: {releaseMetadataPath}"
+
+Target.create "TagRelease" <| fun _ ->
+    let metadata = Release.readMetadata releaseMetadataPath
+    Release.tag releaseRepository metadata
+    Trace.trace $"Release tag {metadata.tag} points to {metadata.commit}"
 
 Target.create "CleanNugets" <| fun _ -> Shell.cleanDir nugetsDir
 

@@ -1,8 +1,11 @@
 name: Publish
 on:
-  release:
-    types:
-      - published
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Optional calendar version override (YYYY.M.MINOR)
+        required: false
+        type: string
 
 permissions:
   contents: read
@@ -16,29 +19,23 @@ jobs:
   package:
     name: Package
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
       commit: ${{ steps.release.outputs.commit }}
     steps:
-      - uses: actions/checkout@v5
-        with:
-          ref: ${{ github.event.release.tag_name }}
-      - name: Resolve release metadata
-        id: release
-        env:
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+      - name: Require main branch
         run: |
-          if [[ ! "$RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "Invalid release tag: $RELEASE_TAG" >&2
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Releases must run from main, not $GITHUB_REF." >&2
             exit 1
           fi
-
-          {
-            echo "tag=$RELEASE_TAG"
-            echo "version=${RELEASE_TAG#v}"
-            echo "commit=$(git rev-parse HEAD)"
-          } >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
         with:
@@ -54,7 +51,25 @@ jobs:
           dotnet paket install
           dotnet restore FSharp.ViewEngine.slnx
         working-directory: ./sln
+      - name: Prepare release
+        env:
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
+          RELEASE_VERSION_OVERRIDE: ${{ inputs.version }}
+        run: ./fake.sh PrepareRelease
+        working-directory: ./sln
+      - name: Read release metadata
+        id: release
+        env:
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
+        run: |
+          {
+            echo "tag=$(jq -r '.tag' "$RELEASE_METADATA_PATH")"
+            echo "version=$(jq -r '.version' "$RELEASE_METADATA_PATH")"
+            echo "commit=$(jq -r '.commit' "$RELEASE_METADATA_PATH")"
+          } >> "$GITHUB_OUTPUT"
       - name: Build, test, pack, and verify release
+        env:
+          PACKAGE_VERSION: ${{ steps.release.outputs.version }}
         run: ./fake.sh VerifyPackage
         working-directory: ./sln
       - name: Record package checksums
@@ -69,6 +84,11 @@ jobs:
             nugets/*.snupkg
             nugets/SHA256SUMS
           if-no-files-found: error
+      - name: Create release tag
+        env:
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
+        run: ./fake.sh TagRelease
+        working-directory: ./sln
 
   deploy-and-verify:
     name: Deploy and verify Docs
@@ -86,6 +106,9 @@ jobs:
       - package
       - deploy-and-verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
     steps:
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
@@ -128,3 +151,13 @@ jobs:
 
           echo "FSharp.ViewEngine $VERSION was not available from NuGet after 10 minutes." >&2
           exit 1
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.package.outputs.tag }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists."
+          else
+            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+          fi
