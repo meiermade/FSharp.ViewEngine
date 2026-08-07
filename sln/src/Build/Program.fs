@@ -96,11 +96,16 @@ Target.create "Pack"  (fun _ ->
 )
 
 Target.create "VerifyPackage" (fun _ ->
-    let nugets = !! $"{nugetsDir}/*.nupkg" |> Seq.toList
     let package =
-        match nugets with
-        | [ package ] -> package
-        | _ -> failwith $"Expected exactly one package, found {nugets.Length}"
+        match Environment.environVarOrNone "PACKAGE_PATH" with
+        | Some package -> Path.getFullName package
+        | None ->
+            let nugets = !! $"{nugetsDir}/*.nupkg" |> Seq.toList
+            match nugets with
+            | [ package ] -> package
+            | _ -> failwith $"Expected exactly one package, found {nugets.Length}"
+
+    if not (File.exists package) then failwith $"Package does not exist: {package}"
 
     PackageVerification.verify
         (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)

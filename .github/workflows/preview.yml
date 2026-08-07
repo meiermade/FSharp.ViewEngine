@@ -34,7 +34,9 @@ jobs:
         run: dotnet pack src/FSharp.ViewEngine/FSharp.ViewEngine.fsproj --configuration Release --no-restore --output "$RUNNER_TEMP/package" /p:PackageVersion=0.0.0-preview
         working-directory: ./sln
       - name: Verify package compatibility
-        run: scripts/verify-package.sh "$RUNNER_TEMP/package/FSharp.ViewEngine.0.0.0-preview.nupkg"
+        env:
+          PACKAGE_PATH: ${{ runner.temp }}/package/FSharp.ViewEngine.0.0.0-preview.nupkg
+        run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
 
   e2e:
