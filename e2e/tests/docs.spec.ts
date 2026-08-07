@@ -64,19 +64,32 @@ test('health and pinned application assets are available', async ({ request }) =
   expect(css.status()).toBe(200)
   expect(await css.text()).toContain('tailwindcss v4.3.3')
 
+  const datastar = await request.get('/scripts/datastar.1.0.2.js')
+  expect(datastar.status()).toBe(200)
+  expect(await datastar.text()).toContain('Datastar v1.0.2')
+
   const alpine = await request.get('/scripts/alpinejs.3.15.12.min.js')
-  expect(alpine.status()).toBe(200)
-  expect(await alpine.text()).toContain('version:"3.15.12"')
+  expect(alpine.status()).toBe(404)
 })
 
 test('mobile navigation opens, closes, and does not overflow', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
-  const drawer = page.locator('[x-show="mobileNavOpen"]')
+  const drawer = page.locator('[data-show="$mobileNavOpen"]')
   await expect(drawer).toBeHidden()
+
   await page.getByRole('button', { name: 'Open navigation' }).click()
   await expect(drawer).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(drawer).toBeHidden()
+
+  await page.getByRole('button', { name: 'Open navigation' }).click()
+  await expect(drawer).toBeVisible()
+  await page.locator('#mobile-navigation-backdrop').click({ position: { x: 380, y: 400 } })
+  await expect(drawer).toBeHidden()
+
+  await page.getByRole('button', { name: 'Open navigation' }).click()
   await page.getByRole('button', { name: 'Close navigation' }).click()
   await expect(drawer).toBeHidden()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
@@ -97,8 +110,16 @@ test('benchmark tables remain readable without page overflow on mobile', async (
 
 test('theme selection persists across navigation', async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' })
-  await page.getByRole('button', { name: 'Choose color theme' }).click()
-  await page.getByRole('button', { name: 'Dark', exact: true }).click()
+  const themeButton = page.getByRole('button', { name: 'Choose color theme' })
+  const darkButton = page.getByRole('button', { name: 'Dark', exact: true })
+
+  await themeButton.click()
+  await expect(darkButton).toBeVisible()
+  await page.getByRole('heading', { level: 1, name: 'FSharp.ViewEngine' }).click()
+  await expect(darkButton).toBeHidden()
+
+  await themeButton.click()
+  await darkButton.click()
 
   await expect(page.locator('html')).toHaveClass(/dark/)
   expect(await page.evaluate(() => localStorage.getItem('theme'))).toBe('dark')

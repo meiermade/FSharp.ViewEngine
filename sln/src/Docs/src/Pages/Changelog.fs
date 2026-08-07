@@ -34,7 +34,7 @@ module Changelog =
                 [ Strong [ Text "Breaking:" ]; Text " Attribute values are always HTML-encoded. Output that previously relied on pre-encoded values must now use the original unencoded value or an explicitly trusted raw boundary." ];
                 [ Text "Numeric HTML attribute values now use invariant-culture formatting." ];
                 [ Text "Documentation content is rendered directly from typed FSharp.ViewEngine nodes instead of runtime Markdown conversion." ];
-                [ Text "The Docs application now loads a pinned, self-hosted Alpine.js 3.15.12 runtime instead of a floating external CDN URL." ];
+                [ Text "The Docs application and primary examples now use pinned, self-hosted Datastar 1.0.2 instead of Alpine.js, while retaining Alpine and HTMX as documented library integrations." ];
                 [ Strong [ Text "Breaking:" ]; Text " Datastar modifier-capable presence helpers "; InlineContent.Code "_dataIgnore"; Text " and "; InlineContent.Code "_dataScrollIntoView"; Text " now use unit for their unmodified forms." ];
                 [ Strong [ Text "Breaking:" ]; Text " Alpine modifier overloads now accept ordered string lists without leading periods; transition phase arguments now precede their values." ];
                 [ Strong [ Text "Breaking:" ]; Text " Renamed the Tailwind Plus Elements API from "; InlineContent.Code "Tailwind"; Text " to "; InlineContent.Code "TailwindElements"; Text " without a compatibility alias, and moved its documentation to "; InlineContent.Code "/extensions/tailwind-elements"; Text "." ];

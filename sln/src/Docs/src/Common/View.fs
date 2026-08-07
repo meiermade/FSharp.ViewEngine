@@ -2,7 +2,7 @@ namespace Docs.Common
 
 open System
 open FSharp.ViewEngine
-open type Alpine
+open type Datastar
 open type Html
 
 module View =
@@ -44,7 +44,8 @@ module View =
                     button {
                         _type "button"
                         _ariaLabel "Open navigation"
-                        _xOn ("click", "mobileNavOpen = true")
+                        _dataOn ("click", "$mobileNavOpen = true")
+                        _dataAttr ("aria-expanded", "$mobileNavOpen")
                         _class "relative cursor-pointer rounded-lg p-1 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
                         menuIcon
                     }
@@ -60,33 +61,19 @@ module View =
                 _class "relative flex basis-0 items-center justify-end gap-6 sm:gap-8 md:grow"
                 div {
                     _class "relative z-10"
-                    _xData "{ open: false, theme: localStorage.getItem('theme') || 'system' }"
-                    _xInit """
-                        $watch('theme', (val) => {
-                            localStorage.setItem('theme', val);
-                            if (val === 'dark' || (val === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                                document.documentElement.classList.add('dark');
-                            } else {
-                                document.documentElement.classList.remove('dark');
-                            }
-                        });
-                        if (theme === 'dark' || (theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-                            document.documentElement.classList.add('dark');
-                        }
-                    """
+                    _dataOn ("click", [ "outside" ], "$themeMenuOpen = false")
                     button {
                         _type "button"
                         _ariaLabel "Choose color theme"
                         _class "flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg p-1 transition-colors hover:bg-slate-100 dark:hover:bg-slate-700"
-                        _xOn ("click", "open = !open")
+                        _dataOn ("click", "$themeMenuOpen = !$themeMenuOpen")
+                        _dataAttr ("aria-expanded", "$themeMenuOpen")
                         sunIcon
                         moonIcon
                     }
                     div {
-                        _xShow "open"
-                        _xCloak
-                        _xOn ("click.away", "open = false")
-                        _xTransition ()
+                        _dataShow "$themeMenuOpen"
+                        _style "display: none"
                         _class [
                             "absolute right-0 top-full mt-3 w-36 overflow-hidden rounded-lg"
                             "bg-white py-1 text-sm font-semibold text-slate-700 shadow-lg ring-1"
@@ -96,8 +83,9 @@ module View =
                             button {
                                 _type "button"
                                 _class "flex w-full items-center gap-2 px-3 py-2 hover:bg-slate-100 dark:hover:bg-slate-700/50"
-                                _xOn ("click", $"theme = '{value}'; open = false")
-                                _xBind ("class", $"theme === '{value}' ? 'text-sky-500' : ''")
+                                _dataOn ("click", $"$theme = '{value}'; $themeMenuOpen = false")
+                                _dataClass ("text-sky-500", $"$theme === '{value}'")
+                                _dataAttr ("aria-pressed", $"$theme === '{value}'")
                                 icon
                                 label
                             }
@@ -128,7 +116,7 @@ module View =
                         + " hover:before:block dark:text-slate-400 dark:before:bg-slate-700 dark:hover:text-slate-300"
                 ]
                 _href page.path
-                _xOn ("click", "mobileNavOpen = false")
+                _dataOn ("click", "$mobileNavOpen = false")
                 page.navLabel
             }
         }
@@ -330,24 +318,25 @@ module View =
                 meta { _name "twitter:image:alt"; _content "FSharp.ViewEngine logo" }
                 script { js "let t=localStorage.getItem('theme');if(t==='dark'||(!t||t==='system')&&window.matchMedia('(prefers-color-scheme: dark)').matches){document.documentElement.classList.add('dark')}" }
                 link { _rel "stylesheet"; _href "/css/output.css" }
-                script { _src "/scripts/alpinejs.3.15.12.min.js"; _defer true }
+                script { _type "module"; _src "/scripts/datastar.1.0.2.js" }
                 script { _src "https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/prism.min.js" }
                 link { _rel "stylesheet"; _href "https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/themes/prism-tomorrow.min.css" }
                 script { _src "https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0/components/prism-fsharp.min.js" }
             }
             body {
                 _class "min-h-full bg-white dark:bg-slate-900"
-                _xData "{ mobileNavOpen: false }"
-                _xOn ("keydown.escape.window", "mobileNavOpen = false")
+                _dataSignals "{mobileNavOpen: false, themeMenuOpen: false, theme: localStorage.getItem('theme') || 'system'}"
+                _dataEffect "localStorage.setItem('theme', $theme); document.documentElement.classList.toggle('dark', $theme === 'dark' || ($theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches))"
+                _dataOn ("keydown", [ "window" ], "evt.key === 'Escape' && ($mobileNavOpen = false, $themeMenuOpen = false)")
                 pageHeader
                 div {
-                    _xShow "mobileNavOpen"
-                    _xCloak
-                    _xTransition ()
+                    _dataShow "$mobileNavOpen"
+                    _style "display: none"
                     _class "fixed inset-0 z-[70] lg:hidden"
                     div {
+                        _id "mobile-navigation-backdrop"
                         _class "absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-                        _xOn ("click", "mobileNavOpen = false")
+                        _dataOn ("click", "$mobileNavOpen = false")
                     }
                     div {
                         _class "absolute inset-y-0 left-0 w-full max-w-xs overflow-y-auto bg-white px-6 py-5 shadow-2xl ring-1 ring-slate-900/10 dark:bg-slate-900 dark:ring-white/10"
@@ -356,7 +345,7 @@ module View =
                             a {
                                 _href "/"
                                 _class "flex items-center gap-2 text-sm font-semibold tracking-wider text-slate-700 dark:text-white"
-                                _xOn ("click", "mobileNavOpen = false")
+                                _dataOn ("click", "$mobileNavOpen = false")
                                 img { _src "/logo.svg"; _alt "FSharp.ViewEngine"; _class "h-6 w-6" }
                                 "FSharp.ViewEngine"
                             }
@@ -364,7 +353,7 @@ module View =
                                 _type "button"
                                 _ariaLabel "Close navigation"
                                 _class "cursor-pointer rounded p-1 text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-700"
-                                _xOn ("click", "mobileNavOpen = false")
+                                _dataOn ("click", "$mobileNavOpen = false")
                                 xMarkIcon
                             }
                         }

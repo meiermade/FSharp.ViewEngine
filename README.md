@@ -16,7 +16,7 @@ FSharp.ViewEngine combines ideas from several F# view engines into a clean, unif
 
 - **Computation expression syntax** (like Oxpecker.ViewEngine and Bolero) for building elements
 - **Feliz-style single sequence** of attributes and child elements — no separate attribute and children lists
-- **Attributes prefixed with underscore** by convention (like Giraffe.ViewEngine, e.g. `_class`, `_id`, `_hxGet`), giving clean syntax and nice syntax highlighting
+- **Attributes prefixed with underscore** by convention (like Giraffe.ViewEngine, e.g. `_class`, `_id`, `_dataOn`), giving clean syntax and nice syntax highlighting
 - **Mixed yielding** in computation expressions — you can yield strings, elements, and attributes in any order without needing a special `_children` attribute
 
 The result is a DSL that is as minimal and fast as possible while remaining expressive and type-safe.
@@ -45,8 +45,6 @@ Portable symbols are published separately with Source Link metadata, so supporte
 ```fsharp
 open FSharp.ViewEngine
 open type Html
-open type Htmx
-open type Alpine
 open type Datastar
 open type TailwindElements
 
@@ -58,17 +56,21 @@ html {
         link { _href "/css/compiled.css"; _rel "stylesheet" }
     }
     body {
-        _xData "{showContent: false}"
+        _dataSignals "{showContent: false}"
         _class "bg-gray-50"
         div {
             _id "page"
             _class [ "flex"; "flex-col" ]
-            h1 { _hxGet "/hello"; _hxTarget "#page"; "Hello" }
-            h1 { _hxGet "/world"; _hxTarget "#page"; "World" }
+            h1 { "Hello from FSharp.ViewEngine" }
+            button {
+                _dataOn ("click", "$showContent = !$showContent")
+                "Toggle content"
+            }
         }
         br
         div {
-            _xShow "showContent"
+            _dataShow "$showContent"
+            _style "display: none"
             h2 { "Content" }
             p { "Some content" }
             ul {
@@ -88,13 +90,13 @@ html {
         <meta charset="utf-8">
         <link href="/css/compiled.css" rel="stylesheet">
     </head>
-    <body x-data="{showContent: false}" class="bg-gray-50">
+    <body data-signals="{showContent: false}" class="bg-gray-50">
         <div id="page" class="flex flex-col">
-            <h1 hx-get="/hello" hx-target="#page">Hello</h1>
-            <h1 hx-get="/world" hx-target="#page">World</h1>
+            <h1>Hello from FSharp.ViewEngine</h1>
+            <button data-on:click="$showContent = !$showContent">Toggle content</button>
         </div>
         <br>
-        <div x-show="showContent">
+        <div data-show="$showContent" style="display: none">
             <h2>Content</h2>
             <p>Some content</p>
             <ul>

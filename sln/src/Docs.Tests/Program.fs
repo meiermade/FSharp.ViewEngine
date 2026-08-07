@@ -150,10 +150,20 @@ let tests =
             Expect.stringContains html "Alpine.morph" "Morph has no directive helper"
         }
 
-        test "Docs use the pinned self-hosted Alpine runtime" {
+        test "Docs use only the pinned self-hosted Datastar runtime" {
             let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "/scripts/alpinejs.3.15.12.min.js" "pinned Alpine script"
-            Expect.isFalse (html.Contains("unpkg.com/alpinejs")) "external floating Alpine runtime"
+            Expect.stringContains html "/scripts/datastar.1.0.2.js" "pinned Datastar script"
+            Expect.stringContains html "type=\"module\"" "Datastar module script"
+            Expect.isFalse (html.Contains("alpinejs")) "Alpine runtime removed"
+            Expect.isFalse (html.Contains(" x-data=")) "Alpine directives removed"
+        }
+
+        test "Homepage quick example is Datastar-first" {
+            let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
+            Expect.stringContains html "open type Datastar" "Datastar API"
+            Expect.stringContains html "_dataOn" "Datastar interaction"
+            Expect.isFalse (html.Contains("open type Htmx")) "HTMX is not used by the quick example"
+            Expect.isFalse (html.Contains("_hxGet")) "HTMX is not used as the attribute example"
         }
 
         test "Docs use the pinned Prism runtime and FSharp grammar" {
