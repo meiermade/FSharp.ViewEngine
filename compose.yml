@@ -1,0 +1,13 @@
+name: fsharp-viewengine-e2e
+
+services:
+  docs:
+    build:
+      context: ./sln
+    environment:
+      DEBUG: 'false'
+      SERVER_URL: http://0.0.0.0:5000
+    init: true
+    ports:
+      - 127.0.0.1:${E2E_SERVER_PORT:-5054}:5000
+    stop_grace_period: 15s

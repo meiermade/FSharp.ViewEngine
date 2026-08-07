@@ -8,11 +8,16 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Benchmarks.fs" />
+    <Compile Include="Workloads.fs" />
+    <Compile Include="Runner.fs" />
     <Compile Include="Profile.fs" />
-    <Content Include="paket.references" />
+    <PackageReference Include="BenchmarkDotNet" Version="0.15.8" />
+    <PackageReference Update="FSharp.Core" Version="10.0.102" />
+    <PackageReference Include="Giraffe.ViewEngine" Version="1.4.0" />
+    <PackageReference Include="Feliz.ViewEngine" Version="1.0.3" />
+    <PackageReference Include="Oxpecker.ViewEngine" Version="2.0.1" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
   </ItemGroup>
-  <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

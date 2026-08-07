@@ -1,9 +1,11 @@
+open System.Net
+open System.Net.Sockets
+open System.Text.RegularExpressions
 open Fake.Core
 open Fake.Core.TargetOperators
 open Fake.IO
 open Fake.IO.FileSystemOperators
 open Fake.IO.Globbing.Operators
-open System.Text.RegularExpressions
 
 System.Environment.GetCommandLineArgs()
 |> Array.tail
@@ -20,6 +22,13 @@ let rootDir = Path.getDirectory slnDir
 let nugetsDir = rootDir </> "nugets"
 let testsDir = srcDir </> "Tests"
 let docsDir = srcDir </> "Docs"
+let docsTestsDir = srcDir </> "Docs.Tests"
+let benchmarksDir = srcDir </> "Benchmarks"
+let releaseRepository = Environment.environVarOrDefault "RELEASE_REPOSITORY" rootDir
+let releaseMetadataPath =
+    Environment.environVarOrDefault
+        "RELEASE_METADATA_PATH"
+        (__SOURCE_DIRECTORY__ </> "obj" </> "release-metadata.json")
 
 let exec workDir cmd args =
     CreateProcess.fromRawCommand cmd args
@@ -29,9 +38,9 @@ let exec workDir cmd args =
     |> Async.AwaitTask
     |> Async.Ignore
 
-let execEnv env workDir cmd args =
+let execEnv key value workDir cmd args =
     CreateProcess.fromRawCommand cmd args
-    |> CreateProcess.withEnvironmentMap env
+    |> CreateProcess.setEnvironmentVariable key value
     |> CreateProcess.withWorkingDirectory workDir
     |> CreateProcess.ensureExitCode
     |> Proc.start
@@ -41,10 +50,30 @@ let execEnv env workDir cmd args =
 let dotnet workdir args = exec workdir "dotnet" args
 let tailwindcss args = exec docsDir "tailwindcss" args
 
+let availableLocalPort () =
+    use listener = new TcpListener(IPAddress.Loopback, 0)
+    listener.Start()
+    (listener.LocalEndpoint :?> IPEndPoint).Port
+
 let getVersion () =
-    let tag = Environment.environVarOrFail "GITHUB_REF_NAME"
-    let m = Regex.Match(tag, @"^v(\d+\.\d+\.\d+)$")
-    if m.Success then m.Groups[1].Value else failwith $"invalid tag: {tag}"
+    let value =
+        match Environment.environVarOrNone "PACKAGE_VERSION" with
+        | Some version -> version
+        | None -> Environment.environVarOrFail "GITHUB_REF_NAME"
+
+    let matched = Regex.Match(value, @"^v?(\d+\.\d+\.\d+)$")
+    if matched.Success then matched.Groups[1].Value else failwith $"invalid package version: {value}"
+
+Target.create "PrepareRelease" <| fun _ ->
+    let versionOverride = Environment.environVarOrNone "RELEASE_VERSION_OVERRIDE"
+    let metadata = Release.prepare releaseRepository releaseMetadataPath versionOverride
+    Trace.trace $"Prepared {metadata.tag} for {metadata.commit}"
+    Trace.trace $"Release metadata: {releaseMetadataPath}"
+
+Target.create "TagRelease" <| fun _ ->
+    let metadata = Release.readMetadata releaseMetadataPath
+    Release.tag releaseRepository metadata
+    Trace.trace $"Release tag {metadata.tag} points to {metadata.commit}"
 
 Target.create "CleanNugets" <| fun _ -> Shell.cleanDir nugetsDir
 
@@ -55,6 +84,9 @@ Target.create "Test" <| fun _ ->
         |> Async.RunSynchronously
     )
 
+    dotnet docsTestsDir ["run"]
+    |> Async.RunSynchronously
+
 Target.create "Pack"  (fun _ ->
     let project = srcDir </> "FSharp.ViewEngine" </> "FSharp.ViewEngine.fsproj"
     Trace.trace $"Packing {project}"
@@ -63,21 +95,57 @@ Target.create "Pack"  (fun _ ->
     |> Async.RunSynchronously
 )
 
+Target.create "VerifyPackage" (fun _ ->
+    let package =
+        match Environment.environVarOrNone "PACKAGE_PATH" with
+        | Some package -> Path.getFullName package
+        | None ->
+            let nugets = !! $"{nugetsDir}/*.nupkg" |> Seq.toList
+            match nugets with
+            | [ package ] -> package
+            | _ -> failwith $"Expected exactly one package, found {nugets.Length}"
+
+    if not (File.exists package) then failwith $"Package does not exist: {package}"
+
+    PackageVerification.verify
+        (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)
+        package
+)
+
 Target.create "PushNugets" (fun _ ->
     let nugets = !! $"{nugetsDir}/*.nupkg" |> String.concat ", "
-    Trace.trace $"Publishing {nugets}"
+    Trace.trace $"Publishing {nugets} and its associated symbol package"
     let apiKey = Environment.environVarOrFail "NUGET_API_KEY"
     dotnet rootDir ["nuget"; "push"; $"{nugetsDir}/*.nupkg"; "--source"; "https://api.nuget.org/v3/index.json"; "--api-key"; apiKey]
     |> Async.RunSynchronously
 )
 
 Target.create "WatchDocs" (fun _ ->
-    let watchApp = dotnet docsDir ["watch"; "run"; "--no-restore"]
-    let watchCss = tailwindcss ["--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--watch"]
+    let docsUrl =
+        System.Environment.GetEnvironmentVariable("SERVER_URL")
+        |> Option.ofObj
+        |> Option.defaultWith (fun () -> $"http://127.0.0.1:{availableLocalPort ()}")
+
+    Trace.trace $"Starting the FSharp.ViewEngine Docs at {docsUrl}"
+
+    let watchApp =
+        execEnv "SERVER_URL" docsUrl docsDir "dotnet" ["watch"; "run"; "--no-restore"]
+
+    let watchCss =
+        tailwindcss ["--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--watch"]
+
     Async.Parallel [| watchApp; watchCss |]
     |> Async.RunSynchronously
     |> ignore
 )
+
+Target.create "Benchmark" <| fun parameters ->
+    dotnet benchmarksDir ([ "run"; "--configuration"; "Release"; "--" ] @ parameters.Context.Arguments)
+    |> Async.RunSynchronously
+
+Target.create "BenchmarkSmoke" <| fun parameters ->
+    dotnet benchmarksDir ([ "run"; "--configuration"; "Release"; "--"; "--smoke" ] @ parameters.Context.Arguments)
+    |> Async.RunSynchronously
 
 Target.create "BuildDocsCss" <| fun _ ->
     tailwindcss [ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ]
@@ -95,7 +163,8 @@ Target.create "Default" (fun _ -> Target.listAvailable())
 
 "Test" ==>! "Pack"
 "CleanNugets" ==>! "Pack"
-"Pack" ==>! "PushNugets"
+"Pack" ==>! "VerifyPackage"
+"VerifyPackage" ==>! "PushNugets"
 "BuildDocsCss" ==>! "PublishDocs"
 
 Target.runOrDefaultWithArguments "Default"

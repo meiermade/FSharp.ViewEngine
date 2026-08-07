@@ -2,3 +2,8 @@
 .vscode
 .claude
 .pi*
+.plans/
+node_modules/
+playwright-report/
+test-results/
+BenchmarkDotNet.Artifacts/

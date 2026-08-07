@@ -1,1 +1,1 @@
-dotnet run --project ./src/Build/Build.fsproj -- --target $1
+dotnet run --project ./src/Build/Build.fsproj -- --target "$@"

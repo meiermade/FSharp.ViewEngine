@@ -1,0 +1,12 @@
+{
+  "name": "fsharp-viewengine-e2e",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "playwright test",
+    "test:published": "E2E_START_LOCAL=0 playwright test --project=firefox --retries=0"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}

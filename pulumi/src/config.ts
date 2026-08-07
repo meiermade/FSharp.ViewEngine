@@ -5,6 +5,11 @@ export const rootDir = path.dirname(path.dirname(__dirname))
 
 export const identifier = 'fsharpviewengine'
 
+export const releaseConfig = {
+    version: process.env.RELEASE_VERSION || 'development',
+    commit: process.env.RELEASE_COMMIT || 'local',
+}
+
 const rawDockerConfig = new pulumi.Config('docker')
 
 export const dockerConfig = {
@@ -18,7 +23,7 @@ export const cloudflareConfig = {
     accountId: rawCloudflareConfig.require('accountId'),
     apiToken: rawCloudflareConfig.requireSecret('apiToken'),
     zoneName: rawCloudflareConfig.require('zoneName'),
-    cloudflaredVersion: '2026.2.0'
+    cloudflaredVersion: '2026.7.3'
 }
 
 const rawK8sConfig = new pulumi.Config('k8s')

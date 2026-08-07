@@ -1,11 +1,11 @@
 name: Preview
 on:
   pull_request:
-    paths-ignore:
-      - '**/*.md'
+    branches:
+      - main
 jobs:
-  test:
-    name: Test
+  unit:
+    name: Unit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -20,20 +20,68 @@ jobs:
         run: dotnet tool restore
         working-directory: ./sln
       - name: Install Packages
-        run: dotnet paket install
+        run: |
+          dotnet paket install
+          dotnet restore FSharp.ViewEngine.slnx
+        working-directory: ./sln
+      - name: Build solution
+        run: dotnet build FSharp.ViewEngine.slnx --configuration Release --no-restore
         working-directory: ./sln
       - name: Test
         run: ./fake.sh Test
         working-directory: ./sln
+      - name: Pack
+        run: dotnet pack src/FSharp.ViewEngine/FSharp.ViewEngine.fsproj --configuration Release --no-restore --output "$RUNNER_TEMP/package" /p:PackageVersion=0.0.0-preview
+        working-directory: ./sln
+      - name: Verify package compatibility
+        env:
+          PACKAGE_PATH: ${{ runner.temp }}/package/FSharp.ViewEngine.0.0.0-preview.nupkg
+        run: ./fake.sh VerifyPackage --single-target
+        working-directory: ./sln
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Install E2E packages
+        run: npm ci
+        working-directory: ./e2e
+      - name: Install Firefox
+        run: npx playwright install --with-deps firefox
+        working-directory: ./e2e
+      - name: Test production Docs image
+        run: npm test -- --project=firefox
+        working-directory: ./e2e
+      - name: Upload E2E diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fsharp-viewengine-preview-e2e
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+            /tmp/fsharp-viewengine-e2e
+          if-no-files-found: ignore
+
   preview:
-    name: Preview
+    # Keep this terminal job named Test because it is the protected branch check.
+    name: Test
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
       pull-requests: write
     needs:
-      - test
+      - unit
+      - e2e
     steps:
       - uses: actions/checkout@v5
       - name: Setup Node
@@ -45,7 +93,7 @@ jobs:
         with:
           install_components: gke-gcloud-auth-plugin
       - name: Install Packages
-        run: npm install
+        run: npm ci
         working-directory: ./pulumi
       - name: Authenticate Pulumi
         uses: pulumi/auth-actions@v1
@@ -55,6 +103,9 @@ jobs:
           scope: user:meiermade
       - name: Preview
         uses: pulumi/actions@v6
+        env:
+          RELEASE_VERSION: preview
+          RELEASE_COMMIT: ${{ github.event.pull_request.head.sha }}
         with:
           work-dir: ./pulumi
           command: preview

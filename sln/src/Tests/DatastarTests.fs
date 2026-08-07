@@ -1,115 +1,162 @@
 module DatastarTests
 
+open System
 open FSharp.ViewEngine
-open System.Text.RegularExpressions
 open Expecto
 open type Html
 open type Datastar
 
+let private renderAttribute (attribute: HtmlAttribute) =
+    div { yield attribute }
+    |> Render.toString
+
 [<Tests>]
 let tests =
-  testList "Datastar Tests" [
-    test "Datastar keyed attributes should render with data- prefix" {
-        let actual =
-            div {
-                _dataSignals ("count", "0")
-                _dataOn ("click", "$count++")
-                _dataShow "$count > 0"
-                _dataText "$count"
-                _dataBind "name"
-                _dataBind ("name", "'default'")
-                _dataEffect "console.log($count)"
-                _dataClass ("active", "$isActive")
-                _dataAttr ("disabled", "$count === 0")
-                _dataComputed ("double", "$count * 2")
-                _dataInit "console.log('init')"
-                _dataIgnore
-                _dataIgnoreMorph
-                _dataStyle ("color", "red")
-                _dataRef "myInput"
-                _dataRef ("myInput", "'fallback'")
-                _dataIndicator "loading"
-                _dataIndicator ("loading", "'true'")
-                _dataAnimate "fadeIn"
-                _dataPersist ()
-                _dataPersist "count"
-                _dataPersist ("count", "{include: /count/}")
-                _dataScrollIntoView
-                "Content"
-            } |> Render.toString
-        Expect.stringContains actual "data-signals:count=\"0\"" "data-signals keyed"
-        Expect.stringContains actual "data-on:click=\"$count++\"" "data-on"
-        Expect.stringContains actual "data-show=\"$count > 0\"" "data-show"
-        Expect.stringContains actual "data-text=\"$count\"" "data-text"
-        Expect.stringContains actual "data-bind:name=\"'default'\"" "data-bind keyed with value"
-        Expect.stringContains actual "data-effect=\"console.log($count)\"" "data-effect"
-        Expect.stringContains actual "data-class:active=\"$isActive\"" "data-class keyed"
-        Expect.stringContains actual "data-attr:disabled=\"$count === 0\"" "data-attr keyed"
-        Expect.stringContains actual "data-computed:double=\"$count * 2\"" "data-computed keyed"
-        Expect.stringContains actual "data-init=\"console.log('init')\"" "data-init"
-        Expect.stringContains actual "data-ignore-morph" "data-ignore-morph"
-        Expect.isTrue (Regex.IsMatch(actual, @"data-ignore(?!-)")) "data-ignore (not data-ignore-morph)"
-        Expect.stringContains actual "data-style:color=\"red\"" "data-style keyed"
-        Expect.stringContains actual "data-ref:myInput=\"'fallback'\"" "data-ref keyed with value"
-        Expect.stringContains actual "data-indicator:loading=\"'true'\"" "data-indicator keyed with value"
-        Expect.stringContains actual "data-animate=\"fadeIn\"" "data-animate"
-        Expect.stringContains actual "data-persist:count=\"{include: /count/}\"" "data-persist keyed with value"
-        Expect.isTrue (Regex.IsMatch(actual, @"data-persist(?![:=])")) "data-persist no key"
-        Expect.stringContains actual "data-persist:count" "data-persist keyed"
-        Expect.stringContains actual "data-scroll-into-view" "data-scroll-into-view"
-    }
+    testList "Datastar Tests" [
+        test "Datastar 1.0.2 stable attributes render correctly" {
+            let valuedAttributes =
+                [ "data-animate:opacity", _dataAnimate ("opacity", "$visible ? 1 : 0")
+                  "data-attr", _dataAttr "{disabled: $loading}"
+                  "data-class", _dataClass "{active: $active}"
+                  "data-computed", _dataComputed "{double: () => $count * 2}"
+                  "data-custom-validity", _dataCustomValidity "$valid ? '' : 'Invalid'"
+                  "data-effect", _dataEffect "console.log($count)"
+                  "data-init", _dataInit "$ready = true"
+                  "data-match-media:is-dark", _dataMatchMedia ("is-dark", "'prefers-color-scheme: dark'")
+                  "data-on:click", _dataOn ("click", "$count++")
+                  "data-on-intersect", _dataOnIntersect "$visible = true"
+                  "data-on-interval", _dataOnInterval "$count++"
+                  "data-on-raf", _dataOnRaf "$frames++"
+                  "data-on-resize", _dataOnResize "$width = el.offsetWidth"
+                  "data-on-signal-patch", _dataOnSignalPatch "console.log(patch)"
+                  "data-on-signal-patch-filter", _dataOnSignalPatchFilter "{include: /^count$/}"
+                  "data-preserve-attr", _dataPreserveAttr "open class"
+                  "data-query-string", _dataQueryString "{include: /search/}"
+                  "data-replace-url", _dataReplaceUrl "`/page${$page}`"
+                  "data-show", _dataShow "$visible"
+                  "data-signals", _dataSignals "{count: 0}"
+                  "data-style", _dataStyle "{display: $visible ? 'block' : 'none'}"
+                  "data-text", _dataText "$count"
+                  "data-view-transition", _dataViewTransition "$transitionName" ]
 
-    test "Datastar object-syntax overloads should render without key suffix" {
-        let actual =
-            div {
-                _dataAttr "{'aria-label': $foo, disabled: $bar}"
-                _dataClass "{success: $foo != '', 'font-bold': $foo == 'strong'}"
-                _dataComputed "{foo: () => $bar + $baz}"
-                _dataSignals "{foo: {bar: 1, baz: 2}}"
-                _dataStyle "{display: $hiding ? 'none' : 'flex', 'background-color': $red ? 'red' : 'green'}"
-                "Content"
-            } |> Render.toString
-        Expect.stringContains actual "data-attr=\"{'aria-label': $foo, disabled: $bar}\"" "data-attr object syntax"
-        Expect.stringContains actual "data-class=\"{success: $foo != '', 'font-bold': $foo == 'strong'}\"" "data-class object syntax"
-        Expect.stringContains actual "data-computed=\"{foo: () => $bar + $baz}\"" "data-computed object syntax"
-        Expect.stringContains actual "data-signals=\"{foo: {bar: 1, baz: 2}}\"" "data-signals object syntax"
-        Expect.stringContains actual "data-style=\"{display: $hiding ? 'none' : 'flex', 'background-color': $red ? 'red' : 'green'}\"" "data-style object syntax"
-    }
+            for name, attribute in valuedAttributes do
+                let actual = renderAttribute attribute
+                Expect.stringStarts actual $"<div {name}=\"" name
+        }
 
-    test "Datastar remaining attributes should render correctly" {
-        let actual =
-            div {
-                _dataJsonSignals ()
-                _dataJsonSignals "{include: /user/}"
-                _dataOnIntersect "$intersected = true"
-                _dataOnInterval "$count++"
-                _dataOnSignalPatch "console.log('changed')"
-                _dataOnSignalPatchFilter "{include: /^counter$/}"
-                _dataPreserveAttr "open class"
-                _dataCustomValidity "$foo === $bar ? '' : 'Must match'"
-                _dataOnRaf "$count++"
-                _dataOnResize "$count++"
-                _dataQueryString ()
-                _dataQueryString "{include: /foo/}"
-                _dataReplaceUrl "`/page${page}`"
-                _dataRocket "myRocket"
-                _dataViewTransition "$foo"
-                "Content"
-            } |> Render.toString
-        Expect.isTrue (Regex.IsMatch(actual, @"data-json-signals(?!=)")) "data-json-signals no value"
-        Expect.stringContains actual "data-json-signals=\"{include: /user/}\"" "data-json-signals with value"
-        Expect.stringContains actual "data-on-intersect=\"$intersected = true\"" "data-on-intersect"
-        Expect.stringContains actual "data-on-interval=\"$count++\"" "data-on-interval"
-        Expect.stringContains actual "data-on-signal-patch=\"console.log('changed')\"" "data-on-signal-patch"
-        Expect.stringContains actual "data-on-signal-patch-filter=\"{include: /^counter$/}\"" "data-on-signal-patch-filter"
-        Expect.stringContains actual "data-preserve-attr=\"open class\"" "data-preserve-attr"
-        Expect.stringContains actual "data-custom-validity=\"$foo === $bar ? '' : 'Must match'\"" "data-custom-validity"
-        Expect.stringContains actual "data-on-raf=\"$count++\"" "data-on-raf"
-        Expect.stringContains actual "data-on-resize=\"$count++\"" "data-on-resize"
-        Expect.isTrue (Regex.IsMatch(actual, @"data-query-string(?!=)")) "data-query-string no value"
-        Expect.stringContains actual "data-query-string=\"{include: /foo/}\"" "data-query-string with value"
-        Expect.stringContains actual "data-replace-url=\"`/page${page}`\"" "data-replace-url"
-        Expect.stringContains actual "data-rocket=\"myRocket\"" "data-rocket"
-        Expect.stringContains actual "data-view-transition=\"$foo\"" "data-view-transition"
-    }
-  ]
+        test "Datastar 1.0.2 presence-only attributes render correctly" {
+            let attributes =
+                [ "data-bind:name", _dataBind "name"
+                  "data-ignore", _dataIgnore ()
+                  "data-ignore-morph", _dataIgnoreMorph
+                  "data-indicator:loading", _dataIndicator "loading"
+                  "data-json-signals", _dataJsonSignals ()
+                  "data-persist", _dataPersist ()
+                  "data-ref:element", _dataRef "element"
+                  "data-scroll-into-view", _dataScrollIntoView () ]
+
+            for name, attribute in attributes do
+                let actual = renderAttribute attribute
+                Expect.equal actual $"<div {name}></div>" name
+        }
+
+        test "Keyed and object syntax remain available" {
+            let actual =
+                div {
+                    _dataAttr ("aria-label", "$label")
+                    _dataClass ("font-bold", "$strong")
+                    _dataComputed ("double", "$count * 2")
+                    _dataSignals ("count", "0")
+                    _dataStyle ("background-color", "$color")
+                }
+                |> Render.toString
+
+            Expect.stringContains actual "data-attr:aria-label=\"$label\"" "keyed attribute"
+            Expect.stringContains actual "data-class:font-bold=\"$strong\"" "keyed class"
+            Expect.stringContains actual "data-computed:double=\"$count * 2\"" "keyed computed"
+            Expect.stringContains actual "data-signals:count=\"0\"" "keyed signal"
+            Expect.stringContains actual "data-style:background-color=\"$color\"" "keyed style"
+        }
+
+        test "Modifiers compose onto keyed, unkeyed, and no-value attributes in order" {
+            let actual =
+                div {
+                    _dataBind ("query", [ "prop.value"; "event.input.change" ])
+                    _dataClass ("my-class", [ "case.camel" ], "$active")
+                    _dataComputed ("my-signal", [ "case.kebab" ], "$count * 2")
+                    _dataIgnore [ "self" ]
+                    _dataIndicator ("loading-state", [ "case.kebab" ])
+                    _dataInit ([ "delay.500ms"; "viewtransition" ], "$ready = true")
+                    _dataJsonSignals ([ "terse" ], "{include: /count/}")
+                    _dataOn ("input", [ "window"; "debounce.200ms.leading"; "prevent" ], "@get('/search')")
+                    _dataOnIntersect ([ "once"; "threshold.25" ], "$visible = true")
+                    _dataOnInterval ([ "duration.500ms.leading" ], "$count++")
+                    _dataOnSignalPatch ([ "debounce.500ms" ], "console.log(patch)")
+                    _dataRef ("my-element", [ "case.kebab" ])
+                    _dataSignals ("count", [ "ifmissing" ], "0")
+                    _dataMatchMedia ("is-dark", [ "case.kebab" ], "'prefers-color-scheme: dark'")
+                    _dataOnRaf ([ "throttle.10ms" ], "$frames++")
+                    _dataOnResize ([ "debounce.10ms" ], "$width = el.offsetWidth")
+                    _dataPersist [ "session" ]
+                    _dataPersist ("settings", [ "session" ])
+                    _dataPersistFilter ([ "session" ], "{include: /theme/}")
+                    _dataQueryString ([ "filter"; "history" ], "{include: /search/}")
+                    _dataScrollIntoView [ "smooth"; "vcenter"; "focus" ]
+                }
+                |> Render.toString
+
+            let expectedNames =
+                [ "data-bind:query__prop.value__event.input.change"
+                  "data-class:my-class__case.camel"
+                  "data-computed:my-signal__case.kebab"
+                  "data-ignore__self"
+                  "data-indicator:loading-state__case.kebab"
+                  "data-init__delay.500ms__viewtransition"
+                  "data-json-signals__terse"
+                  "data-on:input__window__debounce.200ms.leading__prevent"
+                  "data-on-intersect__once__threshold.25"
+                  "data-on-interval__duration.500ms.leading"
+                  "data-on-signal-patch__debounce.500ms"
+                  "data-ref:my-element__case.kebab"
+                  "data-signals:count__ifmissing"
+                  "data-match-media:is-dark__case.kebab"
+                  "data-on-raf__throttle.10ms"
+                  "data-on-resize__debounce.10ms"
+                  "data-persist__session"
+                  "data-persist:settings__session"
+                  "data-query-string__filter__history"
+                  "data-scroll-into-view__smooth__vcenter__focus" ]
+
+            for name in expectedNames do
+                Expect.stringContains actual name name
+
+            Expect.stringContains actual "data-persist__session=\"{include: /theme/}\"" "default-key persist filter"
+        }
+
+        test "Removed Datastar overloads are absent from the public API" {
+            let methods = typeof<Datastar>.GetMethods()
+            let hasStringPair name =
+                methods
+                |> Array.exists (fun methodInfo ->
+                    methodInfo.Name = name
+                    && (methodInfo.GetParameters() |> Array.map _.ParameterType) = [| typeof<string>; typeof<string> |])
+
+            Expect.isFalse (hasStringPair "_dataBind") "keyed data-bind values are invalid"
+            Expect.isFalse (hasStringPair "_dataIndicator") "keyed data-indicator values are invalid"
+            Expect.isFalse (hasStringPair "_dataRef") "keyed data-ref values are invalid"
+            Expect.isFalse (methods |> Array.exists (fun methodInfo -> methodInfo.Name = "_dataRocket")) "data-rocket was removed"
+
+            let animateParameterCounts =
+                methods
+                |> Array.filter (fun methodInfo -> methodInfo.Name = "_dataAnimate")
+                |> Array.map (fun methodInfo -> methodInfo.GetParameters().Length)
+                |> Array.sort
+
+            Expect.sequenceEqual animateParameterCounts [| 2 |] "data-animate requires a key and expression"
+        }
+
+        test "Datastar values are HTML encoded" {
+            let actual = div { _dataOn ("click", "'<value>' && $ready") } |> Render.toString
+            Expect.equal actual "<div data-on:click=\"&#39;&lt;value&gt;&#39; &amp;&amp; $ready\"></div>" "encoded expression"
+        }
+    ]

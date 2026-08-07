@@ -95,7 +95,10 @@ type NoopElement() =
 module private RenderHelpers =
     let inline renderAttr (sb: StringBuilder) (a: HtmlAttribute) =
         match a.Value with
-        | ValueSome v -> sb.Append(' ').Append(a.Name).Append("=\"").Append(v).Append('\"') |> ignore
+        | ValueSome v ->
+            sb.Append(' ').Append(a.Name).Append("=\"") |> ignore
+            HtmlEncoding.htmlEncode v sb
+            sb.Append('\"') |> ignore
         | ValueNone -> sb.Append(' ').Append(a.Name) |> ignore
 
 type VoidElement(tag: string) =
@@ -205,28 +208,25 @@ type RegularElement(tag: string) =
         sb.Append("</").Append(tag).Append('>') |> ignore
 
 type private StringBuilderPool =
+    [<Literal>]
+    static let MaximumRetainedCapacity = 262_144
+
     [<ThreadStatic; DefaultValue>]
-    static val mutable private pool: ResizeArray<StringBuilder>
+    static val mutable private pooled: StringBuilder
 
     static member inline Rent() =
-        let pool = StringBuilderPool.pool
-        if isNull pool || pool.Count = 0 then
+        let sb = StringBuilderPool.pooled
+        if isNull sb then
             StringBuilder()
         else
-            let idx = pool.Count - 1
-            let sb = pool[idx]
-            pool.RemoveAt(idx)
+            StringBuilderPool.pooled <- null
             sb
 
     static member inline Return(sb: StringBuilder) =
-        sb.Clear() |> ignore
-        let pool = StringBuilderPool.pool
-        if isNull pool then
-            let p = ResizeArray()
-            p.Add(sb)
-            StringBuilderPool.pool <- p
-        else
-            pool.Add(sb)
+        if sb.Capacity <= MaximumRetainedCapacity then
+            sb.Clear() |> ignore
+            if isNull StringBuilderPool.pooled then
+                StringBuilderPool.pooled <- sb
 
 type TagBuilderCode = RegularElement -> unit
 type VoidBuilderCode = VoidElement -> unit
@@ -272,6 +272,8 @@ type TagBuilder(tag: string) =
 
 
 type VoidBuilder(tag: string) =
+    inherit VoidElement(tag)
+
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member inline _.Yield(attr: HtmlAttribute) : VoidBuilderCode =
         fun st ->

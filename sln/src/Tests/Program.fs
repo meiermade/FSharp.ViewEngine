@@ -6,6 +6,7 @@ open Expecto
 let main args =
     let allTests = testList "All Tests" [
         CoreTests.tests
+        HtmlCoverageTests.tests
         DatastarTests.tests
         HtmxTests.tests
         AlpineTests.tests
