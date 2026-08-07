@@ -154,10 +154,11 @@ jobs:
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
           TAG: ${{ needs.package.outputs.tag }}
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
+          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
             echo "GitHub Release $TAG already exists."
           else
-            gh release create "$TAG" --verify-tag --title "$TAG" --generate-notes
+            gh release create "$TAG" --repo "$REPOSITORY" --verify-tag --title "$TAG" --generate-notes
           fi
