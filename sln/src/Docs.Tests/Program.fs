@@ -417,21 +417,13 @@ after"""
             Expect.isFalse (Registry.aliases |> List.exists (fun (alias, _) -> alias = "/extensions/tailwind")) "old route alias"
         }
 
-        test "Changelog identifies unreleased breaking changes and migrations" {
+        test "Changelog contains released package versions only" {
             let html = Changelog.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "Unreleased" "unreleased section"
-            Expect.stringContains html "Breaking:" "breaking change marker"
-            Expect.stringContains html "_dataBind" "removed data-bind overload"
-            Expect.stringContains html "_dataAnimate" "changed data-animate signature"
-            Expect.stringContains html "_dataRocket" "removed legacy helper"
-            Expect.stringContains html "_dataScrollIntoView ()" "presence-only migration"
-            Expect.stringContains html "Alpine Migration" "Alpine migration section"
-            Expect.stringContains html "_by" "removed Alpine helper"
-            Expect.stringContains html "_xModel" "Alpine modifier migration"
-            Expect.stringContains html "Tailwind Plus Elements Migration" "Tailwind migration section"
-            Expect.stringContains html "TailwindElements" "renamed Tailwind type"
-            Expect.stringContains html "public API" "package compatibility validation"
-            Expect.stringContains html "Source Link" "portable source-debugging symbols"
+            Expect.stringContains html "FSharp.ViewEngine 2026.8.0" "latest released Core package"
+            Expect.stringContains html "FSharp.ViewEngine 2026.2.5" "previous released Core package"
+            Expect.stringContains html "release v2026.8.0" "immutable release link"
+            Expect.isFalse (html.Contains("Unreleased")) "unreleased changes are not published"
+            Expect.isFalse (html.Contains("Datastar Migration")) "unreleased migration notes are not published"
         }
 
         test "Installation docs distinguish package assets from runtime support" {
