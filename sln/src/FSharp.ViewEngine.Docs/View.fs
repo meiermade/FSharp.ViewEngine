@@ -641,6 +641,9 @@ module DocsView =
         let storageKey = jsString site.storageKey
         let colorModeStorageKey = jsString $"{site.storageKey}-color-mode"
         let defaultColorMode = site.defaultColorMode |> DocsColorMode.value |> jsString
+        let prismStylesheet = site.assets.prismStylesheet |> Option.map jsString |> Option.defaultValue "null"
+        let prismScripts = site.assets.prismScripts |> List.map jsString |> String.concat ", " |> fun sources -> $"[{sources}]"
+        let assetNonce = site.assets.nonce |> Option.map jsString |> Option.defaultValue "null"
         let colorModeScript =
             """
 (() => {
@@ -718,6 +721,56 @@ window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(doc
 
         let navigationScript =
             """
+window.fsharpDocsCode = window.fsharpDocsCode ?? {
+  stylesheet: __PRISM_STYLESHEET__,
+  scripts: __PRISM_SCRIPTS__,
+  nonce: __ASSET_NONCE__,
+  loading: null,
+  loadStylesheet(source) {
+    const href = new URL(source, document.baseURI).href;
+    const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).find(link => link.href === href);
+    if (existing?.sheet) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const link = existing ?? document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = source;
+      link.dataset.docsPrismAsset = 'true';
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', () => reject(new Error(`Unable to load Prism asset: ${source}`)), { once: true });
+      if (!existing) document.head.append(link);
+    });
+  },
+  loadScript(source) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = source;
+      script.dataset.docsPrismAsset = 'true';
+      if (this.nonce) script.nonce = this.nonce;
+      script.addEventListener('load', resolve, { once: true });
+      script.addEventListener('error', () => reject(new Error(`Unable to load Prism asset: ${source}`)), { once: true });
+      document.head.append(script);
+    });
+  },
+  async ensure() {
+    if (!this.loading) {
+      this.loading = (async () => {
+        if (this.stylesheet) await this.loadStylesheet(this.stylesheet);
+        if (window.Prism?.languages?.fsharp) return;
+        window.Prism = window.Prism || {};
+        window.Prism.manual = true;
+        for (const source of this.scripts) await this.loadScript(source);
+      })();
+    }
+    await this.loading;
+  },
+  async render(el) {
+    const root = el ?? document;
+    if (!root.querySelector?.('code[class*="language-"]') && !root.matches?.('code[class*="language-"]')) return;
+    await this.ensure();
+    window.Prism?.highlightAllUnder?.(root);
+  }
+};
+window.renderCode = el => window.fsharpDocsCode.render(el);
 window.renderDocsPreview = (el) => {
   for (const frame of el?.querySelectorAll?.('iframe[data-docs-preview-src]') ?? []) {
     if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.docsPreviewSrc);
@@ -812,7 +865,7 @@ window.fsharpDocsNavigation = {
     }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     const content = document.getElementById('page-content');
-    window.renderCode?.(content);
+    await window.renderCode?.(content);
     await window.renderMermaid?.(content);
     this.initializeToc();
   }
@@ -854,7 +907,12 @@ document.addEventListener('datastar-fetch', event => {
   if (event.detail?.type === 'finished') window.fsharpDocsNavigation.complete();
 });
             """
-            |> fun source -> source.Replace("__STORAGE_KEY__", storageKey)
+            |> fun source ->
+                source
+                    .Replace("__STORAGE_KEY__", storageKey)
+                    .Replace("__PRISM_STYLESHEET__", prismStylesheet)
+                    .Replace("__PRISM_SCRIPTS__", prismScripts)
+                    .Replace("__ASSET_NONCE__", assetNonce)
 
         let nonceAttribute () =
             match site.assets.nonce with
@@ -897,13 +955,9 @@ document.addEventListener('datastar-fetch', event => {
                 script { nonceAttribute (); raw colorModeScript }
                 style { nonceAttribute (); raw DefaultStyles.css }
                 for stylesheet in site.assets.productStylesheets do link { _rel "stylesheet"; _href stylesheet }
-                match needsPrism, site.assets.prismStylesheet with
-                | true, Some stylesheet -> link { _rel "stylesheet"; _href stylesheet }
-                | _ -> ()
-                if needsPrism && not site.assets.prismScripts.IsEmpty then
-                    script { nonceAttribute (); raw "window.Prism = window.Prism || {}; window.Prism.manual = true;" }
-                    for source in site.assets.prismScripts do script { _src source; nonceAttribute () }
-                    script { nonceAttribute (); raw "window.renderCode = (el) => window.Prism?.highlightAllUnder?.(el ?? document);" }
+                match site.assets.prismStylesheet with
+                | Some stylesheet -> link { _rel "stylesheet"; _href stylesheet }
+                | None -> ()
                 match needsMermaid, site.assets.mermaidScript with
                 | true, Some source ->
                     script { _src source; nonceAttribute () }
@@ -923,6 +977,6 @@ document.addEventListener('datastar-fetch', event => {
                 _data("on:popstate__window", "window.fsharpDocsNavigation.begin(); @get(window.location.pathname + window.location.search)")
                 _data("on:keydown__window", "evt.key == 'Escape' ? ($sideNavOpen = false, $breadcrumbMenuOpen = false, $colorModeMenuOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)")
                 page site docPage
-                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content'); await window.renderMermaid?.(content); window.renderCode?.(content); window.fsharpDocsNavigation.initializeToc(); });" }
+                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content'); await window.renderCode?.(content); await window.renderMermaid?.(content); window.fsharpDocsNavigation.initializeToc(); });" }
             }
         }

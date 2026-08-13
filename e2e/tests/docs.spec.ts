@@ -350,6 +350,20 @@ test('Docs navigation scrolls content to top and highlights morphed code', async
   await expect(page.locator('.spec-code .token.keyword').first()).toBeVisible()
 })
 
+test('Docs navigation loads Prism dependencies before highlighting a code page', async ({ page }) => {
+  const pageErrors: string[] = []
+  page.on('pageerror', error => pageErrors.push(error.message))
+
+  await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
+  await page.locator('#nav-home').click()
+
+  await expect(page).toHaveURL('/')
+  const keyword = page.locator('.spec-code .token.keyword').first()
+  await expect(keyword).toBeVisible()
+  await expect(keyword).toHaveCSS('color', 'rgb(204, 153, 205)')
+  expect(pageErrors.filter(error => error.includes('Prism is not defined'))).toEqual([])
+})
+
 test('code blocks copy their literal source', async ({ page }) => {
   await page.goto('/getting-started/first-view', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => {
