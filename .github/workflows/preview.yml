@@ -30,14 +30,28 @@ jobs:
       - name: Test
         run: ./fake.sh Test
         working-directory: ./sln
-      - name: Pack
-        run: |
-          dotnet pack src/FSharp.ViewEngine/FSharp.ViewEngine.fsproj --configuration Release --no-restore --output "$RUNNER_TEMP/package" /p:PackageVersion=0.0.0-preview
-          dotnet pack src/FSharp.ViewEngine.Docs/FSharp.ViewEngine.Docs.fsproj --configuration Release --no-restore --output "$RUNNER_TEMP/package" /p:PackageVersion=0.0.0-preview
-        working-directory: ./sln
-      - name: Verify package compatibility
+      - name: Pack Core
         env:
-          PACKAGE_DIRECTORY: ${{ runner.temp }}/package
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: 0.0.0-preview
+        run: ./fake.sh Pack --single-target
+        working-directory: ./sln
+      - name: Verify Core package compatibility
+        env:
+          PACKAGE_ID: FSharp.ViewEngine
+        run: ./fake.sh VerifyPackage --single-target
+        working-directory: ./sln
+      - name: Pack Docs with an independent version and Core dependency
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Docs
+          PACKAGE_VERSION: 0.0.1-preview
+          DOCS_MINIMUM_CORE_VERSION: 0.0.0-preview
+        run: ./fake.sh Pack --single-target
+        working-directory: ./sln
+      - name: Verify Docs package compatibility
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Docs
+          DOCS_MINIMUM_CORE_VERSION: 0.0.0-preview
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
 

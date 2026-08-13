@@ -1,6 +1,8 @@
-[![Publish](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml)
+[![Publish Core](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml)
+[![Publish Docs](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish-docs.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish-docs.yml)
 [![Deploy](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml)
-[![NuGet](https://img.shields.io/nuget/v/FSharp.ViewEngine)](https://www.nuget.org/packages/FSharp.ViewEngine)
+[![NuGet Core](https://img.shields.io/nuget/v/FSharp.ViewEngine)](https://www.nuget.org/packages/FSharp.ViewEngine)
+[![NuGet Docs](https://img.shields.io/nuget/v/FSharp.ViewEngine.Docs)](https://www.nuget.org/packages/FSharp.ViewEngine.Docs)
 
 <p align="center">
   <img src="etc/logo.svg" alt="FSharp.ViewEngine" width="128">
@@ -42,6 +44,15 @@ dotnet add package FSharp.ViewEngine.Docs
 ```
 
 `FSharp.ViewEngine.Docs` provides article, reference, and canvas layouts; configurable navigation; accessible code/preview examples; API documentation components; diagrams; product frames; typed destinations; and structural validation. See its [package documentation](./sln/src/FSharp.ViewEngine.Docs/README.md).
+
+## Releases
+
+The two NuGet packages have independent release trains:
+
+- `FSharp.ViewEngine` uses tags such as `v2026.8.1` and the **Publish Core** workflow.
+- `FSharp.ViewEngine.Docs` uses tags such as `docs/v2026.8.0` and the **Publish Docs** workflow.
+
+A Docs release declares its minimum compatible published Core version. Matching package versions are not required. Publish Core first whenever Docs needs APIs that are not already available on NuGet. Documentation-site deployment is separate from package publication and deploys the selected source revision through the **Deploy** workflow.
 
 ## Core rendering helpers
 

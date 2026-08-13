@@ -142,6 +142,27 @@ let private packageVersion packageId (packagePath:string) =
     if matched.Success then matched.Groups[1].Value
     else fail $"Unexpected package name: {Path.GetFileName packagePath}"
 
+let private verifyDocsCoreDependency expectedVersion (archive:ZipArchive) =
+    let nuspecEntry =
+        archive.Entries
+        |> Seq.filter (fun entry -> entry.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
+        |> exactlyOne "NuSpec entry"
+
+    let document = nuspecEntry |> entryText |> XDocument.Parse
+    let coreDependencies =
+        document.Descendants()
+        |> Seq.filter (fun element ->
+            element.Name.LocalName = "dependency"
+            && string (element.Attribute(XName.Get "id")) = "FSharp.ViewEngine")
+        |> Seq.toList
+
+    match coreDependencies with
+    | [ dependency ] ->
+        let actualVersion = string (dependency.Attribute(XName.Get "version"))
+        if actualVersion <> expectedVersion then
+            fail $"Expected FSharp.ViewEngine dependency {expectedVersion}, found {actualVersion}"
+    | dependencies -> fail $"Expected exactly one FSharp.ViewEngine dependency, found {dependencies.Length}"
+
 let private testFrameworks () =
     let configured =
         match Environment.GetEnvironmentVariable "PACKAGE_TEST_FRAMEWORKS" with
@@ -246,6 +267,13 @@ let verify runDotnet packagePath =
 
     use packageArchive = ZipFile.OpenRead packagePath
     verifyPackageContents definition.assemblyName packageArchive
+
+    if definition.packageId = "FSharp.ViewEngine.Docs" then
+        let expectedCoreVersion = Environment.GetEnvironmentVariable "DOCS_MINIMUM_CORE_VERSION"
+        if String.IsNullOrWhiteSpace expectedCoreVersion then
+            fail "DOCS_MINIMUM_CORE_VERSION is required when verifying FSharp.ViewEngine.Docs"
+        verifyDocsCoreDependency expectedCoreVersion packageArchive
+
     let repositoryCommit = repositoryMetadata packageArchive
     verifySymbols definition.assemblyName repositoryCommit symbolsPackagePath
 

@@ -1,175 +1,21 @@
-name: Publish
+name: Publish FSharp.ViewEngine
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: Optional calendar version override (YYYY.M.MINOR)
+        description: Optional Core calendar version override (YYYY.M.MINOR)
         required: false
         type: string
 
 permissions:
-  contents: read
+  contents: write
   id-token: write
 
-concurrency:
-  group: fsharp-viewengine-release
-  cancel-in-progress: false
-
 jobs:
-  package:
-    name: Package
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      tag: ${{ steps.release.outputs.tag }}
-      version: ${{ steps.release.outputs.version }}
-      commit: ${{ steps.release.outputs.commit }}
-    steps:
-      - name: Require main branch
-        run: |
-          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
-            echo "Releases must run from main, not $GITHUB_REF." >&2
-            exit 1
-          fi
-      - uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
-          fetch-tags: true
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: |
-            8.0.x
-            9.0.x
-            10.0.x
-      - name: Restore Tools
-        run: dotnet tool restore
-        working-directory: ./sln
-      - name: Install Packages
-        run: |
-          dotnet paket install
-          dotnet restore FSharp.ViewEngine.slnx
-        working-directory: ./sln
-      - name: Prepare release
-        env:
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
-          RELEASE_VERSION_OVERRIDE: ${{ inputs.version }}
-        run: ./fake.sh PrepareRelease
-        working-directory: ./sln
-      - name: Read release metadata
-        id: release
-        env:
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
-        run: |
-          {
-            echo "tag=$(jq -r '.tag' "$RELEASE_METADATA_PATH")"
-            echo "version=$(jq -r '.version' "$RELEASE_METADATA_PATH")"
-            echo "commit=$(jq -r '.commit' "$RELEASE_METADATA_PATH")"
-          } >> "$GITHUB_OUTPUT"
-      - name: Build, test, pack, and verify release
-        env:
-          PACKAGE_VERSION: ${{ steps.release.outputs.version }}
-        run: ./fake.sh VerifyPackage
-        working-directory: ./sln
-      - name: Record package checksums
-        run: sha256sum ./*.nupkg ./*.snupkg > SHA256SUMS
-        working-directory: ./nugets
-      - name: Upload verified package
-        uses: actions/upload-artifact@v4
-        with:
-          name: fsharp-viewengine-nuget
-          path: |
-            nugets/*.nupkg
-            nugets/*.snupkg
-            nugets/SHA256SUMS
-          if-no-files-found: error
-      - name: Create release tag
-        env:
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
-        run: ./fake.sh TagRelease
-        working-directory: ./sln
-
-  deploy-and-verify:
-    name: Deploy and verify Docs
-    needs: package
-    uses: ./.github/workflows/deploy.yml
-    with:
-      ref: ${{ needs.package.outputs.tag }}
-      expectedVersion: ${{ needs.package.outputs.version }}
-      expectedCommit: ${{ needs.package.outputs.commit }}
-    secrets: inherit
-
   publish:
-    name: Publish NuGet
-    needs:
-      - package
-      - deploy-and-verify
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-    steps:
-      - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 10.0.x
-      - name: Download verified package
-        uses: actions/download-artifact@v5
-        with:
-          name: fsharp-viewengine-nuget
-          path: ${{ runner.temp }}/package
-      - name: Verify package checksums
-        run: sha256sum --check SHA256SUMS
-        working-directory: ${{ runner.temp }}/package
-      - name: Authenticate Pulumi
-        uses: pulumi/auth-actions@v1
-        with:
-          organization: meiermade
-          requested-token-type: urn:pulumi:token-type:access_token:personal
-          scope: user:meiermade
-      - name: Publish verified packages
-        env:
-          PACKAGE_DIRECTORY: ${{ runner.temp }}/package
-        run: |
-          pulumi env run fsharpviewengine/nuget -- \
-            bash -euo pipefail -c '
-              for package in "$PACKAGE_DIRECTORY"/*.nupkg; do
-                dotnet nuget push "$package" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
-              done
-            '
-      - name: Wait for NuGet availability
-        env:
-          VERSION: ${{ needs.package.outputs.version }}
-        run: |
-          packages=(fsharp.viewengine fsharp.viewengine.docs)
-
-          for package in "${packages[@]}"; do
-            package_url="https://api.nuget.org/v3-flatcontainer/$package/$VERSION/$package.$VERSION.nupkg"
-            available=false
-
-            for _ in $(seq 1 60); do
-              if curl --fail --silent --show-error --output /dev/null "$package_url"; then
-                echo "$package $VERSION is available from NuGet."
-                available=true
-                break
-              fi
-              sleep 10
-            done
-
-            if [[ "$available" != true ]]; then
-              echo "$package $VERSION was not available from NuGet after 10 minutes." >&2
-              exit 1
-            fi
-          done
-      - name: Create GitHub Release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          REPOSITORY: ${{ github.repository }}
-          TAG: ${{ needs.package.outputs.tag }}
-        run: |
-          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
-            echo "GitHub Release $TAG already exists."
-          else
-            gh release create "$TAG" --repo "$REPOSITORY" --verify-tag --title "$TAG" --generate-notes
-          fi
+    uses: ./.github/workflows/_publish-package.yml
+    with:
+      packageId: FSharp.ViewEngine
+      tagPrefix: v
+      version: ${{ inputs.version }}
+    secrets: inherit

@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <PackageId>FSharp.ViewEngine.Docs</PackageId>
+    <PackageVersion Condition="'$(FSharpViewEngineDocsPackageVersion)' != ''">$(FSharpViewEngineDocsPackageVersion)</PackageVersion>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Andrew Meier</Authors>
@@ -17,6 +18,7 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <FSharpViewEnginePackageVersion Condition="'$(FSharpViewEnginePackageVersion)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy.M')).0</FSharpViewEnginePackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="ValidationIssue.fs" />
