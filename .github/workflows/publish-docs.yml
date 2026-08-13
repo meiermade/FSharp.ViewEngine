@@ -23,4 +23,5 @@ jobs:
       tagPrefix: docs/v
       version: ${{ inputs.version }}
       minimumCoreVersion: ${{ inputs.minimumCoreVersion }}
+      markLatest: false
     secrets: inherit

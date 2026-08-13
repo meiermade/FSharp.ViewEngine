@@ -18,6 +18,10 @@ on:
         description: Minimum published FSharp.ViewEngine version required by Docs
         required: false
         type: string
+      markLatest:
+        description: Whether this package release becomes the repository-wide Latest release
+        required: true
+        type: boolean
 
 permissions:
   contents: write
@@ -31,6 +35,7 @@ jobs:
   package:
     name: Build and verify ${{ inputs.packageId }}
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
     outputs:
@@ -74,7 +79,7 @@ jobs:
               exit 1
               ;;
           esac
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           fetch-tags: true
@@ -92,7 +97,7 @@ jobs:
             exit 1
           fi
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: |
             8.0.x
@@ -156,7 +161,7 @@ jobs:
         run: sha256sum ./*.nupkg ./*.snupkg > SHA256SUMS
         working-directory: ./nugets
       - name: Upload verified package
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ${{ inputs.packageId }}-${{ steps.release.outputs.version }}
           path: |
@@ -169,43 +174,53 @@ jobs:
     name: Publish ${{ inputs.packageId }}
     needs: package
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: release
     permissions:
       contents: write
       id-token: write
     steps:
       - name: Setup dotnet
-        uses: actions/setup-dotnet@v5
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 10.0.x
       - name: Download verified package
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: ${{ inputs.packageId }}-${{ needs.package.outputs.version }}
           path: ${{ runner.temp }}/package
       - name: Verify package checksums
         run: sha256sum --check SHA256SUMS
         working-directory: ${{ runner.temp }}/package
-      - name: Authenticate Pulumi
-        uses: pulumi/auth-actions@v1
+      - name: Authenticate to NuGet with GitHub OIDC
+        id: nuget-login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         with:
-          organization: meiermade
-          requested-token-type: urn:pulumi:token-type:access_token:personal
-          scope: user:meiermade
-      - name: Publish verified package
+          user: ${{ vars.NUGET_USER }}
+      - name: Publish or verify package
         env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
           PACKAGE_DIRECTORY: ${{ runner.temp }}/package
           PACKAGE_ID: ${{ inputs.packageId }}
           VERSION: ${{ needs.package.outputs.version }}
         run: |
           package="$PACKAGE_DIRECTORY/$PACKAGE_ID.$VERSION.nupkg"
           test -f "$package"
-          pulumi env run fsharpviewengine/nuget -- \
-            bash -euo pipefail -c '
-              dotnet nuget push "$1" \
-                --source https://api.nuget.org/v3/index.json \
-                --api-key "$NUGET_API_KEY" \
-                --skip-duplicate
-            ' bash "$package"
+          package_slug="${PACKAGE_ID,,}"
+          package_url="https://api.nuget.org/v3-flatcontainer/$package_slug/$VERSION/$package_slug.$VERSION.nupkg"
+
+          if curl --fail --silent --show-error --output "$RUNNER_TEMP/published.nupkg" "$package_url"; then
+            if ! .github/scripts/verify-published-package.sh "$package" "$RUNNER_TEMP/published.nupkg"; then
+              echo "$PACKAGE_ID $VERSION already exists on NuGet but does not match the verified artifact after removing NuGet.org's repository signature." >&2
+              exit 1
+            fi
+
+            echo "$PACKAGE_ID $VERSION already exists on NuGet and matches the verified artifact."
+          else
+            dotnet nuget push "$package" \
+              --source https://api.nuget.org/v3/index.json \
+              --api-key "$NUGET_API_KEY"
+          fi
       - name: Wait for NuGet availability
         env:
           PACKAGE_ID: ${{ inputs.packageId }}
@@ -225,7 +240,7 @@ jobs:
           echo "$PACKAGE_ID $VERSION was not available from NuGet after 10 minutes." >&2
           exit 1
       - name: Check out published package commit
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.package.outputs.commit }}
           fetch-depth: 0
@@ -254,26 +269,44 @@ jobs:
           TAG: ${{ needs.package.outputs.tag }}
           PREVIOUS_TAG: ${{ needs.package.outputs.previousTag }}
           VERSION: ${{ needs.package.outputs.version }}
+          MARK_LATEST: ${{ inputs.markLatest }}
           PACKAGE_DIRECTORY: ${{ runner.temp }}/package
         run: |
+          release_assets=(
+            "$PACKAGE_DIRECTORY/$PACKAGE_ID.$VERSION.nupkg"
+            "$PACKAGE_DIRECTORY/$PACKAGE_ID.$VERSION.snupkg"
+            "$PACKAGE_DIRECTORY/SHA256SUMS"
+          )
+          latest_args=(--latest=false)
+          if [[ "$MARK_LATEST" == "true" ]]; then latest_args=(--latest); fi
+
           if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
-            echo "GitHub Release $TAG already exists."
+            existing_assets=$(gh release view "$TAG" --repo "$REPOSITORY" --json assets --jq '.assets[].name' | sort)
+            expected_assets=$(printf '%s\n' "${release_assets[@]##*/}" | sort)
+
+            if [[ "$existing_assets" != "$expected_assets" ]]; then
+              echo "GitHub Release $TAG does not contain exactly the verified package assets." >&2
+              diff -u <(printf '%s\n' "$expected_assets") <(printf '%s\n' "$existing_assets") || true
+              exit 1
+            fi
+
+            gh release edit "$TAG" --repo "$REPOSITORY" "${latest_args[@]}"
+            echo "GitHub Release $TAG already exists with the expected assets."
           else
             release_args=(
               --repo "$REPOSITORY"
               --verify-tag
               --title "$PACKAGE_ID $VERSION"
+              "${latest_args[@]}"
             )
 
             if [[ -n "$PREVIOUS_TAG" ]]; then
               release_args+=(--generate-notes --notes-start-tag "$PREVIOUS_TAG")
             else
-              release_args+=(--notes "Initial $PACKAGE_ID package release. See the package changelog for release details.")
+              release_args+=(--notes "Initial $PACKAGE_ID package release. See https://fsharpviewengine.meiermade.com/changelog for release details.")
             fi
 
             gh release create "$TAG" \
               "${release_args[@]}" \
-              "$PACKAGE_DIRECTORY"/*.nupkg \
-              "$PACKAGE_DIRECTORY"/*.snupkg \
-              "$PACKAGE_DIRECTORY/SHA256SUMS"
+              "${release_assets[@]}"
           fi

@@ -18,4 +18,5 @@ jobs:
       packageId: FSharp.ViewEngine
       tagPrefix: v
       version: ${{ inputs.version }}
+      markLatest: true
     secrets: inherit
