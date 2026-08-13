@@ -16,6 +16,6 @@ jobs:
     uses: ./.github/workflows/_publish-package.yml
     with:
       packageId: FSharp.ViewEngine
-      tagPrefix: v
       version: ${{ inputs.version }}
+      markLatest: true
     secrets: inherit
