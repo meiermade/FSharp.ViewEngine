@@ -263,11 +263,12 @@ jobs:
               --repo "$REPOSITORY"
               --verify-tag
               --title "$PACKAGE_ID $VERSION"
-              --generate-notes
             )
 
             if [[ -n "$PREVIOUS_TAG" ]]; then
-              release_args+=(--notes-start-tag "$PREVIOUS_TAG")
+              release_args+=(--generate-notes --notes-start-tag "$PREVIOUS_TAG")
+            else
+              release_args+=(--notes "Initial $PACKAGE_ID package release. See the package changelog for release details.")
             fi
 
             gh release create "$TAG" \
