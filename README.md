@@ -52,7 +52,7 @@ The two NuGet packages have independent release trains:
 - `FSharp.ViewEngine` uses tags such as `v2026.8.1` and the **Publish Core** workflow.
 - `FSharp.ViewEngine.Docs` uses tags such as `docs/v2026.8.0` and the **Publish Docs** workflow.
 
-A Docs release declares its minimum compatible published Core version. Matching package versions are not required. Publish Core first whenever Docs needs APIs that are not already available on NuGet. Documentation-site deployment is separate from package publication and deploys the selected source revision through the **Deploy** workflow.
+A Docs release declares its minimum compatible published Core version. Matching package versions are not required. Publish Core first whenever Docs needs APIs that are not already available on NuGet. Both publish workflows require an explicit version and a matching released-package changelog entry. Directly packing `FSharp.ViewEngine.Docs` also requires explicit Docs and minimum Core MSBuild version properties so it cannot silently produce incorrect dependency metadata. Documentation-site deployment is separate from package publication and deploys the selected source revision through the **Deploy** workflow.
 
 ## Core rendering helpers
 

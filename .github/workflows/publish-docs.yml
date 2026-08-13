@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Optional Docs calendar version override (YYYY.M.MINOR)
-        required: false
+        description: Docs calendar version (YYYY.M.MINOR)
+        required: true
         type: string
       minimumCoreVersion:
         description: Minimum published FSharp.ViewEngine version required by this Docs release

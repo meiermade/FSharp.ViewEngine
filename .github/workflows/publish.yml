@@ -3,8 +3,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: Optional Core calendar version override (YYYY.M.MINOR)
-        required: false
+        description: Core calendar version (YYYY.M.MINOR)
+        required: true
         type: string
 
 permissions:

@@ -78,16 +78,11 @@ let getVersion () =
     if matched.Success then matched.Groups[1].Value else failwith $"invalid package version: {value}"
 
 Target.create "PrepareRelease" <| fun _ ->
-    let versionOverride = Environment.environVarOrNone "RELEASE_VERSION_OVERRIDE"
+    let version = Environment.environVarOrFail "RELEASE_VERSION"
     let tagPrefix = Environment.environVarOrFail "RELEASE_TAG_PREFIX"
-    let metadata = Release.prepare releaseRepository releaseMetadataPath tagPrefix versionOverride
+    let metadata = Release.prepare releaseRepository releaseMetadataPath tagPrefix version
     Trace.trace $"Prepared {metadata.tag} for {metadata.commit}"
     Trace.trace $"Release metadata: {releaseMetadataPath}"
-
-Target.create "TagRelease" <| fun _ ->
-    let metadata = Release.readMetadata releaseMetadataPath
-    Release.tag releaseRepository metadata
-    Trace.trace $"Release tag {metadata.tag} points to {metadata.commit}"
 
 Target.create "CleanNugets" <| fun _ -> Shell.cleanDir nugetsDir
 

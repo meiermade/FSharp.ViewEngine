@@ -18,8 +18,11 @@
     <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <FSharpViewEnginePackageVersion Condition="'$(FSharpViewEnginePackageVersion)' == ''">$([System.DateTime]::UtcNow.ToString('yyyy.M')).0</FSharpViewEnginePackageVersion>
   </PropertyGroup>
+  <Target Name="ValidateDocsPackageVersions" BeforeTargets="GenerateNuspec">
+    <Error Condition="'$(FSharpViewEngineDocsPackageVersion)' == ''" Text="Packing FSharp.ViewEngine.Docs requires /p:FSharpViewEngineDocsPackageVersion=YYYY.M.MINOR. Use the package release workflow for publication." />
+    <Error Condition="'$(FSharpViewEnginePackageVersion)' == ''" Text="Packing FSharp.ViewEngine.Docs requires /p:FSharpViewEnginePackageVersion=YYYY.M.MINOR for its minimum Core dependency. Use the package release workflow for publication." />
+  </Target>
   <ItemGroup>
     <Compile Include="ValidationIssue.fs" />
     <Compile Include="SequenceDiagram.fs" />

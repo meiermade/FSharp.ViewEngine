@@ -58,46 +58,23 @@ let private knownTags (repository:string) (tagPrefix:string) =
 
 let private versionKey (version:CalendarVersion) = version.year, version.month, version.minor
 
-let private resolveMetadata (repository:string) (tagPrefix:string) (now:DateTimeOffset) (versionOverride:string option) =
+let private resolveMetadata (repository:string) (tagPrefix:string) (requestedVersion:string) =
     if String.IsNullOrWhiteSpace tagPrefix then
         invalidArg (nameof tagPrefix) "Release tag prefix cannot be empty."
 
     let commit = Information.getCurrentSHA1 repository
     let tags = knownTags repository tagPrefix
+    let version = parseVersion requestedVersion
 
-    let selectedTag, selectedVersion =
-        match versionOverride |> Option.filter (String.IsNullOrWhiteSpace >> not) with
-        | Some requested ->
-            let version = parseVersion requested
+    let tag =
+        match tags |> List.tryFind (fun (_, existingVersion, _) -> versionKey existingVersion = versionKey version) with
+        | Some(tag, _, existingCommit) when existingCommit <> commit ->
+            raise (InvalidOperationException $"Release tag {tag} already points to {existingCommit}, not {commit}")
+        | Some(tag, _, _) -> tag
+        | None -> $"{tagPrefix}{version}"
 
-            match tags |> List.tryFind (fun (_, existingVersion, _) -> versionKey existingVersion = versionKey version) with
-            | Some(tag, _, existingCommit) when existingCommit <> commit ->
-                raise (InvalidOperationException $"Release tag {tag} already points to {existingCommit}, not {commit}")
-            | Some(tag, _, _) -> tag, version.ToString()
-            | None -> $"{tagPrefix}{version}", version.ToString()
-        | None ->
-            match tags |> List.filter (fun (_, _, tagCommit) -> tagCommit = commit) |> List.sortBy (fun (_, version, _) -> versionKey version) |> List.tryLast with
-            | Some(tag, version, _) -> tag, version.ToString()
-            | None ->
-                let year = now.Year
-                let month = now.Month
-                let nextMinor =
-                    tags
-                    |> List.choose (fun (_, version, _) ->
-                        if version.year = year && version.month = month then Some version.minor else None)
-                    |> function
-                        | [] -> 0
-                        | minors -> List.max minors + 1
-
-                let version =
-                    { year = year
-                      month = month
-                      minor = nextMinor }
-
-                $"{tagPrefix}{version}", version.ToString()
-
-    { tag = selectedTag
-      version = selectedVersion
+    { tag = tag
+      version = version.ToString()
       commit = commit }
 
 let private writeMetadata (path:string) (metadata:Metadata) =
@@ -107,33 +84,7 @@ let private writeMetadata (path:string) (metadata:Metadata) =
     let options = JsonSerializerOptions(WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase)
     File.WriteAllText(path, JsonSerializer.Serialize(metadata, options) + Environment.NewLine)
 
-let readMetadata (path:string) =
-    use document = JsonDocument.Parse(File.ReadAllText path)
-    let root = document.RootElement
-
-    { tag = root.GetProperty("tag").GetString()
-      version = root.GetProperty("version").GetString()
-      commit = root.GetProperty("commit").GetString() }
-
-let prepare (repository:string) (outputPath:string) (tagPrefix:string) (versionOverride:string option) =
-    let metadata = resolveMetadata repository tagPrefix DateTimeOffset.UtcNow versionOverride
+let prepare (repository:string) (outputPath:string) (tagPrefix:string) (version:string) =
+    let metadata = resolveMetadata repository tagPrefix version
     writeMetadata outputPath metadata
     metadata
-
-let tag (repository:string) (metadata:Metadata) =
-    let actualCommit = Information.getCurrentSHA1 repository
-    if actualCommit <> metadata.commit then
-        raise (InvalidOperationException $"Release metadata identifies {metadata.commit}, but HEAD is {actualCommit}")
-
-    let existingCommit =
-        CommandHelper.getGitResult repository "tag --list"
-        |> List.tryFind (fun existingTag -> existingTag = metadata.tag)
-        |> Option.map (fun existingTag -> gitValue repository $"rev-list -n 1 {existingTag}")
-
-    match existingCommit with
-    | Some commit when commit <> metadata.commit ->
-        raise (InvalidOperationException $"Release tag {metadata.tag} already points to {commit}, not {metadata.commit}")
-    | Some _ -> ()
-    | None -> Branches.tag repository metadata.tag
-
-    Branches.pushTag repository "origin" metadata.tag

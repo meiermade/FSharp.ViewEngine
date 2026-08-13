@@ -11,8 +11,8 @@ on:
         required: true
         type: string
       version:
-        description: Optional calendar version override (YYYY.M.MINOR)
-        required: false
+        description: Package calendar version (YYYY.M.MINOR)
+        required: true
         type: string
       minimumCoreVersion:
         description: Minimum published FSharp.ViewEngine version required by Docs
@@ -32,11 +32,12 @@ jobs:
     name: Build and verify ${{ inputs.packageId }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       version: ${{ steps.release.outputs.version }}
       commit: ${{ steps.release.outputs.commit }}
+      previousTag: ${{ steps.previous-tag.outputs.tag }}
     steps:
       - name: Require main branch
         run: |
@@ -47,8 +48,14 @@ jobs:
       - name: Validate package inputs
         env:
           PACKAGE_ID: ${{ inputs.packageId }}
+          VERSION: ${{ inputs.version }}
           MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
         run: |
+          if [[ ! "$VERSION" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]+$ ]]; then
+            echo "Package releases require an explicit version in YYYY.M.MINOR form." >&2
+            exit 1
+          fi
+
           case "$PACKAGE_ID" in
             FSharp.ViewEngine)
               if [[ -n "$MINIMUM_CORE_VERSION" ]]; then
@@ -71,6 +78,19 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+      - name: Confirm changelog contains selected package release
+        env:
+          PACKAGE_ID: ${{ inputs.packageId }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          changelog="sln/src/Docs/src/Pages/Changelog.fs"
+          marker="title = \"$PACKAGE_ID $VERSION ·"
+          matches=$(grep -F -c "$marker" "$changelog" || true)
+
+          if [[ "$matches" -ne 1 ]]; then
+            echo "Expected exactly one released-package changelog entry beginning '$PACKAGE_ID $VERSION ·'; found $matches." >&2
+            exit 1
+          fi
       - name: Setup dotnet
         uses: actions/setup-dotnet@v5
         with:
@@ -98,7 +118,7 @@ jobs:
         env:
           RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
           RELEASE_TAG_PREFIX: ${{ inputs.tagPrefix }}
-          RELEASE_VERSION_OVERRIDE: ${{ inputs.version }}
+          RELEASE_VERSION: ${{ inputs.version }}
         run: ./fake.sh PrepareRelease
         working-directory: ./sln
       - name: Read release metadata
@@ -111,6 +131,20 @@ jobs:
             echo "version=$(jq -r '.version' "$RELEASE_METADATA_PATH")"
             echo "commit=$(jq -r '.commit' "$RELEASE_METADATA_PATH")"
           } >> "$GITHUB_OUTPUT"
+      - name: Find previous package release tag
+        id: previous-tag
+        env:
+          RELEASE_TAG_PREFIX: ${{ inputs.tagPrefix }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          previous=""
+          while IFS= read -r candidate; do
+            if [[ "$candidate" == "$TAG" ]]; then
+              break
+            fi
+            previous="$candidate"
+          done < <({ git tag --list "$RELEASE_TAG_PREFIX*"; echo "$TAG"; } | sort -Vu)
+          echo "tag=$previous" >> "$GITHUB_OUTPUT"
       - name: Build, test, pack, and verify selected package
         env:
           PACKAGE_ID: ${{ inputs.packageId }}
@@ -130,11 +164,6 @@ jobs:
             nugets/*.snupkg
             nugets/SHA256SUMS
           if-no-files-found: error
-      - name: Create package release tag
-        env:
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
-        run: ./fake.sh TagRelease
-        working-directory: ./sln
 
   publish:
     name: Publish ${{ inputs.packageId }}
@@ -195,23 +224,54 @@ jobs:
 
           echo "$PACKAGE_ID $VERSION was not available from NuGet after 10 minutes." >&2
           exit 1
+      - name: Check out published package commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.package.outputs.commit }}
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Create package release tag
+        env:
+          TAG: ${{ needs.package.outputs.tag }}
+          COMMIT: ${{ needs.package.outputs.commit }}
+        run: |
+          existing_commit=$(git rev-list -n 1 "$TAG" 2>/dev/null || true)
+
+          if [[ -n "$existing_commit" && "$existing_commit" != "$COMMIT" ]]; then
+            echo "Release tag $TAG points to $existing_commit, not $COMMIT." >&2
+            exit 1
+          fi
+
+          if [[ -z "$existing_commit" ]]; then
+            git tag "$TAG" "$COMMIT"
+            git push origin "refs/tags/$TAG"
+          fi
       - name: Create package GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           PACKAGE_ID: ${{ inputs.packageId }}
           TAG: ${{ needs.package.outputs.tag }}
+          PREVIOUS_TAG: ${{ needs.package.outputs.previousTag }}
           VERSION: ${{ needs.package.outputs.version }}
           PACKAGE_DIRECTORY: ${{ runner.temp }}/package
         run: |
           if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
             echo "GitHub Release $TAG already exists."
           else
+            release_args=(
+              --repo "$REPOSITORY"
+              --verify-tag
+              --title "$PACKAGE_ID $VERSION"
+              --generate-notes
+            )
+
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              release_args+=(--notes-start-tag "$PREVIOUS_TAG")
+            fi
+
             gh release create "$TAG" \
-              --repo "$REPOSITORY" \
-              --verify-tag \
-              --title "$PACKAGE_ID $VERSION" \
-              --generate-notes \
+              "${release_args[@]}" \
               "$PACKAGE_DIRECTORY"/*.nupkg \
               "$PACKAGE_DIRECTORY"/*.snupkg \
               "$PACKAGE_DIRECTORY/SHA256SUMS"

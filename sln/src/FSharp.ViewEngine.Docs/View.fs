@@ -605,7 +605,6 @@ module DocsView =
 
     let document (site:DocsSite<'destination>) (docPage:DocsPage) =
         let blocks = docPage.sections |> List.collect _.blocks
-        let needsPrism = blocks |> List.exists (function | Code _ -> true | _ -> false)
         let needsMermaid = blocks |> List.exists (function | Diagram _ | C4Diagram _ | Sequence _ -> true | _ -> false)
         let pageHref =
             site.navigation
