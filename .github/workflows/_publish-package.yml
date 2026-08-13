@@ -1,5 +1,6 @@
 name: Publish package
 on:
+  workflow_dispatch:
   workflow_call:
     inputs:
       packageId:
@@ -24,12 +25,35 @@ permissions:
   id-token: write
 
 concurrency:
-  group: release-${{ inputs.packageId }}
+  group: release-${{ inputs.packageId || 'nuget-oidc-smoke-test' }}
   cancel-in-progress: false
 
 jobs:
+  nuget-oidc-smoke-test:
+    name: Verify NuGet trusted publishing
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: release
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Authenticate to NuGet with GitHub OIDC
+        id: nuget-login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Verify temporary NuGet API key
+        env:
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+        run: |
+          test -n "$NUGET_API_KEY"
+          echo "NuGet trusted publishing authentication succeeded."
+
   package:
     name: Build and verify ${{ inputs.packageId }}
+    if: github.event_name == 'workflow_call'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -95,6 +119,7 @@ jobs:
 
   publish:
     name: Publish ${{ inputs.packageId }}
+    if: github.event_name == 'workflow_call'
     needs: package
     runs-on: ubuntu-latest
     timeout-minutes: 20
