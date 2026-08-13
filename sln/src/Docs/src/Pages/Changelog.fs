@@ -21,6 +21,19 @@ module Changelog =
             ];
             Heading { id = "released"; title = "Released packages"; level = 2 };
             Paragraph [ Text "Published artifacts and complete commit histories are available from "; Link("GitHub Releases", "https://github.com/meiermade/FSharp.ViewEngine/releases"); Text "." ];
+            Heading { id = "fsharp-viewengine-docs-2026-8-0"; title = "FSharp.ViewEngine.Docs 2026.8.0 · August 13, 2026"; level = 3 };
+            UnorderedList [
+                [ Text "Introduced reusable article, reference, canvas, API-reference, diagram, navigation, search, theme, story, validation, and executable-specification components." ];
+                [ Text "Added accessible responsive navigation, persistent color modes, source-faithful Code and Preview examples, isolated preview routes, and lifecycle-safe Prism and Mermaid rendering." ];
+                [ Text "Added package verification across supported runtimes and an independent Docs release train with an explicit minimum compatible Core version." ];
+                [ Text "See "; Link("release docs/v2026.8.0", "https://github.com/meiermade/FSharp.ViewEngine/releases/tag/docs%2Fv2026.8.0"); Text " for the immutable source and artifacts." ]
+            ];
+            Heading { id = "fsharp-viewengine-2026-8-1"; title = "FSharp.ViewEngine 2026.8.1 · August 13, 2026"; level = 3 };
+            UnorderedList [
+                [ Text "Added fragment composition, validated comments, and rendering targets for existing StringBuilder, TextWriter, and UTF-8 byte consumers." ];
+                [ Text "Expanded XML documentation, package verification, supported-runtime tests, and benchmark coverage for the new rendering APIs." ];
+                [ Text "See "; Link("release v2026.8.1", "https://github.com/meiermade/FSharp.ViewEngine/releases/tag/v2026.8.1"); Text " for the immutable source and artifacts." ]
+            ];
             Heading { id = "fsharp-viewengine-2026-8-0"; title = "FSharp.ViewEngine 2026.8.0 · August 7, 2026"; level = 3 };
             UnorderedList [
                 [ Text "Improved correctness, documentation, package validation, supported-runtime coverage, source debugging, and benchmark methodology." ];
