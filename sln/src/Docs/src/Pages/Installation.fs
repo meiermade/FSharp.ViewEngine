@@ -14,7 +14,7 @@ module Installation =
           nodes = [
             Paragraph [ Text "FSharp.ViewEngine is distributed as a NuGet package. You can install it using your preferred package manager." ];
             Heading { id = "using-net-cli"; title = "Using .NET CLI"; level = 2 };
-            CodeBlock("bash", """dotnet package add FSharp.ViewEngine""");
+            CodeBlock("bash", """dotnet add package FSharp.ViewEngine""");
             Heading { id = "using-paket-cli"; title = "Using Paket CLI"; level = 2 };
             CodeBlock("bash", """dotnet paket add FSharp.ViewEngine""");
             Heading { id = "runtime-support"; title = "Runtime Support"; level = 2 };
@@ -28,5 +28,5 @@ module Installation =
             Heading { id = "source-debugging"; title = "Source Debugging"; level = 2 };
             Paragraph [ Text "Each release publishes portable symbols separately from the main package. Source Link maps those symbols to the matching GitHub commit so supported debuggers can retrieve the exact source on demand." ];
             Heading { id = "next-steps"; title = "Next Steps"; level = 2 };
-            Paragraph [ Text "Once you have FSharp.ViewEngine installed, head over to the "; Link("Usage", "/usage"); Text " guide to start building your first HTML views." ];
+            Paragraph [ Text "Once you have FSharp.ViewEngine installed, "; Link("build your first view", "/getting-started/first-view"); Text " and then continue through the core concepts." ];
           ] }

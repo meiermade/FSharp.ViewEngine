@@ -4,13 +4,25 @@ open System
 open System.Globalization
 open JetBrains.Annotations
 
+/// Standard HTML element builders, attributes, and explicit custom-markup escape hatches.
 type Html =
+    /// An ignored attribute value, useful for conditional attribute expressions.
     static member val EmptyAttr = { Name = null; Value = ValueNone } with get
+    /// A renderable node that emits no output.
     static member val empty = NoopElement() :> HtmlElement with get
+    /// Emits trusted HTML without encoding. Never pass user-controlled content.
     static member raw ([<LanguageInjection("html")>]v: string) = RawElement(v) :> HtmlElement
+    /// Emits trusted JavaScript without encoding. Never pass user-controlled content.
     static member js ([<LanguageInjection("javascript")>]v: string) = RawElement(v) :> HtmlElement
+    /// Creates an HTML-encoded text node.
     static member text (v: string) = TextElement(v) :> HtmlElement
+    /// Creates a renderable sequence of sibling nodes.
+    static member fragment (elements:HtmlElement seq) = FragmentElement(elements) :> HtmlElement
+    /// Creates a validated HTML comment. Values containing `--` or ending in `-` are rejected.
+    static member comment (value:string) = CommentElement(value) :> HtmlElement
+    /// Creates a regular custom element. The developer-controlled name is emitted without validation.
     static member el (name: string) = TagBuilder(name)
+    /// Creates a void custom element. The developer-controlled name is emitted without validation.
     static member elVoid (name: string) = VoidBuilder(name)
     static member val html = TagBuilder("html") with get
     static member val head = TagBuilder("head") with get

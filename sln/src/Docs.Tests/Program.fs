@@ -10,6 +10,12 @@ let private expectedPaths =
     set [
         "/"
         "/installation"
+        "/getting-started/first-view"
+        "/guides/elements-and-attributes"
+        "/guides/composition-and-control-flow"
+        "/guides/rendering"
+        "/guides/encoding-and-trusted-content"
+        "/guides/accessibility"
         "/custom"
         "/usage"
         "/extensions/alpine"
@@ -17,6 +23,16 @@ let private expectedPaths =
         "/extensions/htmx"
         "/extensions/svg"
         "/extensions/tailwind-elements"
+        "/docs"
+        "/docs/components/layouts"
+        "/docs/components/content"
+        "/docs/components/navigation"
+        "/docs/components/interactive-examples"
+        "/docs/components/api-reference"
+        "/docs/components/diagrams"
+        "/docs/page-examples/documentation-site"
+        "/docs/page-examples/api-reference"
+        "/docs/page-examples/executable-specification"
         "/benchmarks"
         "/changelog"
     ]
@@ -28,19 +44,54 @@ let tests =
             let actual = Registry.all |> List.map _.path |> Set.ofList
             Expect.equal actual expectedPaths "documentation routes"
             Expect.equal Registry.all.Length expectedPaths.Count "one page per route"
+
+            let aliases = Registry.aliases |> Map.ofList
+            Expect.equal aliases["/docs/components"] "/docs/components/layouts" "old component catalog route"
+            Expect.equal aliases["/docs-components"] "/docs/components/layouts" "old component lab route"
+            Expect.equal aliases["/docs/examples/api-reference"] "/docs/page-examples/api-reference" "old API example route"
+            Expect.equal aliases["/docs/examples/executable-specification"] "/docs/page-examples/executable-specification" "old specification route"
         }
 
-        test "Navigation keeps extensions and project pages in the documented order" {
+        test "Navigation exposes the core learning path before integrations and project pages" {
+            Expect.sequenceEqual
+                (Registry.navigation |> List.map _.label)
+                [ "Getting started"; "Core concepts"; "Integrations"; "FSharp.ViewEngine.Docs"; "Project" ]
+                "core guidance precedes integrations and package catalogs"
+
+            let rec findSection label sections =
+                sections
+                |> List.tryPick (fun candidate ->
+                    if candidate.label = label then Some candidate
+                    else findSection label candidate.sections)
+
             let section label =
                 Registry.navigation
-                |> List.find (fun candidate -> candidate.label = label)
+                |> findSection label
+                |> Option.defaultWith (fun () -> failtest $"Missing navigation section: {label}")
                 |> _.pages
                 |> List.map _.navLabel
 
             Expect.sequenceEqual
-                (section "Extensions")
-                [ "SVG"; "Datastar"; "HTMX"; "Alpine"; "Tailwind Plus Elements" ]
-                "extension order"
+                (section "Getting started")
+                [ "Introduction"; "Installation"; "Build your first view" ]
+                "getting-started order"
+            Expect.sequenceEqual
+                (section "Core concepts")
+                [ "Elements and attributes"; "Composition and control flow"; "Rendering"; "Encoding and trusted content"; "Accessibility"; "Custom elements and extensions" ]
+                "core concept order"
+            Expect.sequenceEqual
+                (section "Integrations")
+                [ "Giraffe"; "SVG"; "Datastar"; "HTMX"; "Alpine"; "Tailwind Plus Elements" ]
+                "integration order"
+            Expect.sequenceEqual (section "FSharp.ViewEngine.Docs") [ "Overview" ] "toolkit overview is distinct"
+            Expect.sequenceEqual
+                (section "Components")
+                [ "Layouts"; "Content"; "Navigation"; "Interactive examples"; "API reference"; "Diagrams" ]
+                "component categories follow the catalog order"
+            Expect.sequenceEqual
+                (section "Page examples")
+                [ "Documentation site"; "API reference"; "Executable specification" ]
+                "page examples are grouped separately"
             Expect.sequenceEqual (section "Project") [ "Benchmarks"; "Changelog" ] "project order"
         }
 
@@ -65,6 +116,9 @@ let tests =
             Expect.stringContains html "not CI regression thresholds" "results interpretation"
             Expect.stringContains html "<figure" "visual comparison"
             Expect.stringContains html "Build and render comparison" "accessible comparison label"
+            Expect.stringContains html "docs-comparison-chart" "comparison uses theme-aware semantic styling"
+            Expect.stringContains html "Lower is better" "chart direction is explicit"
+            Expect.isFalse (html.Contains("background:#fafafa")) "chart does not hard-code a light surface"
             Expect.stringContains html "<table" "semantic results table"
             Expect.stringContains html "./fake.sh Benchmark" "measurement command"
             Expect.stringContains html "./fake.sh BenchmarkSmoke" "validation command"
@@ -75,17 +129,67 @@ let tests =
             Expect.isGreaterThan firstTableIndex appendixIndex "detailed tables follow analysis"
         }
 
-        test "Every page renders its eyebrow and heading anchors" {
+        test "Public discovery contains canonical pages and excludes aliases and previews" {
+            let sitemap = Handler.sitemap
+            let robots = Handler.robots
+
+            for page in Registry.all do
+                Expect.stringContains sitemap $"<loc>https://fsharpviewengine.meiermade.com{page.path}</loc>" page.path
+
+            Expect.equal (sitemap.Split("<url>").Length - 1) Registry.all.Length "one sitemap entry per canonical page"
+            Expect.isFalse (sitemap.Contains("/docs/components</loc>")) "aliases are excluded"
+            Expect.isFalse (sitemap.Contains("/docs/previews/")) "previews are excluded"
+            Expect.stringContains robots "Allow: /" "public pages are crawlable"
+            Expect.stringContains robots "Sitemap: https://fsharpviewengine.meiermade.com/sitemap.xml" "robots advertises sitemap"
+        }
+
+        test "Pages publish the application-owned social image" {
+            for page in Registry.all do
+                let html = page |> View.document Registry.navigation |> Render.toHtmlDocString
+                Expect.stringContains html "property=\"og:image\" content=\"https://fsharpviewengine.meiermade.com/social-card.png\"" page.path
+                Expect.stringContains html "name=\"twitter:card\" content=\"summary_large_image\"" page.path
+        }
+
+        test "Every page renders its semantic heading and legacy anchors" {
             for page in Registry.all do
                 let html = page |> View.document Registry.navigation |> Render.toHtmlDocString
                 let encodedTitle = WebUtility.HtmlEncode page.title
-                Expect.stringContains html page.category $"{page.path} eyebrow"
                 Expect.stringContains html $">{encodedTitle}</h1>" $"{page.path} title"
+
+                if Showcase.tryPage page.path |> Option.isNone then
+                    let description = page.nodes |> List.tryPick (function | Paragraph content -> Some content | _ -> None)
+                    Expect.isSome description $"{page.path} has a useful page summary"
+                    Expect.isFalse (html.Contains($"<p class=\"spec-page-description\">{page.category}</p>")) $"{page.path} does not repeat its category as the description"
 
                 for heading in DocPage.headings page do
                     Expect.stringContains html $"id=\"{heading.id}\"" $"{page.path} heading {heading.id}"
                     if heading.level <= 3 then
                         Expect.stringContains html $"href=\"#{heading.id}\"" $"{page.path} TOC {heading.id}"
+
+                if DocPage.tableOfContents page |> List.isEmpty |> not then
+                    Expect.stringContains html "class=\"spec-mobile-toc\"" $"{page.path} mobile TOC"
+                    Expect.stringContains html "aria-label=\"On this page\"" $"{page.path} labelled TOC"
+        }
+
+        test "Genuinely renderable samples use the shared code and preview component" {
+            let pages = [ Svg.page; TailwindElements.page ]
+
+            for page in pages do
+                let html = page |> View.document Registry.navigation |> Render.toHtmlDocString
+                Expect.stringContains html "data-docs-example=\"true\"" $"{page.path} example"
+                Expect.stringContains html "role=\"tablist\"" $"{page.path} tab semantics"
+                Expect.stringContains html ">Preview</button>" $"{page.path} preview control"
+                Expect.stringContains html ">Code</button>" $"{page.path} code control"
+        }
+
+        test "Inline prose links are visibly identifiable" {
+            let home = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
+            let installation = Installation.page |> View.document Registry.navigation |> Render.toHtmlDocString
+
+            Expect.stringContains home "href=\"/installation\" class=\"spec-content-link\"" "Installation is a styled inline link"
+            Expect.stringContains home "href=\"/getting-started/first-view\" class=\"spec-content-link\"" "first-view guide is a styled inline link"
+            Expect.stringContains installation "href=\"/getting-started/first-view\" class=\"spec-content-link\"" "next-step first-view link is styled"
+            Expect.stringContains home ".spec-content-link{text-decoration:underline" "inline links have a non-color affordance"
         }
 
         test "Code examples are encoded and retain Prism language classes" {
@@ -158,6 +262,15 @@ let tests =
             Expect.isFalse (html.Contains(" x-data=")) "Alpine directives removed"
         }
 
+        test "Homepage uses the product logo and Tailwind Sky primary color" {
+            let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
+            Expect.stringContains html "class=\"docs-home-logo\"" "product logo is shown in the page header"
+            Expect.stringContains html "src=\"/logo.svg\"" "page uses the canonical logo asset"
+            Expect.stringContains html "--spec-accent-500:#0ea5e9" "site uses Tailwind Sky 500"
+            Expect.stringContains html "--spec-accent-700:#0369a1" "site uses Tailwind Sky 700"
+            Expect.isFalse (html.Contains("--spec-accent-500:#10b981")) "emerald primary is removed"
+        }
+
         test "Homepage quick example is Datastar-first" {
             let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
             Expect.stringContains html "open type Datastar" "Datastar API"
@@ -166,12 +279,68 @@ let tests =
             Expect.isFalse (html.Contains("_hxGet")) "HTMX is not used as the attribute example"
         }
 
-        test "Docs use the pinned Prism runtime and FSharp grammar" {
-            let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let prismBase = "https://cdnjs.cloudflare.com/ajax/libs/prism/1.30.0"
-            Expect.stringContains html $"{prismBase}/prism.min.js" "pinned Prism script"
-            Expect.stringContains html $"{prismBase}/themes/prism-tomorrow.min.css" "pinned Prism theme"
-            Expect.stringContains html $"{prismBase}/components/prism-fsharp.min.js" "pinned FSharp grammar"
+        test "Docs lazily use pinned self-hosted Prism and Mermaid assets" {
+            let home = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
+            let diagrams = Showcase.previewRoutes["/docs/previews/mermaid-diagram"]
+            Expect.stringContains home "/scripts/prism.1.29.0.min.js" "pinned Prism script"
+            Expect.stringContains home "/css/prism-tomorrow.1.29.0.min.css" "pinned Prism theme"
+            Expect.stringContains home "/scripts/prism-fsharp.1.29.0.min.js" "pinned FSharp grammar"
+            Expect.isFalse (home.Contains("/scripts/mermaid.11.16.0.min.js")) "pages without diagrams omit Mermaid"
+            Expect.stringContains diagrams "/scripts/mermaid.11.16.0.min.js" "isolated diagram pages use pinned Mermaid"
+            Expect.isFalse (home.Contains("cdnjs.cloudflare.com")) "documentation assets are self-hosted"
+        }
+
+        test "Showcase source regions preserve the exact compiled example" {
+            let source = """before
+    // docs-example:start notice
+    let preview =
+        div { "Saved" }
+    // docs-example:end notice
+after"""
+
+            Expect.equal
+                (SourceRegion.extract "notice" source)
+                "let preview =\n    div { \"Saved\" }"
+                "source is extracted and dedented without marker comments"
+            Expect.throws
+                (fun () -> SourceRegion.extract "missing" source |> ignore)
+                "missing source regions fail rather than displaying approximate code"
+        }
+
+        test "Docs toolkit is organized into component and page-example catalogs" {
+            let render registration = registration |> View.document Registry.navigation |> Render.toHtmlDocString
+            let overview = render Showcase.overviewRegistration
+
+            Expect.equal Showcase.componentRegistrations.Length 6 "six component categories"
+            Expect.equal Showcase.pageExampleRegistrations.Length 3 "three page-example categories"
+            Expect.stringContains overview "FSharp.ViewEngine.Docs" "package overview"
+            Expect.stringContains overview "This documentation site is built with FSharp.ViewEngine.Docs" "site dogfoods the package"
+            Expect.stringContains overview "Browse components" "component catalog link"
+            Expect.stringContains overview "Browse page examples" "page-example catalog link"
+            Expect.isFalse (overview.Contains("Example content")) "overview omits the old fixture callout"
+            Expect.stringContains overview "rel=\"next\" href=\"/docs/components/layouts\"" "overview continues to layouts"
+
+            for registration in Showcase.componentRegistrations @ Showcase.pageExampleRegistrations do
+                let html = render registration
+                Expect.stringContains html "docs-article-layout" $"{registration.path} uses the catalog layout"
+                Expect.stringContains html "data-docs-example=\"true\"" $"{registration.path} includes examples"
+                Expect.stringContains html ">Code</button>" $"{registration.path} code toggle"
+                Expect.stringContains html ">Preview</button>" $"{registration.path} preview toggle"
+
+            let api = render Showcase.apiPageExampleRegistration
+            Expect.stringContains api "does not expose an HTTP /v1/render endpoint" "fictional API is labeled near its example"
+            Expect.stringContains api "let endpoint = docsApiEndpoint POST" "API page uses the compiled endpoint definition"
+            Expect.stringContains api "data-docs-preview-src=\"/docs/previews/api-reference-page-example\"" "API preview lazily uses an isolated route"
+            Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/api-reference-page-example") "isolated API preview is registered"
+
+            let interactive = render Showcase.interactiveRegistration
+            Expect.stringContains interactive "component-workflow-states" "state-tabs code uses the preview's actual identifier"
+            Expect.stringContains interactive "productScreen &quot;ready&quot;" "state-tabs code uses the actual compiled child view"
+            Expect.isFalse (interactive.Contains("docsStateTabs &quot;workflow-states&quot;")) "approximate state-tabs source is removed"
+
+            let specification = render Showcase.specificationPageExampleRegistration
+            Expect.stringContains specification "role=\"tablist\"" "specification preview uses state tabs"
+            Expect.stringContains specification "spec-browser-frame" "specification preview uses a browser frame"
         }
 
         test "Datastar docs cover every stable helper and modifier shapes" {
@@ -218,6 +387,8 @@ let tests =
             Expect.stringContains html "_ariaLabelledby" "informative accessibility pattern"
             Expect.stringContains html "_ariaHidden" "decorative accessibility pattern"
             Expect.stringContains html "xlink:href" "deprecated linking guidance"
+            let exampleCount = html.Split([| "data-docs-example=\"true\"" |], System.StringSplitOptions.None).Length - 1
+            Expect.isGreaterThanOrEqual exampleCount 3 "icon, chart, and resource examples have previews"
         }
 
         test "Tailwind Plus Elements docs cover the complete 1.0.22 API" {
@@ -234,6 +405,9 @@ let tests =
                 Expect.stringContains html helper helper
 
             Expect.stringContains html "@tailwindplus/elements@1.0.22" "pinned Elements installation"
+            Expect.stringContains html "src=\"https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22\"" "pinned Elements runtime"
+            Expect.stringContains html "<el-autocomplete" "previews render the actual custom elements"
+            Expect.isFalse (html.Contains("Native initial-state preview")) "previews are not static approximations"
             Expect.stringContains html "open type TailwindElements" "current API name"
             Expect.isFalse (html.Contains("open type Tailwind\n")) "removed Tailwind API"
         }
@@ -243,21 +417,13 @@ let tests =
             Expect.isFalse (Registry.aliases |> List.exists (fun (alias, _) -> alias = "/extensions/tailwind")) "old route alias"
         }
 
-        test "Changelog identifies unreleased breaking changes and migrations" {
+        test "Changelog contains released package versions only" {
             let html = Changelog.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "Unreleased" "unreleased section"
-            Expect.stringContains html "Breaking:" "breaking change marker"
-            Expect.stringContains html "_dataBind" "removed data-bind overload"
-            Expect.stringContains html "_dataAnimate" "changed data-animate signature"
-            Expect.stringContains html "_dataRocket" "removed legacy helper"
-            Expect.stringContains html "_dataScrollIntoView ()" "presence-only migration"
-            Expect.stringContains html "Alpine Migration" "Alpine migration section"
-            Expect.stringContains html "_by" "removed Alpine helper"
-            Expect.stringContains html "_xModel" "Alpine modifier migration"
-            Expect.stringContains html "Tailwind Plus Elements Migration" "Tailwind migration section"
-            Expect.stringContains html "TailwindElements" "renamed Tailwind type"
-            Expect.stringContains html "public API" "package compatibility validation"
-            Expect.stringContains html "Source Link" "portable source-debugging symbols"
+            Expect.stringContains html "FSharp.ViewEngine 2026.8.0" "latest released Core package"
+            Expect.stringContains html "FSharp.ViewEngine 2026.2.5" "previous released Core package"
+            Expect.stringContains html "release v2026.8.0" "immutable release link"
+            Expect.isFalse (html.Contains("Unreleased")) "unreleased changes are not published"
+            Expect.isFalse (html.Contains("Datastar Migration")) "unreleased migration notes are not published"
         }
 
         test "Installation docs distinguish package assets from runtime support" {

@@ -1,8 +1,39 @@
 namespace Docs.Pages
 
 open Docs.Common
+open FSharp.ViewEngine
+open type Html
 
 module Datastar =
+    let private completeExampleSource = """div {
+    _dataSignals ("query", [ "ifmissing" ], "''")
+    _dataIndicator "searching"
+
+    input {
+        _type "search"
+        _dataBind "query"
+        _dataOn ("input", [ "debounce.200ms" ], "@get('/api/search')")
+    }
+
+    span { _dataShow "$searching"; "Searching..." }
+    div { _id "search-results" }
+}"""
+
+    let private completeExamplePreview =
+        div {
+            _data("signals", "{query: ''}")
+            _style "min-height:12rem;border-radius:.65rem;background:#f8fafc;padding:1.5rem;color:#0f172a"
+            label { _for "datastar-preview-query"; _style "display:block;margin-bottom:.5rem;font-weight:650"; "Search" }
+            input {
+                _id "datastar-preview-query"
+                _type "search"
+                _placeholder "Type to update the preview"
+                _data("bind", "query")
+                _style "width:100%;border:1px solid #cbd5e1;border-radius:.45rem;background:white;padding:.65rem .75rem;color:#0f172a"
+            }
+            p { _style "margin:1rem 0 0;color:#475569"; "Current query: "; strong { _data("text", "$query || 'None'") } }
+        }
+
     let private section id title =
         [ Heading { id = id; title = title; level = 2 } ]
 
@@ -127,19 +158,7 @@ div { _dataScrollIntoView [ "smooth"; "vcenter"; "focus" ] }""";
 
           section "complete-example" "Complete Example";
           [ Paragraph [ Text "An active search form using signals, binding, modifiers, an indicator, and a backend action:" ];
-            CodeBlock("fsharp", """div {
-    _dataSignals ("query", [ "ifmissing" ], "''")
-    _dataIndicator "searching"
-
-    input {
-        _type "search"
-        _dataBind "query"
-        _dataOn ("input", [ "debounce.200ms" ], "@get('/api/search')")
-    }
-
-    span { _dataShow "$searching"; "Searching..." }
-    div { _id "search-results" }
-}""") ] ]
+            CodeBlock("fsharp", completeExampleSource) ] ]
         |> List.concat
 
     let page =

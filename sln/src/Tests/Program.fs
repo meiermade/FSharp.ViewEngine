@@ -12,5 +12,6 @@ let main args =
         AlpineTests.tests
         SvgTests.tests
         TailwindTests.tests
+        DocsTests.tests
     ]
     runTestsWithCLIArgs [] args allTests

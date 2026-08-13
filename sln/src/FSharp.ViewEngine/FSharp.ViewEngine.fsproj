@@ -3,6 +3,7 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <PackageId>FSharp.ViewEngine</PackageId>
+    <PackageVersion Condition="'$(FSharpViewEnginePackageVersion)' != ''">$(FSharpViewEnginePackageVersion)</PackageVersion>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Andrew Meier</Authors>

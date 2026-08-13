@@ -13,11 +13,13 @@
     <Compile Include="AlpineTests.fs" />
     <Compile Include="SvgTests.fs" />
     <Compile Include="TailwindTests.fs" />
+    <Compile Include="DocsTests.fs" />
     <Compile Include="Program.fs" />
     <Content Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
+    <ProjectReference Include="..\FSharp.ViewEngine.Docs\FSharp.ViewEngine.Docs.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

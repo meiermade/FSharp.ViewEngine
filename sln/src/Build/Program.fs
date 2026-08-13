@@ -55,25 +55,34 @@ let availableLocalPort () =
     listener.Start()
     (listener.LocalEndpoint :?> IPEndPoint).Port
 
-let getVersion () =
-    let value =
-        match Environment.environVarOrNone "PACKAGE_VERSION" with
-        | Some version -> version
-        | None -> Environment.environVarOrFail "GITHUB_REF_NAME"
+type Package =
+    | ViewEngine
+    | Docs
 
-    let matched = Regex.Match(value, @"^v?(\d+\.\d+\.\d+)$")
+    member this.Id =
+        match this with
+        | ViewEngine -> "FSharp.ViewEngine"
+        | Docs -> "FSharp.ViewEngine.Docs"
+
+    member this.Project = srcDir </> this.Id </> $"{this.Id}.fsproj"
+
+let selectedPackage () =
+    match Environment.environVarOrFail "PACKAGE_ID" with
+    | "FSharp.ViewEngine" -> ViewEngine
+    | "FSharp.ViewEngine.Docs" -> Docs
+    | packageId -> failwith $"Unsupported package: {packageId}"
+
+let getVersion () =
+    let value = Environment.environVarOrFail "PACKAGE_VERSION"
+    let matched = Regex.Match(value, @"^(\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)$")
     if matched.Success then matched.Groups[1].Value else failwith $"invalid package version: {value}"
 
 Target.create "PrepareRelease" <| fun _ ->
-    let versionOverride = Environment.environVarOrNone "RELEASE_VERSION_OVERRIDE"
-    let metadata = Release.prepare releaseRepository releaseMetadataPath versionOverride
+    let version = Environment.environVarOrFail "RELEASE_VERSION"
+    let tagPrefix = Environment.environVarOrFail "RELEASE_TAG_PREFIX"
+    let metadata = Release.prepare releaseRepository releaseMetadataPath tagPrefix version
     Trace.trace $"Prepared {metadata.tag} for {metadata.commit}"
     Trace.trace $"Release metadata: {releaseMetadataPath}"
-
-Target.create "TagRelease" <| fun _ ->
-    let metadata = Release.readMetadata releaseMetadataPath
-    Release.tag releaseRepository metadata
-    Trace.trace $"Release tag {metadata.tag} points to {metadata.commit}"
 
 Target.create "CleanNugets" <| fun _ -> Shell.cleanDir nugetsDir
 
@@ -88,35 +97,62 @@ Target.create "Test" <| fun _ ->
     |> Async.RunSynchronously
 
 Target.create "Pack"  (fun _ ->
-    let project = srcDir </> "FSharp.ViewEngine" </> "FSharp.ViewEngine.fsproj"
-    Trace.trace $"Packing {project}"
-    let version = getVersion()
-    dotnet rootDir ["pack"; project; "--configuration"; "Release"; "--output"; nugetsDir; $"/p:PackageVersion={version}"]
-    |> Async.RunSynchronously
+    let package = selectedPackage ()
+    let version = getVersion ()
+    let arguments =
+        [ "pack"
+          package.Project
+          "--configuration"
+          "Release"
+          "--output"
+          nugetsDir ]
+
+    let arguments =
+        match package with
+        | ViewEngine -> arguments @ [ $"/p:FSharpViewEnginePackageVersion={version}" ]
+        | Docs ->
+            let minimumCoreVersion = Environment.environVarOrFail "DOCS_MINIMUM_CORE_VERSION"
+            arguments @
+                [ $"/p:FSharpViewEngineDocsPackageVersion={version}"
+                  $"/p:FSharpViewEnginePackageVersion={minimumCoreVersion}" ]
+
+    Trace.trace $"Packing {package.Id} {version}"
+    dotnet rootDir arguments |> Async.RunSynchronously
 )
 
 Target.create "VerifyPackage" (fun _ ->
-    let package =
+    let packages =
         match Environment.environVarOrNone "PACKAGE_PATH" with
-        | Some package -> Path.getFullName package
+        | Some package -> [ Path.getFullName package ]
         | None ->
-            let nugets = !! $"{nugetsDir}/*.nupkg" |> Seq.toList
-            match nugets with
-            | [ package ] -> package
-            | _ -> failwith $"Expected exactly one package, found {nugets.Length}"
+            let package = selectedPackage ()
+            let packageDirectory = Environment.environVarOrDefault "PACKAGE_DIRECTORY" nugetsDir
+            let packages =
+                !! $"{packageDirectory}/{package.Id}.*.nupkg"
+                |> Seq.filter (fun path -> not (path.EndsWith(".snupkg", System.StringComparison.OrdinalIgnoreCase)))
+                |> Seq.sort
+                |> Seq.toList
 
-    if not (File.exists package) then failwith $"Package does not exist: {package}"
+            match packages with
+            | [ packagePath ] -> [ packagePath ]
+            | _ ->
+                let found = packages |> List.map System.IO.Path.GetFileName |> String.concat ", "
+                failwith $"Expected exactly one {package.Id} package, found: {found}"
 
-    PackageVerification.verify
-        (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)
-        package
+    for package in packages do
+        if not (File.exists package) then failwith $"Package does not exist: {package}"
+
+        PackageVerification.verify
+            (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)
+            package
 )
 
 Target.create "PushNugets" (fun _ ->
-    let nugets = !! $"{nugetsDir}/*.nupkg" |> String.concat ", "
-    Trace.trace $"Publishing {nugets} and its associated symbol package"
+    let package = selectedPackage ()
+    let packagePath = $"{nugetsDir}/{package.Id}.*.nupkg"
+    Trace.trace $"Publishing {packagePath} and its associated symbol package"
     let apiKey = Environment.environVarOrFail "NUGET_API_KEY"
-    dotnet rootDir ["nuget"; "push"; $"{nugetsDir}/*.nupkg"; "--source"; "https://api.nuget.org/v3/index.json"; "--api-key"; apiKey]
+    dotnet rootDir ["nuget"; "push"; packagePath; "--source"; "https://api.nuget.org/v3/index.json"; "--api-key"; apiKey]
     |> Async.RunSynchronously
 )
 

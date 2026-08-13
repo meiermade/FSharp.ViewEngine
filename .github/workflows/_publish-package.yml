@@ -1,0 +1,279 @@
+name: Publish package
+on:
+  workflow_call:
+    inputs:
+      packageId:
+        description: NuGet package ID
+        required: true
+        type: string
+      tagPrefix:
+        description: Package-specific release tag prefix
+        required: true
+        type: string
+      version:
+        description: Package calendar version (YYYY.M.MINOR)
+        required: true
+        type: string
+      minimumCoreVersion:
+        description: Minimum published FSharp.ViewEngine version required by Docs
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-${{ inputs.packageId }}
+  cancel-in-progress: false
+
+jobs:
+  package:
+    name: Build and verify ${{ inputs.packageId }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+      previousTag: ${{ steps.previous-tag.outputs.tag }}
+    steps:
+      - name: Require main branch
+        run: |
+          if [[ "$GITHUB_REF" != "refs/heads/main" ]]; then
+            echo "Releases must run from main, not $GITHUB_REF." >&2
+            exit 1
+          fi
+      - name: Validate package inputs
+        env:
+          PACKAGE_ID: ${{ inputs.packageId }}
+          VERSION: ${{ inputs.version }}
+          MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
+        run: |
+          if [[ ! "$VERSION" =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]+$ ]]; then
+            echo "Package releases require an explicit version in YYYY.M.MINOR form." >&2
+            exit 1
+          fi
+
+          case "$PACKAGE_ID" in
+            FSharp.ViewEngine)
+              if [[ -n "$MINIMUM_CORE_VERSION" ]]; then
+                echo "Core releases must not specify a minimum Core version." >&2
+                exit 1
+              fi
+              ;;
+            FSharp.ViewEngine.Docs)
+              if [[ ! "$MINIMUM_CORE_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                echo "Docs releases require a minimum Core version in YYYY.M.MINOR form." >&2
+                exit 1
+              fi
+              ;;
+            *)
+              echo "Unsupported package: $PACKAGE_ID" >&2
+              exit 1
+              ;;
+          esac
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Confirm changelog contains selected package release
+        env:
+          PACKAGE_ID: ${{ inputs.packageId }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          changelog="sln/src/Docs/src/Pages/Changelog.fs"
+          marker="title = \"$PACKAGE_ID $VERSION ·"
+          matches=$(grep -F -c "$marker" "$changelog" || true)
+
+          if [[ "$matches" -ne 1 ]]; then
+            echo "Expected exactly one released-package changelog entry beginning '$PACKAGE_ID $VERSION ·'; found $matches." >&2
+            exit 1
+          fi
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+      - name: Restore tools and packages
+        run: |
+          dotnet tool restore
+          dotnet paket install
+          dotnet restore FSharp.ViewEngine.slnx
+        working-directory: ./sln
+      - name: Confirm minimum Core package is published
+        if: inputs.packageId == 'FSharp.ViewEngine.Docs'
+        env:
+          CORE_VERSION: ${{ inputs.minimumCoreVersion }}
+        run: |
+          url="https://api.nuget.org/v3-flatcontainer/fsharp.viewengine/$CORE_VERSION/fsharp.viewengine.$CORE_VERSION.nupkg"
+          curl --fail --silent --show-error --output /dev/null "$url" || {
+            echo "FSharp.ViewEngine $CORE_VERSION must be available from NuGet before publishing Docs." >&2
+            exit 1
+          }
+      - name: Prepare package release
+        env:
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
+          RELEASE_TAG_PREFIX: ${{ inputs.tagPrefix }}
+          RELEASE_VERSION: ${{ inputs.version }}
+        run: ./fake.sh PrepareRelease
+        working-directory: ./sln
+      - name: Read release metadata
+        id: release
+        env:
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
+        run: |
+          {
+            echo "tag=$(jq -r '.tag' "$RELEASE_METADATA_PATH")"
+            echo "version=$(jq -r '.version' "$RELEASE_METADATA_PATH")"
+            echo "commit=$(jq -r '.commit' "$RELEASE_METADATA_PATH")"
+          } >> "$GITHUB_OUTPUT"
+      - name: Find previous package release tag
+        id: previous-tag
+        env:
+          RELEASE_TAG_PREFIX: ${{ inputs.tagPrefix }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          previous=""
+          while IFS= read -r candidate; do
+            if [[ "$candidate" == "$TAG" ]]; then
+              break
+            fi
+            previous="$candidate"
+          done < <({ git tag --list "$RELEASE_TAG_PREFIX*"; echo "$TAG"; } | sort -Vu)
+          echo "tag=$previous" >> "$GITHUB_OUTPUT"
+      - name: Build, test, pack, and verify selected package
+        env:
+          PACKAGE_ID: ${{ inputs.packageId }}
+          PACKAGE_VERSION: ${{ steps.release.outputs.version }}
+          DOCS_MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
+        run: ./fake.sh VerifyPackage
+        working-directory: ./sln
+      - name: Record package checksums
+        run: sha256sum ./*.nupkg ./*.snupkg > SHA256SUMS
+        working-directory: ./nugets
+      - name: Upload verified package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ inputs.packageId }}-${{ steps.release.outputs.version }}
+          path: |
+            nugets/*.nupkg
+            nugets/*.snupkg
+            nugets/SHA256SUMS
+          if-no-files-found: error
+
+  publish:
+    name: Publish ${{ inputs.packageId }}
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - name: Download verified package
+        uses: actions/download-artifact@v5
+        with:
+          name: ${{ inputs.packageId }}-${{ needs.package.outputs.version }}
+          path: ${{ runner.temp }}/package
+      - name: Verify package checksums
+        run: sha256sum --check SHA256SUMS
+        working-directory: ${{ runner.temp }}/package
+      - name: Authenticate Pulumi
+        uses: pulumi/auth-actions@v1
+        with:
+          organization: meiermade
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:meiermade
+      - name: Publish verified package
+        env:
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/package
+          PACKAGE_ID: ${{ inputs.packageId }}
+          VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          package="$PACKAGE_DIRECTORY/$PACKAGE_ID.$VERSION.nupkg"
+          test -f "$package"
+          pulumi env run fsharpviewengine/nuget -- \
+            bash -euo pipefail -c '
+              dotnet nuget push "$1" \
+                --source https://api.nuget.org/v3/index.json \
+                --api-key "$NUGET_API_KEY" \
+                --skip-duplicate
+            ' bash "$package"
+      - name: Wait for NuGet availability
+        env:
+          PACKAGE_ID: ${{ inputs.packageId }}
+          VERSION: ${{ needs.package.outputs.version }}
+        run: |
+          package_slug="${PACKAGE_ID,,}"
+          package_url="https://api.nuget.org/v3-flatcontainer/$package_slug/$VERSION/$package_slug.$VERSION.nupkg"
+
+          for _ in $(seq 1 60); do
+            if curl --fail --silent --show-error --output /dev/null "$package_url"; then
+              echo "$PACKAGE_ID $VERSION is available from NuGet."
+              exit 0
+            fi
+            sleep 10
+          done
+
+          echo "$PACKAGE_ID $VERSION was not available from NuGet after 10 minutes." >&2
+          exit 1
+      - name: Check out published package commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.package.outputs.commit }}
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Create package release tag
+        env:
+          TAG: ${{ needs.package.outputs.tag }}
+          COMMIT: ${{ needs.package.outputs.commit }}
+        run: |
+          existing_commit=$(git rev-list -n 1 "$TAG" 2>/dev/null || true)
+
+          if [[ -n "$existing_commit" && "$existing_commit" != "$COMMIT" ]]; then
+            echo "Release tag $TAG points to $existing_commit, not $COMMIT." >&2
+            exit 1
+          fi
+
+          if [[ -z "$existing_commit" ]]; then
+            git tag "$TAG" "$COMMIT"
+            git push origin "refs/tags/$TAG"
+          fi
+      - name: Create package GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PACKAGE_ID: ${{ inputs.packageId }}
+          TAG: ${{ needs.package.outputs.tag }}
+          PREVIOUS_TAG: ${{ needs.package.outputs.previousTag }}
+          VERSION: ${{ needs.package.outputs.version }}
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/package
+        run: |
+          if gh release view "$TAG" --repo "$REPOSITORY" >/dev/null 2>&1; then
+            echo "GitHub Release $TAG already exists."
+          else
+            release_args=(
+              --repo "$REPOSITORY"
+              --verify-tag
+              --title "$PACKAGE_ID $VERSION"
+            )
+
+            if [[ -n "$PREVIOUS_TAG" ]]; then
+              release_args+=(--generate-notes --notes-start-tag "$PREVIOUS_TAG")
+            else
+              release_args+=(--notes "Initial $PACKAGE_ID package release. See the package changelog for release details.")
+            fi
+
+            gh release create "$TAG" \
+              "${release_args[@]}" \
+              "$PACKAGE_DIRECTORY"/*.nupkg \
+              "$PACKAGE_DIRECTORY"/*.snupkg \
+              "$PACKAGE_DIRECTORY/SHA256SUMS"
+          fi

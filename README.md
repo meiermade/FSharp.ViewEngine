@@ -1,6 +1,8 @@
-[![Publish](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml)
+[![Publish Core](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml)
+[![Publish Docs](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish-docs.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish-docs.yml)
 [![Deploy](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml)
-[![NuGet](https://img.shields.io/nuget/v/FSharp.ViewEngine)](https://www.nuget.org/packages/FSharp.ViewEngine)
+[![NuGet Core](https://img.shields.io/nuget/v/FSharp.ViewEngine)](https://www.nuget.org/packages/FSharp.ViewEngine)
+[![NuGet Docs](https://img.shields.io/nuget/v/FSharp.ViewEngine.Docs)](https://www.nuget.org/packages/FSharp.ViewEngine.Docs)
 
 <p align="center">
   <img src="etc/logo.svg" alt="FSharp.ViewEngine" width="128">
@@ -28,12 +30,46 @@ Documentation site built using FSharp.ViewEngine available at [https://fsharpvie
 Add the core view engine package with your preferred CLI.
 
 ```shell
-dotnet package add FSharp.ViewEngine
+dotnet add package FSharp.ViewEngine
 ```
 
 ```shell
 dotnet paket add FSharp.ViewEngine
 ```
+
+For documentation sites, API references, and executable software specifications, install the separate add-on package:
+
+```shell
+dotnet add package FSharp.ViewEngine.Docs
+```
+
+`FSharp.ViewEngine.Docs` provides article, reference, and canvas layouts; configurable navigation; accessible code/preview examples; API documentation components; diagrams; product frames; typed destinations; and structural validation. See its [package documentation](./sln/src/FSharp.ViewEngine.Docs/README.md).
+
+## Releases
+
+The two NuGet packages have independent release trains:
+
+- `FSharp.ViewEngine` uses tags such as `v2026.8.1` and the **Publish Core** workflow.
+- `FSharp.ViewEngine.Docs` uses tags such as `docs/v2026.8.0` and the **Publish Docs** workflow.
+
+A Docs release declares its minimum compatible published Core version. Matching package versions are not required. Publish Core first whenever Docs needs APIs that are not already available on NuGet. Both publish workflows require an explicit version and a matching released-package changelog entry. Directly packing `FSharp.ViewEngine.Docs` also requires explicit Docs and minimum Core MSBuild version properties so it cannot silently produce incorrect dependency metadata. Documentation-site deployment is separate from package publication and deploys the selected source revision through the **Deploy** workflow.
+
+## Core rendering helpers
+
+`Render.toString` serializes a fragment; `Render.toHtmlDocString` prepends the HTML5 doctype for a complete document. Additional targets support existing `StringBuilder` and `TextWriter` instances plus UTF-8 bytes:
+
+```fsharp
+let siblings =
+    Html.fragment [
+        span { "One" }
+        Html.comment "Trusted build marker"
+        span { "Two" }
+    ]
+
+let bytes = Render.toUtf8Bytes siblings
+```
+
+`Html.comment` rejects invalid HTML comment values containing `--` or ending with `-`. `Html.raw`, `Html.js`, custom markup names, and executable expression attributes remain trusted developer-controlled boundaries.
 
 ## Runtime compatibility
 

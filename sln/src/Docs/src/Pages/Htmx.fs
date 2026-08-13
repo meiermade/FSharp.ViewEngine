@@ -1,8 +1,37 @@
 namespace Docs.Pages
 
 open Docs.Common
+open FSharp.ViewEngine
+open type Html
 
 module Htmx =
+    let private completeExampleSource = """form {
+    _hxGet "/api/search"
+    _hxTrigger "input changed delay:300ms, search"
+    _hxTarget "#search-results"
+    _hxIndicator "#search-spinner"
+    _hxDisabledElt "find button"
+    _hxSync "this:replace"
+    _hxPushUrl "true"
+
+    input { _type "search"; _name "query"; _hxValidate "true" }
+    button { _type "submit"; "Search" }
+    span { _id "search-spinner"; _class "htmx-indicator"; "Searching..." }
+    div { _id "search-results" }
+}"""
+
+    let private completeExamplePreview =
+        div {
+            _style "min-height:12rem;border-radius:.65rem;background:#f8fafc;padding:1.5rem;color:#0f172a"
+            p { _style "margin:0 0 1rem;color:#64748b;font-size:.8rem"; "Rendered initial state. The documentation host does not connect this fixture to a search endpoint." }
+            form {
+                _data("on:submit", "evt.preventDefault()")
+                _style "display:flex;gap:.5rem"
+                input { _type "search"; _name "query"; _placeholder "Search"; _style "min-width:0;flex:1;border:1px solid #cbd5e1;border-radius:.45rem;background:white;padding:.65rem .75rem;color:#0f172a" }
+                button { _type "submit"; _style "border:0;border-radius:.45rem;background:#0f172a;padding:.65rem 1rem;color:white;font-weight:650"; "Search" }
+            }
+        }
+
     let private section id title =
         [ Heading { id = id; title = title; level = 2 } ]
 
@@ -188,20 +217,7 @@ span { _id "spinner"; _class "htmx-indicator"; "Loading..." }"""
 
           section "complete-example" "Complete Example"
           [ Paragraph [ Text "A search form combining request, synchronization, targeting, indicator, and history attributes:" ]
-            CodeBlock("fsharp", """form {
-    _hxGet "/api/search"
-    _hxTrigger "input changed delay:300ms, search"
-    _hxTarget "#search-results"
-    _hxIndicator "#search-spinner"
-    _hxDisabledElt "find button"
-    _hxSync "this:replace"
-    _hxPushUrl "true"
-
-    input { _type "search"; _name "query"; _hxValidate "true" }
-    button { _type "submit"; "Search" }
-    span { _id "search-spinner"; _class "htmx-indicator"; "Searching..." }
-    div { _id "search-results" }
-}""") ] ]
+            CodeBlock("fsharp", completeExampleSource) ] ]
         |> List.concat
 
     let page =

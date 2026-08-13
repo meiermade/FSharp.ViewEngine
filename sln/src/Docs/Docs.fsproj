@@ -9,9 +9,12 @@
     <Content Include="paket.references" />
     <Compile Include="src\Common\Config.fs" />
     <Compile Include="src\Common\Model.fs" />
+    <Compile Include="src\Common\SourceRegion.fs" />
+    <Compile Include="src\Pages\Showcase.fs" />
     <Compile Include="src\Common\View.fs" />
     <Compile Include="src\Pages\Home.fs" />
     <Compile Include="src\Pages\Installation.fs" />
+    <Compile Include="src\Pages\CoreGuides.fs" />
     <Compile Include="src\Pages\Custom.fs" />
     <Compile Include="src\Pages\Usage.fs" />
     <Compile Include="src\Pages\Alpine.fs" />
@@ -27,6 +30,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="src\Pages\Showcase.fs" LogicalName="Docs.Pages.Showcase.fs" />
     <Content Include="input.css">
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -34,6 +38,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
+    <ProjectReference Include="..\FSharp.ViewEngine.Docs\FSharp.ViewEngine.Docs.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

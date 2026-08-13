@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <PackageId>FSharp.ViewEngine.Docs</PackageId>
+    <PackageVersion Condition="'$(FSharpViewEngineDocsPackageVersion)' != ''">$(FSharpViewEngineDocsPackageVersion)</PackageVersion>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Authors>Andrew Meier</Authors>
+    <Description>Composable article, API reference, canvas, navigation, diagram, and product-frame components for documentation sites built with FSharp.ViewEngine.</Description>
+    <PackageTags>fsharp;html;documentation;api-reference;specification;mermaid;c4</PackageTags>
+    <RepositoryUrl>https://github.com/meiermade/FSharp.ViewEngine</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <DebugType>portable</DebugType>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+  <Target Name="ValidateDocsPackageVersions" BeforeTargets="GenerateNuspec">
+    <Error Condition="'$(FSharpViewEngineDocsPackageVersion)' == ''" Text="Packing FSharp.ViewEngine.Docs requires /p:FSharpViewEngineDocsPackageVersion=YYYY.M.MINOR. Use the package release workflow for publication." />
+    <Error Condition="'$(FSharpViewEnginePackageVersion)' == ''" Text="Packing FSharp.ViewEngine.Docs requires /p:FSharpViewEnginePackageVersion=YYYY.M.MINOR for its minimum Core dependency. Use the package release workflow for publication." />
+  </Target>
+  <ItemGroup>
+    <Compile Include="ValidationIssue.fs" />
+    <Compile Include="SequenceDiagram.fs" />
+    <Compile Include="Target.fs" />
+    <Compile Include="Navigation.fs" />
+    <Compile Include="Document.fs" />
+    <Compile Include="ApiReference.fs" />
+    <Compile Include="DefaultStyles.fs" />
+    <Compile Include="Wireframe.fs" />
+    <Compile Include="Registry.fs" />
+    <Compile Include="Search.fs" />
+    <Compile Include="Story.fs" />
+    <Compile Include="View.fs" />
+    <Compile Include="Builders.fs" />
+    <Compile Include="DirectedGraph.fs" />
+    <None Include="../../../LICENSE" Pack="True" Visible="false" PackagePath="" />
+    <None Include="README.md" Pack="True" Visible="false" PackagePath="" />
+    <PackageReference Update="FSharp.Core" Version="10.0.102" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
+  </ItemGroup>
+</Project>

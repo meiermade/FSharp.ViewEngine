@@ -3,13 +3,17 @@ namespace FSharp.ViewEngine
 open System
 open System.Buffers
 open System.Runtime.CompilerServices
+open System.IO
 open System.Text
 
+/// An HTML attribute name and optional encoded value. ValueNone renders a valueless boolean attribute.
 [<Struct>]
 type HtmlAttribute = { Name: string; Value: string voption }
 
+/// Base type for renderable HTML nodes.
 [<AbstractClass>]
 type HtmlElement() =
+    /// Appends this node's serialized HTML to the supplied StringBuilder.
     abstract Render: StringBuilder -> unit
 
 module private HtmlEncoding =
@@ -91,6 +95,21 @@ type RawElement(text: string) =
 type NoopElement() =
     inherit HtmlElement()
     override _.Render(_) = ()
+
+/// A renderable sequence of sibling nodes.
+type FragmentElement(elements:HtmlElement seq) =
+    inherit HtmlElement()
+    let elements = elements |> Seq.toArray
+    override _.Render(sb) =
+        for element in elements do element.Render(sb)
+
+/// A validated HTML comment node.
+type CommentElement(value:string) =
+    inherit HtmlElement()
+    do
+        if isNull value || value.Contains("--") || value.EndsWith("-", StringComparison.Ordinal) then
+            invalidArg (nameof value) "HTML comments cannot be null, contain '--', or end with '-'."
+    override _.Render(sb) = sb.Append("<!--").Append(value).Append("-->") |> ignore
 
 module private RenderHelpers =
     let inline renderAttr (sb: StringBuilder) (a: HtmlAttribute) =
@@ -231,6 +250,7 @@ type private StringBuilderPool =
 type TagBuilderCode = RegularElement -> unit
 type VoidBuilderCode = VoidElement -> unit
 
+/// Computation-expression builder for a regular element that accepts attributes, text, and child elements.
 type TagBuilder(tag: string) =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member inline _.Yield(el: HtmlElement) : TagBuilderCode =
@@ -271,6 +291,7 @@ type TagBuilder(tag: string) =
         el :> HtmlElement
 
 
+/// Computation-expression builder for a void element that accepts attributes and renders no closing tag.
 type VoidBuilder(tag: string) =
     inherit VoidElement(tag)
 
@@ -304,8 +325,25 @@ type VoidBuilder(tag: string) =
         f el
         el :> HtmlElement
 
+/// Functions for serializing completed element trees.
 [<RequireQualifiedAccess>]
 module Render =
+    /// Appends an element directly to an existing StringBuilder.
+    let writeToStringBuilder (builder:StringBuilder) (element:HtmlElement) =
+        if isNull builder then nullArg (nameof builder)
+        element.Render(builder)
+
+    /// Writes an element to a TextWriter without closing the writer.
+    let writeToTextWriter (writer:TextWriter) (element:HtmlElement) =
+        if isNull writer then nullArg (nameof writer)
+        let builder = StringBuilderPool.Rent()
+        try
+            element.Render(builder)
+            writer.Write(builder.ToString())
+        finally
+            StringBuilderPool.Return(builder)
+
+    /// Serializes an element without adding a document type declaration.
     let toString (element: HtmlElement) =
         let sb = StringBuilderPool.Rent()
         try
@@ -314,6 +352,11 @@ module Render =
         finally
             StringBuilderPool.Return(sb)
 
+    /// Serializes an element as UTF-8 bytes without a byte-order mark.
+    let toUtf8Bytes (element:HtmlElement) : byte array =
+        element |> toString |> Encoding.UTF8.GetBytes
+
+    /// Serializes a complete HTML document and prepends the HTML5 doctype.
     let toHtmlDocString (view: #HtmlElement) =
         let sb = StringBuilderPool.Rent()
         sb.AppendLine("<!DOCTYPE html>") |> ignore
