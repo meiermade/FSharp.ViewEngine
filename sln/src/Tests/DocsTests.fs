@@ -333,9 +333,10 @@ let tests =
             let diagramHtml = docsDocument site diagram |> Render.toString
             let highlightedHtml = docsDocument site highlighted |> Render.toString
             Expect.isFalse (plainHtml.Contains("mermaid.11.16.0")) "plain pages omit Mermaid"
-            Expect.isFalse (plainHtml.Contains("prism.1.29.0")) "plain pages omit Prism"
+            Expect.stringContains plainHtml "prism-tomorrow.1.29.0.min.css" "Prism styles remain stable across Docs navigation"
+            Expect.isFalse (plainHtml.Contains("src=\"/scripts/prism.1.29.0.min.js\"")) "plain pages omit Prism scripts"
             Expect.stringContains diagramHtml "mermaid.11.16.0" "diagram pages load Mermaid"
-            Expect.stringContains highlightedHtml "prism.1.29.0" "code pages load Prism"
+            Expect.stringContains highlightedHtml "prism.1.29.0" "code pages configure Prism"
         }
 
         test "CSP nonces apply to package-owned inline scripts and styles" {
