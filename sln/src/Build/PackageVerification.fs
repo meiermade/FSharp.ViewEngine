@@ -149,16 +149,21 @@ let private verifyDocsCoreDependency expectedVersion (archive:ZipArchive) =
         |> exactlyOne "NuSpec entry"
 
     let document = nuspecEntry |> entryText |> XDocument.Parse
+    let attributeValue name (element:XElement) =
+        match element.Attribute(XName.Get name) with
+        | null -> ""
+        | attribute -> attribute.Value
+
     let coreDependencies =
         document.Descendants()
         |> Seq.filter (fun element ->
             element.Name.LocalName = "dependency"
-            && string (element.Attribute(XName.Get "id")) = "FSharp.ViewEngine")
+            && attributeValue "id" element = "FSharp.ViewEngine")
         |> Seq.toList
 
     match coreDependencies with
     | [ dependency ] ->
-        let actualVersion = string (dependency.Attribute(XName.Get "version"))
+        let actualVersion = attributeValue "version" dependency
         if actualVersion <> expectedVersion then
             fail $"Expected FSharp.ViewEngine dependency {expectedVersion}, found {actualVersion}"
     | dependencies -> fail $"Expected exactly one FSharp.ViewEngine dependency, found {dependencies.Length}"

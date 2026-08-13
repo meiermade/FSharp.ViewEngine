@@ -74,7 +74,7 @@ let selectedPackage () =
 
 let getVersion () =
     let value = Environment.environVarOrFail "PACKAGE_VERSION"
-    let matched = Regex.Match(value, @"^(\d+\.\d+\.\d+)$")
+    let matched = Regex.Match(value, @"^(\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)$")
     if matched.Success then matched.Groups[1].Value else failwith $"invalid package version: {value}"
 
 Target.create "PrepareRelease" <| fun _ ->
@@ -132,7 +132,11 @@ Target.create "VerifyPackage" (fun _ ->
         | None ->
             let package = selectedPackage ()
             let packageDirectory = Environment.environVarOrDefault "PACKAGE_DIRECTORY" nugetsDir
-            let packages = !! $"{packageDirectory}/{package.Id}.*.nupkg" |> Seq.sort |> Seq.toList
+            let packages =
+                !! $"{packageDirectory}/{package.Id}.*.nupkg"
+                |> Seq.filter (fun path -> not (path.EndsWith(".snupkg", System.StringComparison.OrdinalIgnoreCase)))
+                |> Seq.sort
+                |> Seq.toList
 
             match packages with
             | [ packagePath ] -> [ packagePath ]
