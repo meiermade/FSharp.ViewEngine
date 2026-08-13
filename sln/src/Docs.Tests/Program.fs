@@ -419,9 +419,11 @@ after"""
 
         test "Changelog contains released package versions only" {
             let html = Changelog.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "FSharp.ViewEngine 2026.8.0" "latest released Core package"
-            Expect.stringContains html "FSharp.ViewEngine 2026.2.5" "previous released Core package"
-            Expect.stringContains html "release v2026.8.0" "immutable release link"
+            Expect.stringContains html "FSharp.ViewEngine.Docs 2026.8.0" "latest released Docs package"
+            Expect.stringContains html "FSharp.ViewEngine 2026.8.1" "latest released Core package"
+            Expect.stringContains html "FSharp.ViewEngine 2026.8.0" "previous released Core package"
+            Expect.stringContains html "release docs/v2026.8.0" "immutable Docs release link"
+            Expect.stringContains html "release v2026.8.1" "immutable Core release link"
             Expect.isFalse (html.Contains("Unreleased")) "unreleased changes are not published"
             Expect.isFalse (html.Contains("Datastar Migration")) "unreleased migration notes are not published"
         }
