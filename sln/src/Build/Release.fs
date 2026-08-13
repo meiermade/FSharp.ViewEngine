@@ -18,7 +18,8 @@ type private CalendarVersion =
 type Metadata =
     { tag:string
       version:string
-      commit:string }
+      commit:string
+      previousTag:string option }
 
 let private versionPattern = Regex("^v?(?<year>[0-9]{4})\\.(?<month>[0-9]{1,2})\\.(?<minor>[0-9]+)$")
 
@@ -73,16 +74,37 @@ let private resolveMetadata (repository:string) (tagPrefix:string) (requestedVer
         | Some(tag, _, _) -> tag
         | None -> $"{tagPrefix}{version}"
 
+    let previousTag =
+        tags
+        |> List.filter (fun (_, existingVersion, _) -> versionKey existingVersion < versionKey version)
+        |> List.sortBy (fun (_, existingVersion, _) -> versionKey existingVersion)
+        |> List.tryLast
+        |> Option.map (fun (existingTag, _, _) -> existingTag)
+
     { tag = tag
       version = version.ToString()
-      commit = commit }
+      commit = commit
+      previousTag = previousTag }
 
-let private writeMetadata (path:string) (metadata:Metadata) =
+let writeMetadata (path:string) (metadata:Metadata) =
     let directory = Path.GetDirectoryName(Path.GetFullPath path)
     Directory.CreateDirectory directory |> ignore
 
     let options = JsonSerializerOptions(WriteIndented = true, PropertyNamingPolicy = JsonNamingPolicy.CamelCase)
     File.WriteAllText(path, JsonSerializer.Serialize(metadata, options) + Environment.NewLine)
+
+let readMetadata (path:string) =
+    use document = JsonDocument.Parse(File.ReadAllText path)
+    let root = document.RootElement
+    let previousTag =
+        match root.GetProperty("previousTag") with
+        | value when value.ValueKind = JsonValueKind.String -> value.GetString() |> Option.ofObj
+        | _ -> None
+
+    { tag = root.GetProperty("tag").GetString()
+      version = root.GetProperty("version").GetString()
+      commit = root.GetProperty("commit").GetString()
+      previousTag = previousTag }
 
 let prepare (repository:string) (outputPath:string) (tagPrefix:string) (version:string) =
     let metadata = resolveMetadata repository tagPrefix version

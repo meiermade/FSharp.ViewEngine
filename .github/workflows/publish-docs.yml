@@ -20,7 +20,6 @@ jobs:
     uses: ./.github/workflows/_publish-package.yml
     with:
       packageId: FSharp.ViewEngine.Docs
-      tagPrefix: docs/v
       version: ${{ inputs.version }}
       minimumCoreVersion: ${{ inputs.minimumCoreVersion }}
       markLatest: false

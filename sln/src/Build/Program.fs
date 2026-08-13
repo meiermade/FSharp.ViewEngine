@@ -23,7 +23,9 @@ let nugetsDir = rootDir </> "nugets"
 let testsDir = srcDir </> "Tests"
 let docsDir = srcDir </> "Docs"
 let docsTestsDir = srcDir </> "Docs.Tests"
+let buildTestsDir = srcDir </> "Build.Tests"
 let benchmarksDir = srcDir </> "Benchmarks"
+let changelogPath = docsDir </> "src" </> "Pages" </> "Changelog.fs"
 let releaseRepository = Environment.environVarOrDefault "RELEASE_REPOSITORY" rootDir
 let releaseMetadataPath =
     Environment.environVarOrDefault
@@ -55,21 +57,27 @@ let availableLocalPort () =
     listener.Start()
     (listener.LocalEndpoint :?> IPEndPoint).Port
 
-type Package =
-    | ViewEngine
-    | Docs
+let packageProject (package:PackagePublishing.Package) =
+    srcDir </> package.Id </> $"{package.Id}.fsproj"
 
-    member this.Id =
-        match this with
-        | ViewEngine -> "FSharp.ViewEngine"
-        | Docs -> "FSharp.ViewEngine.Docs"
+let boolEnvironment name =
+    match Environment.environVarOrFail name with
+    | "true" -> true
+    | "false" -> false
+    | value -> failwith $"{name} must be true or false, found: {value}"
 
-    member this.Project = srcDir </> this.Id </> $"{this.Id}.fsproj"
+let releaseInputs () =
+    let minimumCoreVersion = Environment.environVarOrNone "DOCS_MINIMUM_CORE_VERSION"
+    PackagePublishing.validateInputs
+        (Environment.environVarOrFail "PACKAGE_ID")
+        (Environment.environVarOrFail "PACKAGE_VERSION")
+        minimumCoreVersion
+        (boolEnvironment "MARK_LATEST")
 
 let selectedPackage () =
     match Environment.environVarOrFail "PACKAGE_ID" with
-    | "FSharp.ViewEngine" -> ViewEngine
-    | "FSharp.ViewEngine.Docs" -> Docs
+    | "FSharp.ViewEngine" -> PackagePublishing.Package.ViewEngine
+    | "FSharp.ViewEngine.Docs" -> PackagePublishing.Package.Docs
     | packageId -> failwith $"Unsupported package: {packageId}"
 
 let getVersion () =
@@ -78,11 +86,65 @@ let getVersion () =
     if matched.Success then matched.Groups[1].Value else failwith $"invalid package version: {value}"
 
 Target.create "PrepareRelease" <| fun _ ->
-    let version = Environment.environVarOrFail "RELEASE_VERSION"
-    let tagPrefix = Environment.environVarOrFail "RELEASE_TAG_PREFIX"
-    let metadata = Release.prepare releaseRepository releaseMetadataPath tagPrefix version
+    let inputs = releaseInputs ()
+    let expectedRef = Environment.environVarOrDefault "GITHUB_REF" "refs/heads/main"
+    if expectedRef <> "refs/heads/main" then failwith $"Releases must run from main, not {expectedRef}."
+
+    PackagePublishing.validateChangelog inputs.package.Id inputs.version (System.IO.File.ReadAllText changelogPath)
+
+    match inputs.minimumCoreVersion with
+    | Some coreVersion when not (PackagePublishing.confirmPublished "FSharp.ViewEngine" coreVersion) ->
+        failwith $"FSharp.ViewEngine {coreVersion} must be available from NuGet before publishing Docs."
+    | _ -> ()
+
+    let metadata = Release.prepare releaseRepository releaseMetadataPath inputs.package.TagPrefix inputs.version
     Trace.trace $"Prepared {metadata.tag} for {metadata.commit}"
     Trace.trace $"Release metadata: {releaseMetadataPath}"
+
+Target.create "ReadReleaseMetadata" <| fun _ ->
+    let metadata = Release.readMetadata releaseMetadataPath
+    let outputPath = Environment.environVarOrFail "GITHUB_OUTPUT"
+    let previousTag = metadata.previousTag |> Option.defaultValue ""
+    System.IO.File.AppendAllLines(outputPath, [
+        $"tag={metadata.tag}"
+        $"version={metadata.version}"
+        $"commit={metadata.commit}"
+        $"previousTag={previousTag}" ])
+
+Target.create "RecordPackageChecksums" <| fun _ ->
+    let packagePaths =
+        !! $"{nugetsDir}/*.nupkg"
+        ++ $"{nugetsDir}/*.snupkg"
+        |> Seq.sort
+        |> Seq.toList
+    PackagePublishing.writeChecksums (nugetsDir </> "SHA256SUMS") packagePaths
+
+Target.create "PublishPackageRelease" <| fun _ ->
+    let inputs = releaseInputs ()
+    let packageDirectory = Environment.environVarOrFail "PACKAGE_DIRECTORY" |> Path.getFullName
+    let metadata = Release.readMetadata releaseMetadataPath
+    let assets =
+        PackagePublishing.expectedAssetNames inputs.package.Id inputs.version
+        |> List.map (fun name -> packageDirectory </> name)
+    let packagePath = packageDirectory </> $"{inputs.package.Id}.{inputs.version}.nupkg"
+
+    PackagePublishing.verifyChecksums (packageDirectory </> "SHA256SUMS") packageDirectory
+    PackagePublishing.publishOrVerify
+        packagePath
+        inputs.package.Id
+        inputs.version
+        (Environment.environVarOrFail "NUGET_API_KEY")
+        (Environment.environVarOrDefault "RUNNER_TEMP" (System.IO.Path.GetTempPath()) </> "fsharp-viewengine-publish")
+    PackagePublishing.waitForPublished inputs.package.Id inputs.version 60 (System.TimeSpan.FromSeconds 10.)
+    PackagePublishing.ensureTag releaseRepository metadata.tag metadata.commit
+    PackagePublishing.reconcileGitHubRelease
+        (Environment.environVarOrFail "GITHUB_REPOSITORY")
+        inputs.package.Id
+        inputs.version
+        metadata.tag
+        metadata.previousTag
+        inputs.markLatest
+        assets
 
 Target.create "CleanNugets" <| fun _ -> Shell.cleanDir nugetsDir
 
@@ -96,12 +158,15 @@ Target.create "Test" <| fun _ ->
     dotnet docsTestsDir ["run"]
     |> Async.RunSynchronously
 
+    dotnet buildTestsDir ["run"]
+    |> Async.RunSynchronously
+
 Target.create "Pack"  (fun _ ->
     let package = selectedPackage ()
     let version = getVersion ()
     let arguments =
         [ "pack"
-          package.Project
+          packageProject package
           "--configuration"
           "Release"
           "--output"
@@ -109,8 +174,8 @@ Target.create "Pack"  (fun _ ->
 
     let arguments =
         match package with
-        | ViewEngine -> arguments @ [ $"/p:FSharpViewEnginePackageVersion={version}" ]
-        | Docs ->
+        | PackagePublishing.Package.ViewEngine -> arguments @ [ $"/p:FSharpViewEnginePackageVersion={version}" ]
+        | PackagePublishing.Package.Docs ->
             let minimumCoreVersion = Environment.environVarOrFail "DOCS_MINIMUM_CORE_VERSION"
             arguments @
                 [ $"/p:FSharpViewEngineDocsPackageVersion={version}"
@@ -145,15 +210,6 @@ Target.create "VerifyPackage" (fun _ ->
         PackageVerification.verify
             (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)
             package
-)
-
-Target.create "PushNugets" (fun _ ->
-    let package = selectedPackage ()
-    let packagePath = $"{nugetsDir}/{package.Id}.*.nupkg"
-    Trace.trace $"Publishing {packagePath} and its associated symbol package"
-    let apiKey = Environment.environVarOrFail "NUGET_API_KEY"
-    dotnet rootDir ["nuget"; "push"; packagePath; "--source"; "https://api.nuget.org/v3/index.json"; "--api-key"; apiKey]
-    |> Async.RunSynchronously
 )
 
 Target.create "WatchDocs" (fun _ ->
@@ -200,7 +256,6 @@ Target.create "Default" (fun _ -> Target.listAvailable())
 "Test" ==>! "Pack"
 "CleanNugets" ==>! "Pack"
 "Pack" ==>! "VerifyPackage"
-"VerifyPackage" ==>! "PushNugets"
 "BuildDocsCss" ==>! "PublishDocs"
 
 Target.runOrDefaultWithArguments "Default"
