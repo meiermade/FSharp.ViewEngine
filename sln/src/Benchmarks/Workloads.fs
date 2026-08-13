@@ -190,6 +190,20 @@ type CollectionBenchmarks() =
     member _.Sequence() = Collections.fromSequence () |> Render.toString
 
 [<MemoryDiagnoser>]
+type CorePrimitiveBenchmarks() =
+    let nodes = [ span { "One" }; span { "Two" }; span { "Three" } ]
+    let fragment = Html.fragment nodes
+
+    [<Benchmark(Baseline = true)>]
+    member _.ParentLoop() = div { for node in nodes do node } |> Render.toString
+
+    [<Benchmark>]
+    member _.Fragment() = fragment |> Render.toString
+
+    [<Benchmark>]
+    member _.Utf8Bytes() = fragment |> Render.toUtf8Bytes
+
+[<MemoryDiagnoser>]
 type BuildAndRenderWorkloads() =
     [<Benchmark>]
     member _.SmallFragment() = Documents.small () |> Render.toString

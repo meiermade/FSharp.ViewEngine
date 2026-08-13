@@ -31,11 +31,13 @@ jobs:
         run: ./fake.sh Test
         working-directory: ./sln
       - name: Pack
-        run: dotnet pack src/FSharp.ViewEngine/FSharp.ViewEngine.fsproj --configuration Release --no-restore --output "$RUNNER_TEMP/package" /p:PackageVersion=0.0.0-preview
+        run: |
+          dotnet pack src/FSharp.ViewEngine/FSharp.ViewEngine.fsproj --configuration Release --no-restore --output "$RUNNER_TEMP/package" /p:PackageVersion=0.0.0-preview
+          dotnet pack src/FSharp.ViewEngine.Docs/FSharp.ViewEngine.Docs.fsproj --configuration Release --no-restore --output "$RUNNER_TEMP/package" /p:PackageVersion=0.0.0-preview
         working-directory: ./sln
       - name: Verify package compatibility
         env:
-          PACKAGE_PATH: ${{ runner.temp }}/package/FSharp.ViewEngine.0.0.0-preview.nupkg
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/package
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
 
@@ -54,11 +56,11 @@ jobs:
       - name: Install E2E packages
         run: npm ci
         working-directory: ./e2e
-      - name: Install Firefox
-        run: npx playwright install --with-deps firefox
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
         working-directory: ./e2e
       - name: Test production Docs image
-        run: npm test -- --project=firefox
+        run: npm test
         working-directory: ./e2e
       - name: Upload E2E diagnostics
         if: failure()

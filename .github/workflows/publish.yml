@@ -128,29 +128,40 @@ jobs:
           organization: meiermade
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:meiermade
-      - name: Publish verified package
+      - name: Publish verified packages
         env:
-          PACKAGE_PATH: ${{ runner.temp }}/package/FSharp.ViewEngine.${{ needs.package.outputs.version }}.nupkg
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/package
         run: |
           pulumi env run fsharpviewengine/nuget -- \
-            bash -euo pipefail -c \
-            "dotnet nuget push \"$PACKAGE_PATH\" --source https://api.nuget.org/v3/index.json --api-key \"\$NUGET_API_KEY\" --skip-duplicate"
+            bash -euo pipefail -c '
+              for package in "$PACKAGE_DIRECTORY"/*.nupkg; do
+                dotnet nuget push "$package" --source https://api.nuget.org/v3/index.json --api-key "$NUGET_API_KEY" --skip-duplicate
+              done
+            '
       - name: Wait for NuGet availability
         env:
           VERSION: ${{ needs.package.outputs.version }}
         run: |
-          package_url="https://api.nuget.org/v3-flatcontainer/fsharp.viewengine/$VERSION/fsharp.viewengine.$VERSION.nupkg"
+          packages=(fsharp.viewengine fsharp.viewengine.docs)
 
-          for _ in $(seq 1 60); do
-            if curl --fail --silent --show-error --output /dev/null "$package_url"; then
-              echo "FSharp.ViewEngine $VERSION is available from NuGet."
-              exit 0
+          for package in "${packages[@]}"; do
+            package_url="https://api.nuget.org/v3-flatcontainer/$package/$VERSION/$package.$VERSION.nupkg"
+            available=false
+
+            for _ in $(seq 1 60); do
+              if curl --fail --silent --show-error --output /dev/null "$package_url"; then
+                echo "$package $VERSION is available from NuGet."
+                available=true
+                break
+              fi
+              sleep 10
+            done
+
+            if [[ "$available" != true ]]; then
+              echo "$package $VERSION was not available from NuGet after 10 minutes." >&2
+              exit 1
             fi
-            sleep 10
           done
-
-          echo "FSharp.ViewEngine $VERSION was not available from NuGet after 10 minutes." >&2
-          exit 1
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}

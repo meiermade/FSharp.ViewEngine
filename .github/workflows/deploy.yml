@@ -127,8 +127,8 @@ jobs:
       - name: Install E2E packages
         run: npm ci
         working-directory: ./e2e
-      - name: Install Firefox
-        run: npx playwright install --with-deps firefox
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium firefox webkit
         working-directory: ./e2e
       - name: Wait for deployed Docs release
         env:

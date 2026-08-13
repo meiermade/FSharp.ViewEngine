@@ -88,28 +88,45 @@ Target.create "Test" <| fun _ ->
     |> Async.RunSynchronously
 
 Target.create "Pack"  (fun _ ->
-    let project = srcDir </> "FSharp.ViewEngine" </> "FSharp.ViewEngine.fsproj"
-    Trace.trace $"Packing {project}"
     let version = getVersion()
-    dotnet rootDir ["pack"; project; "--configuration"; "Release"; "--output"; nugetsDir; $"/p:PackageVersion={version}"]
-    |> Async.RunSynchronously
+    let projects =
+        [ srcDir </> "FSharp.ViewEngine" </> "FSharp.ViewEngine.fsproj"
+          srcDir </> "FSharp.ViewEngine.Docs" </> "FSharp.ViewEngine.Docs.fsproj" ]
+
+    for project in projects do
+        Trace.trace $"Packing {project}"
+        dotnet rootDir ["pack"; project; "--configuration"; "Release"; "--output"; nugetsDir; $"/p:PackageVersion={version}"]
+        |> Async.RunSynchronously
 )
 
 Target.create "VerifyPackage" (fun _ ->
-    let package =
+    let packages =
         match Environment.environVarOrNone "PACKAGE_PATH" with
-        | Some package -> Path.getFullName package
+        | Some package -> [ Path.getFullName package ]
         | None ->
-            let nugets = !! $"{nugetsDir}/*.nupkg" |> Seq.toList
-            match nugets with
-            | [ package ] -> package
-            | _ -> failwith $"Expected exactly one package, found {nugets.Length}"
+            let packageDirectory = Environment.environVarOrDefault "PACKAGE_DIRECTORY" nugetsDir
+            let packages = !! $"{packageDirectory}/*.nupkg" |> Seq.sort |> Seq.toList
+            let expectedPackageIds = Set [ "FSharp.ViewEngine"; "FSharp.ViewEngine.Docs" ]
+            let packageIds =
+                packages
+                |> List.map (System.IO.Path.GetFileName >> fun fileName ->
+                    if fileName.StartsWith("FSharp.ViewEngine.Docs.", System.StringComparison.Ordinal) then "FSharp.ViewEngine.Docs"
+                    elif fileName.StartsWith("FSharp.ViewEngine.", System.StringComparison.Ordinal) then "FSharp.ViewEngine"
+                    else fileName)
+                |> Set.ofList
 
-    if not (File.exists package) then failwith $"Package does not exist: {package}"
+            if packages.Length <> expectedPackageIds.Count || packageIds <> expectedPackageIds then
+                let found = packages |> List.map System.IO.Path.GetFileName |> String.concat ", "
+                failwith $"Expected FSharp.ViewEngine and FSharp.ViewEngine.Docs packages, found: {found}"
 
-    PackageVerification.verify
-        (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)
-        package
+            packages
+
+    for package in packages do
+        if not (File.exists package) then failwith $"Package does not exist: {package}"
+
+        PackageVerification.verify
+            (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)
+            package
 )
 
 Target.create "PushNugets" (fun _ ->

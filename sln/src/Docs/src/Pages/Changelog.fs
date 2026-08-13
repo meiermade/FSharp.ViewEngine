@@ -13,6 +13,20 @@ module Changelog =
           browserTitle = "Changelog - FSharp.ViewEngine"
           nodes = [
             Paragraph [ Text "Notable changes to FSharp.ViewEngine are recorded here. The structure follows "; Link("Keep a Changelog", "https://keepachangelog.com/en/2.0.0/"); Text ". Releases use the project's existing calendar-oriented version scheme, and incompatible API changes are marked explicitly." ];
+            Heading { id = "released"; title = "Released versions"; level = 2 };
+            Paragraph [ Text "Published artifacts and complete commit histories are available from "; Link("GitHub Releases", "https://github.com/meiermade/FSharp.ViewEngine/releases"); Text "." ];
+            Heading { id = "v2026-8-0"; title = "2026.8.0 · August 7, 2026"; level = 3 };
+            UnorderedList [
+                [ Text "Improved correctness, documentation, package validation, supported-runtime coverage, source debugging, and benchmark methodology." ];
+                [ Text "See "; Link("release v2026.8.0", "https://github.com/meiermade/FSharp.ViewEngine/releases/tag/v2026.8.0"); Text " for the immutable source and artifacts." ]
+            ];
+            Heading { id = "v2026-2-5"; title = "2026.2.5 · February 28, 2026"; level = 3 };
+            UnorderedList [
+                [ Text "Updated release deployment triggers and preserved the public API baseline used by package validation." ];
+                [ Text "See "; Link("release v2026.2.5", "https://github.com/meiermade/FSharp.ViewEngine/releases/tag/v2026.2.5"); Text "." ]
+            ];
+            Heading { id = "older-releases"; title = "Older releases"; level = 3 };
+            Paragraph [ Text "Earlier calendar releases remain available in the "; Link("complete release history", "https://github.com/meiermade/FSharp.ViewEngine/releases"); Text "." ];
             Heading { id = "unreleased"; title = "Unreleased"; level = 2 };
             Heading { id = "added"; title = "Added"; level = 3 };
             UnorderedList [

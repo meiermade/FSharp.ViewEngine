@@ -1,8 +1,37 @@
 namespace Docs.Pages
 
 open Docs.Common
+open FSharp.ViewEngine
+open type Html
 
 module Alpine =
+    let private completeExampleSource = """div {
+    _xData "{ open: false }"
+
+    button {
+        _xOn ("click", "open = !open")
+        _xOn ("keydown", [ "escape"; "prevent" ], "open = false")
+        _xBind ("aria-expanded", "open")
+        "Toggle details"
+    }
+
+    div {
+        _xShow "open"
+        _xTransition [ "duration.200ms"; "opacity" ]
+        "Details"
+    }
+}"""
+
+    let private completeExamplePreview =
+        div {
+            _style "min-height:12rem;border-radius:.65rem;background:#f8fafc;padding:1.5rem;color:#0f172a"
+            p { _style "margin:0 0 1rem;color:#64748b;font-size:.8rem"; "Equivalent interaction preview using the browser's native disclosure control." }
+            details {
+                summary { _style "cursor:pointer;font-weight:650"; "Toggle details" }
+                p { _style "margin:.75rem 0 0"; "Details" }
+            }
+        }
+
     let private section id title =
         [ Heading { id = id; title = title; level = 2 } ]
 
@@ -130,22 +159,7 @@ div {
 
           section "complete-example" "Complete Example";
           [ Paragraph [ Text "A core-only disclosure component with keyboard handling and transitions:" ];
-            CodeBlock("fsharp", """div {
-    _xData "{ open: false }"
-
-    button {
-        _xOn ("click", "open = !open")
-        _xOn ("keydown", [ "escape"; "prevent" ], "open = false")
-        _xBind ("aria-expanded", "open")
-        "Toggle details"
-    }
-
-    div {
-        _xShow "open"
-        _xTransition [ "duration.200ms"; "opacity" ]
-        "Details"
-    }
-}""") ] ]
+            CodeBlock("fsharp", completeExampleSource) ] ]
         |> List.concat
 
     let page =

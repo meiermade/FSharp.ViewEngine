@@ -1,5 +1,7 @@
 namespace Docs.Common
 
+open FSharp.ViewEngine
+
 type InlineContent =
     | Text of string
     | Strong of InlineContent list
@@ -32,6 +34,7 @@ type DocNode =
     | BarChart of ComparisonChart
     | DataTable of headers:string list * rows:string list list
     | CodeBlock of language:string * source:string
+    | Example of id:string * label:string * language:string * source:string * preview:HtmlElement
 
 type DocPage =
     { id:string
@@ -45,7 +48,8 @@ type DocPage =
 
 type NavSection =
     { label:string
-      pages:DocPage list }
+      pages:DocPage list
+      sections:NavSection list }
 
 module DocPage =
     let headings page =

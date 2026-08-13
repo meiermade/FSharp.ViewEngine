@@ -4,9 +4,10 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
-    "test:published": "E2E_START_LOCAL=0 playwright test --project=firefox --retries=0"
+    "test:published": "E2E_START_LOCAL=0 playwright test --retries=0"
   },
   "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
     "@playwright/test": "1.62.1"
   }
 }

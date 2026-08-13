@@ -1,8 +1,166 @@
 namespace Docs.Pages
 
 open Docs.Common
+open FSharp.ViewEngine
+open type Html
+open type FSharp.ViewEngine.Svg
 
 module Svg =
+    let private iconExampleSource = """let checkIcon =
+    svg {
+        _viewBox "0 0 24 24"
+        _preserveAspectRatio "xMidYMid meet"
+        Svg._width 24
+        Svg._height 24
+        _fill "none"
+        _stroke "currentColor"
+        _strokeWidth 1.5
+        _strokeLinecap "round"
+        _strokeLinejoin "round"
+        _vectorEffect "non-scaling-stroke"
+        path {
+            _d "M5 13l4 4L19 7"
+            _pathLength 1.0
+        }
+    }"""
+
+    let private previewSurface (content:HtmlElement) =
+        div {
+            _data("example-surface", "true")
+            _style "display:grid;min-height:16rem;place-items:center;border-radius:.65rem;background:#f8fafc;padding:1.5rem;color:#0f172a"
+            content
+        }
+
+    let private iconExamplePreview =
+        previewSurface (
+            svg {
+                _viewBox "0 0 24 24"
+                Svg._width 72
+                Svg._height 72
+                _fill "none"
+                _stroke "currentColor"
+                _strokeWidth 1.5
+                _strokeLinecap "round"
+                _strokeLinejoin "round"
+                path { _d "M5 13l4 4L19 7" }
+            })
+
+    let private chartExampleSource = """svg {
+    _viewBox "0 0 400 200"
+    _role "img"
+    _ariaLabel "Revenue trend rising across five periods"
+    g {
+        _transform "translate(40 10)"
+        rect {
+            _x 0; _y 0; Svg._width 320; Svg._height 160; _rx 8
+            _fill "#ffffff"; _stroke "#cbd5e1"
+        }
+        polygon {
+            _points "0,140 80,100 160,120 240,40 320,20 320,160 0,160"
+            _fill "#10b981"; _fillOpacity 0.14
+        }
+        line { _x1 0; _y1 160; _x2 320; _y2 160; _stroke "#94a3b8" }
+        polyline {
+            _points "0,140 80,100 160,120 240,40 320,20"
+            _fill "none"; _stroke "#059669"; _strokeWidth 4
+            _strokeLinecap "round"; _strokeLinejoin "round"
+        }
+        ellipse { _cx 240; _cy 40; _rx 6; _ry 6; _fill "#047857" }
+        textElement {
+            _x 160; _y 184; _textAnchor "middle"
+            _fontFamily "sans-serif"; _fontSize "12px"; _fill "#475569"
+            tspan { "Revenue" }
+        }
+    }
+}"""
+
+    let private chartExamplePreview =
+        previewSurface (
+            svg {
+                _viewBox "0 0 400 200"
+                _role "img"
+                _ariaLabel "Revenue trend rising across five periods"
+                _style "width:100%;max-width:40rem;height:auto"
+                g {
+                    _transform "translate(40 10)"
+                    rect { _x 0; _y 0; Svg._width 320; Svg._height 160; _rx 8; _fill "#ffffff"; _stroke "#cbd5e1" }
+                    polygon { _points "0,140 80,100 160,120 240,40 320,20 320,160 0,160"; _fill "#10b981"; _fillOpacity 0.14 }
+                    line { _x1 0; _y1 160; _x2 320; _y2 160; _stroke "#94a3b8" }
+                    polyline { _points "0,140 80,100 160,120 240,40 320,20"; _fill "none"; _stroke "#059669"; _strokeWidth 4; _strokeLinecap "round"; _strokeLinejoin "round" }
+                    ellipse { _cx 240; _cy 40; _rx 6; _ry 6; _fill "#047857" }
+                    textElement { _x 160; _y 184; _textAnchor "middle"; _fontFamily "sans-serif"; _fontSize "12px"; _fill "#475569"; tspan { "Revenue" } }
+                }
+            })
+
+    let private resourcesExampleSource = """svg {
+    _viewBox "0 0 400 180"
+    defs {
+        linearGradient {
+            _id "svg-brand-gradient"
+            _x1 "0%"; _y1 "0%"; _x2 "100%"; _y2 "100%"
+            stop { _offset "0%"; _stopColor "#0ea5e9" }
+            stop { _offset "100%"; _stopColor "#6366f1" }
+        }
+        radialGradient {
+            _id "svg-spotlight"
+            stop { _offset "35%"; _stopColor "white" }
+            stop { _offset "100%"; _stopColor "black" }
+        }
+        clipPath {
+            _id "svg-card-clip"
+            rect { _x 20; _y 20; Svg._width 360; Svg._height 140; _rx 28 }
+        }
+        mask {
+            _id "svg-fade-mask"
+            rect {
+                _x 20; _y 20; Svg._width 360; Svg._height 140
+                _fill "url(#svg-spotlight)"
+            }
+        }
+        symbol {
+            _id "svg-dot"
+            _viewBox "0 0 10 10"
+            circle { _cx 5; _cy 5; _r 5 }
+        }
+    }
+    g {
+        _clipPath "url(#svg-card-clip)"
+        rect { _x 20; _y 20; Svg._width 360; Svg._height 140; _fill "url(#svg-brand-gradient)" }
+        g {
+            _fill "white"; _mask "url(#svg-fade-mask)"
+            useElement { _href "#svg-dot"; _x 80; _y 70; Svg._width 40; Svg._height 40 }
+            useElement { _href "#svg-dot"; _x 180; _y 45; Svg._width 70; Svg._height 70 }
+            useElement { _href "#svg-dot"; _x 300; _y 75; Svg._width 30; Svg._height 30 }
+        }
+    }
+}"""
+
+    let private resourcesExamplePreview =
+        previewSurface (
+            svg {
+                _viewBox "0 0 400 180"
+                _role "img"
+                _ariaLabel "Gradient card with clipped and masked reusable circles"
+                _style "width:100%;max-width:40rem;height:auto"
+                defs {
+                    linearGradient { _id "svg-brand-gradient-preview"; _x1 "0%"; _y1 "0%"; _x2 "100%"; _y2 "100%"; stop { _offset "0%"; _stopColor "#0ea5e9" }; stop { _offset "100%"; _stopColor "#6366f1" } }
+                    radialGradient { _id "svg-spotlight-preview"; stop { _offset "35%"; _stopColor "white" }; stop { _offset "100%"; _stopColor "black" } }
+                    clipPath { _id "svg-card-clip-preview"; rect { _x 20; _y 20; Svg._width 360; Svg._height 140; _rx 28 } }
+                    mask { _id "svg-fade-mask-preview"; rect { _x 20; _y 20; Svg._width 360; Svg._height 140; _fill "url(#svg-spotlight-preview)" } }
+                    symbol { _id "svg-dot-preview"; _viewBox "0 0 10 10"; circle { _cx 5; _cy 5; _r 5 } }
+                }
+                g {
+                    _clipPath "url(#svg-card-clip-preview)"
+                    rect { _x 20; _y 20; Svg._width 360; Svg._height 140; _fill "url(#svg-brand-gradient-preview)" }
+                    g {
+                        _fill "white"; _mask "url(#svg-fade-mask-preview)"
+                        useElement { _href "#svg-dot-preview"; _x 80; _y 70; Svg._width 40; Svg._height 40 }
+                        useElement { _href "#svg-dot-preview"; _x 180; _y 45; Svg._width 70; Svg._height 70 }
+                        useElement { _href "#svg-dot-preview"; _x 300; _y 75; Svg._width 30; Svg._height 30 }
+                    }
+                }
+            })
+
     let private heading id title =
         Heading { id = id; title = title; level = 2 }
 
@@ -35,92 +193,13 @@ open type Svg""");
 }""");
 
           heading "icon-example" "Icon Example";
-          CodeBlock("fsharp", """let checkIcon =
-    svg {
-        _viewBox "0 0 24 24"
-        _preserveAspectRatio "xMidYMid meet"
-        Svg._width 24
-        Svg._height 24
-        _fill "none"
-        _stroke "currentColor"
-        _strokeWidth 1.5
-        _strokeLinecap "round"
-        _strokeLinejoin "round"
-        _vectorEffect "non-scaling-stroke"
-        path {
-            _d "M5 13l4 4L19 7"
-            _pathLength 1.0
-        }
-    }""");
+          Example("svg-icon-example", "Check icon", "fsharp", iconExampleSource, iconExamplePreview);
 
           heading "chart-example" "Chart and Text Example";
-          CodeBlock("fsharp", """svg {
-    _viewBox "0 0 400 200"
-    g {
-        _transform "translate(40 10)"
-        _opacity 0.9
-        rect { _x 0; _y 0; Svg._width 320; Svg._height 160; _rx 4 }
-        line { _x1 0; _y1 160; _x2 320; _y2 160 }
-        polyline { _points "0,140 80,100 160,120 240,40 320,20" }
-        polygon { _points "0,160 80,120 160,140 160,160" }
-        ellipse { _cx 240; _cy 40; _rx 6; _ry 4 }
-        textElement {
-            _x 160
-            _y 190
-            _textAnchor "middle"
-            _dominantBaseline "middle"
-            _fontFamily "sans-serif"
-            _fontSize "12px"
-            tspan { "Revenue" }
-        }
-    }
-}""");
+          Example("svg-chart-example", "Revenue chart", "fsharp", chartExampleSource, chartExamplePreview);
 
           heading "resources-example" "Gradients, Clipping, Masking, and Reuse";
-          CodeBlock("fsharp", """svg {
-    _xmlns "http://www.w3.org/2000/svg"
-    defs {
-        linearGradient {
-            _id "brand-gradient"
-            _x1 "0%"
-            _y1 "0%"
-            _x2 "100%"
-            _y2 "0%"
-            _gradientUnits "objectBoundingBox"
-            _gradientTransform "rotate(10)"
-            _spreadMethod "pad"
-            stop { _offset "0%"; _stopColor "#0ea5e9"; _stopOpacity 1.0 }
-            stop { _offset "100%"; _stopColor "#6366f1"; _stopOpacity 0.75 }
-        }
-        radialGradient {
-            _id "spotlight"
-            _cx "50%"; _cy "50%"; _r "50%"
-            _fx "45%"; _fy "45%"; _fr "5%"
-        }
-        clipPath {
-            _id "plot-clip"
-            _clipPathUnits "userSpaceOnUse"
-            rect { Svg._width 100; Svg._height 50 }
-        }
-        mask {
-            _id "fade-mask"
-            _maskUnits "userSpaceOnUse"
-            _maskContentUnits "userSpaceOnUse"
-        }
-        symbol {
-            _id "dot"
-            _viewBox "0 0 10 10"
-            circle { _cx 5; _cy 5; _r 5 }
-        }
-    }
-    g {
-        _fill "url(#brand-gradient)"
-        _fillOpacity 0.8
-        _clipPath "url(#plot-clip)"
-        _mask "url(#fade-mask)"
-        useElement { _href "#dot"; _x 10; _y 20 }
-    }
-}""");
+          Example("svg-resources-example", "Gradient resources", "fsharp", resourcesExampleSource, resourcesExamplePreview);
 
           heading "accessibility" "Accessibility";
           Paragraph [ Text "For an informative graphic, give the root an image role and connect direct child "; InlineContent.Code "titleElement"; Text " and "; InlineContent.Code "desc"; Text " elements with "; InlineContent.Code "_ariaLabelledby"; Text ". SVG Accessibility API Mappings expose these children as the accessible name and description." ];

@@ -2,6 +2,7 @@ module CoreTests
 
 open FSharp.ViewEngine
 open System.Text
+open System.IO
 open System.Globalization
 open System.Web
 open System.Text.RegularExpressions
@@ -171,6 +172,22 @@ let tests =
         Expect.equal rawResult "<b>hi</b>" "raw passes through"
         let textResult = div { text "<b>hi</b>" } |> Render.toString
         Expect.equal textResult "<div>&lt;b&gt;hi&lt;/b&gt;</div>" "text encodes"
+    }
+
+    test "Fragments, comments, and additional render targets preserve serialization" {
+        let nodes = Html.fragment [ span { "One" }; Html.comment "safe note"; span { "Two" } ]
+        let expected = "<span>One</span><!--safe note--><span>Two</span>"
+        Expect.equal (Render.toString nodes) expected "fragment and comment"
+
+        let builder = StringBuilder("prefix:")
+        Render.writeToStringBuilder builder nodes
+        Expect.equal (builder.ToString()) ("prefix:" + expected) "StringBuilder target"
+
+        use writer = new StringWriter()
+        Render.writeToTextWriter writer nodes
+        Expect.equal (writer.ToString()) expected "TextWriter target"
+        Expect.equal (Render.toUtf8Bytes nodes |> Encoding.UTF8.GetString) expected "UTF-8 target"
+        Expect.throwsT<System.ArgumentException> (fun () -> Html.comment "invalid -- comment" |> ignore) "comments reject invalid double hyphens"
     }
 
     test "Html.empty (NoopElement) renders nothing" {

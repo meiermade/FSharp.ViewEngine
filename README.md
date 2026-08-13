@@ -28,12 +28,37 @@ Documentation site built using FSharp.ViewEngine available at [https://fsharpvie
 Add the core view engine package with your preferred CLI.
 
 ```shell
-dotnet package add FSharp.ViewEngine
+dotnet add package FSharp.ViewEngine
 ```
 
 ```shell
 dotnet paket add FSharp.ViewEngine
 ```
+
+For documentation sites, API references, and executable software specifications, install the separate add-on package:
+
+```shell
+dotnet add package FSharp.ViewEngine.Docs
+```
+
+`FSharp.ViewEngine.Docs` provides article, reference, and canvas layouts; configurable navigation; accessible code/preview examples; API documentation components; diagrams; product frames; typed destinations; and structural validation. See its [package documentation](./sln/src/FSharp.ViewEngine.Docs/README.md).
+
+## Core rendering helpers
+
+`Render.toString` serializes a fragment; `Render.toHtmlDocString` prepends the HTML5 doctype for a complete document. Additional targets support existing `StringBuilder` and `TextWriter` instances plus UTF-8 bytes:
+
+```fsharp
+let siblings =
+    Html.fragment [
+        span { "One" }
+        Html.comment "Trusted build marker"
+        span { "Two" }
+    ]
+
+let bytes = Render.toUtf8Bytes siblings
+```
+
+`Html.comment` rejects invalid HTML comment values containing `--` or ending with `-`. `Html.raw`, `Html.js`, custom markup names, and executable expression attributes remain trusted developer-controlled boundaries.
 
 ## Runtime compatibility
 

@@ -23,7 +23,11 @@ export default defineConfig({
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',
   },
-  projects: [{ name: 'firefox', use: { ...devices['Desktop Firefox'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+  ],
   webServer: startLocal
     ? {
         command: 'bash scripts/start-local.sh',
