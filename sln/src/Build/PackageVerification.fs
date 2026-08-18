@@ -3,6 +3,7 @@ module PackageVerification
 open System
 open System.IO
 open System.IO.Compression
+open System.Diagnostics
 open System.Reflection.Metadata
 open System.Text.Json
 open System.Text.RegularExpressions
@@ -229,11 +230,29 @@ let invalid = fragment { _class "not-allowed" }
 printfn "%A" invalid
 """
 
-let private expectFailure description action =
-    let mutable failed = false
-    try action () with _ -> failed <- true
-    if not failed then fail $"Expected failure: {description}"
-    printfn "Verified expected failure: %s" description
+let private verifyFragmentAttributeRejection projectDirectory framework =
+    let startInfo = ProcessStartInfo("dotnet")
+    startInfo.WorkingDirectory <- projectDirectory
+    startInfo.UseShellExecute <- false
+    startInfo.RedirectStandardOutput <- true
+    startInfo.RedirectStandardError <- true
+    for argument in [ "build"; "--framework"; framework; "--no-restore" ] do
+        startInfo.ArgumentList.Add argument
+
+    use childProcess = Process.Start startInfo
+    let output = childProcess.StandardOutput.ReadToEndAsync()
+    let error = childProcess.StandardError.ReadToEndAsync()
+    childProcess.WaitForExit()
+    let diagnostics = $"{output.Result}{Environment.NewLine}{error.Result}"
+
+    if childProcess.ExitCode = 0 then
+        fail $"Expected {framework} fragment attributes to fail compilation"
+
+    for expected in [ "FS0041"; "HtmlAttribute"; "FragmentBuilder.Yield" ] do
+        if not (diagnostics.Contains(expected, StringComparison.Ordinal)) then
+            fail $"Expected {framework} fragment rejection to contain '{expected}'. Diagnostics: {diagnostics}"
+
+    printfn "Verified expected FS0041 fragment-attribute rejection on %s" framework
 
 let private docsConsumerProgram =
     """open FSharp.ViewEngine
@@ -347,8 +366,6 @@ let verify runDotnet packagePath =
 
             if definition.packageId = "FSharp.ViewEngine" then
                 File.WriteAllText(Path.Combine(projectDirectory, "Program.fs"), invalidFragmentConsumerProgram)
-                expectFailure
-                    $"{framework} fragment attributes must not compile"
-                    (fun () -> runDotnet projectDirectory [ "build"; "--framework"; framework; "--no-restore" ])
+                verifyFragmentAttributeRejection projectDirectory framework
     finally
         if Directory.Exists workDirectory then Directory.Delete(workDirectory, true)
