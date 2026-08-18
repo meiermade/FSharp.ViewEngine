@@ -11,7 +11,7 @@ module ViewEngineApi =
             head {
                 meta { _charset "utf-8" }
                 meta { _name "viewport"; _content "width=device-width, initial-scale=1" }
-                title "Benchmark"
+                title { "Benchmark" }
                 link { _href "/css/site.css"; _rel "stylesheet" }
             }
             body {

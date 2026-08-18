@@ -60,11 +60,11 @@ A Docs release declares its minimum compatible published Core version. Matching 
 
 ```fsharp
 let siblings =
-    Html.fragment [
+    Html.fragment {
         span { "One" }
         Html.comment "Trusted build marker"
         span { "Two" }
-    ]
+    }
 
 let bytes = Render.toUtf8Bytes siblings
 ```
@@ -87,7 +87,7 @@ open type TailwindElements
 html {
     _lang "en"
     head {
-        title "Test"
+        title { "Test" }
         meta { _charset "utf-8" }
         link { _href "/css/compiled.css"; _rel "stylesheet" }
     }

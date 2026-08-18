@@ -57,6 +57,9 @@ module Collections =
     let private valuesArray = Array.init 16 (fun index -> $"item-{index}")
     let private valuesList = valuesArray |> Array.toList
     let private valuesSequence = valuesArray |> Seq.map id
+    let private elementsArray = valuesArray |> Array.map (fun value -> li { value })
+    let private elementsList = elementsArray |> Array.toList
+    let private elementsSequence = elementsArray |> Seq.map id
 
     let fromArray () =
         ul {
@@ -75,6 +78,16 @@ module Collections =
             for value in valuesSequence do
                 li { value }
         }
+
+    let elementArrayLoop () = ul { for element in elementsArray do element }
+    let elementListLoop () = ul { for element in elementsList do element }
+    let elementSequenceLoop () = ul { for element in elementsSequence do element }
+    let directArray () = ul { elementsArray }
+    let directList () = ul { elementsList }
+    let directSequence () = ul { elementsSequence }
+    let yieldedArray () = ul { yield! elementsArray }
+    let yieldedList () = ul { yield! elementsList }
+    let yieldedSequence () = ul { yield! elementsSequence }
 
 module Documents =
     let private largeIndexes = Array.init 1_000 id
@@ -140,7 +153,18 @@ module Validation =
                 failwith $"Child shape {count} rendered an unexpected value: {children}"
 
         let collectionOutputs =
-            [ Collections.fromArray (); Collections.fromList (); Collections.fromSequence () ]
+            [ Collections.fromArray ()
+              Collections.fromList ()
+              Collections.fromSequence ()
+              Collections.elementArrayLoop ()
+              Collections.elementListLoop ()
+              Collections.elementSequenceLoop ()
+              Collections.directArray ()
+              Collections.directList ()
+              Collections.directSequence ()
+              Collections.yieldedArray ()
+              Collections.yieldedList ()
+              Collections.yieldedSequence () ]
             |> List.map Render.toString
 
         if collectionOutputs |> List.distinct |> List.length <> 1 then
@@ -190,9 +214,38 @@ type CollectionBenchmarks() =
     member _.Sequence() = Collections.fromSequence () |> Render.toString
 
 [<MemoryDiagnoser>]
+type ChildCollectionBenchmarks() =
+    [<Benchmark(Baseline = true)>]
+    member _.ForArray() = Collections.elementArrayLoop () |> Render.toString
+
+    [<Benchmark>]
+    member _.ForList() = Collections.elementListLoop () |> Render.toString
+
+    [<Benchmark>]
+    member _.ForSequence() = Collections.elementSequenceLoop () |> Render.toString
+
+    [<Benchmark>]
+    member _.DirectArray() = Collections.directArray () |> Render.toString
+
+    [<Benchmark>]
+    member _.DirectList() = Collections.directList () |> Render.toString
+
+    [<Benchmark>]
+    member _.DirectSequence() = Collections.directSequence () |> Render.toString
+
+    [<Benchmark>]
+    member _.YieldedArray() = Collections.yieldedArray () |> Render.toString
+
+    [<Benchmark>]
+    member _.YieldedList() = Collections.yieldedList () |> Render.toString
+
+    [<Benchmark>]
+    member _.YieldedSequence() = Collections.yieldedSequence () |> Render.toString
+
+[<MemoryDiagnoser>]
 type CorePrimitiveBenchmarks() =
     let nodes = [ span { "One" }; span { "Two" }; span { "Three" } ]
-    let fragment = Html.fragment nodes
+    let fragment = Html.fragment { nodes }
 
     [<Benchmark(Baseline = true)>]
     member _.ParentLoop() = div { for node in nodes do node } |> Render.toString

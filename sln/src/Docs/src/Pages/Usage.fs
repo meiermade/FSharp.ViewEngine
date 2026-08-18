@@ -15,7 +15,7 @@ let indexView =
     html {
         _lang "en"
         head {
-            title "My App"
+            title { "My App" }
             meta { _charset "utf-8" }
         }
         body {
@@ -71,9 +71,9 @@ let main args =
             ];
             Paragraph [ Text "That's it — no special adapter or middleware needed." ];
             Heading { id = "title-elements"; title = "Title Elements"; level = 2 };
-            Paragraph [ Text "Use "; InlineContent.Code "title \"My App\""; Text " for the common text-only form. Use "; InlineContent.Code "titleBuilder"; Text " when the title needs attributes or computation-expression content:" ];
+            Paragraph [ Text "Use the same computation-expression syntax as other regular HTML elements. The title accepts encoded text and global attributes:" ];
             CodeBlock("fsharp", """head {
-    titleBuilder {
+    title {
         _lang "en"
         "My App"
     }

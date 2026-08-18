@@ -16,8 +16,8 @@ type Html =
     static member js ([<LanguageInjection("javascript")>]v: string) = RawElement(v) :> HtmlElement
     /// Creates an HTML-encoded text node.
     static member text (v: string) = TextElement(v) :> HtmlElement
-    /// Creates a renderable sequence of sibling nodes.
-    static member fragment (elements:HtmlElement seq) = FragmentElement(elements) :> HtmlElement
+    /// Builds an ordered sequence of sibling nodes without emitting a wrapper element.
+    static member val fragment = FragmentBuilder() with get
     /// Creates a validated HTML comment. Values containing `--` or ending in `-` are rejected.
     static member comment (value:string) = CommentElement(value) :> HtmlElement
     /// Creates a regular custom element. The developer-controlled name is emitted without validation.
@@ -26,11 +26,8 @@ type Html =
     static member elVoid (name: string) = VoidBuilder(name)
     static member val html = TagBuilder("html") with get
     static member val head = TagBuilder("head") with get
-    static member title (value: string) =
-        let el = RegularElement("title")
-        el.AddChild(TextElement(value) :> HtmlElement)
-        el :> HtmlElement
-    static member val titleBuilder = TagBuilder("title") with get
+    /// Builds the document title element using the same computation-expression syntax as other regular elements.
+    static member val title = TagBuilder("title") with get
     static member val script = TagBuilder("script") with get
     static member val body = TagBuilder("body") with get
     static member val main = TagBuilder("main") with get

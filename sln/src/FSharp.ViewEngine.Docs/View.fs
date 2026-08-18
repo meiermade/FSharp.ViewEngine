@@ -925,7 +925,7 @@ document.addEventListener('datastar-fetch', event => {
                 meta { _charset "utf-8" }
                 meta { _name "viewport"; _content "width=device-width, initial-scale=1" }
                 meta { _name "theme-color"; _content site.theme.themeColor }
-                title (docPage.metadata.browserTitle |> Option.defaultValue docPage.title)
+                title { docPage.metadata.browserTitle |> Option.defaultValue docPage.title }
                 match canonicalUrl with
                 | Some url ->
                     link { _rel "canonical"; _href url }

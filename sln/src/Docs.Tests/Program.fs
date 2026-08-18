@@ -203,10 +203,17 @@ let tests =
         test "Migrated pages retain recent documentation updates" {
             let customHtml = Custom.page |> View.document Registry.navigation |> Render.toHtmlDocString
             let usageHtml = Usage.page |> View.document Registry.navigation |> Render.toHtmlDocString
+            let compositionHtml = CoreGuides.composition |> View.document Registry.navigation |> Render.toHtmlDocString
+            let renderingHtml = CoreGuides.rendering |> View.document Registry.navigation |> Render.toHtmlDocString
             let datastarHtml = Datastar.page |> View.document Registry.navigation |> Render.toHtmlDocString
 
             Expect.stringContains customHtml "Trusted Content Boundaries" "trusted-content guidance"
-            Expect.stringContains usageHtml "titleBuilder" "title builder guidance"
+            Expect.stringContains usageHtml "title {" "title computation-expression guidance"
+            Expect.isFalse (usageHtml.Contains("titleBuilder")) "obsolete title builder guidance is removed"
+            Expect.stringContains compositionHtml "yield!" "collection composition guidance"
+            Expect.stringContains renderingHtml "fragment {" "fragment computation-expression guidance"
+            Expect.stringContains renderingHtml "Html.fragment nodes" "fragment migration guidance"
+            Expect.stringContains renderingHtml "titleBuilder" "title migration guidance"
             Expect.stringContains datastarHtml "Datastar 1.0.2" "pinned Datastar reference"
         }
 
