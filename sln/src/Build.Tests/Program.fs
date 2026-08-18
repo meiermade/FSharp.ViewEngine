@@ -12,6 +12,10 @@ let private writePackage path (entries:(string * string) list) =
         use writer = new StreamWriter(entry.Open())
         writer.Write content
 
+let private workflow name =
+    Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", ".github", "workflows", name))
+    |> File.ReadAllText
+
 let tests =
     testList "Package publishing" [
         test "Core release inputs select Core and Latest" {
@@ -40,9 +44,7 @@ let tests =
             for invalid in invalidCases do Expect.throws invalid "invalid release input"
 
         test "Reusable publish workflow selects jobs from package input" {
-            let workflowPath =
-                Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", ".github", "workflows", "_publish-package.yml"))
-            let workflow = File.ReadAllText workflowPath
+            let workflow = workflow "_publish-package.yml"
             Expect.stringContains workflow "if: inputs.packageId == ''" "direct dispatch runs only the OIDC smoke test"
             Expect.equal
                 (workflow.Split("if: inputs.packageId != ''", StringSplitOptions.None).Length - 1)
@@ -56,6 +58,41 @@ let tests =
             Expect.stringContains workflow "cp \"$RELEASE_METADATA_PATH\" nugets/release-metadata.json" "metadata is staged with package assets"
             Expect.stringContains uploadBlock "nugets/release-metadata.json" "staged metadata is uploaded"
             Expect.isFalse (uploadBlock.Contains("${{ runner.temp }}")) "artifact paths have one common package root"
+        }
+
+        test "Docs publication deploys and verifies before package publication" {
+            let reusable = workflow "_publish-package.yml"
+            let core = workflow "publish.yml"
+            let docs = workflow "publish-docs.yml"
+            let deploy = workflow "deploy.yml"
+
+            Expect.stringContains reusable "deployDocs:" "reusable deployment input"
+            Expect.stringContains core "deployDocs: false" "Core publication remains package-only"
+            Expect.stringContains docs "deployDocs: true" "Docs publication deploys the site"
+
+            let deployStart = reusable.IndexOf("\n  deploy-docs:", StringComparison.Ordinal)
+            let publishStart = reusable.IndexOf("\n  publish:", StringComparison.Ordinal)
+            Expect.isTrue (deployStart > 0 && publishStart > deployStart) "deployment job precedes publication"
+
+            let deployBlock = reusable.Substring(deployStart, publishStart - deployStart)
+            Expect.stringContains deployBlock "uses: ./.github/workflows/deploy.yml" "deployment uses the reusable workflow"
+            Expect.stringContains deployBlock "ref: ${{ needs.package.outputs.commit }}" "deployment checks out the verified commit"
+            Expect.stringContains deployBlock "expectedVersion: ${{ needs.package.outputs.version }}" "health expects the Docs version"
+            Expect.stringContains deployBlock "expectedCommit: ${{ needs.package.outputs.commit }}" "health expects the verified commit"
+
+            let publishBlock = reusable.Substring(publishStart)
+            Expect.stringContains publishBlock "- deploy-docs" "publication waits for deployment"
+            Expect.stringContains publishBlock "needs.deploy-docs.result == 'success'" "failed deployment blocks publication"
+            Expect.stringContains deploy "workflow_call:" "deployment remains reusable"
+            Expect.stringContains deploy "workflow_dispatch:" "deployment remains manually dispatchable"
+        }
+
+        test "Pulumi workflows install the GKE credential plugin" {
+            let expectedAction = "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1"
+            for name in [ "deploy.yml"; "preview.yml" ] do
+                let workflow = workflow name
+                Expect.stringContains workflow expectedAction $"{name} pins setup-gcloud"
+                Expect.stringContains workflow "install_components: gke-gcloud-auth-plugin" $"{name} installs GKE authentication"
         }
 
         test "Changelog requires exactly one selected release" {

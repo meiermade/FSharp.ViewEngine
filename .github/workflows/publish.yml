@@ -18,4 +18,5 @@ jobs:
       packageId: FSharp.ViewEngine
       version: ${{ inputs.version }}
       markLatest: true
+      deployDocs: false
     secrets: inherit

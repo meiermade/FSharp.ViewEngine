@@ -19,6 +19,10 @@ on:
         description: Whether this package release becomes the repository-wide Latest release
         required: true
         type: boolean
+      deployDocs:
+        description: Whether to deploy and verify the Docs site before package publication
+        required: true
+        type: boolean
 
 permissions:
   contents: write
@@ -121,10 +125,22 @@ jobs:
             nugets/release-metadata.json
           if-no-files-found: error
 
+  deploy-docs:
+    name: Deploy and verify Docs
+    if: inputs.deployDocs
+    needs: package
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ needs.package.outputs.commit }}
+      expectedVersion: ${{ needs.package.outputs.version }}
+      expectedCommit: ${{ needs.package.outputs.commit }}
+
   publish:
     name: Publish ${{ inputs.packageId }}
-    if: inputs.packageId != ''
-    needs: package
+    if: inputs.packageId != '' && always() && needs.package.result == 'success' && (!inputs.deployDocs || needs.deploy-docs.result == 'success')
+    needs:
+      - package
+      - deploy-docs
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: release

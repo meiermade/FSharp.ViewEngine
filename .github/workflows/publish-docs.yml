@@ -23,4 +23,5 @@ jobs:
       version: ${{ inputs.version }}
       minimumCoreVersion: ${{ inputs.minimumCoreVersion }}
       markLatest: false
+      deployDocs: true
     secrets: inherit
