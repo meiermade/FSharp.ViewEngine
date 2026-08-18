@@ -49,6 +49,13 @@ let tests =
                 2
                 "workflow calls run package and publish jobs"
             Expect.isFalse (workflow.Contains("if: github.event_name ==")) "caller event does not select reusable jobs"
+
+            let uploadStart = workflow.IndexOf("      - name: Upload verified package", StringComparison.Ordinal)
+            let publishStart = workflow.IndexOf("\n  publish:", uploadStart, StringComparison.Ordinal)
+            let uploadBlock = workflow.Substring(uploadStart, publishStart - uploadStart)
+            Expect.stringContains workflow "cp \"$RELEASE_METADATA_PATH\" nugets/release-metadata.json" "metadata is staged with package assets"
+            Expect.stringContains uploadBlock "nugets/release-metadata.json" "staged metadata is uploaded"
+            Expect.isFalse (uploadBlock.Contains("${{ runner.temp }}")) "artifact paths have one common package root"
         }
 
         test "Changelog requires exactly one selected release" {
