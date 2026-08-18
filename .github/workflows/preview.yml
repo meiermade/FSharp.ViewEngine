@@ -124,7 +124,8 @@ jobs:
       - name: Preview
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         env:
-          RELEASE_VERSION: preview
+          RELEASE_CORE_VERSION: preview
+          RELEASE_DOCS_VERSION: preview
           RELEASE_COMMIT: ${{ github.event.pull_request.head.sha }}
         with:
           work-dir: ./pulumi

@@ -10,7 +10,14 @@ open Serilog.Sinks.OpenTelemetry
 let webApp (config:Config) =
     choose [
         GET >=> choose [
-            route "/health" >=> json {| status = "ok"; version = config.release.version; commit = config.release.commit |}
+            route "/health" >=> json {|
+                status = "ok"
+                release = {|
+                    coreVersion = config.release.coreVersion |> Option.toObj
+                    docsVersion = config.release.docsVersion |> Option.toObj
+                |}
+                commit = config.release.commit
+            |}
             Handler.routes
         ]
         setStatusCode 404 >=> text "Not found"
@@ -64,10 +71,11 @@ let main args =
 
             configureApp config app
             Log.Information(
-                "Starting {AppName} version {ReleaseVersion} at commit {ReleaseCommit}",
+                "Starting {AppName} at commit {ReleaseCommit} for Core {CoreVersion} and Docs package {DocsVersion}",
                 config.appName,
-                config.release.version,
-                config.release.commit)
+                config.release.commit,
+                config.release.coreVersion |> Option.defaultValue "none",
+                config.release.docsVersion |> Option.defaultValue "none")
 
             app.Run(config.serverUrl)
             0

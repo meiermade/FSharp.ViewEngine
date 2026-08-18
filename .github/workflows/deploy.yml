@@ -1,14 +1,18 @@
-name: Deploy
+name: Deploy documentation site
 on:
   workflow_call:
     inputs:
       ref:
-        description: Git ref containing the Docs release
+        description: Git ref containing the documentation site release
         required: true
         type: string
-      expectedVersion:
-        description: Release version expected from the deployed health endpoint
-        required: true
+      expectedCoreVersion:
+        description: Optional FSharp.ViewEngine version represented by this deployment
+        required: false
+        type: string
+      expectedDocsVersion:
+        description: Optional FSharp.ViewEngine.Docs version represented by this deployment
+        required: false
         type: string
       expectedCommit:
         description: Commit expected from the deployed health endpoint
@@ -21,8 +25,12 @@ on:
         required: true
         default: main
         type: string
-      expectedVersion:
-        description: Optional release version; inferred from version tags or reported as unreleased
+      expectedCoreVersion:
+        description: Optional FSharp.ViewEngine version represented by this deployment
+        required: false
+        type: string
+      expectedDocsVersion:
+        description: Optional FSharp.ViewEngine.Docs version represented by this deployment
         required: false
         type: string
       expectedCommit:
@@ -36,7 +44,7 @@ concurrency:
 
 jobs:
   deploy:
-    name: Deploy
+    name: Deploy documentation site
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
@@ -46,7 +54,8 @@ jobs:
       contents: read
       id-token: write
     outputs:
-      version: ${{ steps.release.outputs.version }}
+      coreVersion: ${{ steps.release.outputs.coreVersion }}
+      docsVersion: ${{ steps.release.outputs.docsVersion }}
       commit: ${{ steps.release.outputs.commit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -55,16 +64,19 @@ jobs:
       - name: Resolve release metadata
         id: release
         env:
-          REQUESTED_VERSION: ${{ inputs.expectedVersion }}
+          REQUESTED_CORE_VERSION: ${{ inputs.expectedCoreVersion }}
+          REQUESTED_DOCS_VERSION: ${{ inputs.expectedDocsVersion }}
           EXPECTED_COMMIT: ${{ inputs.expectedCommit }}
           DEPLOY_REF: ${{ inputs.ref }}
         run: |
-          version="$REQUESTED_VERSION"
-          if [[ -z "$version" ]]; then
-            if [[ "$DEPLOY_REF" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-              version="${DEPLOY_REF#v}"
-            else
-              version="unreleased"
+          core_version="$REQUESTED_CORE_VERSION"
+          docs_version="$REQUESTED_DOCS_VERSION"
+
+          if [[ -z "$core_version" && -z "$docs_version" ]]; then
+            if [[ "$DEPLOY_REF" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+              core_version="${BASH_REMATCH[1]}"
+            elif [[ "$DEPLOY_REF" =~ ^docs/v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+              docs_version="${BASH_REMATCH[1]}"
             fi
           fi
 
@@ -79,7 +91,8 @@ jobs:
             exit 1
           fi
 
-          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "coreVersion=$core_version" >> "$GITHUB_OUTPUT"
+          echo "docsVersion=$docs_version" >> "$GITHUB_OUTPUT"
           echo "commit=$commit" >> "$GITHUB_OUTPUT"
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -103,7 +116,8 @@ jobs:
       - name: Deploy
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         env:
-          RELEASE_VERSION: ${{ steps.release.outputs.version }}
+          RELEASE_CORE_VERSION: ${{ steps.release.outputs.coreVersion }}
+          RELEASE_DOCS_VERSION: ${{ steps.release.outputs.docsVersion }}
           RELEASE_COMMIT: ${{ steps.release.outputs.commit }}
         with:
           work-dir: ./pulumi
@@ -133,33 +147,36 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium firefox webkit
         working-directory: ./e2e
-      - name: Wait for deployed Docs release
+      - name: Wait for deployed documentation site
         env:
-          EXPECTED_VERSION: ${{ needs.deploy.outputs.version }}
+          EXPECTED_CORE_VERSION: ${{ needs.deploy.outputs.coreVersion }}
+          EXPECTED_DOCS_VERSION: ${{ needs.deploy.outputs.docsVersion }}
           EXPECTED_COMMIT: ${{ needs.deploy.outputs.commit }}
         run: |
           for _ in $(seq 1 60); do
             health="$(curl --fail --silent --show-error https://fsharpviewengine.meiermade.com/health || true)"
             status="$(jq -r '.status // empty' <<< "$health" 2>/dev/null || true)"
-            version="$(jq -r '.version // empty' <<< "$health" 2>/dev/null || true)"
+            core_version="$(jq -r '.release.coreVersion // empty' <<< "$health" 2>/dev/null || true)"
+            docs_version="$(jq -r '.release.docsVersion // empty' <<< "$health" 2>/dev/null || true)"
             commit="$(jq -r '.commit // empty' <<< "$health" 2>/dev/null || true)"
 
-            if [[ "$status" == "ok" && "$version" == "$EXPECTED_VERSION" && "$commit" == "$EXPECTED_COMMIT" ]]; then
+            if [[ "$status" == "ok" && "$core_version" == "$EXPECTED_CORE_VERSION" && "$docs_version" == "$EXPECTED_DOCS_VERSION" && "$commit" == "$EXPECTED_COMMIT" ]]; then
               exit 0
             fi
 
-            echo "Waiting for Docs $EXPECTED_VERSION at $EXPECTED_COMMIT; found version=${version:-unknown}, commit=${commit:-unknown}."
+            echo "Waiting for site at $EXPECTED_COMMIT with Core=${EXPECTED_CORE_VERSION:-none}, Docs=${EXPECTED_DOCS_VERSION:-none}; found Core=${core_version:-none}, Docs=${docs_version:-none}, commit=${commit:-unknown}."
             sleep 5
           done
 
-          echo "FSharp.ViewEngine Docs did not report the expected release." >&2
+          echo "The documentation site did not report the expected package releases." >&2
           exit 1
-      - name: Test deployed Docs
+      - name: Test deployed documentation site
         run: npm run test:published
         working-directory: ./e2e
         env:
           DOCS_E2E_BASE_URL: https://fsharpviewengine.meiermade.com
-          DOCS_EXPECTED_VERSION: ${{ needs.deploy.outputs.version }}
+          DOCS_EXPECTED_CORE_VERSION: ${{ needs.deploy.outputs.coreVersion }}
+          DOCS_EXPECTED_DOCS_VERSION: ${{ needs.deploy.outputs.docsVersion }}
           DOCS_EXPECTED_COMMIT: ${{ needs.deploy.outputs.commit }}
       - name: Upload E2E diagnostics
         if: failure()

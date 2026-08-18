@@ -1,63 +1,64 @@
-name: Publish package
+name: Package release operations
 on:
-  workflow_dispatch:
   workflow_call:
     inputs:
-      packageId:
-        description: NuGet package ID
+      packages:
+        description: Package selection (core, docs, or both)
         required: true
         type: string
-      version:
-        description: Package calendar version (YYYY.M.MINOR)
-        required: true
-        type: string
-      minimumCoreVersion:
-        description: Minimum published FSharp.ViewEngine version required by Docs
+      coreVersion:
+        description: FSharp.ViewEngine calendar version
         required: false
         type: string
-      markLatest:
-        description: Whether this package release becomes the repository-wide Latest release
-        required: true
-        type: boolean
-      deployDocs:
-        description: Whether to deploy and verify the Docs site before package publication
-        required: true
-        type: boolean
+      docsVersion:
+        description: FSharp.ViewEngine.Docs calendar version
+        required: false
+        type: string
+      minimumCoreVersion:
+        description: Minimum FSharp.ViewEngine version required by the Docs package
+        required: false
+        type: string
 
 permissions:
   contents: write
   id-token: write
 
 concurrency:
-  group: release-${{ inputs.packageId || 'nuget-oidc-smoke-test' }}
+  group: fsharp-viewengine-package-release
   cancel-in-progress: false
 
 jobs:
-  nuget-oidc-smoke-test:
-    name: Verify NuGet trusted publishing
-    if: inputs.packageId == ''
+  validate:
+    name: Validate release selection
     runs-on: ubuntu-latest
     timeout-minutes: 5
-    environment: release
     permissions:
       contents: read
-      id-token: write
     steps:
-      - name: Authenticate to NuGet with GitHub OIDC
-        id: nuget-login
-        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          user: ${{ vars.NUGET_USER }}
-      - name: Verify temporary NuGet API key
-        env:
-          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          dotnet-version: 10.0.x
+      - name: Restore release tooling
         run: |
-          test -n "$NUGET_API_KEY"
-          echo "NuGet trusted publishing authentication succeeded."
+          dotnet tool restore
+          dotnet paket install
+          dotnet restore src/Build/Build.fsproj
+        working-directory: ./sln
+      - name: Validate selected package versions
+        env:
+          PACKAGE_SELECTION: ${{ inputs.packages }}
+          CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
+          DOCS_PACKAGE_VERSION: ${{ inputs.docsVersion }}
+          DOCS_MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
+        run: ./fake.sh ValidateReleaseSelection --single-target
+        working-directory: ./sln
 
-  package:
-    name: Build and verify ${{ inputs.packageId }}
-    if: inputs.packageId != ''
+  package-core:
+    name: Build and verify FSharp.ViewEngine
+    if: inputs.packages == 'core' || inputs.packages == 'both'
+    needs: validate
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -85,64 +86,169 @@ jobs:
           dotnet paket install
           dotnet restore FSharp.ViewEngine.slnx
         working-directory: ./sln
-      - name: Prepare package release
+      - name: Prepare Core release
         env:
-          PACKAGE_ID: ${{ inputs.packageId }}
-          PACKAGE_VERSION: ${{ inputs.version }}
-          DOCS_MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
-          MARK_LATEST: ${{ inputs.markLatest }}
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: ${{ inputs.coreVersion }}
+          MARK_LATEST: true
           RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
         run: ./fake.sh PrepareRelease --single-target
         working-directory: ./sln
-      - name: Read release metadata
+      - name: Read Core release metadata
         id: release
         env:
           RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
         run: ./fake.sh ReadReleaseMetadata --single-target
         working-directory: ./sln
-      - name: Build, test, pack, and verify selected package
+      - name: Build, test, pack, and verify Core
         env:
-          PACKAGE_ID: ${{ inputs.packageId }}
+          PACKAGE_ID: FSharp.ViewEngine
           PACKAGE_VERSION: ${{ steps.release.outputs.version }}
-          DOCS_MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
         run: ./fake.sh VerifyPackage
         working-directory: ./sln
-      - name: Record package checksums
+      - name: Record Core checksums
         run: ./fake.sh RecordPackageChecksums --single-target
         working-directory: ./sln
-      - name: Stage release metadata with package assets
+      - name: Stage Core release metadata
         env:
           RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
         run: cp "$RELEASE_METADATA_PATH" nugets/release-metadata.json
-      - name: Upload verified package
+      - name: Upload verified Core package
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ inputs.packageId }}-${{ steps.release.outputs.version }}
+          name: FSharp.ViewEngine-${{ steps.release.outputs.version }}
           path: |
-            nugets/*.nupkg
-            nugets/*.snupkg
+            nugets/FSharp.ViewEngine.*.nupkg
+            nugets/FSharp.ViewEngine.*.snupkg
             nugets/SHA256SUMS
             nugets/release-metadata.json
           if-no-files-found: error
 
-  deploy-docs:
-    name: Deploy and verify Docs
-    if: inputs.deployDocs
-    needs: package
-    uses: ./.github/workflows/deploy.yml
-    with:
-      ref: ${{ needs.package.outputs.commit }}
-      expectedVersion: ${{ needs.package.outputs.version }}
-      expectedCommit: ${{ needs.package.outputs.commit }}
-
-  publish:
-    name: Publish ${{ inputs.packageId }}
-    if: inputs.packageId != '' && always() && needs.package.result == 'success' && (!inputs.deployDocs || needs.deploy-docs.result == 'success')
+  package-docs:
+    name: Build and verify FSharp.ViewEngine.Docs
+    if: always() && needs.validate.result == 'success' && (inputs.packages == 'docs' || (inputs.packages == 'both' && needs.package-core.result == 'success'))
     needs:
-      - package
-      - deploy-docs
+      - validate
+      - package-core
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      version: ${{ steps.release.outputs.version }}
+      commit: ${{ steps.release.outputs.commit }}
+      previousTag: ${{ steps.release.outputs.previousTag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+      - name: Restore tools and packages
+        run: |
+          dotnet tool restore
+          dotnet paket install
+          dotnet restore FSharp.ViewEngine.slnx
+        working-directory: ./sln
+      - name: Download selected Core package
+        if: inputs.packages == 'both' && inputs.minimumCoreVersion == inputs.coreVersion
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: FSharp.ViewEngine-${{ inputs.coreVersion }}
+          path: ${{ runner.temp }}/core-package
+      - name: Prepare Docs package release
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Docs
+          PACKAGE_VERSION: ${{ inputs.docsVersion }}
+          DOCS_MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
+          LOCAL_CORE_PACKAGE_PATH: ${{ runner.temp }}/core-package/FSharp.ViewEngine.${{ inputs.minimumCoreVersion }}.nupkg
+          MARK_LATEST: false
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
+        run: ./fake.sh PrepareRelease --single-target
+        working-directory: ./sln
+      - name: Read Docs package release metadata
+        id: release
+        env:
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
+        run: ./fake.sh ReadReleaseMetadata --single-target
+        working-directory: ./sln
+      - name: Test release source
+        if: inputs.packages == 'docs'
+        run: ./fake.sh Test --single-target
+        working-directory: ./sln
+      - name: Pack Docs package
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Docs
+          PACKAGE_VERSION: ${{ steps.release.outputs.version }}
+          DOCS_MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
+        run: ./fake.sh Pack --single-target
+        working-directory: ./sln
+      - name: Stage selected Core package for consumer verification
+        if: inputs.packages == 'both' && inputs.minimumCoreVersion == inputs.coreVersion
+        env:
+          CORE_PACKAGE: ${{ runner.temp }}/core-package/FSharp.ViewEngine.${{ inputs.minimumCoreVersion }}.nupkg
+        run: cp "$CORE_PACKAGE" nugets/
+      - name: Verify Docs package
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Docs
+          DOCS_MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
+        run: ./fake.sh VerifyPackage --single-target
+        working-directory: ./sln
+      - name: Remove local Core dependency artifact
+        if: inputs.packages == 'both' && inputs.minimumCoreVersion == inputs.coreVersion
+        run: rm "nugets/FSharp.ViewEngine.${{ inputs.minimumCoreVersion }}.nupkg"
+      - name: Record Docs package checksums
+        run: ./fake.sh RecordPackageChecksums --single-target
+        working-directory: ./sln
+      - name: Stage Docs package release metadata
+        env:
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release-metadata.json
+        run: cp "$RELEASE_METADATA_PATH" nugets/release-metadata.json
+      - name: Upload verified Docs package
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: FSharp.ViewEngine.Docs-${{ steps.release.outputs.version }}
+          path: |
+            nugets/FSharp.ViewEngine.Docs.*.nupkg
+            nugets/FSharp.ViewEngine.Docs.*.snupkg
+            nugets/SHA256SUMS
+            nugets/release-metadata.json
+          if-no-files-found: error
+
+  deploy-site:
+    name: Deploy and verify documentation site
+    if: >-
+      always() && needs.validate.result == 'success' &&
+      ((inputs.packages == 'core' && needs.package-core.result == 'success') ||
+       (inputs.packages == 'docs' && needs.package-docs.result == 'success') ||
+       (inputs.packages == 'both' && needs.package-core.result == 'success' && needs.package-docs.result == 'success'))
+    needs:
+      - validate
+      - package-core
+      - package-docs
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ inputs.packages == 'docs' && needs.package-docs.outputs.commit || needs.package-core.outputs.commit }}
+      expectedCoreVersion: ${{ (inputs.packages == 'core' || inputs.packages == 'both') && inputs.coreVersion || '' }}
+      expectedDocsVersion: ${{ (inputs.packages == 'docs' || inputs.packages == 'both') && inputs.docsVersion || '' }}
+      expectedCommit: ${{ inputs.packages == 'docs' && needs.package-docs.outputs.commit || needs.package-core.outputs.commit }}
+
+  publish:
+    name: Publish selected packages
+    if: always() && needs.deploy-site.result == 'success'
+    needs:
+      - package-core
+      - package-docs
+      - deploy-site
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
     environment: release
     permissions:
       contents: write
@@ -150,19 +256,26 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.package.outputs.commit }}
+          ref: ${{ inputs.packages == 'docs' && needs.package-docs.outputs.commit || needs.package-core.outputs.commit }}
           fetch-depth: 0
           fetch-tags: true
       - name: Setup dotnet
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: 10.0.x
-      - name: Download verified package
+      - name: Download verified Core package
+        if: inputs.packages == 'core' || inputs.packages == 'both'
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: ${{ inputs.packageId }}-${{ needs.package.outputs.version }}
-          path: ${{ runner.temp }}/package
-      - name: Restore build tooling
+          name: FSharp.ViewEngine-${{ inputs.coreVersion }}
+          path: ${{ runner.temp }}/core-package
+      - name: Download verified Docs package
+        if: inputs.packages == 'docs' || inputs.packages == 'both'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: FSharp.ViewEngine.Docs-${{ inputs.docsVersion }}
+          path: ${{ runner.temp }}/docs-package
+      - name: Restore release tooling
         run: |
           dotnet tool restore
           dotnet paket install
@@ -173,16 +286,30 @@ jobs:
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         with:
           user: ${{ vars.NUGET_USER }}
-      - name: Publish and reconcile package release
+      - name: Publish FSharp.ViewEngine
+        if: inputs.packages == 'core' || inputs.packages == 'both'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-          PACKAGE_DIRECTORY: ${{ runner.temp }}/package
-          PACKAGE_ID: ${{ inputs.packageId }}
-          PACKAGE_VERSION: ${{ needs.package.outputs.version }}
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/core-package
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: ${{ inputs.coreVersion }}
+          MARK_LATEST: true
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/core-package/release-metadata.json
+        run: ./fake.sh PublishPackageRelease --single-target
+        working-directory: ./sln
+      - name: Publish FSharp.ViewEngine.Docs
+        if: inputs.packages == 'docs' || inputs.packages == 'both'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/docs-package
+          PACKAGE_ID: FSharp.ViewEngine.Docs
+          PACKAGE_VERSION: ${{ inputs.docsVersion }}
           DOCS_MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
-          MARK_LATEST: ${{ inputs.markLatest }}
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/package/release-metadata.json
+          MARK_LATEST: false
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/docs-package/release-metadata.json
         run: ./fake.sh PublishPackageRelease --single-target
         working-directory: ./sln

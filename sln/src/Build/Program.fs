@@ -74,6 +74,17 @@ let releaseInputs () =
         minimumCoreVersion
         (boolEnvironment "MARK_LATEST")
 
+let optionalEnvironment name =
+    Environment.environVarOrNone name
+    |> Option.filter (System.String.IsNullOrWhiteSpace >> not)
+
+let releaseSelection () =
+    PackagePublishing.validateSelection
+        (Environment.environVarOrFail "PACKAGE_SELECTION")
+        (optionalEnvironment "CORE_PACKAGE_VERSION")
+        (optionalEnvironment "DOCS_PACKAGE_VERSION")
+        (optionalEnvironment "DOCS_MINIMUM_CORE_VERSION")
+
 let selectedPackage () =
     match Environment.environVarOrFail "PACKAGE_ID" with
     | "FSharp.ViewEngine" -> PackagePublishing.Package.ViewEngine
@@ -85,6 +96,15 @@ let getVersion () =
     let matched = Regex.Match(value, @"^(\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)$")
     if matched.Success then matched.Groups[1].Value else failwith $"invalid package version: {value}"
 
+Target.create "ValidateReleaseSelection" <| fun _ ->
+    let selection = releaseSelection ()
+    let selected =
+        [ selection.core; selection.docs ]
+        |> List.choose id
+        |> List.map (fun inputs -> $"{inputs.package.Id} {inputs.version}")
+        |> String.concat ", "
+    Trace.trace $"Validated package selection: {selected}"
+
 Target.create "PrepareRelease" <| fun _ ->
     let inputs = releaseInputs ()
     let expectedRef = Environment.environVarOrDefault "GITHUB_REF" "refs/heads/main"
@@ -94,7 +114,9 @@ Target.create "PrepareRelease" <| fun _ ->
 
     match inputs.minimumCoreVersion with
     | Some coreVersion when not (PackagePublishing.confirmPublished "FSharp.ViewEngine" coreVersion) ->
-        failwith $"FSharp.ViewEngine {coreVersion} must be available from NuGet before publishing Docs."
+        match Environment.environVarOrNone "LOCAL_CORE_PACKAGE_PATH" with
+        | Some packagePath -> PackagePublishing.validateLocalCorePackage coreVersion packagePath
+        | None -> failwith $"FSharp.ViewEngine {coreVersion} must be available from NuGet before publishing Docs."
     | _ -> ()
 
     let metadata = Release.prepare releaseRepository releaseMetadataPath inputs.package.TagPrefix inputs.version

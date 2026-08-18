@@ -1,5 +1,4 @@
-[![Publish Core](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml)
-[![Publish Docs](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish-docs.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish-docs.yml)
+[![Publish Packages](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml)
 [![Deploy](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml)
 [![NuGet Core](https://img.shields.io/nuget/v/FSharp.ViewEngine)](https://www.nuget.org/packages/FSharp.ViewEngine)
 [![NuGet Docs](https://img.shields.io/nuget/v/FSharp.ViewEngine.Docs)](https://www.nuget.org/packages/FSharp.ViewEngine.Docs)
@@ -47,12 +46,13 @@ dotnet add package FSharp.ViewEngine.Docs
 
 ## Releases
 
-The two NuGet packages have independent release trains:
+The two NuGet packages have independent release trains managed through the **Publish packages** workflow:
 
-- `FSharp.ViewEngine` uses tags such as `v2026.8.1` and the **Publish Core** workflow.
-- `FSharp.ViewEngine.Docs` uses tags such as `docs/v2026.8.0` and the **Publish Docs** workflow.
+- `FSharp.ViewEngine` uses tags such as `v2026.8.1`.
+- `FSharp.ViewEngine.Docs` uses tags such as `docs/v2026.8.0`.
+- A dispatch can publish Core, the Docs package, or both with independent versions.
 
-A Docs release declares its minimum compatible published Core version. Matching package versions are not required. Publish Core first whenever Docs needs APIs that are not already available on NuGet. Both publish workflows require an explicit version and a matching released-package changelog entry, publish from the protected `release` environment with NuGet Trusted Publishing, and reconcile retries against the verified package artifacts. Core releases become the repository-wide GitHub “Latest” release; Docs releases do not. Directly packing `FSharp.ViewEngine.Docs` also requires explicit Docs and minimum Core MSBuild version properties so it cannot silently produce incorrect dependency metadata. Docs publication deploys its exact verified source revision and requires production health checks and E2E tests to pass before NuGet publication. The separate **Deploy** workflow remains manually dispatchable for content, server, and infrastructure redeployments; Core publication does not deploy the site.
+A Docs package release declares its minimum compatible published Core version. Matching package versions are not required. When both packages are selected, their artifacts are verified first, the documentation site in `sln/src/Docs` is deployed and production-tested once, Core is published and confirmed on NuGet, and then the dependent Docs package is published. Single-package releases follow the same deployment and acceptance gate. Core releases become the repository-wide GitHub “Latest” release; Docs package releases do not. Directly packing `FSharp.ViewEngine.Docs` requires explicit Docs and minimum Core MSBuild version properties so it cannot silently produce incorrect dependency metadata. The separate **Deploy documentation site** workflow remains manually dispatchable for content, server, and infrastructure redeployments.
 
 ## Core rendering helpers
 
