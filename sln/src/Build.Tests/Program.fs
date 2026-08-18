@@ -39,6 +39,18 @@ let tests =
             ]
             for invalid in invalidCases do Expect.throws invalid "invalid release input"
 
+        test "Reusable publish workflow selects jobs from package input" {
+            let workflowPath =
+                Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", ".github", "workflows", "_publish-package.yml"))
+            let workflow = File.ReadAllText workflowPath
+            Expect.stringContains workflow "if: inputs.packageId == ''" "direct dispatch runs only the OIDC smoke test"
+            Expect.equal
+                (workflow.Split("if: inputs.packageId != ''", StringSplitOptions.None).Length - 1)
+                2
+                "workflow calls run package and publish jobs"
+            Expect.isFalse (workflow.Contains("if: github.event_name ==")) "caller event does not select reusable jobs"
+        }
+
         test "Changelog requires exactly one selected release" {
             let text = "title = \"FSharp.ViewEngine 2026.8.2 · August 14, 2026\""
             PackagePublishing.validateChangelog "FSharp.ViewEngine" "2026.8.2" text

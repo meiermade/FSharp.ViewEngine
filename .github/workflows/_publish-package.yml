@@ -31,7 +31,7 @@ concurrency:
 jobs:
   nuget-oidc-smoke-test:
     name: Verify NuGet trusted publishing
-    if: github.event_name == 'workflow_dispatch'
+    if: inputs.packageId == ''
     runs-on: ubuntu-latest
     timeout-minutes: 5
     environment: release
@@ -53,7 +53,7 @@ jobs:
 
   package:
     name: Build and verify ${{ inputs.packageId }}
-    if: github.event_name == 'workflow_call'
+    if: inputs.packageId != ''
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -119,7 +119,7 @@ jobs:
 
   publish:
     name: Publish ${{ inputs.packageId }}
-    if: github.event_name == 'workflow_call'
+    if: inputs.packageId != ''
     needs: package
     runs-on: ubuntu-latest
     timeout-minutes: 20
