@@ -28,7 +28,7 @@ module ViewEngineApi =
         html {
             _lang "en"
             head {
-                title "Test"
+                title { "Test" }
                 meta { _charset "utf-8" }
                 link { _href "/css/compiled.css"; _rel "stylesheet" }
             }
@@ -174,10 +174,88 @@ let tests =
         Expect.equal textResult "<div>&lt;b&gt;hi&lt;/b&gt;</div>" "text encodes"
     }
 
-    test "Fragments, comments, and additional render targets preserve serialization" {
-        let nodes = Html.fragment [ span { "One" }; Html.comment "safe note"; span { "Two" } ]
-        let expected = "<span>One</span><!--safe note--><span>Two</span>"
-        Expect.equal (Render.toString nodes) expected "fragment and comment"
+    test "Element builders compose direct and yielded collections in source order" {
+        let array = [| span { "array-1" }; span { "array-2" } |]
+        let list = [ span { "list-1" }; span { "list-2" } ]
+        let sequence = seq { span { "sequence-1" }; span { "sequence-2" } }
+
+        let direct =
+            div {
+                span { "start" }
+                array
+                list
+                sequence
+                Seq.empty<HtmlElement>
+                span { "end" }
+            }
+            |> Render.toString
+
+        let yielded =
+            div {
+                yield! array
+                yield! list
+                yield! sequence
+                yield! Seq.empty<HtmlElement>
+            }
+            |> Render.toString
+
+        Expect.equal direct "<div><span>start</span><span>array-1</span><span>array-2</span><span>list-1</span><span>list-2</span><span>sequence-1</span><span>sequence-2</span><span>end</span></div>" "direct collections"
+        Expect.equal yielded "<div><span>array-1</span><span>array-2</span><span>list-1</span><span>list-2</span><span>sequence-1</span><span>sequence-2</span></div>" "yielded collections"
+    }
+
+    test "Element builder snapshots side-effecting collection inputs once" {
+        let mutable enumerations = 0
+        let children =
+            seq {
+                enumerations <- enumerations + 1
+                yield span { "One" }
+                yield span { "Two" }
+            }
+
+        let element = div { children }
+        Expect.equal enumerations 1 "collection is enumerated while building"
+        Expect.equal (Render.toString element) "<div><span>One</span><span>Two</span></div>" "first render"
+        Expect.equal (Render.toString element) "<div><span>One</span><span>Two</span></div>" "second render"
+        Expect.equal enumerations 1 "rendering does not re-enumerate the collection"
+    }
+
+    test "Fragments compose text, elements, collections, control flow, and nested fragments without a wrapper" {
+        let render isReady =
+            fragment {
+                "<&"
+                [ span { "One" } ]
+                yield! [| Html.comment "safe note"; span { "Two" } |]
+                for value in [ "Three"; "Four" ] do
+                    span { value }
+                if isReady then
+                    strong { "Ready" }
+                else
+                    em { "Waiting" }
+                Html.fragment { span { "Nested" } }
+                Seq.empty<HtmlElement>
+            }
+            |> Render.toString
+
+        Expect.equal (render true) "&lt;&amp;<span>One</span><!--safe note--><span>Two</span><span>Three</span><span>Four</span><strong>Ready</strong><span>Nested</span>" "true branch"
+        Expect.equal (render false) "&lt;&amp;<span>One</span><!--safe note--><span>Two</span><span>Three</span><span>Four</span><em>Waiting</em><span>Nested</span>" "false branch"
+        Expect.equal (fragment {} |> Render.toString) "" "empty fragment"
+    }
+
+    test "Fragments snapshot collections and support all render targets" {
+        let mutable enumerations = 0
+        let children =
+            seq {
+                enumerations <- enumerations + 1
+                yield span { "One" }
+                yield span { "Two" }
+            }
+        let nodes = fragment { children }
+        let expected = "<span>One</span><span>Two</span>"
+
+        Expect.equal enumerations 1 "collection is enumerated while building"
+        Expect.equal (Render.toString nodes) expected "first render"
+        Expect.equal (Render.toString nodes) expected "second render"
+        Expect.equal enumerations 1 "rendering does not re-enumerate the collection"
 
         let builder = StringBuilder("prefix:")
         Render.writeToStringBuilder builder nodes
@@ -398,14 +476,27 @@ let tests =
         Expect.equal actual2 "<my-void id=\"v1\">" "custom void element"
     }
 
-    test "title element renders correctly" {
-        let actual = title "My Page" |> Render.toString
-        Expect.equal actual "<title>My Page</title>" "title"
+    test "title uses regular computation-expression syntax" {
+        let bare = title { "My Page" } |> Render.toString
+        let qualified = Html.title { _lang "en"; "My Page" } |> Render.toString
+        Expect.equal bare "<title>My Page</title>" "bare title builder"
+        Expect.equal qualified "<title lang=\"en\">My Page</title>" "qualified title builder"
     }
 
-    test "title builder supports attributes and child content" {
-        let actual = titleBuilder { _lang "en"; "My Page" } |> Render.toString
-        Expect.equal actual "<title lang=\"en\">My Page</title>" "title builder"
+    test "fragment and title expose only the canonical builder API" {
+        let publicStatic = System.Reflection.BindingFlags.Public ||| System.Reflection.BindingFlags.Static
+        let publicInstance = System.Reflection.BindingFlags.Public ||| System.Reflection.BindingFlags.Instance
+        Expect.isNotNull (typeof<Html>.GetProperty("fragment", publicStatic)) "fragment builder property"
+        Expect.isNotNull (typeof<Html>.GetProperty("title", publicStatic)) "title builder property"
+        Expect.isNull (typeof<Html>.GetProperty("titleBuilder", publicStatic)) "old title builder property"
+        Expect.isFalse (typeof<Html>.GetMethods(publicStatic) |> Array.exists (fun methodInfo -> methodInfo.Name = "fragment" || methodInfo.Name = "title")) "old factory methods"
+
+        let acceptsAttribute =
+            typeof<FragmentBuilder>.GetMethods(publicInstance)
+            |> Array.filter (fun methodInfo -> methodInfo.Name = "Yield")
+            |> Array.collect (fun methodInfo -> methodInfo.GetParameters())
+            |> Array.exists (fun parameter -> parameter.ParameterType = typeof<HtmlAttribute>)
+        Expect.isFalse acceptsAttribute "fragment builder must reject attributes"
     }
 
     test "For iteration in builder" {

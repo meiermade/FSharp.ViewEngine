@@ -102,6 +102,14 @@
     <Right>lib/net8.0/FSharp.ViewEngine.dll</Right>
     <IsBaselineSuppression>true</IsBaselineSuppression>
   </Suppression>
+  <!-- The text-only title method was replaced by the standard title computation-expression builder. -->
+  <Suppression>
+    <DiagnosticId>CP0002</DiagnosticId>
+    <Target>M:FSharp.ViewEngine.Html.title(System.String)</Target>
+    <Left>lib/net8.0/FSharp.ViewEngine.dll</Left>
+    <Right>lib/net8.0/FSharp.ViewEngine.dll</Right>
+    <IsBaselineSuppression>true</IsBaselineSuppression>
+  </Suppression>
   <!-- Bare void-element values replaced by renderable builders that also accept attributes. -->
   <Suppression>
     <DiagnosticId>CP0002</DiagnosticId>

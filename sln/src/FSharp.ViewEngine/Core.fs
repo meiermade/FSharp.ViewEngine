@@ -248,9 +248,10 @@ type private StringBuilderPool =
                 StringBuilderPool.pooled <- sb
 
 type TagBuilderCode = RegularElement -> unit
+type FragmentBuilderCode = ResizeArray<HtmlElement> -> unit
 type VoidBuilderCode = VoidElement -> unit
 
-/// Computation-expression builder for a regular element that accepts attributes, text, and child elements.
+/// Computation-expression builder for a regular element that accepts attributes, text, child elements, and child collections.
 type TagBuilder(tag: string) =
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member inline _.Yield(el: HtmlElement) : TagBuilderCode =
@@ -265,6 +266,20 @@ type TagBuilder(tag: string) =
         fun st ->
             if not (isNull attr.Name) then
                 st.AddAttr(attr)
+
+    /// Adds each supplied element as a child in enumeration order.
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.Yield(elements: HtmlElement seq) : TagBuilderCode =
+        fun st ->
+            for element in elements do
+                st.AddChild(element)
+
+    /// Adds each yielded element as a child in enumeration order.
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.YieldFrom(elements: HtmlElement seq) : TagBuilderCode =
+        fun st ->
+            for element in elements do
+                st.AddChild(element)
 
     [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
     member inline _.Zero() : TagBuilderCode =
@@ -290,6 +305,53 @@ type TagBuilder(tag: string) =
         f el
         el :> HtmlElement
 
+/// Computation-expression builder for an ordered sequence of sibling nodes without a wrapper element.
+type FragmentBuilder() =
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.Yield(el: HtmlElement) : FragmentBuilderCode =
+        fun elements -> elements.Add(el)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.Yield(text: string) : FragmentBuilderCode =
+        fun elements -> elements.Add(TextElement(text) :> HtmlElement)
+
+    /// Adds each supplied sibling in enumeration order.
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.Yield(elements: HtmlElement seq) : FragmentBuilderCode =
+        fun siblings ->
+            for element in elements do
+                siblings.Add(element)
+
+    /// Adds each yielded sibling in enumeration order.
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.YieldFrom(elements: HtmlElement seq) : FragmentBuilderCode =
+        fun siblings ->
+            for element in elements do
+                siblings.Add(element)
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.Zero() : FragmentBuilderCode =
+        fun _ -> ()
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.Combine([<InlineIfLambda>] f1: FragmentBuilderCode, [<InlineIfLambda>] f2: FragmentBuilderCode) : FragmentBuilderCode =
+        fun elements -> f1 elements; f2 elements
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.Delay([<InlineIfLambda>] f: unit -> FragmentBuilderCode) : FragmentBuilderCode =
+        fun elements -> (f ()) elements
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member inline _.For(xs: 'a seq, [<InlineIfLambda>] f: 'a -> FragmentBuilderCode) : FragmentBuilderCode =
+        fun elements ->
+            for x in xs do
+                (f x) elements
+
+    [<MethodImpl(MethodImplOptions.AggressiveInlining)>]
+    member _.Run(f: FragmentBuilderCode) : HtmlElement =
+        let elements = ResizeArray<HtmlElement>()
+        f elements
+        FragmentElement(elements) :> HtmlElement
 
 /// Computation-expression builder for a void element that accepts attributes and renders no closing tag.
 type VoidBuilder(tag: string) =

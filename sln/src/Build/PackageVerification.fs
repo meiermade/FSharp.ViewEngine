@@ -178,15 +178,62 @@ let private testFrameworks () =
     |> Array.filter (String.IsNullOrWhiteSpace >> not)
 
 let private viewEngineConsumerProgram =
-    """open FSharp.ViewEngine
+    """open System.Reflection
+open FSharp.ViewEngine
 open type Html
 
-let actual = div { _class "package-smoke"; "ok" } |> Render.toString
-if actual <> "<div class=\"package-smoke\">ok</div>" then
-    failwith $"unexpected render: {actual}"
+let children = [ span { "One" }; span { "Two" } ]
+let sequence = children |> Seq.map id
+
+let direct = div { children; sequence; Seq.empty<HtmlElement> } |> Render.toString
+if direct <> "<div><span>One</span><span>Two</span><span>One</span><span>Two</span></div>" then
+    failwith $"unexpected direct collection render: {direct}"
+
+let yielded = div { yield! children; yield! sequence } |> Render.toString
+if yielded <> direct then
+    failwith $"unexpected yielded collection render: {yielded}"
+
+let bareFragment = fragment { "Items: "; children } |> Render.toString
+let qualifiedFragment = Html.fragment { yield! children } |> Render.toString
+if bareFragment <> "Items: <span>One</span><span>Two</span>" || qualifiedFragment <> "<span>One</span><span>Two</span>" then
+    failwith $"unexpected fragments: {bareFragment} / {qualifiedFragment}"
+
+let bareTitle = title { "Package smoke" } |> Render.toString
+let qualifiedTitle = Html.title { _lang "en"; "Package smoke" } |> Render.toString
+if bareTitle <> "<title>Package smoke</title>" || qualifiedTitle <> "<title lang=\"en\">Package smoke</title>" then
+    failwith $"unexpected titles: {bareTitle} / {qualifiedTitle}"
+
+let publicStatic = BindingFlags.Public ||| BindingFlags.Static
+let publicInstance = BindingFlags.Public ||| BindingFlags.Instance
+let fragmentAcceptsAttribute =
+    typeof<FragmentBuilder>.GetMethods(publicInstance)
+    |> Array.filter (fun methodInfo -> methodInfo.Name = "Yield")
+    |> Array.collect (fun methodInfo -> methodInfo.GetParameters())
+    |> Array.exists (fun parameter -> parameter.ParameterType = typeof<HtmlAttribute>)
+
+if isNull (typeof<Html>.GetProperty("fragment", publicStatic))
+   || isNull (typeof<Html>.GetProperty("title", publicStatic))
+   || not (isNull (typeof<Html>.GetProperty("titleBuilder", publicStatic)))
+   || (typeof<Html>.GetMethods(publicStatic) |> Array.exists (fun methodInfo -> methodInfo.Name = "fragment" || methodInfo.Name = "title"))
+   || fragmentAcceptsAttribute then
+    failwith "unexpected fragment/title public API"
 
 printfn "FSharp.ViewEngine package works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
 """
+
+let private invalidFragmentConsumerProgram =
+    """open FSharp.ViewEngine
+open type Html
+
+let invalid = fragment { _class "not-allowed" }
+printfn "%A" invalid
+"""
+
+let private expectFailure description action =
+    let mutable failed = false
+    try action () with _ -> failed <- true
+    if not failed then fail $"Expected failure: {description}"
+    printfn "Verified expected failure: %s" description
 
 let private docsConsumerProgram =
     """open FSharp.ViewEngine
@@ -297,5 +344,11 @@ let verify runDotnet packagePath =
             runDotnet projectDirectory [ "restore"; "--packages"; packagesDirectory; "--source"; packageDirectory; "--source"; "https://api.nuget.org/v3/index.json" ]
             verifySelectedAsset definition.assemblyName framework projectDirectory
             runDotnet projectDirectory [ "run"; "--framework"; framework; "--no-restore" ]
+
+            if definition.packageId = "FSharp.ViewEngine" then
+                File.WriteAllText(Path.Combine(projectDirectory, "Program.fs"), invalidFragmentConsumerProgram)
+                expectFailure
+                    $"{framework} fragment attributes must not compile"
+                    (fun () -> runDotnet projectDirectory [ "build"; "--framework"; framework; "--no-restore" ])
     finally
         if Directory.Exists workDirectory then Directory.Delete(workDirectory, true)

@@ -30,7 +30,7 @@ let greeting name =
 let document =
     html {
         _lang "en"
-        head { title "Greeting" }
+        head { title { "Greeting" } }
         body { greeting "Ada" }
     }
     |> Render.toHtmlDocString""");
@@ -114,10 +114,15 @@ article {
         }
 }""");
             Heading { id = "sequences"; title = "Sequences"; level = 2 };
-            Paragraph [ Text "The builders support "; InlineContent.Code "for"; Text " expressions over sequences. Keep rendering deterministic: build a fresh mutable element tree for each response rather than mutating or concurrently rendering one instance." ];
-            CodeBlock("fsharp", """ul {
-    for item in items do
-        li { _data("item-id", item.id); item.label }
+            Paragraph [ Text "Element builders accept child collections directly, through "; InlineContent.Code "yield!"; Text ", or with an explicit "; InlineContent.Code "for"; Text " expression. Collection inputs are enumerated when the element tree is built, preserving source order and deterministic repeated rendering." ];
+            CodeBlock("fsharp", """let rows = items |> List.map (fun item ->
+    li { _data("item-id", item.id); item.label })
+
+ul {
+    rows                 // Direct collection
+    yield! moreRows      // Explicit flattening
+    for item in finalItems do
+        li { item.label }
 }""") ] }
 
     let rendering =
@@ -131,17 +136,23 @@ article {
           nodes = [
             Paragraph [ Text "Choose fragment or document rendering deliberately and render each completed view at the application boundary." ];
             Heading { id = "fragments"; title = "Fragments"; level = 2 }
-            Paragraph [ InlineContent.Code "Render.toString"; Text " serializes exactly the supplied element and does not prepend a doctype." ];
-            CodeBlock("fsharp", """let fragment =
-    div { _class "notice"; "Saved" }
+            Paragraph [ InlineContent.Code "fragment { ... }"; Text " composes sibling nodes without adding a wrapper. "; InlineContent.Code "Render.toString"; Text " serializes exactly those siblings and does not prepend a doctype." ];
+            CodeBlock("fsharp", """let nodes = [ span { "One" }; span { "Two" } ]
+
+let rendered =
+    fragment {
+        strong { "Items: " }
+        yield! nodes
+    }
     |> Render.toString
-// <div class="notice">Saved</div>""");
+// <strong>Items: </strong><span>One</span><span>Two</span>""");
+            Paragraph [ Text "Migration: replace "; InlineContent.Code "Html.fragment nodes"; Text " with "; InlineContent.Code "fragment { yield! nodes }"; Text ". Replace "; InlineContent.Code "title \"Account\""; Text " or "; InlineContent.Code "titleBuilder { ... }"; Text " with "; InlineContent.Code "title { \"Account\" }"; Text "." ];
             Heading { id = "documents"; title = "Documents"; level = 2 };
             Paragraph [ InlineContent.Code "Render.toHtmlDocString"; Text " prepends "; InlineContent.Code "<!DOCTYPE html>"; Text " and is intended for a complete HTML document." ];
             CodeBlock("fsharp", """let responseBody =
     html {
         _lang "en"
-        head { title "Account" }
+        head { title { "Account" } }
         body { main { h1 { "Account" } } }
     }
     |> Render.toHtmlDocString""");

@@ -14,7 +14,7 @@ let myPage =
     html {
         _lang "en"
         head {
-            title "My App"
+            title { "My App" }
             meta { _charset "utf-8" }
             link { _href "/css/tailwind.css"; _rel "stylesheet" }
         }
