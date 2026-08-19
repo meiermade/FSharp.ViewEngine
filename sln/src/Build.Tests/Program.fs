@@ -143,22 +143,27 @@ let tests =
             Expect.isFalse (deploy.Contains("workflow_call:")) "package releases do not call site deployment"
             Expect.isFalse (deploy.Contains("expectedCoreVersion")) "site health does not predict Core publication"
             Expect.isFalse (deploy.Contains("expectedDocsVersion")) "site health does not predict Docs publication"
-            Expect.stringContains deploy "playwright install --with-deps chromium" "production acceptance installs one browser"
-            Expect.isFalse (deploy.Contains("chromium firefox webkit")) "cross-browser coverage remains in pull requests"
+            Expect.stringContains deploy "bash scripts/test-published-ci.sh" "production acceptance uses the browser image"
+            Expect.isFalse (deploy.Contains("playwright install --with-deps")) "production acceptance skips host browser installation"
         }
 
-        test "Pull request E2E uses the pinned Playwright image" {
+        test "E2E workflows share the pinned Playwright image" {
             let preview = workflow "preview.yml"
-            let runner = repositoryFile "e2e/scripts/test-ci.sh"
+            let pullRequestRunner = repositoryFile "e2e/scripts/test-ci.sh"
+            let productionRunner = repositoryFile "e2e/scripts/test-published-ci.sh"
+            let image = repositoryFile "e2e/playwright-image.txt"
             Expect.stringContains preview "bash scripts/test-ci.sh" "workflow delegates container orchestration"
             Expect.isFalse (preview.Contains("playwright install --with-deps")) "host browser installation is skipped"
             Expect.stringContains
-                runner
+                image
                 "mcr.microsoft.com/playwright:v1.62.1-noble@sha256:"
-                "runner pins the browser image matching the project dependency"
-            Expect.stringContains runner "--network host" "browser container reaches the local Docs image"
+                "browser image matches and pins the project dependency"
+            for runner in [ pullRequestRunner; productionRunner ] do
+                Expect.stringContains runner "playwright-image.txt" "runner uses the shared image reference"
+            Expect.stringContains pullRequestRunner "--network host" "browser container reaches the local Docs image"
             for browser in [ "chromium"; "firefox"; "webkit" ] do
-                Expect.stringContains runner $"--project={browser}" $"{browser} remains covered"
+                Expect.stringContains pullRequestRunner $"--project={browser}" $"{browser} remains covered"
+            Expect.stringContains productionRunner "npm run test:published" "production runner uses the smoke suite"
         }
 
         test "Privileged Pulumi preview excludes fork pull requests" {

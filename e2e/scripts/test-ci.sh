@@ -5,7 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 e2e_dir="$(cd "$script_dir/.." && pwd)"
 server_port="${E2E_SERVER_PORT:-5054}"
 health_url="http://127.0.0.1:${server_port}/health"
-playwright_image="mcr.microsoft.com/playwright:v1.62.1-noble@sha256:dcc5531e97840b9b5e794f2814476b21571c5124a3fca2267d73041f56e7580e"
+playwright_image="$(< "$e2e_dir/playwright-image.txt")"
 server_pid=""
 
 cleanup() {
