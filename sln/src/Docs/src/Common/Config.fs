@@ -3,10 +3,13 @@ namespace Docs.Common
 open System
 
 module Env =
-    let variableOrDefault (key:string) (defaultValue:string) =
+    let variable (key:string) =
         match Environment.GetEnvironmentVariable(key) with
-        | value when String.IsNullOrEmpty(value) -> defaultValue
-        | value -> value
+        | value when String.IsNullOrWhiteSpace(value) -> None
+        | value -> Some value
+
+    let variableOrDefault (key:string) (defaultValue:string) =
+        variable key |> Option.defaultValue defaultValue
 
 type SeqConfig =
     { endpoint:string }
@@ -16,12 +19,14 @@ module SeqConfig =
         { endpoint = Env.variableOrDefault "SEQ_ENDPOINT" "http://localhost:5341" }
 
 type ReleaseConfig =
-    { version:string
+    { coreVersion:string option
+      docsVersion:string option
       commit:string }
 
 module ReleaseConfig =
     let load () =
-        { version = Env.variableOrDefault "RELEASE_VERSION" "development"
+        { coreVersion = Env.variable "RELEASE_CORE_VERSION"
+          docsVersion = Env.variable "RELEASE_DOCS_VERSION"
           commit = Env.variableOrDefault "RELEASE_COMMIT" "local" }
 
 type Config =

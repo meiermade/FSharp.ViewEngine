@@ -1,10 +1,27 @@
-name: Publish FSharp.ViewEngine
+name: Publish packages
 on:
   workflow_dispatch:
     inputs:
-      version:
-        description: Core calendar version (YYYY.M.MINOR)
+      packages:
+        description: Packages to publish
         required: true
+        default: core
+        type: choice
+        options:
+          - core
+          - docs
+          - both
+      coreVersion:
+        description: FSharp.ViewEngine version; required for core or both
+        required: false
+        type: string
+      docsVersion:
+        description: FSharp.ViewEngine.Docs version; required for docs or both
+        required: false
+        type: string
+      minimumCoreVersion:
+        description: Minimum Core version for FSharp.ViewEngine.Docs; required for docs or both
+        required: false
         type: string
 
 permissions:
@@ -15,7 +32,8 @@ jobs:
   publish:
     uses: ./.github/workflows/_publish-package.yml
     with:
-      packageId: FSharp.ViewEngine
-      version: ${{ inputs.version }}
-      markLatest: true
+      packages: ${{ inputs.packages }}
+      coreVersion: ${{ inputs.coreVersion }}
+      docsVersion: ${{ inputs.docsVersion }}
+      minimumCoreVersion: ${{ inputs.minimumCoreVersion }}
     secrets: inherit
