@@ -18,22 +18,11 @@ module SeqConfig =
     let load () =
         { endpoint = Env.variableOrDefault "SEQ_ENDPOINT" "http://localhost:5341" }
 
-type ReleaseConfig =
-    { coreVersion:string option
-      docsVersion:string option
-      commit:string }
-
-module ReleaseConfig =
-    let load () =
-        { coreVersion = Env.variable "RELEASE_CORE_VERSION"
-          docsVersion = Env.variable "RELEASE_DOCS_VERSION"
-          commit = Env.variableOrDefault "RELEASE_COMMIT" "local" }
-
 type Config =
     { debug:bool
       appName:string
       serverUrl:string
-      release:ReleaseConfig
+      commit:string
       seq:SeqConfig }
 
 module Config =
@@ -41,5 +30,5 @@ module Config =
         { debug = Env.variableOrDefault "DEBUG" "false" |> Boolean.Parse
           appName = "fsharp-viewengine-docs"
           serverUrl = Env.variableOrDefault "SERVER_URL" "https://localhost:5000"
-          release = ReleaseConfig.load ()
+          commit = Env.variableOrDefault "RELEASE_COMMIT" "local"
           seq = SeqConfig.load () }

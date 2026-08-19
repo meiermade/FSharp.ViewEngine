@@ -134,12 +134,14 @@ Target.create "ReadReleaseMetadata" <| fun _ ->
         $"previousTag={previousTag}" ])
 
 Target.create "RecordPackageChecksums" <| fun _ ->
+    let package = selectedPackage ()
+    let packageDirectory = Environment.environVarOrDefault "PACKAGE_DIRECTORY" nugetsDir |> Path.getFullName
     let packagePaths =
-        !! $"{nugetsDir}/*.nupkg"
-        ++ $"{nugetsDir}/*.snupkg"
+        !! $"{packageDirectory}/{package.Id}.*.nupkg"
+        ++ $"{packageDirectory}/{package.Id}.*.snupkg"
         |> Seq.sort
         |> Seq.toList
-    PackagePublishing.writeChecksums (nugetsDir </> "SHA256SUMS") packagePaths
+    PackagePublishing.writeChecksums (packageDirectory </> "SHA256SUMS") packagePaths
 
 Target.create "PublishPackageRelease" <| fun _ ->
     let inputs = releaseInputs ()

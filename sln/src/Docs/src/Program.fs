@@ -12,11 +12,7 @@ let webApp (config:Config) =
         GET >=> choose [
             route "/health" >=> json {|
                 status = "ok"
-                release = {|
-                    coreVersion = config.release.coreVersion |> Option.toObj
-                    docsVersion = config.release.docsVersion |> Option.toObj
-                |}
-                commit = config.release.commit
+                commit = config.commit
             |}
             Handler.routes
         ]
@@ -70,12 +66,7 @@ let main args =
                 app.UseDeveloperExceptionPage() |> ignore
 
             configureApp config app
-            Log.Information(
-                "Starting {AppName} at commit {ReleaseCommit} for Core {CoreVersion} and Docs package {DocsVersion}",
-                config.appName,
-                config.release.commit,
-                config.release.coreVersion |> Option.defaultValue "none",
-                config.release.docsVersion |> Option.defaultValue "none")
+            Log.Information("Starting {AppName} at commit {ReleaseCommit}", config.appName, config.commit)
 
             app.Run(config.serverUrl)
             0
