@@ -25,7 +25,6 @@ let docsDir = srcDir </> "Docs"
 let docsTestsDir = srcDir </> "Docs.Tests"
 let buildTestsDir = srcDir </> "Build.Tests"
 let benchmarksDir = srcDir </> "Benchmarks"
-let changelogPath = docsDir </> "src" </> "Pages" </> "Changelog.fs"
 let releaseRepository = Environment.environVarOrDefault "RELEASE_REPOSITORY" rootDir
 let releaseMetadataPath =
     Environment.environVarOrDefault
@@ -109,8 +108,6 @@ Target.create "PrepareRelease" <| fun _ ->
     let inputs = releaseInputs ()
     let expectedRef = Environment.environVarOrDefault "GITHUB_REF" "refs/heads/main"
     if expectedRef <> "refs/heads/main" then failwith $"Releases must run from main, not {expectedRef}."
-
-    PackagePublishing.validateChangelog inputs.package.Id inputs.version (System.IO.File.ReadAllText changelogPath)
 
     match inputs.minimumCoreVersion with
     | Some coreVersion when not (PackagePublishing.confirmPublished "FSharp.ViewEngine" coreVersion) ->

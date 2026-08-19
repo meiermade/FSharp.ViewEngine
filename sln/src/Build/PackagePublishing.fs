@@ -95,12 +95,6 @@ let validateLocalCorePackage version (packagePath:string) =
     if not (File.Exists packagePath) || Path.GetFileName(packagePath) <> expectedName then
         invalidOp $"Expected selected Core package {expectedName}, found: {packagePath}"
 
-let validateChangelog packageId version (content:string) =
-    let marker = $"title = \"{packageId} {version} ·"
-    let matches = Regex.Matches(content, Regex.Escape marker).Count
-    if matches <> 1 then
-        invalidOp $"Expected exactly one released-package changelog entry beginning '{packageId} {version} ·'; found {matches}."
-
 let expectedAssetNames packageId version =
     [ $"{packageId}.{version}.nupkg"
       $"{packageId}.{version}.snupkg"

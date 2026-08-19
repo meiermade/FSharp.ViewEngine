@@ -54,6 +54,8 @@ The two NuGet packages have independent release trains managed through the **Pub
 
 A Docs package release declares its minimum compatible published Core version. Matching package versions are not required. The selected packages are tested, packed, and verified together as one release bundle before publication; Core is published and confirmed on NuGet before the dependent Docs package. Core releases become the repository-wide GitHub “Latest” release; Docs package releases do not. Directly packing `FSharp.ViewEngine.Docs` requires explicit Docs and minimum Core MSBuild version properties so it cannot silently produce incorrect dependency metadata.
 
+Versioned changelog entries are added in a follow-up pull request after the package is published and verified and its GitHub release has been reconciled. Feature pull requests and pre-publication workflow steps must not claim a package version or release date that does not yet exist.
+
 The documentation site represents the latest source on `main`, independently of package versions. Every push to `main` deploys the site through the **Deploy documentation site** workflow and runs a production smoke test; the workflow also remains manually dispatchable for a `main` redeployment.
 
 ## Core rendering helpers
