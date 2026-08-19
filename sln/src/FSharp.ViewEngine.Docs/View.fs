@@ -142,10 +142,18 @@ module private ViewHelpers =
 
 module MermaidView =
     let diagram source =
-        div { _class "mermaid spec-diagram"; raw source }
+        div {
+            _class "mermaid spec-diagram"
+            _data("init", "window.renderMermaid?.(el)")
+            raw source
+        }
 
     let c4Diagram source =
-        div { _class "mermaid spec-diagram spec-c4-diagram"; raw source }
+        div {
+            _class "mermaid spec-diagram spec-c4-diagram"
+            _data("init", "window.renderMermaid?.(el)")
+            raw source
+        }
 
 module private DocsBlockView =
     let rec private renderInline value =
@@ -604,8 +612,6 @@ module DocsView =
         }
 
     let document (site:DocsSite<'destination>) (docPage:DocsPage) =
-        let blocks = docPage.sections |> List.collect _.blocks
-        let needsMermaid = blocks |> List.exists (function | Diagram _ | C4Diagram _ | Sequence _ -> true | _ -> false)
         let pageHref =
             site.navigation
             |> NavNode.collectPages
@@ -637,6 +643,7 @@ module DocsView =
             |> fun properties -> $"{{ {properties} }}"
 
         let mermaidSecurity = jsString site.assets.mermaidSecurityLevel
+        let mermaidScript = site.assets.mermaidScript |> Option.map jsString |> Option.defaultValue "null"
         let storageKey = jsString site.storageKey
         let colorModeStorageKey = jsString $"{site.storageKey}-color-mode"
         let defaultColorMode = site.defaultColorMode |> DocsColorMode.value |> jsString
@@ -690,11 +697,34 @@ module DocsView =
 
         let mermaidInitialization =
             """
+window.fsharpDocsMermaid = window.fsharpDocsMermaid ?? {
+  source: __MERMAID_SCRIPT__,
+  nonce: __ASSET_NONCE__,
+  loading: null,
+  loadScript(source) {
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = source;
+      script.dataset.docsMermaidAsset = 'true';
+      if (this.nonce) script.nonce = this.nonce;
+      script.addEventListener('load', resolve, { once: true });
+      script.addEventListener('error', () => reject(new Error(`Unable to load Mermaid asset: ${source}`)), { once: true });
+      document.head.append(script);
+    });
+  },
+  async ensure() {
+    if (window.mermaid || !this.source) return;
+    if (!this.loading) this.loading = this.loadScript(this.source);
+    await this.loading;
+  }
+};
 let mermaidRenderQueue = Promise.resolve();
 window.renderMermaid = (el) => {
   const render = async () => {
     const nodes = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
-    if (nodes.length === 0 || !window.mermaid) return;
+    if (nodes.length === 0) return;
+    await window.fsharpDocsMermaid.ensure();
+    if (!window.mermaid) return;
     for (const node of nodes) {
       if (!node.dataset.mermaidSource) node.dataset.mermaidSource = node.textContent;
       node.textContent = node.dataset.mermaidSource;
@@ -716,7 +746,11 @@ window.renderMermaid = (el) => {
 };
 window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document));
             """
-            |> fun source -> source.Replace("__SECURITY__", mermaidSecurity)
+            |> fun source ->
+                source
+                    .Replace("__MERMAID_SCRIPT__", mermaidScript)
+                    .Replace("__ASSET_NONCE__", assetNonce)
+                    .Replace("__SECURITY__", mermaidSecurity)
 
         let navigationScript =
             """
@@ -865,7 +899,6 @@ window.fsharpDocsNavigation = {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     const content = document.getElementById('page-content');
     await window.renderCode?.(content);
-    await window.renderMermaid?.(content);
     this.initializeToc();
   }
 };
@@ -957,11 +990,9 @@ document.addEventListener('datastar-fetch', event => {
                 match site.assets.prismStylesheet with
                 | Some stylesheet -> link { _rel "stylesheet"; _href stylesheet }
                 | None -> ()
-                match needsMermaid, site.assets.mermaidScript with
-                | true, Some source ->
-                    script { _src source; nonceAttribute () }
-                    script { nonceAttribute (); raw mermaidInitialization }
-                | _ -> ()
+                match site.assets.mermaidScript with
+                | Some _ -> script { nonceAttribute (); raw mermaidInitialization }
+                | None -> ()
                 script { nonceAttribute (); raw navigationScript }
                 match site.assets.datastarScript with
                 | Some source -> script { _type "module"; _src source; nonceAttribute () }
@@ -976,6 +1007,6 @@ document.addEventListener('datastar-fetch', event => {
                 _data("on:popstate__window", "window.fsharpDocsNavigation.begin(); @get(window.location.pathname + window.location.search)")
                 _data("on:keydown__window", "evt.key == 'Escape' ? ($sideNavOpen = false, $breadcrumbMenuOpen = false, $colorModeMenuOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)")
                 page site docPage
-                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content'); await window.renderCode?.(content); await window.renderMermaid?.(content); window.fsharpDocsNavigation.initializeToc(); });" }
+                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content'); await window.renderCode?.(content); window.fsharpDocsNavigation.initializeToc(); });" }
             }
         }
