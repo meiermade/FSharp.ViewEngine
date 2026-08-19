@@ -142,10 +142,18 @@ module private ViewHelpers =
 
 module MermaidView =
     let diagram source =
-        div { _class "mermaid spec-diagram"; raw source }
+        div {
+            _class "mermaid spec-diagram"
+            _data("init", "window.renderMermaid?.(el)")
+            raw source
+        }
 
     let c4Diagram source =
-        div { _class "mermaid spec-diagram spec-c4-diagram"; raw source }
+        div {
+            _class "mermaid spec-diagram spec-c4-diagram"
+            _data("init", "window.renderMermaid?.(el)")
+            raw source
+        }
 
 module private DocsBlockView =
     let rec private renderInline value =
@@ -604,8 +612,6 @@ module DocsView =
         }
 
     let document (site:DocsSite<'destination>) (docPage:DocsPage) =
-        let blocks = docPage.sections |> List.collect _.blocks
-        let needsMermaid = blocks |> List.exists (function | Diagram _ | C4Diagram _ | Sequence _ -> true | _ -> false)
         let pageHref =
             site.navigation
             |> NavNode.collectPages
@@ -893,7 +899,6 @@ window.fsharpDocsNavigation = {
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     const content = document.getElementById('page-content');
     await window.renderCode?.(content);
-    await window.renderMermaid?.(content);
     this.initializeToc();
   }
 };
@@ -986,9 +991,7 @@ document.addEventListener('datastar-fetch', event => {
                 | Some stylesheet -> link { _rel "stylesheet"; _href stylesheet }
                 | None -> ()
                 match site.assets.mermaidScript with
-                | Some source ->
-                    if needsMermaid then script { _src source; nonceAttribute () }
-                    script { nonceAttribute (); raw mermaidInitialization }
+                | Some _ -> script { nonceAttribute (); raw mermaidInitialization }
                 | None -> ()
                 script { nonceAttribute (); raw navigationScript }
                 match site.assets.datastarScript with
@@ -1004,6 +1007,6 @@ document.addEventListener('datastar-fetch', event => {
                 _data("on:popstate__window", "window.fsharpDocsNavigation.begin(); @get(window.location.pathname + window.location.search)")
                 _data("on:keydown__window", "evt.key == 'Escape' ? ($sideNavOpen = false, $breadcrumbMenuOpen = false, $colorModeMenuOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)")
                 page site docPage
-                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content'); await window.renderCode?.(content); await window.renderMermaid?.(content); window.fsharpDocsNavigation.initializeToc(); });" }
+                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content'); await window.renderCode?.(content); window.fsharpDocsNavigation.initializeToc(); });" }
             }
         }

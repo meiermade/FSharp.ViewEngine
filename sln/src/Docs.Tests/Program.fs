@@ -295,7 +295,8 @@ let tests =
             Expect.stringContains home "window.fsharpDocsMermaid" "pages without diagrams configure lazy Mermaid for later navigation"
             Expect.stringContains home "/scripts/mermaid.11.16.0.min.js" "pages without diagrams retain the pinned Mermaid source"
             Expect.isFalse (home.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "pages without diagrams do not eagerly load Mermaid"
-            Expect.stringContains diagrams "src=\"/scripts/mermaid.11.16.0.min.js\"" "isolated diagram pages eagerly use pinned Mermaid"
+            Expect.stringContains diagrams "data-init=\"window.renderMermaid?.(el)\"" "diagram elements initialize through Datastar"
+            Expect.isFalse (diagrams.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "diagram pages also load pinned Mermaid lazily"
             Expect.isFalse (home.Contains("cdnjs.cloudflare.com")) "documentation assets are self-hosted"
         }
 

@@ -24,7 +24,7 @@ module Changelog =
             Heading { id = "fsharp-viewengine-docs-2026-8-2"; title = "FSharp.ViewEngine.Docs 2026.8.2 · August 19, 2026"; level = 3 };
             UnorderedList [
                 [ Text "Added navigation-aware lazy Mermaid loading so a diagram introduced by Docs-managed page navigation renders even when the initial page did not require Mermaid." ];
-                [ Text "Preserved eager loading on initial diagram pages while diagram-free initial pages defer the Mermaid download until it is needed." ]
+                [ Text "Made diagram initialization local through Datastar data-init while every page defers the Mermaid download until its first diagram needs it." ]
             ];
             Heading { id = "fsharp-viewengine-docs-2026-8-1"; title = "FSharp.ViewEngine.Docs 2026.8.1 · August 18, 2026"; level = 3 };
             UnorderedList [
