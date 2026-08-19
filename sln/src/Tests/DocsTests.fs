@@ -332,7 +332,9 @@ let tests =
             let plainHtml = docsDocument site plain |> Render.toString
             let diagramHtml = docsDocument site diagram |> Render.toString
             let highlightedHtml = docsDocument site highlighted |> Render.toString
-            Expect.isFalse (plainHtml.Contains("mermaid.11.16.0")) "plain pages omit Mermaid"
+            Expect.stringContains plainHtml "window.fsharpDocsMermaid" "plain pages configure lazy Mermaid for later navigation"
+            Expect.stringContains plainHtml "/scripts/mermaid.11.16.0.min.js" "plain pages retain the configured Mermaid source"
+            Expect.isFalse (plainHtml.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "plain pages do not eagerly load Mermaid"
             Expect.stringContains plainHtml "prism-tomorrow.1.29.0.min.css" "Prism styles remain stable across Docs navigation"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/prism.1.29.0.min.js\"")) "plain pages omit Prism scripts"
             Expect.stringContains diagramHtml "mermaid.11.16.0" "diagram pages load Mermaid"

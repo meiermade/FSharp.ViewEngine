@@ -292,8 +292,10 @@ let tests =
             Expect.stringContains home "/scripts/prism.1.29.0.min.js" "pinned Prism script"
             Expect.stringContains home "/css/prism-tomorrow.1.29.0.min.css" "pinned Prism theme"
             Expect.stringContains home "/scripts/prism-fsharp.1.29.0.min.js" "pinned FSharp grammar"
-            Expect.isFalse (home.Contains("/scripts/mermaid.11.16.0.min.js")) "pages without diagrams omit Mermaid"
-            Expect.stringContains diagrams "/scripts/mermaid.11.16.0.min.js" "isolated diagram pages use pinned Mermaid"
+            Expect.stringContains home "window.fsharpDocsMermaid" "pages without diagrams configure lazy Mermaid for later navigation"
+            Expect.stringContains home "/scripts/mermaid.11.16.0.min.js" "pages without diagrams retain the pinned Mermaid source"
+            Expect.isFalse (home.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "pages without diagrams do not eagerly load Mermaid"
+            Expect.stringContains diagrams "src=\"/scripts/mermaid.11.16.0.min.js\"" "isolated diagram pages eagerly use pinned Mermaid"
             Expect.isFalse (home.Contains("cdnjs.cloudflare.com")) "documentation assets are self-hosted"
         }
 
