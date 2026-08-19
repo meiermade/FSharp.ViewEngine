@@ -3,6 +3,10 @@ on:
   pull_request:
     branches:
       - main
+
+permissions:
+  contents: read
+
 jobs:
   unit:
     name: Unit
@@ -71,11 +75,8 @@ jobs:
       - name: Install E2E packages
         run: npm ci
         working-directory: ./e2e
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
-        working-directory: ./e2e
       - name: Test production Docs image
-        run: npm test
+        run: bash scripts/test-ci.sh
         working-directory: ./e2e
       - name: Upload E2E diagnostics
         if: failure()
@@ -88,24 +89,50 @@ jobs:
             /tmp/fsharp-viewengine-e2e
           if-no-files-found: ignore
 
-  preview:
-    # Keep this terminal job named Test because it is the protected branch check.
-    name: Test
+  pulumi:
+    name: Pulumi validation
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: read
-      id-token: write
-      pull-requests: write
-    needs:
-      - unit
-      - e2e
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: pulumi/package-lock.json
+      - name: Install Packages
+        run: npm ci
+        working-directory: ./pulumi
+      - name: Typecheck
+        run: npx tsc --noEmit
+        working-directory: ./pulumi
+
+  preview:
+    name: Pulumi preview
+    needs:
+      - unit
+      - e2e
+      - pulumi
+    if: >-
+      needs.unit.result == 'success' &&
+      needs.e2e.result == 'success' &&
+      needs.pulumi.result == 'success' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: pulumi/package-lock.json
       # Pulumi ESC supplies CLOUDSDK_AUTH_ACCESS_TOKEN to the Pulumi process.
       # setup-gcloud cannot detect token overrides: https://github.com/google-github-actions/setup-gcloud/issues/731
       - name: Install GKE auth plugin
@@ -124,8 +151,6 @@ jobs:
       - name: Preview
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         env:
-          RELEASE_CORE_VERSION: preview
-          RELEASE_DOCS_VERSION: preview
           RELEASE_COMMIT: ${{ github.event.pull_request.head.sha }}
         with:
           work-dir: ./pulumi
@@ -133,3 +158,29 @@ jobs:
           stack-name: meiermade/fsharp-view-engine/prod
           diff: true
           comment-on-pr: true
+
+  test:
+    # Keep this terminal job named Test because it is the protected branch check.
+    name: Test
+    needs:
+      - unit
+      - e2e
+      - pulumi
+      - preview
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    permissions:
+      contents: read
+    steps:
+      - name: Verify required checks
+        env:
+          UNIT_RESULT: ${{ needs.unit.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+          PULUMI_RESULT: ${{ needs.pulumi.result }}
+          PREVIEW_ACCEPTED: ${{ needs.preview.result == 'success' || needs.preview.result == 'skipped' }}
+        run: |
+          test "$UNIT_RESULT" = success
+          test "$E2E_RESULT" = success
+          test "$PULUMI_RESULT" = success
+          test "$PREVIEW_ACCEPTED" = true

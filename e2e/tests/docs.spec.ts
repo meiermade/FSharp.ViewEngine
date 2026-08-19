@@ -139,18 +139,9 @@ test('health and pinned application assets are available', async ({ request }) =
   expect(health.status()).toBe(200)
   const healthBody = await health.json()
   expect(healthBody).toMatchObject({ status: 'ok' })
-  expect(healthBody.release).toHaveProperty('coreVersion')
-  expect(healthBody.release).toHaveProperty('docsVersion')
-  expect(healthBody.release.coreVersion === null || typeof healthBody.release.coreVersion === 'string').toBe(true)
-  expect(healthBody.release.docsVersion === null || typeof healthBody.release.docsVersion === 'string').toBe(true)
+  expect(healthBody).not.toHaveProperty('release')
   expect(healthBody.commit).toBeTruthy()
 
-  if (process.env.DOCS_EXPECTED_CORE_VERSION !== undefined) {
-    expect(healthBody.release.coreVersion ?? '').toBe(process.env.DOCS_EXPECTED_CORE_VERSION)
-  }
-  if (process.env.DOCS_EXPECTED_DOCS_VERSION !== undefined) {
-    expect(healthBody.release.docsVersion ?? '').toBe(process.env.DOCS_EXPECTED_DOCS_VERSION)
-  }
   if (process.env.DOCS_EXPECTED_COMMIT) {
     expect(healthBody.commit).toBe(process.env.DOCS_EXPECTED_COMMIT)
   }

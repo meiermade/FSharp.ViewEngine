@@ -17,6 +17,10 @@ let private workflowPath name =
 
 let private workflow name = workflowPath name |> File.ReadAllText
 
+let private repositoryFile path =
+    Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", path))
+    |> File.ReadAllText
+
 let tests =
     testList "Package publishing" [
         test "Core release inputs select Core and Latest" {
@@ -97,60 +101,85 @@ let tests =
             Expect.stringContains publish "docsVersion:" "independent Docs package version"
             Expect.stringContains publish "minimumCoreVersion:" "Docs minimum Core version"
             Expect.isFalse (File.Exists(workflowPath "publish-docs.yml")) "there is no second package-publishing entry point"
+            Expect.isFalse (File.Exists(workflowPath "_publish-package.yml")) "single-use reusable workflow is removed"
+            Expect.isFalse (File.Exists(workflowPath "verify-nuget-auth.yml")) "publication owns its OIDC authentication"
+            Expect.isFalse (publish.Contains("secrets: inherit")) "publication does not inherit unrelated secrets"
         }
 
-        test "NuGet authentication diagnostics remain separate from publication" {
-            let reusable = workflow "_publish-package.yml"
-            let verification = workflow "verify-nuget-auth.yml"
-            Expect.isFalse (reusable.Contains("workflow_dispatch:")) "internal package operations cannot be dispatched directly"
-            Expect.stringContains verification "workflow_dispatch:" "trusted publishing can be checked manually"
-            Expect.stringContains verification "NuGet/login@8d196754b4036150537f80ac539e15c2f1028841" "verification uses trusted publishing"
-            Expect.stringContains verification "test -n \"$NUGET_API_KEY\"" "verification requires a temporary API key"
-        }
-
-        test "Selected packages verify before one site deployment and ordered publication" {
-            let reusable = workflow "_publish-package.yml"
-            let deploy = workflow "deploy.yml"
-
-            let coreStart = reusable.IndexOf("\n  package-core:", StringComparison.Ordinal)
-            let docsStart = reusable.IndexOf("\n  package-docs:", StringComparison.Ordinal)
-            let deployStart = reusable.IndexOf("\n  deploy-site:", StringComparison.Ordinal)
-            let publishStart = reusable.IndexOf("\n  publish:", StringComparison.Ordinal)
-            Expect.isTrue
-                (coreStart > 0 && docsStart > coreStart && deployStart > docsStart && publishStart > deployStart)
-                "both package jobs precede the single site deployment and publication"
-
+        test "Package workflow verifies one release bundle before ordered publication" {
+            let publish = workflow "publish.yml"
+            let packageStart = publish.IndexOf("\n  package:", StringComparison.Ordinal)
+            let publishStart = publish.IndexOf("\n  publish:", StringComparison.Ordinal)
+            Expect.isTrue (packageStart > 0 && publishStart > packageStart) "package job precedes publish job"
             Expect.equal
-                (reusable.Split("uses: ./.github/workflows/deploy.yml", StringSplitOptions.None).Length - 1)
+                (publish.Split("actions/upload-artifact@", StringSplitOptions.None).Length - 1)
                 1
-                "the site deploys once"
+                "selected packages share one verified release bundle"
+            Expect.equal
+                (publish.Split("actions/download-artifact@", StringSplitOptions.None).Length - 1)
+                1
+                "publication downloads the release bundle once"
+            Expect.isFalse (publish.Contains("uses: ./.github/workflows/deploy.yml")) "package publication does not deploy the site"
+            Expect.isFalse (publish.Contains("secrets: inherit")) "publication does not inherit unrelated secrets"
 
-            let deployBlock = reusable.Substring(deployStart, publishStart - deployStart)
-            Expect.stringContains deployBlock "expectedCoreVersion:" "health identifies a selected Core release"
-            Expect.stringContains deployBlock "expectedDocsVersion:" "health identifies a selected Docs package release"
-            Expect.stringContains deployBlock "expectedCommit:" "health identifies the verified commit"
+            let packageBlock = publish.Substring(packageStart, publishStart - packageStart)
+            Expect.stringContains packageBlock "./fake.sh Test --single-target" "release source is tested once"
+            Expect.stringContains packageBlock "Verify Core package" "Core package is verified"
+            Expect.stringContains packageBlock "Verify Docs package" "Docs package is verified"
 
-            let publishBlock = reusable.Substring(publishStart)
+            let publishBlock = publish.Substring(publishStart)
             let publishCore = publishBlock.IndexOf("Publish FSharp.ViewEngine", StringComparison.Ordinal)
             let publishDocs = publishBlock.IndexOf("Publish FSharp.ViewEngine.Docs", StringComparison.Ordinal)
             Expect.isTrue (publishCore > 0 && publishDocs > publishCore) "Core publishes before the dependent Docs package"
-            Expect.stringContains publishBlock "needs.deploy-site.result == 'success'" "failed site acceptance blocks publication"
-            Expect.stringContains deploy "workflow_call:" "site deployment remains reusable"
-            Expect.stringContains deploy "workflow_dispatch:" "site deployment remains manually dispatchable"
+            Expect.stringContains publishBlock "environment: release" "publication uses the protected environment"
+            Expect.stringContains publishBlock "NuGet/login@8d196754b4036150537f80ac539e15c2f1028841" "publication uses trusted publishing"
         }
 
-        test "Verified package artifacts preserve one download root" {
-            let reusable = workflow "_publish-package.yml"
-            let uploads =
-                [ "      - name: Upload verified Core package", "\n  package-docs:"
-                  "      - name: Upload verified Docs package", "\n  deploy-site:" ]
+        test "Documentation deploy tracks main independently from package releases" {
+            let deploy = workflow "deploy.yml"
+            Expect.stringContains deploy "push:" "main changes deploy automatically"
+            Expect.stringContains deploy "- main" "only main deploys automatically"
+            Expect.stringContains deploy "workflow_dispatch:" "site remains manually redeployable"
+            Expect.isFalse (deploy.Contains("workflow_call:")) "package releases do not call site deployment"
+            Expect.isFalse (deploy.Contains("expectedCoreVersion")) "site health does not predict Core publication"
+            Expect.isFalse (deploy.Contains("expectedDocsVersion")) "site health does not predict Docs publication"
+            Expect.stringContains deploy "bash scripts/test-published-ci.sh" "production acceptance uses the browser image"
+            Expect.isFalse (deploy.Contains("playwright install --with-deps")) "production acceptance skips host browser installation"
+        }
 
-            for uploadName, nextJob in uploads do
-                let uploadStart = reusable.IndexOf(uploadName, StringComparison.Ordinal)
-                let uploadEnd = reusable.IndexOf(nextJob, uploadStart, StringComparison.Ordinal)
-                let uploadBlock = reusable.Substring(uploadStart, uploadEnd - uploadStart)
-                Expect.stringContains uploadBlock "nugets/release-metadata.json" $"{uploadName} includes release metadata"
-                Expect.isFalse (uploadBlock.Contains("${{ runner.temp }}")) $"{uploadName} has one artifact root"
+        test "E2E workflows share the pinned Playwright image" {
+            let preview = workflow "preview.yml"
+            let pullRequestRunner = repositoryFile "e2e/scripts/test-ci.sh"
+            let productionRunner = repositoryFile "e2e/scripts/test-published-ci.sh"
+            let image = repositoryFile "e2e/playwright-image.txt"
+            Expect.stringContains preview "bash scripts/test-ci.sh" "workflow delegates container orchestration"
+            Expect.isFalse (preview.Contains("playwright install --with-deps")) "host browser installation is skipped"
+            Expect.stringContains
+                image
+                "mcr.microsoft.com/playwright:v1.62.1-noble@sha256:"
+                "browser image matches and pins the project dependency"
+            for runner in [ pullRequestRunner; productionRunner ] do
+                Expect.stringContains runner "playwright-image.txt" "runner uses the shared image reference"
+            Expect.stringContains pullRequestRunner "--network host" "browser container reaches the local Docs image"
+            for browser in [ "chromium"; "firefox"; "webkit" ] do
+                Expect.stringContains pullRequestRunner $"--project={browser}" $"{browser} remains covered"
+            Expect.stringContains productionRunner "npm run test:published" "production runner uses the smoke suite"
+        }
+
+        test "Privileged Pulumi preview excludes fork pull requests" {
+            let preview = workflow "preview.yml"
+            let privilegedStart = preview.IndexOf("\n  preview:", StringComparison.Ordinal)
+            let terminalStart = preview.IndexOf("\n  test:", StringComparison.Ordinal)
+            Expect.isTrue (privilegedStart > 0 && terminalStart > privilegedStart) "terminal test follows privileged preview"
+            let privileged = preview.Substring(privilegedStart, terminalStart - privilegedStart)
+            Expect.stringContains
+                privileged
+                "github.event.pull_request.head.repo.full_name == github.repository"
+                "OIDC preview only runs for repository branches"
+            Expect.stringContains privileged "id-token: write" "trusted previews authenticate with OIDC"
+            let terminal = preview.Substring(terminalStart)
+            Expect.stringContains terminal "name: Test" "protected branch check keeps its name"
+            Expect.stringContains terminal "needs.preview.result == 'skipped'" "forks may skip privileged preview"
         }
 
         test "Pulumi workflows install the GKE credential plugin" {
