@@ -190,15 +190,11 @@ let tests =
                 Expect.stringContains workflow "install_components: gke-gcloud-auth-plugin" $"{name} installs GKE authentication"
         }
 
-        test "Changelog requires exactly one selected release" {
-            let text = "title = \"FSharp.ViewEngine 2026.8.2 · August 14, 2026\""
-            PackagePublishing.validateChangelog "FSharp.ViewEngine" "2026.8.2" text
-            Expect.throws
-                (fun () -> PackagePublishing.validateChangelog "FSharp.ViewEngine.Docs" "2026.8.2" text)
-                "missing Docs release"
-            Expect.throws
-                (fun () -> PackagePublishing.validateChangelog "FSharp.ViewEngine" "2026.8.2" $"{text}\n{text}")
-                "duplicate Core release"
+        test "Versioned changelog entries follow verified package releases" {
+            let build = repositoryFile "sln/src/Build/Program.fs"
+            let readme = repositoryFile "README.md"
+            Expect.isFalse (build.Contains("validateChangelog")) "release preparation does not require a future changelog entry"
+            Expect.stringContains readme "after the package is published and verified" "release documentation records the post-release changelog step"
         }
 
         test "Expected release assets are exact" {
