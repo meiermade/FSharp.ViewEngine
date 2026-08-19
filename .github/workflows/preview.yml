@@ -75,11 +75,8 @@ jobs:
       - name: Install E2E packages
         run: npm ci
         working-directory: ./e2e
-      - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium firefox webkit
-        working-directory: ./e2e
       - name: Test production Docs image
-        run: npm test
+        run: bash scripts/test-ci.sh
         working-directory: ./e2e
       - name: Upload E2E diagnostics
         if: failure()

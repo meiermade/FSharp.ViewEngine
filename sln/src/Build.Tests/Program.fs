@@ -17,6 +17,10 @@ let private workflowPath name =
 
 let private workflow name = workflowPath name |> File.ReadAllText
 
+let private repositoryFile path =
+    Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", path))
+    |> File.ReadAllText
+
 let tests =
     testList "Package publishing" [
         test "Core release inputs select Core and Latest" {
@@ -141,6 +145,20 @@ let tests =
             Expect.isFalse (deploy.Contains("expectedDocsVersion")) "site health does not predict Docs publication"
             Expect.stringContains deploy "playwright install --with-deps chromium" "production acceptance installs one browser"
             Expect.isFalse (deploy.Contains("chromium firefox webkit")) "cross-browser coverage remains in pull requests"
+        }
+
+        test "Pull request E2E uses the pinned Playwright image" {
+            let preview = workflow "preview.yml"
+            let runner = repositoryFile "e2e/scripts/test-ci.sh"
+            Expect.stringContains preview "bash scripts/test-ci.sh" "workflow delegates container orchestration"
+            Expect.isFalse (preview.Contains("playwright install --with-deps")) "host browser installation is skipped"
+            Expect.stringContains
+                runner
+                "mcr.microsoft.com/playwright:v1.62.1-noble@sha256:"
+                "runner pins the browser image matching the project dependency"
+            Expect.stringContains runner "--network host" "browser container reaches the local Docs image"
+            for browser in [ "chromium"; "firefox"; "webkit" ] do
+                Expect.stringContains runner $"--project={browser}" $"{browser} remains covered"
         }
 
         test "Privileged Pulumi preview excludes fork pull requests" {
