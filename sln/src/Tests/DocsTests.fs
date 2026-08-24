@@ -253,6 +253,8 @@ let tests =
             Expect.stringContains rendered "<style>" "default component styles are self-contained"
             Expect.stringContains rendered "class=\"spec-heading-visually-hidden\"" "hidden semantic heading"
             Expect.stringContains rendered "aria-label=\"Toggle Guides section\"" "accessible disclosure"
+            Expect.stringContains rendered "class=\"spec-nav-chevron\"" "groups expose compact disclosure chevrons"
+            Expect.stringContains rendered "class=\"spec-nav-chevron-spacer\" aria-hidden=\"true\"" "pages reserve the disclosure column"
             Expect.stringContains rendered "href=\"/guides\"" "breadcrumb destination"
             Expect.stringContains rendered "class=\"mermaid spec-diagram\"" "sequence diagram component"
             Expect.stringContains rendered "data-init=\"window.renderMermaid?.(el)\"" "diagrams initialize when Datastar adds them to the DOM"
@@ -262,7 +264,10 @@ let tests =
             Expect.stringContains rendered "id=\"spec-color-mode-button\"" "built-in color mode selector"
             Expect.stringContains rendered "role=\"menuitemradio\"" "color mode options use menu semantics"
             Expect.stringContains rendered "window.fsharpDocsColorMode" "color mode is applied before paint and persisted"
-            Expect.stringContains rendered ".spec-document pre.spec-code code{background:transparent" "package code selector overrides host and Prism styles"
+            Expect.stringContains rendered "--docs-code-bg:#f6f8fa" "light mode uses a light code surface"
+            Expect.stringContains rendered "--docs-code-bg:#0d1117" "dark mode uses a dark code surface"
+            Expect.stringContains rendered ".spec-document .token.atrule" "embedded Prism tokens follow the active color mode"
+            Expect.stringContains rendered ".spec-document pre.spec-code code{background:transparent" "package code selector overrides host styles"
             Expect.stringContains rendered "font-size:.8125rem;line-height:1.55;text-shadow:none" "code uses compact typography"
             Expect.stringContains rendered "rel=\"canonical\" href=\"https://docs.example.com/guides/detail\"" "canonical page URL"
             Expect.stringContains rendered "name=\"description\" content=\"A customizable page.\"" "page-specific description"
@@ -336,7 +341,9 @@ let tests =
             Expect.stringContains plainHtml "window.fsharpDocsMermaid" "plain pages configure lazy Mermaid for later navigation"
             Expect.stringContains plainHtml "/scripts/mermaid.11.16.0.min.js" "plain pages retain the configured Mermaid source"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "plain pages do not eagerly load Mermaid"
-            Expect.stringContains plainHtml "prism-tomorrow.1.29.0.min.css" "Prism styles remain stable across Docs navigation"
+            Expect.isFalse (plainHtml.Contains("prism-tomorrow.1.29.0.min.css")) "default Prism colors are embedded rather than loaded from a dark-only stylesheet"
+            Expect.stringContains plainHtml "--docs-code-green:#116329" "light Prism palette is available before highlighting"
+            Expect.stringContains plainHtml "--docs-code-green:#7ee787" "dark Prism palette is available before highlighting"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/prism.1.29.0.min.js\"")) "plain pages omit Prism scripts"
             Expect.stringContains diagramHtml "data-init=\"window.renderMermaid?.(el)\"" "diagram elements own their Datastar initialization"
             Expect.isFalse (diagramHtml.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "diagram pages also load Mermaid lazily"
@@ -356,6 +363,7 @@ let tests =
             let assets =
                 { DocsAssets.defaults with
                     productStylesheets = [ "/css/product.css" ]
+                    prismStylesheet = Some "/css/custom-prism.css"
                     mermaidSecurityLevel = "strict"
                     additionalHead = [ meta { _name "robots"; _content "noindex" } ] }
 
@@ -364,6 +372,7 @@ let tests =
             let rendered = docsDocument configuredSite page |> Render.toString
 
             Expect.stringContains rendered "href=\"/css/product.css\"" "product stylesheet"
+            Expect.stringContains rendered "href=\"/css/custom-prism.css\"" "consumer Prism stylesheet overrides the embedded palette"
             Expect.stringContains rendered "securityLevel: \"strict\"" "Mermaid security setting is safely serialized"
             Expect.stringContains rendered "mermaidRenderQueue" "Mermaid renders are serialized"
             Expect.stringContains rendered "name=\"robots\"" "additional head content"

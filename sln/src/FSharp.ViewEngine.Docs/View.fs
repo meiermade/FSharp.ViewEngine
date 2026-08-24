@@ -20,7 +20,7 @@ type DocsAssets =
 module DocsAssets =
     let defaults =
         { productStylesheets = [ "/css/compiled.css" ]
-          prismStylesheet = Some "/css/prism-tomorrow.1.29.0.min.css"
+          prismStylesheet = None
           prismScripts =
             [ "/scripts/prism.1.29.0.min.js"
               "/scripts/prism-fsharp.1.29.0.min.js"
@@ -310,12 +310,12 @@ module private NavigationView =
                     _data("on:click", $"${signal} = !${signal}")
                     _data("active", containsActive.ToString().ToLowerInvariant())
                     _class "spec-nav-group-button"
-                    span { _class "spec-nav-label"; group.label }
                     span {
                         _class "spec-nav-chevron"
                         _data("attr:data-open", $"${signal} ? 'true' : 'false'")
                         Icons.chevron
                     }
+                    span { _class "spec-nav-label"; group.label }
                 }
                 ul {
                     _id $"nav-children-{group.id}"
@@ -332,7 +332,8 @@ module private NavigationView =
                     _data("selected", isActive.ToString().ToLowerInvariant())
                     if isActive then _ariaCurrent "page"
                     _class "spec-nav-link"
-                    page.label
+                    span { _class "spec-nav-chevron-spacer"; _ariaHidden "true" }
+                    span { _class "spec-nav-label"; page.label }
                 }
         }
 

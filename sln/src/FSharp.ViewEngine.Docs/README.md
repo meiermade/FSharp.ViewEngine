@@ -204,7 +204,7 @@ let assets =
         nonce = Some requestNonce }
 ```
 
-The small Prism stylesheet is emitted on every page so Datastar head reconciliation cannot remove token styling; Prism scripts remain lazy and load only when code highlighting is requested. Mermaid assets are emitted only for typed diagram blocks. Custom HTML remains consumer-owned and should provide its own page-specific assets through `additionalHead`. Set `nonce` from each HTTP response when enforcing a nonce-based Content Security Policy.
+The embedded component styles include coordinated light and dark Prism token palettes, so code samples follow the active documentation color mode without a separate default theme request. Set `prismStylesheet` when a consumer-owned Prism theme should override that palette. Prism scripts remain lazy and load only when code highlighting is requested. Mermaid assets are emitted only for typed diagram blocks. Custom HTML remains consumer-owned and should provide its own page-specific assets through `additionalHead`. Set `nonce` from each HTTP response when enforcing a nonce-based Content Security Policy.
 
 Built-in accent themes include `DocsTheme.amber`, `DocsTheme.sky`, and `DocsTheme.emerald`. `defaultColorMode` accepts `DocsColorMode.System`, `Light`, or `Dark`; the built-in accessible selector persists the visitor's choice and responds to operating-system changes while in System mode. Article tables of contents use the nested documentation viewport for active-section tracking, expose `aria-current="location"` on the current section, and become a compact native disclosure below the page introduction on narrower screens. Use `DocsRepository.github` for the compact GitHub repository action or `DocsRepository.link` for another repository host.
 

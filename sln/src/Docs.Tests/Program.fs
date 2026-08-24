@@ -286,11 +286,13 @@ let tests =
             Expect.isFalse (html.Contains("_hxGet")) "HTMX is not used as the attribute example"
         }
 
-        test "Docs lazily use pinned self-hosted Prism and Mermaid assets" {
+        test "Docs embed dual Prism palettes and lazily use pinned self-hosted scripts" {
             let home = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
             let diagrams = Showcase.previewRoutes["/docs/previews/mermaid-diagram"]
             Expect.stringContains home "/scripts/prism.1.29.0.min.js" "pinned Prism script"
-            Expect.stringContains home "/css/prism-tomorrow.1.29.0.min.css" "pinned Prism theme"
+            Expect.isFalse (home.Contains("prism-tomorrow.1.29.0.min.css")) "dark-only Prism theme is not loaded"
+            Expect.stringContains home "--docs-code-bg:#f6f8fa" "light code palette is embedded"
+            Expect.stringContains home "--docs-code-bg:#0d1117" "dark code palette is embedded"
             Expect.stringContains home "/scripts/prism-fsharp.1.29.0.min.js" "pinned FSharp grammar"
             Expect.stringContains home "window.fsharpDocsMermaid" "pages without diagrams configure lazy Mermaid for later navigation"
             Expect.stringContains home "/scripts/mermaid.11.16.0.min.js" "pages without diagrams retain the pinned Mermaid source"
@@ -298,6 +300,16 @@ let tests =
             Expect.stringContains diagrams "data-init=\"window.renderMermaid?.(el)\"" "diagram elements initialize through Datastar"
             Expect.isFalse (diagrams.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "diagram pages also load pinned Mermaid lazily"
             Expect.isFalse (home.Contains("cdnjs.cloudflare.com")) "documentation assets are self-hosted"
+        }
+
+        test "Showcase isolates only complete styled documents" {
+            Expect.isFalse (Showcase.previewRoutes.ContainsKey "/docs/previews/workflow-states") "state tabs render directly with host styles"
+            Expect.isFalse (Showcase.previewRoutes.ContainsKey "/docs/previews/browser-frame") "browser frames render directly without duplicate framing"
+
+            for path, document in Showcase.previewRoutes |> Map.toSeq do
+                Expect.stringStarts document "<!DOCTYPE html>" $"{path} is a complete HTML document"
+                Expect.stringContains document "<style>" $"{path} includes the Docs component styles"
+                Expect.stringContains document "class=\"spec-document\"" $"{path} initializes the Docs document body"
         }
 
         test "Showcase source regions preserve the exact compiled example" {
