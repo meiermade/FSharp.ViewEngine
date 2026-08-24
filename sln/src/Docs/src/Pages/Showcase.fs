@@ -155,7 +155,10 @@ module Showcase =
 
     let private previewDocuments = System.Collections.Generic.Dictionary<string, string>()
 
-    let private isolatedHtml (title:string) (canonicalUrl:string) (html:string) =
+    let private isolatedDocument (title:string) (canonicalUrl:string) (html:string) =
+        if not (html.TrimStart().StartsWith("<!DOCTYPE html>", System.StringComparison.OrdinalIgnoreCase)) then
+            invalidArg (nameof html) "Isolated previews must be complete HTML documents. Render component fragments directly in the host preview."
+
         let token =
             title.ToLowerInvariant()
             |> Seq.map (fun character -> if System.Char.IsLetterOrDigit character then character else '-')
@@ -175,11 +178,12 @@ module Showcase =
         page
         |> docsDocument exampleSite
         |> Render.toHtmlDocString
-        |> isolatedHtml title canonicalUrl
+        |> isolatedDocument title canonicalUrl
 
-    let private productView (state:string) =
+    let private productView (instanceId:string) (state:string) =
         let hasValidation = state = "validation"
-        let suffix = if hasValidation then "validation" else "ready"
+        let stateId = if hasValidation then "validation" else "ready"
+        let suffix = $"{instanceId}-{stateId}"
         let inputBorder = if hasValidation then "#dc2626" else "#cbd5e1"
         div {
             _class "docs-product-screen"
@@ -213,7 +217,7 @@ module Showcase =
         }
 
     let private productScreen state =
-        docsBrowserFrame "https://example.test/views/new" (productView state)
+        docsBrowserFrame "https://example.test/views/new" (productView "workflow" state)
 
     let private sequence () =
         let developer = SequenceDiagram.participant "Developer" "Developer"
@@ -284,7 +288,7 @@ module Showcase =
         // docs-example:end canvas
 
         docsArticle layoutsRegistration.id layoutsRegistration.title "Shells and page layouts for guides, references, and wide product review surfaces." [
-            componentExample "document" "docsDocument" "Render the complete branded document shell with navigation, assets, themes, metadata, and canonical URLs." (isolatedHtml "Complete documentation shell" "https://docs.example.test" documentHtml)
+            componentExample "document" "docsDocument" "Render the complete branded document shell with navigation, assets, themes, metadata, and canonical URLs." (isolatedDocument "Complete documentation shell" "https://docs.example.test" documentHtml)
             componentExample "article" "docsArticle" "Use the article layout for guides and conceptual documentation with a readable content column and table of contents." (isolatedPage "Article layout" "https://docs.example.test/guide" articlePage)
             componentExample "reference" "docsReference" "Keep endpoint documentation beside request and response examples in a dedicated reference composition." (isolatedPage "Reference layout" "https://docs.example.test/customers" referencePage)
             componentExample "canvas" "docsCanvas" "Use a wide canvas for product frames, workflow states, and architecture diagrams; hide only the visual heading when the framed product already supplies one." (isolatedPage "Canvas layout" "https://docs.example.test/create-view" canvasPage) ]
@@ -336,7 +340,10 @@ module Showcase =
                 docsNavPage "install" "Installation" "/installation" "/installation" ] ]
 
         let navigationSite = { exampleSite with navigation = navigation }
-        let navigationPreview = docsSideNav navigationSite (docsArticle "install" "Installation" "Install the package." [])
+        let navigationPreview =
+            docsArticle "install" "Installation" "Install the package." []
+            |> docsDocument navigationSite
+            |> Render.toHtmlDocString
         // docs-example:end navigation-tree
 
         // docs-example:start page-pager
@@ -360,9 +367,9 @@ module Showcase =
         // docs-example:end site-actions
 
         docsArticle navigationRegistration.id navigationRegistration.title "Discoverable navigation for the complete documentation journey." [
-            componentExample "navigation-tree" "Navigation, breadcrumbs, and table of contents" "Use typed destinations for pages and destination-free groups; the shell derives side navigation and breadcrumbs while sections supply the local table of contents." (isolatedHtml "Navigation tree" "https://docs.example.test/installation" (navigationPreview |> Render.toString))
+            componentExample "navigation-tree" "Navigation, breadcrumbs, and table of contents" "Use typed destinations for pages and destination-free groups; the shell derives side navigation and breadcrumbs while sections supply the local table of contents." (isolatedDocument "Navigation tree" "https://docs.example.test/installation" navigationPreview)
             componentExample "page-pager" "Previous and next" "Add an explicit learning path when the ideal reading order differs from the complete sidebar order." (isolatedPage "Previous and next" "https://docs.example.test/usage" pagerPage)
-            componentExample "site-actions" "Theme and repository actions" "Configure System, Light, or Dark as the default and optionally expose a GitHub or custom repository destination." (isolatedHtml "Theme and repository actions" "https://docs.example.test/usage" actionsHtml) ]
+            componentExample "site-actions" "Theme and repository actions" "Configure System, Light, or Dark as the default and optionally expose a GitHub or custom repository destination." (isolatedDocument "Theme and repository actions" "https://docs.example.test/usage" actionsHtml) ]
 
     let interactivePage =
         // docs-example:start example
@@ -385,7 +392,7 @@ module Showcase =
         // docs-example:end state-tabs
 
         // docs-example:start browser-frame
-        let productUi = productView "ready"
+        let productUi = productView "browser-frame" "ready"
         let browserFramePreview =
             docsBrowserFrame
                 "https://example.test/views/new"
@@ -394,8 +401,8 @@ module Showcase =
 
         docsArticle interactiveRegistration.id interactiveRegistration.title "Source-first examples and interactive product states for implementation and review." [
             componentExample "example" "docsExample" "Pair arbitrary rendered HTML with its source using independent, keyboard-accessible Code and Preview tabs." (previewSurface noticePreview)
-            componentExample "state-tabs" "docsStateTabs" "Review empty, ready, validation, loading, or other meaningful states without duplicating the surrounding page." (isolatedHtml "Workflow states" "https://docs.example.test/components/workflow-states" (states |> Render.toString))
-            componentExample "browser-frame" "docsBrowserFrame" "Place product UI in a browser-like frame with an explicit canonical URL." (isolatedHtml "Browser frame" "https://docs.example.test/components/browser-frame" (browserFramePreview |> Render.toString)) ]
+            componentExample "state-tabs" "docsStateTabs" "Review empty, ready, validation, loading, or other meaningful states without duplicating the surrounding page." (previewSurface states)
+            componentExample "browser-frame" "docsBrowserFrame" "Place product UI in a browser-like frame with an explicit canonical URL." (previewSurface browserFramePreview) ]
 
     let apiComponentsPage =
         // docs-example:start api-endpoint
@@ -480,7 +487,7 @@ module Showcase =
         // docs-example:end documentation-site-page
 
         docsArticle documentationSiteRegistration.id documentationSiteRegistration.title "A complete guide composition using the shared shell, navigation, content, examples, and pager." [
-            componentExample "documentation-site-page" "Guide with navigation" "This preview executes the same complete documentation page definition shown under Code." (isolatedHtml "Documentation site page example" "https://docs.example.test/guide" documentationHtml) ]
+            componentExample "documentation-site-page" "Guide with navigation" "This preview executes the same complete documentation page definition shown under Code." (isolatedDocument "Documentation site page example" "https://docs.example.test/guide" documentationHtml) ]
 
     let apiPageExample =
         // docs-example:start api-reference-page

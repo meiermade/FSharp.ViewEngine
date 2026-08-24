@@ -217,6 +217,11 @@ test('color mode selector supports persistence, keyboard navigation, and system 
   await page.evaluate(() => localStorage.removeItem('fsharp-viewengine-docs-navigation-color-mode'))
   await page.reload({ waitUntil: 'domcontentloaded' })
 
+  const codeSurface = page.locator('pre.spec-code').first()
+  await expect(codeSurface).toBeVisible()
+  await expect(codeSurface).toHaveCSS('background-color', 'rgb(246, 248, 250)')
+  await expect(codeSurface).toHaveCSS('color', 'rgb(36, 41, 47)')
+
   const trigger = page.getByRole('button', { name: 'Choose color theme' })
   await trigger.click()
   const menu = page.getByRole('menu', { name: 'Color theme' })
@@ -225,6 +230,8 @@ test('color mode selector supports persistence, keyboard navigation, and system 
 
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
+  await expect(codeSurface).toHaveCSS('background-color', 'rgb(13, 17, 23)')
+  await expect(codeSurface).toHaveCSS('color', 'rgb(201, 209, 217)')
   expect(await page.evaluate(() => localStorage.getItem('fsharp-viewengine-docs-navigation-color-mode'))).toBe('dark')
   await expect(trigger).toBeFocused()
 
@@ -357,7 +364,7 @@ test('Docs navigation loads Prism dependencies before highlighting a code page',
   await expect(page).toHaveURL('/')
   const keyword = page.locator('.spec-code .token.keyword').first()
   await expect(keyword).toBeVisible()
-  await expect(keyword).toHaveCSS('color', 'rgb(204, 153, 205)')
+  await expect(keyword).toHaveCSS('color', 'rgb(207, 34, 46)')
   expect(pageErrors.filter(error => error.includes('Prism is not defined'))).toEqual([])
 })
 
@@ -543,21 +550,34 @@ test('Docs catalog host documents retain one page heading and unique IDs', async
   }
 })
 
-test('Docs component and page-example catalogs use source-first code and preview examples', async ({ page }) => {
+test('Docs component and page-example catalogs use source-first code and complete styled previews', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   const catalogRoutes = routes.filter(route => route.path.startsWith('/docs/components/') || route.path.startsWith('/docs/page-examples/'))
+  let reviewedPreviews = 0
 
   for (const route of catalogRoutes) {
     await page.goto(route.path, { waitUntil: 'domcontentloaded' })
+    reviewedPreviews += await page.locator('button[role="tab"][id^="docs-"][id$="-example-tab-preview"]:visible').count()
     const examples = page.locator('[data-docs-example="true"]')
     expect(await examples.count(), route.path).toBeGreaterThan(0)
     for (const example of await examples.all()) {
       await expect(example.getByRole('tab', { name: 'Code' })).toHaveAttribute('aria-selected', 'true')
       await example.getByRole('tab', { name: 'Preview' }).click()
-      await expect(example.getByRole('tabpanel', { name: 'Preview' })).toBeVisible()
+      const preview = example.getByRole('tabpanel', { name: 'Preview' })
+      await expect(preview).toBeVisible()
+      const iframe = preview.locator('iframe')
+      if (await iframe.count()) {
+        const frame = iframe.contentFrame()
+        await expect(frame.locator('body')).toHaveClass(/spec-document/)
+        expect(await frame.locator('style, link[rel="stylesheet"]').count(), route.path).toBeGreaterThan(0)
+        expect(await frame.locator('html').evaluate(element => element.scrollWidth <= element.clientWidth), route.path).toBe(true)
+      } else {
+        expect(await preview.evaluate(element => element.scrollWidth <= element.clientWidth), route.path).toBe(true)
+      }
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), route.path).toBe(true)
   }
+  expect(reviewedPreviews).toBe(23)
   expect(browserErrors).toEqual([])
 })
 
@@ -570,9 +590,16 @@ test('catalog code is extracted from the same compiled definition as its preview
   expect(source).not.toContain('docsStateTabs "workflow-states"')
 
   await example.getByRole('tab', { name: 'Preview' }).click()
-  const preview = example.locator('iframe').contentFrame()
+  const preview = example.getByRole('tabpanel', { name: 'Preview' })
+  await expect(preview.locator('iframe')).toHaveCount(0)
   await expect(preview.locator('#component-workflow-states-tab-ready')).toBeVisible()
   await expect(preview.locator('input[value="accountSummary"]')).toBeVisible()
+
+  const browserFrame = page.locator('[data-docs-example="true"]:has(#docs-browser-frame-example-tab-preview)')
+  await browserFrame.getByRole('tab', { name: 'Preview' }).click()
+  const browserPreview = browserFrame.getByRole('tabpanel', { name: 'Preview' })
+  await expect(browserPreview.locator('iframe')).toHaveCount(0)
+  await expect(browserPreview.locator('.spec-browser-frame')).toBeVisible()
 })
 
 test('benchmark comparison remains legible in light and dark themes', async ({ page }) => {
