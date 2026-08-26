@@ -29,6 +29,7 @@ const routes = [
   { path: '/docs/page-examples/documentation-site', heading: 'Documentation site', layout: 'article' },
   { path: '/docs/page-examples/api-reference', heading: 'API reference page', layout: 'article' },
   { path: '/docs/page-examples/executable-specification', heading: 'Executable specification page', layout: 'article' },
+  { path: '/components/contract', heading: 'Components contract', layout: 'article' },
   { path: '/benchmarks', heading: 'Benchmarks', layout: 'article' },
   { path: '/changelog', heading: 'Changelog', layout: 'article' },
 ]
@@ -116,7 +117,7 @@ test.describe('automated accessibility checks', () => {
   }
 
   test('representative article and catalog routes pass WCAG A/AA scans', async ({ page }) => {
-    for (const route of ['/', '/getting-started/first-view', '/docs/components/content']) {
+    for (const route of ['/', '/getting-started/first-view', '/docs/components/content', '/components/contract']) {
       await page.goto(route, { waitUntil: 'domcontentloaded' })
       await scan(page, route)
     }
@@ -132,6 +133,65 @@ test.describe('automated accessibility checks', () => {
     await page.getByRole('button', { name: 'Open navigation' }).click()
     await scan(page, 'mobile navigation')
   })
+})
+
+test('Components contract renders semantic themes responsively without browser errors', async ({ page }, testInfo) => {
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('/components/contract', { waitUntil: 'domcontentloaded' })
+
+  const examples = page.locator('[data-docs-example="true"]')
+  await expect(examples).toHaveCount(6)
+  for (let index = 0; index < 6; index += 1) {
+    const example = examples.nth(index)
+    const previewTab = example.getByRole('tab', { name: 'Preview' })
+    const panelId = await previewTab.getAttribute('aria-controls')
+    expect(panelId).toBeTruthy()
+    await previewTab.click()
+    await expect(page.locator(`#${panelId}`)).toBeVisible()
+  }
+
+  const duplicateIds = await page.locator('[id]').evaluateAll(elements => {
+    const ids = elements.map(element => element.id)
+    return [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))]
+  })
+  expect(duplicateIds).toEqual([])
+
+  const previewAccessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+  expect(previewAccessibility.violations).toEqual([])
+
+  const componentSurfaces = page.locator('.fve-components:visible')
+  await expect(componentSurfaces).toHaveCount(6)
+  const lightPage = await componentSurfaces.first().evaluate(element =>
+    getComputedStyle(element).getPropertyValue('--fve-page').trim(),
+  )
+  const brand = await componentSurfaces.first().evaluate(element =>
+    getComputedStyle(element).getPropertyValue('--fve-brand-solid').trim(),
+  )
+  expect(lightPage).toBeTruthy()
+  expect(brand).toBeTruthy()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
+  const darkPage = await componentSurfaces.first().evaluate(element =>
+    getComputedStyle(element).getPropertyValue('--fve-page').trim(),
+  )
+  expect(darkPage).not.toBe(lightPage)
+  await testInfo.attach('components-contract-desktop-dark', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  })
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.getByRole('heading', { level: 1, name: 'Components contract' })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await testInfo.attach('components-contract-mobile-dark', {
+    body: await page.screenshot({ fullPage: true }),
+    contentType: 'image/png',
+  })
+  expect(browserErrors).toEqual([])
 })
 
 test('health and pinned application assets are available', async ({ request }) => {
