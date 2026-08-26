@@ -91,7 +91,7 @@ module private ContractHtml =
 
     let signalToken value =
         let token = Regex.Replace(value, "[^A-Za-z0-9]+", "_").Trim('_')
-        if String.IsNullOrEmpty token then "component" else token
+        if String.IsNullOrEmpty token then "component" else token.ToLowerInvariant()
 
     let toneClasses = function
         | Tone.Neutral -> "bg-[var(--fve-neutral-subtle)] text-[var(--fve-neutral-text)] ring-[var(--fve-border)]"
@@ -299,6 +299,7 @@ type SelectOption<'value> =
 type SelectConfig<'value when 'value:equality> =
     private
         { name:string
+          id:string option
           encode:'value -> string
           options:SelectOption<'value> list
           selected:'value option
@@ -321,6 +322,7 @@ module Select =
         if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A form name is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible label is required."
         { name = name
+          id = None
           encode = encode
           options = options
           selected = None
@@ -332,6 +334,9 @@ module Select =
           attributes = [] }
 
     let withSelected selected (config:SelectConfig<'value>) = { config with selected = Some selected }
+    let withId id (config:SelectConfig<'value>) =
+        if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable component ID is required."
+        { config with id = Some id }
     let withVisuallyHiddenLabel (config:SelectConfig<'value>) = { config with labelVisuallyHidden = true }
     let withDescription description (config:SelectConfig<'value>) = { config with description = Some description }
     let withPlaceholder placeholder (config:SelectConfig<'value>) = { config with placeholder = Some placeholder }
@@ -339,39 +344,105 @@ module Select =
     let withAttributes attributes (config:SelectConfig<'value>) = { config with attributes = attributes }
 
     let render config =
-        let fieldId = $"fve-select-{config.name}"
+        let instanceId = config.id |> Option.defaultValue config.name |> ContractHtml.signalToken
+        let fieldId = $"fve-select-{instanceId}"
+        let labelId = $"{fieldId}-label"
         let descriptionId = $"{fieldId}-description"
         let validationId = $"{fieldId}-validation"
+        let triggerId = $"{fieldId}-trigger"
+        let listboxId = $"{fieldId}-options"
+        let openSignal = $"_{instanceId}_open"
+        let valueSignal = $"{instanceId}_value"
+        let labelSignal = $"_{instanceId}_label"
+        let selectedChoice = config.options |> List.tryFind (fun option -> Some option.value = config.selected)
+        let selectedValue = selectedChoice |> Option.map (fun option -> config.encode option.value) |> Option.defaultValue ""
+        let selectedLabel =
+            selectedChoice
+            |> Option.map _.label
+            |> Option.orElse config.placeholder
+            |> Option.defaultValue "Select an option"
+        let firstOption = $"document.querySelector('#{listboxId} [role=option]:not(:disabled)')"
+        let lastOption = $"document.querySelector('#{listboxId} [role=option]:not(:disabled):last-of-type')"
+        let selectedOption = $"document.querySelector('#{listboxId} [aria-selected=true]:not(:disabled)')"
+        let enabledOptions = "Array.from(el.querySelectorAll('[role=option]:not(:disabled)'))"
+        let currentIndex = $"{enabledOptions}.indexOf(document.activeElement)"
+        let moveNext = $"evt.preventDefault(), {enabledOptions}.at(({currentIndex} + 1) %% {enabledOptions}.length)?.focus()"
+        let movePrevious = $"evt.preventDefault(), {enabledOptions}.at(({currentIndex} - 1 + {enabledOptions}.length) %% {enabledOptions}.length)?.focus()"
+        let describedBy =
+            [ if config.description.IsSome then descriptionId
+              if config.validation.IsSome then validationId ]
+            |> String.concat " "
         div {
-            _class "grid gap-1.5"
+            _class "relative grid gap-1.5"
+            _dataSignals $"{{{openSignal}: false, {valueSignal}: {ContractHtml.javascriptString selectedValue}, {labelSignal}: {ContractHtml.javascriptString selectedLabel}}}"
             label {
-                _for fieldId
+                _id labelId
+                _for triggerId
                 _class (if config.labelVisuallyHidden then "sr-only" else "text-sm font-medium text-[var(--fve-text)]")
                 config.label
             }
             match config.description with
             | Some description -> p { _id descriptionId; _class "text-sm text-[var(--fve-muted-text)]"; description }
             | None -> ()
-            select {
-                _id fieldId
+            input {
+                _type "hidden"
                 _name config.name
-                _dataBind config.name
-                _ariaDescribedby (
-                    [ if config.description.IsSome then descriptionId
-                      if config.validation.IsSome then validationId ]
-                    |> String.concat " ")
+                _value selectedValue
+                _dataBind valueSignal
+            }
+            button {
+                _id triggerId
+                _type "button"
+                _role "combobox"
+                _ariaHaspopup "listbox"
+                _ariaControls listboxId
+                _ariaLabelledby labelId
+                _ariaExpanded false
+                _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
+                if String.IsNullOrEmpty describedBy |> not then _ariaDescribedby describedBy
                 _ariaInvalid config.validation.IsSome
-                _class "min-h-[var(--fve-control-min-height)] w-full rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none focus:ring-2 focus:ring-[var(--fve-brand-ring)]"
-                for attribute in ContractHtml.safeAttributes [ "id"; "name"; "data-bind:"; "aria-describedby"; "aria-invalid"; "class" ] config.attributes do attribute
-                match config.placeholder with
-                | Some placeholder -> Html.option { _value ""; _selected config.selected.IsNone; placeholder }
-                | None -> ()
+                _dataOn ("click", [ "stop" ], $"${openSignal} = !${openSignal}; ${openSignal} && queueMicrotask(() => ({selectedOption} || {firstOption})?.focus())")
+                _dataOn ("keydown", $"evt.key == 'ArrowDown' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => ({selectedOption} || {firstOption})?.focus())); evt.key == 'ArrowUp' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => ({selectedOption} || {lastOption})?.focus())); evt.key == 'Home' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {firstOption}?.focus())); evt.key == 'End' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {lastOption}?.focus())); evt.key.length == 1 && evt.key != ' ' && (${openSignal} = true, queueMicrotask(() => (Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).find(item => item.textContent.trim().toLowerCase().startsWith(evt.key.toLowerCase())) || {firstOption})?.focus()))")
+                _class "group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+                for attribute in ContractHtml.safeAttributes [ "id"; "type"; "name"; "value"; "role"; "aria-haspopup"; "aria-controls"; "aria-labelledby"; "aria-expanded"; "aria-describedby"; "aria-invalid"; "data-bind:"; "data-attr:"; "data-on:"; "class" ] config.attributes do attribute
+                span {
+                    _class "min-w-0 truncate"
+                    _dataText $"${labelSignal}"
+                    selectedLabel
+                }
+                raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0 text-[var(--fve-muted-text)] transition-transform group-aria-expanded:rotate-180" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
+            }
+            div {
+                _id listboxId
+                _role "listbox"
+                _ariaLabelledby labelId
+                _dataShow $"${openSignal}"
+                _dataOn ("click", [ "outside" ], $"${openSignal} = false")
+                _dataOn ("keydown", $"evt.key == 'Escape' && (evt.preventDefault(), ${openSignal} = false, document.getElementById('{triggerId}').focus()); evt.key == 'ArrowDown' && ({moveNext}); evt.key == 'ArrowUp' && ({movePrevious}); evt.key == 'Home' && (evt.preventDefault(), {firstOption}?.focus()); evt.key == 'End' && (evt.preventDefault(), {lastOption}?.focus()); evt.key == 'Tab' && (${openSignal} = false); evt.key.length == 1 && (Array.from(el.querySelectorAll('[role=option]:not(:disabled)')).find(item => item.textContent.trim().toLowerCase().startsWith(evt.key.toLowerCase())) || document.activeElement).focus()")
+                _style "display:none"
+                _class "absolute left-0 top-full z-30 mt-1 max-h-60 w-full overflow-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] p-1 shadow-lg ring-1 ring-[var(--fve-border)]"
                 for choice in config.options do
-                    Html.option {
-                        _value (config.encode choice.value)
-                        _selected (config.selected = Some choice.value)
+                    let encodedValue = config.encode choice.value
+                    button {
+                        _id $"{fieldId}-option-{ContractHtml.signalToken encodedValue}"
+                        _type "button"
+                        _role "option"
+                        _tabindex -1
                         _disabled choice.disabled
-                        choice.label
+                        _ariaDisabled choice.disabled
+                        _ariaSelected (config.selected = Some choice.value)
+                        _dataAttr ("aria-selected", $"${valueSignal} == {ContractHtml.javascriptString encodedValue} ? 'true' : 'false'")
+                        if choice.disabled |> not then
+                            _dataOn ("click", $"${valueSignal} = {ContractHtml.javascriptString encodedValue}; ${labelSignal} = {ContractHtml.javascriptString choice.label}; ${openSignal} = false; document.getElementById('{triggerId}').focus()")
+                        _class "flex w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-surface-hover)] aria-selected:bg-[var(--fve-brand-subtle)] aria-selected:text-[var(--fve-brand-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                        span { _class "min-w-0 truncate"; choice.label }
+                        span {
+                            _ariaHidden "true"
+                            _dataShow $"${valueSignal} == {ContractHtml.javascriptString encodedValue}"
+                            _style "display:none"
+                            _class "shrink-0 font-semibold text-[var(--fve-brand-text)]"
+                            "✓"
+                        }
                     }
             }
             match config.validation with
@@ -388,13 +459,18 @@ type ComboboxSearch =
 type ComboboxConfig<'value when 'value:equality> =
     private
         { name:string
+          id:string option
           encode:'value -> string
           options:SelectOption<'value> list
           selected:'value option
           label:string
           labelVisuallyHidden:bool
           search:ComboboxSearch
-          placeholder:string option }
+          placeholder:string option
+          description:string option
+          validation:string option
+          emptyMessage:string
+          attributes:HtmlAttribute list }
 
 [<RequireQualifiedAccess>]
 module Combobox =
@@ -402,65 +478,383 @@ module Combobox =
         if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A form name is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible label is required."
         { name = name
+          id = None
           encode = encode
           options = options
           selected = None
           label = label
           labelVisuallyHidden = false
           search = ComboboxSearch.Static
-          placeholder = None }
+          placeholder = None
+          description = None
+          validation = None
+          emptyMessage = "No matching options"
+          attributes = [] }
 
     let withSelected selected (config:ComboboxConfig<'value>) = { config with selected = Some selected }
+    let withId id (config:ComboboxConfig<'value>) =
+        if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable component ID is required."
+        { config with id = Some id }
     let withVisuallyHiddenLabel (config:ComboboxConfig<'value>) = { config with labelVisuallyHidden = true }
     let withPlaceholder placeholder (config:ComboboxConfig<'value>) = { config with placeholder = Some placeholder }
+    let withDescription description (config:ComboboxConfig<'value>) = { config with description = Some description }
+    let withValidation message (config:ComboboxConfig<'value>) = { config with validation = Some message }
+    let withEmptyMessage message (config:ComboboxConfig<'value>) = { config with emptyMessage = message }
     let withSearch search (config:ComboboxConfig<'value>) = { config with search = search }
+    let withOptions options (config:ComboboxConfig<'value>) = { config with options = options }
+    let withAttributes attributes (config:ComboboxConfig<'value>) = { config with attributes = attributes }
+
+    let renderOptions (config:ComboboxConfig<'value>) =
+        let instanceId = config.id |> Option.defaultValue config.name |> ContractHtml.signalToken
+        let fieldId = $"fve-combobox-{instanceId}"
+        let labelId = $"{fieldId}-label"
+        let listboxId = $"{fieldId}-options"
+        let openSignal = $"_{instanceId}_open"
+        let querySignal =
+            match config.search with
+            | ComboboxSearch.Static -> $"_{instanceId}_query"
+            | ComboboxSearch.Remote _ -> $"{instanceId}_query"
+        let valueSignal = $"{instanceId}_value"
+        let firstVisibleOption = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).find(item => item.style.display != 'none')"
+        let lastVisibleOption = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).filter(item => item.style.display != 'none').at(-1)"
+        let visibleOptions = "Array.from(el.querySelectorAll('[role=option]:not(:disabled)')).filter(item => item.style.display != 'none')"
+        let currentIndex = $"{visibleOptions}.indexOf(document.activeElement)"
+        let moveNext = $"evt.preventDefault(), {visibleOptions}.at(({currentIndex} + 1) %% {visibleOptions}.length)?.focus()"
+        let movePrevious = $"evt.preventDefault(), {visibleOptions}.at(({currentIndex} - 1 + {visibleOptions}.length) %% {visibleOptions}.length)?.focus()"
+        let optionMatches (choice:SelectOption<_>) =
+            $"!${querySignal}.trim() || {ContractHtml.javascriptString (choice.label.ToLowerInvariant())}.includes(${querySignal}.trim().toLowerCase())"
+        let anyOptionMatches =
+            match config.options with
+            | [] -> "false"
+            | options -> options |> List.map optionMatches |> String.concat " || "
+        div {
+            _id listboxId
+            _role "listbox"
+            _ariaLabelledby labelId
+            _dataShow $"${openSignal}"
+            _dataOn ("click", [ "outside" ], $"${openSignal} = false")
+            _dataOn ("keydown", $"evt.key == 'Escape' && (evt.preventDefault(), ${openSignal} = false, document.getElementById('{fieldId}').focus()); evt.key == 'ArrowDown' && ({moveNext}); evt.key == 'ArrowUp' && ({movePrevious}); evt.key == 'Home' && (evt.preventDefault(), {firstVisibleOption}?.focus()); evt.key == 'End' && (evt.preventDefault(), {lastVisibleOption}?.focus()); evt.key == 'Tab' && (${openSignal} = false)")
+            _style "display:none"
+            _class "absolute left-0 top-full z-30 mt-1 max-h-60 w-full overflow-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] p-1 shadow-lg ring-1 ring-[var(--fve-border)]"
+            for choice in config.options do
+                let encodedValue = config.encode choice.value
+                button {
+                    _id $"{fieldId}-option-{ContractHtml.signalToken encodedValue}"
+                    _type "button"
+                    _role "option"
+                    _tabindex -1
+                    _disabled choice.disabled
+                    _ariaDisabled choice.disabled
+                    _ariaSelected (config.selected = Some choice.value)
+                    _dataAttr ("aria-selected", $"${valueSignal} == {ContractHtml.javascriptString encodedValue} ? 'true' : 'false'")
+                    match config.search with
+                    | ComboboxSearch.Static -> _dataShow (optionMatches choice)
+                    | ComboboxSearch.Remote _ -> ()
+                    if choice.disabled |> not then
+                        _dataOn ("click", $"${valueSignal} = {ContractHtml.javascriptString encodedValue}; ${querySignal} = {ContractHtml.javascriptString choice.label}; ${openSignal} = false; document.getElementById('{fieldId}').focus()")
+                    _class "flex w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-surface-hover)] aria-selected:bg-[var(--fve-brand-subtle)] aria-selected:text-[var(--fve-brand-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                    span { _class "min-w-0 truncate"; choice.label }
+                    span {
+                        _ariaHidden "true"
+                        _dataShow $"${valueSignal} == {ContractHtml.javascriptString encodedValue}"
+                        _style "display:none"
+                        _class "shrink-0 font-semibold text-[var(--fve-brand-text)]"
+                        "✓"
+                    }
+                }
+            p {
+                _role "status"
+                _dataShow $"!({anyOptionMatches})"
+                _style "display:none"
+                _class "px-3 py-4 text-center text-sm text-[var(--fve-muted-text)]"
+                config.emptyMessage
+            }
+        }
 
     let render config =
-        let fieldId = $"fve-combobox-{config.name}"
+        let instanceId = config.id |> Option.defaultValue config.name |> ContractHtml.signalToken
+        let fieldId = $"fve-combobox-{instanceId}"
+        let labelId = $"{fieldId}-label"
+        let descriptionId = $"{fieldId}-description"
+        let validationId = $"{fieldId}-validation"
         let listboxId = $"{fieldId}-options"
-        let signalToken = ContractHtml.signalToken config.name
-        let querySignal = $"_{signalToken}Query"
-        let openSignal = $"_{signalToken}Open"
+        let openSignal = $"_{instanceId}_open"
+        let querySignal =
+            match config.search with
+            | ComboboxSearch.Static -> $"_{instanceId}_query"
+            | ComboboxSearch.Remote _ -> $"{instanceId}_query"
+        let valueSignal = $"{instanceId}_value"
+        let selectedChoice = config.options |> List.tryFind (fun option -> Some option.value = config.selected)
+        let selectedValue = selectedChoice |> Option.map (fun option -> config.encode option.value) |> Option.defaultValue ""
+        let selectedLabel = selectedChoice |> Option.map _.label |> Option.defaultValue ""
+        let firstVisibleOption = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).find(item => item.style.display != 'none')"
+        let lastVisibleOption = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).filter(item => item.style.display != 'none').at(-1)"
+        let describedBy =
+            [ if config.description.IsSome then descriptionId
+              if config.validation.IsSome then validationId ]
+            |> String.concat " "
         div {
             _class "relative grid gap-1.5"
-            _dataSignals $"{{{querySignal}: '', {openSignal}: false}}"
+            _dataSignals $"{{{openSignal}: false, {querySignal}: {ContractHtml.javascriptString selectedLabel}, {valueSignal}: {ContractHtml.javascriptString selectedValue}}}"
             label {
+                _id labelId
                 _for fieldId
                 _class (if config.labelVisuallyHidden then "sr-only" else "text-sm font-medium text-[var(--fve-text)]")
                 config.label
             }
+            match config.description with
+            | Some description -> p { _id descriptionId; _class "text-sm text-[var(--fve-muted-text)]"; description }
+            | None -> ()
             input {
                 _id fieldId
                 _type "search"
                 _role "combobox"
                 _ariaControls listboxId
                 _ariaExpanded false
+                _ariaAutocomplete "list"
                 _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
+                if String.IsNullOrEmpty describedBy |> not then _ariaDescribedby describedBy
+                _ariaInvalid config.validation.IsSome
                 _autocomplete "off"
                 _placeholder (config.placeholder |> Option.defaultValue "Search options")
                 _dataBind querySignal
+                _dataOn ("click", [ "stop" ], $"${openSignal} = true")
+                _dataOn ("keydown", $"evt.key == 'ArrowDown' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {firstVisibleOption}?.focus())); evt.key == 'ArrowUp' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {lastVisibleOption}?.focus())); evt.key == 'Home' && ${openSignal} && (evt.preventDefault(), queueMicrotask(() => {firstVisibleOption}?.focus())); evt.key == 'End' && ${openSignal} && (evt.preventDefault(), queueMicrotask(() => {lastVisibleOption}?.focus())); evt.key == 'Escape' && (${openSignal} = false)")
                 match config.search with
-                | ComboboxSearch.Static -> _dataOn ("input", $"${openSignal} = true")
-                | ComboboxSearch.Remote endpoint -> _dataOn ("input", [ "debounce.250ms" ], $"${openSignal} = true; @get('{endpoint}')")
-                _class "min-h-[var(--fve-control-min-height)] w-full rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none focus:ring-2 focus:ring-[var(--fve-brand-ring)]"
+                | ComboboxSearch.Static -> _dataOn ("input", $"${openSignal} = true; ${valueSignal} = ''")
+                | ComboboxSearch.Remote endpoint -> _dataOn ("input", [ "debounce.250ms" ], $"${openSignal} = true; ${valueSignal} = ''; @get({ContractHtml.javascriptString endpoint})")
+                _class "min-h-[var(--fve-control-min-height)] w-full rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+                for attribute in ContractHtml.safeAttributes [ "id"; "type"; "name"; "value"; "role"; "aria-controls"; "aria-expanded"; "aria-autocomplete"; "aria-describedby"; "aria-invalid"; "autocomplete"; "placeholder"; "data-bind:"; "data-attr:"; "data-on:"; "class" ] config.attributes do attribute
             }
             input {
                 _type "hidden"
                 _name config.name
-                _value (config.selected |> Option.map config.encode |> Option.defaultValue "")
-                _dataBind config.name
+                _value selectedValue
+                _dataBind valueSignal
             }
+            renderOptions config
+            match config.validation with
+            | Some message -> p { _id validationId; _class "text-sm text-[var(--fve-critical-text)]"; message }
+            | None -> ()
+        }
+
+[<NoEquality; NoComparison>]
+type CheckboxConfig =
+    private
+        { name:string
+          label:string
+          description:string option
+          isChecked:bool
+          isDisabled:bool }
+
+[<RequireQualifiedAccess>]
+module Checkbox =
+    let create name label =
+        if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A form name is required."
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A checkbox label is required."
+        { name = name; label = label; description = None; isChecked = false; isDisabled = false }
+
+    let withDescription description (config:CheckboxConfig) = { config with description = Some description }
+    let withChecked (config:CheckboxConfig) = { config with isChecked = true }
+    let disabled (config:CheckboxConfig) = { config with isDisabled = true }
+
+    let render (config:CheckboxConfig) =
+        let token = ContractHtml.signalToken config.name
+        let fieldId = $"fve-checkbox-{token}"
+        let descriptionId = $"{fieldId}-description"
+        let valueSignal = $"{token}_checked"
+        let initialValue = if config.isChecked then "true" else "false"
+        div {
+            _dataSignals $"{{{valueSignal}: {initialValue}}}"
+            label {
+                _for fieldId
+                _class "flex cursor-pointer items-start gap-3 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                input {
+                    _id fieldId
+                    _type "checkbox"
+                    _name config.name
+                    _value "true"
+                    _checked config.isChecked
+                    _disabled config.isDisabled
+                    _dataBind valueSignal
+                    if config.description.IsSome then _ariaDescribedby descriptionId
+                    _class "peer sr-only"
+                }
+                span {
+                    _ariaHidden "true"
+                    _class "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] text-xs font-bold text-white ring-1 ring-inset ring-[var(--fve-border)] transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--fve-brand-ring)] peer-focus-visible:ring-offset-2"
+                    span { _dataShow $"${valueSignal}"; _style "display:none"; "✓" }
+                }
+                span { _class "font-medium"; config.label }
+            }
+            match config.description with
+            | Some description -> p { _id descriptionId; _class "ml-8 mt-1 text-sm text-[var(--fve-muted-text)]"; description }
+            | None -> ()
+        }
+
+[<NoEquality; NoComparison>]
+type SwitchConfig =
+    private
+        { name:string
+          label:string
+          description:string option
+          isChecked:bool
+          isDisabled:bool }
+
+[<RequireQualifiedAccess>]
+module Switch =
+    let create name label =
+        if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A form name is required."
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A switch label is required."
+        { name = name; label = label; description = None; isChecked = false; isDisabled = false }
+
+    let withDescription description (config:SwitchConfig) = { config with description = Some description }
+    let withChecked (config:SwitchConfig) = { config with isChecked = true }
+    let disabled (config:SwitchConfig) = { config with isDisabled = true }
+
+    let render (config:SwitchConfig) =
+        let token = ContractHtml.signalToken config.name
+        let fieldId = $"fve-switch-{token}"
+        let descriptionId = $"{fieldId}-description"
+        let valueSignal = $"{token}_enabled"
+        let initialValue = if config.isChecked then "true" else "false"
+        div {
+            _dataSignals $"{{{valueSignal}: {initialValue}}}"
+            label {
+                _for fieldId
+                _class "flex cursor-pointer items-start justify-between gap-4 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                span { _class "font-medium"; config.label }
+                span {
+                    _class "relative mt-0.5 shrink-0"
+                    input {
+                        _id fieldId
+                        _type "checkbox"
+                        _name config.name
+                        _value "true"
+                        _role "switch"
+                        _checked config.isChecked
+                        _disabled config.isDisabled
+                        _ariaChecked config.isChecked
+                        _dataAttr ("aria-checked", $"${valueSignal} ? 'true' : 'false'")
+                        _dataBind valueSignal
+                        if config.description.IsSome then _ariaDescribedby descriptionId
+                        _class "peer sr-only"
+                    }
+                    span {
+                        _ariaHidden "true"
+                        _class "block h-5 w-9 rounded-full bg-[var(--fve-neutral-subtle)] ring-1 ring-inset ring-[var(--fve-border)] transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--fve-brand-ring)] peer-focus-visible:ring-offset-2"
+                    }
+                    span {
+                        _ariaHidden "true"
+                        _dataClass ("translate-x-4", $"${valueSignal}")
+                        _class "pointer-events-none absolute left-0.5 top-0.5 size-4 translate-x-0 rounded-full bg-white shadow-sm transition-transform"
+                    }
+                }
+            }
+            match config.description with
+            | Some description -> p { _id descriptionId; _class "mt-1 pr-12 text-sm text-[var(--fve-muted-text)]"; description }
+            | None -> ()
+        }
+
+[<NoEquality; NoComparison>]
+type ToggleButtonConfig =
+    private
+        { id:string
+          label:string
+          isPressed:bool
+          isDisabled:bool }
+
+[<RequireQualifiedAccess>]
+module ToggleButton =
+    let create id label =
+        if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable toggle button ID is required."
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A toggle button label is required."
+        { id = id; label = label; isPressed = false; isDisabled = false }
+
+    let pressed (config:ToggleButtonConfig) = { config with isPressed = true }
+    let disabled (config:ToggleButtonConfig) = { config with isDisabled = true }
+
+    let render (config:ToggleButtonConfig) =
+        let signal = $"_{ContractHtml.signalToken config.id}_pressed"
+        let initialValue = if config.isPressed then "true" else "false"
+        button {
+            _id config.id
+            _type "button"
+            _disabled config.isDisabled
+            _ariaPressed config.isPressed
+            _dataSignals $"{{{signal}: {initialValue}}}"
+            _dataAttr ("aria-pressed", $"${signal} ? 'true' : 'false'")
+            _dataOn ("click", $"${signal} = !${signal}")
+            _class "inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-brand-subtle)] aria-pressed:text-[var(--fve-brand-text)] disabled:pointer-events-none disabled:opacity-50"
+            config.label
+        }
+
+[<NoEquality; NoComparison>]
+type RadioGroupConfig<'value when 'value:equality> =
+    private
+        { name:string
+          label:string
+          encode:'value -> string
+          options:SelectOption<'value> list
+          selected:'value option
+          description:string option
+          isDisabled:bool }
+
+[<RequireQualifiedAccess>]
+module RadioGroup =
+    let option value label = Select.option value label
+    let disable option = Select.disable option
+
+    let create name label encode options =
+        if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A form name is required."
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A radio group label is required."
+        { name = name; label = label; encode = encode; options = options; selected = None; description = None; isDisabled = false }
+
+    let withSelected selected (config:RadioGroupConfig<'value>) = { config with selected = Some selected }
+    let withDescription description (config:RadioGroupConfig<'value>) = { config with description = Some description }
+    let disabled (config:RadioGroupConfig<'value>) = { config with isDisabled = true }
+
+    let render (config:RadioGroupConfig<'value>) =
+        let token = ContractHtml.signalToken config.name
+        let groupId = $"fve-radio-{token}"
+        let descriptionId = $"{groupId}-description"
+        let valueSignal = $"{token}_value"
+        let selectedValue = config.selected |> Option.map config.encode |> Option.defaultValue ""
+        fieldset {
+            _dataSignals $"{{{valueSignal}: {ContractHtml.javascriptString selectedValue}}}"
+            legend { _class "text-sm font-medium text-[var(--fve-text)]"; config.label }
+            match config.description with
+            | Some description -> p { _id descriptionId; _class "mt-1 text-sm text-[var(--fve-muted-text)]"; description }
+            | None -> ()
             div {
-                _id listboxId
-                _role "listbox"
-                _dataShow $"${openSignal}"
-                _class "absolute z-20 mt-1 max-h-60 w-full translate-y-full overflow-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] p-1 shadow-lg ring-1 ring-[var(--fve-border)]"
+                _class "mt-2 grid gap-2"
                 for choice in config.options do
-                    div {
-                        _role "option"
-                        _ariaDisabled choice.disabled
-                        _class "cursor-default rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] aria-disabled:opacity-50"
-                        choice.label
+                    let encodedValue = config.encode choice.value
+                    let optionId = $"{groupId}-option-{ContractHtml.signalToken encodedValue}"
+                    label {
+                        _for optionId
+                        _class "flex cursor-pointer items-center gap-3 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                        input {
+                            _id optionId
+                            _type "radio"
+                            _name config.name
+                            _value encodedValue
+                            _checked (config.selected = Some choice.value)
+                            _disabled (config.isDisabled || choice.disabled)
+                            _dataBind valueSignal
+                            if config.description.IsSome then _ariaDescribedby descriptionId
+                            _class "peer sr-only"
+                        }
+                        span {
+                            _ariaHidden "true"
+                            _class "flex size-5 shrink-0 items-center justify-center rounded-full bg-[var(--fve-surface)] ring-1 ring-inset ring-[var(--fve-border)] transition-colors peer-checked:ring-2 peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--fve-brand-ring)] peer-focus-visible:ring-offset-2"
+                            span {
+                                _dataShow $"${valueSignal} == {ContractHtml.javascriptString encodedValue}"
+                                _style "display:none"
+                                _class "size-2.5 rounded-full bg-[var(--fve-brand-solid)]"
+                            }
+                        }
+                        span { _class "font-medium"; choice.label }
                     }
             }
         }
@@ -499,39 +893,60 @@ module DropdownMenu =
         { id = id; label = label; items = items }
 
     let render resolve config =
-        let openSignal = $"_{ContractHtml.signalToken config.id}Open"
+        let openSignal = $"_{ContractHtml.signalToken config.id}_open"
+        let triggerId = $"{config.id}-trigger"
+        let menuId = $"{config.id}-menu"
+        let firstItem = $"document.querySelector('#{menuId} [role=menuitem]:not(:disabled)')"
+        let lastItem = $"Array.from(document.querySelectorAll('#{menuId} [role=menuitem]:not(:disabled)')).at(-1)"
+        let enabledItems = "Array.from(el.querySelectorAll('[role=menuitem]:not(:disabled)'))"
+        let currentIndex = $"{enabledItems}.indexOf(document.activeElement)"
+        let moveNext = $"evt.preventDefault(), {enabledItems}.at(({currentIndex} + 1) %% {enabledItems}.length)?.focus()"
+        let movePrevious = $"evt.preventDefault(), {enabledItems}.at(({currentIndex} - 1 + {enabledItems}.length) %% {enabledItems}.length)?.focus()"
         div {
             _class "relative inline-flex"
             _dataSignals $"{{{openSignal}: false}}"
             button {
+                _id triggerId
                 _type "button"
                 _ariaHaspopup "menu"
                 _ariaExpanded false
                 _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
-                _ariaControls $"{config.id}-menu"
-                _dataOn ("click", $"${openSignal} = !${openSignal}")
-                _class "inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)]"
+                _ariaControls menuId
+                _dataOn ("click", [ "stop" ], $"${openSignal} = !${openSignal}; ${openSignal} && queueMicrotask(() => {firstItem}?.focus())")
+                _dataOn ("keydown", $"evt.key == 'ArrowDown' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {firstItem}?.focus())); evt.key == 'ArrowUp' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {lastItem}?.focus()))")
+                _class "inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
                 config.label
             }
             div {
-                _id $"{config.id}-menu"
+                _id menuId
                 _role "menu"
+                _ariaLabel config.label
                 _dataShow $"${openSignal}"
                 _dataOn ("click", [ "outside" ], $"${openSignal} = false")
-                _class "absolute right-0 top-full z-20 mt-2 min-w-48 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] p-1 shadow-lg ring-1 ring-[var(--fve-border)]"
+                _dataOn ("keydown", $"evt.key == 'Escape' && (evt.preventDefault(), ${openSignal} = false, document.getElementById('{triggerId}').focus()); evt.key == 'ArrowDown' && ({moveNext}); evt.key == 'ArrowUp' && ({movePrevious}); evt.key == 'Home' && (evt.preventDefault(), {firstItem}?.focus()); evt.key == 'End' && (evt.preventDefault(), {lastItem}?.focus()); evt.key == 'Tab' && (${openSignal} = false)")
+                _style "display:none"
+                _class "absolute right-0 top-full z-30 mt-2 min-w-48 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] p-1 shadow-lg ring-1 ring-[var(--fve-border)]"
                 for item in config.items do
                     match item with
                     | Link(label, destination) ->
-                        a { _href (resolve destination); _role "menuitem"; _class "block rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)]"; label }
+                        a {
+                            _href (resolve destination)
+                            _role "menuitem"
+                            _tabindex -1
+                            _dataOn ("click", $"${openSignal} = false")
+                            _class "block rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-surface-hover)]"
+                            label
+                        }
                     | Action(label, expression, tone) ->
                         button {
                             _type "button"
                             _role "menuitem"
-                            _dataOn ("click", expression)
+                            _tabindex -1
+                            _dataOn ("click", $"${openSignal} = false; {expression}")
                             _class (
                                 match tone with
-                                | MenuTone.Default -> "block w-full rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)]"
-                                | MenuTone.Destructive -> "block w-full rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-critical-text)] hover:bg-[var(--fve-critical-subtle)]")
+                                | MenuTone.Default -> "block w-full rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-surface-hover)]"
+                                | MenuTone.Destructive -> "block w-full rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-critical-text)] outline-none hover:bg-[var(--fve-critical-subtle)] focus:bg-[var(--fve-critical-subtle)]")
                             label
                         }
                     | Separator -> div { _role "separator"; _class "my-1 h-px bg-[var(--fve-border)]" }

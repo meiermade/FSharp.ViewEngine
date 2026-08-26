@@ -2,6 +2,7 @@ namespace Docs.Common
 
 open System
 open System.Net
+open System.Text.Json
 open Docs.Pages
 open FSharp.ViewEngine
 open Giraffe
@@ -30,6 +31,21 @@ module Handler =
             (page.path :: page.aliases)
             |> List.map (fun path -> route path >=> render page))
 
+    let private componentAccountSearch : HttpHandler =
+        fun next context ->
+            let query =
+                try
+                    use signals = JsonDocument.Parse(context.Request.Query["datastar"].ToString())
+                    signals.RootElement.GetProperty("account_query").GetString()
+                    |> Option.ofObj
+                    |> Option.defaultValue ""
+                with
+                | :? JsonException
+                | :? InvalidOperationException
+                | :? System.Collections.Generic.KeyNotFoundException -> ""
+            let html = Components.accountComboboxOptions query |> Render.toString
+            setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html <| next <| context
+
     let private previewRoutes =
         Showcase.previewRoutes
         |> Map.toList
@@ -39,5 +55,6 @@ module Handler =
         choose [
             route "/sitemap.xml" >=> setHttpHeader "Content-Type" "application/xml; charset=utf-8" >=> setBodyFromString sitemap
             route "/robots.txt" >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8" >=> setBodyFromString robots
+            route "/components/contract/accounts/search" >=> componentAccountSearch
             choose (previewRoutes @ pageRoutes)
         ]

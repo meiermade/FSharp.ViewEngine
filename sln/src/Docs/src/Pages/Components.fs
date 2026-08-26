@@ -1,5 +1,6 @@
 namespace Docs.Pages
 
+open System
 open Docs.Common
 open FSharp.ViewEngine
 open FSharp.ViewEngine.Components
@@ -101,14 +102,21 @@ module Components =
         |> Select.withSelected Active
         |> Select.render
 
-    let accountCombobox =
-        Combobox.create "account" "Parent account" string [
-            Select.option 101 "Operating"
-            Select.option 102 "Tax reserve"
-        ]
+    let private accounts = [ 101, "Operating"; 102, "Tax reserve" ]
+    let private accountOptions values = values |> List.map (fun (value, label) -> Select.option value label)
+
+    let private accountComboboxContract =
+        Combobox.create "account" "Parent account" string (accountOptions accounts)
         |> Combobox.withPlaceholder "Search accounts"
-        |> Combobox.withSearch (ComboboxSearch.Remote "/accounts/search")
-        |> Combobox.render
+        |> Combobox.withSearch (ComboboxSearch.Remote "/components/contract/accounts/search")
+
+    let accountCombobox = accountComboboxContract |> Combobox.render
+
+    let accountComboboxOptions query =
+        accounts
+        |> List.filter (fun (_, label) -> String.IsNullOrWhiteSpace query || label.Contains(query, StringComparison.OrdinalIgnoreCase))
+        |> accountOptions
+        |> fun options -> accountComboboxContract |> Combobox.withOptions options |> Combobox.renderOptions
 
     let choicePreview =
         themedSurface (
@@ -117,6 +125,41 @@ module Components =
                 [ statusSelect; accountCombobox ]
             })
     // docs-example:end select-combobox
+
+    // docs-example:start choice-controls
+    let includeArchived =
+        Checkbox.create "includeArchived" "Include archived accounts"
+        |> Checkbox.withDescription "Archived accounts remain read-only."
+        |> Checkbox.render
+
+    let postingNotifications =
+        Switch.create "postingNotifications" "Posting notifications"
+        |> Switch.withDescription "Notify account owners after entries post."
+        |> Switch.withChecked
+        |> Switch.render
+
+    let compactRows =
+        ToggleButton.create "contract-compact-rows" "Compact rows"
+        |> ToggleButton.pressed
+        |> ToggleButton.render
+
+    let postingMode =
+        RadioGroup.create "postingMode" "Posting mode" id [
+            RadioGroup.option "automatic" "Automatic"
+            RadioGroup.option "manual" "Manual review"
+        ]
+        |> RadioGroup.withDescription "Choose how approved entries reach the ledger."
+        |> RadioGroup.withSelected "automatic"
+        |> RadioGroup.render
+
+    let choiceControlsPreview =
+        themedSurface (
+            div {
+                _class "grid max-w-xl gap-6"
+                div { _class "grid gap-4 sm:grid-cols-2"; [ includeArchived; postingNotifications ] }
+                div { _class "flex flex-wrap items-start gap-6"; [ compactRows; postingMode ] }
+            })
+    // docs-example:end choice-controls
 
     let private accountMenuItems =
         [ MenuItem.link Settings "Account settings"
@@ -250,7 +293,7 @@ AppShell.create productName current navigation content
           section "principles" "API Principles";
           [ Paragraph [ Text "Components is an opinionated FSharp.ViewEngine library for semantic server-rendered HTML, Tailwind v4 styling, and Datastar interaction. It uses ordinary F# values and functions rather than introducing another markup language." ]
             UnorderedList [
-                [ Strong [ Text "Required inputs are constructor arguments." ]; Text " A Select cannot exist without its form name, accessible label, value encoder, and options; AppShell cannot exist without product identity, current destination, navigation, and content." ]
+                [ Strong [ Text "Required inputs are constructor arguments." ]; Text " A Select, Combobox, Checkbox, Switch, or RadioGroup cannot exist without the name and accessible labeling needed for its semantics; AppShell cannot exist without product identity, current destination, navigation, and content." ]
                 [ Strong [ Text "Optional behavior is piped." ]; Text " Functions such as withLabel, withSelected, withTheme, and withAttributes return updated immutable configuration." ]
                 [ Strong [ Text "Common cases are short." ]; Text " Convenience functions such as Button.primary and Status.positive render the ordinary case directly." ]
                 [ Strong [ Text "Custom content stays HTML." ]; Text " Leading content, cells, dialog bodies, toolbars, actions, and page content use HtmlElement instead of component-specific child DSLs." ]
@@ -259,17 +302,20 @@ AppShell.create productName current navigation content
           section "call-sites" "Compiled Call Sites";
           example "button-status" "Convenience and configuration" "Common actions and statuses use concise helpers; typed configuration handles variants and size without a custom computation expression." buttonStatusPreview;
           example "table" "Typed table" "Columns render consumer-owned row data and destinations while the component owns semantic table structure and shared presentation." (themedSurface accountTable);
-          example "select-combobox" "Select and Combobox" "Select models a finite non-editable choice. Combobox separately models an editable search and an application-owned remote endpoint." choicePreview;
+          example "select-combobox" "Select and Combobox" "Select is a branded finite-choice trigger and listbox. Combobox separately owns editable query text, a submitted selected value, and an application-owned remote endpoint." choicePreview;
+          example "choice-controls" "Checkbox, Switch, ToggleButton, and RadioGroup" "Distinct typed controls preserve their own form and accessibility semantics while the component family owns visible presentation." choiceControlsPreview;
           example "menu-dialog" "Menu and dialog" "Menu destinations and trusted Datastar actions remain consumer inputs. Dialog helpers connect the trigger, initial focus, close action, Escape behavior, and focus restoration while bodies and footers remain ordinary HtmlElement slots." menuDialogPreview;
           example "collection-detail" "Collection and detail compositions" "Page compositions arrange package primitives without taking ownership of queries, domain formatting, routes, or authorization." collectionDetailPreview;
           example "app-shell" "Typed application shell" "The advanced shell call site retains a destination type and resolver, accepts product-owned navigation and branding, and applies one semantic theme at the root." shellPreview;
 
           section "state-ownership" "Datastar and State Ownership";
-          [ Paragraph [ Text "Datastar is the sole component interaction model. Component-local signals represent ephemeral interaction such as open state, active option, and query text. Bound form values are intentionally submitted. Authoritative options, routes, permissions, queries, validation, persistence, and actions remain server-owned." ]
-            Paragraph [ Text "Interactive renderers SHALL generate stable instance IDs and local signal names, preserve focus through representative element patches, and document the morph region expected from remote actions. Applications SHALL treat Datastar expressions and endpoints as trusted application code rather than interpolate untrusted input." ] ];
+          [ Paragraph [ Text "Datastar is the sole component interaction model. Component-local signals represent ephemeral interaction such as open state and temporary pressed state. Select and Combobox keep displayed labels/query text distinct from their intentionally submitted selected values; a remote Combobox query is also intentionally submitted to its application endpoint. Authoritative options, routes, permissions, validation, persistence, and actions remain server-owned." ]
+            Paragraph [ Text "Interactive renderers SHALL generate stable instance and option IDs, preserve focus through representative element patches, and document the morph region expected from remote actions. A remote Combobox endpoint filters application-owned values, applies them with withOptions, and returns Combobox.renderOptions so Datastar morphs the stable listbox region without replacing the input or submitted value." ]
+            Paragraph [ Text "Applications SHALL treat Datastar expressions and endpoints as trusted application code rather than interpolate untrusted input." ] ];
 
           section "accessibility" "Accessibility Contract";
-          [ Paragraph [ Text "Semantic native elements are the starting point. Select, Combobox, DropdownMenu, Dialog, and AppShell navigation each retain distinct roles and keyboard contracts. Public APIs SHALL require accessible labels where visible content cannot supply them and SHALL prevent escape-hatch attributes from silently removing required semantics." ]
+          [ Paragraph [ Text "Native semantics are welcome inside a component when they improve forms and accessibility, but public branded controls own their visible presentation and interaction. Select renders a select-only combobox/listbox rather than a native select; Combobox, Checkbox, Switch, ToggleButton, RadioGroup, DropdownMenu, Dialog, and AppShell navigation each retain distinct semantic and keyboard contracts." ]
+            Paragraph [ Text "The package exposes no NativeSelect API because consumers can render an ordinary select directly with the existing FSharp.ViewEngine DSL. Public APIs SHALL require accessible labels where visible content cannot supply them and SHALL prevent escape-hatch attributes from silently removing required semantics." ]
             Paragraph [ Text "Each interactive implementation requires browser evidence for pointer and keyboard behavior, accessible names and relationships, focus entry/restoration, disabled and pending states, multiple instances, and representative post-morph behavior." ] ];
 
           section "theming" "Semantic Theming";
@@ -295,6 +341,7 @@ AppShell.create productName current navigation content
                 [ Text "No Alpine component implementation, adapter, or parallel interaction runtime." ]
                 [ Text "No Tailwind Plus Elements dependency and no redistribution of commercial Tailwind Plus source." ]
                 [ Text "No generic client-side data-table or chart engine." ]
+                [ Text "No NativeSelect API; consumers use the existing FSharp.ViewEngine DSL when browser-native select presentation is intentional." ]
                 [ Text "No product routes, authorization rules, domain formatting, query behavior, or durable state in Components." ]
                 [ Text "No custom component computation-expression DSL in the initial API." ] ] ] ]
         |> List.concat

@@ -32,6 +32,11 @@
   display: none !important;
 }
 
+/* Component previews contain anchored popups that must escape the generic example crop. */
+.spec-example:has(.fve-components) {
+  overflow: visible;
+}
+
 .docs-home-logo {
   width: 5rem;
   height: 5rem;

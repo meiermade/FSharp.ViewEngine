@@ -392,13 +392,18 @@ after"""
             Expect.isFalse (html.Contains("color &quot;emerald-600&quot;")) "ordinary API does not accept raw palette strings"
 
             let examples = html.Split([| "data-docs-example=\"true\"" |], System.StringSplitOptions.None).Length - 1
-            Expect.equal examples 6 "all contract capability groups use code-first examples"
+            Expect.equal examples 7 "all contract capability groups use code-first examples"
             for source in [
                 "Button.primary &quot;Create account&quot;"
                 "Table.create &quot;Accounts&quot;"
                 "Select.create &quot;status&quot; &quot;Status&quot; statusValue statusOptions"
                 "Combobox.create &quot;account&quot; &quot;Parent account&quot; string"
-                "Combobox.withSearch (ComboboxSearch.Remote &quot;/accounts/search&quot;)"
+                "Combobox.withSearch (ComboboxSearch.Remote &quot;/components/contract/accounts/search&quot;)"
+                "Combobox.renderOptions"
+                "Checkbox.create &quot;includeArchived&quot; &quot;Include archived accounts&quot;"
+                "Switch.create &quot;postingNotifications&quot; &quot;Posting notifications&quot;"
+                "ToggleButton.create &quot;contract-compact-rows&quot; &quot;Compact rows&quot;"
+                "RadioGroup.create &quot;postingMode&quot; &quot;Posting mode&quot; id"
                 "DropdownMenu.create &quot;contract-menu-actions&quot; &quot;Actions&quot;"
                 "Dialog.create &quot;review-contract-dialog&quot; &quot;Review dialog contract&quot;"
                 "Dialog.withInitialFocus &quot;review-contract-dialog-close&quot;"
@@ -409,16 +414,66 @@ after"""
                 "AppShell.create &quot;Ledger&quot; Accounts" ] do
                 Expect.stringContains html source source
 
-            Expect.stringContains html "data-signals=\"{_accountQuery:" "compiled Combobox emits local interaction signals"
+            Expect.stringContains html "data-signals=\"{_account_open: false, account_query:" "remote Combobox emits local open state and an intentionally submitted query"
+            Expect.stringContains html "role=\"switch\"" "Switch preserves switch semantics"
+            Expect.stringContains html "aria-pressed=\"true\"" "ToggleButton preserves pressed semantics"
+            Expect.stringContains html "type=\"radio\"" "RadioGroup preserves form semantics internally"
+            Expect.isFalse (html.Contains("NativeSelect.create")) "the package exposes no NativeSelect API"
             Expect.stringContains html "id=\"review-contract-dialog-trigger\"" "Dialog renders its connected trigger"
             Expect.stringContains html "data-on:close=\"document.getElementById(&quot;review-contract-dialog-trigger&quot;).focus()\"" "Dialog close restores trigger focus"
             Expect.isFalse (html.Contains("Select.describe")) "the contract has no unobservable option-description modifier"
-            Expect.stringContains html "data-signals=\"{_contract_menu_actionsOpen: false}" "menu IDs become valid local signal tokens"
-            Expect.isFalse (html.Contains("_contract-menu-actionsOpen")) "DOM IDs are not copied unsafely into expressions"
+            Expect.stringContains html "data-signals=\"{_contract_menu_actions_open: false}" "menu IDs become valid local signal tokens"
+            Expect.isFalse (html.Contains("_contract-menu-actions_open")) "DOM IDs are not copied unsafely into expressions"
             Expect.stringContains html "aria-current=\"page\"" "compiled AppShell retains typed current destination"
             Expect.stringContains html "--fve-brand-solid" "consumer theme overrides are documented"
             Expect.stringContains html "rel=\"prev\" href=\"/docs/page-examples/executable-specification\"" "contract follows executable Specs"
             Expect.stringContains html "rel=\"next\" href=\"/benchmarks\"" "contract continues to project evidence"
+        }
+
+        test "Components Select owns branded presentation instead of native browser chrome" {
+            let html =
+                Select.create "status" "Status" id [ Select.option "active" "Active" ]
+                |> Select.withSelected "active"
+                |> Select.render
+                |> Render.toString
+
+            Expect.isFalse (html.Contains("<select")) "Select never renders a native select element"
+            Expect.stringContains html "role=\"combobox\"" "Select renders a select-only combobox trigger"
+            Expect.stringContains html "role=\"listbox\"" "Select renders its branded listbox"
+            Expect.stringContains html "type=\"hidden\"" "Select retains ordinary form submission"
+        }
+
+        test "Components branded choice controls preserve distinct semantics" {
+            let comboboxHtml =
+                Combobox.create "account" "Account" id [ Select.option "operating" "Operating" ]
+                |> Combobox.withSelected "operating"
+                |> Combobox.render
+                |> Render.toString
+            Expect.stringContains comboboxHtml "type=\"search\" role=\"combobox\"" "Combobox exposes an editable combobox"
+            Expect.stringContains comboboxHtml "aria-autocomplete=\"list\"" "Combobox identifies list autocomplete"
+            Expect.stringContains comboboxHtml "type=\"hidden\" name=\"account\"" "Combobox submits selected identity separately from query text"
+            Expect.stringContains comboboxHtml "role=\"option\"" "Combobox renders branded options"
+
+            let checkboxHtml = Checkbox.create "archived" "Include archived" |> Checkbox.withChecked |> Checkbox.render |> Render.toString
+            Expect.stringContains checkboxHtml "type=\"checkbox\"" "Checkbox retains native checkbox semantics internally"
+            Expect.stringContains checkboxHtml "class=\"peer sr-only\"" "Checkbox browser chrome is visually hidden"
+
+            let switchHtml = Switch.create "notifications" "Notifications" |> Switch.withChecked |> Switch.render |> Render.toString
+            Expect.stringContains switchHtml "role=\"switch\"" "Switch has switch semantics"
+            Expect.stringContains switchHtml "data-attr:aria-checked" "Switch state remains synchronized"
+            Expect.stringContains switchHtml "class=\"peer sr-only\"" "Switch browser chrome is visually hidden"
+
+            let toggleHtml = ToggleButton.create "compact" "Compact rows" |> ToggleButton.pressed |> ToggleButton.render |> Render.toString
+            Expect.stringContains toggleHtml "aria-pressed=\"true\"" "ToggleButton has pressed semantics"
+            Expect.stringContains toggleHtml "data-attr:aria-pressed" "ToggleButton pressed state remains synchronized"
+
+            let radioHtml =
+                RadioGroup.create "mode" "Mode" id [ RadioGroup.option "automatic" "Automatic"; RadioGroup.option "manual" "Manual" ]
+                |> RadioGroup.withSelected "automatic"
+                |> RadioGroup.render
+                |> Render.toString
+            Expect.equal (Regex.Matches(radioHtml, "type=\"radio\"").Count) 2 "RadioGroup retains one radio input per option"
+            Expect.equal (Regex.Matches(radioHtml, "class=\"peer sr-only\"").Count) 2 "Radio browser chrome is visually hidden"
         }
 
         test "Components escape hatches preserve authoritative attributes" {
@@ -458,7 +513,7 @@ after"""
             Expect.equal (attributeCount "class" tableTag) 1 "Table owns one class attribute"
             Expect.isFalse (tableTag.Contains("override")) "Table consumer class is ignored"
 
-            let selectTag =
+            let selectHtml =
                 Select.create "status" "Status" id [ Select.option "active" "Active" ]
                 |> Select.withAttributes [
                     _id "other-id"
@@ -467,12 +522,33 @@ after"""
                     _ariaInvalid false
                     _class "override" ]
                 |> Select.render
-                |> openingTag "select"
-            for name in [ "id"; "name"; "aria-invalid"; "class" ] do
-                Expect.equal (attributeCount name selectTag) 1 $"Select owns one {name}"
-            Expect.equal (Regex.Matches(selectTag, "\\sdata-bind:[^=\\s>]+(?:=|\\s|>)", RegexOptions.IgnoreCase).Count) 1 "Select owns one Datastar binding"
+                |> Render.toString
+            let selectTrigger = Regex.Match(selectHtml, "<button[^>]*role=\"combobox\"[^>]*>", RegexOptions.IgnoreCase).Value
+            let selectValue = Regex.Match(selectHtml, "<input[^>]*type=\"hidden\"[^>]*>", RegexOptions.IgnoreCase).Value
+            Expect.isNotEmpty selectTrigger "Select trigger opening tag"
+            Expect.isNotEmpty selectValue "Select hidden value opening tag"
+            for name in [ "id"; "type"; "role"; "aria-invalid"; "class" ] do
+                Expect.equal (attributeCount name selectTrigger) 1 $"Select owns one trigger {name}"
+            Expect.equal (attributeCount "name" selectValue) 1 "Select owns one submitted name"
+            Expect.equal (Regex.Matches(selectValue, "\\sdata-bind:[^=\\s>]+(?:=|\\s|>)", RegexOptions.IgnoreCase).Count) 1 "Select owns one submitted Datastar binding"
             for rejected in [ "other-id"; "other-name"; "data-bind:other"; "override" ] do
-                Expect.isFalse (selectTag.Contains(rejected)) $"Select rejects reserved attribute value {rejected}"
+                Expect.isFalse (selectTrigger.Contains(rejected)) $"Select rejects reserved trigger attribute value {rejected}"
+
+            let comboboxTag =
+                Combobox.create "account" "Account" id [ Select.option "operating" "Operating" ]
+                |> Combobox.withAttributes [
+                    _id "other-id"
+                    _name "other-name"
+                    _dataBind "other"
+                    _ariaInvalid false
+                    _class "override" ]
+                |> Combobox.render
+                |> openingTag "input"
+            for name in [ "id"; "type"; "role"; "aria-invalid"; "class" ] do
+                Expect.equal (attributeCount name comboboxTag) 1 $"Combobox owns one input {name}"
+            Expect.equal (Regex.Matches(comboboxTag, "\\sdata-bind:[^=\\s>]+(?:=|\\s|>)", RegexOptions.IgnoreCase).Count) 1 "Combobox owns one query binding"
+            for rejected in [ "other-id"; "other-name"; "data-bind:other"; "override" ] do
+                Expect.isFalse (comboboxTag.Contains(rejected)) $"Combobox rejects reserved input attribute value {rejected}"
         }
 
         test "Components Tailwind contract is isolated and CI-proven" {
