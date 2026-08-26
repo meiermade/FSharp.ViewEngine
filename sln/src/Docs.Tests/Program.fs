@@ -1,6 +1,8 @@
 module Docs.Tests.Program
 
+open System.IO
 open System.Net
+open System.Text.RegularExpressions
 open Expecto
 open FSharp.ViewEngine
 open Docs.Common
@@ -33,6 +35,7 @@ let private expectedPaths =
         "/docs/page-examples/documentation-site"
         "/docs/page-examples/api-reference"
         "/docs/page-examples/executable-specification"
+        "/components/contract"
         "/benchmarks"
         "/changelog"
     ]
@@ -55,8 +58,8 @@ let tests =
         test "Navigation exposes the core learning path before integrations and project pages" {
             Expect.sequenceEqual
                 (Registry.navigation |> List.map _.label)
-                [ "Getting started"; "Core concepts"; "Integrations"; "FSharp.ViewEngine.Docs"; "Project" ]
-                "core guidance precedes integrations and package catalogs"
+                [ "Getting started"; "Core concepts"; "Integrations"; "FSharp.ViewEngine.Docs"; "FSharp.ViewEngine.Components"; "Project" ]
+                "core guidance precedes package contracts and project pages"
 
             let rec findSection label sections =
                 sections
@@ -92,6 +95,7 @@ let tests =
                 (section "Page examples")
                 [ "Documentation site"; "API reference"; "Executable specification" ]
                 "page examples are grouped separately"
+            Expect.sequenceEqual (section "FSharp.ViewEngine.Components") [ "Contract" ] "pre-release Components contract is first-class"
             Expect.sequenceEqual (section "Project") [ "Benchmarks"; "Changelog" ] "project order"
         }
 
@@ -363,6 +367,88 @@ after"""
             let specification = render Showcase.specificationPageExampleRegistration
             Expect.stringContains specification "role=\"tablist\"" "specification preview uses state tabs"
             Expect.stringContains specification "spec-browser-frame" "specification preview uses a browser frame"
+        }
+
+        test "Components publishes an executable typed public contract" {
+            let html = Components.page |> View.document Registry.navigation |> Render.toHtmlDocString
+
+            Expect.stringContains html "Pre-release contract" "unreleased status is explicit"
+            Expect.stringContains html "ordinary F# values and functions" "API philosophy"
+            Expect.stringContains html "Required inputs are constructor arguments" "required input policy"
+            Expect.stringContains html "Optional behavior is piped" "configuration policy"
+            Expect.stringContains html "Custom content stays HTML" "slot policy"
+            Expect.stringContains html "Closed choices are typed" "typed variant policy"
+            Expect.stringContains html "Datastar is the sole component interaction model" "interaction boundary"
+            Expect.stringContains html "A ComponentsTheme is applied once" "theme boundary"
+            Expect.stringContains html "@source inline()" "Tailwind distribution contract"
+            Expect.stringContains html "versions independently" "version policy"
+            Expect.stringContains html "minimum compatible FSharp.ViewEngine version" "Core compatibility policy"
+            Expect.stringContains html "No Alpine component implementation" "Alpine non-goal"
+            Expect.stringContains html "No custom component computation-expression DSL" "custom CE non-goal"
+            Expect.isFalse (html.Contains("veSelect {")) "contract does not introduce a component CE"
+            Expect.isFalse (html.Contains("color &quot;emerald-600&quot;")) "ordinary API does not accept raw palette strings"
+
+            let examples = html.Split([| "data-docs-example=\"true\"" |], System.StringSplitOptions.None).Length - 1
+            Expect.equal examples 6 "all contract capability groups use code-first examples"
+            for source in [
+                "Button.primary &quot;Create account&quot;"
+                "Table.create &quot;Accounts&quot;"
+                "Select.create &quot;status&quot; &quot;Status&quot; statusValue statusOptions"
+                "Combobox.create &quot;account&quot; &quot;Parent account&quot; string"
+                "Combobox.withSearch (ComboboxSearch.Remote &quot;/accounts/search&quot;)"
+                "DropdownMenu.create &quot;contract-menu-actions&quot; &quot;Actions&quot;"
+                "Dialog.create &quot;delete-account&quot; &quot;Delete account&quot;"
+                "Collection.create &quot;Accounts&quot; accountTable"
+                "Detail.create &quot;Operating&quot;"
+                "AppShell.create &quot;Ledger&quot; Accounts" ] do
+                Expect.stringContains html source source
+
+            Expect.stringContains html "data-signals=\"{_accountQuery:" "compiled Combobox emits local interaction signals"
+            Expect.stringContains html "data-signals=\"{_contract_menu_actionsOpen: false}" "menu IDs become valid local signal tokens"
+            Expect.isFalse (html.Contains("_contract-menu-actionsOpen")) "DOM IDs are not copied unsafely into expressions"
+            Expect.stringContains html "aria-current=\"page\"" "compiled AppShell retains typed current destination"
+            Expect.stringContains html "--fve-brand-solid" "consumer theme overrides are documented"
+            Expect.stringContains html "rel=\"prev\" href=\"/docs/page-examples/executable-specification\"" "contract follows executable Specs"
+            Expect.stringContains html "rel=\"next\" href=\"/benchmarks\"" "contract continues to project evidence"
+        }
+
+        test "Components Tailwind contract is isolated and CI-proven" {
+            let contractDirectory = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "ComponentsContract"))
+            let manifest = File.ReadAllText(Path.Combine(contractDirectory, "FSharp.ViewEngine.Components.tailwind.css"))
+            let consumer = File.ReadAllText(Path.Combine(contractDirectory, "consumer.css"))
+            let verification = File.ReadAllText(Path.Combine(contractDirectory, "verify-tailwind.sh"))
+            let renderer = File.ReadAllText(Path.Combine(contractDirectory, "..", "src", "ComponentsContract.fs"))
+            let dockerfile = File.ReadAllText(Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "Dockerfile")))
+
+            Expect.stringContains manifest "@source inline(" "package classes use an explicit source manifest"
+            Expect.stringContains manifest "bg-[var(--fve-brand-solid)]" "semantic brand utility is forced"
+            Expect.stringContains manifest ".fve-components" "semantic defaults ship with the manifest"
+            Expect.stringContains manifest ".dark .fve-components" "dark defaults ship with the manifest"
+            Expect.stringContains consumer "@import \"tailwindcss\" source(none)" "fixture disables automatic source scanning"
+            Expect.stringContains consumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "clean consumer imports only the contract"
+            Expect.stringContains consumer ".acme-theme" "consumer override is independent"
+            Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
+            Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
+            Expect.stringContains dockerfile "ComponentsContract/verify-tailwind.sh" "container CI executes the clean-consumer proof"
+
+            let manifestClasses =
+                Regex.Match(manifest, "@source inline\\(\\\"([^\\\"]*)\\\"\\)").Groups[1].Value.Split(' ')
+                |> Set.ofArray
+            let ignoredTokens = set [ "No"; "records"; "button"; "submit"; "reset"; "menuitem"; "separator" ]
+            let rendererClasses =
+                renderer.Replace("\r\n", "\n").Split('\n')
+                |> Array.filter (fun line ->
+                    [ "_class"; "Variant."; "Tone."; "ControlSize."; "headerClass"; "cellClass"; "className config.theme" ]
+                    |> List.exists line.Contains)
+                |> Array.collect (fun line ->
+                    Regex.Matches(line, "\"([^\"]*)\"")
+                    |> Seq.collect (fun matched -> matched.Groups[1].Value.Split(' '))
+                    |> Seq.toArray)
+                |> Array.filter (fun token ->
+                    token <> "" && not (token.StartsWith("fve-")) && not (ignoredTokens.Contains token))
+                |> Set.ofArray
+            let missingClasses = Set.difference rendererClasses manifestClasses
+            Expect.isEmpty missingClasses "every renderer-owned utility is present in the Tailwind source manifest"
         }
 
         test "Datastar docs cover every stable helper and modifier shapes" {
