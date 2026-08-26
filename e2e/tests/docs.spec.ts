@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const productionOrigin = 'https://fsharpviewengine.meiermade.com'
 
@@ -150,6 +150,23 @@ test('Components contract renders semantic themes responsively without browser e
     await expect(page.locator(`#${panelId}`)).toBeVisible()
   }
 
+  const dialogTrigger = page.getByRole('button', { name: 'Review dialog contract' })
+  const dialog = page.getByRole('dialog', { name: 'Review dialog contract' })
+  await dialogTrigger.click()
+  await expect(dialog).toBeVisible()
+  const dialogBox = await dialog.boundingBox()
+  expect(dialogBox).not.toBeNull()
+  expect(dialogBox!.x).toBeGreaterThan(0)
+  expect(dialogBox!.y).toBeGreaterThan(0)
+  await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(dialogTrigger).toBeFocused()
+  await dialogTrigger.click()
+  await dialog.getByRole('button', { name: 'Close' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(dialogTrigger).toBeFocused()
+
   const duplicateIds = await page.locator('[id]').evaluateAll(elements => {
     const ids = elements.map(element => element.id)
     return [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))]
@@ -166,11 +183,28 @@ test('Components contract renders semantic themes responsively without browser e
   const lightPage = await componentSurfaces.first().evaluate(element =>
     getComputedStyle(element).getPropertyValue('--fve-page').trim(),
   )
-  const brand = await componentSurfaces.first().evaluate(element =>
-    getComputedStyle(element).getPropertyValue('--fve-brand-solid').trim(),
-  )
+  const brandRoles = (surface: Locator) => surface.evaluate(element => {
+    const styles = getComputedStyle(element)
+    return ['subtle', 'solid', 'hover', 'text', 'ring'].map(role =>
+      styles.getPropertyValue(`--fve-brand-${role}`).trim(),
+    )
+  })
+  const lightBrandRoles = await brandRoles(componentSurfaces.first())
+  const comfortableControl = componentSurfaces.first().getByRole('button', { name: 'Create account' })
+  const compactControl = componentSurfaces.last().getByRole('button', { name: 'Account' })
+  const comfortableDensity = await comfortableControl.evaluate(element => ({
+    height: getComputedStyle(element).height,
+    paddingTop: getComputedStyle(element).paddingTop,
+  }))
+  const compactDensity = await compactControl.evaluate(element => ({
+    height: getComputedStyle(element).height,
+    paddingTop: getComputedStyle(element).paddingTop,
+  }))
   expect(lightPage).toBeTruthy()
-  expect(brand).toBeTruthy()
+  expect(lightBrandRoles.every(Boolean)).toBe(true)
+  expect(comfortableDensity.paddingTop).not.toBe(compactDensity.paddingTop)
+  expect(parseFloat(comfortableDensity.paddingTop)).toBeGreaterThan(parseFloat(compactDensity.paddingTop))
+  expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 
   await page.getByRole('button', { name: 'Choose color theme' }).click()
@@ -178,7 +212,18 @@ test('Components contract renders semantic themes responsively without browser e
   const darkPage = await componentSurfaces.first().evaluate(element =>
     getComputedStyle(element).getPropertyValue('--fve-page').trim(),
   )
+  const darkBrandRoles = await brandRoles(componentSurfaces.first())
   expect(darkPage).not.toBe(lightPage)
+  for (let index = 0; index < darkBrandRoles.length; index += 1) {
+    expect(darkBrandRoles[index]).toBeTruthy()
+    expect(darkBrandRoles[index]).not.toBe(lightBrandRoles[index])
+  }
+  const selectedDestination = componentSurfaces.last().locator('[aria-current="page"]')
+  expect(await selectedDestination.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)')
+  const primaryAction = componentSurfaces.first().getByRole('button', { name: 'Create account' })
+  const primaryRestingBackground = await primaryAction.evaluate(element => getComputedStyle(element).backgroundColor)
+  await primaryAction.hover()
+  expect(await primaryAction.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(primaryRestingBackground)
   await testInfo.attach('components-contract-desktop-dark', {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png',

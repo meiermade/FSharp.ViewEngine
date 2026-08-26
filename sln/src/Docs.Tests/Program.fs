@@ -5,6 +5,9 @@ open System.Net
 open System.Text.RegularExpressions
 open Expecto
 open FSharp.ViewEngine
+open FSharp.ViewEngine.Components
+open type Html
+open type Datastar
 open Docs.Common
 open Docs.Pages
 
@@ -397,19 +400,79 @@ after"""
                 "Combobox.create &quot;account&quot; &quot;Parent account&quot; string"
                 "Combobox.withSearch (ComboboxSearch.Remote &quot;/accounts/search&quot;)"
                 "DropdownMenu.create &quot;contract-menu-actions&quot; &quot;Actions&quot;"
-                "Dialog.create &quot;delete-account&quot; &quot;Delete account&quot;"
+                "Dialog.create &quot;review-contract-dialog&quot; &quot;Review dialog contract&quot;"
+                "Dialog.withInitialFocus &quot;review-contract-dialog-close&quot;"
+                "Dialog.trigger &quot;Review dialog contract&quot;"
+                "Dialog.closeButton &quot;Close&quot;"
                 "Collection.create &quot;Accounts&quot; accountTable"
                 "Detail.create &quot;Operating&quot;"
                 "AppShell.create &quot;Ledger&quot; Accounts" ] do
                 Expect.stringContains html source source
 
             Expect.stringContains html "data-signals=\"{_accountQuery:" "compiled Combobox emits local interaction signals"
+            Expect.stringContains html "id=\"review-contract-dialog-trigger\"" "Dialog renders its connected trigger"
+            Expect.stringContains html "data-on:close=\"document.getElementById(&quot;review-contract-dialog-trigger&quot;).focus()\"" "Dialog close restores trigger focus"
+            Expect.isFalse (html.Contains("Select.describe")) "the contract has no unobservable option-description modifier"
             Expect.stringContains html "data-signals=\"{_contract_menu_actionsOpen: false}" "menu IDs become valid local signal tokens"
             Expect.isFalse (html.Contains("_contract-menu-actionsOpen")) "DOM IDs are not copied unsafely into expressions"
             Expect.stringContains html "aria-current=\"page\"" "compiled AppShell retains typed current destination"
             Expect.stringContains html "--fve-brand-solid" "consumer theme overrides are documented"
             Expect.stringContains html "rel=\"prev\" href=\"/docs/page-examples/executable-specification\"" "contract follows executable Specs"
             Expect.stringContains html "rel=\"next\" href=\"/benchmarks\"" "contract continues to project evidence"
+        }
+
+        test "Components escape hatches preserve authoritative attributes" {
+            let openingTag elementName element =
+                let html = element |> Render.toString
+                let tag = Regex.Match(html, $"<{elementName}[^>]*>", RegexOptions.IgnoreCase).Value
+                Expect.isNotEmpty tag $"{elementName} opening tag"
+                tag
+            let attributeCount name tag =
+                Regex.Matches(tag, $"\\s{Regex.Escape(name)}(?:=|\\s|>)", RegexOptions.IgnoreCase).Count
+
+            let buttonTag =
+                Button.create "Save"
+                |> Button.disabled
+                |> Button.withAttributes [ _attr ("TYPE", "submit"); _attr "disabled"; _class "override" ]
+                |> Button.render
+                |> openingTag "button"
+            Expect.equal (attributeCount "type" buttonTag) 1 "Button owns one type"
+            Expect.equal (attributeCount "disabled" buttonTag) 1 "Button owns one disabled state"
+            Expect.equal (attributeCount "class" buttonTag) 1 "Button owns one class attribute"
+            Expect.stringContains buttonTag "type=\"button\"" "consumer type is ignored"
+            Expect.isFalse (buttonTag.Contains("override")) "consumer class is ignored"
+
+            let statusTag =
+                Status.create "Active"
+                |> Status.withAttributes [ _class "override" ]
+                |> Status.render
+                |> openingTag "span"
+            Expect.equal (attributeCount "class" statusTag) 1 "Status owns one class attribute"
+            Expect.isFalse (statusTag.Contains("override")) "Status consumer class is ignored"
+
+            let tableTag =
+                Table.create "Values" [ Table.column "Value" text ] [ "one" ]
+                |> Table.withAttributes [ _class "override" ]
+                |> Table.render
+                |> openingTag "table"
+            Expect.equal (attributeCount "class" tableTag) 1 "Table owns one class attribute"
+            Expect.isFalse (tableTag.Contains("override")) "Table consumer class is ignored"
+
+            let selectTag =
+                Select.create "status" "Status" id [ Select.option "active" "Active" ]
+                |> Select.withAttributes [
+                    _id "other-id"
+                    _name "other-name"
+                    _dataBind "other"
+                    _ariaInvalid false
+                    _class "override" ]
+                |> Select.render
+                |> openingTag "select"
+            for name in [ "id"; "name"; "aria-invalid"; "class" ] do
+                Expect.equal (attributeCount name selectTag) 1 $"Select owns one {name}"
+            Expect.equal (Regex.Matches(selectTag, "\\sdata-bind:[^=\\s>]+(?:=|\\s|>)", RegexOptions.IgnoreCase).Count) 1 "Select owns one Datastar binding"
+            for rejected in [ "other-id"; "other-name"; "data-bind:other"; "override" ] do
+                Expect.isFalse (selectTag.Contains(rejected)) $"Select rejects reserved attribute value {rejected}"
         }
 
         test "Components Tailwind contract is isolated and CI-proven" {
@@ -424,6 +487,14 @@ after"""
             Expect.stringContains manifest "bg-[var(--fve-brand-solid)]" "semantic brand utility is forced"
             Expect.stringContains manifest ".fve-components" "semantic defaults ship with the manifest"
             Expect.stringContains manifest ".dark .fve-components" "dark defaults ship with the manifest"
+            Expect.stringContains manifest ".dark .fve-theme-sky" "Sky ships theme-specific dark brand roles"
+            Expect.stringContains manifest ".dark .fve-theme-emerald" "Emerald ships theme-specific dark brand roles"
+            Expect.stringContains renderer "py-[var(--fve-control-padding-block)]" "renderers consume the semantic density token"
+            for role in [ "subtle"; "solid"; "hover"; "text"; "ring" ] do
+                Expect.isGreaterThanOrEqual
+                    (Regex.Matches(manifest, $"--fve-brand-{role}:").Count)
+                    4
+                    $"light and dark theme definitions include brand {role}"
             Expect.stringContains consumer "@import \"tailwindcss\" source(none)" "fixture disables automatic source scanning"
             Expect.stringContains consumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "clean consumer imports only the contract"
             Expect.stringContains consumer ".acme-theme" "consumer override is independent"

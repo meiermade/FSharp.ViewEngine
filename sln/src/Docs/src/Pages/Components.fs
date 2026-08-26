@@ -91,7 +91,7 @@ module Components =
 
     let private statusOptions =
         [ Select.option Active "Active"
-          Select.option Pending "Pending" |> Select.describe "Requires review before activation"
+          Select.option Pending "Pending"
           Select.option Suspended "Suspended" ]
 
     // docs-example:start select-combobox
@@ -128,20 +128,19 @@ module Components =
         DropdownMenu.create "contract-menu-actions" "Actions" accountMenuItems
         |> DropdownMenu.render destinationUrl
 
-    let deleteButton =
-        Button.create "Delete"
-        |> Button.withVariant ButtonVariant.Destructive
-        |> Button.render
+    let dialogContract =
+        Dialog.create "review-contract-dialog" "Review dialog contract" (
+            p { "Native dialog semantics provide modal focus containment and Escape behavior." })
+        |> Dialog.withDescription "The component connects opening, initial focus, closing, and focus restoration."
+        |> Dialog.withInitialFocus "review-contract-dialog-close"
 
-    let deleteDialog =
-        Dialog.create "delete-account" "Delete account" (
-            p { "This permanently removes Operating and its imported entries." })
-        |> Dialog.withDescription "This action cannot be undone."
-        |> Dialog.withFooter (
-            div {
-                _class "flex gap-3"
-                [ Button.secondary "Cancel"; deleteButton ]
-            })
+    let reviewDialogTrigger =
+        dialogContract
+        |> Dialog.trigger "Review dialog contract"
+
+    let reviewDialog =
+        dialogContract
+        |> Dialog.withFooter (dialogContract |> Dialog.closeButton "Close")
         |> Dialog.render
     // docs-example:end menu-dialog
 
@@ -238,7 +237,7 @@ AppShell.create productName current navigation content
 }"""
 
     let private menuDialogPreview =
-        themedSurface (div { _class "flex items-center gap-3"; [ actionMenu; Button.secondary "Review dialog contract"; deleteDialog ] })
+        themedSurface (div { _class "flex items-center gap-3"; [ actionMenu; reviewDialogTrigger; reviewDialog ] })
 
     let private collectionDetailPreview =
         themedSurface (div { _class "grid gap-8"; [ collectionPage; detailPage ] })
@@ -261,7 +260,7 @@ AppShell.create productName current navigation content
           example "button-status" "Convenience and configuration" "Common actions and statuses use concise helpers; typed configuration handles variants and size without a custom computation expression." buttonStatusPreview;
           example "table" "Typed table" "Columns render consumer-owned row data and destinations while the component owns semantic table structure and shared presentation." (themedSurface accountTable);
           example "select-combobox" "Select and Combobox" "Select models a finite non-editable choice. Combobox separately models an editable search and an application-owned remote endpoint." choicePreview;
-          example "menu-dialog" "Menu and dialog" "Menu destinations and trusted Datastar actions remain consumer inputs. Dialog bodies and footers remain ordinary HtmlElement slots." menuDialogPreview;
+          example "menu-dialog" "Menu and dialog" "Menu destinations and trusted Datastar actions remain consumer inputs. Dialog helpers connect the trigger, initial focus, close action, Escape behavior, and focus restoration while bodies and footers remain ordinary HtmlElement slots." menuDialogPreview;
           example "collection-detail" "Collection and detail compositions" "Page compositions arrange package primitives without taking ownership of queries, domain formatting, routes, or authorization." collectionDetailPreview;
           example "app-shell" "Typed application shell" "The advanced shell call site retains a destination type and resolver, accepts product-owned navigation and branding, and applies one semantic theme at the root." shellPreview;
 
@@ -276,7 +275,7 @@ AppShell.create productName current navigation content
           section "theming" "Semantic Theming";
           [ Paragraph [ Text "A ComponentsTheme is applied once at a component subtree or AppShell. Components consume semantic CSS variables for page, surface, text, border, brand, positive, warning, critical, and informative roles. A component variant such as Primary or Positive selects a role; it does not accept a raw palette shade such as emerald-600." ]
             CodeBlock("fsharp", themeExample)
-            Paragraph [ Text "The package supplies coherent light and dark defaults. Consumers may override documented semantic variables in their own theme class while retaining the component state model." ] ];
+            Paragraph [ Text "The package supplies coherent theme-specific light and dark roles for default, selected, hover, and focus states. Density changes shared control block padding across controls and navigation rather than existing as an unused token. Consumers may override documented semantic variables in their own theme class while retaining the component state model." ] ];
 
           section "tailwind" "Tailwind v4 Distribution";
           [ Paragraph [ Text "Compiled assemblies cannot be discovered as Tailwind source. Components therefore ships an importable Tailwind v4 CSS contract containing semantic variables and an explicit @source inline() manifest of complete package-owned class names. It never constructs utility names from caller strings." ]
@@ -284,7 +283,7 @@ AppShell.create productName current navigation content
             Paragraph [ Text "The contract fixture builds this import from an otherwise clean consumer and asserts both package utilities and a consumer brand override are emitted. The package-spine task will determine the final NuGet content path and copy behavior without changing this consumer contract." ] ];
 
           section "escape-hatches" "Slots and Escape Hatches";
-          [ Paragraph [ Text "Components may expose withAttributes, withClass, and named HtmlElement slots where consumers have a demonstrated composition need. Package-owned classes and required ARIA/Datastar attributes remain authoritative. Raw class additions are appended rather than used as a replacement theme API." ]
+          [ Paragraph [ Text "Components may expose withAttributes, withClass, and named HtmlElement slots where consumers have a demonstrated composition need. Each renderer filters its package-owned class, structural, form, ARIA, and Datastar attribute names case-insensitively before rendering escape-hatch attributes, so required semantics cannot be replaced or duplicated. Raw class additions use an explicit withClass modifier where supported rather than replacing the semantic theme API." ]
             Paragraph [ Text "Typed destinations are resolved by an application-supplied function. Form values are encoded by an application-supplied function and validated again on the server. Trusted Datastar expressions are explicit edge inputs; arbitrary user content is never accepted as executable component configuration." ] ];
 
           section "compatibility" "Versioning and Compatibility";

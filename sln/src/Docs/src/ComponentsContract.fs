@@ -78,6 +78,17 @@ module ComponentsTheme =
 module private ContractHtml =
     let classes values = values |> List.filter (String.IsNullOrWhiteSpace >> not) |> String.concat " "
 
+    let safeAttributes reservedNames attributes =
+        attributes
+        |> List.filter (fun attribute ->
+            reservedNames
+            |> List.exists (fun reservedName ->
+                String.Equals(attribute.Name, reservedName, StringComparison.OrdinalIgnoreCase)
+                || (reservedName.EndsWith(':') && attribute.Name.StartsWith(reservedName, StringComparison.OrdinalIgnoreCase)))
+            |> not)
+
+    let javascriptString value = System.Text.Json.JsonSerializer.Serialize(value)
+
     let signalToken value =
         let token = Regex.Replace(value, "[^A-Za-z0-9]+", "_").Trim('_')
         if String.IsNullOrEmpty token then "component" else token
@@ -91,9 +102,9 @@ module private ContractHtml =
         | Tone.Informative -> "bg-[var(--fve-info-subtle)] text-[var(--fve-info-text)] ring-[var(--fve-info-ring)]"
 
     let sizeClasses = function
-        | ControlSize.Small -> "min-h-8 px-2.5 py-1.5 text-xs"
-        | ControlSize.Medium -> "min-h-9 px-3 py-2 text-sm"
-        | ControlSize.Large -> "min-h-11 px-4 py-2.5 text-base"
+        | ControlSize.Small -> "min-h-[calc(var(--fve-control-min-height)-0.25rem)] px-2.5 py-[var(--fve-control-padding-block)] text-xs"
+        | ControlSize.Medium -> "min-h-[var(--fve-control-min-height)] px-3 py-[var(--fve-control-padding-block)] text-sm"
+        | ControlSize.Large -> "min-h-[calc(var(--fve-control-min-height)+0.5rem)] px-4 py-[var(--fve-control-padding-block)] text-base"
 
 [<RequireQualifiedAccess>]
 type ButtonVariant =
@@ -165,7 +176,7 @@ module Button =
                     ContractHtml.sizeClasses config.size
                     variantClasses
                     config.className |> Option.defaultValue "" ])
-            for attribute in config.attributes do attribute
+            for attribute in ContractHtml.safeAttributes [ "type"; "disabled"; "class" ] config.attributes do attribute
             config.leading |> Option.defaultValue empty
             config.label
             config.trailing |> Option.defaultValue empty
@@ -195,7 +206,7 @@ module Status =
     let render config =
         span {
             _class (ContractHtml.classes [ "inline-flex items-center gap-1.5 rounded-full px-2 py-1 text-xs font-medium ring-1 ring-inset"; ContractHtml.toneClasses config.tone ])
-            for attribute in config.attributes do attribute
+            for attribute in ContractHtml.safeAttributes [ "class" ] config.attributes do attribute
             config.leading |> Option.defaultValue empty
             config.label
         }
@@ -249,7 +260,7 @@ module Table =
             else
                 table {
                     _class "min-w-full divide-y divide-[var(--fve-border)] text-left text-sm"
-                    for attribute in config.attributes do attribute
+                    for attribute in ContractHtml.safeAttributes [ "class" ] config.attributes do attribute
                     caption { _class "sr-only"; config.caption }
                     thead {
                         _class "bg-[var(--fve-surface-subtle)] text-xs font-semibold uppercase tracking-wide text-[var(--fve-muted-text)]"
@@ -282,7 +293,6 @@ type SelectOption<'value> =
     private
         { value:'value
           label:string
-          description:string option
           disabled:bool }
 
 [<NoEquality; NoComparison>]
@@ -303,9 +313,8 @@ type SelectConfig<'value when 'value:equality> =
 module Select =
     let option value label =
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An option label is required."
-        { value = value; label = label; description = None; disabled = false }
+        { value = value; label = label; disabled = false }
 
-    let describe description (option:SelectOption<'value>) = { option with description = Some description }
     let disable (option:SelectOption<'value>) = { option with disabled = true }
 
     let create name label encode options =
@@ -352,8 +361,8 @@ module Select =
                       if config.validation.IsSome then validationId ]
                     |> String.concat " ")
                 _ariaInvalid config.validation.IsSome
-                _class "min-h-9 w-full rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-2 text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none focus:ring-2 focus:ring-[var(--fve-brand-ring)]"
-                for attribute in config.attributes do attribute
+                _class "min-h-[var(--fve-control-min-height)] w-full rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none focus:ring-2 focus:ring-[var(--fve-brand-ring)]"
+                for attribute in ContractHtml.safeAttributes [ "id"; "name"; "data-bind:"; "aria-describedby"; "aria-invalid"; "class" ] config.attributes do attribute
                 match config.placeholder with
                 | Some placeholder -> Html.option { _value ""; _selected config.selected.IsNone; placeholder }
                 | None -> ()
@@ -433,7 +442,7 @@ module Combobox =
                 match config.search with
                 | ComboboxSearch.Static -> _dataOn ("input", $"${openSignal} = true")
                 | ComboboxSearch.Remote endpoint -> _dataOn ("input", [ "debounce.250ms" ], $"${openSignal} = true; @get('{endpoint}')")
-                _class "min-h-9 w-full rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-2 text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none focus:ring-2 focus:ring-[var(--fve-brand-ring)]"
+                _class "min-h-[var(--fve-control-min-height)] w-full rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none focus:ring-2 focus:ring-[var(--fve-brand-ring)]"
             }
             input {
                 _type "hidden"
@@ -450,7 +459,7 @@ module Combobox =
                     div {
                         _role "option"
                         _ariaDisabled choice.disabled
-                        _class "cursor-default rounded-[var(--fve-radius-control)] px-3 py-2 text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] aria-disabled:opacity-50"
+                        _class "cursor-default rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] aria-disabled:opacity-50"
                         choice.label
                     }
             }
@@ -501,7 +510,7 @@ module DropdownMenu =
                 _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
                 _ariaControls $"{config.id}-menu"
                 _dataOn ("click", $"${openSignal} = !${openSignal}")
-                _class "inline-flex min-h-9 items-center rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)]"
+                _class "inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)]"
                 config.label
             }
             div {
@@ -513,7 +522,7 @@ module DropdownMenu =
                 for item in config.items do
                     match item with
                     | Link(label, destination) ->
-                        a { _href (resolve destination); _role "menuitem"; _class "block rounded-[var(--fve-radius-control)] px-3 py-2 text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)]"; label }
+                        a { _href (resolve destination); _role "menuitem"; _class "block rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)]"; label }
                     | Action(label, expression, tone) ->
                         button {
                             _type "button"
@@ -521,8 +530,8 @@ module DropdownMenu =
                             _dataOn ("click", expression)
                             _class (
                                 match tone with
-                                | MenuTone.Default -> "block w-full rounded-[var(--fve-radius-control)] px-3 py-2 text-left text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)]"
-                                | MenuTone.Destructive -> "block w-full rounded-[var(--fve-radius-control)] px-3 py-2 text-left text-sm text-[var(--fve-critical-text)] hover:bg-[var(--fve-critical-subtle)]")
+                                | MenuTone.Default -> "block w-full rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)]"
+                                | MenuTone.Destructive -> "block w-full rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-critical-text)] hover:bg-[var(--fve-critical-subtle)]")
                             label
                         }
                     | Separator -> div { _role "separator"; _class "my-1 h-px bg-[var(--fve-border)]" }
@@ -536,26 +545,48 @@ type DialogConfig =
           title:string
           body:HtmlElement
           description:string option
-          footer:HtmlElement option }
+          footer:HtmlElement option
+          initialFocusId:string option }
 
 [<RequireQualifiedAccess>]
 module Dialog =
     let create id title body =
         if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable dialog ID is required."
         if String.IsNullOrWhiteSpace title then invalidArg (nameof title) "A dialog title is required."
-        { id = id; title = title; body = body; description = None; footer = None }
+        { id = id; title = title; body = body; description = None; footer = None; initialFocusId = None }
 
     let withDescription description (config:DialogConfig) = { config with description = Some description }
     let withFooter footer (config:DialogConfig) = { config with footer = Some footer }
+    let withInitialFocus initialFocusId (config:DialogConfig) = { config with initialFocusId = Some initialFocusId }
+
+    let trigger label (config:DialogConfig) =
+        let dialogId = ContractHtml.javascriptString config.id
+        let openExpression =
+            match config.initialFocusId with
+            | Some initialFocusId ->
+                let focusId = ContractHtml.javascriptString initialFocusId
+                $"document.getElementById({dialogId}).showModal(); queueMicrotask(() => document.getElementById({focusId}).focus())"
+            | None -> $"document.getElementById({dialogId}).showModal()"
+        Button.create label
+        |> Button.withAttributes [ _id $"{config.id}-trigger"; _ariaHaspopup "dialog"; _ariaControls config.id; _dataOn ("click", openExpression) ]
+        |> Button.render
+
+    let closeButton label (config:DialogConfig) =
+        let dialogId = ContractHtml.javascriptString config.id
+        Button.create label
+        |> Button.withAttributes [ _id $"{config.id}-close"; _dataOn ("click", $"document.getElementById({dialogId}).close()") ]
+        |> Button.render
 
     let render config =
         let titleId = $"{config.id}-title"
         let descriptionId = $"{config.id}-description"
+        let triggerId = ContractHtml.javascriptString $"{config.id}-trigger"
         dialog {
             _id config.id
             _ariaLabelledby titleId
             if config.description.IsSome then _ariaDescribedby descriptionId
-            _class "w-[min(32rem,calc(100%-2rem))] rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-slate-950/50"
+            _dataOn ("close", $"document.getElementById({triggerId}).focus()")
+            _class "m-auto w-[min(32rem,calc(100%-2rem))] rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-slate-950/50"
             div {
                 _class "p-6"
                 h2 { _id titleId; _class "text-lg font-semibold"; config.title }
@@ -675,7 +706,7 @@ module AppShell =
             _class (ContractHtml.classes [ ComponentsTheme.className config.theme; "grid min-h-[36rem] bg-[var(--fve-page)] text-[var(--fve-text)] lg:grid-cols-[16rem_1fr]" ])
             aside {
                 _class "hidden border-r border-[var(--fve-border)] bg-[var(--fve-surface)] p-4 lg:block"
-                strong { _class "block px-3 py-2 text-base"; config.productName }
+                strong { _class "block px-3 py-[var(--fve-control-padding-block)] text-base"; config.productName }
                 nav {
                     _ariaLabel "Primary"
                     _class "mt-5 grid gap-1"
@@ -685,9 +716,9 @@ module AppShell =
                             if item.destination = config.current then _ariaCurrent "page"
                             _class (
                                 if item.destination = config.current then
-                                    "rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] px-3 py-2 text-sm font-semibold text-[var(--fve-brand-text)]"
+                                    "rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-brand-text)]"
                                 else
-                                    "rounded-[var(--fve-radius-control)] px-3 py-2 text-sm text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)]")
+                                    "rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)]")
                             item.label
                         }
                 }
