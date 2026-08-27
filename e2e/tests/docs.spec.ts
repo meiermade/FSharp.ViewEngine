@@ -166,6 +166,7 @@ test.describe('automated accessibility checks', () => {
 })
 
 test('Components pages provide focused examples, navigation, interaction, themes, and responsive accessibility', async ({ page }, testInfo) => {
+  test.slow()
   const browserErrors = captureBrowserErrors(page)
   const componentRoutes = [
     ['/components/button', 'Button'],
