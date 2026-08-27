@@ -83,8 +83,8 @@ let tests =
         test "Navigation exposes the core learning path before integrations and project pages" {
             Expect.sequenceEqual
                 (Registry.navigation |> List.map _.label)
-                [ "Getting started"; "Core concepts"; "Integrations"; "FSharp.ViewEngine.Docs"; "FSharp.ViewEngine.Components"; "Project" ]
-                "core guidance precedes Components and project pages"
+                [ "Getting started"; "Core concepts"; "Integrations"; "FSharp.ViewEngine.Components"; "FSharp.ViewEngine.Docs"; "Project" ]
+                "general Components precede the specialized Docs toolkit and project pages"
 
             let rec findSection label sections =
                 sections
@@ -375,6 +375,7 @@ after"""
             Expect.stringContains overview "Browse components" "component catalog link"
             Expect.stringContains overview "Browse page examples" "page-example catalog link"
             Expect.isFalse (overview.Contains("Example content")) "overview omits the old fixture callout"
+            Expect.stringContains overview "rel=\"prev\" href=\"/components/versioning\"" "Docs follows the Components guides"
             Expect.stringContains overview "rel=\"next\" href=\"/docs/components/layouts\"" "overview continues to layouts"
 
             for registration in Showcase.componentRegistrations @ Showcase.pageExampleRegistrations do
@@ -485,11 +486,11 @@ after"""
             Expect.isFalse (allHtml.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
             Expect.stringContains allHtml "aria-current=\"page\"" "AppShell retains typed current destination"
             Expect.stringContains allHtml "--fve-brand-solid" "consumer theme overrides are documented"
-            Expect.stringContains overview "rel=\"prev\" href=\"/docs/page-examples/executable-specification\"" "Components follows executable Specs"
+            Expect.stringContains overview "rel=\"prev\" href=\"/extensions/tailwind-elements\"" "Components follows integrations"
             Expect.stringContains overview "rel=\"next\" href=\"/components/installation\"" "overview continues to installation"
             let versioning = render Components.versioningRegistration
             Expect.stringContains versioning "rel=\"prev\" href=\"/components/customization\"" "last guide follows customization"
-            Expect.stringContains versioning "rel=\"next\" href=\"/benchmarks\"" "Components precedes project evidence"
+            Expect.stringContains versioning "rel=\"next\" href=\"/docs\"" "Components precedes the specialized Docs toolkit"
         }
 
         test "Components Select owns branded presentation instead of native browser chrome" {

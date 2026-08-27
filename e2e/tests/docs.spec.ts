@@ -207,6 +207,8 @@ test('Components pages provide focused examples, navigation, interaction, themes
   }
 
   await page.goto('/components/select', { waitUntil: 'domcontentloaded' })
+  const packageNavOrder = await page.locator('#nav-fsharp-viewengine-components, #nav-fsharp-viewengine-docs').evaluateAll(elements => elements.map(element => element.id))
+  expect(packageNavOrder).toEqual(['nav-fsharp-viewengine-components', 'nav-fsharp-viewengine-docs'])
   await expect(page.locator('#nav-fsharp-viewengine-components')).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#nav-form-controls')).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#nav-components-select')).toHaveAttribute('data-selected', 'true')
@@ -649,6 +651,7 @@ test('inline prose links are visually identifiable and article pagers continue t
   const pager = page.getByRole('navigation', { name: 'Page navigation' })
   await expect(page.getByRole('link', { name: 'Browse components' })).toHaveAttribute('href', '/docs/components/layouts')
   await expect(page.getByRole('link', { name: 'Browse page examples' })).toHaveAttribute('href', '/docs/page-examples/documentation-site')
+  await expect(pager.getByRole('link', { name: /Previous Versioning/ })).toHaveAttribute('href', '/components/versioning')
   const next = pager.getByRole('link', { name: /Next Layouts/ })
   await expect(next).toBeVisible()
   await next.click()

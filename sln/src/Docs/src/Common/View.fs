@@ -155,12 +155,12 @@ module View =
         |> List.tryFindIndex (fun page -> page.id = activeId)
         |> Option.map (fun index ->
             let previous =
-                if index = 0 then pageLink "Executable specification page" "/docs/page-examples/executable-specification"
+                if index = 0 then pageLink "Tailwind Plus Elements" "/extensions/tailwind-elements"
                 else
                     let page = Components.allRegistrations[index - 1]
                     pageLink page.navLabel page.path
             let next =
-                if index = Components.allRegistrations.Length - 1 then pageLink "Benchmarks" "/benchmarks"
+                if index = Components.allRegistrations.Length - 1 then pageLink "FSharp.ViewEngine.Docs" "/docs"
                 else
                     let page = Components.allRegistrations[index + 1]
                     pageLink page.navLabel page.path
@@ -182,8 +182,8 @@ module View =
         | "datastar" -> Some(docsPager (pageLink "SVG" "/extensions/svg") (pageLink "HTMX" "/extensions/htmx"))
         | "htmx" -> Some(docsPager (pageLink "Datastar" "/extensions/datastar") (pageLink "Alpine" "/extensions/alpine"))
         | "alpine" -> Some(docsPager (pageLink "HTMX" "/extensions/htmx") (pageLink "Tailwind Plus Elements" "/extensions/tailwind-elements"))
-        | "tailwind-elements" -> Some(docsPager (pageLink "Alpine" "/extensions/alpine") (pageLink "FSharp.ViewEngine.Docs" "/docs"))
-        | "docs-overview" -> Some(docsPager None (pageLink "Layouts" "/docs/components/layouts"))
+        | "tailwind-elements" -> Some(docsPager (pageLink "Alpine" "/extensions/alpine") (pageLink "Components" "/components"))
+        | "docs-overview" -> Some(docsPager (pageLink "Versioning" "/components/versioning") (pageLink "Layouts" "/docs/components/layouts"))
         | "docs-layouts" -> Some(docsPager (pageLink "Overview" "/docs") (pageLink "Content" "/docs/components/content"))
         | "docs-content" -> Some(docsPager (pageLink "Layouts" "/docs/components/layouts") (pageLink "Navigation" "/docs/components/navigation"))
         | "docs-navigation" -> Some(docsPager (pageLink "Content" "/docs/components/content") (pageLink "Interactive examples" "/docs/components/interactive-examples"))
@@ -192,9 +192,9 @@ module View =
         | "docs-diagrams" -> Some(docsPager (pageLink "API reference components" "/docs/components/api-reference") (pageLink "Documentation site" "/docs/page-examples/documentation-site"))
         | "docs-page-documentation-site" -> Some(docsPager (pageLink "Diagrams" "/docs/components/diagrams") (pageLink "API reference page" "/docs/page-examples/api-reference"))
         | "docs-page-api-reference" -> Some(docsPager (pageLink "Documentation site" "/docs/page-examples/documentation-site") (pageLink "Executable specification page" "/docs/page-examples/executable-specification"))
-        | "docs-page-executable-specification" -> Some(docsPager (pageLink "API reference page" "/docs/page-examples/api-reference") (pageLink "Components" "/components"))
+        | "docs-page-executable-specification" -> Some(docsPager (pageLink "API reference page" "/docs/page-examples/api-reference") (pageLink "Benchmarks" "/benchmarks"))
         | componentId when componentId.StartsWith("components-", StringComparison.Ordinal) -> componentsPager componentId
-        | "benchmarks" -> Some(docsPager (pageLink "Versioning" "/components/versioning") (pageLink "Changelog" "/changelog"))
+        | "benchmarks" -> Some(docsPager (pageLink "Executable specification page" "/docs/page-examples/executable-specification") (pageLink "Changelog" "/changelog"))
         | "changelog" -> Some(docsPager (pageLink "Benchmarks" "/benchmarks") None)
         | _ -> None
 
