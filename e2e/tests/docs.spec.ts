@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const productionOrigin = 'https://fsharpviewengine.meiermade.com'
 
@@ -29,7 +29,7 @@ const routes = [
   { path: '/docs/page-examples/documentation-site', heading: 'Documentation site', layout: 'article' },
   { path: '/docs/page-examples/api-reference', heading: 'API reference page', layout: 'article' },
   { path: '/docs/page-examples/executable-specification', heading: 'Executable specification page', layout: 'article' },
-  { path: '/components/contract', heading: 'Components contract', layout: 'article' },
+  { path: '/components', heading: 'Components', layout: 'article' },
   { path: '/benchmarks', heading: 'Benchmarks', layout: 'article' },
   { path: '/changelog', heading: 'Changelog', layout: 'article' },
 ]
@@ -81,6 +81,11 @@ test('legacy Docs catalog routes remain aliases with canonical destinations', as
   }
 })
 
+test('the removed Components contract route returns not found', async ({ request }) => {
+  const response = await request.get('/components/contract')
+  expect(response.status()).toBe(404)
+})
+
 test('canonical routes expose valid same-origin links, assets, and lazy previews', async ({ page, request }) => {
   const checked = new Map<string, number>()
 
@@ -117,7 +122,7 @@ test.describe('automated accessibility checks', () => {
   }
 
   test('representative article and catalog routes pass WCAG A/AA scans', async ({ page }) => {
-    for (const route of ['/', '/getting-started/first-view', '/docs/components/content', '/components/contract']) {
+    for (const route of ['/', '/getting-started/first-view', '/docs/components/content', '/components']) {
       await page.goto(route, { waitUntil: 'domcontentloaded' })
       await scan(page, route)
     }
@@ -135,13 +140,13 @@ test.describe('automated accessibility checks', () => {
   })
 })
 
-test('Components contract renders semantic themes responsively without browser errors', async ({ page }, testInfo) => {
+test('Components documentation renders semantic themes responsively without browser errors', async ({ page }, testInfo) => {
   const browserErrors = captureBrowserErrors(page)
-  await page.goto('/components/contract', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components', { waitUntil: 'domcontentloaded' })
 
   const examples = page.locator('[data-docs-example="true"]')
-  await expect(examples).toHaveCount(6)
-  for (let index = 0; index < 6; index += 1) {
+  await expect(examples).toHaveCount(7)
+  for (let index = 0; index < 7; index += 1) {
     const example = examples.nth(index)
     const previewTab = example.getByRole('tab', { name: 'Preview' })
     const panelId = await previewTab.getAttribute('aria-controls')
@@ -149,6 +154,127 @@ test('Components contract renders semantic themes responsively without browser e
     await previewTab.click()
     await expect(page.locator(`#${panelId}`)).toBeVisible()
   }
+
+  const componentSurfaces = page.locator('.fve-components:visible')
+  await expect(componentSurfaces).toHaveCount(7)
+  await expect(componentSurfaces.locator('select')).toHaveCount(0)
+
+  const choiceSurface = componentSurfaces.nth(2)
+  const statusSelect = choiceSurface.getByRole('combobox', { name: 'Status' })
+  const statusListbox = choiceSurface.getByRole('listbox', { name: 'Status' })
+  await expect(statusSelect).toHaveAttribute('aria-expanded', 'false')
+  const activeStatusOption = async () => statusSelect.getAttribute('aria-activedescendant')
+  await statusSelect.click()
+  await expect(statusListbox).toBeVisible()
+  await expect(statusSelect).toBeFocused()
+  await expect.poll(activeStatusOption).toBe(await statusListbox.getByRole('option', { name: 'Active' }).getAttribute('id'))
+  await expect(statusListbox.getByRole('option', { name: 'Active' })).toHaveAttribute('data-active', 'true')
+  await statusListbox.getByRole('option', { name: 'Pending' }).click()
+  await expect(statusSelect).toContainText('Pending')
+  await expect(choiceSurface.locator('input[type="hidden"][name="status"]')).toHaveValue('pending')
+  await statusSelect.click()
+  await expect(statusSelect).toBeFocused()
+  await expect.poll(activeStatusOption).toBe(await statusListbox.getByRole('option', { name: 'Pending' }).getAttribute('id'))
+  await page.keyboard.press('End')
+  await expect.poll(activeStatusOption).toBe(await statusListbox.getByRole('option', { name: 'Scheduled' }).getAttribute('id'))
+  await page.keyboard.press('Enter')
+  await expect(statusSelect).toContainText('Scheduled')
+  await expect(statusSelect).toHaveAttribute('aria-expanded', 'false')
+  await expect(statusSelect).not.toHaveAttribute('aria-activedescendant')
+  await expect(choiceSurface.locator('input[type="hidden"][name="status"]')).toHaveValue('scheduled')
+  await statusSelect.press('s')
+  await statusSelect.press('c')
+  await expect(statusListbox).toBeVisible()
+  await expect(statusSelect).toBeFocused()
+  await expect.poll(activeStatusOption).toBe(await statusListbox.getByRole('option', { name: 'Scheduled' }).getAttribute('id'))
+  await page.keyboard.press('Escape')
+  await expect(statusListbox).toBeHidden()
+  await expect(statusSelect).toBeFocused()
+
+  const collectionSurface = componentSurfaces.nth(5)
+  const statusFilter = collectionSurface.getByRole('combobox', { name: 'Filter by status' })
+  const statusFilterListbox = collectionSurface.getByRole('listbox', { name: 'Filter by status' })
+  await statusFilter.press('s')
+  await expect.poll(() => statusFilter.getAttribute('aria-activedescendant')).toBe(await statusFilterListbox.getByRole('option', { name: 'Suspended' }).getAttribute('id'))
+  await statusFilter.press('s')
+  await expect.poll(() => statusFilter.getAttribute('aria-activedescendant')).toBe(await statusFilterListbox.getByRole('option', { name: 'Scheduled' }).getAttribute('id'))
+  await expect(statusFilter).toBeFocused()
+  await statusFilter.press('Escape')
+
+  const parentAccount = choiceSurface.getByRole('combobox', { name: 'Parent account' })
+  const accountListbox = choiceSurface.getByRole('listbox', { name: 'Parent account' })
+  const activeAccountOption = async () => parentAccount.getAttribute('aria-activedescendant')
+  await parentAccount.click()
+  await expect(accountListbox).toBeVisible()
+  await expect(parentAccount).toBeFocused()
+  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Operating' }).getAttribute('id'))
+  await page.keyboard.press('End')
+  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Tax reserve' }).getAttribute('id'))
+  await page.keyboard.press('Enter')
+  await expect(parentAccount).toHaveValue('Tax reserve')
+  await expect(choiceSurface.locator('input[type="hidden"][name="account"]')).toHaveValue('102')
+  await parentAccount.fill('oper')
+  await expect(accountListbox.getByRole('option', { name: 'Operating' })).toBeVisible()
+  await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toHaveCount(0)
+  await expect(parentAccount).toBeFocused()
+  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Operating' }).getAttribute('id'))
+  await expect(page.locator(`#${await activeAccountOption()}`)).toHaveAttribute('data-active', 'true')
+  await page.keyboard.press('Enter')
+  await expect(parentAccount).toHaveValue('Operating')
+  await expect(choiceSurface.locator('input[type="hidden"][name="account"]')).toHaveValue('101')
+  await parentAccount.fill('missing')
+  await expect(accountListbox.getByRole('status')).toHaveText('No matching options')
+  await expect(choiceSurface.locator('input[type="hidden"][name="account"]')).toHaveValue('')
+  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
+  await page.keyboard.press('Escape')
+  await expect(accountListbox).toBeHidden()
+  await expect(parentAccount).toBeFocused()
+
+  const controlSurface = componentSurfaces.nth(3)
+  const includeArchived = controlSurface.getByRole('checkbox', { name: 'Include archived accounts' })
+  await expect(includeArchived).not.toBeChecked()
+  await controlSurface.getByText('Include archived accounts', { exact: true }).click()
+  await expect(includeArchived).toBeChecked()
+  const notifications = controlSurface.getByRole('switch', { name: 'Posting notifications' })
+  await expect(notifications).toHaveAttribute('aria-checked', 'true')
+  await notifications.press('Space')
+  await expect(notifications).toHaveAttribute('aria-checked', 'false')
+  const compactRows = controlSurface.getByRole('button', { name: 'Compact rows' })
+  await expect(compactRows).toHaveAttribute('aria-pressed', 'true')
+  await compactRows.click()
+  await expect(compactRows).toHaveAttribute('aria-pressed', 'false')
+  const manualPosting = controlSurface.getByRole('radio', { name: 'Manual review' })
+  await controlSurface.getByText('Manual review', { exact: true }).click()
+  await expect(manualPosting).toBeChecked()
+
+  const menuSurface = componentSurfaces.nth(4)
+  const actionsTrigger = menuSurface.getByRole('button', { name: 'Actions' })
+  const actionsMenu = menuSurface.getByRole('menu', { name: 'Actions' })
+  await actionsTrigger.click()
+  await expect(actionsMenu).toBeVisible()
+  await expect(actionsMenu.getByRole('menuitem', { name: 'Account settings' })).toBeFocused()
+  await page.keyboard.press('End')
+  await expect(actionsMenu.getByRole('menuitem', { name: 'Delete account' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(actionsMenu).toBeHidden()
+  await expect(actionsTrigger).toBeFocused()
+
+  const dialogTrigger = page.getByRole('button', { name: 'Review account' })
+  const dialog = page.getByRole('dialog', { name: 'Review account' })
+  await dialogTrigger.click()
+  await expect(dialog).toBeVisible()
+  const dialogBox = await dialog.boundingBox()
+  expect(dialogBox).not.toBeNull()
+  expect(dialogBox!.x).toBeGreaterThan(0)
+  expect(dialogBox!.y).toBeGreaterThan(0)
+  await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(dialogTrigger).toBeFocused()
+  await dialogTrigger.click()
+  await dialog.getByRole('button', { name: 'Close' }).click()
+  await expect(dialog).toBeHidden()
+  await expect(dialogTrigger).toBeFocused()
 
   const duplicateIds = await page.locator('[id]').evaluateAll(elements => {
     const ids = elements.map(element => element.id)
@@ -161,16 +287,31 @@ test('Components contract renders semantic themes responsively without browser e
     .analyze()
   expect(previewAccessibility.violations).toEqual([])
 
-  const componentSurfaces = page.locator('.fve-components:visible')
-  await expect(componentSurfaces).toHaveCount(6)
   const lightPage = await componentSurfaces.first().evaluate(element =>
     getComputedStyle(element).getPropertyValue('--fve-page').trim(),
   )
-  const brand = await componentSurfaces.first().evaluate(element =>
-    getComputedStyle(element).getPropertyValue('--fve-brand-solid').trim(),
-  )
+  const brandRoles = (surface: Locator) => surface.evaluate(element => {
+    const styles = getComputedStyle(element)
+    return ['subtle', 'solid', 'hover', 'text', 'ring'].map(role =>
+      styles.getPropertyValue(`--fve-brand-${role}`).trim(),
+    )
+  })
+  const lightBrandRoles = await brandRoles(componentSurfaces.first())
+  const comfortableControl = componentSurfaces.first().getByRole('button', { name: 'Create account' })
+  const compactControl = componentSurfaces.last().getByRole('button', { name: 'Account' })
+  const comfortableDensity = await comfortableControl.evaluate(element => ({
+    height: getComputedStyle(element).height,
+    paddingTop: getComputedStyle(element).paddingTop,
+  }))
+  const compactDensity = await compactControl.evaluate(element => ({
+    height: getComputedStyle(element).height,
+    paddingTop: getComputedStyle(element).paddingTop,
+  }))
   expect(lightPage).toBeTruthy()
-  expect(brand).toBeTruthy()
+  expect(lightBrandRoles.every(Boolean)).toBe(true)
+  expect(comfortableDensity.paddingTop).not.toBe(compactDensity.paddingTop)
+  expect(parseFloat(comfortableDensity.paddingTop)).toBeGreaterThan(parseFloat(compactDensity.paddingTop))
+  expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 
   await page.getByRole('button', { name: 'Choose color theme' }).click()
@@ -178,16 +319,27 @@ test('Components contract renders semantic themes responsively without browser e
   const darkPage = await componentSurfaces.first().evaluate(element =>
     getComputedStyle(element).getPropertyValue('--fve-page').trim(),
   )
+  const darkBrandRoles = await brandRoles(componentSurfaces.first())
   expect(darkPage).not.toBe(lightPage)
-  await testInfo.attach('components-contract-desktop-dark', {
+  for (let index = 0; index < darkBrandRoles.length; index += 1) {
+    expect(darkBrandRoles[index]).toBeTruthy()
+    expect(darkBrandRoles[index]).not.toBe(lightBrandRoles[index])
+  }
+  const selectedDestination = componentSurfaces.last().locator('[aria-current="page"]')
+  expect(await selectedDestination.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)')
+  const primaryAction = componentSurfaces.first().getByRole('button', { name: 'Create account' })
+  const primaryRestingBackground = await primaryAction.evaluate(element => getComputedStyle(element).backgroundColor)
+  await primaryAction.hover()
+  expect(await primaryAction.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(primaryRestingBackground)
+  await testInfo.attach('components-desktop-dark', {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png',
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
-  await expect(page.getByRole('heading', { level: 1, name: 'Components contract' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Components' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await testInfo.attach('components-contract-mobile-dark', {
+  await testInfo.attach('components-mobile-dark', {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png',
   })

@@ -176,9 +176,9 @@ module View =
         | "docs-diagrams" -> Some(docsPager (pageLink "API reference components" "/docs/components/api-reference") (pageLink "Documentation site" "/docs/page-examples/documentation-site"))
         | "docs-page-documentation-site" -> Some(docsPager (pageLink "Diagrams" "/docs/components/diagrams") (pageLink "API reference page" "/docs/page-examples/api-reference"))
         | "docs-page-api-reference" -> Some(docsPager (pageLink "Documentation site" "/docs/page-examples/documentation-site") (pageLink "Executable specification page" "/docs/page-examples/executable-specification"))
-        | "docs-page-executable-specification" -> Some(docsPager (pageLink "API reference page" "/docs/page-examples/api-reference") (pageLink "Components contract" "/components/contract"))
-        | "components-contract" -> Some(docsPager (pageLink "Executable specification page" "/docs/page-examples/executable-specification") (pageLink "Benchmarks" "/benchmarks"))
-        | "benchmarks" -> Some(docsPager (pageLink "Components contract" "/components/contract") (pageLink "Changelog" "/changelog"))
+        | "docs-page-executable-specification" -> Some(docsPager (pageLink "API reference page" "/docs/page-examples/api-reference") (pageLink "Components" "/components"))
+        | "components-overview" -> Some(docsPager (pageLink "Executable specification page" "/docs/page-examples/executable-specification") (pageLink "Benchmarks" "/benchmarks"))
+        | "benchmarks" -> Some(docsPager (pageLink "Components" "/components") (pageLink "Changelog" "/changelog"))
         | "changelog" -> Some(docsPager (pageLink "Benchmarks" "/benchmarks") None)
         | _ -> None
 

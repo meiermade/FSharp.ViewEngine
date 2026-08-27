@@ -1,5 +1,6 @@
 namespace Docs.Pages
 
+open System
 open Docs.Common
 open FSharp.ViewEngine
 open FSharp.ViewEngine.Components
@@ -10,6 +11,7 @@ module Components =
         | Active
         | Pending
         | Suspended
+        | Scheduled
 
     type Destination =
         | Accounts
@@ -26,6 +28,7 @@ module Components =
         | Active -> "active"
         | Pending -> "pending"
         | Suspended -> "suspended"
+        | Scheduled -> "scheduled"
 
     let private destinationUrl = function
         | Accounts -> "https://ledger.example.test/accounts"
@@ -82,7 +85,8 @@ module Components =
                 match row.status with
                 | Active -> Status.positive "Active"
                 | Pending -> Status.warning "Pending"
-                | Suspended -> Status.create "Suspended" |> Status.withTone Tone.Critical |> Status.render)
+                | Suspended -> Status.create "Suspended" |> Status.withTone Tone.Critical |> Status.render
+                | Scheduled -> Status.create "Scheduled" |> Status.withTone Tone.Informative |> Status.render)
             Table.column "Balance" (fun row -> text $"${row.balance:N0}")
             |> Table.alignEnd
         ] rows
@@ -91,8 +95,9 @@ module Components =
 
     let private statusOptions =
         [ Select.option Active "Active"
-          Select.option Pending "Pending" |> Select.describe "Requires review before activation"
-          Select.option Suspended "Suspended" ]
+          Select.option Pending "Pending"
+          Select.option Suspended "Suspended"
+          Select.option Scheduled "Scheduled" ]
 
     // docs-example:start select-combobox
     let statusSelect =
@@ -101,14 +106,21 @@ module Components =
         |> Select.withSelected Active
         |> Select.render
 
-    let accountCombobox =
-        Combobox.create "account" "Parent account" string [
-            Select.option 101 "Operating"
-            Select.option 102 "Tax reserve"
-        ]
+    let private accounts = [ 101, "Operating"; 102, "Tax reserve" ]
+    let private accountOptions values = values |> List.map (fun (value, label) -> Select.option value label)
+
+    let private accountComboboxConfig =
+        Combobox.create "account" "Parent account" string (accountOptions accounts)
         |> Combobox.withPlaceholder "Search accounts"
-        |> Combobox.withSearch (ComboboxSearch.Remote "/accounts/search")
-        |> Combobox.render
+        |> Combobox.withSearch (ComboboxSearch.Remote "/components/accounts/search")
+
+    let accountCombobox = accountComboboxConfig |> Combobox.render
+
+    let accountComboboxOptions query =
+        accounts
+        |> List.filter (fun (_, label) -> String.IsNullOrWhiteSpace query || label.Contains(query, StringComparison.OrdinalIgnoreCase))
+        |> accountOptions
+        |> fun options -> accountComboboxConfig |> Combobox.withOptions options |> Combobox.renderOptions
 
     let choicePreview =
         themedSurface (
@@ -118,6 +130,41 @@ module Components =
             })
     // docs-example:end select-combobox
 
+    // docs-example:start choice-controls
+    let includeArchived =
+        Checkbox.create "includeArchived" "Include archived accounts"
+        |> Checkbox.withDescription "Archived accounts remain read-only."
+        |> Checkbox.render
+
+    let postingNotifications =
+        Switch.create "postingNotifications" "Posting notifications"
+        |> Switch.withDescription "Notify account owners after entries post."
+        |> Switch.withChecked
+        |> Switch.render
+
+    let compactRows =
+        ToggleButton.create "components-compact-rows" "Compact rows"
+        |> ToggleButton.pressed
+        |> ToggleButton.render
+
+    let postingMode =
+        RadioGroup.create "postingMode" "Posting mode" id [
+            RadioGroup.option "automatic" "Automatic"
+            RadioGroup.option "manual" "Manual review"
+        ]
+        |> RadioGroup.withDescription "Choose how approved entries reach the ledger."
+        |> RadioGroup.withSelected "automatic"
+        |> RadioGroup.render
+
+    let choiceControlsPreview =
+        themedSurface (
+            div {
+                _class "grid max-w-xl gap-6"
+                div { _class "grid gap-4 sm:grid-cols-2"; [ includeArchived; postingNotifications ] }
+                div { _class "flex flex-wrap items-start gap-6"; [ compactRows; postingMode ] }
+            })
+    // docs-example:end choice-controls
+
     let private accountMenuItems =
         [ MenuItem.link Settings "Account settings"
           MenuItem.separator
@@ -125,23 +172,22 @@ module Components =
 
     // docs-example:start menu-dialog
     let actionMenu =
-        DropdownMenu.create "contract-menu-actions" "Actions" accountMenuItems
+        DropdownMenu.create "components-menu-actions" "Actions" accountMenuItems
         |> DropdownMenu.render destinationUrl
 
-    let deleteButton =
-        Button.create "Delete"
-        |> Button.withVariant ButtonVariant.Destructive
-        |> Button.render
+    let dialogConfig =
+        Dialog.create "review-account-dialog" "Review account" (
+            p { "Confirm the account settings before they are applied." })
+        |> Dialog.withDescription "The dialog returns focus to its trigger when it closes."
+        |> Dialog.withInitialFocus "review-account-dialog-close"
 
-    let deleteDialog =
-        Dialog.create "delete-account" "Delete account" (
-            p { "This permanently removes Operating and its imported entries." })
-        |> Dialog.withDescription "This action cannot be undone."
-        |> Dialog.withFooter (
-            div {
-                _class "flex gap-3"
-                [ Button.secondary "Cancel"; deleteButton ]
-            })
+    let reviewDialogTrigger =
+        dialogConfig
+        |> Dialog.trigger "Review account"
+
+    let reviewDialog =
+        dialogConfig
+        |> Dialog.withFooter (dialogConfig |> Dialog.closeButton "Close")
         |> Dialog.render
     // docs-example:end menu-dialog
 
@@ -159,7 +205,7 @@ module Components =
         }
 
     let private detailMenu =
-        DropdownMenu.create "contract-detail-actions" "Actions" accountMenuItems
+        DropdownMenu.create "components-detail-actions" "Actions" accountMenuItems
         |> DropdownMenu.render destinationUrl
 
     // docs-example:start collection-detail
@@ -194,7 +240,7 @@ module Components =
         }
 
     let shellAccountMenu =
-        DropdownMenu.create "contract-shell-actions" "Account" accountMenuItems
+        DropdownMenu.create "components-shell-actions" "Account" accountMenuItems
         |> DropdownMenu.render destinationUrl
 
     let shellPreview =
@@ -238,74 +284,84 @@ AppShell.create productName current navigation content
 }"""
 
     let private menuDialogPreview =
-        themedSurface (div { _class "flex items-center gap-3"; [ actionMenu; Button.secondary "Review dialog contract"; deleteDialog ] })
+        themedSurface (div { _class "flex items-center gap-3"; [ actionMenu; reviewDialogTrigger; reviewDialog ] })
 
     let private collectionDetailPreview =
         themedSurface (div { _class "grid gap-8"; [ collectionPage; detailPage ] })
 
     let private nodes =
-        [ [ Paragraph [
-                Strong [ Text "Pre-release contract." ]
-                Text " This executable page defines the intended public surface of FSharp.ViewEngine.Components before the package is published. The compiled examples are the contract input for implementation; they are not claims that the production components already exist." ] ];
+        [ [ Paragraph [ Text "FSharp.ViewEngine.Components provides accessible, server-rendered components with semantic Tailwind styling and Datastar interaction. Components are ordinary F# values and functions that compose with the existing HtmlElement builders." ] ];
 
-          section "principles" "API Principles";
-          [ Paragraph [ Text "Components is an opinionated FSharp.ViewEngine library for semantic server-rendered HTML, Tailwind v4 styling, and Datastar interaction. It uses ordinary F# values and functions rather than introducing another markup language." ]
+          section "using-components" "Using Components";
+          [ Paragraph [ Text "Required semantic inputs are constructor arguments, while optional presentation and behavior are added through immutable pipeline functions." ]
             UnorderedList [
-                [ Strong [ Text "Required inputs are constructor arguments." ]; Text " A Select cannot exist without its form name, accessible label, value encoder, and options; AppShell cannot exist without product identity, current destination, navigation, and content." ]
-                [ Strong [ Text "Optional behavior is piped." ]; Text " Functions such as withLabel, withSelected, withTheme, and withAttributes return updated immutable configuration." ]
-                [ Strong [ Text "Common cases are short." ]; Text " Convenience functions such as Button.primary and Status.positive render the ordinary case directly." ]
-                [ Strong [ Text "Custom content stays HTML." ]; Text " Leading content, cells, dialog bodies, toolbars, actions, and page content use HtmlElement instead of component-specific child DSLs." ]
-                [ Strong [ Text "Closed choices are typed." ]; Text " Variants, tones, sizes, density, radius, selected values, and destinations use discriminated unions or generic values rather than arbitrary visual strings." ] ] ];
+                [ Strong [ Text "Required inputs stay visible." ]; Text " Form controls require their name and accessible label; AppShell requires product identity, navigation, current destination, and content." ]
+                [ Strong [ Text "Optional behavior is piped." ]; Text " Functions such as withSelected, withTheme, and withAttributes return updated configuration." ]
+                [ Strong [ Text "Common cases stay concise." ]; Text " Helpers such as Button.primary and Status.positive render the ordinary case directly." ]
+                [ Strong [ Text "Custom content stays HTML." ]; Text " Cells, dialog bodies, toolbars, actions, and page content remain ordinary HtmlElement values." ]
+                [ Strong [ Text "Closed choices are typed." ]; Text " Variants, tones, sizes, density, radius, selected values, and destinations use discriminated unions or generic values rather than visual strings." ] ] ];
 
-          section "call-sites" "Compiled Call Sites";
-          example "button-status" "Convenience and configuration" "Common actions and statuses use concise helpers; typed configuration handles variants and size without a custom computation expression." buttonStatusPreview;
-          example "table" "Typed table" "Columns render consumer-owned row data and destinations while the component owns semantic table structure and shared presentation." (themedSurface accountTable);
-          example "select-combobox" "Select and Combobox" "Select models a finite non-editable choice. Combobox separately models an editable search and an application-owned remote endpoint." choicePreview;
-          example "menu-dialog" "Menu and dialog" "Menu destinations and trusted Datastar actions remain consumer inputs. Dialog bodies and footers remain ordinary HtmlElement slots." menuDialogPreview;
-          example "collection-detail" "Collection and detail compositions" "Page compositions arrange package primitives without taking ownership of queries, domain formatting, routes, or authorization." collectionDetailPreview;
-          example "app-shell" "Typed application shell" "The advanced shell call site retains a destination type and resolver, accepts product-owned navigation and branding, and applies one semantic theme at the root." shellPreview;
+          section "actions-feedback" "Actions and feedback";
+          example "button-status" "Button and status" "Use concise helpers for common actions and statuses, or pipe typed configuration for variants and sizes." buttonStatusPreview;
 
-          section "state-ownership" "Datastar and State Ownership";
-          [ Paragraph [ Text "Datastar is the sole component interaction model. Component-local signals represent ephemeral interaction such as open state, active option, and query text. Bound form values are intentionally submitted. Authoritative options, routes, permissions, queries, validation, persistence, and actions remain server-owned." ]
-            Paragraph [ Text "Interactive renderers SHALL generate stable instance IDs and local signal names, preserve focus through representative element patches, and document the morph region expected from remote actions. Applications SHALL treat Datastar expressions and endpoints as trusted application code rather than interpolate untrusted input." ] ];
+          section "data-display" "Data display";
+          example "table" "Table" "Define typed columns over application-owned row data while Table supplies semantic structure and shared presentation." (themedSurface accountTable);
 
-          section "accessibility" "Accessibility Contract";
-          [ Paragraph [ Text "Semantic native elements are the starting point. Select, Combobox, DropdownMenu, Dialog, and AppShell navigation each retain distinct roles and keyboard contracts. Public APIs SHALL require accessible labels where visible content cannot supply them and SHALL prevent escape-hatch attributes from silently removing required semantics." ]
-            Paragraph [ Text "Each interactive implementation requires browser evidence for pointer and keyboard behavior, accessible names and relationships, focus entry/restoration, disabled and pending states, multiple instances, and representative post-morph behavior." ] ];
+          section "form-controls" "Form controls";
+          example "select-combobox" "Select and Combobox" "Use Select for a finite non-editable choice and Combobox when people need to search or enter a query before selecting a submitted value." choicePreview;
+          example "choice-controls" "Checkbox, Switch, ToggleButton, and RadioGroup" "Choose the control whose checked, on/off, pressed, or grouped-choice semantics match the interaction." choiceControlsPreview;
 
-          section "theming" "Semantic Theming";
-          [ Paragraph [ Text "A ComponentsTheme is applied once at a component subtree or AppShell. Components consume semantic CSS variables for page, surface, text, border, brand, positive, warning, critical, and informative roles. A component variant such as Primary or Positive selects a role; it does not accept a raw palette shade such as emerald-600." ]
+          section "menus-overlays" "Menus and overlays";
+          example "menu-dialog" "Dropdown menu and dialog" "DropdownMenu presents actions or destinations. Dialog connects its trigger, initial focus, close actions, Escape behavior, and focus restoration." menuDialogPreview;
+
+          section "compositions" "Compositions";
+          example "collection-detail" "Collection and detail" "Arrange shared primitives into collection and detail pages while the application retains queries, formatting, routes, and authorization." collectionDetailPreview;
+          example "app-shell" "Application shell" "Keep destinations typed, resolve their URLs in the application, and apply one semantic theme to navigation and content." shellPreview;
+
+          section "state-ownership" "Interaction and server state";
+          [ Paragraph [ Text "Datastar is the component interaction model. Local signals hold ephemeral state such as whether a menu is open, while selected form values and editable queries are submitted intentionally. Applications continue to own authoritative options, routes, permissions, validation, persistence, and actions." ]
+            Paragraph [ Text "Remote Combobox results use a stable listbox region: filter application-owned values on the server, apply them with withOptions, and return Combobox.renderOptions. The input, submitted selection, and active-descendant relationship remain stable while Datastar morphs the options." ]
+            Paragraph [ Text "Treat Datastar expressions and endpoints as trusted application code and never interpolate untrusted content into executable expressions." ] ];
+
+          section "accessibility" "Accessibility";
+          [ Paragraph [ Text "Branded controls own their visible presentation while preserving the semantics appropriate to each interaction. Select uses a select-only combobox and listbox; Checkbox, Switch, ToggleButton, RadioGroup, DropdownMenu, Dialog, and AppShell navigation retain their distinct roles and keyboard behavior." ]
+            Paragraph [ Text "Select and Combobox keep DOM focus on the combobox while aria-activedescendant identifies the visually active option. Select typeahead buffers rapid characters for prefix matching and cycles options when the same character is repeated." ]
+            Paragraph [ Text "Accessible labels are required where visible content cannot provide them. Package-owned structure, form attributes, ARIA relationships, and Datastar bindings cannot be replaced through generic attribute customization." ]
+            Paragraph [ Text "Interactive components support pointer and keyboard operation, visible focus, disabled and pending states, multiple instances, and stable behavior after representative Datastar morphs." ] ];
+
+          section "theming" "Theming and density";
+          [ Paragraph [ Text "Apply ComponentsTheme once to a component subtree or AppShell. Components consume semantic CSS variables for page, surface, text, border, brand, positive, warning, critical, and informative roles. Variants such as Primary and Positive select semantic roles rather than raw palette shades." ]
             CodeBlock("fsharp", themeExample)
-            Paragraph [ Text "The package supplies coherent light and dark defaults. Consumers may override documented semantic variables in their own theme class while retaining the component state model." ] ];
+            Paragraph [ Text "Built-in themes provide coordinated light and dark colors for default, selected, hover, and focus states. Radius and density settings apply consistently across controls and navigation. Override documented semantic variables in an application theme when product branding requires it." ] ];
 
-          section "tailwind" "Tailwind v4 Distribution";
-          [ Paragraph [ Text "Compiled assemblies cannot be discovered as Tailwind source. Components therefore ships an importable Tailwind v4 CSS contract containing semantic variables and an explicit @source inline() manifest of complete package-owned class names. It never constructs utility names from caller strings." ]
+          section "tailwind" "Tailwind CSS setup";
+          [ Paragraph [ Text "Import the Components stylesheet after Tailwind CSS. The stylesheet includes semantic variables and an explicit Tailwind v4 source manifest because utility classes inside compiled assemblies are not discovered automatically." ]
             CodeBlock("css", tailwindExample)
-            Paragraph [ Text "The contract fixture builds this import from an otherwise clean consumer and asserts both package utilities and a consumer brand override are emitted. The package-spine task will determine the final NuGet content path and copy behavior without changing this consumer contract." ] ];
+            Paragraph [ Text "The manifest lists complete package-owned utility names, so Tailwind can emit component styles without scanning application call sites or constructing classes from consumer strings." ] ];
 
-          section "escape-hatches" "Slots and Escape Hatches";
-          [ Paragraph [ Text "Components may expose withAttributes, withClass, and named HtmlElement slots where consumers have a demonstrated composition need. Package-owned classes and required ARIA/Datastar attributes remain authoritative. Raw class additions are appended rather than used as a replacement theme API." ]
-            Paragraph [ Text "Typed destinations are resolved by an application-supplied function. Form values are encoded by an application-supplied function and validated again on the server. Trusted Datastar expressions are explicit edge inputs; arbitrary user content is never accepted as executable component configuration." ] ];
+          section "customization" "Customization";
+          [ Paragraph [ Text "Use withAttributes, withClass, and named HtmlElement slots where a component exposes them. Renderers retain ownership of structural, form, ARIA, Datastar, and base class attributes so customization cannot duplicate or remove required behavior." ]
+            Paragraph [ Text "Applications provide destination resolvers and form-value encoders. Submitted values still require server validation, and trusted Datastar expressions remain explicit edge inputs." ] ];
 
-          section "compatibility" "Versioning and Compatibility";
-          [ Paragraph [ Text "FSharp.ViewEngine.Components versions independently using Components-specific calendar versions and repository tags. Each release declares a minimum compatible FSharp.ViewEngine version. Components does not depend on FSharp.ViewEngine.Docs; the documentation application references both packages to host examples." ]
-            Paragraph [ Text "The first public release establishes the package-validation baseline. Additive modifiers and union cases require deliberate compatibility review; breaking public-contract changes require a new Components version and migration guidance rather than compatibility wrappers in Core or Docs." ] ];
+          section "versioning" "Versioning";
+          [ Paragraph [ Text "FSharp.ViewEngine.Components versions independently using Components-specific calendar versions and repository tags. Each release declares its minimum compatible FSharp.ViewEngine version." ]
+            Paragraph [ Text "Additive modifiers and union cases receive compatibility review. Breaking API changes require a new Components version and migration guidance rather than compatibility wrappers in Core or Docs." ] ];
 
-          section "non-goals" "Non-goals";
+          section "application-responsibilities" "Application responsibilities";
           [ UnorderedList [
-                [ Text "No Alpine component implementation, adapter, or parallel interaction runtime." ]
-                [ Text "No Tailwind Plus Elements dependency and no redistribution of commercial Tailwind Plus source." ]
-                [ Text "No generic client-side data-table or chart engine." ]
-                [ Text "No product routes, authorization rules, domain formatting, query behavior, or durable state in Components." ]
-                [ Text "No custom component computation-expression DSL in the initial API." ] ] ] ]
+                [ Text "Render browser-native controls directly with the FSharp.ViewEngine DSL when native presentation is intentional." ]
+                [ Text "Keep product routes, authorization, domain formatting, query behavior, and durable state in the application." ]
+                [ Text "Keep table querying, sorting, filtering, pagination, chart data, and drawing behavior application-owned." ]
+                [ Text "Use Datastar for component interaction rather than adding a parallel Alpine or client-side component runtime." ]
+                [ Text "Compose custom content with HtmlElement values instead of introducing a separate component markup language." ] ] ] ]
         |> List.concat
 
     let page =
-        { id = "components-contract"
-          path = "/components/contract"
+        { id = "components-overview"
+          path = "/components"
           aliases = []
-          navLabel = "Contract"
+          navLabel = "Overview"
           category = "FSharp.ViewEngine.Components"
-          title = "Components contract"
-          browserTitle = "Components contract - FSharp.ViewEngine"
+          title = "Components"
+          browserTitle = "Components - FSharp.ViewEngine"
           nodes = nodes }
