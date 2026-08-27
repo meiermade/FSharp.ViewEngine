@@ -27,7 +27,11 @@
   <ItemGroup>
     <Compile Include="Foundation.fs" />
     <Compile Include="Button.fs" />
+    <Compile Include="IconButton.fs" />
+    <Compile Include="Badge.fs" />
     <Compile Include="Status.fs" />
+    <Compile Include="LoadingIndicator.fs" />
+    <Compile Include="EmptyState.fs" />
     <Compile Include="Table.fs" />
     <Compile Include="Select.fs" />
     <Compile Include="Combobox.fs" />

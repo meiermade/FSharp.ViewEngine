@@ -32,7 +32,11 @@ const routes = [
   { path: '/components', heading: 'Components', layout: 'article' },
   { path: '/components/installation', heading: 'Installation', layout: 'article' },
   { path: '/components/button', heading: 'Button', layout: 'article' },
+  { path: '/components/icon-button', heading: 'Icon button', layout: 'article' },
+  { path: '/components/badge', heading: 'Badge', layout: 'article' },
   { path: '/components/status', heading: 'Status', layout: 'article' },
+  { path: '/components/loading-indicator', heading: 'Loading indicator', layout: 'article' },
+  { path: '/components/empty-state', heading: 'Empty state', layout: 'article' },
   { path: '/components/table', heading: 'Table', layout: 'article' },
   { path: '/components/select', heading: 'Select', layout: 'article' },
   { path: '/components/combobox', heading: 'Combobox', layout: 'article' },
@@ -165,7 +169,11 @@ test('Components pages provide focused examples, navigation, interaction, themes
   const browserErrors = captureBrowserErrors(page)
   const componentRoutes = [
     ['/components/button', 'Button'],
+    ['/components/icon-button', 'Icon button'],
+    ['/components/badge', 'Badge'],
     ['/components/status', 'Status'],
+    ['/components/loading-indicator', 'Loading indicator'],
+    ['/components/empty-state', 'Empty state'],
     ['/components/table', 'Table'],
     ['/components/select', 'Select'],
     ['/components/combobox', 'Combobox'],
@@ -243,6 +251,33 @@ test('Components pages provide focused examples, navigation, interaction, themes
   const primaryRestingBackground = await comfortableControl.evaluate(element => getComputedStyle(element).backgroundColor)
   await comfortableControl.hover()
   expect(await comfortableControl.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(primaryRestingBackground)
+  const pendingButton = buttonSurface.getByRole('button', { name: 'Sync accounts' })
+  await expect(pendingButton).toBeDisabled()
+  await expect(pendingButton).toHaveAttribute('aria-busy', 'true')
+  await expect(pendingButton).toContainText('Sync accounts')
+  await expect(buttonSurface.getByRole('button', { name: 'Delete account' })).toBeDisabled()
+
+  const iconButtonSurface = await openPreview('/components/icon-button', 'Icon button')
+  const addAccount = iconButtonSurface.getByRole('button', { name: 'Add account' })
+  await addAccount.focus()
+  await expect(addAccount).toBeFocused()
+  await expect(addAccount.locator('[aria-hidden="true"]')).toBeVisible()
+  const refreshingAccounts = iconButtonSurface.getByRole('button', { name: 'Refresh accounts' })
+  await expect(refreshingAccounts).toBeDisabled()
+  await expect(refreshingAccounts).toHaveAttribute('aria-busy', 'true')
+
+  const badgeSurface = await openPreview('/components/badge', 'Badge')
+  await expect(badgeSurface.getByText('Internal', { exact: true })).toBeVisible()
+  await expect(badgeSurface.getByText('Reconciled', { exact: true })).toBeVisible()
+
+  const loadingSurface = await openPreview('/components/loading-indicator', 'Loading indicator')
+  await expect(loadingSurface.getByRole('status')).toHaveCount(2)
+  await expect(loadingSurface.getByText('Loading account balances')).toHaveClass(/sr-only/)
+  await expect(loadingSurface.getByText('Refreshing transactions')).toBeVisible()
+
+  const emptyStateSurface = await openPreview('/components/empty-state', 'Empty state')
+  await expect(emptyStateSurface.getByText('No accounts yet', { exact: true })).toBeVisible()
+  await expect(emptyStateSurface.getByRole('button', { name: 'Create account' })).toBeEnabled()
 
   const selectSurface = await openPreview('/components/select', 'Select')
   const statusSelect = selectSurface.getByRole('combobox', { name: 'Status' })
@@ -349,7 +384,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
   await expect(appShellSurface.locator('[aria-current="page"]')).toBeVisible()
 
-  for (const path of ['/components', '/components/select', '/components/dialog', '/components/app-shell']) {
+  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/select', '/components/dialog', '/components/app-shell']) {
     await page.goto(path, { waitUntil: 'domcontentloaded' })
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -360,6 +395,8 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await page.goto('/components', { waitUntil: 'domcontentloaded' })
   const catalog = page.locator('.docs-catalog-grid')
   await expect(catalog.getByRole('link', { name: /ACTIONS Button/ })).toHaveAttribute('href', '/components/button')
+  await expect(catalog.getByRole('link', { name: /ACTIONS Icon button/ })).toHaveAttribute('href', '/components/icon-button')
+  await expect(catalog.getByRole('link', { name: /FEEDBACK Empty state/ })).toHaveAttribute('href', '/components/empty-state')
   await expect(catalog.getByRole('link', { name: /COMPOSITIONS App shell/ })).toHaveAttribute('href', '/components/app-shell')
   await testInfo.attach('components-catalog-desktop-dark', {
     body: await page.screenshot({ fullPage: true }),

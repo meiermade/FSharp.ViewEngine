@@ -56,6 +56,10 @@ The manifest contains the renderer-owned utility inventory and semantic CSS vari
 }
 ```
 
+## Foundations
+
+Button, IconButton, Badge, Status, LoadingIndicator, and EmptyState share the semantic theme, tone, size, radius, density, light-mode, and dark-mode contracts where applicable. IconButton and LoadingIndicator require accessible labels. Pending buttons retain their action name, expose busy state, and prevent duplicate activation.
+
 ## Interaction and state
 
 Components use Datastar signals for ephemeral open, query, focus, and selection presentation. Applications remain responsible for durable state, authorization, validation, routing, and server actions.

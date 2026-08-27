@@ -57,13 +57,61 @@ module Components =
         |> Button.withSize ControlSize.Small
         |> Button.render
 
+    let pendingSyncButton =
+        Button.create "Sync accounts"
+        |> Button.withVariant ButtonVariant.Primary
+        |> Button.pending
+        |> Button.render
+
+    let disabledDeleteButton =
+        Button.create "Delete account"
+        |> Button.withVariant ButtonVariant.Destructive
+        |> Button.disabled
+        |> Button.render
+
     let buttonPreview =
         themedSurface (
             div {
                 _class "flex flex-wrap items-center gap-3"
-                [ Button.primary "Create account"; importButton ]
+                [ Button.primary "Create account"; importButton; pendingSyncButton; disabledDeleteButton ]
             })
     // docs-example:end button
+
+    let private plusIcon =
+        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path d="M10 4.25a.75.75 0 0 1 .75.75v4.25H15a.75.75 0 0 1 0 1.5h-4.25V15a.75.75 0 0 1-1.5 0v-4.25H5a.75.75 0 0 1 0-1.5h4.25V5a.75.75 0 0 1 .75-.75Z"/></svg>"""
+
+    let private refreshIcon =
+        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M15.312 4.683A7.25 7.25 0 1 0 17.25 10a.75.75 0 0 0-1.5 0 5.75 5.75 0 1 1-1.604-3.982H12.5a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 .75-.75v-3.5a.75.75 0 0 0-1.5 0v1.415Z" clip-rule="evenodd"/></svg>"""
+
+    // docs-example:start icon-button
+    let addAccountIconButton =
+        IconButton.create "Add account" plusIcon
+        |> IconButton.withVariant ButtonVariant.Primary
+        |> IconButton.render
+
+    let refreshingIconButton =
+        IconButton.create "Refresh accounts" refreshIcon
+        |> IconButton.pending
+        |> IconButton.render
+
+    let iconButtonPreview =
+        themedSurface (
+            div {
+                _class "flex flex-wrap items-center gap-3"
+                [ addAccountIconButton; refreshingIconButton ]
+            })
+    // docs-example:end icon-button
+
+    // docs-example:start badge
+    let badgePreview =
+        themedSurface (
+            div {
+                _class "flex flex-wrap items-center gap-3"
+                [ Badge.create "Internal" |> Badge.render
+                  Badge.create "New" |> Badge.withTone Tone.Brand |> Badge.render
+                  Badge.create "Reconciled" |> Badge.withTone Tone.Positive |> Badge.render ]
+            })
+    // docs-example:end badge
 
     // docs-example:start status
     let reviewStatus =
@@ -78,6 +126,30 @@ module Components =
                 [ Status.positive "Active"; reviewStatus ]
             })
     // docs-example:end status
+
+    // docs-example:start loading-indicator
+    let loadingIndicatorPreview =
+        themedSurface (
+            div {
+                _class "flex flex-wrap items-center gap-5"
+                [ LoadingIndicator.create "Loading account balances"
+                  |> LoadingIndicator.withSize ControlSize.Small
+                  |> LoadingIndicator.render
+                  LoadingIndicator.create "Refreshing transactions"
+                  |> LoadingIndicator.withSize ControlSize.Large
+                  |> LoadingIndicator.withVisibleLabel
+                  |> LoadingIndicator.render ]
+            })
+    // docs-example:end loading-indicator
+
+    // docs-example:start empty-state
+    let emptyStatePreview =
+        EmptyState.create "No accounts yet" "Create an account to start tracking balances and entries."
+        |> EmptyState.withIcon plusIcon
+        |> EmptyState.withActions (Button.primary "Create account")
+        |> EmptyState.render
+        |> themedSurface
+    // docs-example:end empty-state
 
     let private rows =
         [ { id = 101; name = "Operating"; status = Active; balance = 42800M }
@@ -299,7 +371,11 @@ module Components =
         registration "components-installation" "/components/installation" "Installation" "Installation"
 
     let buttonRegistration = registration "components-button" "/components/button" "Button" "Button"
+    let iconButtonRegistration = registration "components-icon-button" "/components/icon-button" "Icon button" "Icon button"
+    let badgeRegistration = registration "components-badge" "/components/badge" "Badge" "Badge"
     let statusRegistration = registration "components-status" "/components/status" "Status" "Status"
+    let loadingIndicatorRegistration = registration "components-loading-indicator" "/components/loading-indicator" "Loading indicator" "Loading indicator"
+    let emptyStateRegistration = registration "components-empty-state" "/components/empty-state" "Empty state" "Empty state"
     let tableRegistration = registration "components-table" "/components/table" "Table" "Table"
     let selectRegistration = registration "components-select" "/components/select" "Select" "Select"
     let comboboxRegistration = registration "components-combobox" "/components/combobox" "Combobox" "Combobox"
@@ -319,7 +395,13 @@ module Components =
     let customizationRegistration = registration "components-customization" "/components/customization" "Customization" "Customization"
     let versioningRegistration = registration "components-versioning" "/components/versioning" "Versioning" "Versioning"
 
-    let actionRegistrations = [ buttonRegistration; statusRegistration ]
+    let actionRegistrations =
+        [ buttonRegistration
+          iconButtonRegistration
+          badgeRegistration
+          statusRegistration
+          loadingIndicatorRegistration
+          emptyStateRegistration ]
     let dataDisplayRegistrations = [ tableRegistration ]
     let formControlRegistrations =
         [ selectRegistration
@@ -394,7 +476,11 @@ AppShell.create productName current navigation content
         div {
             _class "docs-catalog-grid"
             catalogLink "/components/button" "ACTIONS" "Button" "Primary, secondary, destructive, disabled, pending, and sized actions."
+            catalogLink "/components/icon-button" "ACTIONS" "Icon button" "Compact icon-only actions with a required accessible name."
+            catalogLink "/components/badge" "METADATA" "Badge" "Compact categorical metadata using semantic tones."
             catalogLink "/components/status" "FEEDBACK" "Status" "Compact semantic state with accessible text and restrained color."
+            catalogLink "/components/loading-indicator" "FEEDBACK" "Loading indicator" "Accessible indeterminate progress with visible or hidden text."
+            catalogLink "/components/empty-state" "FEEDBACK" "Empty state" "Intentional no-content guidance with optional icon and actions."
             catalogLink "/components/table" "DATA DISPLAY" "Table" "Typed columns over application-owned row data."
             catalogLink "/components/select" "FORM CONTROLS" "Select" "A branded finite-choice control with APG keyboard behavior."
             catalogLink "/components/combobox" "FORM CONTROLS" "Combobox" "Editable local or remote search with stable submitted identity."
@@ -442,12 +528,33 @@ AppShell.create productName current navigation content
             docsSection "usage" "Usage" [
                 docsParagraph "Use Button.primary for the common case or start with Button.create and pipe typed configuration. Buttons render ordinary button semantics and remain application-owned actions."
                 docsBullets [ "Primary identifies the single leading action in a region."; "Secondary and destructive variants express hierarchy or consequence without raw palette names."; "Disabled and pending states prevent interaction while retaining an accessible label." ] ]
-            docsSection "accessibility" "Accessibility" [ docsParagraph "Supply action text that describes the result. Button preserves keyboard activation and visible focus, and pending content does not remove the accessible name." ] ]
+            docsSection "pending" "Pending actions" [ docsParagraph "Button.pending keeps the action label visible, adds an indeterminate loading glyph, exposes aria-busy, and uses native disabled behavior to prevent pointer, Enter, Space, and duplicate form activation." ]
+            docsSection "accessibility" "Accessibility" [ docsParagraph "Supply action text that describes the result. Button preserves native keyboard activation and visible focus when available, while pending content never removes the accessible name." ] ]
+
+    let iconButtonPage =
+        componentPage iconButtonRegistration "Render a compact icon-only action whose accessible name is a required constructor input." "icon-button" iconButtonPreview [
+            docsSection "usage" "Usage" [ docsParagraph "Pass independently authored icon markup as ordinary HtmlElement content. Use IconButton only when the symbol is familiar in context; otherwise prefer Button with visible action text." ]
+            docsSection "accessibility" "Accessible name and state" [ docsParagraph "The required label becomes the button's accessible name while supplied icon content is decorative. Disabled and pending modifiers prevent activation; pending retains the same name and exposes busy state." ] ]
+
+    let badgePage =
+        componentPage badgeRegistration "Label compact categorical metadata with semantic tone and visible text." "badge" badgePreview [
+            docsSection "when-to-use" "Badge or Status" [ docsParagraph "Use Badge for categories, ownership, release labels, or other compact metadata. Use Status when the text describes operational state such as Active, Pending, or Failed." ]
+            docsSection "semantics" "Meaning beyond color" [ docsParagraph "Choose a semantic Tone and keep the label concise. The visible text communicates the category without relying on color, and optional leading content remains ordinary HtmlElement markup." ] ]
 
     let statusPage =
         componentPage statusRegistration "Present compact semantic state with accessible text and restrained color." "status" statusPreview [
             docsSection "usage" "Usage" [ docsParagraph "Use concise helpers for common tones or pipe Status.withTone when the state is application-specific. Status communicates meaning through text as well as semantic color." ]
             docsSection "semantics" "Choosing a tone" [ docsBullets [ "Positive confirms a successful or healthy state."; "Warning identifies a state that needs attention."; "Critical communicates failure or risk."; "Informative provides neutral operational context." ] ] ]
+
+    let loadingIndicatorPage =
+        componentPage loadingIndicatorRegistration "Communicate indeterminate progress with an accessible label and theme-compatible motion." "loading-indicator" loadingIndicatorPreview [
+            docsSection "labels" "Visible or visually hidden labels" [ docsParagraph "LoadingIndicator.create requires text that describes what is loading. The label is visually hidden by default for compact contexts; use LoadingIndicator.withVisibleLabel when progress needs visible explanation." ]
+            docsSection "accessibility" "Progress feedback" [ docsParagraph "The indicator uses polite status semantics and keeps its label in the accessibility tree. Its glyph follows the semantic brand theme and disables animation when reduced motion is requested." ] ]
+
+    let emptyStatePage =
+        componentPage emptyStateRegistration "Explain why a region has no content and offer an appropriate next action." "empty-state" emptyStatePreview [
+            docsSection "content" "Useful empty guidance" [ docsParagraph "Use a specific title and description that explain the current state. Optional decorative icon and action slots accept ordinary HtmlElement values, so applications retain destinations, authorization, and behavior." ]
+            docsSection "composition" "Placement and actions" [ docsParagraph "Render EmptyState where populated content would normally appear. Keep the primary recovery action visible, omit unauthorized actions on the server, and avoid using an empty state as a loading indicator." ] ]
 
     let tablePage =
         componentPage tableRegistration "Define typed columns over application-owned rows while Table supplies semantic structure and shared presentation." "table" (themedSurface accountTable) [
@@ -554,7 +661,11 @@ AppShell.create productName current navigation content
         [ overviewRegistration.path, overviewPage
           installationRegistration.path, installationPage
           buttonRegistration.path, buttonPage
+          iconButtonRegistration.path, iconButtonPage
+          badgeRegistration.path, badgePage
           statusRegistration.path, statusPage
+          loadingIndicatorRegistration.path, loadingIndicatorPage
+          emptyStateRegistration.path, emptyStatePage
           tableRegistration.path, tablePage
           selectRegistration.path, selectPage
           comboboxRegistration.path, comboboxPage
