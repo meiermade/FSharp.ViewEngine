@@ -38,7 +38,7 @@ let private expectedPaths =
         "/docs/page-examples/documentation-site"
         "/docs/page-examples/api-reference"
         "/docs/page-examples/executable-specification"
-        "/components/contract"
+        "/components"
         "/benchmarks"
         "/changelog"
     ]
@@ -62,7 +62,7 @@ let tests =
             Expect.sequenceEqual
                 (Registry.navigation |> List.map _.label)
                 [ "Getting started"; "Core concepts"; "Integrations"; "FSharp.ViewEngine.Docs"; "FSharp.ViewEngine.Components"; "Project" ]
-                "core guidance precedes package contracts and project pages"
+                "core guidance precedes Components and project pages"
 
             let rec findSection label sections =
                 sections
@@ -98,7 +98,7 @@ let tests =
                 (section "Page examples")
                 [ "Documentation site"; "API reference"; "Executable specification" ]
                 "page examples are grouped separately"
-            Expect.sequenceEqual (section "FSharp.ViewEngine.Components") [ "Contract" ] "pre-release Components contract is first-class"
+            Expect.sequenceEqual (section "FSharp.ViewEngine.Components") [ "Overview" ] "Components documentation is first-class"
             Expect.sequenceEqual (section "Project") [ "Benchmarks"; "Changelog" ] "project order"
         }
 
@@ -372,42 +372,47 @@ after"""
             Expect.stringContains specification "spec-browser-frame" "specification preview uses a browser frame"
         }
 
-        test "Components publishes an executable typed public contract" {
+        test "Components publishes consumer-facing documentation with executable examples" {
             let html = Components.page |> View.document Registry.navigation |> Render.toHtmlDocString
 
-            Expect.stringContains html "Pre-release contract" "unreleased status is explicit"
-            Expect.stringContains html "ordinary F# values and functions" "API philosophy"
-            Expect.stringContains html "Required inputs are constructor arguments" "required input policy"
+            Expect.stringContains html "provides accessible, server-rendered components" "consumer-facing introduction"
+            Expect.stringContains html "Using Components" "usage guidance"
+            Expect.stringContains html "Required inputs stay visible" "required input policy"
             Expect.stringContains html "Optional behavior is piped" "configuration policy"
             Expect.stringContains html "Custom content stays HTML" "slot policy"
             Expect.stringContains html "Closed choices are typed" "typed variant policy"
-            Expect.stringContains html "Datastar is the sole component interaction model" "interaction boundary"
-            Expect.stringContains html "A ComponentsTheme is applied once" "theme boundary"
-            Expect.stringContains html "@source inline()" "Tailwind distribution contract"
+            for heading in [ "Actions and feedback"; "Data display"; "Form controls"; "Menus and overlays"; "Compositions" ] do
+                Expect.stringContains html heading $"component category {heading}"
+            Expect.stringContains html "Interaction and server state" "interaction guide"
+            Expect.stringContains html "Theming and density" "theme guide"
+            Expect.stringContains html "Tailwind CSS setup" "Tailwind setup guide"
+            Expect.stringContains html "Application responsibilities" "application boundary guide"
+            Expect.stringContains html "explicit Tailwind v4 source manifest" "Tailwind source manifest"
             Expect.stringContains html "versions independently" "version policy"
             Expect.stringContains html "minimum compatible FSharp.ViewEngine version" "Core compatibility policy"
-            Expect.stringContains html "No Alpine component implementation" "Alpine non-goal"
-            Expect.stringContains html "No custom component computation-expression DSL" "custom CE non-goal"
-            Expect.isFalse (html.Contains("veSelect {")) "contract does not introduce a component CE"
+            Expect.isFalse (html.Contains("Pre-release contract")) "release-process framing is absent"
+            Expect.isFalse (html.Contains("Compiled Call Sites")) "examples are not framed as implementation evidence"
+            Expect.isFalse (html.Contains("package-spine task")) "internal task language is absent"
+            Expect.isFalse (html.Contains("veSelect {")) "Components does not introduce a component CE"
             Expect.isFalse (html.Contains("color &quot;emerald-600&quot;")) "ordinary API does not accept raw palette strings"
 
             let examples = html.Split([| "data-docs-example=\"true\"" |], System.StringSplitOptions.None).Length - 1
-            Expect.equal examples 7 "all contract capability groups use code-first examples"
+            Expect.equal examples 7 "component categories use code-first examples"
             for source in [
                 "Button.primary &quot;Create account&quot;"
                 "Table.create &quot;Accounts&quot;"
                 "Select.create &quot;status&quot; &quot;Status&quot; statusValue statusOptions"
                 "Combobox.create &quot;account&quot; &quot;Parent account&quot; string"
-                "Combobox.withSearch (ComboboxSearch.Remote &quot;/components/contract/accounts/search&quot;)"
+                "Combobox.withSearch (ComboboxSearch.Remote &quot;/components/accounts/search&quot;)"
                 "Combobox.renderOptions"
                 "Checkbox.create &quot;includeArchived&quot; &quot;Include archived accounts&quot;"
                 "Switch.create &quot;postingNotifications&quot; &quot;Posting notifications&quot;"
-                "ToggleButton.create &quot;contract-compact-rows&quot; &quot;Compact rows&quot;"
+                "ToggleButton.create &quot;components-compact-rows&quot; &quot;Compact rows&quot;"
                 "RadioGroup.create &quot;postingMode&quot; &quot;Posting mode&quot; id"
-                "DropdownMenu.create &quot;contract-menu-actions&quot; &quot;Actions&quot;"
-                "Dialog.create &quot;review-contract-dialog&quot; &quot;Review dialog contract&quot;"
-                "Dialog.withInitialFocus &quot;review-contract-dialog-close&quot;"
-                "Dialog.trigger &quot;Review dialog contract&quot;"
+                "DropdownMenu.create &quot;components-menu-actions&quot; &quot;Actions&quot;"
+                "Dialog.create &quot;review-account-dialog&quot; &quot;Review account&quot;"
+                "Dialog.withInitialFocus &quot;review-account-dialog-close&quot;"
+                "Dialog.trigger &quot;Review account&quot;"
                 "Dialog.closeButton &quot;Close&quot;"
                 "Collection.create &quot;Accounts&quot; accountTable"
                 "Detail.create &quot;Operating&quot;"
@@ -419,15 +424,15 @@ after"""
             Expect.stringContains html "aria-pressed=\"true\"" "ToggleButton preserves pressed semantics"
             Expect.stringContains html "type=\"radio\"" "RadioGroup preserves form semantics internally"
             Expect.isFalse (html.Contains("NativeSelect.create")) "the package exposes no NativeSelect API"
-            Expect.stringContains html "id=\"review-contract-dialog-trigger\"" "Dialog renders its connected trigger"
-            Expect.stringContains html "data-on:close=\"document.getElementById(&quot;review-contract-dialog-trigger&quot;).focus()\"" "Dialog close restores trigger focus"
-            Expect.isFalse (html.Contains("Select.describe")) "the contract has no unobservable option-description modifier"
-            Expect.stringContains html "data-signals=\"{_contract_menu_actions_open: false}" "menu IDs become valid local signal tokens"
-            Expect.isFalse (html.Contains("_contract-menu-actions_open")) "DOM IDs are not copied unsafely into expressions"
-            Expect.stringContains html "aria-current=\"page\"" "compiled AppShell retains typed current destination"
+            Expect.stringContains html "id=\"review-account-dialog-trigger\"" "Dialog renders its connected trigger"
+            Expect.stringContains html "data-on:close=\"document.getElementById(&quot;review-account-dialog-trigger&quot;).focus()\"" "Dialog close restores trigger focus"
+            Expect.isFalse (html.Contains("Select.describe")) "Select has no unobservable option-description modifier"
+            Expect.stringContains html "data-signals=\"{_components_menu_actions_open: false}" "menu IDs become valid local signal tokens"
+            Expect.isFalse (html.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
+            Expect.stringContains html "aria-current=\"page\"" "AppShell retains typed current destination"
             Expect.stringContains html "--fve-brand-solid" "consumer theme overrides are documented"
-            Expect.stringContains html "rel=\"prev\" href=\"/docs/page-examples/executable-specification\"" "contract follows executable Specs"
-            Expect.stringContains html "rel=\"next\" href=\"/benchmarks\"" "contract continues to project evidence"
+            Expect.stringContains html "rel=\"prev\" href=\"/docs/page-examples/executable-specification\"" "Components follows executable Specs"
+            Expect.stringContains html "rel=\"next\" href=\"/benchmarks\"" "Components precedes project evidence"
         }
 
         test "Components Select owns branded presentation instead of native browser chrome" {

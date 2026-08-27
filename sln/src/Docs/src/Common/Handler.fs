@@ -55,6 +55,6 @@ module Handler =
         choose [
             route "/sitemap.xml" >=> setHttpHeader "Content-Type" "application/xml; charset=utf-8" >=> setBodyFromString sitemap
             route "/robots.txt" >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8" >=> setBodyFromString robots
-            route "/components/contract/accounts/search" >=> componentAccountSearch
+            route "/components/accounts/search" >=> componentAccountSearch
             choose (previewRoutes @ pageRoutes)
         ]

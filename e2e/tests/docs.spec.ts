@@ -29,7 +29,7 @@ const routes = [
   { path: '/docs/page-examples/documentation-site', heading: 'Documentation site', layout: 'article' },
   { path: '/docs/page-examples/api-reference', heading: 'API reference page', layout: 'article' },
   { path: '/docs/page-examples/executable-specification', heading: 'Executable specification page', layout: 'article' },
-  { path: '/components/contract', heading: 'Components contract', layout: 'article' },
+  { path: '/components', heading: 'Components', layout: 'article' },
   { path: '/benchmarks', heading: 'Benchmarks', layout: 'article' },
   { path: '/changelog', heading: 'Changelog', layout: 'article' },
 ]
@@ -81,6 +81,11 @@ test('legacy Docs catalog routes remain aliases with canonical destinations', as
   }
 })
 
+test('the removed Components contract route returns not found', async ({ request }) => {
+  const response = await request.get('/components/contract')
+  expect(response.status()).toBe(404)
+})
+
 test('canonical routes expose valid same-origin links, assets, and lazy previews', async ({ page, request }) => {
   const checked = new Map<string, number>()
 
@@ -117,7 +122,7 @@ test.describe('automated accessibility checks', () => {
   }
 
   test('representative article and catalog routes pass WCAG A/AA scans', async ({ page }) => {
-    for (const route of ['/', '/getting-started/first-view', '/docs/components/content', '/components/contract']) {
+    for (const route of ['/', '/getting-started/first-view', '/docs/components/content', '/components']) {
       await page.goto(route, { waitUntil: 'domcontentloaded' })
       await scan(page, route)
     }
@@ -135,9 +140,9 @@ test.describe('automated accessibility checks', () => {
   })
 })
 
-test('Components contract renders semantic themes responsively without browser errors', async ({ page }, testInfo) => {
+test('Components documentation renders semantic themes responsively without browser errors', async ({ page }, testInfo) => {
   const browserErrors = captureBrowserErrors(page)
-  await page.goto('/components/contract', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components', { waitUntil: 'domcontentloaded' })
 
   const examples = page.locator('[data-docs-example="true"]')
   await expect(examples).toHaveCount(7)
@@ -233,8 +238,8 @@ test('Components contract renders semantic themes responsively without browser e
   await expect(actionsMenu).toBeHidden()
   await expect(actionsTrigger).toBeFocused()
 
-  const dialogTrigger = page.getByRole('button', { name: 'Review dialog contract' })
-  const dialog = page.getByRole('dialog', { name: 'Review dialog contract' })
+  const dialogTrigger = page.getByRole('button', { name: 'Review account' })
+  const dialog = page.getByRole('dialog', { name: 'Review account' })
   await dialogTrigger.click()
   await expect(dialog).toBeVisible()
   const dialogBox = await dialog.boundingBox()
@@ -305,15 +310,15 @@ test('Components contract renders semantic themes responsively without browser e
   const primaryRestingBackground = await primaryAction.evaluate(element => getComputedStyle(element).backgroundColor)
   await primaryAction.hover()
   expect(await primaryAction.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(primaryRestingBackground)
-  await testInfo.attach('components-contract-desktop-dark', {
+  await testInfo.attach('components-desktop-dark', {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png',
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
-  await expect(page.getByRole('heading', { level: 1, name: 'Components contract' })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Components' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await testInfo.attach('components-contract-mobile-dark', {
+  await testInfo.attach('components-mobile-dark', {
     body: await page.screenshot({ fullPage: true }),
     contentType: 'image/png',
   })
