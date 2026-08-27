@@ -1,6 +1,7 @@
 namespace FSharp.ViewEngine.Components
 
 open System
+open System.Text
 open System.Text.RegularExpressions
 open FSharp.ViewEngine
 open type Html
@@ -92,6 +93,13 @@ module private ContractHtml =
     let signalToken value =
         let token = Regex.Replace(value, "[^A-Za-z0-9]+", "_").Trim('_')
         if String.IsNullOrEmpty token then "component" else token.ToLowerInvariant()
+
+    let optionToken (value:string) =
+        value
+        |> Encoding.UTF8.GetBytes
+        |> Array.map (fun character -> character.ToString("x2"))
+        |> String.concat ""
+        |> (+) "v"
 
     let toneClasses = function
         | Tone.Neutral -> "bg-[var(--fve-neutral-subtle)] text-[var(--fve-neutral-text)] ring-[var(--fve-border)]"
@@ -354,6 +362,11 @@ module Select =
         let openSignal = $"_{instanceId}_open"
         let valueSignal = $"{instanceId}_value"
         let labelSignal = $"_{instanceId}_label"
+        let activeSignal = $"_{instanceId}_active"
+        let typeaheadSignal = $"_{instanceId}_typeahead"
+        let typeaheadTimeSignal = $"_{instanceId}_typeahead_time"
+        let optionId (choice:SelectOption<_>) =
+            $"{fieldId}-option-{choice.value |> config.encode |> ContractHtml.optionToken}"
         let selectedChoice = config.options |> List.tryFind (fun option -> Some option.value = config.selected)
         let selectedValue = selectedChoice |> Option.map (fun option -> config.encode option.value) |> Option.defaultValue ""
         let selectedLabel =
@@ -361,20 +374,46 @@ module Select =
             |> Option.map _.label
             |> Option.orElse config.placeholder
             |> Option.defaultValue "Select an option"
-        let firstOption = $"document.querySelector('#{listboxId} [role=option]:not(:disabled)')"
-        let lastOption = $"document.querySelector('#{listboxId} [role=option]:not(:disabled):last-of-type')"
+        let initialActiveId =
+            selectedChoice
+            |> Option.filter (fun choice -> choice.disabled |> not)
+            |> Option.orElseWith (fun () -> config.options |> List.tryFind (fun choice -> choice.disabled |> not))
+            |> Option.map optionId
+            |> Option.defaultValue ""
+        let enabledOptions = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)'))"
+        let firstOption = $"{enabledOptions}.at(0)"
+        let lastOption = $"{enabledOptions}.at(-1)"
         let selectedOption = $"document.querySelector('#{listboxId} [aria-selected=true]:not(:disabled)')"
-        let enabledOptions = "Array.from(el.querySelectorAll('[role=option]:not(:disabled)'))"
-        let currentIndex = $"{enabledOptions}.indexOf(document.activeElement)"
-        let moveNext = $"evt.preventDefault(), {enabledOptions}.at(({currentIndex} + 1) %% {enabledOptions}.length)?.focus()"
-        let movePrevious = $"evt.preventDefault(), {enabledOptions}.at(({currentIndex} - 1 + {enabledOptions}.length) %% {enabledOptions}.length)?.focus()"
+        let currentIndex = $"{enabledOptions}.findIndex(item => item.id == ${activeSignal})"
+        let scrollToActive = $"queueMicrotask(() => document.getElementById(${activeSignal})?.scrollIntoView({{block: 'nearest'}}))"
+        let activate optionExpression = $"${activeSignal} = ({optionExpression})?.id || '', {scrollToActive}"
+        let moveActive offset =
+            let missingIndex = if offset > 0 then -1 else 0
+            $"evt.preventDefault(), ${openSignal} = true, {enabledOptions}.length && (${activeSignal} = {enabledOptions}.at((({currentIndex} < 0 ? {missingIndex} : {currentIndex}) + {offset} + {enabledOptions}.length) %% {enabledOptions}.length)?.id || '', {scrollToActive})"
+        let searchText = $"(Array.from(${typeaheadSignal}).every(character => character == ${typeaheadSignal}[0]) ? ${typeaheadSignal}[0] : ${typeaheadSignal})"
+        let startIndex = $"Math.max(0, {currentIndex} + 1)"
+        let orderedOptions = $"{enabledOptions}.slice({startIndex}).concat({enabledOptions}.slice(0, {startIndex}))"
+        let typeaheadMatch = $"{orderedOptions}.find(item => item.dataset.fveOptionLabel.startsWith({searchText}))"
+        let typeahead =
+            $"evt.key.length == 1 && evt.key != ' ' && (evt.preventDefault(), ${typeaheadSignal} = Date.now() - ${typeaheadTimeSignal} > 700 ? evt.key.toLowerCase() : ${typeaheadSignal} + evt.key.toLowerCase(), ${typeaheadTimeSignal} = Date.now(), ${openSignal} = true, ${activeSignal} = ({typeaheadMatch})?.id || ${activeSignal}, {scrollToActive})"
+        let selectedOrFirst = $"{selectedOption} || {firstOption}"
+        let keydown =
+            String.concat "; " [
+                $"evt.key == 'ArrowDown' && ({moveActive 1})"
+                $"evt.key == 'ArrowUp' && ({moveActive -1})"
+                $"evt.key == 'Home' && (evt.preventDefault(), ${openSignal} = true, {activate firstOption})"
+                $"evt.key == 'End' && (evt.preventDefault(), ${openSignal} = true, {activate lastOption})"
+                $"(evt.key == 'Enter' || evt.key == ' ') && (evt.preventDefault(), ${openSignal} && ${activeSignal} ? document.getElementById(${activeSignal})?.click() : (${openSignal} = true, {activate selectedOrFirst}))"
+                $"evt.key == 'Escape' && (evt.preventDefault(), ${openSignal} = false, ${activeSignal} = ({selectedOrFirst})?.id || '', ${typeaheadSignal} = '')"
+                $"evt.key == 'Tab' && (${openSignal} = false, ${activeSignal} = ({selectedOrFirst})?.id || '', ${typeaheadSignal} = '')"
+                typeahead ]
         let describedBy =
             [ if config.description.IsSome then descriptionId
               if config.validation.IsSome then validationId ]
             |> String.concat " "
         div {
             _class "relative grid gap-1.5"
-            _dataSignals $"{{{openSignal}: false, {valueSignal}: {ContractHtml.javascriptString selectedValue}, {labelSignal}: {ContractHtml.javascriptString selectedLabel}}}"
+            _dataSignals $"{{{openSignal}: false, {valueSignal}: {ContractHtml.javascriptString selectedValue}, {labelSignal}: {ContractHtml.javascriptString selectedLabel}, {activeSignal}: {ContractHtml.javascriptString initialActiveId}, {typeaheadSignal}: '', {typeaheadTimeSignal}: 0}}"
             label {
                 _id labelId
                 _for triggerId
@@ -399,12 +438,13 @@ module Select =
                 _ariaLabelledby labelId
                 _ariaExpanded false
                 _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
+                _dataAttr ("aria-activedescendant", $"${openSignal} && document.getElementById(${activeSignal}) ? ${activeSignal} : null")
                 if String.IsNullOrEmpty describedBy |> not then _ariaDescribedby describedBy
                 _ariaInvalid config.validation.IsSome
-                _dataOn ("click", [ "stop" ], $"${openSignal} = !${openSignal}; ${openSignal} && queueMicrotask(() => ({selectedOption} || {firstOption})?.focus())")
-                _dataOn ("keydown", $"evt.key == 'ArrowDown' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => ({selectedOption} || {firstOption})?.focus())); evt.key == 'ArrowUp' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => ({selectedOption} || {lastOption})?.focus())); evt.key == 'Home' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {firstOption}?.focus())); evt.key == 'End' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {lastOption}?.focus())); evt.key.length == 1 && evt.key != ' ' && (${openSignal} = true, queueMicrotask(() => (Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).find(item => item.textContent.trim().toLowerCase().startsWith(evt.key.toLowerCase())) || {firstOption})?.focus()))")
+                _dataOn ("click", [ "stop" ], $"document.getElementById('{triggerId}').focus(); ${openSignal} = !${openSignal}; ${openSignal} && queueMicrotask(() => (!document.getElementById(${activeSignal}) && (${activeSignal} = ({selectedOrFirst})?.id || ''), document.getElementById(${activeSignal})?.scrollIntoView({{block: 'nearest'}})))")
+                _dataOn ("keydown", keydown)
                 _class "group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
-                for attribute in ContractHtml.safeAttributes [ "id"; "type"; "name"; "value"; "role"; "aria-haspopup"; "aria-controls"; "aria-labelledby"; "aria-expanded"; "aria-describedby"; "aria-invalid"; "data-bind:"; "data-attr:"; "data-on:"; "class" ] config.attributes do attribute
+                for attribute in ContractHtml.safeAttributes [ "id"; "type"; "name"; "value"; "role"; "aria-haspopup"; "aria-controls"; "aria-labelledby"; "aria-expanded"; "aria-activedescendant"; "aria-describedby"; "aria-invalid"; "data-bind:"; "data-attr:"; "data-on:"; "class" ] config.attributes do attribute
                 span {
                     _class "min-w-0 truncate"
                     _dataText $"${labelSignal}"
@@ -417,24 +457,27 @@ module Select =
                 _role "listbox"
                 _ariaLabelledby labelId
                 _dataShow $"${openSignal}"
-                _dataOn ("click", [ "outside" ], $"${openSignal} = false")
-                _dataOn ("keydown", $"evt.key == 'Escape' && (evt.preventDefault(), ${openSignal} = false, document.getElementById('{triggerId}').focus()); evt.key == 'ArrowDown' && ({moveNext}); evt.key == 'ArrowUp' && ({movePrevious}); evt.key == 'Home' && (evt.preventDefault(), {firstOption}?.focus()); evt.key == 'End' && (evt.preventDefault(), {lastOption}?.focus()); evt.key == 'Tab' && (${openSignal} = false); evt.key.length == 1 && (Array.from(el.querySelectorAll('[role=option]:not(:disabled)')).find(item => item.textContent.trim().toLowerCase().startsWith(evt.key.toLowerCase())) || document.activeElement).focus()")
+                _dataOn ("click", [ "outside" ], $"${openSignal} = false; ${activeSignal} = ({selectedOrFirst})?.id || ''; ${typeaheadSignal} = ''")
                 _style "display:none"
                 _class "absolute left-0 top-full z-30 mt-1 max-h-60 w-full overflow-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] p-1 shadow-lg ring-1 ring-[var(--fve-border)]"
                 for choice in config.options do
                     let encodedValue = config.encode choice.value
+                    let choiceId = optionId choice
                     button {
-                        _id $"{fieldId}-option-{ContractHtml.signalToken encodedValue}"
+                        _id choiceId
                         _type "button"
                         _role "option"
                         _tabindex -1
                         _disabled choice.disabled
                         _ariaDisabled choice.disabled
                         _ariaSelected (config.selected = Some choice.value)
+                        _attr ("data-fve-option-label", choice.label.ToLowerInvariant())
                         _dataAttr ("aria-selected", $"${valueSignal} == {ContractHtml.javascriptString encodedValue} ? 'true' : 'false'")
+                        _dataAttr ("data-active", $"${activeSignal} == {ContractHtml.javascriptString choiceId} ? 'true' : null")
                         if choice.disabled |> not then
-                            _dataOn ("click", $"${valueSignal} = {ContractHtml.javascriptString encodedValue}; ${labelSignal} = {ContractHtml.javascriptString choice.label}; ${openSignal} = false; document.getElementById('{triggerId}').focus()")
-                        _class "flex w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-surface-hover)] aria-selected:bg-[var(--fve-brand-subtle)] aria-selected:text-[var(--fve-brand-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                            _dataOn ("mousedown", "evt.preventDefault()")
+                            _dataOn ("click", $"${activeSignal} = {ContractHtml.javascriptString choiceId}; ${valueSignal} = {ContractHtml.javascriptString encodedValue}; ${labelSignal} = {ContractHtml.javascriptString choice.label}; ${typeaheadSignal} = ''; ${openSignal} = false; document.getElementById('{triggerId}').focus()")
+                        _class "flex w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-surface-hover)] data-[active=true]:bg-[var(--fve-surface-hover)] data-[active=true]:ring-2 data-[active=true]:ring-inset data-[active=true]:ring-[var(--fve-brand-ring)] aria-selected:bg-[var(--fve-brand-subtle)] aria-selected:text-[var(--fve-brand-text)] disabled:cursor-not-allowed disabled:opacity-50"
                         span { _class "min-w-0 truncate"; choice.label }
                         span {
                             _ariaHidden "true"
@@ -515,12 +558,17 @@ module Combobox =
             | ComboboxSearch.Static -> $"_{instanceId}_query"
             | ComboboxSearch.Remote _ -> $"{instanceId}_query"
         let valueSignal = $"{instanceId}_value"
-        let firstVisibleOption = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).find(item => item.style.display != 'none')"
-        let lastVisibleOption = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).filter(item => item.style.display != 'none').at(-1)"
-        let visibleOptions = "Array.from(el.querySelectorAll('[role=option]:not(:disabled)')).filter(item => item.style.display != 'none')"
-        let currentIndex = $"{visibleOptions}.indexOf(document.activeElement)"
-        let moveNext = $"evt.preventDefault(), {visibleOptions}.at(({currentIndex} + 1) %% {visibleOptions}.length)?.focus()"
-        let movePrevious = $"evt.preventDefault(), {visibleOptions}.at(({currentIndex} - 1 + {visibleOptions}.length) %% {visibleOptions}.length)?.focus()"
+        let activeSignal = $"_{instanceId}_active"
+        let optionId (choice:SelectOption<_>) =
+            $"{fieldId}-option-{choice.value |> config.encode |> ContractHtml.optionToken}"
+        let visibleOptions = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).filter(item => item.style.display != 'none')"
+        let firstVisibleOption = $"{visibleOptions}.at(0)"
+        let optionSignature =
+            config.options
+            |> List.map (fun choice -> config.encode choice.value)
+            |> String.concat "\u001f"
+            |> ContractHtml.javascriptString
+        let synchronizeActive = $"(!document.getElementById(${activeSignal}) || document.getElementById(${activeSignal}).style.display == 'none') && (${activeSignal} = ({firstVisibleOption})?.id || '')"
         let optionMatches (choice:SelectOption<_>) =
             $"!${querySignal}.trim() || {ContractHtml.javascriptString (choice.label.ToLowerInvariant())}.includes(${querySignal}.trim().toLowerCase())"
         let anyOptionMatches =
@@ -532,27 +580,31 @@ module Combobox =
             _role "listbox"
             _ariaLabelledby labelId
             _dataShow $"${openSignal}"
+            _dataInit $"queueMicrotask(() => ({synchronizeActive})); {optionSignature}"
             _dataOn ("click", [ "outside" ], $"${openSignal} = false")
-            _dataOn ("keydown", $"evt.key == 'Escape' && (evt.preventDefault(), ${openSignal} = false, document.getElementById('{fieldId}').focus()); evt.key == 'ArrowDown' && ({moveNext}); evt.key == 'ArrowUp' && ({movePrevious}); evt.key == 'Home' && (evt.preventDefault(), {firstVisibleOption}?.focus()); evt.key == 'End' && (evt.preventDefault(), {lastVisibleOption}?.focus()); evt.key == 'Tab' && (${openSignal} = false)")
             _style "display:none"
             _class "absolute left-0 top-full z-30 mt-1 max-h-60 w-full overflow-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] p-1 shadow-lg ring-1 ring-[var(--fve-border)]"
             for choice in config.options do
                 let encodedValue = config.encode choice.value
+                let choiceId = optionId choice
                 button {
-                    _id $"{fieldId}-option-{ContractHtml.signalToken encodedValue}"
+                    _id choiceId
                     _type "button"
                     _role "option"
                     _tabindex -1
                     _disabled choice.disabled
                     _ariaDisabled choice.disabled
                     _ariaSelected (config.selected = Some choice.value)
+                    _attr ("data-fve-option-label", choice.label.ToLowerInvariant())
                     _dataAttr ("aria-selected", $"${valueSignal} == {ContractHtml.javascriptString encodedValue} ? 'true' : 'false'")
+                    _dataAttr ("data-active", $"${activeSignal} == {ContractHtml.javascriptString choiceId} ? 'true' : null")
                     match config.search with
                     | ComboboxSearch.Static -> _dataShow (optionMatches choice)
                     | ComboboxSearch.Remote _ -> ()
                     if choice.disabled |> not then
-                        _dataOn ("click", $"${valueSignal} = {ContractHtml.javascriptString encodedValue}; ${querySignal} = {ContractHtml.javascriptString choice.label}; ${openSignal} = false; document.getElementById('{fieldId}').focus()")
-                    _class "flex w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-surface-hover)] aria-selected:bg-[var(--fve-brand-subtle)] aria-selected:text-[var(--fve-brand-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                        _dataOn ("mousedown", "evt.preventDefault()")
+                        _dataOn ("click", $"${activeSignal} = {ContractHtml.javascriptString choiceId}; ${valueSignal} = {ContractHtml.javascriptString encodedValue}; ${querySignal} = {ContractHtml.javascriptString choice.label}; ${openSignal} = false; document.getElementById('{fieldId}').focus()")
+                    _class "flex w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-surface-hover)] data-[active=true]:bg-[var(--fve-surface-hover)] data-[active=true]:ring-2 data-[active=true]:ring-inset data-[active=true]:ring-[var(--fve-brand-ring)] aria-selected:bg-[var(--fve-brand-subtle)] aria-selected:text-[var(--fve-brand-text)] disabled:cursor-not-allowed disabled:opacity-50"
                     span { _class "min-w-0 truncate"; choice.label }
                     span {
                         _ariaHidden "true"
@@ -584,18 +636,44 @@ module Combobox =
             | ComboboxSearch.Static -> $"_{instanceId}_query"
             | ComboboxSearch.Remote _ -> $"{instanceId}_query"
         let valueSignal = $"{instanceId}_value"
+        let activeSignal = $"_{instanceId}_active"
+        let optionId (choice:SelectOption<_>) =
+            $"{fieldId}-option-{choice.value |> config.encode |> ContractHtml.optionToken}"
         let selectedChoice = config.options |> List.tryFind (fun option -> Some option.value = config.selected)
         let selectedValue = selectedChoice |> Option.map (fun option -> config.encode option.value) |> Option.defaultValue ""
         let selectedLabel = selectedChoice |> Option.map _.label |> Option.defaultValue ""
-        let firstVisibleOption = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).find(item => item.style.display != 'none')"
-        let lastVisibleOption = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).filter(item => item.style.display != 'none').at(-1)"
+        let initialActiveId =
+            selectedChoice
+            |> Option.filter (fun choice -> choice.disabled |> not)
+            |> Option.orElseWith (fun () -> config.options |> List.tryFind (fun choice -> choice.disabled |> not))
+            |> Option.map optionId
+            |> Option.defaultValue ""
+        let visibleOptions = $"Array.from(document.querySelectorAll('#{listboxId} [role=option]:not(:disabled)')).filter(item => item.style.display != 'none')"
+        let firstVisibleOption = $"{visibleOptions}.at(0)"
+        let lastVisibleOption = $"{visibleOptions}.at(-1)"
+        let currentIndex = $"{visibleOptions}.findIndex(item => item.id == ${activeSignal})"
+        let scrollToActive = $"queueMicrotask(() => document.getElementById(${activeSignal})?.scrollIntoView({{block: 'nearest'}}))"
+        let activate optionExpression = $"${activeSignal} = ({optionExpression})?.id || '', {scrollToActive}"
+        let moveActive offset =
+            let missingIndex = if offset > 0 then -1 else 0
+            $"evt.preventDefault(), ${openSignal} = true, {visibleOptions}.length && (${activeSignal} = {visibleOptions}.at((({currentIndex} < 0 ? {missingIndex} : {currentIndex}) + {offset} + {visibleOptions}.length) %% {visibleOptions}.length)?.id || '', {scrollToActive})"
+        let keydown =
+            String.concat "; " [
+                $"evt.key == 'ArrowDown' && ({moveActive 1})"
+                $"evt.key == 'ArrowUp' && ({moveActive -1})"
+                $"evt.key == 'Home' && ${openSignal} && (evt.preventDefault(), {activate firstVisibleOption})"
+                $"evt.key == 'End' && ${openSignal} && (evt.preventDefault(), {activate lastVisibleOption})"
+                $"evt.key == 'Enter' && ${openSignal} && ${activeSignal} && (evt.preventDefault(), document.getElementById(${activeSignal})?.click())"
+                $"evt.key == 'Escape' && (${openSignal} = false)"
+                $"evt.key == 'Tab' && (${openSignal} = false)" ]
+        let synchronizeVisibleActive = $"${activeSignal} = ({firstVisibleOption})?.id || '', {scrollToActive}"
         let describedBy =
             [ if config.description.IsSome then descriptionId
               if config.validation.IsSome then validationId ]
             |> String.concat " "
         div {
             _class "relative grid gap-1.5"
-            _dataSignals $"{{{openSignal}: false, {querySignal}: {ContractHtml.javascriptString selectedLabel}, {valueSignal}: {ContractHtml.javascriptString selectedValue}}}"
+            _dataSignals $"{{{openSignal}: false, {querySignal}: {ContractHtml.javascriptString selectedLabel}, {valueSignal}: {ContractHtml.javascriptString selectedValue}, {activeSignal}: {ContractHtml.javascriptString initialActiveId}}}"
             label {
                 _id labelId
                 _for fieldId
@@ -613,18 +691,19 @@ module Combobox =
                 _ariaExpanded false
                 _ariaAutocomplete "list"
                 _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
+                _dataAttr ("aria-activedescendant", $"${openSignal} && document.getElementById(${activeSignal}) ? ${activeSignal} : null")
                 if String.IsNullOrEmpty describedBy |> not then _ariaDescribedby describedBy
                 _ariaInvalid config.validation.IsSome
                 _autocomplete "off"
                 _placeholder (config.placeholder |> Option.defaultValue "Search options")
                 _dataBind querySignal
-                _dataOn ("click", [ "stop" ], $"${openSignal} = true")
-                _dataOn ("keydown", $"evt.key == 'ArrowDown' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {firstVisibleOption}?.focus())); evt.key == 'ArrowUp' && (evt.preventDefault(), ${openSignal} = true, queueMicrotask(() => {lastVisibleOption}?.focus())); evt.key == 'Home' && ${openSignal} && (evt.preventDefault(), queueMicrotask(() => {firstVisibleOption}?.focus())); evt.key == 'End' && ${openSignal} && (evt.preventDefault(), queueMicrotask(() => {lastVisibleOption}?.focus())); evt.key == 'Escape' && (${openSignal} = false)")
+                _dataOn ("click", [ "stop" ], $"${openSignal} = true; queueMicrotask(() => ((!document.getElementById(${activeSignal}) || document.getElementById(${activeSignal}).style.display == 'none') && ({synchronizeVisibleActive})))")
+                _dataOn ("keydown", keydown)
                 match config.search with
-                | ComboboxSearch.Static -> _dataOn ("input", $"${openSignal} = true; ${valueSignal} = ''")
-                | ComboboxSearch.Remote endpoint -> _dataOn ("input", [ "debounce.250ms" ], $"${openSignal} = true; ${valueSignal} = ''; @get({ContractHtml.javascriptString endpoint})")
+                | ComboboxSearch.Static -> _dataOn ("input", $"${openSignal} = true; ${valueSignal} = ''; queueMicrotask(() => ({synchronizeVisibleActive}))")
+                | ComboboxSearch.Remote endpoint -> _dataOn ("input", [ "debounce.250ms" ], $"${openSignal} = true; ${valueSignal} = ''; ${activeSignal} = ''; @get({ContractHtml.javascriptString endpoint})")
                 _class "min-h-[var(--fve-control-min-height)] w-full rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-sm text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
-                for attribute in ContractHtml.safeAttributes [ "id"; "type"; "name"; "value"; "role"; "aria-controls"; "aria-expanded"; "aria-autocomplete"; "aria-describedby"; "aria-invalid"; "autocomplete"; "placeholder"; "data-bind:"; "data-attr:"; "data-on:"; "class" ] config.attributes do attribute
+                for attribute in ContractHtml.safeAttributes [ "id"; "type"; "name"; "value"; "role"; "aria-controls"; "aria-expanded"; "aria-activedescendant"; "aria-autocomplete"; "aria-describedby"; "aria-invalid"; "autocomplete"; "placeholder"; "data-bind:"; "data-attr:"; "data-on:"; "class" ] config.attributes do attribute
             }
             input {
                 _type "hidden"
@@ -830,7 +909,7 @@ module RadioGroup =
                 _class "mt-2 grid gap-2"
                 for choice in config.options do
                     let encodedValue = config.encode choice.value
-                    let optionId = $"{groupId}-option-{ContractHtml.signalToken encodedValue}"
+                    let optionId = $"{groupId}-option-{ContractHtml.optionToken encodedValue}"
                     label {
                         _for optionId
                         _class "flex cursor-pointer items-center gap-3 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"

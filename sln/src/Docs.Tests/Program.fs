@@ -384,6 +384,8 @@ after"""
             for heading in [ "Actions and feedback"; "Data display"; "Form controls"; "Menus and overlays"; "Compositions" ] do
                 Expect.stringContains html heading $"component category {heading}"
             Expect.stringContains html "Interaction and server state" "interaction guide"
+            Expect.stringContains html "aria-activedescendant identifies the visually active option" "APG focus relationship"
+            Expect.stringContains html "cycles options when the same character is repeated" "Select typeahead behavior"
             Expect.stringContains html "Theming and density" "theme guide"
             Expect.stringContains html "Tailwind CSS setup" "Tailwind setup guide"
             Expect.stringContains html "Application responsibilities" "application boundary guide"
@@ -445,6 +447,10 @@ after"""
             Expect.isFalse (html.Contains("<select")) "Select never renders a native select element"
             Expect.stringContains html "role=\"combobox\"" "Select renders a select-only combobox trigger"
             Expect.stringContains html "role=\"listbox\"" "Select renders its branded listbox"
+            Expect.stringContains html "data-attr:aria-activedescendant" "Select synchronizes its active descendant"
+            Expect.stringContains html "_status_typeahead" "Select retains bounded typeahead state"
+            Expect.stringContains html "Date.now()" "Select resets typeahead after its bounded interval"
+            Expect.stringContains html "every(character =&gt; character == $_status_typeahead[0])" "Select cycles repeated-character matches"
             Expect.stringContains html "type=\"hidden\"" "Select retains ordinary form submission"
         }
 
@@ -456,6 +462,8 @@ after"""
                 |> Render.toString
             Expect.stringContains comboboxHtml "type=\"search\" role=\"combobox\"" "Combobox exposes an editable combobox"
             Expect.stringContains comboboxHtml "aria-autocomplete=\"list\"" "Combobox identifies list autocomplete"
+            Expect.stringContains comboboxHtml "data-attr:aria-activedescendant" "Combobox synchronizes its active descendant"
+            Expect.stringContains comboboxHtml "data-init=\"queueMicrotask" "Combobox repairs active identity after option morphs"
             Expect.stringContains comboboxHtml "type=\"hidden\" name=\"account\"" "Combobox submits selected identity separately from query text"
             Expect.stringContains comboboxHtml "role=\"option\"" "Combobox renders branded options"
 
@@ -479,6 +487,34 @@ after"""
                 |> Render.toString
             Expect.equal (Regex.Matches(radioHtml, "type=\"radio\"").Count) 2 "RadioGroup retains one radio input per option"
             Expect.equal (Regex.Matches(radioHtml, "class=\"peer sr-only\"").Count) 2 "Radio browser chrome is visually hidden"
+        }
+
+        test "Components option IDs are stable and collision-free for distinct encoded values" {
+            let options = [ Select.option "a/b" "Slash"; Select.option "a-b" "Dash" ]
+            let optionIds prefix html =
+                Regex.Matches(html, $"id=\"({Regex.Escape(prefix)}-option-[^\"]+)\"")
+                |> Seq.cast<Match>
+                |> Seq.map (fun matched -> matched.Groups[1].Value)
+                |> Seq.toList
+            let expectStableDistinct prefix render =
+                let first = render () |> optionIds prefix
+                let second = render () |> optionIds prefix
+                Expect.equal first.Length 2 $"{prefix} renders both adversarial options"
+                Expect.equal (first |> List.distinct |> List.length) 2 $"{prefix} option IDs do not collide"
+                Expect.equal second first $"{prefix} option IDs are deterministic across renders"
+
+            expectStableDistinct "fve-select-collisionselect" (fun () ->
+                Select.create "collisionselect" "Collision select" id options
+                |> Select.render
+                |> Render.toString)
+            expectStableDistinct "fve-combobox-collisioncombobox" (fun () ->
+                Combobox.create "collisioncombobox" "Collision combobox" id options
+                |> Combobox.render
+                |> Render.toString)
+            expectStableDistinct "fve-radio-collisionradio" (fun () ->
+                RadioGroup.create "collisionradio" "Collision radio" id options
+                |> RadioGroup.render
+                |> Render.toString)
         }
 
         test "Components escape hatches preserve authoritative attributes" {
@@ -524,6 +560,7 @@ after"""
                     _id "other-id"
                     _name "other-name"
                     _dataBind "other"
+                    _ariaActivedescendant "other-option"
                     _ariaInvalid false
                     _class "override" ]
                 |> Select.render
@@ -536,7 +573,7 @@ after"""
                 Expect.equal (attributeCount name selectTrigger) 1 $"Select owns one trigger {name}"
             Expect.equal (attributeCount "name" selectValue) 1 "Select owns one submitted name"
             Expect.equal (Regex.Matches(selectValue, "\\sdata-bind:[^=\\s>]+(?:=|\\s|>)", RegexOptions.IgnoreCase).Count) 1 "Select owns one submitted Datastar binding"
-            for rejected in [ "other-id"; "other-name"; "data-bind:other"; "override" ] do
+            for rejected in [ "other-id"; "other-name"; "data-bind:other"; "other-option"; "override" ] do
                 Expect.isFalse (selectTrigger.Contains(rejected)) $"Select rejects reserved trigger attribute value {rejected}"
 
             let comboboxTag =
@@ -545,6 +582,7 @@ after"""
                     _id "other-id"
                     _name "other-name"
                     _dataBind "other"
+                    _ariaActivedescendant "other-option"
                     _ariaInvalid false
                     _class "override" ]
                 |> Combobox.render
@@ -552,7 +590,7 @@ after"""
             for name in [ "id"; "type"; "role"; "aria-invalid"; "class" ] do
                 Expect.equal (attributeCount name comboboxTag) 1 $"Combobox owns one input {name}"
             Expect.equal (Regex.Matches(comboboxTag, "\\sdata-bind:[^=\\s>]+(?:=|\\s|>)", RegexOptions.IgnoreCase).Count) 1 "Combobox owns one query binding"
-            for rejected in [ "other-id"; "other-name"; "data-bind:other"; "override" ] do
+            for rejected in [ "other-id"; "other-name"; "data-bind:other"; "other-option"; "override" ] do
                 Expect.isFalse (comboboxTag.Contains(rejected)) $"Combobox rejects reserved input attribute value {rejected}"
         }
 

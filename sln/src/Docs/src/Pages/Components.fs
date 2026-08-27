@@ -11,6 +11,7 @@ module Components =
         | Active
         | Pending
         | Suspended
+        | Scheduled
 
     type Destination =
         | Accounts
@@ -27,6 +28,7 @@ module Components =
         | Active -> "active"
         | Pending -> "pending"
         | Suspended -> "suspended"
+        | Scheduled -> "scheduled"
 
     let private destinationUrl = function
         | Accounts -> "https://ledger.example.test/accounts"
@@ -83,7 +85,8 @@ module Components =
                 match row.status with
                 | Active -> Status.positive "Active"
                 | Pending -> Status.warning "Pending"
-                | Suspended -> Status.create "Suspended" |> Status.withTone Tone.Critical |> Status.render)
+                | Suspended -> Status.create "Suspended" |> Status.withTone Tone.Critical |> Status.render
+                | Scheduled -> Status.create "Scheduled" |> Status.withTone Tone.Informative |> Status.render)
             Table.column "Balance" (fun row -> text $"${row.balance:N0}")
             |> Table.alignEnd
         ] rows
@@ -93,7 +96,8 @@ module Components =
     let private statusOptions =
         [ Select.option Active "Active"
           Select.option Pending "Pending"
-          Select.option Suspended "Suspended" ]
+          Select.option Suspended "Suspended"
+          Select.option Scheduled "Scheduled" ]
 
     // docs-example:start select-combobox
     let statusSelect =
@@ -316,11 +320,12 @@ AppShell.create productName current navigation content
 
           section "state-ownership" "Interaction and server state";
           [ Paragraph [ Text "Datastar is the component interaction model. Local signals hold ephemeral state such as whether a menu is open, while selected form values and editable queries are submitted intentionally. Applications continue to own authoritative options, routes, permissions, validation, persistence, and actions." ]
-            Paragraph [ Text "Remote Combobox results use a stable listbox region: filter application-owned values on the server, apply them with withOptions, and return Combobox.renderOptions. The input and submitted selection remain stable while Datastar morphs the options." ]
+            Paragraph [ Text "Remote Combobox results use a stable listbox region: filter application-owned values on the server, apply them with withOptions, and return Combobox.renderOptions. The input, submitted selection, and active-descendant relationship remain stable while Datastar morphs the options." ]
             Paragraph [ Text "Treat Datastar expressions and endpoints as trusted application code and never interpolate untrusted content into executable expressions." ] ];
 
           section "accessibility" "Accessibility";
           [ Paragraph [ Text "Branded controls own their visible presentation while preserving the semantics appropriate to each interaction. Select uses a select-only combobox and listbox; Checkbox, Switch, ToggleButton, RadioGroup, DropdownMenu, Dialog, and AppShell navigation retain their distinct roles and keyboard behavior." ]
+            Paragraph [ Text "Select and Combobox keep DOM focus on the combobox while aria-activedescendant identifies the visually active option. Select typeahead buffers rapid characters for prefix matching and cycles options when the same character is repeated." ]
             Paragraph [ Text "Accessible labels are required where visible content cannot provide them. Package-owned structure, form attributes, ARIA relationships, and Datastar bindings cannot be replaced through generic attribute customization." ]
             Paragraph [ Text "Interactive components support pointer and keyboard operation, visible focus, disabled and pending states, multiple instances, and stable behavior after representative Datastar morphs." ] ];
 
