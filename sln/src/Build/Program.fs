@@ -66,9 +66,14 @@ let boolEnvironment name =
     | value -> failwith $"{name} must be true or false, found: {value}"
 
 let releaseInputs () =
-    let minimumCoreVersion = Environment.environVarOrNone "DOCS_MINIMUM_CORE_VERSION"
+    let packageId = Environment.environVarOrFail "PACKAGE_ID"
+    let minimumCoreVersion =
+        match packageId with
+        | "FSharp.ViewEngine.Components" -> Environment.environVarOrNone "COMPONENTS_MINIMUM_CORE_VERSION"
+        | "FSharp.ViewEngine.Docs" -> Environment.environVarOrNone "DOCS_MINIMUM_CORE_VERSION"
+        | _ -> None
     PackagePublishing.validateInputs
-        (Environment.environVarOrFail "PACKAGE_ID")
+        packageId
         (Environment.environVarOrFail "PACKAGE_VERSION")
         minimumCoreVersion
         (boolEnvironment "MARK_LATEST")
@@ -81,12 +86,15 @@ let releaseSelection () =
     PackagePublishing.validateSelection
         (Environment.environVarOrFail "PACKAGE_SELECTION")
         (optionalEnvironment "CORE_PACKAGE_VERSION")
+        (optionalEnvironment "COMPONENTS_PACKAGE_VERSION")
         (optionalEnvironment "DOCS_PACKAGE_VERSION")
+        (optionalEnvironment "COMPONENTS_MINIMUM_CORE_VERSION")
         (optionalEnvironment "DOCS_MINIMUM_CORE_VERSION")
 
 let selectedPackage () =
     match Environment.environVarOrFail "PACKAGE_ID" with
     | "FSharp.ViewEngine" -> PackagePublishing.Package.ViewEngine
+    | "FSharp.ViewEngine.Components" -> PackagePublishing.Package.Components
     | "FSharp.ViewEngine.Docs" -> PackagePublishing.Package.Docs
     | packageId -> failwith $"Unsupported package: {packageId}"
 
@@ -98,7 +106,7 @@ let getVersion () =
 Target.create "ValidateReleaseSelection" <| fun _ ->
     let selection = releaseSelection ()
     let selected =
-        [ selection.core; selection.docs ]
+        [ selection.core; selection.components; selection.docs ]
         |> List.choose id
         |> List.map (fun inputs -> $"{inputs.package.Id} {inputs.version}")
         |> String.concat ", "
@@ -113,7 +121,7 @@ Target.create "PrepareRelease" <| fun _ ->
     | Some coreVersion when not (PackagePublishing.confirmPublished "FSharp.ViewEngine" coreVersion) ->
         match Environment.environVarOrNone "LOCAL_CORE_PACKAGE_PATH" with
         | Some packagePath -> PackagePublishing.validateLocalCorePackage coreVersion packagePath
-        | None -> failwith $"FSharp.ViewEngine {coreVersion} must be available from NuGet before publishing Docs."
+        | None -> failwith $"FSharp.ViewEngine {coreVersion} must be available from NuGet before publishing {inputs.package.Id}."
     | _ -> ()
 
     let metadata = Release.prepare releaseRepository releaseMetadataPath inputs.package.TagPrefix inputs.version
@@ -196,6 +204,11 @@ Target.create "Pack"  (fun _ ->
     let arguments =
         match package with
         | PackagePublishing.Package.ViewEngine -> arguments @ [ $"/p:FSharpViewEnginePackageVersion={version}" ]
+        | PackagePublishing.Package.Components ->
+            let minimumCoreVersion = Environment.environVarOrFail "COMPONENTS_MINIMUM_CORE_VERSION"
+            arguments @
+                [ $"/p:FSharpViewEngineComponentsPackageVersion={version}"
+                  $"/p:FSharpViewEnginePackageVersion={minimumCoreVersion}" ]
         | PackagePublishing.Package.Docs ->
             let minimumCoreVersion = Environment.environVarOrFail "DOCS_MINIMUM_CORE_VERSION"
             arguments @
@@ -215,6 +228,7 @@ Target.create "VerifyPackage" (fun _ ->
             let packageDirectory = Environment.environVarOrDefault "PACKAGE_DIRECTORY" nugetsDir
             let packages =
                 !! $"{packageDirectory}/{package.Id}.*.nupkg"
+                |> Seq.filter (PackagePublishing.belongsToPackage package.Id)
                 |> Seq.filter (fun path -> not (path.EndsWith(".snupkg", System.StringComparison.OrdinalIgnoreCase)))
                 |> Seq.sort
                 |> Seq.toList

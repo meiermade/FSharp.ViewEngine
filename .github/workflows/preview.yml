@@ -46,6 +46,19 @@ jobs:
           PACKAGE_ID: FSharp.ViewEngine
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
+      - name: Pack Components with an independent version and Core dependency
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Components
+          PACKAGE_VERSION: 0.0.1-preview
+          COMPONENTS_MINIMUM_CORE_VERSION: 0.0.0-preview
+        run: ./fake.sh Pack --single-target
+        working-directory: ./sln
+      - name: Verify Components package compatibility
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Components
+          COMPONENTS_MINIMUM_CORE_VERSION: 0.0.0-preview
+        run: ./fake.sh VerifyPackage --single-target
+        working-directory: ./sln
       - name: Pack Docs with an independent version and Core dependency
         env:
           PACKAGE_ID: FSharp.ViewEngine.Docs

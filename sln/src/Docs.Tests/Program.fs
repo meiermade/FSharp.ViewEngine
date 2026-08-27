@@ -377,6 +377,8 @@ after"""
 
             Expect.stringContains html "provides accessible, server-rendered components" "consumer-facing introduction"
             Expect.stringContains html "Using Components" "usage guidance"
+            Expect.stringContains html "dotnet add package FSharp.ViewEngine.Components" "package installation"
+            Expect.stringContains html "contentFiles/any/any" "packaged Tailwind manifest location"
             Expect.stringContains html "Required inputs stay visible" "required input policy"
             Expect.stringContains html "Optional behavior is piped" "configuration policy"
             Expect.stringContains html "Custom content stays HTML" "slot policy"
@@ -595,11 +597,17 @@ after"""
         }
 
         test "Components Tailwind contract is isolated and CI-proven" {
-            let contractDirectory = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "ComponentsContract"))
-            let manifest = File.ReadAllText(Path.Combine(contractDirectory, "FSharp.ViewEngine.Components.tailwind.css"))
-            let consumer = File.ReadAllText(Path.Combine(contractDirectory, "consumer.css"))
-            let verification = File.ReadAllText(Path.Combine(contractDirectory, "verify-tailwind.sh"))
-            let renderer = File.ReadAllText(Path.Combine(contractDirectory, "..", "src", "ComponentsContract.fs"))
+            let packageDirectory = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components"))
+            let manifest = File.ReadAllText(Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.tailwind.css"))
+            let consumer = File.ReadAllText(Path.Combine(packageDirectory, "consumer.css"))
+            let verification = File.ReadAllText(Path.Combine(packageDirectory, "verify-tailwind.sh"))
+            let renderer =
+                Directory.EnumerateFiles(packageDirectory, "*.fs")
+                |> Seq.sort
+                |> Seq.map File.ReadAllText
+                |> String.concat "\n"
+            let componentsProject = File.ReadAllText(Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.fsproj"))
+            let docsProject = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "Docs.fsproj"))
             let dockerfile = File.ReadAllText(Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "Dockerfile")))
 
             Expect.stringContains manifest "@source inline(" "package classes use an explicit source manifest"
@@ -619,7 +627,11 @@ after"""
             Expect.stringContains consumer ".acme-theme" "consumer override is independent"
             Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
             Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
-            Expect.stringContains dockerfile "ComponentsContract/verify-tailwind.sh" "container CI executes the clean-consumer proof"
+            Expect.stringContains dockerfile "FSharp.ViewEngine.Components/verify-tailwind.sh" "container CI executes the clean-consumer proof"
+            Expect.stringContains componentsProject "..\\FSharp.ViewEngine\\FSharp.ViewEngine.fsproj" "Components depends on Core"
+            Expect.isFalse (componentsProject.Contains("FSharp.ViewEngine.Docs")) "Components remains independent from Docs"
+            Expect.stringContains docsProject "..\\FSharp.ViewEngine.Components\\FSharp.ViewEngine.Components.fsproj" "Docs consumes Components as a project"
+            Expect.isFalse (docsProject.Contains("ComponentsContract.fs")) "Docs does not compile an internal Components implementation"
 
             let manifestClasses =
                 Regex.Match(manifest, "@source inline\\(\\\"([^\\\"]*)\\\"\\)").Groups[1].Value.Split(' ')

@@ -9,10 +9,19 @@ on:
         type: choice
         options:
           - core
+          - components
           - docs
           - both
       coreVersion:
         description: FSharp.ViewEngine version; required for core or both
+        required: false
+        type: string
+      componentsVersion:
+        description: FSharp.ViewEngine.Components version; required for components
+        required: false
+        type: string
+      componentsMinimumCoreVersion:
+        description: Minimum Core version for FSharp.ViewEngine.Components; required for components
         required: false
         type: string
       docsVersion:
@@ -63,6 +72,8 @@ jobs:
         env:
           PACKAGE_SELECTION: ${{ inputs.packages }}
           CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
+          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
           DOCS_PACKAGE_VERSION: ${{ inputs.docsVersion }}
           DOCS_MINIMUM_CORE_VERSION: ${{ inputs.minimumCoreVersion }}
         run: ./fake.sh ValidateReleaseSelection --single-target
@@ -111,6 +122,49 @@ jobs:
         env:
           PACKAGE_ID: FSharp.ViewEngine
           PACKAGE_DIRECTORY: ${{ github.workspace }}/release/core
+        run: ./fake.sh RecordPackageChecksums --single-target
+        working-directory: ./sln
+
+      - name: Prepare Components package release
+        if: inputs.packages == 'components'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Components
+          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
+          MARK_LATEST: false
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/components-release-metadata.json
+        run: ./fake.sh PrepareRelease --single-target
+        working-directory: ./sln
+      - name: Pack Components package
+        if: inputs.packages == 'components'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Components
+          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
+        run: ./fake.sh Pack --single-target
+        working-directory: ./sln
+      - name: Verify Components package
+        if: inputs.packages == 'components'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Components
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
+        run: ./fake.sh VerifyPackage --single-target
+        working-directory: ./sln
+      - name: Stage verified Components release
+        if: inputs.packages == 'components'
+        env:
+          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/components-release-metadata.json
+        run: |
+          mkdir -p release/components
+          cp "nugets/FSharp.ViewEngine.Components.${PACKAGE_VERSION}.nupkg" release/components/
+          cp "nugets/FSharp.ViewEngine.Components.${PACKAGE_VERSION}.snupkg" release/components/
+          cp "$RELEASE_METADATA_PATH" release/components/release-metadata.json
+      - name: Record Components checksums
+        if: inputs.packages == 'components'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Components
+          PACKAGE_DIRECTORY: ${{ github.workspace }}/release/components
         run: ./fake.sh RecordPackageChecksums --single-target
         working-directory: ./sln
 
@@ -211,6 +265,20 @@ jobs:
           PACKAGE_VERSION: ${{ inputs.coreVersion }}
           MARK_LATEST: true
           RELEASE_METADATA_PATH: ${{ runner.temp }}/release/core/release-metadata.json
+        run: ./fake.sh PublishPackageRelease --single-target
+        working-directory: ./sln
+      - name: Publish FSharp.ViewEngine.Components
+        if: inputs.packages == 'components'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/components
+          PACKAGE_ID: FSharp.ViewEngine.Components
+          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
+          MARK_LATEST: false
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release/components/release-metadata.json
         run: ./fake.sh PublishPackageRelease --single-target
         working-directory: ./sln
       - name: Publish FSharp.ViewEngine.Docs

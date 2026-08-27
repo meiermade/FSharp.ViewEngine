@@ -293,7 +293,9 @@ AppShell.create productName current navigation content
         [ [ Paragraph [ Text "FSharp.ViewEngine.Components provides accessible, server-rendered components with semantic Tailwind styling and Datastar interaction. Components are ordinary F# values and functions that compose with the existing HtmlElement builders." ] ];
 
           section "using-components" "Using Components";
-          [ Paragraph [ Text "Required semantic inputs are constructor arguments, while optional presentation and behavior are added through immutable pipeline functions." ]
+          [ Paragraph [ Text "Install the independently versioned Components package, then open FSharp.ViewEngine.Components alongside the Core view engine." ]
+            CodeBlock("shell", "dotnet add package FSharp.ViewEngine.Components")
+            Paragraph [ Text "Required semantic inputs are constructor arguments, while optional presentation and behavior are added through immutable pipeline functions." ]
             UnorderedList [
                 [ Strong [ Text "Required inputs stay visible." ]; Text " Form controls require their name and accessible label; AppShell requires product identity, navigation, current destination, and content." ]
                 [ Strong [ Text "Optional behavior is piped." ]; Text " Functions such as withSelected, withTheme, and withAttributes return updated configuration." ]
@@ -335,7 +337,7 @@ AppShell.create productName current navigation content
             Paragraph [ Text "Built-in themes provide coordinated light and dark colors for default, selected, hover, and focus states. Radius and density settings apply consistently across controls and navigation. Override documented semantic variables in an application theme when product branding requires it." ] ];
 
           section "tailwind" "Tailwind CSS setup";
-          [ Paragraph [ Text "Import the Components stylesheet after Tailwind CSS. The stylesheet includes semantic variables and an explicit Tailwind v4 source manifest because utility classes inside compiled assemblies are not discovered automatically." ]
+          [ Paragraph [ Text "The NuGet package includes FSharp.ViewEngine.Components.tailwind.css under contentFiles/any/any. Copy that manifest into the application CSS source tree and import it after Tailwind CSS. It includes semantic variables and an explicit Tailwind v4 source manifest because utility classes inside compiled assemblies are not discovered automatically." ]
             CodeBlock("css", tailwindExample)
             Paragraph [ Text "The manifest lists complete package-owned utility names, so Tailwind can emit component styles without scanning application call sites or constructing classes from consumer strings." ] ];
 

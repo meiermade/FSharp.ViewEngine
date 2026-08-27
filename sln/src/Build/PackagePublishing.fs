@@ -12,16 +12,19 @@ open System.Text.RegularExpressions
 [<RequireQualifiedAccess>]
 type Package =
     | ViewEngine
+    | Components
     | Docs
 
     member this.Id =
         match this with
         | Package.ViewEngine -> "FSharp.ViewEngine"
+        | Package.Components -> "FSharp.ViewEngine.Components"
         | Package.Docs -> "FSharp.ViewEngine.Docs"
 
     member this.TagPrefix =
         match this with
         | Package.ViewEngine -> "v"
+        | Package.Components -> "components/v"
         | Package.Docs -> "docs/v"
 
 type Inputs =
@@ -32,6 +35,7 @@ type Inputs =
 
 type SelectionInputs =
     { core:Inputs option
+      components:Inputs option
       docs:Inputs option }
 
 let private stableVersionPattern = Regex("^[0-9]{4}\\.[0-9]{1,2}\\.[0-9]+$")
@@ -54,6 +58,15 @@ let validateInputs packageId version minimumCoreVersion markLatest =
         invalidArg (nameof minimumCoreVersion) "Core releases must not specify a minimum Core version."
     | "FSharp.ViewEngine", None ->
         invalidArg (nameof markLatest) "Core releases must be the repository-wide Latest release."
+    | "FSharp.ViewEngine.Components", Some coreVersion when not markLatest ->
+        { package = Package.Components
+          version = version
+          minimumCoreVersion = Some(requireStableVersion "Minimum Core version" coreVersion)
+          markLatest = false }
+    | "FSharp.ViewEngine.Components", None ->
+        invalidArg (nameof minimumCoreVersion) "Components releases require a minimum Core version."
+    | "FSharp.ViewEngine.Components", Some _ ->
+        invalidArg (nameof markLatest) "Components releases must not become the repository-wide Latest release."
     | "FSharp.ViewEngine.Docs", Some coreVersion when not markLatest ->
         { package = Package.Docs
           version = version
@@ -65,35 +78,53 @@ let validateInputs packageId version minimumCoreVersion markLatest =
         invalidArg (nameof markLatest) "Docs releases must not become the repository-wide Latest release."
     | package, _ -> invalidArg (nameof packageId) $"Unsupported package: {package}"
 
-let validateSelection selection coreVersion docsVersion minimumCoreVersion =
+let validateSelection selection coreVersion componentsVersion docsVersion componentsMinimumCoreVersion docsMinimumCoreVersion =
     let optionalValue = Option.filter (String.IsNullOrWhiteSpace >> not)
     let coreVersion = optionalValue coreVersion
+    let componentsVersion = optionalValue componentsVersion
     let docsVersion = optionalValue docsVersion
-    let minimumCoreVersion = optionalValue minimumCoreVersion
+    let componentsMinimumCoreVersion = optionalValue componentsMinimumCoreVersion
+    let docsMinimumCoreVersion = optionalValue docsMinimumCoreVersion
 
-    match selection, coreVersion, docsVersion, minimumCoreVersion with
-    | "core", Some version, None, None ->
+    match selection, coreVersion, componentsVersion, docsVersion, componentsMinimumCoreVersion, docsMinimumCoreVersion with
+    | "core", Some version, None, None, None, None ->
         { core = Some(validateInputs "FSharp.ViewEngine" version None true)
+          components = None
           docs = None }
-    | "docs", None, Some version, Some coreVersion ->
+    | "components", None, Some version, None, Some coreVersion, None ->
         { core = None
+          components = Some(validateInputs "FSharp.ViewEngine.Components" version (Some coreVersion) false)
+          docs = None }
+    | "docs", None, None, Some version, None, Some coreVersion ->
+        { core = None
+          components = None
           docs = Some(validateInputs "FSharp.ViewEngine.Docs" version (Some coreVersion) false) }
-    | "both", Some coreVersion, Some docsVersion, Some minimumCoreVersion ->
+    | "both", Some coreVersion, None, Some docsVersion, None, Some minimumCoreVersion ->
         { core = Some(validateInputs "FSharp.ViewEngine" coreVersion None true)
+          components = None
           docs = Some(validateInputs "FSharp.ViewEngine.Docs" docsVersion (Some minimumCoreVersion) false) }
-    | "core", _, _, _ ->
+    | "core", _, _, _, _, _ ->
         invalidArg (nameof selection) "Core selection requires only a Core version."
-    | "docs", _, _, _ ->
+    | "components", _, _, _, _, _ ->
+        invalidArg (nameof selection) "Components selection requires only a Components package version and minimum Core version."
+    | "docs", _, _, _, _, _ ->
         invalidArg (nameof selection) "Docs selection requires only a Docs package version and minimum Core version."
-    | "both", _, _, _ ->
-        invalidArg (nameof selection) "Both selection requires Core, Docs package, and minimum Core versions."
-    | value, _, _, _ -> invalidArg (nameof selection) $"Unsupported package selection: {value}"
+    | "both", _, _, _, _, _ ->
+        invalidArg (nameof selection) "Both selection requires Core, Docs package, and Docs minimum Core versions."
+    | value, _, _, _, _, _ -> invalidArg (nameof selection) $"Unsupported package selection: {value}"
 
 let validateLocalCorePackage version (packagePath:string) =
     let version = requireStableVersion "Minimum Core version" version
     let expectedName = $"FSharp.ViewEngine.{version}.nupkg"
     if not (File.Exists packagePath) || Path.GetFileName(packagePath) <> expectedName then
         invalidOp $"Expected selected Core package {expectedName}, found: {packagePath}"
+
+let belongsToPackage (packageId:string) (path:string) =
+    let fileName = Path.GetFileName path
+    let versionStart = packageId.Length + 1
+    fileName.StartsWith($"{packageId}.", StringComparison.Ordinal)
+    && fileName.Length > versionStart
+    && Char.IsDigit fileName[versionStart]
 
 let expectedAssetNames packageId version =
     [ $"{packageId}.{version}.nupkg"
