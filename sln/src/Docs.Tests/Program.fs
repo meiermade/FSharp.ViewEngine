@@ -1,5 +1,6 @@
 module Docs.Tests.Program
 
+open System
 open System.IO
 open System.Net
 open System.Text.RegularExpressions
@@ -39,6 +40,27 @@ let private expectedPaths =
         "/docs/page-examples/api-reference"
         "/docs/page-examples/executable-specification"
         "/components"
+        "/components/installation"
+        "/components/button"
+        "/components/status"
+        "/components/table"
+        "/components/select"
+        "/components/combobox"
+        "/components/checkbox"
+        "/components/switch"
+        "/components/toggle-button"
+        "/components/radio-group"
+        "/components/dropdown-menu"
+        "/components/dialog"
+        "/components/collection"
+        "/components/detail"
+        "/components/app-shell"
+        "/components/interaction-and-server-state"
+        "/components/accessibility"
+        "/components/theming"
+        "/components/tailwind-css"
+        "/components/customization"
+        "/components/versioning"
         "/benchmarks"
         "/changelog"
     ]
@@ -98,7 +120,13 @@ let tests =
                 (section "Page examples")
                 [ "Documentation site"; "API reference"; "Executable specification" ]
                 "page examples are grouped separately"
-            Expect.sequenceEqual (section "FSharp.ViewEngine.Components") [ "Overview" ] "Components documentation is first-class"
+            Expect.sequenceEqual (section "FSharp.ViewEngine.Components") [ "Overview"; "Installation" ] "Components starts with overview and installation"
+            Expect.sequenceEqual (section "Actions and feedback") [ "Button"; "Status" ] "action components"
+            Expect.sequenceEqual (section "Data display") [ "Table" ] "data-display components"
+            Expect.sequenceEqual (section "Form controls") [ "Select"; "Combobox"; "Checkbox"; "Switch"; "Toggle button"; "Radio group" ] "form controls"
+            Expect.sequenceEqual (section "Menus and overlays") [ "Dropdown menu"; "Dialog" ] "menu and overlay components"
+            Expect.sequenceEqual (section "Compositions") [ "Collection"; "Detail"; "App shell" ] "page compositions"
+            Expect.sequenceEqual (section "Guides") [ "Interaction and server state"; "Accessibility"; "Theming and density"; "Tailwind CSS"; "Customization"; "Versioning" ] "shared Components guides"
             Expect.sequenceEqual (section "Project") [ "Benchmarks"; "Changelog" ] "project order"
         }
 
@@ -163,7 +191,7 @@ let tests =
                 let encodedTitle = WebUtility.HtmlEncode page.title
                 Expect.stringContains html $">{encodedTitle}</h1>" $"{page.path} title"
 
-                if Showcase.tryPage page.path |> Option.isNone then
+                if Showcase.tryPage page.path |> Option.orElseWith (fun () -> Components.tryPage page.path) |> Option.isNone then
                     let description = page.nodes |> List.tryPick (function | Paragraph content -> Some content | _ -> None)
                     Expect.isSome description $"{page.path} has a useful page summary"
                     Expect.isFalse (html.Contains($"<p class=\"spec-page-description\">{page.category}</p>")) $"{page.path} does not repeat its category as the description"
@@ -372,38 +400,60 @@ after"""
             Expect.stringContains specification "spec-browser-frame" "specification preview uses a browser frame"
         }
 
-        test "Components publishes consumer-facing documentation with executable examples" {
-            let html = Components.page |> View.document Registry.navigation |> Render.toHtmlDocString
+        test "Components publishes a first-class page for every public component and focused shared guides" {
+            let render registration = registration |> View.document Registry.navigation |> Render.toHtmlDocString
+            let overview = render Components.overviewRegistration
+            let installation = render Components.installationRegistration
+            let componentRegistrations =
+                Components.actionRegistrations
+                @ Components.dataDisplayRegistrations
+                @ Components.formControlRegistrations
+                @ Components.menuOverlayRegistrations
+                @ Components.compositionRegistrations
+            let renderedComponents = componentRegistrations |> List.map render
+            let renderedGuides = Components.guideRegistrations |> List.map render
+            let allHtml = String.concat Environment.NewLine (overview :: installation :: renderedComponents @ renderedGuides)
 
-            Expect.stringContains html "provides accessible, server-rendered components" "consumer-facing introduction"
-            Expect.stringContains html "Using Components" "usage guidance"
-            Expect.stringContains html "dotnet add package FSharp.ViewEngine.Components" "package installation"
-            Expect.stringContains html "contentFiles/any/any" "packaged Tailwind manifest location"
-            Expect.stringContains html "Required inputs stay visible" "required input policy"
-            Expect.stringContains html "Optional behavior is piped" "configuration policy"
-            Expect.stringContains html "Custom content stays HTML" "slot policy"
-            Expect.stringContains html "Closed choices are typed" "typed variant policy"
-            for heading in [ "Actions and feedback"; "Data display"; "Form controls"; "Menus and overlays"; "Compositions" ] do
-                Expect.stringContains html heading $"component category {heading}"
-            Expect.stringContains html "Interaction and server state" "interaction guide"
-            Expect.stringContains html "aria-activedescendant identifies the visually active option" "APG focus relationship"
-            Expect.stringContains html "cycles options when the same character is repeated" "Select typeahead behavior"
-            Expect.stringContains html "Theming and density" "theme guide"
-            Expect.stringContains html "Tailwind CSS setup" "Tailwind setup guide"
-            Expect.stringContains html "Application responsibilities" "application boundary guide"
-            Expect.stringContains html "explicit Tailwind v4 source manifest" "Tailwind source manifest"
-            Expect.stringContains html "versions independently" "version policy"
-            Expect.stringContains html "minimum compatible FSharp.ViewEngine version" "Core compatibility policy"
-            Expect.isFalse (html.Contains("Pre-release contract")) "release-process framing is absent"
-            Expect.isFalse (html.Contains("Compiled Call Sites")) "examples are not framed as implementation evidence"
-            Expect.isFalse (html.Contains("package-spine task")) "internal task language is absent"
-            Expect.isFalse (html.Contains("veSelect {")) "Components does not introduce a component CE"
-            Expect.isFalse (html.Contains("color &quot;emerald-600&quot;")) "ordinary API does not accept raw palette strings"
+            Expect.equal Components.allRegistrations.Length 22 "overview, installation, fourteen components, and six guides"
+            Expect.stringContains overview "Accessible, server-rendered Tailwind components" "consumer-facing introduction"
+            Expect.stringContains overview "Browse components" "overview is a component catalog"
+            Expect.stringContains overview "href=\"/components/button\"" "catalog deep-links Button"
+            Expect.stringContains overview "href=\"/components/app-shell\"" "catalog deep-links App shell"
+            Expect.stringContains overview "Required inputs stay visible" "required input policy"
+            Expect.stringContains overview "Optional behavior is piped" "configuration policy"
+            Expect.stringContains overview "Custom content stays HTML" "slot policy"
+            Expect.stringContains overview "Closed choices are typed" "typed variant policy"
+            Expect.stringContains installation "dotnet add package FSharp.ViewEngine.Components" "package installation"
+            Expect.stringContains installation "contentFiles/any/any" "packaged Tailwind manifest location"
 
-            let examples = html.Split([| "data-docs-example=\"true\"" |], System.StringSplitOptions.None).Length - 1
-            Expect.equal examples 7 "component categories use code-first examples"
+            for registration, html in List.zip componentRegistrations renderedComponents do
+                Expect.stringContains html "docs-article-layout" $"{registration.path} uses the article layout"
+                Expect.stringContains html "data-docs-example=\"true\"" $"{registration.path} has an executable example"
+                let examples = html.Split([| "data-docs-example=\"true\"" |], System.StringSplitOptions.None).Length - 1
+                Expect.equal examples 1 $"{registration.path} has one focused example"
+
+            for registration, html in List.zip Components.guideRegistrations renderedGuides do
+                Expect.stringContains html "docs-article-layout" $"{registration.path} uses the article layout"
+                Expect.isFalse (html.Contains("data-docs-example=\"true\"")) $"{registration.path} is focused guidance rather than a duplicate gallery"
+
+            Expect.stringContains allHtml "Interaction and server state" "interaction guide"
+            Expect.stringContains allHtml "aria-activedescendant identifies the visually active option" "APG focus relationship"
+            Expect.stringContains allHtml "cycles options when the same character is repeated" "Select typeahead behavior"
+            Expect.stringContains allHtml "Theming and density" "theme guide"
+            Expect.stringContains allHtml "Tailwind CSS setup" "Tailwind setup guide"
+            Expect.stringContains allHtml "Application responsibilities" "application boundary guidance"
+            Expect.stringContains allHtml "explicit Tailwind v4 source manifest" "Tailwind source manifest"
+            Expect.stringContains allHtml "versions independently" "version policy"
+            Expect.stringContains allHtml "minimum compatible FSharp.ViewEngine" "Core compatibility policy"
+            Expect.isFalse (allHtml.Contains("Pre-release contract")) "release-process framing is absent"
+            Expect.isFalse (allHtml.Contains("Compiled Call Sites")) "examples are not framed as implementation evidence"
+            Expect.isFalse (allHtml.Contains("package-spine task")) "internal task language is absent"
+            Expect.isFalse (allHtml.Contains("veSelect {")) "Components does not introduce a component CE"
+            Expect.isFalse (allHtml.Contains("color &quot;emerald-600&quot;")) "ordinary API does not accept raw palette strings"
+
             for source in [
                 "Button.primary &quot;Create account&quot;"
+                "Status.create &quot;Needs review&quot;"
                 "Table.create &quot;Accounts&quot;"
                 "Select.create &quot;status&quot; &quot;Status&quot; statusValue statusOptions"
                 "Combobox.create &quot;account&quot; &quot;Parent account&quot; string"
@@ -421,22 +471,25 @@ after"""
                 "Collection.create &quot;Accounts&quot; accountTable"
                 "Detail.create &quot;Operating&quot;"
                 "AppShell.create &quot;Ledger&quot; Accounts" ] do
-                Expect.stringContains html source source
+                Expect.stringContains allHtml source source
 
-            Expect.stringContains html "data-signals=\"{_account_open: false, account_query:" "remote Combobox emits local open state and an intentionally submitted query"
-            Expect.stringContains html "role=\"switch\"" "Switch preserves switch semantics"
-            Expect.stringContains html "aria-pressed=\"true\"" "ToggleButton preserves pressed semantics"
-            Expect.stringContains html "type=\"radio\"" "RadioGroup preserves form semantics internally"
-            Expect.isFalse (html.Contains("NativeSelect.create")) "the package exposes no NativeSelect API"
-            Expect.stringContains html "id=\"review-account-dialog-trigger\"" "Dialog renders its connected trigger"
-            Expect.stringContains html "data-on:close=\"document.getElementById(&quot;review-account-dialog-trigger&quot;).focus()\"" "Dialog close restores trigger focus"
-            Expect.isFalse (html.Contains("Select.describe")) "Select has no unobservable option-description modifier"
-            Expect.stringContains html "data-signals=\"{_components_menu_actions_open: false}" "menu IDs become valid local signal tokens"
-            Expect.isFalse (html.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
-            Expect.stringContains html "aria-current=\"page\"" "AppShell retains typed current destination"
-            Expect.stringContains html "--fve-brand-solid" "consumer theme overrides are documented"
-            Expect.stringContains html "rel=\"prev\" href=\"/docs/page-examples/executable-specification\"" "Components follows executable Specs"
-            Expect.stringContains html "rel=\"next\" href=\"/benchmarks\"" "Components precedes project evidence"
+            Expect.stringContains allHtml "data-signals=\"{_account_open: false, account_query:" "remote Combobox emits local open state and an intentionally submitted query"
+            Expect.stringContains allHtml "role=\"switch\"" "Switch preserves switch semantics"
+            Expect.stringContains allHtml "aria-pressed=\"true\"" "ToggleButton preserves pressed semantics"
+            Expect.stringContains allHtml "type=\"radio\"" "RadioGroup preserves form semantics internally"
+            Expect.isFalse (allHtml.Contains("NativeSelect.create")) "the package exposes no NativeSelect API"
+            Expect.stringContains allHtml "id=\"review-account-dialog-trigger\"" "Dialog renders its connected trigger"
+            Expect.stringContains allHtml "data-on:close=\"document.getElementById(&quot;review-account-dialog-trigger&quot;).focus()\"" "Dialog close restores trigger focus"
+            Expect.isFalse (allHtml.Contains("Select.describe")) "Select has no unobservable option-description modifier"
+            Expect.stringContains allHtml "data-signals=\"{_components_menu_actions_open: false}" "menu IDs become valid local signal tokens"
+            Expect.isFalse (allHtml.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
+            Expect.stringContains allHtml "aria-current=\"page\"" "AppShell retains typed current destination"
+            Expect.stringContains allHtml "--fve-brand-solid" "consumer theme overrides are documented"
+            Expect.stringContains overview "rel=\"prev\" href=\"/docs/page-examples/executable-specification\"" "Components follows executable Specs"
+            Expect.stringContains overview "rel=\"next\" href=\"/components/installation\"" "overview continues to installation"
+            let versioning = render Components.versioningRegistration
+            Expect.stringContains versioning "rel=\"prev\" href=\"/components/customization\"" "last guide follows customization"
+            Expect.stringContains versioning "rel=\"next\" href=\"/benchmarks\"" "Components precedes project evidence"
         }
 
         test "Components Select owns branded presentation instead of native browser chrome" {

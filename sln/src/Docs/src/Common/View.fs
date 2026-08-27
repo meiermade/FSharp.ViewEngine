@@ -150,6 +150,22 @@ module View =
 
     let private pageLink label href = Some(docsPageLink label href)
 
+    let private componentsPager activeId =
+        Components.allRegistrations
+        |> List.tryFindIndex (fun page -> page.id = activeId)
+        |> Option.map (fun index ->
+            let previous =
+                if index = 0 then pageLink "Executable specification page" "/docs/page-examples/executable-specification"
+                else
+                    let page = Components.allRegistrations[index - 1]
+                    pageLink page.navLabel page.path
+            let next =
+                if index = Components.allRegistrations.Length - 1 then pageLink "Benchmarks" "/benchmarks"
+                else
+                    let page = Components.allRegistrations[index + 1]
+                    pageLink page.navLabel page.path
+            docsPager previous next)
+
     let private pager activeId =
         match activeId with
         | "home" -> Some(docsPager None (pageLink "Installation" "/installation"))
@@ -177,8 +193,8 @@ module View =
         | "docs-page-documentation-site" -> Some(docsPager (pageLink "Diagrams" "/docs/components/diagrams") (pageLink "API reference page" "/docs/page-examples/api-reference"))
         | "docs-page-api-reference" -> Some(docsPager (pageLink "Documentation site" "/docs/page-examples/documentation-site") (pageLink "Executable specification page" "/docs/page-examples/executable-specification"))
         | "docs-page-executable-specification" -> Some(docsPager (pageLink "API reference page" "/docs/page-examples/api-reference") (pageLink "Components" "/components"))
-        | "components-overview" -> Some(docsPager (pageLink "Executable specification page" "/docs/page-examples/executable-specification") (pageLink "Benchmarks" "/benchmarks"))
-        | "benchmarks" -> Some(docsPager (pageLink "Components" "/components") (pageLink "Changelog" "/changelog"))
+        | componentId when componentId.StartsWith("components-", StringComparison.Ordinal) -> componentsPager componentId
+        | "benchmarks" -> Some(docsPager (pageLink "Versioning" "/components/versioning") (pageLink "Changelog" "/changelog"))
         | "changelog" -> Some(docsPager (pageLink "Benchmarks" "/benchmarks") None)
         | _ -> None
 
@@ -186,13 +202,16 @@ module View =
         let registered =
             let rec sectionPages section = section.pages @ (section.sections |> List.collect sectionPages)
             navigation |> List.collect sectionPages
+        let resolve (page:DocPage) =
+            Components.tryPage page.path
+            |> Option.orElseWith (fun () -> Showcase.tryPage page.path)
+            |> Option.defaultWith (fun () -> legacyPage page)
         let search =
             registered
             |> List.map (fun (page:DocPage) ->
-                let rendered = Showcase.tryPage page.path |> Option.defaultWith (fun () -> legacyPage page)
-                docsSearchEntry page.path rendered [ page.category; page.navLabel ])
+                docsSearchEntry page.path (resolve page) [ page.category; page.navLabel ])
             |> DocsSearch.index
-        let docsPage = Showcase.tryPage legacy.path |> Option.defaultWith (fun () -> legacyPage legacy)
+        let docsPage = resolve legacy
         let docsPage =
             docsPage
             |> docsWithMetadata {

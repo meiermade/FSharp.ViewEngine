@@ -11,6 +11,7 @@
     <Compile Include="src\Common\Model.fs" />
     <Compile Include="src\Common\SourceRegion.fs" />
     <Compile Include="src\Pages\Showcase.fs" />
+    <Compile Include="src\Pages\Components.fs" />
     <Compile Include="src\Common\View.fs" />
     <Compile Include="src\Pages\Home.fs" />
     <Compile Include="src\Pages\Installation.fs" />
@@ -22,7 +23,6 @@
     <Compile Include="src\Pages\Htmx.fs" />
     <Compile Include="src\Pages\Svg.fs" />
     <Compile Include="src\Pages\TailwindElements.fs" />
-    <Compile Include="src\Pages\Components.fs" />
     <Compile Include="src\Pages\Benchmarks.fs" />
     <Compile Include="src\Pages\Changelog.fs" />
     <Compile Include="src\Pages\Registry.fs" />
