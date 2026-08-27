@@ -143,7 +143,7 @@ let private packageVersion packageId (packagePath:string) =
     if matched.Success then matched.Groups[1].Value
     else fail $"Unexpected package name: {Path.GetFileName packagePath}"
 
-let private verifyDocsCoreDependency expectedVersion (archive:ZipArchive) =
+let private verifyCoreDependency dependentPackageId expectedVersion (archive:ZipArchive) =
     let nuspecEntry =
         archive.Entries
         |> Seq.filter (fun entry -> entry.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
@@ -166,8 +166,33 @@ let private verifyDocsCoreDependency expectedVersion (archive:ZipArchive) =
     | [ dependency ] ->
         let actualVersion = attributeValue "version" dependency
         if actualVersion <> expectedVersion then
-            fail $"Expected FSharp.ViewEngine dependency {expectedVersion}, found {actualVersion}"
-    | dependencies -> fail $"Expected exactly one FSharp.ViewEngine dependency, found {dependencies.Length}"
+            fail $"Expected {dependentPackageId} FSharp.ViewEngine dependency {expectedVersion}, found {actualVersion}"
+    | dependencies -> fail $"Expected exactly one {dependentPackageId} FSharp.ViewEngine dependency, found {dependencies.Length}"
+
+let private verifyComponentsContents (archive:ZipArchive) =
+    let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
+    for required in [ "LICENSE"; "README.md"; "contentFiles/any/any/FSharp.ViewEngine.Components.tailwind.css" ] do
+        if not (entries.Contains required) then fail $"Components package is missing {required}"
+
+    let nuspecEntry =
+        archive.Entries
+        |> Seq.filter (fun entry -> entry.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
+        |> exactlyOne "NuSpec entry"
+    let document = nuspecEntry |> entryText |> XDocument.Parse
+    let metadataValue name =
+        document.Descendants()
+        |> Seq.filter (fun element -> element.Name.LocalName = name)
+        |> exactlyOne $"{name} element"
+        |> _.Value
+    if metadataValue "id" <> "FSharp.ViewEngine.Components" then fail "Components package ID is incorrect"
+    if metadataValue "readme" <> "README.md" then fail "Components package README metadata is incorrect"
+    let license =
+        document.Descendants()
+        |> Seq.filter (fun element -> element.Name.LocalName = "license")
+        |> exactlyOne "license element"
+    let licenseType = license.Attribute(XName.Get "type")
+    if isNull licenseType || licenseType.Value <> "file" || license.Value <> "LICENSE" then
+        fail "Components package license metadata is incorrect"
 
 let private testFrameworks () =
     let configured =
@@ -254,6 +279,28 @@ let private verifyFragmentAttributeRejection projectDirectory framework =
 
     printfn "Verified expected FS0041 fragment-attribute rejection on %s" framework
 
+let private componentsConsumerProgram =
+    """open FSharp.ViewEngine
+open FSharp.ViewEngine.Components
+open type Html
+
+let view =
+    div {
+        for attribute in ComponentsTheme.attributes ComponentsTheme.sky do
+            attribute
+        Button.primary "Create account"
+    }
+
+let actual = view |> Render.toString
+if not (actual.Contains "fve-components fve-theme-sky")
+   || not (actual.Contains "type=\"button\"")
+   || not (actual.Contains "bg-[var(--fve-brand-solid)]")
+   || not (actual.Contains ">Create account</button>") then
+    failwith $"Components package rendered unexpected HTML: {actual}"
+
+printfn "FSharp.ViewEngine.Components package works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
+"""
+
 let private docsConsumerProgram =
     """open FSharp.ViewEngine
 open FSharp.ViewEngine.Docs
@@ -318,7 +365,11 @@ type private PackageDefinition =
 let private packageDefinition (packagePath:string) =
     let fileName = Path.GetFileName packagePath
 
-    if fileName.StartsWith("FSharp.ViewEngine.Docs.", StringComparison.Ordinal) then
+    if fileName.StartsWith("FSharp.ViewEngine.Components.", StringComparison.Ordinal) then
+        { packageId = "FSharp.ViewEngine.Components"
+          assemblyName = "FSharp.ViewEngine.Components"
+          consumerProgram = componentsConsumerProgram }
+    elif fileName.StartsWith("FSharp.ViewEngine.Docs.", StringComparison.Ordinal) then
         { packageId = "FSharp.ViewEngine.Docs"
           assemblyName = "FSharp.ViewEngine.Docs"
           consumerProgram = docsConsumerProgram }
@@ -339,11 +390,19 @@ let verify runDotnet packagePath =
     use packageArchive = ZipFile.OpenRead packagePath
     verifyPackageContents definition.assemblyName packageArchive
 
-    if definition.packageId = "FSharp.ViewEngine.Docs" then
+    match definition.packageId with
+    | "FSharp.ViewEngine.Components" ->
+        let expectedCoreVersion = Environment.GetEnvironmentVariable "COMPONENTS_MINIMUM_CORE_VERSION"
+        if String.IsNullOrWhiteSpace expectedCoreVersion then
+            fail "COMPONENTS_MINIMUM_CORE_VERSION is required when verifying FSharp.ViewEngine.Components"
+        verifyCoreDependency definition.packageId expectedCoreVersion packageArchive
+        verifyComponentsContents packageArchive
+    | "FSharp.ViewEngine.Docs" ->
         let expectedCoreVersion = Environment.GetEnvironmentVariable "DOCS_MINIMUM_CORE_VERSION"
         if String.IsNullOrWhiteSpace expectedCoreVersion then
             fail "DOCS_MINIMUM_CORE_VERSION is required when verifying FSharp.ViewEngine.Docs"
-        verifyDocsCoreDependency expectedCoreVersion packageArchive
+        verifyCoreDependency definition.packageId expectedCoreVersion packageArchive
+    | _ -> ()
 
     let repositoryCommit = repositoryMetadata packageArchive
     verifySymbols definition.assemblyName repositoryCommit symbolsPackagePath
