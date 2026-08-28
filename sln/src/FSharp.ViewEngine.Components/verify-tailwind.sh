@@ -20,9 +20,11 @@ assert_output() {
 
 assert_output '.bg-\[var\(--fve-brand-solid\)\]'
 assert_output '.hover\:bg-\[var\(--fve-brand-hover\)\]'
+assert_output '.active\:bg-\[var\(--fve-brand-active\)\]'
 assert_output '.focus-visible\:ring-2'
 assert_output '.fve-theme-emerald'
 assert_output '.acme-theme'
 assert_output '--fve-brand-solid:oklch(58% .18 264)'
+assert_output '--fve-brand-active:oklch(44% .18 264)'
 
 echo "Components Tailwind clean-consumer contract passed."

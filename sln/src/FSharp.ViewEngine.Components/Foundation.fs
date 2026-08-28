@@ -113,3 +113,19 @@ module internal ComponentHtml =
         | ControlSize.Small -> "min-h-[calc(var(--fve-control-min-height)-0.25rem)] px-2.5 py-[var(--fve-control-padding-block)] text-xs"
         | ControlSize.Medium -> "min-h-[var(--fve-control-min-height)] px-3 py-[var(--fve-control-padding-block)] text-sm"
         | ControlSize.Large -> "min-h-[calc(var(--fve-control-min-height)+0.5rem)] px-4 py-[var(--fve-control-padding-block)] text-base"
+
+    let iconButtonSizeClasses = function
+        | ControlSize.Small -> "size-[calc(var(--fve-control-min-height)-0.25rem)] p-0"
+        | ControlSize.Medium -> "size-[var(--fve-control-min-height)] p-0"
+        | ControlSize.Large -> "size-[calc(var(--fve-control-min-height)+0.5rem)] p-0"
+
+    let loadingGlyph size =
+        let sizeClass =
+            match size with
+            | ControlSize.Small -> "size-3.5"
+            | ControlSize.Medium -> "size-4"
+            | ControlSize.Large -> "size-5"
+        span {
+            _ariaHidden "true"
+            _class (classes [ "shrink-0 animate-spin rounded-full border-2 border-[var(--fve-border)] border-t-[var(--fve-brand-solid)] motion-reduce:animate-none"; sizeClass ])
+        }

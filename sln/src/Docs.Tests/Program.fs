@@ -42,7 +42,11 @@ let private expectedPaths =
         "/components"
         "/components/installation"
         "/components/button"
+        "/components/icon-button"
+        "/components/badge"
         "/components/status"
+        "/components/loading-indicator"
+        "/components/empty-state"
         "/components/table"
         "/components/select"
         "/components/combobox"
@@ -121,7 +125,10 @@ let tests =
                 [ "Documentation site"; "API reference"; "Executable specification" ]
                 "page examples are grouped separately"
             Expect.sequenceEqual (section "FSharp.ViewEngine.Components") [ "Overview"; "Installation" ] "Components starts with overview and installation"
-            Expect.sequenceEqual (section "Actions and feedback") [ "Button"; "Status" ] "action components"
+            Expect.sequenceEqual
+                (section "Actions and feedback")
+                [ "Button"; "Icon button"; "Badge"; "Status"; "Loading indicator"; "Empty state" ]
+                "action and feedback foundations"
             Expect.sequenceEqual (section "Data display") [ "Table" ] "data-display components"
             Expect.sequenceEqual (section "Form controls") [ "Select"; "Combobox"; "Checkbox"; "Switch"; "Toggle button"; "Radio group" ] "form controls"
             Expect.sequenceEqual (section "Menus and overlays") [ "Dropdown menu"; "Dialog" ] "menu and overlay components"
@@ -415,7 +422,7 @@ after"""
             let renderedGuides = Components.guideRegistrations |> List.map render
             let allHtml = String.concat Environment.NewLine (overview :: installation :: renderedComponents @ renderedGuides)
 
-            Expect.equal Components.allRegistrations.Length 22 "overview, installation, fourteen components, and six guides"
+            Expect.equal Components.allRegistrations.Length 26 "overview, installation, eighteen components, and six guides"
             Expect.stringContains overview "Accessible, server-rendered Tailwind components" "consumer-facing introduction"
             Expect.stringContains overview "Browse components" "overview is a component catalog"
             Expect.stringContains overview "href=\"/components/button\"" "catalog deep-links Button"
@@ -454,7 +461,12 @@ after"""
 
             for source in [
                 "Button.primary &quot;Create account&quot;"
+                "Button.pending"
+                "IconButton.create &quot;Add account&quot; plusIcon"
+                "Badge.create &quot;Internal&quot;"
                 "Status.create &quot;Needs review&quot;"
+                "LoadingIndicator.create &quot;Loading account balances&quot;"
+                "EmptyState.create &quot;No accounts yet&quot;"
                 "Table.create &quot;Accounts&quot;"
                 "Select.create &quot;status&quot; &quot;Status&quot; statusValue statusOptions"
                 "Combobox.create &quot;account&quot; &quot;Parent account&quot; string"
@@ -491,6 +503,104 @@ after"""
             let versioning = render Components.versioningRegistration
             Expect.stringContains versioning "rel=\"prev\" href=\"/components/customization\"" "last guide follows customization"
             Expect.stringContains versioning "rel=\"next\" href=\"/docs\"" "Components precedes the specialized Docs toolkit"
+        }
+
+        test "Components foundations preserve accessible names, honest states, and protected structure" {
+            let icon = span { "+" }
+
+            let pendingButton =
+                Button.create "Sync accounts"
+                |> Button.pending
+                |> Button.withAttributes [ _ariaBusy false; _attr "disabled"; _class "override" ]
+                |> Button.render
+                |> Render.toString
+            Expect.stringContains pendingButton "disabled" "pending Button prevents activation"
+            Expect.stringContains pendingButton "aria-busy=\"true\"" "pending Button exposes busy state"
+            Expect.stringContains pendingButton ">Sync accounts<" "pending Button retains its action label"
+            Expect.equal (Regex.Matches(pendingButton, "aria-busy=").Count) 1 "Button owns one busy state"
+            Expect.isFalse (pendingButton.Contains("override")) "Button protects base presentation"
+
+            let iconButton =
+                IconButton.create "Add account" icon
+                |> IconButton.withVariant ButtonVariant.Primary
+                |> IconButton.render
+                |> Render.toString
+            Expect.stringContains iconButton "aria-label=\"Add account\"" "IconButton requires an accessible name"
+            Expect.stringContains iconButton "aria-hidden=\"true\"" "IconButton hides decorative icon content"
+            Expect.throws (fun () -> IconButton.create " " icon |> ignore) "IconButton rejects an empty accessible name"
+
+            let pendingIconButton =
+                IconButton.create "Refresh accounts" icon
+                |> IconButton.pending
+                |> IconButton.withAttributes [ _ariaLabel "Override"; _ariaBusy false; _class "override" ]
+                |> IconButton.render
+                |> Render.toString
+            Expect.stringContains pendingIconButton "aria-label=\"Refresh accounts\"" "pending IconButton retains its accessible name"
+            Expect.stringContains pendingIconButton "aria-busy=\"true\"" "pending IconButton exposes busy state"
+            Expect.stringContains pendingIconButton "disabled" "pending IconButton prevents activation"
+            Expect.isFalse (pendingIconButton.Contains("Override")) "IconButton protects its accessible name"
+            Expect.isFalse (pendingIconButton.Contains("override")) "IconButton protects base presentation"
+
+            for variant, activeClass in [
+                ButtonVariant.Primary, "active:bg-[var(--fve-brand-active)]"
+                ButtonVariant.Secondary, "active:bg-[var(--fve-surface-active)]"
+                ButtonVariant.Ghost, "active:bg-[var(--fve-surface-active)]"
+                ButtonVariant.Destructive, "active:bg-[var(--fve-critical-active)]"
+            ] do
+                let button =
+                    Button.create "Action"
+                    |> Button.withVariant variant
+                    |> Button.render
+                    |> Render.toString
+                let iconAction =
+                    IconButton.create "Icon action" icon
+                    |> IconButton.withVariant variant
+                    |> IconButton.render
+                    |> Render.toString
+                Expect.stringContains button activeClass $"{variant} Button has intentional active styling"
+                Expect.stringContains iconAction activeClass $"{variant} IconButton has intentional active styling"
+
+            let badge =
+                Badge.create "Reconciled"
+                |> Badge.withTone Tone.Positive
+                |> Badge.withAttributes [ _class "override" ]
+                |> Badge.render
+                |> Render.toString
+            Expect.stringContains badge "Reconciled" "Badge communicates category through text"
+            Expect.stringContains badge "var(--fve-positive-text)" "Badge consumes a semantic tone"
+            Expect.isFalse (badge.Contains("override")) "Badge protects base presentation"
+
+            let loading =
+                LoadingIndicator.create "Loading balances"
+                |> LoadingIndicator.withAttributes [ _role "alert"; _ariaLive "assertive"; _class "override" ]
+                |> LoadingIndicator.render
+                |> Render.toString
+            Expect.stringContains loading "role=\"status\"" "LoadingIndicator exposes polite status semantics"
+            Expect.stringContains loading "aria-live=\"polite\"" "LoadingIndicator owns its announcement behavior"
+            Expect.stringContains loading "Loading balances" "LoadingIndicator retains its accessible label"
+            Expect.stringContains loading "class=\"sr-only\"" "compact loading label is visually hidden"
+            Expect.isFalse (loading.Contains("alert")) "LoadingIndicator protects its role"
+            Expect.isFalse (loading.Contains("override")) "LoadingIndicator protects base presentation"
+
+            let visibleLoading =
+                LoadingIndicator.create "Refreshing entries"
+                |> LoadingIndicator.withVisibleLabel
+                |> LoadingIndicator.render
+                |> Render.toString
+            Expect.isFalse (visibleLoading.Contains("sr-only")) "visible loading label remains visible"
+
+            let emptyState =
+                EmptyState.create "No accounts" "Create an account to begin."
+                |> EmptyState.withIcon icon
+                |> EmptyState.withActions (Button.primary "Create account")
+                |> EmptyState.withAttributes [ _class "override" ]
+                |> EmptyState.render
+                |> Render.toString
+            Expect.stringContains emptyState "No accounts" "EmptyState renders its title"
+            Expect.stringContains emptyState "Create an account to begin." "EmptyState renders useful guidance"
+            Expect.stringContains emptyState "aria-hidden=\"true\"" "EmptyState icon is decorative"
+            Expect.stringContains emptyState "Create account" "EmptyState composes application-owned actions"
+            Expect.isFalse (emptyState.Contains("override")) "EmptyState protects base presentation"
         }
 
         test "Components Select owns branded presentation instead of native browser chrome" {
@@ -662,6 +772,7 @@ after"""
                 |> String.concat "\n"
             let componentsProject = File.ReadAllText(Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.fsproj"))
             let docsProject = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "Docs.fsproj"))
+            let docsStyles = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "input.css"))
             let dockerfile = File.ReadAllText(Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "Dockerfile")))
 
             Expect.stringContains manifest "@source inline(" "package classes use an explicit source manifest"
@@ -671,7 +782,7 @@ after"""
             Expect.stringContains manifest ".dark .fve-theme-sky" "Sky ships theme-specific dark brand roles"
             Expect.stringContains manifest ".dark .fve-theme-emerald" "Emerald ships theme-specific dark brand roles"
             Expect.stringContains renderer "py-[var(--fve-control-padding-block)]" "renderers consume the semantic density token"
-            for role in [ "subtle"; "solid"; "hover"; "text"; "ring" ] do
+            for role in [ "subtle"; "solid"; "hover"; "active"; "text"; "ring" ] do
                 Expect.isGreaterThanOrEqual
                     (Regex.Matches(manifest, $"--fve-brand-{role}:").Count)
                     4
@@ -679,8 +790,13 @@ after"""
             Expect.stringContains consumer "@import \"tailwindcss\" source(none)" "fixture disables automatic source scanning"
             Expect.stringContains consumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "clean consumer imports only the contract"
             Expect.stringContains consumer ".acme-theme" "consumer override is independent"
+            Expect.stringContains consumer "--fve-brand-active" "consumer override includes pressed feedback"
             Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
+            Expect.stringContains verification ".active\\:bg-\\[var\\(--fve-brand-active\\)\\]" "verification checks generated active-state utility"
             Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
+            Expect.stringContains docsStyles ".docs-components-preview .fve-components" "Docs owns the example theme adapter"
+            Expect.stringContains docsStyles "--fve-page: var(--spec-bg)" "component examples inherit the Docs page surface"
+            Expect.stringContains docsStyles "--fve-brand-solid: var(--spec-accent-500)" "component examples inherit the Docs sky accent"
             Expect.stringContains dockerfile "FSharp.ViewEngine.Components/verify-tailwind.sh" "container CI executes the clean-consumer proof"
             Expect.stringContains componentsProject "..\\FSharp.ViewEngine\\FSharp.ViewEngine.fsproj" "Components depends on Core"
             Expect.isFalse (componentsProject.Contains("FSharp.ViewEngine.Docs")) "Components remains independent from Docs"

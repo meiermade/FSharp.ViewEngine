@@ -284,18 +284,31 @@ let private componentsConsumerProgram =
 open FSharp.ViewEngine.Components
 open type Html
 
+let icon = span { "+" }
+
 let view =
     div {
         for attribute in ComponentsTheme.attributes ComponentsTheme.sky do
             attribute
         Button.primary "Create account"
+        Button.create "Sync accounts" |> Button.pending |> Button.render
+        IconButton.create "Add account" icon |> IconButton.render
+        Badge.create "New" |> Badge.withTone Tone.Brand |> Badge.render
+        LoadingIndicator.create "Loading accounts" |> LoadingIndicator.render
+        EmptyState.create "No accounts" "Create an account to begin."
+        |> EmptyState.withActions (Button.primary "Create account")
+        |> EmptyState.render
     }
 
 let actual = view |> Render.toString
 if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "type=\"button\"")
    || not (actual.Contains "bg-[var(--fve-brand-solid)]")
-   || not (actual.Contains ">Create account</button>") then
+   || not (actual.Contains ">Create account</button>")
+   || not (actual.Contains "aria-busy=\"true\"")
+   || not (actual.Contains "aria-label=\"Add account\"")
+   || not (actual.Contains "role=\"status\"")
+   || not (actual.Contains "No accounts") then
     failwith $"Components package rendered unexpected HTML: {actual}"
 
 printfn "FSharp.ViewEngine.Components package works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription

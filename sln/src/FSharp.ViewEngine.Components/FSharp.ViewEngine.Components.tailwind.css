@@ -1,11 +1,12 @@
 /* Tailwind v4 distribution contract for FSharp.ViewEngine.Components. */
-@source inline("sr-only fixed absolute relative inset-y-0 left-0 right-0 top-full z-20 grid hidden block inline-flex flex min-h-8 min-h-9 min-h-11 min-h-16 min-h-[36rem] min-h-[var(--fve-control-min-height)] min-h-[calc(var(--fve-control-min-height)-0.25rem)] min-h-[calc(var(--fve-control-min-height)+0.5rem)] min-h-screen min-w-0 min-w-48 min-w-full max-h-60 max-w-xl max-w-7xl w-64 w-full w-[min(32rem,calc(100%-2rem))] translate-y-full grid-cols-2 flex-wrap items-start items-center justify-between justify-center justify-end gap-1 gap-1.5 gap-2 gap-3 gap-4 gap-5 gap-6 gap-8 divide-y divide-[var(--fve-border)] overflow-auto overflow-hidden rounded-full rounded-xl rounded-[var(--fve-radius-control)] rounded-[var(--fve-radius-panel)] border-b border-r border-[var(--fve-border)] bg-transparent bg-[var(--fve-border)] bg-[var(--fve-page)] bg-[var(--fve-surface)] bg-[var(--fve-surface-subtle)] bg-[var(--fve-brand-solid)] bg-[var(--fve-brand-subtle)] bg-[var(--fve-critical-solid)] bg-[var(--fve-critical-subtle)] bg-[var(--fve-neutral-subtle)] bg-[var(--fve-positive-subtle)] bg-[var(--fve-warning-subtle)] bg-[var(--fve-info-subtle)] p-0 p-1 p-4 p-5 p-6 px-2 px-2.5 px-3 px-4 py-1 py-1.5 py-2 py-2.5 py-3 py-[var(--fve-control-padding-block)] pb-5 m-auto mt-1 mt-2 mt-4 mt-5 mt-6 my-1 mx-auto text-left text-center text-right text-xs text-sm text-base text-lg text-2xl font-medium font-semibold uppercase tracking-tight tracking-wide text-white text-[var(--fve-text)] text-[var(--fve-muted-text)] text-[var(--fve-brand-text)] text-[var(--fve-critical-text)] text-[var(--fve-neutral-text)] text-[var(--fve-positive-text)] text-[var(--fve-warning-text)] text-[var(--fve-info-text)] shadow-sm shadow-lg shadow-xl ring-1 ring-2 ring-inset ring-[var(--fve-border)] ring-[var(--fve-brand-ring)] ring-[var(--fve-critical-ring)] ring-[var(--fve-neutral-ring)] ring-[var(--fve-positive-ring)] ring-[var(--fve-warning-ring)] ring-[var(--fve-info-ring)] outline-none transition-colors opacity-50 pointer-events-none cursor-default h-px min-w-0 backdrop:bg-slate-950/50 hover:bg-[var(--fve-brand-hover)] hover:bg-[var(--fve-critical-hover)] hover:bg-[var(--fve-critical-subtle)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus:ring-2 focus:ring-[var(--fve-brand-ring)] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--fve-brand-ring)] focus-visible:ring-[var(--fve-critical-ring)] disabled:pointer-events-none disabled:opacity-50 aria-disabled:opacity-50 group group-aria-expanded:rotate-180 peer cursor-pointer disabled:cursor-not-allowed focus:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-critical-subtle)] data-[active=true]:bg-[var(--fve-surface-hover)] data-[active=true]:ring-2 data-[active=true]:ring-inset data-[active=true]:ring-[var(--fve-brand-ring)] aria-selected:bg-[var(--fve-brand-subtle)] aria-selected:text-[var(--fve-brand-text)] aria-pressed:bg-[var(--fve-brand-subtle)] aria-pressed:text-[var(--fve-brand-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-2 peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--fve-brand-ring)] peer-focus-visible:ring-offset-2 bg-white font-bold h-5 left-0.5 ml-8 mt-0.5 pr-12 py-4 shrink-0 size-2.5 size-4 size-5 top-0.5 transition-transform translate-x-0 translate-x-4 truncate w-9 z-30 sm:grid-cols-2 sm:px-6 sm:p-6 lg:block lg:grid-cols-[16rem_1fr] lg:pl-64 lg:p-8");
+@source inline("sr-only fixed absolute relative inset-y-0 left-0 right-0 top-full z-20 grid hidden block inline-flex flex min-h-8 min-h-9 min-h-11 min-h-16 min-h-[36rem] min-h-[var(--fve-control-min-height)] min-h-[calc(var(--fve-control-min-height)-0.25rem)] min-h-[calc(var(--fve-control-min-height)+0.5rem)] min-h-screen min-w-0 min-w-48 min-w-full max-h-60 max-w-xl max-w-7xl w-64 w-full w-[min(32rem,calc(100%-2rem))] translate-y-full grid-cols-2 flex-wrap items-start items-center justify-between justify-center justify-end gap-1 gap-1.5 gap-2 gap-3 gap-4 gap-5 gap-6 gap-8 divide-y divide-[var(--fve-border)] overflow-auto overflow-hidden rounded-full rounded-xl rounded-[var(--fve-radius-control)] rounded-[var(--fve-radius-panel)] border-b border-r border-[var(--fve-border)] bg-transparent bg-[var(--fve-border)] bg-[var(--fve-page)] bg-[var(--fve-surface)] bg-[var(--fve-surface-subtle)] bg-[var(--fve-brand-solid)] bg-[var(--fve-brand-subtle)] bg-[var(--fve-critical-solid)] bg-[var(--fve-critical-subtle)] bg-[var(--fve-neutral-subtle)] bg-[var(--fve-positive-subtle)] bg-[var(--fve-warning-subtle)] bg-[var(--fve-info-subtle)] p-0 p-1 p-4 p-5 p-6 px-2 px-2.5 px-3 px-4 py-1 py-1.5 py-2 py-2.5 py-3 py-[var(--fve-control-padding-block)] pb-5 m-auto mt-1 mt-2 mt-4 mt-5 mt-6 my-1 mx-auto text-left text-center text-right text-xs text-sm text-base text-lg text-2xl font-medium font-semibold uppercase tracking-tight tracking-wide text-white text-[var(--fve-text)] text-[var(--fve-muted-text)] text-[var(--fve-brand-text)] text-[var(--fve-critical-text)] text-[var(--fve-neutral-text)] text-[var(--fve-positive-text)] text-[var(--fve-warning-text)] text-[var(--fve-info-text)] shadow-sm shadow-lg shadow-xl ring-1 ring-2 ring-inset ring-[var(--fve-border)] ring-[var(--fve-brand-ring)] ring-[var(--fve-critical-ring)] ring-[var(--fve-neutral-ring)] ring-[var(--fve-positive-ring)] ring-[var(--fve-warning-ring)] ring-[var(--fve-info-ring)] outline-none transition-colors opacity-50 pointer-events-none cursor-default h-px min-w-0 backdrop:bg-slate-950/50 hover:bg-[var(--fve-brand-hover)] hover:bg-[var(--fve-critical-hover)] hover:bg-[var(--fve-critical-subtle)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-brand-active)] active:bg-[var(--fve-surface-active)] active:bg-[var(--fve-critical-active)] focus:ring-2 focus:ring-[var(--fve-brand-ring)] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--fve-brand-ring)] focus-visible:ring-[var(--fve-critical-ring)] disabled:pointer-events-none disabled:opacity-50 aria-disabled:opacity-50 group group-aria-expanded:rotate-180 peer cursor-pointer disabled:cursor-not-allowed focus:bg-[var(--fve-surface-hover)] focus:bg-[var(--fve-critical-subtle)] data-[active=true]:bg-[var(--fve-surface-hover)] data-[active=true]:ring-2 data-[active=true]:ring-inset data-[active=true]:ring-[var(--fve-brand-ring)] aria-selected:bg-[var(--fve-brand-subtle)] aria-selected:text-[var(--fve-brand-text)] aria-pressed:bg-[var(--fve-brand-subtle)] aria-pressed:text-[var(--fve-brand-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50 peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-2 peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-[var(--fve-brand-ring)] peer-focus-visible:ring-offset-2 bg-white font-bold h-5 left-0.5 ml-8 mt-0.5 pr-12 py-4 shrink-0 size-2.5 size-4 size-5 top-0.5 transition-transform translate-x-0 translate-x-4 truncate w-9 z-30 sm:grid-cols-2 sm:px-6 sm:p-6 lg:block lg:grid-cols-[16rem_1fr] lg:pl-64 lg:p-8 animate-spin border-2 border-t-[var(--fve-brand-solid)] justify-items-center motion-reduce:animate-none place-items-center size-11 size-3.5 size-[calc(var(--fve-control-min-height)+0.5rem)] size-[calc(var(--fve-control-min-height)-0.25rem)] size-[var(--fve-control-min-height)]");
 
 .fve-components {
   --fve-page: oklch(98.5% 0.002 247.839);
   --fve-surface: oklch(100% 0 0);
   --fve-surface-subtle: oklch(96.7% 0.003 264.542);
   --fve-surface-hover: oklch(96.7% 0.003 264.542);
+  --fve-surface-active: oklch(92.8% 0.006 264.531);
   --fve-text: oklch(21% 0.034 264.665);
   --fve-muted-text: oklch(44.6% 0.03 256.802);
   --fve-border: oklch(87.2% 0.01 258.338);
@@ -21,6 +22,7 @@
   --fve-critical-subtle: oklch(97.1% 0.013 17.38);
   --fve-critical-solid: oklch(57.7% 0.245 27.325);
   --fve-critical-hover: oklch(50.5% 0.213 27.518);
+  --fve-critical-active: oklch(44.4% 0.177 26.899);
   --fve-critical-text: oklch(44.4% 0.177 26.899);
   --fve-critical-ring: oklch(63.7% 0.237 25.331);
   --fve-info-subtle: oklch(97% 0.014 254.604);
@@ -36,6 +38,7 @@
   --fve-brand-subtle: oklch(97.7% 0.013 236.62);
   --fve-brand-solid: oklch(58.8% 0.158 241.966);
   --fve-brand-hover: oklch(50% 0.134 242.749);
+  --fve-brand-active: oklch(44.3% 0.11 240.79);
   --fve-brand-text: oklch(44.3% 0.11 240.79);
   --fve-brand-ring: oklch(68.5% 0.169 237.323);
 }
@@ -44,6 +47,7 @@
   --fve-brand-subtle: oklch(97.9% 0.021 166.113);
   --fve-brand-solid: oklch(59.6% 0.145 163.225);
   --fve-brand-hover: oklch(50.8% 0.118 165.612);
+  --fve-brand-active: oklch(43.2% 0.095 166.913);
   --fve-brand-text: oklch(43.2% 0.095 166.913);
   --fve-brand-ring: oklch(69.6% 0.17 162.48);
 }
@@ -61,6 +65,7 @@
   --fve-surface: oklch(21% 0.034 264.665);
   --fve-surface-subtle: oklch(27.8% 0.033 256.848);
   --fve-surface-hover: oklch(27.8% 0.033 256.848);
+  --fve-surface-active: oklch(37.3% 0.034 259.733);
   --fve-text: oklch(96.7% 0.003 264.542);
   --fve-muted-text: oklch(70.7% 0.022 261.325);
   --fve-border: oklch(37.3% 0.034 259.733);
@@ -81,6 +86,7 @@
   --fve-brand-subtle: oklch(29.3% 0.066 243.157);
   --fve-brand-solid: oklch(55.4% 0.135 241.966);
   --fve-brand-hover: oklch(65.5% 0.15 237.323);
+  --fve-brand-active: oklch(74.6% 0.16 232.661);
   --fve-brand-text: oklch(82.8% 0.111 230.318);
   --fve-brand-ring: oklch(74.6% 0.16 232.661);
 }
@@ -90,6 +96,7 @@
   --fve-brand-subtle: oklch(26.2% 0.051 172.552);
   --fve-brand-solid: oklch(56.5% 0.128 163.225);
   --fve-brand-hover: oklch(66.5% 0.154 162.48);
+  --fve-brand-active: oklch(76.5% 0.177 163.223);
   --fve-brand-text: oklch(84.5% 0.143 164.978);
   --fve-brand-ring: oklch(76.5% 0.177 163.223);
 }
