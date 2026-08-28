@@ -258,6 +258,9 @@ let tests =
             Expect.stringContains rendered "href=\"/guides\"" "breadcrumb destination"
             Expect.stringContains rendered "class=\"mermaid spec-diagram\"" "sequence diagram component"
             Expect.stringContains rendered "data-init=\"window.renderMermaid?.(el)\"" "diagrams initialize when Datastar adds them to the DOM"
+            Expect.stringContains rendered "data-mermaid-source=\"sequenceDiagram" "diagram source is encoded outside visible content"
+            Expect.stringContains rendered "data-mermaid-state=\"pending\" aria-busy=\"true\"" "diagrams expose their initial busy state"
+            Expect.stringContains rendered "data-mermaid-status=\"true\" role=\"status\">Rendering diagram…</p>" "diagrams provide accessible pending content"
             Expect.stringContains rendered "data-example=\"true\"" "custom product content"
             Expect.stringContains rendered "https://github.com/example/docs" "optional repository link"
             Expect.stringContains rendered "aria-label=\"View repository on GitHub\"" "GitHub repository action is icon-only and accessibly named"
@@ -332,7 +335,8 @@ let tests =
 
         test "Pages declare optional runtime asset requirements" {
             let plain = docsArticle "guide" "Guide" "Description" []
-            let diagram = docsArticle "guide" "Guide" "Description" [ docsSection "flow" "Flow" [ docsDiagram "flowchart LR" ] ]
+            let diagramSource = "flowchart LR\nA[\"<script>alert('diagram')</script>\"] --> B[Ready]"
+            let diagram = docsArticle "guide" "Guide" "Description" [ docsSection "flow" "Flow" [ docsDiagram diagramSource ] ]
             let highlighted = docsArticle "guide" "Guide" "Description" [ docsSection "code" "Code" [ docsCode "fsharp" "let x = 1" ] ]
 
             let plainHtml = docsDocument site plain |> Render.toString
@@ -346,6 +350,11 @@ let tests =
             Expect.stringContains plainHtml "--docs-code-green:#7ee787" "dark Prism palette is available before highlighting"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/prism.1.29.0.min.js\"")) "plain pages omit Prism scripts"
             Expect.stringContains diagramHtml "data-init=\"window.renderMermaid?.(el)\"" "diagram elements own their Datastar initialization"
+            Expect.stringContains diagramHtml "data-mermaid-source=\"flowchart LR" "diagram source is encoded as data rather than visible content"
+            Expect.stringContains diagramHtml "&lt;script&gt;alert(&#39;diagram&#39;)&lt;/script&gt;" "diagram source cannot escape its encoded data attribute"
+            Expect.isFalse (diagramHtml.Contains("<script>alert('diagram')</script>")) "trusted Mermaid source is never emitted as executable component markup"
+            Expect.stringContains diagramHtml "role=\"status\">Rendering diagram…</p>" "diagram pages render accessible pending content"
+            Expect.isFalse (diagramHtml.Contains(">flowchart LR</div>")) "diagram pages never render Mermaid source as visible content"
             Expect.isFalse (diagramHtml.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "diagram pages also load Mermaid lazily"
             Expect.stringContains highlightedHtml "prism.1.29.0" "code pages configure Prism"
         }
@@ -374,7 +383,11 @@ let tests =
             Expect.stringContains rendered "href=\"/css/product.css\"" "product stylesheet"
             Expect.stringContains rendered "href=\"/css/custom-prism.css\"" "consumer Prism stylesheet overrides the embedded palette"
             Expect.stringContains rendered "securityLevel: \"strict\"" "Mermaid security setting is safely serialized"
+            Expect.stringContains rendered "typeof window.mermaid?.initialize === 'function'" "Mermaid API detection cannot be clobbered by a consumer element ID"
+            Expect.stringContains rendered "suppressErrorRendering: true" "Mermaid error SVGs are suppressed in favor of package-owned failure content"
+            Expect.stringContains rendered "window.mermaid.render(id, node.dataset.mermaidSource" "Mermaid renders from encoded source without restoring visible raw text"
             Expect.stringContains rendered "mermaidRenderQueue" "Mermaid renders are serialized"
+            Expect.stringContains rendered "setMermaidFailed" "asset and render failures use the shared deterministic failure state"
             Expect.stringContains rendered "name=\"robots\"" "additional head content"
         }
 

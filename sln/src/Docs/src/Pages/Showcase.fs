@@ -229,9 +229,6 @@ module Showcase =
             SequenceDiagram.call engine output "Encode and serialize"
             SequenceDiagram.reply output developer "HTML string" ]
 
-    let private mermaidPreview (source:string) =
-        div { _class "mermaid spec-diagram"; raw source }
-
     let overviewPage =
         docsArticle overviewRegistration.id overviewRegistration.title "Composable layouts and components for product documentation, API references, executable specifications, and component review." [
             docsSection "purpose" "Built with the package" [
@@ -470,6 +467,9 @@ module Showcase =
         // docs-example:end sequence-diagram
 
         docsArticle diagramsRegistration.id diagramsRegistration.title "Trusted Mermaid, C4, and validated sequence diagrams for architecture and workflow communication." [
+            docsSection "live-diagram" "Live diagram" [
+                docsParagraph "Diagram components own loading, rendering, theme changes, and an accessible unavailable state while product documentation supplies the trusted source."
+                docsDiagram flowchart ]
             componentExample "mermaid" "Mermaid" "Render a trusted Mermaid source string in the standard responsive diagram surface." (isolatedPage "Mermaid diagram" "https://docs.example.test/diagrams/mermaid" mermaidPage)
             componentExample "c4" "C4" "Use Mermaid C4 syntax for a proportionate system context, container, component, dynamic, or deployment view." (isolatedPage "C4 diagram" "https://docs.example.test/diagrams/c4" c4Page)
             componentExample "sequence-diagram" "Sequence diagram" "Construct participants and calls with the validated sequence DSL before rendering Mermaid." (isolatedPage "Sequence diagram" "https://docs.example.test/diagrams/sequence" sequencePage) ]

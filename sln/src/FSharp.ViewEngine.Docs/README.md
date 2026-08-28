@@ -137,7 +137,7 @@ let canvas =
 - `docsCustom`
 - `docsPageLink`, `docsPager`, and `docsWithPager`
 
-`docsDiagram` and `docsC4Diagram` accept trusted Mermaid source. `docsSequence` accepts a diagram constructed with the validated `SequenceDiagram` DSL.
+`docsDiagram` and `docsC4Diagram` accept trusted Mermaid source. `docsSequence` accepts a diagram constructed with the validated `SequenceDiagram` DSL. Diagram components encode that source outside visible content, show an accessible rendering status while the lazy Mermaid asset loads, and show `Diagram unavailable.` as an alert if the asset or diagram cannot render. Direct loads, Docs navigation, and color-mode changes share this lifecycle; consumers do not need compatibility wrappers.
 
 ## Interactive components
 
