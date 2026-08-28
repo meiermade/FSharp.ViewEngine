@@ -198,26 +198,31 @@ module View =
         | "changelog" -> Some(docsPager (pageLink "Benchmarks" "/benchmarks") None)
         | _ -> None
 
-    let renderPage (navigation:NavSection list) (legacy:DocPage) =
-        let registered =
-            let rec sectionPages section = section.pages @ (section.sections |> List.collect sectionPages)
-            navigation |> List.collect sectionPages
-        let resolve (page:DocPage) =
-            Components.tryPage page.path
-            |> Option.orElseWith (fun () -> Showcase.tryPage page.path)
-            |> Option.defaultWith (fun () -> legacyPage page)
+    let private registeredPages (navigation:NavSection list) =
+        let rec sectionPages section = section.pages @ (section.sections |> List.collect sectionPages)
+        navigation |> List.collect sectionPages
+
+    let private resolvePage (page:DocPage) =
+        Components.tryPage page.path
+        |> Option.orElseWith (fun () -> Showcase.tryPage page.path)
+        |> Option.defaultWith (fun () -> legacyPage page)
+
+    let private renderResolvedPage (navigation:NavSection list) (registration:DocPage) (docsPage:DocsPage) =
         let search =
-            registered
+            registeredPages navigation
             |> List.map (fun (page:DocPage) ->
-                docsSearchEntry page.path (resolve page) [ page.category; page.navLabel ])
+                docsSearchEntry page.path (resolvePage page) [ page.category; page.navLabel ])
             |> DocsSearch.index
-        let docsPage = resolve legacy
         let docsPage =
             docsPage
             |> docsWithMetadata {
                 docsPage.metadata with
                     socialImage = Some "https://fsharpviewengine.meiermade.com/social-card.png" }
-        let docsPage = pager legacy.id |> Option.map (fun value -> docsWithPager value docsPage) |> Option.defaultValue docsPage
+        let docsPage = pager registration.id |> Option.map (fun value -> docsWithPager value docsPage) |> Option.defaultValue docsPage
         docsDocument (site navigation search) docsPage
 
+    let renderPage navigation registration =
+        renderResolvedPage navigation registration (resolvePage registration)
+
     let document navigation page = renderPage navigation page
+    let documentWithPage navigation registration docsPage = renderResolvedPage navigation registration docsPage

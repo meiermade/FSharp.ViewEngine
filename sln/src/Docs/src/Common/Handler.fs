@@ -31,6 +31,18 @@ module Handler =
             (page.path :: page.aliases)
             |> List.map (fun path -> route path >=> render page))
 
+    let private componentPagination : HttpHandler =
+        fun next context ->
+            let requestedPage =
+                match Int32.TryParse(context.Request.Query["page"].ToString()) with
+                | true, page -> page
+                | false, _ -> 2
+            let html =
+                Components.paginationPageFor requestedPage
+                |> View.documentWithPage Registry.navigation Components.paginationRegistration
+                |> Render.toHtmlDocString
+            htmlString html next context
+
     let private componentAccountSearch : HttpHandler =
         fun next context ->
             let query =
@@ -55,6 +67,7 @@ module Handler =
         choose [
             route "/sitemap.xml" >=> setHttpHeader "Content-Type" "application/xml; charset=utf-8" >=> setBodyFromString sitemap
             route "/robots.txt" >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8" >=> setBodyFromString robots
+            route "/components/pagination" >=> componentPagination
             route "/components/accounts/search" >=> componentAccountSearch
             choose (previewRoutes @ pageRoutes)
         ]

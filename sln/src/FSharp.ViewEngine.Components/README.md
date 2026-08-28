@@ -61,6 +61,12 @@ The manifest contains the renderer-owned utility inventory and semantic CSS vari
 
 Button, IconButton, Badge, Status, LoadingIndicator, and EmptyState share the semantic theme, tone, size, radius, density, light-mode, and dark-mode contracts where applicable. Available Button and IconButton variants provide hover, active, and focus-visible feedback. IconButton and LoadingIndicator require accessible labels. Pending buttons retain their action name, expose busy state, and prevent duplicate activation.
 
+## Data display
+
+Table renders typed consumer-owned rows with native captions, column and optional row headers, compact or comfortable density, custom cells/actions, empty content, and a labelled keyboard-reachable narrow overflow region.
+
+DescriptionList and DetailField render responsive native `dl`/`dt`/`dd` relationships. Metric highlights consumer-formatted value content with optional trend text, status content, and description. Pagination presents explicit current/link/gap items through typed consumer destinations without owning page state. Chart groups consumer-drawn SVG or HTML, title, units, legend, annotations, empty state, and a required accessible summary or data representation without adding a chart runtime.
+
 ## Interaction and state
 
 Components use Datastar signals for ephemeral open, query, focus, and selection presentation. Applications remain responsible for durable state, authorization, validation, routing, and server actions.
