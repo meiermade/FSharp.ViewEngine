@@ -355,7 +355,7 @@ let page =
     |> docsWithPager (docsPager (Some(docsPageLink "Home" "/")) None)
 
 let actual = docsDocument site page |> Render.toString
-if not (actual.Contains "class=\"spec-shell\"") || not (actual.Contains "data-docs-example=\"true\"") || not (actual.Contains "aria-label=\"Page navigation\"") || not (actual.Contains "Person->>App: Use product") then
+if not (actual.Contains "class=\"spec-shell\"") || not (actual.Contains "data-docs-example=\"true\"") || not (actual.Contains "aria-label=\"Page navigation\"") || not (actual.Contains "data-mermaid-source=\"sequenceDiagram") || not (actual.Contains "data-mermaid-state=\"pending\"") || actual.Contains ">sequenceDiagram" then
     failwith "documentation document did not render expected components"
 
 let graph: DirectedGraph<Destination> =
