@@ -549,7 +549,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   })
   const mobileTableSurface = await openPreview('/components/table', 'Table')
   const mobileTableRegion = mobileTableSurface.getByRole('region', { name: 'Accounts', exact: true })
-  expect(await mobileTableRegion.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
+  await expect.poll(() => mobileTableRegion.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
   await testInfo.attach('components-table-mobile-dark', {
     body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
     contentType: 'image/png',
