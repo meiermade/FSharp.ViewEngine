@@ -6,6 +6,7 @@ open FSharp.ViewEngine
 open FSharp.ViewEngine.Components
 open FSharp.ViewEngine.Docs
 open type Html
+open type Datastar
 
 module Components =
     type AccountStatus =
@@ -41,39 +42,80 @@ module Components =
 
     let sourceFor id = SourceRegion.extract id sourceText.Value
 
+    let private themedPreview (content:HtmlElement) =
+        div {
+            _class "docs-components-preview"
+            content
+        }
+
     let private themedSurface (content:HtmlElement) =
         div {
-            for attribute in ComponentsTheme.attributes ComponentsTheme.emerald do attribute
+            for attribute in ComponentsTheme.attributes ComponentsTheme.sky do attribute
             div {
                 _class "rounded-xl bg-[var(--fve-page)] p-5 text-[var(--fve-text)]"
                 content
             }
         }
+        |> themedPreview
 
     // docs-example:start button
+    let private trackButtonActivation config =
+        config
+        |> Button.withAttributes [ _dataOn ("click", "$buttonActivations++") ]
+        |> Button.render
+
+    let createAccountButton =
+        Button.create "Create account"
+        |> Button.withVariant ButtonVariant.Primary
+        |> trackButtonActivation
+
     let importButton =
         Button.create "Import"
         |> Button.withVariant ButtonVariant.Secondary
         |> Button.withSize ControlSize.Small
-        |> Button.render
+        |> trackButtonActivation
+
+    let viewActivityButton =
+        Button.create "View activity"
+        |> Button.withVariant ButtonVariant.Ghost
+        |> trackButtonActivation
+
+    let removeDraftButton =
+        Button.create "Remove draft"
+        |> Button.withVariant ButtonVariant.Destructive
+        |> trackButtonActivation
 
     let pendingSyncButton =
         Button.create "Sync accounts"
         |> Button.withVariant ButtonVariant.Primary
         |> Button.pending
-        |> Button.render
+        |> trackButtonActivation
 
     let disabledDeleteButton =
         Button.create "Delete account"
         |> Button.withVariant ButtonVariant.Destructive
         |> Button.disabled
-        |> Button.render
+        |> trackButtonActivation
 
     let buttonPreview =
         themedSurface (
             div {
-                _class "flex flex-wrap items-center gap-3"
-                [ Button.primary "Create account"; importButton; pendingSyncButton; disabledDeleteButton ]
+                _dataSignals "{buttonActivations: 0}"
+                div {
+                    _class "flex flex-wrap items-center gap-3"
+                    [ createAccountButton
+                      importButton
+                      viewActivityButton
+                      removeDraftButton
+                      pendingSyncButton
+                      disabledDeleteButton ]
+                }
+                output {
+                    _id "button-activation-count"
+                    _class "mt-4 block text-sm text-[var(--fve-muted-text)]"
+                    "Activations: "
+                    span { _dataText "$buttonActivations"; "0" }
+                }
             })
     // docs-example:end button
 
@@ -83,22 +125,53 @@ module Components =
     let private refreshIcon =
         raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M15.312 4.683A7.25 7.25 0 1 0 17.25 10a.75.75 0 0 0-1.5 0 5.75 5.75 0 1 1-1.604-3.982H12.5a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 .75-.75v-3.5a.75.75 0 0 0-1.5 0v1.415Z" clip-rule="evenodd"/></svg>"""
 
+    let private removeIcon =
+        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M8.75 3.5a1.25 1.25 0 0 1 2.5 0V4h3a.75.75 0 0 1 0 1.5h-.44l-.55 9.08A2.25 2.25 0 0 1 11.02 16.7H8.98a2.25 2.25 0 0 1-2.24-2.12L6.19 5.5h-.44a.75.75 0 0 1 0-1.5h3v-.5Zm-1.06 2 .54 8.99a.75.75 0 0 0 .75.71h2.04a.75.75 0 0 0 .75-.71l.54-8.99H7.69Z" clip-rule="evenodd"/></svg>"""
+
     // docs-example:start icon-button
+    let private trackIconButtonActivation config =
+        config
+        |> IconButton.withAttributes [ _dataOn ("click", "$iconButtonActivations++") ]
+        |> IconButton.render
+
     let addAccountIconButton =
         IconButton.create "Add account" plusIcon
         |> IconButton.withVariant ButtonVariant.Primary
-        |> IconButton.render
+        |> trackIconButtonActivation
+
+    let refreshAccountsIconButton =
+        IconButton.create "Refresh accounts" refreshIcon
+        |> trackIconButtonActivation
 
     let refreshingIconButton =
-        IconButton.create "Refresh accounts" refreshIcon
+        IconButton.create "Refreshing accounts" refreshIcon
+        |> IconButton.withVariant ButtonVariant.Ghost
         |> IconButton.pending
-        |> IconButton.render
+        |> trackIconButtonActivation
+
+    let disabledRemoveIconButton =
+        IconButton.create "Remove account" removeIcon
+        |> IconButton.withVariant ButtonVariant.Destructive
+        |> IconButton.disabled
+        |> trackIconButtonActivation
 
     let iconButtonPreview =
         themedSurface (
             div {
-                _class "flex flex-wrap items-center gap-3"
-                [ addAccountIconButton; refreshingIconButton ]
+                _dataSignals "{iconButtonActivations: 0}"
+                div {
+                    _class "flex flex-wrap items-center gap-3"
+                    [ addAccountIconButton
+                      refreshAccountsIconButton
+                      refreshingIconButton
+                      disabledRemoveIconButton ]
+                }
+                output {
+                    _id "icon-button-activation-count"
+                    _class "mt-4 block text-sm text-[var(--fve-muted-text)]"
+                    "Activations: "
+                    span { _dataText "$iconButtonActivations"; "0" }
+                }
             })
     // docs-example:end icon-button
 
@@ -348,10 +421,11 @@ module Components =
         |> AppShell.withBreadcrumbs [ NavigationItem.create Accounts "Accounts" ]
         |> AppShell.withAccountMenu shellAccountMenu
         |> AppShell.withTheme (
-            ComponentsTheme.emerald
+            ComponentsTheme.sky
             |> ComponentsTheme.withRadius Radius.Large
             |> ComponentsTheme.withDensity Density.Compact)
         |> AppShell.render destinationUrl
+        |> themedPreview
     // docs-example:end app-shell
 
     let private registration id path navLabel title : DocPage =
@@ -475,7 +549,7 @@ AppShell.create productName current navigation content
     let private catalog =
         div {
             _class "docs-catalog-grid"
-            catalogLink "/components/button" "ACTIONS" "Button" "Primary, secondary, destructive, disabled, pending, and sized actions."
+            catalogLink "/components/button" "ACTIONS" "Button" "Primary, secondary, ghost, destructive, active, disabled, pending, and sized actions."
             catalogLink "/components/icon-button" "ACTIONS" "Icon button" "Compact icon-only actions with a required accessible name."
             catalogLink "/components/badge" "METADATA" "Badge" "Compact categorical metadata using semantic tones."
             catalogLink "/components/status" "FEEDBACK" "Status" "Compact semantic state with accessible text and restrained color."
@@ -527,7 +601,7 @@ AppShell.create productName current navigation content
         componentPage buttonRegistration "Render semantic actions with typed variants, sizes, disabled state, and pending state." "button" buttonPreview [
             docsSection "usage" "Usage" [
                 docsParagraph "Use Button.primary for the common case or start with Button.create and pipe typed configuration. Buttons render ordinary button semantics and remain application-owned actions."
-                docsBullets [ "Primary identifies the single leading action in a region."; "Secondary and destructive variants express hierarchy or consequence without raw palette names."; "Disabled and pending states prevent interaction while retaining an accessible label." ] ]
+                docsBullets [ "Primary identifies the single leading action in a region."; "Secondary, ghost, and destructive variants express hierarchy or consequence without raw palette names."; "Every available action provides visible hover, pressed, and focus feedback."; "Disabled and pending states prevent interaction while retaining an accessible label." ] ]
             docsSection "pending" "Pending actions" [ docsParagraph "Button.pending keeps the action label visible, adds an indeterminate loading glyph, exposes aria-busy, and uses native disabled behavior to prevent pointer, Enter, Space, and duplicate form activation." ]
             docsSection "accessibility" "Accessibility" [ docsParagraph "Supply action text that describes the result. Button preserves native keyboard activation and visible focus when available, while pending content never removes the accessible name." ] ]
 

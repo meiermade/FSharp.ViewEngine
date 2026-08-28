@@ -52,13 +52,14 @@ The manifest contains the renderer-owned utility inventory and semantic CSS vari
 .acme-theme {
   --fve-brand-solid: oklch(58% 0.18 264);
   --fve-brand-hover: oklch(51% 0.2 264);
+  --fve-brand-active: oklch(44% 0.18 264);
   --fve-brand-ring: oklch(68% 0.16 264);
 }
 ```
 
 ## Foundations
 
-Button, IconButton, Badge, Status, LoadingIndicator, and EmptyState share the semantic theme, tone, size, radius, density, light-mode, and dark-mode contracts where applicable. IconButton and LoadingIndicator require accessible labels. Pending buttons retain their action name, expose busy state, and prevent duplicate activation.
+Button, IconButton, Badge, Status, LoadingIndicator, and EmptyState share the semantic theme, tone, size, radius, density, light-mode, and dark-mode contracts where applicable. Available Button and IconButton variants provide hover, active, and focus-visible feedback. IconButton and LoadingIndicator require accessible labels. Pending buttons retain their action name, expose busy state, and prevent duplicate activation.
 
 ## Interaction and state
 

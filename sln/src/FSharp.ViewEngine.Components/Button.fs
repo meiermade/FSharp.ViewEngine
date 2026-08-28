@@ -35,10 +35,10 @@ type ButtonConfig =
 
 module internal ButtonStyles =
     let variantClasses = function
-        | ButtonVariant.Primary -> "bg-[var(--fve-brand-solid)] text-white hover:bg-[var(--fve-brand-hover)] focus-visible:ring-[var(--fve-brand-ring)]"
-        | ButtonVariant.Secondary -> "bg-[var(--fve-surface)] text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-[var(--fve-brand-ring)]"
-        | ButtonVariant.Ghost -> "bg-transparent text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:ring-[var(--fve-brand-ring)]"
-        | ButtonVariant.Destructive -> "bg-[var(--fve-critical-solid)] text-white hover:bg-[var(--fve-critical-hover)] focus-visible:ring-[var(--fve-critical-ring)]"
+        | ButtonVariant.Primary -> "bg-[var(--fve-brand-solid)] text-white hover:bg-[var(--fve-brand-hover)] active:bg-[var(--fve-brand-active)] focus-visible:ring-[var(--fve-brand-ring)]"
+        | ButtonVariant.Secondary -> "bg-[var(--fve-surface)] text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)] focus-visible:ring-[var(--fve-brand-ring)]"
+        | ButtonVariant.Ghost -> "bg-transparent text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)] focus-visible:ring-[var(--fve-brand-ring)]"
+        | ButtonVariant.Destructive -> "bg-[var(--fve-critical-solid)] text-white hover:bg-[var(--fve-critical-hover)] active:bg-[var(--fve-critical-active)] focus-visible:ring-[var(--fve-critical-ring)]"
 
     let buttonTypeValue = function
         | ButtonType.Button -> "button"

@@ -541,6 +541,25 @@ after"""
             Expect.isFalse (pendingIconButton.Contains("Override")) "IconButton protects its accessible name"
             Expect.isFalse (pendingIconButton.Contains("override")) "IconButton protects base presentation"
 
+            for variant, activeClass in [
+                ButtonVariant.Primary, "active:bg-[var(--fve-brand-active)]"
+                ButtonVariant.Secondary, "active:bg-[var(--fve-surface-active)]"
+                ButtonVariant.Ghost, "active:bg-[var(--fve-surface-active)]"
+                ButtonVariant.Destructive, "active:bg-[var(--fve-critical-active)]"
+            ] do
+                let button =
+                    Button.create "Action"
+                    |> Button.withVariant variant
+                    |> Button.render
+                    |> Render.toString
+                let iconAction =
+                    IconButton.create "Icon action" icon
+                    |> IconButton.withVariant variant
+                    |> IconButton.render
+                    |> Render.toString
+                Expect.stringContains button activeClass $"{variant} Button has intentional active styling"
+                Expect.stringContains iconAction activeClass $"{variant} IconButton has intentional active styling"
+
             let badge =
                 Badge.create "Reconciled"
                 |> Badge.withTone Tone.Positive
@@ -753,6 +772,7 @@ after"""
                 |> String.concat "\n"
             let componentsProject = File.ReadAllText(Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.fsproj"))
             let docsProject = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "Docs.fsproj"))
+            let docsStyles = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "input.css"))
             let dockerfile = File.ReadAllText(Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "Dockerfile")))
 
             Expect.stringContains manifest "@source inline(" "package classes use an explicit source manifest"
@@ -762,7 +782,7 @@ after"""
             Expect.stringContains manifest ".dark .fve-theme-sky" "Sky ships theme-specific dark brand roles"
             Expect.stringContains manifest ".dark .fve-theme-emerald" "Emerald ships theme-specific dark brand roles"
             Expect.stringContains renderer "py-[var(--fve-control-padding-block)]" "renderers consume the semantic density token"
-            for role in [ "subtle"; "solid"; "hover"; "text"; "ring" ] do
+            for role in [ "subtle"; "solid"; "hover"; "active"; "text"; "ring" ] do
                 Expect.isGreaterThanOrEqual
                     (Regex.Matches(manifest, $"--fve-brand-{role}:").Count)
                     4
@@ -770,8 +790,13 @@ after"""
             Expect.stringContains consumer "@import \"tailwindcss\" source(none)" "fixture disables automatic source scanning"
             Expect.stringContains consumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "clean consumer imports only the contract"
             Expect.stringContains consumer ".acme-theme" "consumer override is independent"
+            Expect.stringContains consumer "--fve-brand-active" "consumer override includes pressed feedback"
             Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
+            Expect.stringContains verification ".active\\:bg-\\[var\\(--fve-brand-active\\)\\]" "verification checks generated active-state utility"
             Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
+            Expect.stringContains docsStyles ".docs-components-preview .fve-components" "Docs owns the example theme adapter"
+            Expect.stringContains docsStyles "--fve-page: var(--spec-bg)" "component examples inherit the Docs page surface"
+            Expect.stringContains docsStyles "--fve-brand-solid: var(--spec-accent-500)" "component examples inherit the Docs sky accent"
             Expect.stringContains dockerfile "FSharp.ViewEngine.Components/verify-tailwind.sh" "container CI executes the clean-consumer proof"
             Expect.stringContains componentsProject "..\\FSharp.ViewEngine\\FSharp.ViewEngine.fsproj" "Components depends on Core"
             Expect.isFalse (componentsProject.Contains("FSharp.ViewEngine.Docs")) "Components remains independent from Docs"

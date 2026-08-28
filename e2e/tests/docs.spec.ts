@@ -225,47 +225,105 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(page).toHaveURL('/components/combobox')
   await expect(page.getByRole('heading', { level: 1, name: 'Combobox' })).toBeVisible()
 
+  const resolvedBackground = (root: Locator, variable: string) => root.evaluate((element, cssVariable) => {
+    const probe = document.createElement('span')
+    probe.style.backgroundColor = `var(${cssVariable})`
+    element.appendChild(probe)
+    const value = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return value
+  }, variable)
+
+  const pressedBackgrounds = async (control: Locator) => {
+    const box = await control.boundingBox()
+    expect(box).toBeTruthy()
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+    const hover = await control.evaluate(element => getComputedStyle(element).backgroundColor)
+    await page.mouse.down()
+    try {
+      await expect.poll(() => control.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(hover)
+      const active = await control.evaluate(element => getComputedStyle(element).backgroundColor)
+      return { hover, active }
+    } finally {
+      await page.mouse.up()
+    }
+  }
+
+  const activationCount = async (surface: Locator, id: string) =>
+    Number(await surface.locator(`#${id} span`).textContent())
+
+  const expectUnavailableActivationPrevention = async (control: Locator, surface: Locator, countId: string) => {
+    const before = await activationCount(surface, countId)
+    const box = await control.boundingBox()
+    expect(box).toBeTruthy()
+    await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2)
+    await control.press('Enter')
+    await control.press('Space')
+    await expect.poll(() => activationCount(surface, countId)).toBe(before)
+  }
+
   const buttonSurface = await openPreview('/components/button', 'Button')
-  const lightPage = await buttonSurface.evaluate(element => getComputedStyle(element).getPropertyValue('--fve-page').trim())
-  const brandRoles = (surface: Locator) => surface.evaluate(element => {
-    const styles = getComputedStyle(element)
-    return ['subtle', 'solid', 'hover', 'text', 'ring'].map(role => styles.getPropertyValue(`--fve-brand-${role}`).trim())
-  })
-  const lightBrandRoles = await brandRoles(buttonSurface)
+  const docsRoot = page.locator(':root')
+  const lightPage = await resolvedBackground(buttonSurface, '--fve-page')
+  const lightDocsPage = await resolvedBackground(docsRoot, '--spec-bg')
+  const lightBrand = await resolvedBackground(buttonSurface, '--fve-brand-solid')
+  const lightDocsAccent = await resolvedBackground(docsRoot, '--spec-accent-500')
   const comfortableControl = buttonSurface.getByRole('button', { name: 'Create account' })
   const comfortableDensity = await comfortableControl.evaluate(element => ({
     height: getComputedStyle(element).height,
     paddingTop: getComputedStyle(element).paddingTop,
   }))
-  expect(lightPage).toBeTruthy()
-  expect(lightBrandRoles.every(Boolean)).toBe(true)
+  expect(lightPage).toBe(lightDocsPage)
+  expect(lightBrand).toBe(lightDocsAccent)
 
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
-  const darkPage = await buttonSurface.evaluate(element => getComputedStyle(element).getPropertyValue('--fve-page').trim())
-  const darkBrandRoles = await brandRoles(buttonSurface)
+  const darkPage = await resolvedBackground(buttonSurface, '--fve-page')
+  const darkDocsPage = await resolvedBackground(docsRoot, '--spec-bg')
+  const darkBrand = await resolvedBackground(buttonSurface, '--fve-brand-solid')
+  const darkDocsAccent = await resolvedBackground(docsRoot, '--spec-accent-500')
+  expect(darkPage).toBe(darkDocsPage)
   expect(darkPage).not.toBe(lightPage)
-  for (let index = 0; index < darkBrandRoles.length; index += 1) {
-    expect(darkBrandRoles[index]).toBeTruthy()
-    expect(darkBrandRoles[index]).not.toBe(lightBrandRoles[index])
+  expect(darkBrand).toBe(darkDocsAccent)
+
+  for (const name of ['Create account', 'Import', 'View activity', 'Remove draft']) {
+    const { hover, active } = await pressedBackgrounds(buttonSurface.getByRole('button', { name }))
+    expect(active, `${name} active background`).not.toBe(hover)
   }
-  const primaryRestingBackground = await comfortableControl.evaluate(element => getComputedStyle(element).backgroundColor)
-  await comfortableControl.hover()
-  expect(await comfortableControl.evaluate(element => getComputedStyle(element).backgroundColor)).not.toBe(primaryRestingBackground)
+
+  const buttonCountBeforeEnabledActivation = await activationCount(buttonSurface, 'button-activation-count')
+  await buttonSurface.getByRole('button', { name: 'Import' }).click()
+  await expect.poll(() => activationCount(buttonSurface, 'button-activation-count')).toBe(buttonCountBeforeEnabledActivation + 1)
+
   const pendingButton = buttonSurface.getByRole('button', { name: 'Sync accounts' })
+  const disabledButton = buttonSurface.getByRole('button', { name: 'Delete account' })
   await expect(pendingButton).toBeDisabled()
   await expect(pendingButton).toHaveAttribute('aria-busy', 'true')
   await expect(pendingButton).toContainText('Sync accounts')
-  await expect(buttonSurface.getByRole('button', { name: 'Delete account' })).toBeDisabled()
+  await expect(disabledButton).toBeDisabled()
+  await expectUnavailableActivationPrevention(pendingButton, buttonSurface, 'button-activation-count')
+  await expectUnavailableActivationPrevention(disabledButton, buttonSurface, 'button-activation-count')
 
   const iconButtonSurface = await openPreview('/components/icon-button', 'Icon button')
   const addAccount = iconButtonSurface.getByRole('button', { name: 'Add account' })
   await addAccount.focus()
   await expect(addAccount).toBeFocused()
   await expect(addAccount.locator('[aria-hidden="true"]')).toBeVisible()
-  const refreshingAccounts = iconButtonSurface.getByRole('button', { name: 'Refresh accounts' })
+  for (const name of ['Add account', 'Refresh accounts']) {
+    const { hover, active } = await pressedBackgrounds(iconButtonSurface.getByRole('button', { name }))
+    expect(active, `${name} active background`).not.toBe(hover)
+  }
+  const iconCountBeforeEnabledActivation = await activationCount(iconButtonSurface, 'icon-button-activation-count')
+  await addAccount.click()
+  await expect.poll(() => activationCount(iconButtonSurface, 'icon-button-activation-count')).toBe(iconCountBeforeEnabledActivation + 1)
+
+  const refreshingAccounts = iconButtonSurface.getByRole('button', { name: 'Refreshing accounts' })
+  const disabledRemoveAccount = iconButtonSurface.getByRole('button', { name: 'Remove account' })
   await expect(refreshingAccounts).toBeDisabled()
   await expect(refreshingAccounts).toHaveAttribute('aria-busy', 'true')
+  await expect(disabledRemoveAccount).toBeDisabled()
+  await expectUnavailableActivationPrevention(refreshingAccounts, iconButtonSurface, 'icon-button-activation-count')
+  await expectUnavailableActivationPrevention(disabledRemoveAccount, iconButtonSurface, 'icon-button-activation-count')
 
   const badgeSurface = await openPreview('/components/badge', 'Badge')
   await expect(badgeSurface.getByText('Internal', { exact: true })).toBeVisible()
@@ -400,17 +458,51 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(catalog.getByRole('link', { name: /FEEDBACK Empty state/ })).toHaveAttribute('href', '/components/empty-state')
   await expect(catalog.getByRole('link', { name: /COMPOSITIONS App shell/ })).toHaveAttribute('href', '/components/app-shell')
   await testInfo.attach('components-catalog-desktop-dark', {
-    body: await page.screenshot({ fullPage: true }),
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
     contentType: 'image/png',
   })
 
   await page.setViewportSize({ width: 390, height: 844 })
+  await openPreview('/components/button', 'Button')
+  await testInfo.attach('components-button-mobile-dark', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  await openPreview('/components/loading-indicator', 'Loading indicator')
+  await testInfo.attach('components-loading-mobile-dark', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Light' }).click()
+  await openPreview('/components/icon-button', 'Icon button')
+  await testInfo.attach('components-icon-button-mobile-light', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  await openPreview('/components/empty-state', 'Empty state')
+  await testInfo.attach('components-empty-state-mobile-light', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
+  const mobileSelectSurface = await openPreview('/components/select', 'Select')
+  await mobileSelectSurface.getByRole('combobox', { name: 'Status' }).click()
+  await testInfo.attach('components-select-mobile-dark', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+
+  await page.goto('/components', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('heading', { level: 1, name: 'Components' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.getByRole('button', { name: 'Open navigation' }).click()
   await expect(page.locator('#nav-fsharp-viewengine-components')).toBeVisible()
   await testInfo.attach('components-catalog-mobile-dark', {
-    body: await page.screenshot({ fullPage: true }),
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
     contentType: 'image/png',
   })
   expect(browserErrors).toEqual([])

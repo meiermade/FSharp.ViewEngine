@@ -37,6 +37,27 @@
   overflow: visible;
 }
 
+/* The Docs application supplies its own consumer theme around package examples. */
+.docs-components-preview .fve-components {
+  --fve-page: var(--spec-bg);
+  --fve-surface: var(--spec-input-bg);
+  --fve-surface-subtle: var(--spec-subtle);
+  --fve-surface-hover: var(--spec-hover);
+  --fve-surface-active: var(--spec-border);
+  --fve-text: var(--spec-text);
+  --fve-muted-text: var(--spec-muted);
+  --fve-border: var(--spec-border-strong);
+  --fve-neutral-subtle: var(--spec-hover);
+  --fve-neutral-text: var(--spec-text-secondary);
+  --fve-neutral-ring: var(--spec-border-strong);
+  --fve-brand-subtle: var(--spec-selection-bg);
+  --fve-brand-solid: var(--spec-accent-500);
+  --fve-brand-hover: var(--spec-accent-700);
+  --fve-brand-active: var(--spec-accent-900);
+  --fve-brand-text: var(--spec-selection-text);
+  --fve-brand-ring: var(--spec-accent-500);
+}
+
 .docs-home-logo {
   width: 5rem;
   height: 5rem;
