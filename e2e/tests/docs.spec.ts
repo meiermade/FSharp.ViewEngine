@@ -364,7 +364,20 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(metricSurface.getByText('Available balance', { exact: true })).toBeVisible()
   await expect(metricSurface.getByText('$42,800', { exact: true })).toBeVisible()
   await expect(metricSurface.getByText('Trend: ', { exact: true })).toHaveClass(/sr-only/)
-  await expect(metricSurface.getByText('Current', { exact: true })).toBeVisible()
+  const availableBalanceLabel = metricSurface.getByText('Available balance', { exact: true })
+  const currentStatus = metricSurface.getByText('Current', { exact: true })
+  const pendingEntriesLabel = metricSurface.getByText('Pending entries', { exact: true })
+  await expect(currentStatus).toBeVisible()
+  const [availableBalanceBox, currentStatusBox, pendingEntriesBox] = await Promise.all([
+    availableBalanceLabel.boundingBox(),
+    currentStatus.boundingBox(),
+    pendingEntriesLabel.boundingBox(),
+  ])
+  if (!availableBalanceBox || !currentStatusBox || !pendingEntriesBox) {
+    throw new Error('Metric labels and status must have measurable layout boxes')
+  }
+  expect(currentStatusBox.x - (availableBalanceBox.x + availableBalanceBox.width)).toBeLessThanOrEqual(16)
+  expect(pendingEntriesBox.x - (currentStatusBox.x + currentStatusBox.width)).toBeGreaterThan(48)
 
   const paginationSurface = await openPreview('/components/pagination', 'Pagination')
   const accountPages = paginationSurface.getByRole('navigation', { name: 'Accounts pages' })

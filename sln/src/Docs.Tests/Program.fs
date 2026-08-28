@@ -666,6 +666,8 @@ after"""
             Expect.stringContains metricHtml "<strong>$42,800</strong>" "Metric preserves custom value content"
             Expect.stringContains metricHtml "<span class=\"sr-only\">Trend: </span>Up 8%" "Metric gives trend text semantic context"
             Expect.stringContains metricHtml "Current" "Metric composes consumer-owned status content"
+            Expect.stringContains metricHtml "flex flex-wrap items-center gap-2" "Metric keeps status content adjacent to its label"
+            Expect.isFalse (metricHtml.Contains("justify-between")) "Metric does not distribute status toward an adjacent metric"
             Expect.isFalse (metricHtml.Contains("override")) "Metric protects base presentation"
             Expect.throws (fun () -> Metric.text " " "1" |> ignore) "Metric requires a label"
 
