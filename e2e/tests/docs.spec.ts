@@ -868,6 +868,110 @@ test('visual SVG examples provide rendered previews', async ({ page }) => {
   }
 })
 
+const expectNoRawMermaid = async (diagram: Locator) => {
+  expect(await diagram.innerText()).not.toContain('flowchart LR')
+  await expect(diagram.locator('.error-icon, .error-text')).toHaveCount(0)
+}
+
+test('diagrams render directly without exposing Mermaid source', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+
+  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
+  await expect(diagram.locator('svg')).toBeVisible()
+  await expect(diagram).not.toHaveAttribute('aria-busy', 'true')
+  await expectNoRawMermaid(diagram)
+  expect(browserErrors).toEqual([])
+})
+
+test('delayed Mermaid loading shows accessible pending content and never raw source', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  let releaseAsset: (() => void) | undefined
+  let intercepted = false
+  await page.route('**/scripts/mermaid.11.16.0.min.js', async route => {
+    intercepted = true
+    await new Promise<void>(resolve => { releaseAsset = resolve })
+    await route.continue()
+  })
+
+  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+  await expect.poll(() => intercepted).toBe(true)
+  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  await expect(diagram).toHaveAttribute('data-mermaid-state', 'pending')
+  await expect(diagram).toHaveAttribute('aria-busy', 'true')
+  await expect(diagram.getByRole('status')).toHaveText('Rendering diagram…')
+  await expect(diagram.locator('svg')).toHaveCount(0)
+  await expectNoRawMermaid(diagram)
+
+  releaseAsset!()
+  await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
+  await expect(diagram.locator('svg')).toBeVisible()
+  await expectNoRawMermaid(diagram)
+  expect(browserErrors).toEqual([])
+})
+
+test('an unavailable Mermaid asset shows the accessible deterministic failure state', async ({ page }) => {
+  const pageErrors: string[] = []
+  page.on('pageerror', error => pageErrors.push(error.message))
+  await page.route('**/scripts/mermaid.11.16.0.min.js', route => route.abort('failed'))
+
+  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  await expect(diagram).toHaveAttribute('data-mermaid-state', 'failed')
+  await expect(diagram.getByRole('alert')).toHaveText('Diagram unavailable.')
+  await expect(diagram).not.toHaveAttribute('aria-busy', 'true')
+  await expect(diagram.locator('svg')).toHaveCount(0)
+  await expectNoRawMermaid(diagram)
+  expect(pageErrors).toEqual([])
+})
+
+test('a Mermaid render rejection shows the accessible failure state without an error SVG', async ({ page }) => {
+  const pageErrors: string[] = []
+  page.on('pageerror', error => pageErrors.push(error.message))
+  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  await expect(diagram.locator('svg')).toBeVisible()
+
+  await diagram.evaluate(async element => {
+    element.setAttribute('data-mermaid-source', 'not-a-valid-mermaid-diagram')
+    await (window as typeof window & { renderMermaid?: (element: Element) => Promise<void> }).renderMermaid?.(element)
+  })
+
+  await expect(diagram).toHaveAttribute('data-mermaid-state', 'failed')
+  await expect(diagram.getByRole('alert')).toHaveText('Diagram unavailable.')
+  await expect(diagram.locator('svg')).toHaveCount(0)
+  await expect(page.locator('.error-icon, .error-text')).toHaveCount(0)
+  await expectNoRawMermaid(diagram)
+  expect(pageErrors).toEqual([])
+})
+
+test('diagrams render after Docs navigation and light-dark rerenders', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
+  await page.locator('#nav-docs-diagrams').click()
+  await expect(page).toHaveURL('/docs/components/diagrams')
+
+  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
+  const lightSvg = await diagram.locator('svg').evaluate(element => element.outerHTML)
+  await expectNoRawMermaid(diagram)
+
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await expect.poll(() => diagram.locator('svg').evaluate(element => element.outerHTML)).not.toBe(lightSvg)
+  const darkSvg = await diagram.locator('svg').evaluate(element => element.outerHTML)
+  await expectNoRawMermaid(diagram)
+
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Light' }).click()
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
+  await expect.poll(() => diagram.locator('svg').evaluate(element => element.outerHTML)).not.toBe(darkSvg)
+  await expectNoRawMermaid(diagram)
+  expect(browserErrors).toEqual([])
+})
+
 test('diagram previews rerender after their hidden panel becomes visible', async ({ page }) => {
   await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
   const example = page.locator('[data-docs-example="true"]:has(#docs-mermaid-example-tab-preview)')

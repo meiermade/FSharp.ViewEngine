@@ -141,19 +141,24 @@ module private ViewHelpers =
         $"--spec-accent-50:{theme.accent50};--spec-accent-100:{theme.accent100};--spec-accent-500:{theme.accent500};--spec-accent-700:{theme.accent700};--spec-accent-900:{theme.accent900}"
 
 module MermaidView =
-    let diagram source =
+    let private render (classes:string) (source:string) =
         div {
-            _class "mermaid spec-diagram"
+            _class classes
             _data("init", "window.renderMermaid?.(el)")
-            raw source
+            _data("mermaid-source", source)
+            _data("mermaid-state", "pending")
+            _ariaBusy true
+            p {
+                _class "spec-diagram-status"
+                _data("mermaid-status", "true")
+                _role "status"
+                "Rendering diagram…"
+            }
         }
 
-    let c4Diagram source =
-        div {
-            _class "mermaid spec-diagram spec-c4-diagram"
-            _data("init", "window.renderMermaid?.(el)")
-            raw source
-        }
+    let diagram source = render "mermaid spec-diagram" source
+
+    let c4Diagram source = render "mermaid spec-diagram spec-c4-diagram" source
 
 module private DocsBlockView =
     let rec private renderInline value =
@@ -713,32 +718,69 @@ window.fsharpDocsMermaid = window.fsharpDocsMermaid ?? {
       document.head.append(script);
     });
   },
+  hasApi() {
+    return typeof window.mermaid?.initialize === 'function' && typeof window.mermaid?.render === 'function';
+  },
   async ensure() {
-    if (window.mermaid || !this.source) return;
+    if (this.hasApi() || !this.source) return;
     if (!this.loading) this.loading = this.loadScript(this.source);
     await this.loading;
   }
 };
 let mermaidRenderQueue = Promise.resolve();
+let mermaidRenderId = 0;
+const mermaidStatus = (role, message) => {
+  const status = document.createElement('p');
+  status.className = 'spec-diagram-status';
+  status.dataset.mermaidStatus = 'true';
+  status.setAttribute('role', role);
+  status.textContent = message;
+  return status;
+};
+const setMermaidPending = node => {
+  node.dataset.mermaidState = 'pending';
+  node.setAttribute('aria-busy', 'true');
+  node.replaceChildren(mermaidStatus('status', 'Rendering diagram…'));
+};
+const setMermaidFailed = node => {
+  node.dataset.mermaidState = 'failed';
+  node.removeAttribute('aria-busy');
+  node.replaceChildren(mermaidStatus('alert', 'Diagram unavailable.'));
+};
+const wireMermaidLinks = node => {
+  for (const link of node.querySelectorAll('svg a')) {
+    const href = link.getAttribute('href') ?? link.getAttribute('xlink:href');
+    if (!href?.startsWith('/')) continue;
+    const encodedHref = JSON.stringify(href);
+    link.setAttribute('data-on:click', `if (!evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) { evt.preventDefault(); $sideNavOpen = false; $breadcrumbMenuOpen = false; window.fsharpDocsNavigation?.begin(); window.history.pushState(null, '', ${encodedHref}); @get(${encodedHref}) }`);
+  }
+};
 window.renderMermaid = (el) => {
   const render = async () => {
     const nodes = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
     if (nodes.length === 0) return;
-    await window.fsharpDocsMermaid.ensure();
-    if (!window.mermaid) return;
-    for (const node of nodes) {
-      if (!node.dataset.mermaidSource) node.dataset.mermaidSource = node.textContent;
-      node.textContent = node.dataset.mermaidSource;
-      node.removeAttribute('data-processed');
+    for (const node of nodes) setMermaidPending(node);
+    try {
+      await window.fsharpDocsMermaid.ensure();
+      if (!window.fsharpDocsMermaid.hasApi()) throw new Error('Mermaid is unavailable.');
+      window.mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'neutral', securityLevel: __SECURITY__, suppressErrorRendering: true });
+    } catch {
+      for (const node of nodes) if (node.isConnected) setMermaidFailed(node);
+      return;
     }
-    window.mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'neutral', securityLevel: __SECURITY__ });
-    await window.mermaid.run({ nodes });
     for (const node of nodes) {
-      for (const link of node.querySelectorAll('svg a')) {
-        const href = link.getAttribute('href') ?? link.getAttribute('xlink:href');
-        if (!href?.startsWith('/')) continue;
-        const encodedHref = JSON.stringify(href);
-        link.setAttribute('data-on:click', `if (!evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) { evt.preventDefault(); $sideNavOpen = false; $breadcrumbMenuOpen = false; window.fsharpDocsNavigation?.begin(); window.history.pushState(null, '', ${encodedHref}); @get(${encodedHref}) }`);
+      if (!node.isConnected) continue;
+      try {
+        const id = `fsharp-docs-mermaid-${++mermaidRenderId}`;
+        const { svg, bindFunctions } = await window.mermaid.render(id, node.dataset.mermaidSource ?? '');
+        if (!node.isConnected) continue;
+        node.innerHTML = svg;
+        bindFunctions?.(node);
+        node.dataset.mermaidState = 'rendered';
+        node.removeAttribute('aria-busy');
+        wireMermaidLinks(node);
+      } catch {
+        if (node.isConnected) setMermaidFailed(node);
       }
     }
   };
