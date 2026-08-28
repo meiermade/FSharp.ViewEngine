@@ -48,6 +48,10 @@ let private expectedPaths =
         "/components/loading-indicator"
         "/components/empty-state"
         "/components/table"
+        "/components/description-list"
+        "/components/metric"
+        "/components/pagination"
+        "/components/chart"
         "/components/select"
         "/components/combobox"
         "/components/checkbox"
@@ -129,7 +133,10 @@ let tests =
                 (section "Actions and feedback")
                 [ "Button"; "Icon button"; "Badge"; "Status"; "Loading indicator"; "Empty state" ]
                 "action and feedback foundations"
-            Expect.sequenceEqual (section "Data display") [ "Table" ] "data-display components"
+            Expect.sequenceEqual
+                (section "Data display")
+                [ "Table"; "Description list"; "Metric"; "Pagination"; "Chart" ]
+                "data-display components"
             Expect.sequenceEqual (section "Form controls") [ "Select"; "Combobox"; "Checkbox"; "Switch"; "Toggle button"; "Radio group" ] "form controls"
             Expect.sequenceEqual (section "Menus and overlays") [ "Dropdown menu"; "Dialog" ] "menu and overlay components"
             Expect.sequenceEqual (section "Compositions") [ "Collection"; "Detail"; "App shell" ] "page compositions"
@@ -422,7 +429,7 @@ after"""
             let renderedGuides = Components.guideRegistrations |> List.map render
             let allHtml = String.concat Environment.NewLine (overview :: installation :: renderedComponents @ renderedGuides)
 
-            Expect.equal Components.allRegistrations.Length 26 "overview, installation, eighteen components, and six guides"
+            Expect.equal Components.allRegistrations.Length 30 "overview, installation, twenty-two components, and six guides"
             Expect.stringContains overview "Accessible, server-rendered Tailwind components" "consumer-facing introduction"
             Expect.stringContains overview "Browse components" "overview is a component catalog"
             Expect.stringContains overview "href=\"/components/button\"" "catalog deep-links Button"
@@ -468,6 +475,14 @@ after"""
                 "LoadingIndicator.create &quot;Loading account balances&quot;"
                 "EmptyState.create &quot;No accounts yet&quot;"
                 "Table.create &quot;Accounts&quot;"
+                "Table.asRowHeader"
+                "DescriptionList.create"
+                "DetailField.status &quot;Status&quot;"
+                "Metric.text &quot;Available balance&quot; &quot;$42,800&quot;"
+                "Pagination.create &quot;Accounts pages&quot;"
+                "PaginationItem.current 2"
+                "Chart.create &quot;operating-balance&quot;"
+                "Chart.empty &quot;new-account-balance&quot;"
                 "Select.create &quot;status&quot; &quot;Status&quot; statusValue statusOptions"
                 "Combobox.create &quot;account&quot; &quot;Parent account&quot; string"
                 "Combobox.withSearch (ComboboxSearch.Remote &quot;/components/accounts/search&quot;)"
@@ -603,6 +618,111 @@ after"""
             Expect.isFalse (emptyState.Contains("override")) "EmptyState protects base presentation"
         }
 
+        test "Components data display preserves native semantics and consumer ownership" {
+            let tableHtml =
+                Table.create "Account balances" [
+                    Table.column "Account" text |> Table.asRowHeader
+                    Table.column "Balance" (fun value -> text value) |> Table.alignEnd
+                ] [ "Operating" ]
+                |> Table.withVisibleCaption
+                |> Table.withDensity Density.Compact
+                |> Table.render
+                |> Render.toString
+            Expect.stringContains tableHtml "role=\"region\" aria-label=\"Account balances\" tabindex=\"0\"" "Table exposes a labelled keyboard-reachable overflow region"
+            Expect.stringContains tableHtml "<caption class=\"px-4 py-3 text-left text-sm font-semibold" "Table can show its native caption"
+            Expect.stringContains tableHtml "<th scope=\"row\"" "Table identifies consumer-selected row headers"
+            Expect.stringContains tableHtml "px-3 py-2" "Table compact density reduces cell spacing"
+            Expect.throws (fun () -> Table.create " " [ Table.column "Value" text ] [ "one" ] |> ignore) "Table requires a caption"
+
+            let detailsHtml =
+                DescriptionList.create [
+                    DetailField.text "Type" "Asset"
+                    DetailField.status "State" (Status.positive "Active")
+                    |> DetailField.withDescription "Available for posting."
+                    |> DetailField.withAttributes [ _role "button"; _class "override" ]
+                ]
+                |> DescriptionList.withColumns DescriptionListColumns.Three
+                |> DescriptionList.withAttributes [ _role "table"; _class "override" ]
+                |> DescriptionList.render
+                |> Render.toString
+            Expect.stringContains detailsHtml "<dl class=\"grid gap-x-6 gap-y-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3\"" "DescriptionList retains responsive native list semantics"
+            Expect.stringContains detailsHtml "<dt" "DetailField renders a term"
+            Expect.stringContains detailsHtml "<dd" "DetailField renders its value and description"
+            Expect.stringContains detailsHtml "Available for posting." "DetailField preserves supporting context"
+            Expect.isFalse (detailsHtml.Contains("override")) "description-list structure protects base classes"
+            Expect.isFalse (detailsHtml.Contains("role=")) "description-list structure rejects role replacement"
+            Expect.throws (fun () -> DetailField.text " " "Value" |> ignore) "DetailField requires a label"
+            Expect.throws (fun () -> DescriptionList.create [] |> ignore) "DescriptionList requires fields"
+
+            let metricHtml =
+                Metric.create "Available balance" (strong { "$42,800" })
+                |> Metric.withTrend "Up 8%"
+                |> Metric.withDescription "Operating and reserve accounts"
+                |> Metric.withStatus (Badge.create "Current" |> Badge.render)
+                |> Metric.withAttributes [ _class "override" ]
+                |> Metric.render
+                |> Render.toString
+            Expect.stringContains metricHtml "Available balance" "Metric exposes its label"
+            Expect.stringContains metricHtml "<strong>$42,800</strong>" "Metric preserves custom value content"
+            Expect.stringContains metricHtml "<span class=\"sr-only\">Trend: </span>Up 8%" "Metric gives trend text semantic context"
+            Expect.stringContains metricHtml "Current" "Metric composes consumer-owned status content"
+            Expect.isFalse (metricHtml.Contains("override")) "Metric protects base presentation"
+            Expect.throws (fun () -> Metric.text " " "1" |> ignore) "Metric requires a label"
+
+            let resolve destination = $"/accounts?page={destination}"
+            let paginationHtml =
+                Pagination.create "Account pages" [
+                    PaginationItem.link 1 1
+                    PaginationItem.current 2
+                    PaginationItem.gap
+                    PaginationItem.link 8 8
+                ]
+                |> Pagination.withNext 3
+                |> Pagination.withSummary (span { "Showing 26–50" })
+                |> Pagination.withAttributes [ _role "menu"; _ariaLabel "Override"; _class "override" ]
+                |> Pagination.render resolve
+                |> Render.toString
+            Expect.stringContains paginationHtml "<nav aria-label=\"Account pages\"" "Pagination requires a labelled navigation landmark"
+            Expect.stringContains paginationHtml "aria-current=\"page\" aria-label=\"Page 2, current page\"" "Pagination exposes one current page"
+            Expect.stringContains paginationHtml "aria-disabled=\"true\"" "Pagination presents an unavailable previous edge"
+            Expect.stringContains paginationHtml "href=\"/accounts?page=3\"" "Pagination resolves consumer-owned destinations"
+            Expect.stringContains paginationHtml "Showing 26–50" "Pagination preserves consumer summary content"
+            Expect.isFalse (paginationHtml.Contains("Override")) "Pagination protects its accessible label"
+            Expect.isFalse (paginationHtml.Contains("override")) "Pagination protects base presentation"
+            Expect.isFalse (paginationHtml.Contains("role=\"menu\"")) "Pagination protects its navigation role"
+            Expect.throws (fun () -> Pagination.create "Pages" [ PaginationItem.link 1 1 ] |> ignore) "Pagination requires one current page"
+            Expect.throws (fun () -> Pagination.create "Pages" [ PaginationItem.current 1; PaginationItem.current 2 ] |> ignore) "Pagination rejects multiple current pages"
+
+            let visual = raw "<svg aria-hidden=\"true\"></svg>"
+            let summary = table { caption { "Balance data" }; tbody { tr { th { _scope "row"; "August" }; td { "$42,800" } } } }
+            let chartHtml =
+                Chart.create "balance-chart" "Balance history" summary visual
+                |> Chart.withUnits "USD"
+                |> Chart.withLegend (span { "Actual balance" })
+                |> Chart.withAnnotations (span { "August closes at $42,800." })
+                |> Chart.withVisibleSummary
+                |> Chart.withAttributes [ _role "img"; _ariaLabelledby "override"; _class "override" ]
+                |> Chart.render
+                |> Render.toString
+            Expect.stringContains chartHtml "<figure aria-labelledby=\"balance-chart-title\" aria-describedby=\"balance-chart-summary\"" "Chart connects native figure title and summary"
+            Expect.stringContains chartHtml "<figcaption id=\"balance-chart-title\"" "Chart uses a native caption"
+            Expect.stringContains chartHtml "aria-label=\"Legend\"" "Chart names its legend region"
+            Expect.stringContains chartHtml "aria-label=\"Annotations\"" "Chart names its annotation region"
+            Expect.stringContains chartHtml "<table>" "Chart preserves consumer-supplied accessible data"
+            Expect.isFalse (chartHtml.Contains("override")) "Chart protects relationships and base presentation"
+            Expect.isFalse (chartHtml.Contains("role=\"img\"")) "Chart protects its native figure semantics"
+            Expect.throws (fun () -> Chart.create "invalid id" "Title" summary visual |> ignore) "Chart requires a stable valid ID"
+            Expect.throws (fun () -> Chart.create "valid-id" " " summary visual |> ignore) "Chart requires a title"
+
+            let emptyChartHtml =
+                Chart.empty "empty-chart" "Balance history" (p { "No data is available." }) (EmptyState.create "No history" "Post an entry first." |> EmptyState.render)
+                |> Chart.render
+                |> Render.toString
+            Expect.stringContains emptyChartHtml "No history" "Chart composes an explicit empty state"
+            Expect.stringContains emptyChartHtml "class=\"sr-only\"" "Chart summary remains accessible when visually hidden"
+            Expect.isFalse (chartHtml.Contains("canvas")) "Chart adds no drawing runtime or canvas policy"
+        }
+
         test "Components Select owns branded presentation instead of native browser chrome" {
             let html =
                 Select.create "status" "Status" id [ Select.option "active" "Active" ]
@@ -714,11 +834,12 @@ after"""
 
             let tableTag =
                 Table.create "Values" [ Table.column "Value" text ] [ "one" ]
-                |> Table.withAttributes [ _class "override" ]
+                |> Table.withAttributes [ _role "presentation"; _class "override" ]
                 |> Table.render
                 |> openingTag "table"
             Expect.equal (attributeCount "class" tableTag) 1 "Table owns one class attribute"
             Expect.isFalse (tableTag.Contains("override")) "Table consumer class is ignored"
+            Expect.isFalse (tableTag.Contains("presentation")) "Table consumer role is ignored"
 
             let selectHtml =
                 Select.create "status" "Status" id [ Select.option "active" "Active" ]
@@ -793,6 +914,9 @@ after"""
             Expect.stringContains consumer "--fve-brand-active" "consumer override includes pressed feedback"
             Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
             Expect.stringContains verification ".active\\:bg-\\[var\\(--fve-brand-active\\)\\]" "verification checks generated active-state utility"
+            Expect.stringContains verification ".overflow-x-auto" "verification checks data-display overflow utility"
+            Expect.stringContains verification ".lg\\:grid-cols-3" "verification checks responsive detail columns"
+            Expect.stringContains verification ".size-9" "verification checks pagination sizing"
             Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
             Expect.stringContains docsStyles ".docs-components-preview .fve-components" "Docs owns the example theme adapter"
             Expect.stringContains docsStyles "--fve-page: var(--spec-bg)" "component examples inherit the Docs page surface"

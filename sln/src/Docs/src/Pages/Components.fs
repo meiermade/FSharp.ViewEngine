@@ -17,6 +17,7 @@ module Components =
 
     type Destination =
         | Accounts
+        | AccountsPage of int
         | Account of int
         | Settings
 
@@ -34,6 +35,7 @@ module Components =
 
     let private destinationUrl = function
         | Accounts -> "https://ledger.example.test/accounts"
+        | AccountsPage page -> $"https://ledger.example.test/accounts?page={page}"
         | Account id -> $"https://ledger.example.test/accounts/{id}"
         | Settings -> "https://ledger.example.test/settings"
 
@@ -229,10 +231,11 @@ module Components =
           { id = 102; name = "Tax reserve"; status = Pending; balance = 12750M } ]
 
     // docs-example:start table
-    let accountTable =
+    let private accountTableConfig =
         Table.create "Accounts" [
             Table.column "Account" (fun row ->
                 a { _href (destinationUrl (Account row.id)); _class "font-medium text-[var(--fve-brand-text)]"; row.name })
+            |> Table.asRowHeader
             Table.column "Status" (fun row ->
                 match row.status with
                 | Active -> Status.positive "Active"
@@ -241,9 +244,120 @@ module Components =
                 | Scheduled -> Status.create "Scheduled" |> Status.withTone Tone.Informative |> Status.render)
             Table.column "Balance" (fun row -> text $"${row.balance:N0}")
             |> Table.alignEnd
+            Table.column "Actions" (fun row ->
+                a {
+                    _href (destinationUrl (Account row.id))
+                    _ariaLabel $"View {row.name}"
+                    _class "font-medium text-[var(--fve-brand-text)]"
+                    "View"
+                })
+            |> Table.alignEnd
         ] rows
+
+    let accountTable = accountTableConfig |> Table.render
+
+    let emptyAccountsTable =
+        Table.create "Archived accounts" [
+            Table.column "Account" (fun (row:AccountRow) -> text row.name)
+            |> Table.asRowHeader
+        ] []
+        |> Table.withEmptyState (
+            EmptyState.create "No archived accounts" "Archived accounts appear here without changing active results."
+            |> EmptyState.render)
         |> Table.render
+
+    let tablePreview =
+        let compactTable =
+            accountTableConfig
+            |> Table.withVisibleCaption
+            |> Table.withDensity Density.Compact
+            |> Table.render
+        themedSurface (div { _class "grid gap-6"; [ compactTable; emptyAccountsTable ] })
     // docs-example:end table
+
+    // docs-example:start description-list
+    let accountDetails =
+        DescriptionList.create [
+            DetailField.text "Type" "Asset"
+            DetailField.status "Status" (Status.positive "Active")
+            DetailField.text "Available balance" "$42,800"
+            |> DetailField.withDescription "Includes cleared entries through today."
+        ]
+        |> DescriptionList.withColumns DescriptionListColumns.Three
+        |> DescriptionList.render
+
+    let descriptionListPreview = themedSurface accountDetails
+    // docs-example:end description-list
+
+    // docs-example:start metric
+    let availableBalanceMetric =
+        Metric.text "Available balance" "$42,800"
+        |> Metric.withTrend "Up 8% from last month"
+        |> Metric.withDescription "Operating and reserve accounts"
+        |> Metric.withStatus (Badge.create "Current" |> Badge.withTone Tone.Positive |> Badge.render)
+        |> Metric.render
+
+    let pendingEntriesMetric =
+        Metric.text "Pending entries" "14"
+        |> Metric.withDescription "Require review before posting"
+        |> Metric.withStatus (Badge.create "Needs review" |> Badge.withTone Tone.Warning |> Badge.render)
+        |> Metric.render
+
+    let metricPreview =
+        themedSurface (div { _class "grid gap-6 sm:grid-cols-2"; [ availableBalanceMetric; pendingEntriesMetric ] })
+    // docs-example:end metric
+
+    // docs-example:start pagination
+    let accountPagination =
+        Pagination.create "Accounts pages" [
+            PaginationItem.link 1 (AccountsPage 1)
+            PaginationItem.current 2
+            PaginationItem.link 3 (AccountsPage 3)
+            PaginationItem.gap
+            PaginationItem.link 8 (AccountsPage 8)
+        ]
+        |> Pagination.withPrevious (AccountsPage 1)
+        |> Pagination.withNext (AccountsPage 3)
+        |> Pagination.withSummary (span { "Showing 26–50 of 184 accounts" })
+        |> Pagination.render destinationUrl
+
+    let paginationPreview = themedSurface accountPagination
+    // docs-example:end pagination
+
+    let private balanceChartVisual =
+        raw """<svg viewBox="0 0 480 190" class="h-48 min-w-[28rem] w-full" aria-hidden="true"><g fill="var(--fve-brand-subtle)"><rect x="52" y="92" width="58" height="66" rx="4"/><rect x="142" y="72" width="58" height="86" rx="4"/><rect x="232" y="51" width="58" height="107" rx="4"/><rect x="322" y="31" width="58" height="127" rx="4"/></g><path d="M52 86 L171 64 L261 43 L351 23" fill="none" stroke="var(--fve-brand-solid)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/><g fill="var(--fve-muted-text)" font-size="12" text-anchor="middle"><text x="81" y="180">May</text><text x="171" y="180">Jun</text><text x="261" y="180">Jul</text><text x="351" y="180">Aug</text></g></svg>"""
+
+    let private balanceChartSummary =
+        div {
+            p { "Balance increased every month, from $31,200 in May to $42,800 in August." }
+            table {
+                _class "mt-3 text-left text-sm"
+                caption { _class "sr-only"; "Monthly operating balance data" }
+                tbody {
+                    for month, balance in [ "May", "$31,200"; "June", "$34,900"; "July", "$38,600"; "August", "$42,800" ] do
+                        tr { th { _scope "row"; _class "pr-6 font-medium"; month }; td { balance } }
+                }
+            }
+        }
+
+    // docs-example:start chart
+    let balanceChart =
+        Chart.create "operating-balance" "Operating balance" balanceChartSummary balanceChartVisual
+        |> Chart.withUnits "USD · month end"
+        |> Chart.withLegend (span { "Bars: month-end balance · Line: trend" })
+        |> Chart.withAnnotations (span { "August closes at $42,800." })
+        |> Chart.withVisibleSummary
+        |> Chart.render
+
+    let emptyBalanceChart =
+        Chart.empty "new-account-balance" "New account balance" (p { "No historical balance data is available." }) (
+            EmptyState.create "No balance history" "Balances appear after the first posted entry."
+            |> EmptyState.render)
+        |> Chart.render
+
+    let chartPreview =
+        themedSurface (div { _class "grid gap-8"; [ balanceChart; emptyBalanceChart ] })
+    // docs-example:end chart
 
     let private statusOptions =
         [ Select.option Active "Active"
@@ -451,6 +565,10 @@ module Components =
     let loadingIndicatorRegistration = registration "components-loading-indicator" "/components/loading-indicator" "Loading indicator" "Loading indicator"
     let emptyStateRegistration = registration "components-empty-state" "/components/empty-state" "Empty state" "Empty state"
     let tableRegistration = registration "components-table" "/components/table" "Table" "Table"
+    let descriptionListRegistration = registration "components-description-list" "/components/description-list" "Description list" "Description list"
+    let metricRegistration = registration "components-metric" "/components/metric" "Metric" "Metric"
+    let paginationRegistration = registration "components-pagination" "/components/pagination" "Pagination" "Pagination"
+    let chartRegistration = registration "components-chart" "/components/chart" "Chart" "Chart"
     let selectRegistration = registration "components-select" "/components/select" "Select" "Select"
     let comboboxRegistration = registration "components-combobox" "/components/combobox" "Combobox" "Combobox"
     let checkboxRegistration = registration "components-checkbox" "/components/checkbox" "Checkbox" "Checkbox"
@@ -476,7 +594,7 @@ module Components =
           statusRegistration
           loadingIndicatorRegistration
           emptyStateRegistration ]
-    let dataDisplayRegistrations = [ tableRegistration ]
+    let dataDisplayRegistrations = [ tableRegistration; descriptionListRegistration; metricRegistration; paginationRegistration; chartRegistration ]
     let formControlRegistrations =
         [ selectRegistration
           comboboxRegistration
@@ -555,7 +673,11 @@ AppShell.create productName current navigation content
             catalogLink "/components/status" "FEEDBACK" "Status" "Compact semantic state with accessible text and restrained color."
             catalogLink "/components/loading-indicator" "FEEDBACK" "Loading indicator" "Accessible indeterminate progress with visible or hidden text."
             catalogLink "/components/empty-state" "FEEDBACK" "Empty state" "Intentional no-content guidance with optional icon and actions."
-            catalogLink "/components/table" "DATA DISPLAY" "Table" "Typed columns over application-owned row data."
+            catalogLink "/components/table" "DATA DISPLAY" "Table" "Typed columns, captions, row headers, actions, density, and narrow overflow."
+            catalogLink "/components/description-list" "DATA DISPLAY" "Description list" "Responsive labelled values and custom detail content."
+            catalogLink "/components/metric" "DATA DISPLAY" "Metric" "Labelled values with optional trend, status, and description."
+            catalogLink "/components/pagination" "DATA DISPLAY" "Pagination" "Typed destinations and consumer-owned page state."
+            catalogLink "/components/chart" "DATA DISPLAY" "Chart" "Consumer-drawn visuals paired with accessible summaries and data."
             catalogLink "/components/select" "FORM CONTROLS" "Select" "A branded finite-choice control with APG keyboard behavior."
             catalogLink "/components/combobox" "FORM CONTROLS" "Combobox" "Editable local or remote search with stable submitted identity."
             catalogLink "/components/checkbox" "FORM CONTROLS" "Checkbox" "Independent checked state with ordinary form submission."
@@ -631,9 +753,31 @@ AppShell.create productName current navigation content
             docsSection "composition" "Placement and actions" [ docsParagraph "Render EmptyState where populated content would normally appear. Keep the primary recovery action visible, omit unauthorized actions on the server, and avoid using an empty state as a loading indicator." ] ]
 
     let tablePage =
-        componentPage tableRegistration "Define typed columns over application-owned rows while Table supplies semantic structure and shared presentation." "table" (themedSurface accountTable) [
-            docsSection "ownership" "Application-owned data" [ docsParagraph "The application owns querying, sorting, filtering, pagination, formatting, destinations, and authorization. Table owns the caption, header and row structure, alignment, and responsive presentation." ]
-            docsSection "accessibility" "Accessibility" [ docsParagraph "The required caption gives the table an accessible name. Column headers remain semantic, and application-provided cell content stays ordinary HtmlElement markup." ] ]
+        componentPage tableRegistration "Define typed columns over application-owned rows while Table supplies semantic structure and shared presentation." "table" tablePreview [
+            docsSection "ownership" "Application-owned data" [ docsParagraph "The application owns querying, sorting, filtering, pagination, formatting, destinations, row actions, and authorization. Table owns the caption, header and row structure, alignment, density, and narrow overflow presentation." ]
+            docsSection "accessibility" "Caption and headers" [ docsParagraph "The required caption gives the table an accessible name and may be visible or visually hidden. Use Table.asRowHeader for the identifying column; consumer-rendered cells and actions remain ordinary HtmlElement values." ]
+            docsSection "responsive" "Dense and narrow data" [ docsParagraph "Compact density reduces cell padding without removing information. The labelled table region is keyboard reachable and scrolls horizontally when supplied columns need more width than the viewport." ] ]
+
+    let descriptionListPage =
+        componentPage descriptionListRegistration "Present labelled values with native description-list relationships and responsive columns." "description-list" descriptionListPreview [
+            docsSection "fields" "Detail fields" [ docsParagraph "DetailField requires a meaningful label and accepts ordinary HtmlElement value content. Use text for simple values, status for state content, and withDescription for concise supporting context." ]
+            docsSection "semantics" "Description-list semantics" [ docsParagraph "DescriptionList renders valid dl, dt, and dd relationships. Typed column choices change responsive presentation without changing reading order or hiding values." ] ]
+
+    let metricPage =
+        componentPage metricRegistration "Highlight a labelled value with optional trend, status, and supporting description." "metric" metricPreview [
+            docsSection "ownership" "Consumer-owned meaning" [ docsParagraph "Metric arranges supplied content but does not infer currency, dates, trend direction, success, or domain status. Applications provide formatted values and explicit semantic status content." ]
+            docsSection "composition" "Custom content" [ docsParagraph "The required value is ordinary HtmlElement content. Trend text receives a hidden semantic prefix, while status and descriptions remain optional." ] ]
+
+    let paginationPage =
+        componentPage paginationRegistration "Present consumer-owned pagination state through typed destinations and explicit current-page semantics." "pagination" paginationPreview [
+            docsSection "ownership" "Application-owned state" [ docsParagraph "The application chooses visible pages, gaps, previous and next destinations, result summary, URLs, query behavior, and durable state. Pagination renders only the navigation presentation." ]
+            docsSection "accessibility" "Current and edge states" [ docsParagraph "The constructor requires an accessible navigation label and exactly one current page. Current-page and disabled edge semantics remain explicit, while page links retain ordinary browser navigation and history." ] ]
+
+    let chartPage =
+        componentPage chartRegistration "Pair consumer-supplied chart drawing with native figure structure and an accessible summary or data representation." "chart" chartPreview [
+            docsSection "drawing" "Consumer-owned drawing" [ docsParagraph "Chart does not draw data or load a charting runtime. Applications supply SVG or HTML visual content, units, legend, annotations, and an explicit empty state." ]
+            docsSection "alternative" "Accessible summary and data" [ docsParagraph "Every Chart requires summary content connected to its figure. Supply the essential trend and values as prose, a data table, or both; use withVisibleSummary when the alternative should also be visible." ]
+            docsSection "semantics" "Figure relationships" [ docsParagraph "A stable ID connects figure, figcaption title, and summary. Legend and annotation regions remain named, while the consumer decides whether supplied visual markup needs its own graphic semantics." ] ]
 
     let selectPage =
         componentPage selectRegistration "Choose one value from a finite, non-editable set with branded select-only combobox behavior." "select" selectPreview [
@@ -741,6 +885,10 @@ AppShell.create productName current navigation content
           loadingIndicatorRegistration.path, loadingIndicatorPage
           emptyStateRegistration.path, emptyStatePage
           tableRegistration.path, tablePage
+          descriptionListRegistration.path, descriptionListPage
+          metricRegistration.path, metricPage
+          paginationRegistration.path, paginationPage
+          chartRegistration.path, chartPage
           selectRegistration.path, selectPage
           comboboxRegistration.path, comboboxPage
           checkboxRegistration.path, checkboxPage

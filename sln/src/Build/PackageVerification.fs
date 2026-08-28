@@ -298,6 +298,19 @@ let view =
         EmptyState.create "No accounts" "Create an account to begin."
         |> EmptyState.withActions (Button.primary "Create account")
         |> EmptyState.render
+        Table.create "Values" [ Table.column "Value" text |> Table.asRowHeader ] [ "One" ]
+        |> Table.withVisibleCaption
+        |> Table.render
+        DescriptionList.create [ DetailField.text "Type" "Asset" ]
+        |> DescriptionList.render
+        Metric.text "Balance" "$42,800"
+        |> Metric.withTrend "Up 8%"
+        |> Metric.render
+        Pagination.create "Value pages" [ PaginationItem.current 1; PaginationItem.link 2 2 ]
+        |> Pagination.withNext 2
+        |> Pagination.render (fun page -> $"/values?page={page}")
+        Chart.create "value-chart" "Value history" (p { "Value increased." }) (raw "<svg aria-hidden=\"true\"></svg>")
+        |> Chart.render
     }
 
 let actual = view |> Render.toString
@@ -308,7 +321,12 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "aria-busy=\"true\"")
    || not (actual.Contains "aria-label=\"Add account\"")
    || not (actual.Contains "role=\"status\"")
-   || not (actual.Contains "No accounts") then
+   || not (actual.Contains "No accounts")
+   || not (actual.Contains "<caption")
+   || not (actual.Contains "<dl")
+   || not (actual.Contains "Trend: ")
+   || not (actual.Contains "aria-current=\"page\"")
+   || not (actual.Contains "<figure") then
     failwith $"Components package rendered unexpected HTML: {actual}"
 
 printfn "FSharp.ViewEngine.Components package works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription

@@ -38,6 +38,10 @@ const routes = [
   { path: '/components/loading-indicator', heading: 'Loading indicator', layout: 'article' },
   { path: '/components/empty-state', heading: 'Empty state', layout: 'article' },
   { path: '/components/table', heading: 'Table', layout: 'article' },
+  { path: '/components/description-list', heading: 'Description list', layout: 'article' },
+  { path: '/components/metric', heading: 'Metric', layout: 'article' },
+  { path: '/components/pagination', heading: 'Pagination', layout: 'article' },
+  { path: '/components/chart', heading: 'Chart', layout: 'article' },
   { path: '/components/select', heading: 'Select', layout: 'article' },
   { path: '/components/combobox', heading: 'Combobox', layout: 'article' },
   { path: '/components/checkbox', heading: 'Checkbox', layout: 'article' },
@@ -176,6 +180,10 @@ test('Components pages provide focused examples, navigation, interaction, themes
     ['/components/loading-indicator', 'Loading indicator'],
     ['/components/empty-state', 'Empty state'],
     ['/components/table', 'Table'],
+    ['/components/description-list', 'Description list'],
+    ['/components/metric', 'Metric'],
+    ['/components/pagination', 'Pagination'],
+    ['/components/chart', 'Chart'],
     ['/components/select', 'Select'],
     ['/components/combobox', 'Combobox'],
     ['/components/checkbox', 'Checkbox'],
@@ -338,6 +346,40 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(emptyStateSurface.getByText('No accounts yet', { exact: true })).toBeVisible()
   await expect(emptyStateSurface.getByRole('button', { name: 'Create account' })).toBeEnabled()
 
+  const tableSurface = await openPreview('/components/table', 'Table')
+  const accountTable = tableSurface.getByRole('table', { name: 'Accounts' })
+  await expect(accountTable.locator('caption')).toBeVisible()
+  await expect(accountTable.getByRole('rowheader')).toHaveCount(2)
+  await expect(tableSurface.getByRole('region', { name: 'Accounts', exact: true })).toHaveAttribute('tabindex', '0')
+  await expect(tableSurface.getByText('No archived accounts', { exact: true })).toBeVisible()
+  await expect(accountTable.getByRole('link', { name: 'View Operating' })).toHaveAttribute('href', 'https://ledger.example.test/accounts/101')
+
+  const descriptionListSurface = await openPreview('/components/description-list', 'Description list')
+  await expect(descriptionListSurface.locator('dl')).toHaveCount(1)
+  await expect(descriptionListSurface.locator('dt')).toHaveText(['Type', 'Status', 'Available balance'])
+  await expect(descriptionListSurface.locator('dd')).toHaveCount(3)
+  await expect(descriptionListSurface.getByText('Includes cleared entries through today.')).toBeVisible()
+
+  const metricSurface = await openPreview('/components/metric', 'Metric')
+  await expect(metricSurface.getByText('Available balance', { exact: true })).toBeVisible()
+  await expect(metricSurface.getByText('$42,800', { exact: true })).toBeVisible()
+  await expect(metricSurface.getByText('Trend: ', { exact: true })).toHaveClass(/sr-only/)
+  await expect(metricSurface.getByText('Current', { exact: true })).toBeVisible()
+
+  const paginationSurface = await openPreview('/components/pagination', 'Pagination')
+  const accountPages = paginationSurface.getByRole('navigation', { name: 'Accounts pages' })
+  await expect(accountPages.getByText('Showing 26–50 of 184 accounts')).toBeVisible()
+  await expect(accountPages.getByText('2', { exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(accountPages.getByRole('link', { name: 'Page 3' })).toHaveAttribute('href', 'https://ledger.example.test/accounts?page=3')
+  await expect(accountPages.getByText('Next', { exact: true })).toHaveAttribute('href', 'https://ledger.example.test/accounts?page=3')
+
+  const chartSurface = await openPreview('/components/chart', 'Chart')
+  await expect(chartSurface.getByRole('figure', { name: 'Operating balance' })).toBeVisible()
+  await expect(chartSurface.getByRole('table', { name: 'Monthly operating balance data' })).toBeVisible()
+  await expect(chartSurface.getByRole('region', { name: 'Legend' })).toContainText('month-end balance')
+  await expect(chartSurface.getByRole('region', { name: 'Annotations' })).toContainText('$42,800')
+  await expect(chartSurface.getByText('No balance history', { exact: true })).toBeVisible()
+
   const selectSurface = await openPreview('/components/select', 'Select')
   const statusSelect = selectSurface.getByRole('combobox', { name: 'Status' })
   const statusListbox = selectSurface.getByRole('listbox', { name: 'Status' })
@@ -443,7 +485,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
   await expect(appShellSurface.locator('[aria-current="page"]')).toBeVisible()
 
-  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/select', '/components/dialog', '/components/app-shell']) {
+  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/dialog', '/components/app-shell']) {
     await page.goto(path, { waitUntil: 'domcontentloaded' })
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -456,6 +498,8 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(catalog.getByRole('link', { name: /ACTIONS Button/ })).toHaveAttribute('href', '/components/button')
   await expect(catalog.getByRole('link', { name: /ACTIONS Icon button/ })).toHaveAttribute('href', '/components/icon-button')
   await expect(catalog.getByRole('link', { name: /FEEDBACK Empty state/ })).toHaveAttribute('href', '/components/empty-state')
+  await expect(catalog.getByRole('link', { name: /DATA DISPLAY Description list/ })).toHaveAttribute('href', '/components/description-list')
+  await expect(catalog.getByRole('link', { name: /DATA DISPLAY Chart/ })).toHaveAttribute('href', '/components/chart')
   await expect(catalog.getByRole('link', { name: /COMPOSITIONS App shell/ })).toHaveAttribute('href', '/components/app-shell')
   await testInfo.attach('components-catalog-desktop-dark', {
     body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
@@ -473,6 +517,20 @@ test('Components pages provide focused examples, navigation, interaction, themes
     body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
     contentType: 'image/png',
   })
+  const mobileTableSurface = await openPreview('/components/table', 'Table')
+  const mobileTableRegion = mobileTableSurface.getByRole('region', { name: 'Accounts', exact: true })
+  expect(await mobileTableRegion.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
+  await testInfo.attach('components-table-mobile-dark', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  const mobileChartSurface = await openPreview('/components/chart', 'Chart')
+  const mobileChartVisual = mobileChartSurface.getByRole('figure', { name: 'Operating balance' }).locator('svg')
+  expect(await mobileChartVisual.evaluate(element => element.parentElement!.scrollWidth > element.parentElement!.clientWidth)).toBe(true)
+  await testInfo.attach('components-chart-mobile-dark', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
 
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Light' }).click()
@@ -483,6 +541,16 @@ test('Components pages provide focused examples, navigation, interaction, themes
   })
   await openPreview('/components/empty-state', 'Empty state')
   await testInfo.attach('components-empty-state-mobile-light', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  await openPreview('/components/description-list', 'Description list')
+  await testInfo.attach('components-description-list-mobile-light', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  await openPreview('/components/pagination', 'Pagination')
+  await testInfo.attach('components-pagination-mobile-light', {
     body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
     contentType: 'image/png',
   })

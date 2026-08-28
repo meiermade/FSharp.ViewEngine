@@ -33,6 +33,10 @@
     <Compile Include="LoadingIndicator.fs" />
     <Compile Include="EmptyState.fs" />
     <Compile Include="Table.fs" />
+    <Compile Include="DescriptionList.fs" />
+    <Compile Include="Metric.fs" />
+    <Compile Include="Pagination.fs" />
+    <Compile Include="Chart.fs" />
     <Compile Include="Select.fs" />
     <Compile Include="Combobox.fs" />
     <Compile Include="Checkbox.fs" />
