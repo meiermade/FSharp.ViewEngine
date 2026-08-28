@@ -308,20 +308,33 @@ module Components =
     // docs-example:end metric
 
     // docs-example:start pagination
-    let accountPagination =
-        Pagination.create "Accounts pages" [
-            PaginationItem.link 1 (AccountsPage 1)
-            PaginationItem.current 2
-            PaginationItem.link 3 (AccountsPage 3)
-            PaginationItem.gap
-            PaginationItem.link 8 (AccountsPage 8)
-        ]
-        |> Pagination.withPrevious (AccountsPage 1)
-        |> Pagination.withNext (AccountsPage 3)
-        |> Pagination.withSummary (span { "Showing 26–50 of 184 accounts" })
-        |> Pagination.render destinationUrl
+    type PaginationDestination = PaginationPage of int
 
-    let paginationPreview = themedSurface accountPagination
+    let paginationDestinationUrl (PaginationPage page) =
+        $"/components/pagination?page={page}#components-pagination-panel-preview"
+
+    let paginationPreview requestedPage =
+        let currentPage = Math.Clamp(requestedPage, 1, 8)
+        let pageItem page =
+            if page = currentPage then PaginationItem.current page
+            else PaginationItem.link page (PaginationPage page)
+        let middlePages = [ max 2 (currentPage - 1) .. min 7 (currentPage + 1) ]
+        let items = [
+            pageItem 1
+            if List.head middlePages > 2 then PaginationItem.gap
+            for page in middlePages do pageItem page
+            if List.last middlePages < 7 then PaginationItem.gap
+            pageItem 8
+        ]
+        let firstResult = (currentPage - 1) * 25 + 1
+        let lastResult = min 184 (currentPage * 25)
+
+        Pagination.create "Accounts pages" items
+        |> (if currentPage > 1 then Pagination.withPrevious (PaginationPage(currentPage - 1)) else id)
+        |> (if currentPage < 8 then Pagination.withNext (PaginationPage(currentPage + 1)) else id)
+        |> Pagination.withSummary (span { $"Showing {firstResult}–{lastResult} of 184 accounts" })
+        |> Pagination.render paginationDestinationUrl
+        |> themedSurface
     // docs-example:end pagination
 
     let private balanceChartVisual =
@@ -646,6 +659,11 @@ AppShell.create productName current navigation content
             docsParagraph description
             docsCustom (docsExample $"components-{sourceId}" registration.title "fsharp" (sourceFor sourceId) preview) ]
 
+    let private previewFirstExample (registration:DocPage) sourceId description preview =
+        docsSection "example" "Example" [
+            docsParagraph description
+            docsCustom (Example.previewFirst $"components-{sourceId}" registration.title "fsharp" (sourceFor sourceId) preview) ]
+
     let private componentPage
         (registration:DocPage)
         (description:string)
@@ -768,10 +786,14 @@ AppShell.create productName current navigation content
             docsSection "ownership" "Consumer-owned meaning" [ docsParagraph "Metric arranges supplied content but does not infer currency, dates, trend direction, success, or domain status. Applications provide formatted values and explicit semantic status content." ]
             docsSection "composition" "Custom content" [ docsParagraph "The required value is ordinary HtmlElement content. Trend text receives a hidden semantic prefix, while status and descriptions remain optional." ] ]
 
-    let paginationPage =
-        componentPage paginationRegistration "Present consumer-owned pagination state through typed destinations and explicit current-page semantics." "pagination" paginationPreview [
-            docsSection "ownership" "Application-owned state" [ docsParagraph "The application chooses visible pages, gaps, previous and next destinations, result summary, URLs, query behavior, and durable state. Pagination renders only the navigation presentation." ]
+    let paginationPageFor requestedPage =
+        let description = "Present consumer-owned pagination state through typed destinations and explicit current-page semantics."
+        docsArticle paginationRegistration.id paginationRegistration.title description [
+            previewFirstExample paginationRegistration "pagination" description (paginationPreview requestedPage)
+            docsSection "ownership" "Application-owned state" [ docsParagraph "The application chooses visible pages, gaps, previous and next destinations, result summary, URLs, query behavior, and durable state. This Docs example uses its own query string to demonstrate real browser navigation; Pagination renders only the navigation presentation." ]
             docsSection "accessibility" "Current and edge states" [ docsParagraph "The constructor requires an accessible navigation label and exactly one current page. Current-page and disabled edge semantics remain explicit, while page links retain ordinary browser navigation and history." ] ]
+
+    let paginationPage = paginationPageFor 2
 
     let chartPage =
         componentPage chartRegistration "Pair consumer-supplied chart drawing with native figure structure and an accessible summary or data representation." "chart" chartPreview [

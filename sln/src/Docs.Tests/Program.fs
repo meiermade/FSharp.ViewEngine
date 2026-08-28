@@ -480,7 +480,7 @@ after"""
                 "DetailField.status &quot;Status&quot;"
                 "Metric.text &quot;Available balance&quot; &quot;$42,800&quot;"
                 "Pagination.create &quot;Accounts pages&quot;"
-                "PaginationItem.current 2"
+                "PaginationItem.current page"
                 "Chart.create &quot;operating-balance&quot;"
                 "Chart.empty &quot;new-account-balance&quot;"
                 "Select.create &quot;status&quot; &quot;Status&quot; statusValue statusOptions"
@@ -694,6 +694,22 @@ after"""
             Expect.isFalse (paginationHtml.Contains("role=\"menu\"")) "Pagination protects its navigation role"
             Expect.throws (fun () -> Pagination.create "Pages" [ PaginationItem.link 1 1 ] |> ignore) "Pagination requires one current page"
             Expect.throws (fun () -> Pagination.create "Pages" [ PaginationItem.current 1; PaginationItem.current 2 ] |> ignore) "Pagination rejects multiple current pages"
+
+            let paginationPage3Html =
+                Components.paginationPageFor 3
+                |> View.documentWithPage Registry.navigation Components.paginationRegistration
+                |> Render.toHtmlDocString
+            Expect.stringContains paginationPage3Html "Showing 51–75 of 184 accounts" "Docs pagination derives its summary from local query state"
+            Expect.stringContains paginationPage3Html "aria-current=\"page\" aria-label=\"Page 3, current page\"" "Docs pagination renders the requested current page"
+            Expect.stringContains paginationPage3Html "href=\"/components/pagination?page=4#components-pagination-panel-preview\"" "Docs pagination links to a real local next page"
+            Expect.isFalse (paginationPage3Html.Contains("ledger.example.test")) "Docs pagination does not expose externally fake destinations"
+
+            let paginationPage8Html =
+                Components.paginationPageFor 99
+                |> View.documentWithPage Registry.navigation Components.paginationRegistration
+                |> Render.toHtmlDocString
+            Expect.stringContains paginationPage8Html "Showing 176–184 of 184 accounts" "Docs pagination clamps out-of-range requests"
+            Expect.stringContains paginationPage8Html "aria-current=\"page\" aria-label=\"Page 8, current page\"" "Docs pagination clamps to the last page"
 
             let visual = raw "<svg aria-hidden=\"true\"></svg>"
             let summary = table { caption { "Balance data" }; tbody { tr { th { _scope "row"; "August" }; td { "$42,800" } } } }
