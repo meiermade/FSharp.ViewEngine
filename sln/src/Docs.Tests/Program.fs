@@ -454,6 +454,9 @@ after"""
             Expect.stringContains allHtml "Interaction and server state" "interaction guide"
             Expect.stringContains allHtml "aria-activedescendant identifies the visually active option" "APG focus relationship"
             Expect.stringContains allHtml "cycles options when the same character is repeated" "Select typeahead behavior"
+            Expect.stringContains allHtml "bounded character-prefix navigation and repeated-character cycling skip disabled and pending items" "DropdownMenu character-navigation behavior"
+            Expect.stringContains allHtml "server-rendered Datastar patch replaces the example region" "DropdownMenu patch continuity guidance"
+            Expect.stringContains allHtml "/components/menus/actions" "DropdownMenu example uses a real Docs-owned patch endpoint"
             Expect.stringContains allHtml "Theming and density" "theme guide"
             Expect.stringContains allHtml "Tailwind CSS setup" "Tailwind setup guide"
             Expect.stringContains allHtml "Application responsibilities" "application boundary guidance"
@@ -509,7 +512,7 @@ after"""
             Expect.stringContains allHtml "id=\"review-account-dialog-trigger\"" "Dialog renders its connected trigger"
             Expect.stringContains allHtml "data-on:close=\"document.getElementById(&quot;review-account-dialog-trigger&quot;).focus()\"" "Dialog close restores trigger focus"
             Expect.isFalse (allHtml.Contains("Select.describe")) "Select has no unobservable option-description modifier"
-            Expect.stringContains allHtml "data-signals=\"{_components_menu_actions_open: false}" "menu IDs become valid local signal tokens"
+            Expect.stringContains allHtml "data-signals=\"{_components_menu_actions_open: false, _components_menu_actions_typeahead:" "menu IDs become valid isolated interaction signal tokens"
             Expect.isFalse (allHtml.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
             Expect.stringContains allHtml "aria-current=\"page\"" "AppShell retains typed current destination"
             Expect.stringContains allHtml "--fve-brand-solid" "consumer theme overrides are documented"
@@ -739,6 +742,92 @@ after"""
             Expect.stringContains emptyChartHtml "No history" "Chart composes an explicit empty state"
             Expect.stringContains emptyChartHtml "class=\"sr-only\"" "Chart summary remains accessible when visually hidden"
             Expect.isFalse (chartHtml.Contains("canvas")) "Chart adds no drawing runtime or canvas policy"
+        }
+
+        test "Components DropdownMenu renders complete item vocabulary and interaction semantics" {
+            let leading = span { _attr ("data-test-icon", "review"); "✓" }
+            let menuItems =
+                [ MenuItem.group "Account" [
+                      MenuItem.link 1 "Account settings"
+                      MenuItem.action "$reviews++" "Record review"
+                      |> MenuItem.withLeading leading
+                      |> MenuItem.withShortcut "R"
+                      MenuItem.link 2 "Unavailable link" |> MenuItem.disabled
+                      MenuItem.action "$sync++" "Syncing account" |> MenuItem.pending ]
+                  MenuItem.separator
+                  MenuItem.destructiveAction "$delete++" "Delete draft" ]
+            let html =
+                DropdownMenu.create "account-actions" "Actions" menuItems
+                |> DropdownMenu.render (fun destination -> $"/accounts/{destination}")
+                |> Render.toString
+
+            Expect.stringContains html "aria-haspopup=\"menu\"" "DropdownMenu trigger identifies its popup"
+            Expect.stringContains html "aria-controls=\"account-actions-menu\"" "DropdownMenu trigger controls its menu"
+            Expect.stringContains html "role=\"menu\" aria-label=\"Actions\"" "DropdownMenu popup has menu semantics and a name"
+            Expect.stringContains html "role=\"group\" aria-labelledby=\"account-actions-menu-entry-0-label\"" "DropdownMenu labels groups"
+            Expect.stringContains html ">Account</div>" "DropdownMenu keeps the group label visible"
+            Expect.stringContains html "data-test-icon=\"review\"" "DropdownMenu preserves consumer-owned leading content"
+            Expect.stringContains html "<kbd aria-hidden=\"true\"" "DropdownMenu presents shortcut hints without changing item names"
+            Expect.stringContains html ">R</kbd>" "DropdownMenu preserves shortcut text"
+            Expect.stringContains html "role=\"separator\"" "DropdownMenu preserves separators"
+            Expect.stringContains html "absolute top-full z-30 mt-2 w-64" "DropdownMenu bounds popup width"
+            Expect.stringContains html "right-0" "DropdownMenu preserves end alignment by default"
+            Expect.stringContains html "text-[var(--fve-critical-text)]" "DropdownMenu preserves destructive tone"
+            Expect.stringContains html "data-fve-menu-label=\"record review\"" "DropdownMenu exposes normalized labels for character navigation"
+            Expect.stringContains html "_account_actions_typeahead" "DropdownMenu isolates bounded character-navigation state"
+            Expect.stringContains html "data-on:fve-dropdown-open__window" "DropdownMenu listens for adjacent menu openings without sharing signals"
+            Expect.stringContains html "new CustomEvent(&#39;fve-dropdown-open&#39;" "DropdownMenu announces its stable instance when opening"
+            Expect.stringContains html "evt.key == &#39;Enter&#39; || evt.key == &#39; &#39; || evt.key == &#39;ArrowDown&#39;" "DropdownMenu trigger opens with Enter, Space, or ArrowDown"
+            Expect.stringContains html "Date.now()" "DropdownMenu bounds its character-navigation buffer"
+            Expect.stringContains html "every(character =&gt; character == $_account_actions_typeahead[0])" "DropdownMenu cycles repeated characters"
+            Expect.stringContains html ":not([aria-disabled=true])" "DropdownMenu movement skips unavailable items"
+            Expect.stringContains html "document.activeElement.click()" "DropdownMenu activates focused items with Enter or Space"
+            Expect.stringContains html "document.getElementById(&#39;account-actions-trigger&#39;)?.focus()" "DropdownMenu restores its trigger when appropriate"
+
+            let unavailableLink = Regex.Match(html, "<a[^>]*aria-disabled=\"true\"[^>]*>", RegexOptions.IgnoreCase).Value
+            Expect.isNotEmpty unavailableLink "DropdownMenu renders a disabled link item"
+            Expect.isFalse (unavailableLink.Contains("href=")) "Disabled menu links cannot navigate"
+            Expect.stringContains unavailableLink "cursor-not-allowed opacity-50" "Disabled menu links remain visibly unavailable"
+
+            let pendingButton = Regex.Match(html, "<button[^>]*disabled[^>]*aria-busy=\"true\"[^>]*>", RegexOptions.IgnoreCase).Value
+            Expect.isNotEmpty pendingButton "DropdownMenu renders a native-disabled pending action"
+            Expect.stringContains html "animate-spin" "Pending menu actions show a loading indicator"
+            Expect.stringContains html "motion-reduce:animate-none" "Pending menu motion respects reduced-motion preferences"
+
+            let startAlignedHtml =
+                DropdownMenu.create "start-actions" "Start actions" [ MenuItem.link 1 "First" ]
+                |> DropdownMenu.withAlignment MenuAlignment.Start
+                |> DropdownMenu.render string
+                |> Render.toString
+            Expect.stringContains startAlignedHtml "left-0" "DropdownMenu supports typed start alignment"
+            Expect.isFalse (startAlignedHtml.Contains("right-0")) "Start alignment replaces default end alignment"
+
+            let adjacentHtml =
+                div {
+                    DropdownMenu.create "first-actions" "First actions" [ MenuItem.link 1 "First" ] |> DropdownMenu.render string
+                    DropdownMenu.create "second-actions" "Second actions" [ MenuItem.link 2 "Second" ] |> DropdownMenu.render string
+                }
+                |> Render.toString
+            Expect.stringContains adjacentHtml "_first_actions_open" "First menu owns a stable signal"
+            Expect.stringContains adjacentHtml "_second_actions_open" "Second menu owns an isolated stable signal"
+            Expect.equal (Regex.Matches(adjacentHtml, "id=\"first-actions-menu\"").Count) 1 "First menu ID is unique"
+            Expect.equal (Regex.Matches(adjacentHtml, "id=\"second-actions-menu\"").Count) 1 "Second menu ID is unique"
+
+            Expect.throws (fun () -> MenuItem.link 1 " " |> ignore) "Menu links require accessible labels"
+            Expect.throws (fun () -> MenuItem.group " " [ MenuItem.link 1 "Item" ] |> ignore) "Menu groups require labels"
+            Expect.throws (fun () -> MenuItem.group "Empty" [] |> ignore) "Menu groups require items"
+            Expect.throws (fun () -> MenuItem.group "Outer" [ MenuItem.group "Inner" [ MenuItem.link 1 "Item" ] ] |> ignore) "Menu groups cannot nest"
+            Expect.throws (fun () -> MenuItem.separator<int> |> MenuItem.withShortcut "S" |> ignore) "Separators cannot have item presentation"
+
+            let docsMenuHtml = Components.dropdownMenuPreview |> Render.toString
+            Expect.stringContains docsMenuHtml "href=\"/components/dropdown-menu#keyboard\"" "Docs menu uses a real local typed destination"
+            Expect.isFalse (docsMenuHtml.Contains("ledger.example.test")) "Docs menu exposes no fake external destination"
+
+            let patchedHtml = Components.patchedDropdownMenuRegion |> Render.toString
+            Expect.stringContains patchedHtml "id=\"components-dropdown-menu-region\"" "Docs patch preserves the stable menu region"
+            Expect.stringContains patchedHtml "Review refreshed actions" "Docs patch changes server-rendered menu content"
+            Expect.stringContains patchedHtml "role=\"status\"" "Docs patch reports its completed server update"
+            Expect.isFalse (patchedHtml.Contains("Refresh actions")) "Docs patch replaces the initiating command"
         }
 
         test "Components Select owns branded presentation instead of native browser chrome" {

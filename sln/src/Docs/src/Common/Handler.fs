@@ -43,6 +43,10 @@ module Handler =
                 |> Render.toHtmlDocString
             htmlString html next context
 
+    let private componentDropdownMenuPatch : HttpHandler =
+        let html = Components.patchedDropdownMenuRegion |> Render.toString
+        setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
+
     let private componentAccountSearch : HttpHandler =
         fun next context ->
             let query =
@@ -68,6 +72,7 @@ module Handler =
             route "/sitemap.xml" >=> setHttpHeader "Content-Type" "application/xml; charset=utf-8" >=> setBodyFromString sitemap
             route "/robots.txt" >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8" >=> setBodyFromString robots
             route "/components/pagination" >=> componentPagination
+            route "/components/menus/actions" >=> componentDropdownMenuPatch
             route "/components/accounts/search" >=> componentAccountSearch
             choose (previewRoutes @ pageRoutes)
         ]

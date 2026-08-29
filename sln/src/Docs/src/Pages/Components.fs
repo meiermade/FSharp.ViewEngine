@@ -20,6 +20,7 @@ module Components =
         | AccountsPage of int
         | Account of int
         | Settings
+        | DropdownMenuGuide
 
     type AccountRow =
         { id:int
@@ -38,6 +39,7 @@ module Components =
         | AccountsPage page -> $"https://ledger.example.test/accounts?page={page}"
         | Account id -> $"https://ledger.example.test/accounts/{id}"
         | Settings -> "https://ledger.example.test/settings"
+        | DropdownMenuGuide -> "/components/dropdown-menu#keyboard"
 
     let private sourceText =
         lazy (SourceRegion.readEmbedded typeof<DocPage>.Assembly "Docs.Pages.Components.fs")
@@ -455,12 +457,57 @@ module Components =
           MenuItem.destructiveAction "@delete('/accounts/101')" "Delete account" ]
 
     // docs-example:start dropdown-menu
-    let actionMenu =
-        DropdownMenu.create "components-menu-actions" "Actions" accountMenuItems
+    let menuLeadingIcon =
+        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>"""
+
+    let dropdownMenuItems refreshed =
+        [ MenuItem.group "Account" [
+              MenuItem.link DropdownMenuGuide "Dropdown menu guidance"
+              MenuItem.action "$menuActivations++" "Record review"
+              |> MenuItem.withLeading menuLeadingIcon
+              |> MenuItem.withShortcut "R" ]
+          MenuItem.separator
+          MenuItem.group "Reports" [
+              if refreshed then
+                  MenuItem.action "$menuActivations++" "Review refreshed actions"
+              else
+                  MenuItem.action "@get('/components/menus/actions')" "Refresh actions"
+              MenuItem.action "$menuActivations++" "Export statement"
+              |> MenuItem.disabled
+              MenuItem.action "$menuActivations++" "Syncing ledger"
+              |> MenuItem.pending
+              MenuItem.action "$menuActivations++" "Create report"
+              MenuItem.action "$menuActivations++" "Close period" ]
+          MenuItem.separator
+          MenuItem.destructiveAction "$menuDeletes++" "Delete draft" ]
+
+    let actionMenu refreshed =
+        DropdownMenu.create "components-menu-actions" "Actions" (dropdownMenuItems refreshed)
+        |> DropdownMenu.withAlignment MenuAlignment.Start
         |> DropdownMenu.render destinationUrl
 
-    let dropdownMenuPreview = themedSurface actionMenu
+    let moreActionsMenu =
+        DropdownMenu.create "components-menu-more" "More actions" [
+            MenuItem.group "View" [
+                MenuItem.link DropdownMenuGuide "Read menu guidance"
+                MenuItem.action "$menuActivations++" "Record secondary action" ] ]
+        |> DropdownMenu.render destinationUrl
+
+    let dropdownMenuRegion refreshed =
+        div {
+            _id "components-dropdown-menu-region"
+            _dataSignals "{menuActivations: 0, menuDeletes: 0}"
+            div { _class "flex flex-wrap items-center gap-3"; [ actionMenu refreshed; moreActionsMenu ] }
+            p { _class "mt-4 text-sm text-[var(--fve-muted-text)]"; _dataText "'Completed menu actions: ' + $menuActivations"; "Completed menu actions: 0" }
+            p { _class "mt-1 text-sm text-[var(--fve-critical-text)]"; _dataText "'Deleted drafts: ' + $menuDeletes"; "Deleted drafts: 0" }
+            if refreshed then
+                p { _role "status"; _class "mt-1 text-sm text-[var(--fve-positive-text)]"; "Actions refreshed from the server." }
+        }
+
+    let dropdownMenuPreview = themedSurface (dropdownMenuRegion false)
     // docs-example:end dropdown-menu
+
+    let patchedDropdownMenuRegion = dropdownMenuRegion true
 
     // docs-example:start dialog
     let dialogConfig =
@@ -835,8 +882,12 @@ AppShell.create productName current navigation content
 
     let dropdownMenuPage =
         componentPage dropdownMenuRegistration "Present a compact set of application-owned actions and destinations." "dropdown-menu" dropdownMenuPreview [
-            docsSection "items" "Menu items" [ docsParagraph "MenuItem.link accepts a typed destination resolved by the application. Action expressions remain explicit trusted application code; separators group related commands." ]
-            docsSection "keyboard" "Keyboard and focus" [ docsParagraph "Opening the menu focuses the first item. Arrow keys, Home, End, Enter, Space, Escape, Tab, pointer selection, and outside dismissal preserve a coherent menu focus model and return focus to the trigger when appropriate." ] ]
+            docsSection "items" "Menu items" [
+                docsParagraph "MenuItem.link accepts a typed destination resolved by the application. Action expressions remain explicit trusted application code. Labelled groups and separators organize commands; leading content and shortcut hints remain presentation owned by the consumer. Popup alignment defaults to End and can be set to Start for triggers near the leading edge."
+                docsParagraph "Disabled and pending items stay visible for context but are unavailable to pointer and keyboard activation. Pending items preserve their action name, expose busy state, and show a reduced-motion-safe loading indicator. Authorization and whether an action exists remain server-owned." ]
+            docsSection "keyboard" "Keyboard and focus" [
+                docsParagraph "Enter, Space, and Arrow keys open the menu. Arrow keys wrap among enabled items; Home and End move to the boundaries; bounded character-prefix navigation and repeated-character cycling skip disabled and pending items. Enter and Space activate the focused command."
+                docsParagraph "Escape restores the trigger, Tab and outside interaction dismiss without trapping focus, and enabled pointer activation closes coherently. Stable menu IDs keep adjacent instances independent and preserve behavior when a server-rendered Datastar patch replaces the example region." ] ]
 
     let dialogPage =
         componentPage dialogRegistration "Connect a trigger and modal surface with initial focus, dismissal, and focus restoration." "dialog" dialogPreview [

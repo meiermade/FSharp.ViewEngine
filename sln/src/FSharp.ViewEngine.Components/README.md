@@ -73,6 +73,25 @@ Components use Datastar signals for ephemeral open, query, focus, and selection 
 
 Select, Combobox, DropdownMenu, Dialog, Checkbox, Switch, ToggleButton, and RadioGroup preserve their distinct form and accessibility semantics. Required accessible labels are constructor inputs.
 
+DropdownMenu keeps typed destinations and trusted Datastar actions application-owned while providing labelled groups, separators, leading content, shortcut hints, destructive tone, disabled or pending items, and typed Start/End popup alignment. Enabled items support pointer activation, wrapping Arrow/Home/End movement, Enter/Space activation, bounded character navigation, outside/Tab dismissal, Escape focus restoration, isolated stable-ID signals, and server-rendered morph continuity.
+
+```fsharp
+let accountActions =
+    DropdownMenu.create "account-actions" "Actions" [
+        MenuItem.group "Account" [
+            MenuItem.link Settings "Account settings"
+            MenuItem.action "@post('/accounts/101/archive')" "Archive account"
+            |> MenuItem.withShortcut "A"
+            MenuItem.action "@get('/accounts/101/statement')" "Export statement"
+            |> MenuItem.pending ]
+        MenuItem.separator
+        MenuItem.destructiveAction "@delete('/accounts/101/draft')" "Delete draft" ]
+    |> DropdownMenu.withAlignment MenuAlignment.Start
+    |> DropdownMenu.render destinationUrl
+```
+
+Disabled and pending presentation is not authorization. Applications decide which commands exist and enforce every action on the server.
+
 ## Documentation
 
 The complete component gallery, typed examples, theming guidance, and application-boundary guidance are published at:

@@ -311,6 +311,18 @@ let view =
         |> Pagination.render (fun page -> $"/values?page={page}")
         Chart.create "value-chart" "Value history" (p { "Value increased." }) (raw "<svg aria-hidden=\"true\"></svg>")
         |> Chart.render
+        DropdownMenu.create "value-actions" "Actions" [
+            MenuItem.group "Values" [
+                MenuItem.link 1 "View value"
+                |> MenuItem.withLeading icon
+                |> MenuItem.withShortcut "V"
+                MenuItem.action "$refreshValues++" "Refresh values"
+                MenuItem.action "$exportValues++" "Export values" |> MenuItem.disabled
+                MenuItem.action "$syncValues++" "Syncing values" |> MenuItem.pending ]
+            MenuItem.separator
+            MenuItem.destructiveAction "$deleteValue++" "Delete value" ]
+        |> DropdownMenu.withAlignment MenuAlignment.Start
+        |> DropdownMenu.render (fun value -> $"/values/{value}")
     }
 
 let actual = view |> Render.toString
@@ -326,7 +338,12 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "<dl")
    || not (actual.Contains "Trend: ")
    || not (actual.Contains "aria-current=\"page\"")
-   || not (actual.Contains "<figure") then
+   || not (actual.Contains "<figure")
+   || not (actual.Contains "role=\"group\"")
+   || not (actual.Contains "left-0")
+   || not (actual.Contains "data-fve-menu-label=\"view value\"")
+   || not (actual.Contains "aria-busy=\"true\"")
+   || not (actual.Contains ">V</kbd>") then
     failwith $"Components package rendered unexpected HTML: {actual}"
 
 printfn "FSharp.ViewEngine.Components package works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
