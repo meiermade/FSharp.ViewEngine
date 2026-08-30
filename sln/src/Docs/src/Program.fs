@@ -16,6 +16,7 @@ let webApp (config:Config) =
             |}
             Handler.routes
         ]
+        POST >=> Handler.postRoutes
         setStatusCode 404 >=> text "Not found"
     ]
 

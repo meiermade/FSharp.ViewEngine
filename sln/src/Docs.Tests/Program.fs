@@ -486,7 +486,7 @@ after"""
                 "PaginationItem.current page"
                 "Chart.create &quot;operating-balance&quot;"
                 "Chart.empty &quot;new-account-balance&quot;"
-                "Select.create &quot;status&quot; &quot;Status&quot; statusValue statusOptions"
+                "Select.create &quot;status&quot; &quot;Status&quot; statusValue selectStatusOptions"
                 "Combobox.create &quot;account&quot; &quot;Parent account&quot; string"
                 "Combobox.withSearch (ComboboxSearch.Remote &quot;/components/accounts/search&quot;)"
                 "Combobox.renderOptions"
@@ -508,6 +508,16 @@ after"""
             Expect.stringContains allHtml "role=\"switch\"" "Switch preserves switch semantics"
             Expect.stringContains allHtml "aria-pressed=\"true\"" "ToggleButton preserves pressed semantics"
             Expect.stringContains allHtml "type=\"radio\"" "RadioGroup preserves form semantics internally"
+            Expect.stringContains allHtml "Select.required" "Select example exposes required state"
+            Expect.stringContains allHtml "Select.pending" "Select example exposes pending state"
+            Expect.stringContains allHtml "Checkbox.required" "Checkbox example exposes native required state"
+            Expect.stringContains allHtml "Checkbox.withValidation" "Checkbox example exposes server validation"
+            Expect.stringContains allHtml "Switch.pending" "Switch example exposes pending state"
+            Expect.stringContains allHtml "ToggleButton.pending" "ToggleButton example exposes pending state"
+            Expect.stringContains allHtml "RadioGroup.required" "RadioGroup example exposes grouped required state"
+            Expect.stringContains allHtml "RadioGroup.withValidation" "RadioGroup example exposes server validation"
+            for endpoint in [ "/components/choices/select"; "/components/choices/checkbox"; "/components/choices/switch"; "/components/choices/radio" ] do
+                Expect.stringContains allHtml endpoint $"focused example posts to real Docs endpoint {endpoint}"
             Expect.isFalse (allHtml.Contains("NativeSelect.create")) "the package exposes no NativeSelect API"
             Expect.stringContains allHtml "id=\"review-account-dialog-trigger\"" "Dialog renders its connected trigger"
             Expect.stringContains allHtml "data-on:close=\"document.getElementById(&quot;review-account-dialog-trigger&quot;).focus()\"" "Dialog close restores trigger focus"
@@ -830,56 +840,155 @@ after"""
             Expect.isFalse (patchedHtml.Contains("Refresh actions")) "Docs patch replaces the initiating command"
         }
 
-        test "Components Select owns branded presentation instead of native browser chrome" {
+        test "Components Select owns the complete branded select-only form contract" {
             let html =
-                Select.create "status" "Status" id [ Select.option "active" "Active" ]
-                |> Select.withSelected "active"
+                Select.create "status" "Status" id [ Select.option "active" "Active"; Select.option "disabled" "Disabled" |> Select.disable ]
+                |> Select.withId "account-status"
+                |> Select.withDescription "Account status"
+                |> Select.withPlaceholder "Choose status"
+                |> Select.withValidation "Choose an available status."
+                |> Select.required
+                |> Select.pending
                 |> Select.render
                 |> Render.toString
 
             Expect.isFalse (html.Contains("<select")) "Select never renders a native select element"
-            Expect.stringContains html "role=\"combobox\"" "Select renders a select-only combobox trigger"
+            let trigger = Regex.Match(html, "<button[^>]*role=\"combobox\"[^>]*>", RegexOptions.IgnoreCase).Value
+            let submittedValue = Regex.Match(html, "<input[^>]*type=\"hidden\"[^>]*>", RegexOptions.IgnoreCase).Value
+            Expect.stringContains trigger "disabled" "pending Select prevents interaction"
+            Expect.stringContains trigger "aria-required=\"true\"" "Select exposes required state on the combobox"
+            Expect.stringContains trigger "aria-disabled=\"true\"" "Select exposes unavailable state"
+            Expect.stringContains trigger "aria-invalid=\"true\"" "Select exposes server validation"
+            Expect.stringContains trigger "aria-busy=\"true\"" "pending Select exposes busy state"
+            Expect.stringContains trigger "aria-describedby=\"fve-select-account_status-description fve-select-account_status-validation\"" "Select joins help and validation relationships"
+            Expect.stringContains submittedValue "name=\"status\"" "Select retains the consumer form name"
+            Expect.stringContains submittedValue "disabled" "unavailable Select values are omitted by ordinary FormData"
             Expect.stringContains html "role=\"listbox\"" "Select renders its branded listbox"
-            Expect.stringContains html "data-attr:aria-activedescendant" "Select synchronizes its active descendant"
-            Expect.stringContains html "_status_typeahead" "Select retains bounded typeahead state"
+            Expect.stringContains html "role=\"alert\"" "Select validation is announced after a patch"
+            Expect.stringContains html "role=\"option\"" "Select renders branded options"
+            Expect.stringContains html "aria-disabled=\"true\"" "Select preserves disabled options"
+            Expect.stringContains html "_account_status_typeahead" "Select isolates bounded typeahead state"
             Expect.stringContains html "Date.now()" "Select resets typeahead after its bounded interval"
-            Expect.stringContains html "every(character =&gt; character == $_status_typeahead[0])" "Select cycles repeated-character matches"
-            Expect.stringContains html "type=\"hidden\"" "Select retains ordinary form submission"
+            Expect.stringContains html "every(character =&gt; character == $_account_status_typeahead[0])" "Select cycles repeated-character matches"
+            Expect.stringContains html "evt.altKey &amp;&amp; evt.key == &#39;ArrowDown&#39;" "Select implements closed Alt+Down"
+            Expect.stringContains html "evt.key == &#39;PageUp&#39;" "Select implements PageUp"
+            Expect.stringContains html "evt.key == &#39;PageDown&#39;" "Select implements PageDown"
+            Expect.stringContains html "Math.min" "Select clamps forward movement"
+            Expect.stringContains html "Math.max" "Select clamps backward movement"
+            Expect.stringContains html "evt.key == &#39;Tab&#39;" "Select commits the active option on Tab"
+            Expect.stringContains html "document.getElementById($_account_status_active)?.click()" "Select commits active identity through one option path"
         }
 
-        test "Components branded choice controls preserve distinct semantics" {
+        test "Components branded choice controls preserve distinct complete semantics" {
             let comboboxHtml =
                 Combobox.create "account" "Account" id [ Select.option "operating" "Operating" ]
                 |> Combobox.withSelected "operating"
                 |> Combobox.render
                 |> Render.toString
-            Expect.stringContains comboboxHtml "type=\"search\" role=\"combobox\"" "Combobox exposes an editable combobox"
-            Expect.stringContains comboboxHtml "aria-autocomplete=\"list\"" "Combobox identifies list autocomplete"
-            Expect.stringContains comboboxHtml "data-attr:aria-activedescendant" "Combobox synchronizes its active descendant"
-            Expect.stringContains comboboxHtml "data-init=\"queueMicrotask" "Combobox repairs active identity after option morphs"
-            Expect.stringContains comboboxHtml "type=\"hidden\" name=\"account\"" "Combobox submits selected identity separately from query text"
-            Expect.stringContains comboboxHtml "role=\"option\"" "Combobox renders branded options"
+            Expect.stringContains comboboxHtml "type=\"search\" role=\"combobox\"" "Combobox remains a distinct editable combobox"
 
-            let checkboxHtml = Checkbox.create "archived" "Include archived" |> Checkbox.withChecked |> Checkbox.render |> Render.toString
-            Expect.stringContains checkboxHtml "type=\"checkbox\"" "Checkbox retains native checkbox semantics internally"
+            let checkboxHtml =
+                Checkbox.create "confirmed" "Confirmed"
+                |> Checkbox.withId "review-confirmed"
+                |> Checkbox.withDescription "Review completed."
+                |> Checkbox.withValidation "Confirm the review."
+                |> Checkbox.required
+                |> Checkbox.render
+                |> Render.toString
+            let checkbox = Regex.Match(checkboxHtml, "<input[^>]*type=\"checkbox\"[^>]*>", RegexOptions.IgnoreCase).Value
+            Expect.stringContains checkbox "id=\"fve-checkbox-review_confirmed\"" "Checkbox accepts stable instance identity"
+            Expect.stringContains checkbox "name=\"confirmed\"" "Checkbox preserves consumer form name"
+            Expect.stringContains checkbox "required" "enabled required Checkbox uses native constraint semantics"
+            Expect.stringContains checkbox "aria-required=\"true\"" "Checkbox exposes required state"
+            Expect.stringContains checkbox "aria-invalid=\"true\"" "Checkbox exposes validation state"
+            Expect.stringContains checkbox "aria-describedby=\"fve-checkbox-review_confirmed-description fve-checkbox-review_confirmed-validation\"" "Checkbox joins descriptions"
+            Expect.stringContains checkboxHtml "role=\"alert\"" "Checkbox validation is announced"
             Expect.stringContains checkboxHtml "class=\"peer sr-only\"" "Checkbox browser chrome is visually hidden"
 
-            let switchHtml = Switch.create "notifications" "Notifications" |> Switch.withChecked |> Switch.render |> Render.toString
-            Expect.stringContains switchHtml "role=\"switch\"" "Switch has switch semantics"
-            Expect.stringContains switchHtml "data-attr:aria-checked" "Switch state remains synchronized"
-            Expect.stringContains switchHtml "class=\"peer sr-only\"" "Switch browser chrome is visually hidden"
+            let unavailableCheckboxHtml =
+                Checkbox.create "confirmed" "Confirmed"
+                |> Checkbox.required
+                |> Checkbox.pending
+                |> Checkbox.render
+                |> Render.toString
+            let unavailableCheckbox = Regex.Match(unavailableCheckboxHtml, "<input[^>]*type=\"checkbox\"[^>]*>", RegexOptions.IgnoreCase).Value
+            Expect.stringContains unavailableCheckbox "disabled" "pending Checkbox is natively unavailable"
+            Expect.stringContains unavailableCheckbox "aria-busy=\"true\"" "pending Checkbox exposes busy state"
+            Expect.isFalse (Regex.IsMatch(unavailableCheckbox, "\\srequired(?:\\s|>)", RegexOptions.IgnoreCase)) "disabled Checkbox does not emit invalid required markup"
+            Expect.stringContains unavailableCheckboxHtml "animate-spin" "pending Checkbox renders a reduced-motion-safe indicator"
 
-            let toggleHtml = ToggleButton.create "compact" "Compact rows" |> ToggleButton.pressed |> ToggleButton.render |> Render.toString
+            let switchHtml =
+                Switch.create "notifications" "Notifications"
+                |> Switch.withId "account-notifications"
+                |> Switch.withChecked
+                |> Switch.withValidation "Could not save."
+                |> Switch.pending
+                |> Switch.render
+                |> Render.toString
+            let switchControl = Regex.Match(switchHtml, "<input[^>]*role=\"switch\"[^>]*>", RegexOptions.IgnoreCase).Value
+            Expect.stringContains switchControl "name=\"notifications\"" "Switch retains native form submission"
+            Expect.stringContains switchControl "aria-checked=\"true\"" "Switch has switch state"
+            Expect.stringContains switchControl "data-attr:aria-checked" "Switch state remains synchronized"
+            Expect.stringContains switchControl "disabled" "pending Switch is unavailable"
+            Expect.stringContains switchControl "aria-busy=\"true\"" "pending Switch exposes busy state"
+            Expect.stringContains switchControl "aria-invalid=\"true\"" "Switch exposes server validation"
+
+            let toggleHtml =
+                ToggleButton.create "compact" "Compact rows"
+                |> ToggleButton.pressed
+                |> ToggleButton.pending
+                |> ToggleButton.render
+                |> Render.toString
             Expect.stringContains toggleHtml "aria-pressed=\"true\"" "ToggleButton has pressed semantics"
             Expect.stringContains toggleHtml "data-attr:aria-pressed" "ToggleButton pressed state remains synchronized"
+            Expect.stringContains toggleHtml "disabled" "pending ToggleButton prevents activation"
+            Expect.stringContains toggleHtml "aria-busy=\"true\"" "pending ToggleButton exposes busy state"
+            Expect.isFalse (toggleHtml.Contains("data-on:click")) "unavailable ToggleButton has no activation expression"
 
             let radioHtml =
-                RadioGroup.create "mode" "Mode" id [ RadioGroup.option "automatic" "Automatic"; RadioGroup.option "manual" "Manual" ]
-                |> RadioGroup.withSelected "automatic"
+                RadioGroup.create "mode" "Mode" id [ RadioGroup.option "automatic" "Automatic"; RadioGroup.option "manual" "Manual"; RadioGroup.option "disabled" "Disabled" |> RadioGroup.disable ]
+                |> RadioGroup.withId "posting-mode"
+                |> RadioGroup.withDescription "Posting behavior."
+                |> RadioGroup.withValidation "Choose a mode."
+                |> RadioGroup.required
                 |> RadioGroup.render
                 |> Render.toString
-            Expect.equal (Regex.Matches(radioHtml, "type=\"radio\"").Count) 2 "RadioGroup retains one radio input per option"
-            Expect.equal (Regex.Matches(radioHtml, "class=\"peer sr-only\"").Count) 2 "Radio browser chrome is visually hidden"
+            Expect.stringContains radioHtml "role=\"radiogroup\"" "RadioGroup has grouped choice semantics"
+            Expect.stringContains radioHtml "aria-labelledby=\"fve-radio-posting_mode-legend\"" "RadioGroup uses its visible legend as name"
+            Expect.stringContains radioHtml "aria-required=\"true\"" "RadioGroup exposes required state on the group"
+            Expect.stringContains radioHtml "aria-invalid=\"true\"" "RadioGroup exposes validation state"
+            Expect.equal (Regex.Matches(radioHtml, "type=\"radio\"").Count) 3 "RadioGroup retains one radio input per option"
+            Expect.equal (Regex.Matches(radioHtml, "name=\"mode\"").Count) 3 "RadioGroup options share the consumer form name"
+            Expect.equal (Regex.Matches(radioHtml, " required").Count) 2 "only enabled options participate in required native validation"
+            Expect.equal (Regex.Matches(radioHtml, "class=\"peer sr-only\"").Count) 3 "Radio browser chrome is visually hidden"
+            Expect.stringContains radioHtml "role=\"alert\"" "RadioGroup validation is announced"
+        }
+
+        test "Components finite-choice stable IDs isolate repeated form names" {
+            let html =
+                form {
+                    Checkbox.create "choice" "First choice" |> Checkbox.withId "first-choice" |> Checkbox.render
+                    Checkbox.create "choice" "Second choice" |> Checkbox.withId "second-choice" |> Checkbox.render
+                    Switch.create "setting" "First setting" |> Switch.withId "first-setting" |> Switch.render
+                    Switch.create "setting" "Second setting" |> Switch.withId "second-setting" |> Switch.render
+                    RadioGroup.create "mode" "First mode" id [ RadioGroup.option "a" "A" ] |> RadioGroup.withId "first-mode" |> RadioGroup.render
+                    RadioGroup.create "mode" "Second mode" id [ RadioGroup.option "b" "B" ] |> RadioGroup.withId "second-mode" |> RadioGroup.render
+                }
+                |> Render.toString
+
+            for expected in [ "choice_checked"; "first_choice_checked"; "second_choice_checked"; "first_setting_enabled"; "second_setting_enabled"; "first_mode_value"; "second_mode_value" ] do
+                if expected <> "choice_checked" then Expect.stringContains html expected $"stable instance owns {expected}"
+            let ids =
+                Regex.Matches(html, "\\sid=\"([^\"]+)\"")
+                |> Seq.cast<Match>
+                |> Seq.map (fun matched -> matched.Groups[1].Value)
+                |> Seq.toList
+            Expect.equal ids.Length (ids |> List.distinct |> List.length) "repeated form names produce no duplicate IDs"
+            Expect.equal (Regex.Matches(html, "name=\"choice\"").Count) 2 "stable IDs do not change shared Checkbox names"
+            Expect.equal (Regex.Matches(html, "name=\"mode\"").Count) 2 "stable IDs do not change shared RadioGroup names"
+            Expect.throws (fun () -> Checkbox.create "choice" "Choice" |> Checkbox.withId " " |> ignore) "Checkbox stable IDs reject whitespace"
+            Expect.throws (fun () -> Switch.create "setting" "Setting" |> Switch.withId " " |> ignore) "Switch stable IDs reject whitespace"
+            Expect.throws (fun () -> RadioGroup.create "mode" "Mode" id [] |> RadioGroup.withId " " |> ignore) "RadioGroup stable IDs reject whitespace"
         }
 
         test "Components option IDs are stable and collision-free for distinct encoded values" {
@@ -1024,6 +1133,7 @@ after"""
             Expect.stringContains verification ".overflow-x-auto" "verification checks data-display overflow utility"
             Expect.stringContains verification ".lg\\:grid-cols-3" "verification checks responsive detail columns"
             Expect.stringContains verification ".size-9" "verification checks pagination sizing"
+            Expect.stringContains verification ".peer-focus-visible\\:ring-\\[var\\(--fve-critical-ring\\)\\]" "verification checks invalid native-control focus treatment"
             Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
             Expect.stringContains docsStyles ".docs-components-preview .fve-components" "Docs owns the example theme adapter"
             Expect.stringContains docsStyles "--fve-page: var(--spec-bg)" "component examples inherit the Docs page surface"

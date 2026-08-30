@@ -380,14 +380,69 @@ module Components =
           Select.option Suspended "Suspended"
           Select.option Scheduled "Scheduled" ]
 
+    let private selectStatusOptions =
+        [ Select.option Active "Active"
+          Select.option Pending "Pending"
+          Select.option Suspended "Suspended" |> Select.disable
+          Select.option Scheduled "Scheduled" ]
+
+    let private choiceSubmitButton id (label:string) =
+        button {
+            _id id
+            _type "submit"
+            _class "inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-white outline-none transition-colors hover:bg-[var(--fve-brand-hover)] active:bg-[var(--fve-brand-active)] focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--fve-brand-ring)]"
+            label
+        }
+
+    let private choiceResult id result =
+        output {
+            _id id
+            _role "status"
+            _class "block min-h-5 text-sm text-[var(--fve-muted-text)]"
+            defaultArg result "Submit this ordinary form to see the server-owned result."
+        }
+
     // docs-example:start select
-    let statusSelect =
-        Select.create "status" "Status" statusValue statusOptions
-        |> Select.withDescription "Controls whether the account can receive entries."
+    let selectFormRegion selected validation result =
+        let config =
+            Select.create "status" "Status" statusValue selectStatusOptions
+            |> Select.withId "components-status"
+            |> Select.withDescription "Controls whether the account can receive entries."
+            |> Select.withPlaceholder "Choose a status"
+            |> Select.required
+            |> (match selected with Some value -> Select.withSelected value | None -> id)
+            |> (match validation with Some message -> Select.withValidation message | None -> id)
+
+        div {
+            _id "components-select-form-region"
+            _class "grid max-w-sm gap-3"
+            form {
+                _dataOn ("submit", "@post('/components/choices/select')")
+                _class "grid gap-3"
+                config |> Select.render
+                choiceSubmitButton "components-select-submit" "Validate status"
+            }
+            choiceResult "components-select-result" result
+        }
+
+    let disabledStatusSelect =
+        Select.create "status" "Disabled status" statusValue selectStatusOptions
+        |> Select.withId "components-disabled-status"
         |> Select.withSelected Active
+        |> Select.disabled
         |> Select.render
 
-    let selectPreview = themedSurface (div { _class "max-w-sm"; statusSelect })
+    let pendingStatusSelect =
+        Select.create "status" "Updating status" statusValue selectStatusOptions
+        |> Select.withId "components-pending-status"
+        |> Select.withSelected Pending
+        |> Select.pending
+        |> Select.render
+
+    let statusSelect = selectFormRegion None None None
+
+    let selectPreview =
+        themedSurface (div { _class "grid items-start gap-6 sm:grid-cols-2"; statusSelect; disabledStatusSelect; pendingStatusSelect })
     // docs-example:end select
 
     // docs-example:start combobox
@@ -411,22 +466,89 @@ module Components =
     // docs-example:end combobox
 
     // docs-example:start checkbox
+    let checkboxFormRegion confirmed validation result =
+        let config =
+            Checkbox.create "confirmArchivedReview" "Confirm archived-account review"
+            |> Checkbox.withId "components-confirm-archived-review"
+            |> Checkbox.withDescription "Required before archived accounts can be included."
+            |> Checkbox.required
+            |> (if confirmed then Checkbox.withChecked else id)
+            |> (match validation with Some message -> Checkbox.withValidation message | None -> id)
+
+        div {
+            _id "components-checkbox-form-region"
+            _class "grid max-w-sm gap-3"
+            form {
+                _novalidate true
+                _dataOn ("submit", "@post('/components/choices/checkbox')")
+                _class "grid gap-3"
+                config |> Checkbox.render
+                choiceSubmitButton "components-checkbox-submit" "Validate confirmation"
+            }
+            choiceResult "components-checkbox-result" result
+        }
+
     let includeArchived =
         Checkbox.create "includeArchived" "Include archived accounts"
         |> Checkbox.withDescription "Archived accounts remain read-only."
+        |> Checkbox.withChecked
         |> Checkbox.render
 
-    let checkboxPreview = themedSurface includeArchived
+    let pendingArchivedReview =
+        Checkbox.create "confirmArchivedReview" "Saving archived-account review"
+        |> Checkbox.withId "components-pending-archived-review"
+        |> Checkbox.withChecked
+        |> Checkbox.pending
+        |> Checkbox.render
+
+    let disabledArchivedReview =
+        Checkbox.create "confirmArchivedReview" "Archived review unavailable"
+        |> Checkbox.withId "components-disabled-archived-review"
+        |> Checkbox.disabled
+        |> Checkbox.render
+
+    let checkboxPreview =
+        themedSurface (div { _class "grid items-start gap-6 sm:grid-cols-2"; checkboxFormRegion false None None; includeArchived; pendingArchivedReview; disabledArchivedReview })
     // docs-example:end checkbox
 
     // docs-example:start switch
-    let postingNotifications =
-        Switch.create "postingNotifications" "Posting notifications"
-        |> Switch.withDescription "Notify account owners after entries post."
+    let switchFormRegion enabled validation result =
+        let config =
+            Switch.create "postingNotifications" "Posting notifications"
+            |> Switch.withId "components-posting-notifications"
+            |> Switch.withDescription "Notify account owners after entries post."
+            |> (if enabled then Switch.withChecked else id)
+            |> (match validation with Some message -> Switch.withValidation message | None -> id)
+
+        div {
+            _id "components-switch-form-region"
+            _class "grid max-w-sm gap-3"
+            form {
+                _dataOn ("submit", "@post('/components/choices/switch')")
+                _class "grid gap-3"
+                config |> Switch.render
+                choiceSubmitButton "components-switch-submit" "Save notifications"
+            }
+            choiceResult "components-switch-result" result
+        }
+
+    let postingNotifications = switchFormRegion true None None
+
+    let pendingNotifications =
+        Switch.create "postingNotifications" "Saving notifications"
+        |> Switch.withId "components-pending-notifications"
         |> Switch.withChecked
+        |> Switch.pending
         |> Switch.render
 
-    let switchPreview = themedSurface postingNotifications
+    let invalidNotifications =
+        Switch.create "postingNotifications" "Notification service"
+        |> Switch.withId "components-invalid-notifications"
+        |> Switch.withValidation "Notification preferences could not be saved."
+        |> Switch.render
+
+    let switchPreview =
+        themedSurface (div { _class "grid items-start gap-6 sm:grid-cols-2"; postingNotifications; pendingNotifications; invalidNotifications })
     // docs-example:end switch
 
     // docs-example:start toggle-button
@@ -435,20 +557,66 @@ module Components =
         |> ToggleButton.pressed
         |> ToggleButton.render
 
-    let toggleButtonPreview = themedSurface compactRows
+    let pendingCompactRows =
+        ToggleButton.create "components-pending-compact-rows" "Applying compact rows"
+        |> ToggleButton.pending
+        |> ToggleButton.render
+
+    let disabledCompactRows =
+        ToggleButton.create "components-disabled-compact-rows" "Compact rows unavailable"
+        |> ToggleButton.disabled
+        |> ToggleButton.render
+
+    let toggleButtonPreview =
+        themedSurface (div { _class "flex flex-wrap items-center gap-3"; compactRows; pendingCompactRows; disabledCompactRows })
     // docs-example:end toggle-button
 
     // docs-example:start radio-group
-    let postingMode =
-        RadioGroup.create "postingMode" "Posting mode" id [
-            RadioGroup.option "automatic" "Automatic"
-            RadioGroup.option "manual" "Manual review"
-        ]
-        |> RadioGroup.withDescription "Choose how approved entries reach the ledger."
+    let private postingModeOptions =
+        [ RadioGroup.option "automatic" "Automatic"
+          RadioGroup.option "manual" "Manual review"
+          RadioGroup.option "scheduled" "Scheduled" |> RadioGroup.disable ]
+
+    let radioGroupFormRegion selected validation result =
+        let config =
+            RadioGroup.create "postingMode" "Posting mode" id postingModeOptions
+            |> RadioGroup.withId "components-posting-mode"
+            |> RadioGroup.withDescription "Choose how approved entries reach the ledger."
+            |> RadioGroup.required
+            |> (match selected with Some value -> RadioGroup.withSelected value | None -> id)
+            |> (match validation with Some message -> RadioGroup.withValidation message | None -> id)
+
+        div {
+            _id "components-radio-form-region"
+            _class "grid max-w-sm gap-3"
+            form {
+                _novalidate true
+                _dataOn ("submit", "@post('/components/choices/radio')")
+                _class "grid gap-3"
+                config |> RadioGroup.render
+                choiceSubmitButton "components-radio-submit" "Validate posting mode"
+            }
+            choiceResult "components-radio-result" result
+        }
+
+    let postingMode = radioGroupFormRegion None None None
+
+    let pendingPostingMode =
+        RadioGroup.create "postingMode" "Saving posting mode" id postingModeOptions
+        |> RadioGroup.withId "components-pending-posting-mode"
         |> RadioGroup.withSelected "automatic"
+        |> RadioGroup.pending
         |> RadioGroup.render
 
-    let radioGroupPreview = themedSurface postingMode
+    let disabledPostingMode =
+        RadioGroup.create "postingMode" "Posting mode unavailable" id postingModeOptions
+        |> RadioGroup.withId "components-disabled-posting-mode"
+        |> RadioGroup.withSelected "manual"
+        |> RadioGroup.disabled
+        |> RadioGroup.render
+
+    let radioGroupPreview =
+        themedSurface (div { _class "grid items-start gap-6 sm:grid-cols-2"; postingMode; pendingPostingMode; disabledPostingMode })
     // docs-example:end radio-group
 
     let private accountMenuItems =
@@ -851,8 +1019,9 @@ AppShell.create productName current navigation content
     let selectPage =
         componentPage selectRegistration "Choose one value from a finite, non-editable set with branded select-only combobox behavior." "select" selectPreview [
             docsSection "when-to-use" "When to use Select" [ docsParagraph "Use Select when every available option can be known before interaction. Use Combobox when people need an editable query or remote filtering." ]
-            docsSection "keyboard" "Keyboard behavior" [ docsParagraph "DOM focus stays on the trigger while aria-activedescendant identifies the active option. Arrow keys, Home, End, Enter, Escape, bounded multi-character typeahead, and repeated-character cycling follow the select-only combobox model." ]
-            docsSection "forms" "Form submission" [ docsParagraph "The selected typed value is encoded into a hidden form field. Applications must validate every submitted value on the server." ] ]
+            docsSection "keyboard" "Keyboard behavior" [ docsParagraph "DOM focus stays on the trigger while aria-activedescendant identifies the active option. Closed and open Enter, Space, Alt+Arrow, Arrow, Home, End, PageUp, PageDown, Tab, Escape, bounded multi-character typeahead, and repeated-character cycling follow the select-only combobox model. Movement clamps at the list boundaries and skips disabled options." ]
+            docsSection "states" "Required, validation, and pending" [ docsParagraph "Required state is exposed on the combobox and remains server-validated because the submitted value is a hidden field. Validation joins the description relationship and critical focus treatment. Disabled or pending Selects retain their visible value, close their popup, expose unavailable or busy state, and omit the hidden value from ordinary FormData." ]
+            docsSection "forms" "Form submission" [ docsParagraph "The selected typed value is explicitly encoded into a hidden form field. This example posts Datastar signals to a real Docs endpoint so the server can reject a missing or disabled option and patch the stable form region; applications must apply the same validation to every received value." ] ]
 
     let comboboxPage =
         componentPage comboboxRegistration "Search local or server-owned options while keeping editable query text separate from submitted selection identity." "combobox" comboboxPreview [
@@ -863,22 +1032,25 @@ AppShell.create productName current navigation content
     let checkboxPage =
         componentPage checkboxRegistration "Capture an independent checked or unchecked choice with a required accessible label." "checkbox" checkboxPreview [
             docsSection "when-to-use" "When to use Checkbox" [ docsParagraph "Use Checkbox for an independent form value that may be checked or unchecked. Use Switch for an immediate setting and Toggle button for a pressed action state." ]
-            docsSection "forms" "Form behavior" [ docsParagraph "The branded control retains checkbox semantics, pointer and Space-key interaction, visible focus, and ordinary checked form submission." ] ]
+            docsSection "forms" "Form and validation behavior" [ docsParagraph "The branded control retains native checkbox semantics, pointer and Space-key interaction, visible focus, required constraint behavior, description and validation relationships, and ordinary checked form submission. Unchecked, disabled, and pending checkboxes are omitted from FormData by the platform; the server remains authoritative. The example form uses novalidate deliberately so its real endpoint can demonstrate the server rejection while the control still exposes native required validity." ]
+            docsSection "identity" "Stable instances" [ docsParagraph "Use withId when repeated controls intentionally share a form name. The stable ID isolates Datastar signals and accessible relationships while the shared name preserves the application’s submission contract." ] ]
 
     let switchPage =
         componentPage switchRegistration "Represent an immediate on/off setting with distinct switch semantics." "switch" switchPreview [
             docsSection "when-to-use" "When to use Switch" [ docsParagraph "Use Switch when changing the control immediately turns a setting on or off. Use Checkbox when the value belongs to a form that is submitted later." ]
-            docsSection "accessibility" "Accessibility" [ docsParagraph "Switch retains role=switch, aria-checked, pointer and Space-key operation, visible focus, and a required accessible label." ] ]
+            docsSection "accessibility" "Accessibility and state" [ docsParagraph "Switch retains a checkbox-backed role=switch, synchronized aria-checked state, pointer and Space-key operation, visible focus, a required accessible label, and description or server-validation relationships. Pending state is busy and unavailable without changing the visible setting label." ]
+            docsSection "forms" "Submission" [ docsParagraph "When a Switch participates in a form, its checked true value uses native submission semantics. Unchecked, disabled, and pending switches are omitted; applications own immediate persistence and validation." ] ]
 
     let toggleButtonPage =
         componentPage toggleButtonRegistration "Represent whether an action button is currently pressed." "toggle-button" toggleButtonPreview [
             docsSection "when-to-use" "When to use a toggle button" [ docsParagraph "Use ToggleButton for an action state such as compact rows or pinned filters. Do not substitute it for Checkbox, Switch, or a Radio group when form-choice semantics are required." ]
-            docsSection "accessibility" "Accessibility" [ docsParagraph "The visible label stays stable while aria-pressed communicates state. Pointer, Enter, and Space activation retain normal button behavior." ] ]
+            docsSection "accessibility" "Accessibility" [ docsParagraph "The visible label stays stable while aria-pressed communicates state. Pointer, Enter, and Space activation retain normal button behavior. Disabled and pending buttons prevent activation; pending also exposes aria-busy and a reduced-motion-safe loading indicator." ] ]
 
     let radioGroupPage =
         componentPage radioGroupRegistration "Choose exactly one submitted value from a labelled group of typed options." "radio-group" radioGroupPreview [
             docsSection "when-to-use" "When to use a radio group" [ docsParagraph "Use RadioGroup when all mutually exclusive options should remain visible. Use Select when the finite choice needs a more compact presentation." ]
-            docsSection "forms" "Form and accessibility behavior" [ docsParagraph "The group requires an accessible label and renders connected radio semantics with one shared form name. Applications encode typed values and validate the submitted choice." ] ]
+            docsSection "forms" "Form and accessibility behavior" [ docsParagraph "The labelled radiogroup renders native radio inputs with one shared form name. Required state applies only while enabled; Arrow-key movement and form submission remain browser-native, disabled options are skipped, and applications explicitly encode and validate every submitted choice." ]
+            docsSection "state" "Validation, pending, and patches" [ docsParagraph "Description and validation messages name the group state coherently. Disabled or pending groups retain visible selection while native inputs become unavailable and are omitted from FormData. Stable IDs keep repeated names isolated and allow server patches to replace authoritative selection without duplicate relationships. The example form uses novalidate deliberately so its endpoint demonstrates server rejection in addition to native required validity." ] ]
 
     let dropdownMenuPage =
         componentPage dropdownMenuRegistration "Present a compact set of application-owned actions and destinations." "dropdown-menu" dropdownMenuPreview [

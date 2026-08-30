@@ -73,6 +73,27 @@ Components use Datastar signals for ephemeral open, query, focus, and selection 
 
 Select, Combobox, DropdownMenu, Dialog, Checkbox, Switch, ToggleButton, and RadioGroup preserve their distinct form and accessibility semantics. Required accessible labels are constructor inputs.
 
+Select is a typed select-only combobox: applications provide values, explicit encoding, options, and server validation while the component owns branded listbox presentation, active-descendant focus, disabled options, bounded typeahead, and the canonical closed/open keyboard model. `Select.required`, `Select.disabled`, `Select.pending`, and `Select.withValidation` expose truthful state without introducing a native-select wrapper. Disabled or pending Select values are omitted from ordinary form submission.
+
+Checkbox and RadioGroup support required state where native form semantics apply. Checkbox, Switch, and RadioGroup support stable IDs, disabled and pending states, descriptions, validation relationships, and ordinary native form submission. ToggleButton remains a non-submit action button with distinct `aria-pressed` state and supports disabled or pending activation. Pending controls retain their visible label, expose busy state, and prevent interaction; disabled and pending native controls follow platform omission from FormData. Stable IDs allow repeated form names without sharing Datastar signals, and server-rendered patches can authoritatively replace selected, checked, and pressed state.
+
+```fsharp
+let requiredStatus =
+    Select.create "status" "Status" statusValue statusOptions
+    |> Select.withId "account-status"
+    |> Select.withPlaceholder "Choose a status"
+    |> Select.required
+    |> Select.render
+
+let requiredMode =
+    RadioGroup.create "mode" "Posting mode" id modeOptions
+    |> RadioGroup.withId "posting-mode"
+    |> RadioGroup.required
+    |> RadioGroup.render
+```
+
+`required` and `disabled` are not combined on native inputs because disabled controls do not participate in browser constraint validation. Applications must validate every received value, and client-disabled presentation is not authorization.
+
 DropdownMenu keeps typed destinations and trusted Datastar actions application-owned while providing labelled groups, separators, leading content, shortcut hints, destructive tone, disabled or pending items, and typed Start/End popup alignment. Enabled items support pointer activation, wrapping Arrow/Home/End movement, Enter/Space activation, bounded character navigation, outside/Tab dismissal, Escape focus restoration, isolated stable-ID signals, and server-rendered morph continuity.
 
 ```fsharp
