@@ -311,6 +311,30 @@ let view =
         |> Pagination.render (fun page -> $"/values?page={page}")
         Chart.create "value-chart" "Value history" (p { "Value increased." }) (raw "<svg aria-hidden=\"true\"></svg>")
         |> Chart.render
+        Select.create "status" "Status" id [ Select.option "active" "Active"; Select.option "disabled" "Disabled" |> Select.disable ]
+        |> Select.withId "package-status"
+        |> Select.withPlaceholder "Choose status"
+        |> Select.required
+        |> Select.withValidation "Choose a status."
+        |> Select.render
+        Checkbox.create "confirmed" "Confirmed"
+        |> Checkbox.withId "package-confirmed"
+        |> Checkbox.required
+        |> Checkbox.pending
+        |> Checkbox.render
+        Switch.create "notifications" "Notifications"
+        |> Switch.withId "package-notifications"
+        |> Switch.withChecked
+        |> Switch.withValidation "Could not save."
+        |> Switch.render
+        ToggleButton.create "package-compact" "Compact rows"
+        |> ToggleButton.pending
+        |> ToggleButton.render
+        RadioGroup.create "mode" "Mode" id [ RadioGroup.option "automatic" "Automatic"; RadioGroup.option "manual" "Manual" ]
+        |> RadioGroup.withId "package-mode"
+        |> RadioGroup.required
+        |> RadioGroup.withSelected "automatic"
+        |> RadioGroup.render
         DropdownMenu.create "value-actions" "Actions" [
             MenuItem.group "Values" [
                 MenuItem.link 1 "View value"
@@ -339,6 +363,12 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "Trend: ")
    || not (actual.Contains "aria-current=\"page\"")
    || not (actual.Contains "<figure")
+   || not (actual.Contains "role=\"combobox\"")
+   || not (actual.Contains "aria-required=\"true\"")
+   || not (actual.Contains "name=\"confirmed\"")
+   || not (actual.Contains "role=\"switch\"")
+   || not (actual.Contains "aria-pressed=\"false\"")
+   || not (actual.Contains "role=\"radiogroup\"")
    || not (actual.Contains "role=\"group\"")
    || not (actual.Contains "left-0")
    || not (actual.Contains "data-fve-menu-label=\"view value\"")
