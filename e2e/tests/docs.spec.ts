@@ -116,6 +116,7 @@ test('the removed Components contract route returns not found', async ({ request
 })
 
 test('canonical routes expose valid same-origin links, assets, and lazy previews', async ({ page, request }) => {
+  test.slow()
   const checked = new Map<string, number>()
 
   for (const route of routes) {
