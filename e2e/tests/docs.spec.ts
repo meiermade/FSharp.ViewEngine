@@ -941,7 +941,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await openPreview('/components/radio-group', 'Radio group')
   await attachScreenshot('components-radio-group-mobile-dark')
 
-  await page.goto('/components', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components', { waitUntil: 'commit' })
   await expect(page.getByRole('heading', { level: 1, name: 'Components' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.getByRole('button', { name: 'Open navigation' }).click()
