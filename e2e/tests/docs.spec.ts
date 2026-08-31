@@ -172,6 +172,9 @@ test.describe('automated accessibility checks', () => {
 
 test('Components pages provide focused examples, navigation, interaction, themes, and responsive accessibility', async ({ page }, testInfo) => {
   test.slow()
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
   const browserErrors = captureBrowserErrors(page)
   const componentRoutes = [
     ['/components/button', 'Button'],
