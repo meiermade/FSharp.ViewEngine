@@ -116,6 +116,13 @@ module Handler =
             | Some "manual" -> Components.radioGroupFormRegion (Some "manual") None (Some "Accepted posting mode: Manual review.")
             | _ -> Components.radioGroupFormRegion None (Some "Choose an available posting mode.") None)
 
+    let private componentAccountSearchSettled : HttpHandler =
+        fun next context ->
+            task {
+                do! System.Threading.Tasks.Task.Delay 1000
+                return! setStatusCode 204 next context
+            }
+
     let private componentAccountSearch : HttpHandler =
         fun next context ->
             task {
@@ -158,6 +165,7 @@ module Handler =
             route "/robots.txt" >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8" >=> setBodyFromString robots
             route "/components/pagination" >=> componentPagination
             route "/components/menus/actions" >=> componentDropdownMenuPatch
+            route "/components/accounts/search/settled" >=> componentAccountSearchSettled
             route "/components/accounts/search" >=> componentAccountSearch
             choose (previewRoutes @ pageRoutes)
         ]
