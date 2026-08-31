@@ -202,7 +202,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   ] as const
 
   const openPreview = async (path: string, heading: string) => {
-    await page.goto(path, { waitUntil: 'domcontentloaded' })
+    await page.goto(path, { waitUntil: 'commit' })
     await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
     const example = page.locator('[data-docs-example="true"]')
     await expect(example).toHaveCount(1)
