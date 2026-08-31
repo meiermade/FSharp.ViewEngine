@@ -446,23 +446,84 @@ module Components =
     // docs-example:end select
 
     // docs-example:start combobox
-    let private accounts = [ 101, "Operating"; 102, "Tax reserve" ]
-    let private accountOptions values = values |> List.map (fun (value, label) -> Select.option value label)
+    let private accounts = [ 101, "Operating"; 102, "Tax reserve"; 103, "Payroll clearing" ]
+    let private accountOptions values =
+        values
+        |> List.map (fun (value, label) ->
+            Select.option value label
+            |> (if value = 103 then Select.disable else id))
+
+    let staticAccountCombobox =
+        Combobox.create "staticAccount" "Static account" string (accountOptions accounts)
+        |> Combobox.withId "components-static-account"
+        |> Combobox.withSelected 101
+        |> Combobox.withDescription "Filter locally supplied typed options."
+        |> Combobox.clearable
+        |> Combobox.render
 
     let private accountComboboxConfig =
         Combobox.create "account" "Parent account" string (accountOptions accounts)
         |> Combobox.withPlaceholder "Search accounts"
+        |> Combobox.withDescription "Results remain authoritative on the server."
+        |> Combobox.withEmptyMessage "No matching accounts"
+        |> Combobox.withLoadingMessage "Loading accounts"
         |> Combobox.withSearch (ComboboxSearch.Remote "/components/accounts/search")
+        |> Combobox.clearable
 
     let accountCombobox = accountComboboxConfig |> Combobox.render
 
-    let accountComboboxOptions query =
-        accounts
-        |> List.filter (fun (_, label) -> String.IsNullOrWhiteSpace query || label.Contains(query, StringComparison.OrdinalIgnoreCase))
-        |> accountOptions
-        |> fun options -> accountComboboxConfig |> Combobox.withOptions options |> Combobox.renderOptions
+    let accountComboboxOptions query retry =
+        if String.Equals(query, "error", StringComparison.OrdinalIgnoreCase) && retry |> not then
+            accountComboboxConfig
+            |> Combobox.withSearch (ComboboxSearch.Remote "/components/accounts/search?retry=true")
+            |> Combobox.withError "Accounts could not be loaded."
+            |> Combobox.renderOptions
+        else
+            accounts
+            |> List.filter (fun (_, label) -> String.IsNullOrWhiteSpace query || label.Contains(query, StringComparison.OrdinalIgnoreCase))
+            |> accountOptions
+            |> fun options -> accountComboboxConfig |> Combobox.withOptions options |> Combobox.renderOptions
 
-    let comboboxPreview = themedSurface (div { _class "max-w-sm"; accountCombobox })
+    let loadingAccountCombobox =
+        Combobox.create "loadingAccount" "Loading account" string []
+        |> Combobox.withId "components-loading-account"
+        |> Combobox.withSearch (ComboboxSearch.Remote "/components/accounts/search")
+        |> Combobox.withLoadingMessage "Loading accounts"
+        |> Combobox.loading
+        |> Combobox.render
+
+    let validationAccountCombobox =
+        Combobox.create "validatedAccount" "Account with validation" string (accountOptions accounts)
+        |> Combobox.withId "components-validated-account"
+        |> Combobox.withDescription "Choose an account before continuing."
+        |> Combobox.withValidation "Choose an available account."
+        |> Combobox.clearable
+        |> Combobox.render
+
+    let disabledAccountCombobox =
+        Combobox.create "disabledAccount" "Disabled account" string (accountOptions accounts)
+        |> Combobox.withId "components-disabled-account"
+        |> Combobox.withSelected 101
+        |> Combobox.disabled
+        |> Combobox.render
+
+    let pendingAccountCombobox =
+        Combobox.create "pendingAccount" "Updating account" string (accountOptions accounts)
+        |> Combobox.withId "components-pending-account"
+        |> Combobox.withSelected 102
+        |> Combobox.pending
+        |> Combobox.render
+
+    let comboboxPreview =
+        themedSurface (div {
+            _class "grid items-start gap-6 sm:grid-cols-2"
+            staticAccountCombobox
+            accountCombobox
+            validationAccountCombobox
+            loadingAccountCombobox
+            disabledAccountCombobox
+            pendingAccountCombobox
+        })
     // docs-example:end combobox
 
     // docs-example:start checkbox
@@ -1026,8 +1087,10 @@ AppShell.create productName current navigation content
     let comboboxPage =
         componentPage comboboxRegistration "Search local or server-owned options while keeping editable query text separate from submitted selection identity." "combobox" comboboxPreview [
             docsSection "when-to-use" "When to use Combobox" [ docsParagraph "Use Combobox when people need to type before selecting. Static search filters supplied options locally; remote search lets the application return authoritative options from an endpoint." ]
-            docsSection "remote-results" "Remote results" [ docsParagraph "Return Combobox.renderOptions from a stable listbox region after filtering application-owned values. The editable input, hidden selection, and active-descendant relationship survive representative Datastar morphs." ]
-            docsSection "accessibility" "Keyboard and focus" [ docsParagraph "DOM focus remains on the editable combobox while aria-activedescendant tracks the active option. Arrow keys, Home, End, Enter, Escape, pointer selection, empty results, and repaired active identities remain available after remote updates." ] ]
+            docsSection "query-selection" "Query and selection" [ docsParagraph "Editable query text and the encoded hidden selection are distinct. Typing or clearing removes the submitted identity until a typed option is selected again; disabled or pending controls retain their visible state while omitting the hidden value from ordinary FormData." ]
+            docsSection "remote-results" "Remote results and ordering" [ docsParagraph "Return Combobox.renderOptions from the stable popup region after filtering application-owned values. Remote requests explicitly use Datastar requestCancellation: 'auto', so a newer request to the same endpoint cancels an older in-flight request before its response can replace current results." ]
+            docsSection "states" "Loading, empty, error, and validation" [ docsParagraph "Remote requests expose a busy loading status without moving focus. Empty results, retryable server-rendered errors, form validation, disabled state, and pending state remain visually and programmatically distinct." ]
+            docsSection "accessibility" "Keyboard and focus" [ docsParagraph "DOM focus remains on the editable combobox while aria-activedescendant tracks the active option. Arrow keys, Home, End, Enter, Escape, pointer selection, clearing, disabled-option skipping, and repaired active identities remain available after remote updates." ] ]
 
     let checkboxPage =
         componentPage checkboxRegistration "Capture an independent checked or unchecked choice with a required accessible label." "checkbox" checkboxPreview [

@@ -118,18 +118,26 @@ module Handler =
 
     let private componentAccountSearch : HttpHandler =
         fun next context ->
-            let query =
-                try
-                    use signals = JsonDocument.Parse(context.Request.Query["datastar"].ToString())
-                    signals.RootElement.GetProperty("account_query").GetString()
-                    |> Option.ofObj
-                    |> Option.defaultValue ""
-                with
-                | :? JsonException
-                | :? InvalidOperationException
-                | :? System.Collections.Generic.KeyNotFoundException -> ""
-            let html = Components.accountComboboxOptions query |> Render.toString
-            setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html <| next <| context
+            task {
+                let query =
+                    try
+                        use signals = JsonDocument.Parse(context.Request.Query["datastar"].ToString())
+                        signals.RootElement.GetProperty("account_query").GetString()
+                        |> Option.ofObj
+                        |> Option.defaultValue ""
+                    with
+                    | :? JsonException
+                    | :? InvalidOperationException
+                    | :? System.Collections.Generic.KeyNotFoundException -> ""
+                let retry = String.Equals(context.Request.Query["retry"].ToString(), "true", StringComparison.OrdinalIgnoreCase)
+                let delay =
+                    if query.StartsWith("oper", StringComparison.OrdinalIgnoreCase) then 750
+                    elif query.StartsWith("tax", StringComparison.OrdinalIgnoreCase) then 50
+                    else 0
+                if delay > 0 then do! System.Threading.Tasks.Task.Delay delay
+                let html = Components.accountComboboxOptions query retry |> Render.toString
+                return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+            }
 
     let private previewRoutes =
         Showcase.previewRoutes

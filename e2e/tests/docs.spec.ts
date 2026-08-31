@@ -520,28 +520,107 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await statusFilter.press('Escape')
 
   const comboboxSurface = await openPreview('/components/combobox', 'Combobox')
+  const staticAccount = comboboxSurface.getByRole('combobox', { name: 'Static account' })
+  const staticListbox = comboboxSurface.getByRole('listbox', { name: 'Static account' })
+  const staticValue = comboboxSurface.locator('input[type="hidden"][name="staticAccount"]')
+  await staticAccount.fill('tax')
+  await expect(staticListbox.getByRole('option', { name: 'Tax reserve' })).toBeVisible()
+  await expect(staticListbox.getByRole('option', { name: 'Payroll clearing' })).toBeHidden()
+  await expect(staticAccount).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(staticAccount).toHaveValue('Tax reserve')
+  await expect(staticValue).toHaveValue('102')
+  await comboboxSurface.getByRole('button', { name: 'Clear Static account' }).click()
+  await expect(staticAccount).toBeFocused()
+  await expect(staticAccount).toHaveValue('')
+  await expect(staticValue).toHaveValue('')
+
   const parentAccount = comboboxSurface.getByRole('combobox', { name: 'Parent account' })
+  const accountPopup = comboboxSurface.locator('#fve-combobox-account-popup')
   const accountListbox = comboboxSurface.getByRole('listbox', { name: 'Parent account' })
+  const accountValue = comboboxSurface.locator('input[type="hidden"][name="account"]')
   const activeAccountOption = async () => parentAccount.getAttribute('aria-activedescendant')
+  const remoteQuery = (url: string) => {
+    const signals = new URL(url).searchParams.get('datastar')
+    return signals ? String(JSON.parse(signals).account_query ?? '') : null
+  }
+
   await parentAccount.click()
   await expect(parentAccount).toBeFocused()
   await page.keyboard.press('End')
   await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Tax reserve' }).getAttribute('id'))
+  await expect(accountListbox.getByRole('option', { name: 'Payroll clearing' })).toBeDisabled()
   await page.keyboard.press('Enter')
-  await expect(comboboxSurface.locator('input[type="hidden"][name="account"]')).toHaveValue('102')
+  await expect(accountValue).toHaveValue('102')
+
+  const olderRequestStarted = page.waitForRequest(request => remoteQuery(request.url()) === 'oper')
+  await parentAccount.fill('oper')
+  await olderRequestStarted
+  await expect(parentAccount).toHaveAttribute('aria-busy', 'true')
+  await expect(accountPopup.getByRole('status')).toHaveText('Loading accounts')
+  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
+  const olderRequestCancelled = page.waitForEvent('requestfailed', {
+    predicate: request => remoteQuery(request.url()) === 'oper',
+  })
+  await parentAccount.fill('tax')
+  const cancelledRequest = await olderRequestCancelled
+  expect(remoteQuery(cancelledRequest.url())).toBe('oper')
+  await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toBeVisible()
+  await expect(accountListbox.getByRole('option', { name: 'Operating' })).toHaveCount(0)
+  await expect(parentAccount).toBeFocused()
+  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Tax reserve' }).getAttribute('id'))
+  await page.keyboard.press('Enter')
+  await expect(parentAccount).toHaveValue('Tax reserve')
+  await expect(accountValue).toHaveValue('102')
+
   await parentAccount.fill('oper')
   await expect(accountListbox.getByRole('option', { name: 'Operating' })).toBeVisible()
   await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toHaveCount(0)
-  await expect(parentAccount).toBeFocused()
   await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Operating' }).getAttribute('id'))
   await page.keyboard.press('Enter')
   await expect(parentAccount).toHaveValue('Operating')
-  await expect(comboboxSurface.locator('input[type="hidden"][name="account"]')).toHaveValue('101')
+  await expect(accountValue).toHaveValue('101')
+
+  const clearedResults = page.waitForResponse(response => remoteQuery(response.url()) === '')
+  await comboboxSurface.getByRole('button', { name: 'Clear Parent account' }).click()
+  await clearedResults
+  await expect(parentAccount).toBeFocused()
+  await expect(parentAccount).toHaveValue('')
+  await expect(accountValue).toHaveValue('')
+
   await parentAccount.fill('missing')
-  await expect(accountListbox.getByRole('status')).toHaveText('No matching options')
+  await expect(accountPopup.getByRole('status')).toHaveText('No matching accounts')
   await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
+  await parentAccount.fill('error')
+  await expect(accountPopup.getByRole('alert')).toHaveText('Accounts could not be loaded.')
+  await expect(parentAccount).toBeFocused()
+  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
+  await accountPopup.getByRole('button', { name: 'Retry' }).click()
+  await expect(accountPopup.getByRole('status')).toHaveText('No matching accounts')
+  await expect(parentAccount).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(parentAccount).toBeFocused()
+
+  const loadingAccount = comboboxSurface.getByRole('combobox', { name: 'Loading account' })
+  await expect(loadingAccount).toHaveAttribute('aria-busy', 'true')
+  await loadingAccount.click()
+  await expect(comboboxSurface.locator('#fve-combobox-components_loading_account-popup').getByRole('status')).toHaveText('Loading accounts')
+  const validationAccount = comboboxSurface.getByRole('combobox', { name: 'Account with validation' })
+  await expect(validationAccount).toHaveAttribute('aria-invalid', 'true')
+  await expect(validationAccount).toHaveAttribute('aria-describedby', 'fve-combobox-components_validated_account-description fve-combobox-components_validated_account-validation')
+  const disabledAccount = comboboxSurface.getByRole('combobox', { name: 'Disabled account' })
+  const pendingAccount = comboboxSurface.getByRole('combobox', { name: 'Updating account' })
+  await expect(disabledAccount).toBeDisabled()
+  await expect(disabledAccount).toHaveAttribute('aria-disabled', 'true')
+  await expect(pendingAccount).toBeDisabled()
+  await expect(pendingAccount).toHaveAttribute('aria-busy', 'true')
+  const unavailableAccountValues = comboboxSurface.locator('input[type="hidden"][name="disabledAccount"], input[type="hidden"][name="pendingAccount"]')
+  await expect(unavailableAccountValues).toHaveCount(2)
+  expect(await clonedControlEntries(unavailableAccountValues)).toEqual([])
+  await testInfo.attach('components-combobox-state-matrix-desktop-dark', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
 
   const checkboxSurface = await openPreview('/components/checkbox', 'Checkbox')
   const checkboxForm = checkboxSurface.locator('#components-checkbox-form-region form')
@@ -796,7 +875,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
   await expect(appShellSurface.locator('[aria-current="page"]')).toBeVisible()
 
-  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/app-shell']) {
+  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/combobox', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/app-shell']) {
     await page.goto(path, { waitUntil: 'domcontentloaded' })
     await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
     await page.evaluate(() => (window as any).fsharpDocsCode.loading)
@@ -878,6 +957,15 @@ test('Components pages provide focused examples, navigation, interaction, themes
   })
   await openPreview('/components/pagination', 'Pagination')
   await testInfo.attach('components-pagination-mobile-light', {
+    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+    contentType: 'image/png',
+  })
+  const mobileComboboxSurface = await openPreview('/components/combobox', 'Combobox')
+  const mobileParentAccount = mobileComboboxSurface.getByRole('combobox', { name: 'Parent account' })
+  await mobileParentAccount.fill('error')
+  await expect(mobileComboboxSurface.locator('#fve-combobox-account-popup').getByRole('alert')).toHaveText('Accounts could not be loaded.')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await testInfo.attach('components-combobox-mobile-light-error', {
     body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
     contentType: 'image/png',
   })

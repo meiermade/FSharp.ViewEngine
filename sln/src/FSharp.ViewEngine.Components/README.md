@@ -75,6 +75,19 @@ Select, Combobox, DropdownMenu, Dialog, Checkbox, Switch, ToggleButton, and Radi
 
 Select is a typed select-only combobox: applications provide values, explicit encoding, options, and server validation while the component owns branded listbox presentation, active-descendant focus, disabled options, bounded typeahead, and the canonical closed/open keyboard model. `Select.required`, `Select.disabled`, `Select.pending`, and `Select.withValidation` expose truthful state without introducing a native-select wrapper. Disabled or pending Select values are omitted from ordinary form submission.
 
+Combobox is an editable single-choice control with distinct query and selected identity. Static mode filters consumer-supplied typed options locally. Remote mode submits the query signal to an application endpoint and morphs the stable region returned by `Combobox.renderOptions`; each request explicitly uses Datastar `requestCancellation: 'auto'`, preventing an older in-flight response to the same endpoint from visibly replacing newer results. `Combobox.clearable`, `Combobox.loading`, `Combobox.withError`, `Combobox.disabled`, `Combobox.pending`, and `Combobox.withValidation` expose clear, loading, retryable error, unavailable, busy, and form-validation states without moving DOM focus away from the editable input. Disabled and pending values are omitted from ordinary form submission.
+
+```fsharp
+let accountCombobox =
+    Combobox.create "account" "Parent account" string accountOptions
+    |> Combobox.withSearch (ComboboxSearch.Remote "/accounts/search")
+    |> Combobox.withEmptyMessage "No matching accounts"
+    |> Combobox.clearable
+    |> Combobox.render
+```
+
+Applications return authoritative typed options, ordering, errors, and validation. Query and interaction signals remain ephemeral; the encoded hidden selection is intentional form state.
+
 Checkbox and RadioGroup support required state where native form semantics apply. Checkbox, Switch, and RadioGroup support stable IDs, disabled and pending states, descriptions, validation relationships, and ordinary native form submission. ToggleButton remains a non-submit action button with distinct `aria-pressed` state and supports disabled or pending activation. Pending controls retain their visible label, expose busy state, and prevent interaction; disabled and pending native controls follow platform omission from FormData. Stable IDs allow repeated form names without sharing Datastar signals, and server-rendered patches can authoritatively replace selected, checked, and pressed state.
 
 ```fsharp

@@ -317,6 +317,19 @@ let view =
         |> Select.required
         |> Select.withValidation "Choose a status."
         |> Select.render
+        Combobox.create "account" "Account" id [ Select.option "operating" "Operating" ]
+        |> Combobox.withSearch (ComboboxSearch.Remote "/accounts/search")
+        |> Combobox.withSelected "operating"
+        |> Combobox.clearable
+        |> Combobox.render
+        Combobox.create "loading-account" "Loading account" id []
+        |> Combobox.loading
+        |> Combobox.withLoadingMessage "Loading accounts"
+        |> Combobox.render
+        Combobox.create "error-account" "Error account" id []
+        |> Combobox.withError "Accounts could not be loaded."
+        |> Combobox.pending
+        |> Combobox.render
         Checkbox.create "confirmed" "Confirmed"
         |> Checkbox.withId "package-confirmed"
         |> Checkbox.required
@@ -364,6 +377,10 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "aria-current=\"page\"")
    || not (actual.Contains "<figure")
    || not (actual.Contains "role=\"combobox\"")
+   || not (actual.Contains "aria-label=\"Clear Account\"")
+   || not (actual.Contains "requestCancellation: &#39;auto&#39;")
+   || not (actual.Contains "Loading accounts")
+   || not (actual.Contains "Accounts could not be loaded.")
    || not (actual.Contains "aria-required=\"true\"")
    || not (actual.Contains "name=\"confirmed\"")
    || not (actual.Contains "role=\"switch\"")
