@@ -172,7 +172,17 @@ test.describe('automated accessibility checks', () => {
 
 test('Components pages provide focused examples, navigation, interaction, themes, and responsive accessibility', async ({ page }, testInfo) => {
   test.slow()
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
   const browserErrors = captureBrowserErrors(page)
+  const attachScreenshot = async (name: string) => {
+    if (testInfo.project.name !== 'chromium') return
+    await testInfo.attach(name, {
+      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+  }
   const componentRoutes = [
     ['/components/button', 'Button'],
     ['/components/icon-button', 'Icon button'],
@@ -199,7 +209,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   ] as const
 
   const openPreview = async (path: string, heading: string) => {
-    await page.goto(path, { waitUntil: 'domcontentloaded' })
+    await page.goto(path, { waitUntil: 'commit' })
     await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
     const example = page.locator('[data-docs-example="true"]')
     await expect(example).toHaveCount(1)
@@ -505,10 +515,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   const unavailableStatusValues = selectSurface.locator('input[type="hidden"][name="status"]:disabled')
   await expect(unavailableStatusValues).toHaveCount(2)
   expect(await clonedControlEntries(unavailableStatusValues)).toEqual([])
-  await testInfo.attach('components-select-state-matrix-desktop-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-select-state-matrix-desktop-dark')
 
   const collectionSurface = await openPreview('/components/collection', 'Collection')
   const statusFilter = collectionSurface.getByRole('combobox', { name: 'Filter by status' })
@@ -518,30 +525,6 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await statusFilter.press('s')
   await expect.poll(() => statusFilter.getAttribute('aria-activedescendant')).toBe(await statusFilterListbox.getByRole('option', { name: 'Scheduled' }).getAttribute('id'))
   await statusFilter.press('Escape')
-
-  const comboboxSurface = await openPreview('/components/combobox', 'Combobox')
-  const parentAccount = comboboxSurface.getByRole('combobox', { name: 'Parent account' })
-  const accountListbox = comboboxSurface.getByRole('listbox', { name: 'Parent account' })
-  const activeAccountOption = async () => parentAccount.getAttribute('aria-activedescendant')
-  await parentAccount.click()
-  await expect(parentAccount).toBeFocused()
-  await page.keyboard.press('End')
-  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Tax reserve' }).getAttribute('id'))
-  await page.keyboard.press('Enter')
-  await expect(comboboxSurface.locator('input[type="hidden"][name="account"]')).toHaveValue('102')
-  await parentAccount.fill('oper')
-  await expect(accountListbox.getByRole('option', { name: 'Operating' })).toBeVisible()
-  await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toHaveCount(0)
-  await expect(parentAccount).toBeFocused()
-  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Operating' }).getAttribute('id'))
-  await page.keyboard.press('Enter')
-  await expect(parentAccount).toHaveValue('Operating')
-  await expect(comboboxSurface.locator('input[type="hidden"][name="account"]')).toHaveValue('101')
-  await parentAccount.fill('missing')
-  await expect(accountListbox.getByRole('status')).toHaveText('No matching options')
-  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
-  await page.keyboard.press('Escape')
-  await expect(parentAccount).toBeFocused()
 
   const checkboxSurface = await openPreview('/components/checkbox', 'Checkbox')
   const checkboxForm = checkboxSurface.locator('#components-checkbox-form-region form')
@@ -575,10 +558,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(pendingReview).toHaveAttribute('aria-busy', 'true')
   await expect(disabledReview).toBeDisabled()
   expect(await clonedControlEntries(checkboxSurface.locator('input[name="confirmArchivedReview"]:disabled'))).toEqual([])
-  await testInfo.attach('components-checkbox-state-matrix-desktop-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-checkbox-state-matrix-desktop-dark')
 
   const switchSurface = await openPreview('/components/switch', 'Switch')
   const switchForm = switchSurface.locator('#components-switch-form-region form')
@@ -642,10 +622,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect.poll(() => pendingMode.getByRole('radio').evaluateAll(radios => radios.every(radio => (radio as HTMLInputElement).disabled))).toBe(true)
   await expect.poll(() => disabledMode.getByRole('radio').evaluateAll(radios => radios.every(radio => (radio as HTMLInputElement).disabled))).toBe(true)
   expect(await clonedControlEntries(radioSurface.locator('input[name="postingMode"]:disabled'))).toEqual([])
-  await testInfo.attach('components-radio-state-matrix-desktop-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-radio-state-matrix-desktop-dark')
 
   const menuSurface = await openPreview('/components/dropdown-menu', 'Dropdown menu')
   const menuRegion = menuSurface.locator('#components-dropdown-menu-region')
@@ -760,18 +737,12 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await page.keyboard.press('Escape')
 
   await actionsTrigger.click()
-  await testInfo.attach('components-dropdown-menu-desktop-dark-open', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-dropdown-menu-desktop-dark-open')
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Light' }).click()
   await actionsTrigger.click()
-  await testInfo.attach('components-dropdown-menu-desktop-light-open', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-dropdown-menu-desktop-light-open')
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
@@ -796,7 +767,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
   await expect(appShellSurface.locator('[aria-current="page"]')).toBeVisible()
 
-  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/app-shell']) {
+  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/combobox', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/app-shell']) {
     await page.goto(path, { waitUntil: 'domcontentloaded' })
     await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
     await page.evaluate(() => (window as any).fsharpDocsCode.loading)
@@ -814,36 +785,21 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(catalog.getByRole('link', { name: /DATA DISPLAY Description list/ })).toHaveAttribute('href', '/components/description-list')
   await expect(catalog.getByRole('link', { name: /DATA DISPLAY Chart/ })).toHaveAttribute('href', '/components/chart')
   await expect(catalog.getByRole('link', { name: /COMPOSITIONS App shell/ })).toHaveAttribute('href', '/components/app-shell')
-  await testInfo.attach('components-catalog-desktop-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-catalog-desktop-dark')
 
   await page.setViewportSize({ width: 390, height: 844 })
   await openPreview('/components/button', 'Button')
-  await testInfo.attach('components-button-mobile-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-button-mobile-dark')
   await openPreview('/components/loading-indicator', 'Loading indicator')
-  await testInfo.attach('components-loading-mobile-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-loading-mobile-dark')
   const mobileTableSurface = await openPreview('/components/table', 'Table')
   const mobileTableRegion = mobileTableSurface.getByRole('region', { name: 'Accounts', exact: true })
   await expect.poll(() => mobileTableRegion.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
-  await testInfo.attach('components-table-mobile-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-table-mobile-dark')
   const mobileChartSurface = await openPreview('/components/chart', 'Chart')
   const mobileChartVisual = mobileChartSurface.getByRole('figure', { name: 'Operating balance' }).locator('svg')
   expect(await mobileChartVisual.evaluate(element => element.parentElement!.scrollWidth > element.parentElement!.clientWidth)).toBe(true)
-  await testInfo.attach('components-chart-mobile-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-chart-mobile-dark')
   const mobileMenuSurface = await openPreview('/components/dropdown-menu', 'Dropdown menu')
   await mobileMenuSurface.getByRole('button', { name: 'Actions', exact: true }).click()
   const mobileActionsMenu = mobileMenuSurface.getByRole('menu', { name: 'Actions', exact: true })
@@ -853,66 +809,186 @@ test('Components pages provide focused examples, navigation, interaction, themes
   expect(mobileMenuBox!.x).toBeGreaterThanOrEqual(0)
   expect(mobileMenuBox!.x + mobileMenuBox!.width).toBeLessThanOrEqual(390)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await testInfo.attach('components-dropdown-menu-mobile-dark-open', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-dropdown-menu-mobile-dark-open')
   await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Light' }).click()
   await openPreview('/components/icon-button', 'Icon button')
-  await testInfo.attach('components-icon-button-mobile-light', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-icon-button-mobile-light')
   await openPreview('/components/empty-state', 'Empty state')
-  await testInfo.attach('components-empty-state-mobile-light', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-empty-state-mobile-light')
   await openPreview('/components/description-list', 'Description list')
-  await testInfo.attach('components-description-list-mobile-light', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-description-list-mobile-light')
   await openPreview('/components/pagination', 'Pagination')
-  await testInfo.attach('components-pagination-mobile-light', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
-
+  await attachScreenshot('components-pagination-mobile-light')
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
   const mobileSelectSurface = await openPreview('/components/select', 'Select')
   await mobileSelectSurface.getByRole('combobox', { name: 'Status', exact: true }).click()
-  await testInfo.attach('components-select-mobile-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-select-mobile-dark')
   await page.keyboard.press('Escape')
   await openPreview('/components/checkbox', 'Checkbox')
-  await testInfo.attach('components-checkbox-mobile-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-checkbox-mobile-dark')
   await openPreview('/components/switch', 'Switch')
   await openPreview('/components/toggle-button', 'Toggle button')
   await openPreview('/components/radio-group', 'Radio group')
-  await testInfo.attach('components-radio-group-mobile-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-radio-group-mobile-dark')
 
-  await page.goto('/components', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components', { waitUntil: 'commit' })
   await expect(page.getByRole('heading', { level: 1, name: 'Components' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.getByRole('button', { name: 'Open navigation' }).click()
   await expect(page.locator('#nav-fsharp-viewengine-components')).toBeVisible()
-  await testInfo.attach('components-catalog-mobile-dark', {
-    body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-    contentType: 'image/png',
-  })
+  await attachScreenshot('components-catalog-mobile-dark')
+  expect(browserErrors).toEqual([])
+})
+
+test('Combobox preserves static and remote state, ordering, focus, and responsive behavior', async ({ page }, testInfo) => {
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+  const browserErrors = captureBrowserErrors(page)
+  const openPreview = async () => {
+    await page.goto('/components/combobox', { waitUntil: 'commit' })
+    await expect(page.getByRole('heading', { level: 1, name: 'Combobox', exact: true })).toBeVisible()
+    const example = page.locator('[data-docs-example="true"]')
+    await expect(example).toHaveCount(1)
+    const previewTab = example.getByRole('tab', { name: 'Preview' })
+    const panelId = await previewTab.getAttribute('aria-controls')
+    expect(panelId).toBeTruthy()
+    await previewTab.click()
+    const panel = page.locator(`#${panelId}`)
+    await expect(panel).toBeVisible()
+    await expect(panel.locator('.fve-components')).toHaveCount(1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    return panel.locator('.fve-components')
+  }
+  const attachScreenshot = async (name: string) => {
+    if (testInfo.project.name !== 'chromium') return
+    await testInfo.attach(name, {
+      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+  }
+  const clonedControlEntries = async (controls: Locator) =>
+    controls.evaluateAll(elements => {
+      const form = document.createElement('form')
+      for (const element of elements) form.appendChild(element.cloneNode(true))
+      return [...new FormData(form).entries()].map(([name, value]) => [name, String(value)])
+    })
+
+  const comboboxSurface = await openPreview()
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
+
+  const staticAccount = comboboxSurface.getByRole('combobox', { name: 'Static account' })
+  const staticListbox = comboboxSurface.getByRole('listbox', { name: 'Static account' })
+  const staticValue = comboboxSurface.locator('input[type="hidden"][name="staticAccount"]')
+  await staticAccount.fill('tax')
+  await expect(staticListbox.getByRole('option', { name: 'Tax reserve' })).toBeVisible()
+  await expect(staticListbox.getByRole('option', { name: 'Payroll clearing' })).toBeHidden()
+  await expect(staticAccount).toBeFocused()
+  await page.keyboard.press('Enter')
+  await expect(staticAccount).toHaveValue('Tax reserve')
+  await expect(staticValue).toHaveValue('102')
+  await comboboxSurface.getByRole('button', { name: 'Clear Static account' }).click()
+  await expect(staticAccount).toBeFocused()
+  await expect(staticAccount).toHaveValue('')
+  await expect(staticValue).toHaveValue('')
+
+  const parentAccount = comboboxSurface.getByRole('combobox', { name: 'Parent account' })
+  const accountPopup = comboboxSurface.locator('#fve-combobox-account-popup')
+  const accountListbox = comboboxSurface.getByRole('listbox', { name: 'Parent account' })
+  const accountValue = comboboxSurface.locator('input[type="hidden"][name="account"]')
+  const activeAccountOption = async () => parentAccount.getAttribute('aria-activedescendant')
+  const remoteQuery = (url: string) => {
+    const signals = new URL(url).searchParams.get('datastar')
+    return signals ? String(JSON.parse(signals).account_query ?? '') : null
+  }
+
+  await parentAccount.click()
+  await expect(parentAccount).toBeFocused()
+  await page.keyboard.press('End')
+  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Tax reserve' }).getAttribute('id'))
+  await expect(accountListbox.getByRole('option', { name: 'Payroll clearing' })).toBeDisabled()
+  await page.keyboard.press('Enter')
+  await expect(accountValue).toHaveValue('102')
+
+  const olderRequestStarted = page.waitForRequest(request => remoteQuery(request.url()) === 'oper')
+  await parentAccount.fill('oper')
+  await olderRequestStarted
+  await expect(parentAccount).toHaveAttribute('aria-busy', 'true')
+  await expect(accountPopup.getByRole('status')).toHaveText('Loading accounts')
+  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
+  await parentAccount.fill('tax')
+  await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toBeVisible()
+  await expect(accountListbox.getByRole('option', { name: 'Operating' })).toHaveCount(0)
+  const staleRequestWindow = await page.request.get('/components/accounts/search/settled')
+  expect(staleRequestWindow.status()).toBe(204)
+  await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toBeVisible()
+  await expect(accountListbox.getByRole('option', { name: 'Operating' })).toHaveCount(0)
+  await expect(parentAccount).toBeFocused()
+  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Tax reserve' }).getAttribute('id'))
+  await page.keyboard.press('Enter')
+  await expect(parentAccount).toHaveValue('Tax reserve')
+  await expect(accountValue).toHaveValue('102')
+
+  await parentAccount.fill('oper')
+  await expect(accountListbox.getByRole('option', { name: 'Operating' })).toBeVisible()
+  await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toHaveCount(0)
+  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Operating' }).getAttribute('id'))
+  await page.keyboard.press('Enter')
+  await expect(parentAccount).toHaveValue('Operating')
+  await expect(accountValue).toHaveValue('101')
+
+  const clearedResults = page.waitForResponse(response => remoteQuery(response.url()) === '')
+  await comboboxSurface.getByRole('button', { name: 'Clear Parent account' }).click()
+  await clearedResults
+  await expect(parentAccount).toBeFocused()
+  await expect(parentAccount).toHaveValue('')
+  await expect(accountValue).toHaveValue('')
+
+  await parentAccount.fill('missing')
+  await expect(accountPopup.getByRole('status')).toHaveText('No matching accounts')
+  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
+  await parentAccount.fill('error')
+  await expect(accountPopup.getByRole('alert')).toHaveText('Accounts could not be loaded.')
+  await expect(parentAccount).toBeFocused()
+  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
+  await accountPopup.getByRole('button', { name: 'Retry' }).click()
+  await expect(accountPopup.getByRole('status')).toHaveText('No matching accounts')
+  await expect(parentAccount).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(parentAccount).toBeFocused()
+
+  const loadingAccount = comboboxSurface.getByRole('combobox', { name: 'Loading account' })
+  await expect(loadingAccount).toHaveAttribute('aria-busy', 'true')
+  await loadingAccount.click()
+  await expect(comboboxSurface.locator('#fve-combobox-components_loading_account-popup').getByRole('status')).toHaveText('Loading accounts')
+  const validationAccount = comboboxSurface.getByRole('combobox', { name: 'Account with validation' })
+  await expect(validationAccount).toHaveAttribute('aria-invalid', 'true')
+  await expect(validationAccount).toHaveAttribute('aria-describedby', 'fve-combobox-components_validated_account-description fve-combobox-components_validated_account-validation')
+  const disabledAccount = comboboxSurface.getByRole('combobox', { name: 'Disabled account' })
+  const pendingAccount = comboboxSurface.getByRole('combobox', { name: 'Updating account' })
+  await expect(disabledAccount).toBeDisabled()
+  await expect(disabledAccount).toHaveAttribute('aria-disabled', 'true')
+  await expect(pendingAccount).toBeDisabled()
+  await expect(pendingAccount).toHaveAttribute('aria-busy', 'true')
+  const unavailableAccountValues = comboboxSurface.locator('input[type="hidden"][name="disabledAccount"], input[type="hidden"][name="pendingAccount"]')
+  await expect(unavailableAccountValues).toHaveCount(2)
+  expect(await clonedControlEntries(unavailableAccountValues)).toEqual([])
+  await attachScreenshot('components-combobox-state-matrix-desktop-dark')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Light' }).click()
+  const mobileComboboxSurface = await openPreview()
+  const mobileParentAccount = mobileComboboxSurface.getByRole('combobox', { name: 'Parent account' })
+  await mobileParentAccount.fill('error')
+  await expect(mobileComboboxSurface.locator('#fve-combobox-account-popup').getByRole('alert')).toHaveText('Accounts could not be loaded.')
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await attachScreenshot('components-combobox-mobile-light-error')
   expect(browserErrors).toEqual([])
 })
 

@@ -20,8 +20,11 @@ assert_output() {
 
 assert_output '.bg-\[var\(--fve-brand-solid\)\]'
 assert_output '.hover\:bg-\[var\(--fve-brand-hover\)\]'
+assert_output '.hover\:bg-\[var\(--fve-brand-subtle\)\]'
 assert_output '.active\:bg-\[var\(--fve-brand-active\)\]'
 assert_output '.focus-visible\:ring-2'
+assert_output '.focus-visible\:ring-inset'
+assert_output '::-webkit-search-cancel-button'
 assert_output '.overflow-x-auto'
 assert_output '.lg\:grid-cols-3'
 assert_output '.size-9'

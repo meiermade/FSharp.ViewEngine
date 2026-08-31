@@ -516,6 +516,9 @@ after"""
             Expect.stringContains allHtml "ToggleButton.pending" "ToggleButton example exposes pending state"
             Expect.stringContains allHtml "RadioGroup.required" "RadioGroup example exposes grouped required state"
             Expect.stringContains allHtml "RadioGroup.withValidation" "RadioGroup example exposes server validation"
+            for api in [ "Combobox.clearable"; "Combobox.loading"; "Combobox.withError"; "Combobox.disabled"; "Combobox.pending" ] do
+                Expect.stringContains allHtml api $"Combobox example exposes {api}"
+            Expect.stringContains allHtml "requestCancellation: &#39;auto&#39;" "remote Combobox documents deterministic newest-request behavior"
             for endpoint in [ "/components/choices/select"; "/components/choices/checkbox"; "/components/choices/switch"; "/components/choices/radio" ] do
                 Expect.stringContains allHtml endpoint $"focused example posts to real Docs endpoint {endpoint}"
             Expect.isFalse (allHtml.Contains("NativeSelect.create")) "the package exposes no NativeSelect API"
@@ -879,6 +882,81 @@ after"""
             Expect.stringContains html "document.getElementById($_account_status_active)?.click()" "Select commits active identity through one option path"
         }
 
+        test "Components Combobox preserves query, selection, async state, and form semantics" {
+            let options = [ Select.option 101 "Operating"; Select.option 102 "Tax reserve" |> Select.disable ]
+            let html =
+                Combobox.create "account" "Parent account" string options
+                |> Combobox.withId "parent-account"
+                |> Combobox.withSelected 101
+                |> Combobox.withDescription "Server-owned accounts."
+                |> Combobox.withValidation "Choose an account."
+                |> Combobox.withSearch (ComboboxSearch.Remote "/accounts/search")
+                |> Combobox.clearable
+                |> Combobox.render
+                |> Render.toString
+
+            let combobox = Regex.Match(html, "<input[^>]*role=\"combobox\"[^>]*>", RegexOptions.IgnoreCase).Value
+            let submittedValue = Regex.Match(html, "<input[^>]*type=\"hidden\"[^>]*>", RegexOptions.IgnoreCase).Value
+            Expect.stringContains combobox "id=\"fve-combobox-parent_account\"" "stable ID owns the editable input"
+            Expect.stringContains combobox "aria-controls=\"fve-combobox-parent_account-options\"" "input controls the canonical listbox"
+            Expect.stringContains combobox "aria-autocomplete=\"list\"" "editable input exposes list autocomplete"
+            Expect.stringContains combobox "aria-describedby=\"fve-combobox-parent_account-description fve-combobox-parent_account-validation\"" "description and validation are joined"
+            Expect.stringContains combobox "aria-invalid=\"true\"" "server validation is exposed"
+            Expect.stringContains combobox "data-indicator:_parent_account_request_pending" "remote request owns a local loading indicator"
+            Expect.stringContains combobox "requestCancellation: &#39;auto&#39;" "remote requests explicitly cancel older same-endpoint requests"
+            Expect.stringContains submittedValue "name=\"account\"" "hidden input preserves the consumer form name"
+            Expect.stringContains submittedValue "value=\"101\"" "typed selected identity is explicitly encoded"
+            Expect.stringContains submittedValue "data-bind:parent_account_value" "submitted identity remains distinct from query binding"
+            Expect.stringContains html "data-bind:parent_account_query" "editable remote query has its own signal"
+            Expect.stringContains html "aria-label=\"Clear Parent account\"" "clear action has a derived accessible name"
+            Expect.stringContains html "$parent_account_query = &#39;&#39;; $parent_account_value = &#39;&#39;" "clear removes query and submitted identity together"
+            Expect.stringContains html "role=\"listbox\"" "popup contains the canonical listbox"
+            Expect.stringContains html "aria-disabled=\"true\"" "disabled options remain discoverable but unavailable"
+            Expect.stringContains html "role=\"alert\"" "form validation is announced"
+
+            let staticHtml =
+                Combobox.create "local" "Local account" string options
+                |> Combobox.withEmptyMessage "No local accounts"
+                |> Combobox.render
+                |> Render.toString
+            Expect.stringContains staticHtml "_local_query" "static query remains private ephemeral state"
+            Expect.stringContains staticHtml "includes($_local_query.trim().toLowerCase())" "static options filter locally"
+            Expect.stringContains staticHtml "No local accounts" "static empty state is configurable"
+            Expect.isFalse (staticHtml.Contains("@get(")) "static filtering has no backend action"
+
+            let errorHtml =
+                Combobox.create "failed" "Failed account" string []
+                |> Combobox.withSearch (ComboboxSearch.Remote "/accounts/search?retry=true")
+                |> Combobox.withError "Accounts could not be loaded."
+                |> Combobox.render
+                |> Render.toString
+            Expect.stringContains errorHtml "Accounts could not be loaded." "server-rendered fetch error is visible"
+            Expect.stringContains errorHtml ">Retry</button>" "remote error offers a retry action"
+            Expect.stringContains errorHtml "requestCancellation: &#39;auto&#39;" "retry preserves the same ordering policy"
+
+            let loadingHtml =
+                Combobox.create "loading" "Loading account" string []
+                |> Combobox.withLoadingMessage "Loading accounts"
+                |> Combobox.loading
+                |> Combobox.render
+                |> Render.toString
+            Expect.stringContains loadingHtml "aria-busy=\"true\"" "loading state is programmatically busy"
+            Expect.stringContains loadingHtml "Loading accounts" "loading status remains perceivable"
+
+            let pendingHtml =
+                Combobox.create "pending" "Pending account" string options
+                |> Combobox.withSelected 101
+                |> Combobox.pending
+                |> Combobox.render
+                |> Render.toString
+            let pendingCombobox = Regex.Match(pendingHtml, "<input[^>]*role=\"combobox\"[^>]*>", RegexOptions.IgnoreCase).Value
+            let pendingValue = Regex.Match(pendingHtml, "<input[^>]*type=\"hidden\"[^>]*>", RegexOptions.IgnoreCase).Value
+            Expect.stringContains pendingCombobox "disabled" "pending control prevents interaction"
+            Expect.stringContains pendingCombobox "aria-busy=\"true\"" "pending control exposes busy state"
+            Expect.stringContains pendingValue "disabled" "pending selected identity is omitted from FormData"
+            Expect.isFalse (pendingHtml.Contains("data-on:keydown")) "unavailable control emits no keyboard action"
+        }
+
         test "Components branded choice controls preserve distinct complete semantics" {
             let comboboxHtml =
                 Combobox.create "account" "Account" id [ Select.option "operating" "Operating" ]
@@ -1118,6 +1196,7 @@ after"""
             Expect.stringContains manifest ".dark .fve-components" "dark defaults ship with the manifest"
             Expect.stringContains manifest ".dark .fve-theme-sky" "Sky ships theme-specific dark brand roles"
             Expect.stringContains manifest ".dark .fve-theme-emerald" "Emerald ships theme-specific dark brand roles"
+            Expect.stringContains manifest "input[type=\"search\"]::-webkit-search-cancel-button" "branded Combobox clear action replaces duplicate WebKit search chrome"
             Expect.stringContains renderer "py-[var(--fve-control-padding-block)]" "renderers consume the semantic density token"
             for role in [ "subtle"; "solid"; "hover"; "active"; "text"; "ring" ] do
                 Expect.isGreaterThanOrEqual
