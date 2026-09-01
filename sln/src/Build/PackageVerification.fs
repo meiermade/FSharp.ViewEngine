@@ -286,6 +286,20 @@ open type Html
 
 let icon = span { "+" }
 
+let packageDialog =
+    Dialog.create "package-dialog" "Review value" (p { "Review the current value." })
+    |> Dialog.withDescription "Confirm before continuing."
+    |> Dialog.withInitialFocus "package-dialog-close"
+    |> Dialog.dismissOnBackdrop
+
+let packageConfirmation =
+    ConfirmationDialog.create "package-confirmation" "Delete value?" "This cannot be undone." "Keep value" "Delete value" "@post('/values/delete')"
+    |> ConfirmationDialog.withValidation "The value is still referenced."
+
+let packageDrawer =
+    Drawer.create "package-drawer" "Value settings" (nav { _ariaLabel "Value settings"; a { _href "/values"; "Values" } })
+    |> Drawer.withSide DrawerSide.Start
+
 let view =
     div {
         for attribute in ComponentsTheme.attributes ComponentsTheme.sky do
@@ -360,6 +374,12 @@ let view =
             MenuItem.destructiveAction "$deleteValue++" "Delete value" ]
         |> DropdownMenu.withAlignment MenuAlignment.Start
         |> DropdownMenu.render (fun value -> $"/values/{value}")
+        packageDialog |> Dialog.trigger "Review value"
+        packageDialog |> Dialog.render
+        packageConfirmation |> ConfirmationDialog.trigger "Delete value"
+        packageConfirmation |> ConfirmationDialog.render
+        packageDrawer |> Drawer.trigger "Open settings"
+        packageDrawer |> Drawer.render
     }
 
 let actual = view |> Render.toString
@@ -390,7 +410,13 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "left-0")
    || not (actual.Contains "data-fve-menu-label=\"view value\"")
    || not (actual.Contains "aria-busy=\"true\"")
-   || not (actual.Contains ">V</kbd>") then
+   || not (actual.Contains ">V</kbd>")
+   || not (actual.Contains "id=\"package-dialog-trigger\"")
+   || not (actual.Contains "backdrop:bg-[var(--fve-overlay-backdrop)]")
+   || not (actual.Contains "role=\"alertdialog\"")
+   || not (actual.Contains "data-indicator:_package_confirmation_pending")
+   || not (actual.Contains "Value settings")
+   || not (actual.Contains "left-0 ml-0 mr-auto border-r") then
     failwith $"Components package rendered unexpected HTML: {actual}"
 
 printfn "FSharp.ViewEngine.Components package works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription

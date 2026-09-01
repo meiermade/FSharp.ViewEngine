@@ -47,6 +47,7 @@
   --fve-text: var(--spec-text);
   --fve-muted-text: var(--spec-muted);
   --fve-border: var(--spec-border-strong);
+  --fve-overlay-backdrop: color-mix(in oklab, var(--spec-text) 55%, transparent);
   --fve-neutral-subtle: var(--spec-hover);
   --fve-neutral-text: var(--spec-text-secondary);
   --fve-neutral-ring: var(--spec-border-strong);

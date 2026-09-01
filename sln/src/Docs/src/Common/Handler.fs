@@ -48,6 +48,20 @@ module Handler =
         let html = Components.patchedDropdownMenuRegion |> Render.toString
         setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
 
+    let private componentDrawerPatch : HttpHandler =
+        let html = Components.patchedAccountDrawerContent |> Render.toString
+        setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
+
+    let private componentConfirmationDialog : HttpHandler =
+        fun next context ->
+            task {
+                do! System.Threading.Tasks.Task.Delay 1500
+                let html =
+                    Components.confirmationDialogContent (Some "Operating cannot be deleted while posted entries are assigned to its open period.")
+                    |> Render.toString
+                return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+            }
+
     let private readSignals (context:Microsoft.AspNetCore.Http.HttpContext) =
         task {
             use reader = new StreamReader(context.Request.Body)
@@ -157,6 +171,7 @@ module Handler =
             route "/components/choices/checkbox" >=> componentCheckboxChoice
             route "/components/choices/switch" >=> componentSwitchChoice
             route "/components/choices/radio" >=> componentRadioChoice
+            route "/components/dialogs/confirm" >=> componentConfirmationDialog
         ]
 
     let routes : HttpHandler =
@@ -165,6 +180,7 @@ module Handler =
             route "/robots.txt" >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8" >=> setBodyFromString robots
             route "/components/pagination" >=> componentPagination
             route "/components/menus/actions" >=> componentDropdownMenuPatch
+            route "/components/drawers/account" >=> componentDrawerPatch
             route "/components/accounts/search/settled" >=> componentAccountSearchSettled
             route "/components/accounts/search" >=> componentAccountSearch
             choose (previewRoutes @ pageRoutes)

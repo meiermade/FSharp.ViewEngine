@@ -126,6 +126,26 @@ let accountActions =
 
 Disabled and pending presentation is not authorization. Applications decide which commands exist and enforce every action on the server.
 
+Dialog, ConfirmationDialog, and Drawer use native modal dialogs and their top-layer backdrop. They require stable IDs and accessible titles, contain focus while open, and restore focus to their connected triggers. Dialog retains consumer-authored body and footer content and can opt into safe backdrop dismissal. ConfirmationDialog focuses the least destructive cancel action first, renders a destructive submit action, exposes server validation and pending state, and uses a Datastar request indicator to prevent duplicate confirmation. Drawer renders consumer-owned landmarks in a responsive typed Start or End panel and dismisses through Escape, its close action, or the backdrop.
+
+```fsharp
+let deleteConfirmation =
+    ConfirmationDialog.create
+        "delete-account"
+        "Delete account?"
+        "Posted entries remain in the audit history."
+        "Keep account"
+        "Delete account"
+        "@post('/accounts/101/delete')"
+
+let accountDrawer =
+    Drawer.create "account-panel" "Account settings" accountNavigation
+    |> Drawer.withDescription "Manage account preferences."
+    |> Drawer.withSide DrawerSide.End
+```
+
+Applications own authorization, durable workflow state, validation, and the trusted Datastar action. Patch `ConfirmationDialog.renderContent` or a stable consumer-owned region inside Drawer so an open native dialog and its focus relationship remain intact.
+
 ## Documentation
 
 The complete component gallery, typed examples, theming guidance, and application-boundary guidance are published at:

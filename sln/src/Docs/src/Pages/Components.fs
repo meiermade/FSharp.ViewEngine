@@ -744,6 +744,7 @@ module Components =
             p { "Confirm the account settings before they are applied." })
         |> Dialog.withDescription "The dialog returns focus to its trigger when it closes."
         |> Dialog.withInitialFocus "review-account-dialog-close"
+        |> Dialog.dismissOnBackdrop
 
     let reviewDialogTrigger =
         dialogConfig
@@ -757,6 +758,89 @@ module Components =
     let dialogPreview =
         themedSurface (div { _class "flex items-center gap-3"; [ reviewDialogTrigger; reviewDialog ] })
     // docs-example:end dialog
+
+    // docs-example:start confirmation-dialog
+    let confirmationDialogConfig =
+        ConfirmationDialog.create
+            "delete-account-confirmation"
+            "Delete account?"
+            "Deleting Operating removes its draft entries. Posted entries remain in the audit history."
+            "Keep account"
+            "Delete account"
+            "@post('/components/dialogs/confirm').then(() => document.getElementById('delete-account-confirmation-confirm')?.focus())"
+
+    let confirmationDialogContent validation =
+        (match validation with
+         | Some message -> confirmationDialogConfig |> ConfirmationDialog.withValidation message
+         | None -> confirmationDialogConfig)
+        |> ConfirmationDialog.renderContent
+
+    let pendingConfirmationDialog =
+        ConfirmationDialog.create
+            "pending-account-confirmation"
+            "Delete account?"
+            "The account deletion is already being checked."
+            "Close"
+            "Delete account"
+            "@post('/components/dialogs/confirm')"
+        |> ConfirmationDialog.pending
+        |> ConfirmationDialog.render
+
+    let confirmationDialogPreview =
+        themedSurface (
+            div {
+                _class "flex items-center gap-3"
+                confirmationDialogConfig |> ConfirmationDialog.trigger "Delete account"
+                confirmationDialogConfig |> ConfirmationDialog.render
+                pendingConfirmationDialog
+            })
+    // docs-example:end confirmation-dialog
+
+    // docs-example:start drawer
+    let accountDrawerContent refreshed =
+        div {
+            _id "account-drawer-content"
+            nav {
+                _ariaLabel "Account settings"
+                _class "grid gap-2"
+                a { _id "account-drawer-profile"; _href "/components/drawer#profile"; _class "rounded-[var(--fve-radius-control)] px-3 py-2 font-medium text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"; "Profile" }
+                a { _href "/components/drawer#notifications"; _class "rounded-[var(--fve-radius-control)] px-3 py-2 font-medium text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"; "Notifications" }
+            }
+            Button.create "Refresh panel"
+            |> Button.withClass "mt-5"
+            |> Button.withAttributes [ _id "account-drawer-refresh"; _dataOn ("click", "@get('/components/drawers/account').then(() => document.getElementById('account-drawer-refresh')?.focus())") ]
+            |> Button.render
+            if refreshed then
+                p { _role "status"; _class "mt-4 text-sm text-[var(--fve-positive-text)]"; "Panel content refreshed from the server." }
+        }
+
+    let accountDrawerConfig =
+        Drawer.create "account-settings-drawer" "Account settings" (accountDrawerContent false)
+        |> Drawer.withDescription "Manage account preferences without leaving the current page."
+        |> Drawer.withInitialFocus "account-drawer-profile"
+
+    let filterDrawerConfig =
+        Drawer.create "account-filters-drawer" "Account filters" (
+            nav {
+                _ariaLabel "Account filters"
+                _class "grid gap-3"
+                a { _href "/components/drawer#active"; "Active accounts" }
+                a { _href "/components/drawer#archived"; "Archived accounts" }
+            })
+        |> Drawer.withSide DrawerSide.Start
+
+    let drawerPreview =
+        themedSurface (
+            div {
+                _class "flex flex-wrap items-center gap-3"
+                accountDrawerConfig |> Drawer.trigger "Open account panel"
+                filterDrawerConfig |> Drawer.trigger "Open filters"
+                accountDrawerConfig |> Drawer.render
+                filterDrawerConfig |> Drawer.render
+            })
+
+    let patchedAccountDrawerContent = accountDrawerContent true
+    // docs-example:end drawer
 
     let private statusFilter =
         Select.create "statusFilter" "Filter by status" statusValue statusOptions
@@ -866,6 +950,8 @@ module Components =
     let radioGroupRegistration = registration "components-radio-group" "/components/radio-group" "Radio group" "Radio group"
     let dropdownMenuRegistration = registration "components-dropdown-menu" "/components/dropdown-menu" "Dropdown menu" "Dropdown menu"
     let dialogRegistration = registration "components-dialog" "/components/dialog" "Dialog" "Dialog"
+    let confirmationDialogRegistration = registration "components-confirmation-dialog" "/components/confirmation-dialog" "Confirmation dialog" "Confirmation dialog"
+    let drawerRegistration = registration "components-drawer" "/components/drawer" "Drawer" "Drawer"
     let collectionRegistration = registration "components-collection" "/components/collection" "Collection" "Collection"
     let detailRegistration = registration "components-detail" "/components/detail" "Detail" "Detail"
     let appShellRegistration = registration "components-app-shell" "/components/app-shell" "App shell" "App shell"
@@ -891,7 +977,7 @@ module Components =
           switchRegistration
           toggleButtonRegistration
           radioGroupRegistration ]
-    let menuOverlayRegistrations = [ dropdownMenuRegistration; dialogRegistration ]
+    let menuOverlayRegistrations = [ dropdownMenuRegistration; dialogRegistration; confirmationDialogRegistration; drawerRegistration ]
     let compositionRegistrations = [ collectionRegistration; detailRegistration; appShellRegistration ]
     let guideRegistrations =
         [ interactionRegistration
@@ -980,6 +1066,8 @@ AppShell.create productName current navigation content
             catalogLink "/components/radio-group" "FORM CONTROLS" "Radio group" "One submitted choice from a labelled set."
             catalogLink "/components/dropdown-menu" "MENUS" "Dropdown menu" "Keyboard-navigable actions and destinations."
             catalogLink "/components/dialog" "OVERLAYS" "Dialog" "Connected trigger, initial focus, dismissal, and focus restoration."
+            catalogLink "/components/confirmation-dialog" "OVERLAYS" "Confirmation dialog" "Destructive confirmation with server validation and duplicate-submit protection."
+            catalogLink "/components/drawer" "OVERLAYS" "Drawer" "Responsive start or end panels with native modal focus behavior."
             catalogLink "/components/collection" "COMPOSITIONS" "Collection" "Collection heading, actions, toolbar, and application-owned results."
             catalogLink "/components/detail" "COMPOSITIONS" "Detail" "Detail heading, metadata, actions, and custom sections."
             catalogLink "/components/app-shell" "COMPOSITIONS" "App shell" "Typed destinations, navigation, breadcrumbs, account actions, and theme."
@@ -1125,9 +1213,21 @@ AppShell.create productName current navigation content
                 docsParagraph "Escape restores the trigger, Tab and outside interaction dismiss without trapping focus, and enabled pointer activation closes coherently. Stable menu IDs keep adjacent instances independent and preserve behavior when a server-rendered Datastar patch replaces the example region." ] ]
 
     let dialogPage =
-        componentPage dialogRegistration "Connect a trigger and modal surface with initial focus, dismissal, and focus restoration." "dialog" dialogPreview [
+        componentPage dialogRegistration "Connect a trigger and modal surface with initial focus, dismissal, backdrop behavior, and focus restoration." "dialog" dialogPreview [
             docsSection "composition" "Composition" [ docsParagraph "Dialog bodies and footers remain ordinary HtmlElement values. The required identifier and title connect the trigger, labelled dialog, close controls, and focus restoration target." ]
-            docsSection "focus" "Focus behavior" [ docsParagraph "Choose an initial focus target deliberately. Escape, close controls, and native dialog close behavior dismiss the overlay and restore focus to its connected trigger." ] ]
+            docsSection "focus" "Focus behavior" [ docsParagraph "Choose an initial focus target deliberately. Native showModal behavior contains focus and supplies the top-layer backdrop. Escape or close controls dismiss the overlay and restore focus to its connected trigger; opt into backdrop dismissal only when an outside click is safe." ] ]
+
+    let confirmationDialogPage =
+        componentPage confirmationDialogRegistration "Require an explicit, server-owned destructive confirmation without allowing duplicate activation." "confirmation-dialog" confirmationDialogPreview [
+            docsSection "safety" "Safe confirmation" [ docsParagraph "Cancel receives initial focus as the least destructive action. The destructive submit action stays visually distinct, and Datastar request indicators immediately disable repeated confirmation while the application validates and performs the operation." ]
+            docsSection "state" "Validation and pending state" [ docsParagraph "Applications return ConfirmationDialog.renderContent from a stable form region when server validation changes. Validation remains described by the alert dialog; pending state retains the action name, exposes busy status, and prevents another confirmation." ]
+            docsSection "ownership" "Application responsibilities" [ docsParagraph "The application supplies the trusted Datastar action, authorizes the operation, validates current durable state, and decides the resulting patch. The component owns only modal semantics, local request indication, presentation, and focus behavior." ] ]
+
+    let drawerPage =
+        componentPage drawerRegistration "Open responsive start or end panels with native modal containment, backdrop dismissal, and focus restoration." "drawer" drawerPreview [
+            docsSection "responsive" "Responsive panel" [ docsParagraph "Drawer uses a constrained edge panel on larger screens and preserves usable viewport space on narrow screens. Start and End are typed positions; application-authored navigation, forms, and landmarks remain ordinary HtmlElement content." ]
+            docsSection "focus" "Focus and dismissal" [ docsParagraph "Native showModal behavior contains focus. Choose a deliberate initial target, dismiss with Escape, the close action, or the backdrop, and return focus to the connected trigger." ]
+            docsSection "patches" "Stable server patches" [ docsParagraph "Patch a stable consumer-owned region inside the drawer rather than replacing the open native dialog. The example refreshes its navigation content from the server while preserving the active modal, landmark, focus, and trigger relationship." ] ]
 
     let collectionPageDocumentation =
         componentPage collectionRegistration "Compose a collection heading, description, actions, toolbar, and application-owned result content." "collection" collectionPreview [
@@ -1205,6 +1305,8 @@ AppShell.create productName current navigation content
           radioGroupRegistration.path, radioGroupPage
           dropdownMenuRegistration.path, dropdownMenuPage
           dialogRegistration.path, dialogPage
+          confirmationDialogRegistration.path, confirmationDialogPage
+          drawerRegistration.path, drawerPage
           collectionRegistration.path, collectionPageDocumentation
           detailRegistration.path, detailPageDocumentation
           appShellRegistration.path, appShellPage

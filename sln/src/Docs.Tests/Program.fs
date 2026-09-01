@@ -60,6 +60,8 @@ let private expectedPaths =
         "/components/radio-group"
         "/components/dropdown-menu"
         "/components/dialog"
+        "/components/confirmation-dialog"
+        "/components/drawer"
         "/components/collection"
         "/components/detail"
         "/components/app-shell"
@@ -138,7 +140,7 @@ let tests =
                 [ "Table"; "Description list"; "Metric"; "Pagination"; "Chart" ]
                 "data-display components"
             Expect.sequenceEqual (section "Form controls") [ "Select"; "Combobox"; "Checkbox"; "Switch"; "Toggle button"; "Radio group" ] "form controls"
-            Expect.sequenceEqual (section "Menus and overlays") [ "Dropdown menu"; "Dialog" ] "menu and overlay components"
+            Expect.sequenceEqual (section "Menus and overlays") [ "Dropdown menu"; "Dialog"; "Confirmation dialog"; "Drawer" ] "menu and overlay components"
             Expect.sequenceEqual (section "Compositions") [ "Collection"; "Detail"; "App shell" ] "page compositions"
             Expect.sequenceEqual (section "Guides") [ "Interaction and server state"; "Accessibility"; "Theming and density"; "Tailwind CSS"; "Customization"; "Versioning" ] "shared Components guides"
             Expect.sequenceEqual (section "Project") [ "Benchmarks"; "Changelog" ] "project order"
@@ -429,7 +431,7 @@ after"""
             let renderedGuides = Components.guideRegistrations |> List.map render
             let allHtml = String.concat Environment.NewLine (overview :: installation :: renderedComponents @ renderedGuides)
 
-            Expect.equal Components.allRegistrations.Length 30 "overview, installation, twenty-two components, and six guides"
+            Expect.equal Components.allRegistrations.Length 32 "overview, installation, twenty-four components, and six guides"
             Expect.stringContains overview "Accessible, server-rendered Tailwind components" "consumer-facing introduction"
             Expect.stringContains overview "Browse components" "overview is a component catalog"
             Expect.stringContains overview "href=\"/components/button\"" "catalog deep-links Button"
@@ -499,6 +501,11 @@ after"""
                 "Dialog.withInitialFocus &quot;review-account-dialog-close&quot;"
                 "Dialog.trigger &quot;Review account&quot;"
                 "Dialog.closeButton &quot;Close&quot;"
+                "ConfirmationDialog.create"
+                "ConfirmationDialog.renderContent"
+                "ConfirmationDialog.pending"
+                "Drawer.create &quot;account-settings-drawer&quot; &quot;Account settings&quot;"
+                "Drawer.withSide DrawerSide.Start"
                 "Collection.create &quot;Accounts&quot; accountTable"
                 "Detail.create &quot;Operating&quot;"
                 "AppShell.create &quot;Ledger&quot; Accounts" ] do
@@ -523,7 +530,13 @@ after"""
                 Expect.stringContains allHtml endpoint $"focused example posts to real Docs endpoint {endpoint}"
             Expect.isFalse (allHtml.Contains("NativeSelect.create")) "the package exposes no NativeSelect API"
             Expect.stringContains allHtml "id=\"review-account-dialog-trigger\"" "Dialog renders its connected trigger"
-            Expect.stringContains allHtml "data-on:close=\"document.getElementById(&quot;review-account-dialog-trigger&quot;).focus()\"" "Dialog close restores trigger focus"
+            Expect.stringContains allHtml "data-on:close=\"document.getElementById(&quot;review-account-dialog-trigger&quot;)?.focus()\"" "Dialog close restores trigger focus"
+            Expect.stringContains allHtml "role=\"alertdialog\"" "ConfirmationDialog preserves urgent confirmation semantics"
+            Expect.stringContains allHtml "data-indicator:_delete_account_confirmation_pending" "ConfirmationDialog owns immediate duplicate-submit protection"
+            Expect.stringContains allHtml "id=\"account-settings-drawer\"" "Drawer renders a stable native dialog"
+            Expect.stringContains allHtml "aria-label=\"Account settings\"" "Drawer preserves consumer-owned navigation landmarks"
+            Expect.stringContains allHtml "/components/dialogs/confirm" "ConfirmationDialog uses a real Docs-owned endpoint"
+            Expect.stringContains allHtml "/components/drawers/account" "Drawer uses a real Docs-owned patch endpoint"
             Expect.isFalse (allHtml.Contains("Select.describe")) "Select has no unobservable option-description modifier"
             Expect.stringContains allHtml "data-signals=\"{_components_menu_actions_open: false, _components_menu_actions_typeahead:" "menu IDs become valid isolated interaction signal tokens"
             Expect.isFalse (allHtml.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
@@ -534,6 +547,62 @@ after"""
             let versioning = render Components.versioningRegistration
             Expect.stringContains versioning "rel=\"prev\" href=\"/components/customization\"" "last guide follows customization"
             Expect.stringContains versioning "rel=\"next\" href=\"/docs\"" "Components precedes the specialized Docs toolkit"
+        }
+
+        test "Dialog overlays preserve native modal semantics, safe confirmation state, and responsive drawer identity" {
+            let dialogConfig =
+                Dialog.create "test-dialog" "Review account" (p { "Review the settings." })
+                |> Dialog.withDescription "Settings remain unchanged until saved."
+                |> Dialog.withInitialFocus "test-dialog-close"
+                |> Dialog.dismissOnBackdrop
+            let dialogHtml =
+                div { dialogConfig |> Dialog.trigger "Review account"; dialogConfig |> Dialog.withFooter (dialogConfig |> Dialog.closeButton "Close") |> Dialog.render }
+                |> Render.toString
+            Expect.stringContains dialogHtml "<dialog id=\"test-dialog\"" "Dialog remains a native dialog"
+            Expect.stringContains dialogHtml "aria-modal=\"true\"" "Dialog exposes modal semantics"
+            Expect.stringContains dialogHtml "evt.target == evt.currentTarget" "Dialog can opt into backdrop dismissal"
+            Expect.stringContains dialogHtml "document.getElementById(&quot;test-dialog-trigger&quot;)?.focus()" "Dialog restores its connected trigger"
+
+            let confirmation =
+                ConfirmationDialog.create "delete-value" "Delete value?" "This cannot be undone." "Keep value" "Delete value" "@post('/values/delete')"
+            let confirmationHtml =
+                div { confirmation |> ConfirmationDialog.trigger "Delete value"; confirmation |> ConfirmationDialog.render }
+                |> Render.toString
+            Expect.stringContains confirmationHtml "role=\"alertdialog\"" "destructive confirmation has alert-dialog semantics"
+            Expect.stringContains confirmationHtml "aria-describedby=\"delete-value-message delete-value-validation\"" "message and validation remain described"
+            Expect.stringContains confirmationHtml "data-signals=\"{_delete_value_pending: false}\"" "confirmation pending signal is instance-local"
+            Expect.stringContains confirmationHtml "data-indicator:_delete_value_pending" "form request drives pending state"
+            Expect.stringContains confirmationHtml "data-attr:disabled=\"$_delete_value_pending\"" "request pending prevents repeated activation"
+            Expect.stringContains confirmationHtml "id=\"delete-value-cancel\"" "least-destructive action has a stable initial-focus target"
+            Expect.stringContains confirmationHtml "id=\"delete-value-confirm\"" "destructive submit has stable identity"
+            Expect.stringContains confirmationHtml "bg-[var(--fve-critical-solid)]" "confirmation is visually destructive"
+
+            let pendingHtml = confirmation |> ConfirmationDialog.pending |> ConfirmationDialog.render |> Render.toString
+            Expect.stringContains pendingHtml "aria-busy=\"true\"" "server-rendered pending state is perceivable"
+            Expect.stringContains pendingHtml "Confirmation in progress." "pending state retains explanatory text"
+            Expect.stringContains pendingHtml "disabled" "pending confirmation cannot submit twice"
+
+            let validationHtml =
+                confirmation
+                |> ConfirmationDialog.withValidation "The value is still referenced."
+                |> ConfirmationDialog.renderContent
+                |> Render.toString
+            Expect.stringContains validationHtml "role=\"alert\"" "server validation is announced"
+            Expect.stringContains validationHtml "The value is still referenced." "server validation remains visible"
+
+            let drawerBody = nav { _ariaLabel "Account settings"; a { _href "/accounts"; "Accounts" } }
+            let endDrawer = Drawer.create "settings-drawer" "Settings" drawerBody
+            let endDrawerHtml =
+                div { endDrawer |> Drawer.trigger "Open settings"; endDrawer |> Drawer.render }
+                |> Render.toString
+            Expect.stringContains endDrawerHtml "<dialog id=\"settings-drawer\"" "Drawer remains a native dialog"
+            Expect.stringContains endDrawerHtml "right-0 ml-auto mr-0 border-l" "Drawer defaults to the end edge"
+            Expect.stringContains endDrawerHtml "w-[min(24rem,calc(100%-3rem))]" "Drawer reserves narrow viewport space"
+            Expect.stringContains endDrawerHtml "aria-label=\"Account settings\"" "consumer landmarks are preserved"
+            Expect.stringContains endDrawerHtml "id=\"settings-drawer-close\"" "Drawer owns a stable close target"
+            Expect.stringContains endDrawerHtml "evt.target == evt.currentTarget" "Drawer backdrop dismisses explicitly"
+            let startDrawerHtml = endDrawer |> Drawer.withSide DrawerSide.Start |> Drawer.render |> Render.toString
+            Expect.stringContains startDrawerHtml "left-0 ml-0 mr-auto border-r" "Drawer supports the typed start edge"
         }
 
         test "Components foundations preserve accessible names, honest states, and protected structure" {
@@ -1210,6 +1279,8 @@ after"""
             Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
             Expect.stringContains verification ".active\\:bg-\\[var\\(--fve-brand-active\\)\\]" "verification checks generated active-state utility"
             Expect.stringContains verification ".overflow-x-auto" "verification checks data-display overflow utility"
+            Expect.stringContains verification ".backdrop\\:bg-\\[var\\(--fve-overlay-backdrop\\)\\]" "verification checks semantic overlay backdrop utility"
+            Expect.stringContains verification ".sm\\:w-96" "verification checks responsive drawer width"
             Expect.stringContains verification ".lg\\:grid-cols-3" "verification checks responsive detail columns"
             Expect.stringContains verification ".size-9" "verification checks pagination sizing"
             Expect.stringContains verification ".peer-focus-visible\\:ring-\\[var\\(--fve-critical-ring\\)\\]" "verification checks invalid native-control focus treatment"
@@ -1217,6 +1288,7 @@ after"""
             Expect.stringContains docsStyles ".docs-components-preview .fve-components" "Docs owns the example theme adapter"
             Expect.stringContains docsStyles "--fve-page: var(--spec-bg)" "component examples inherit the Docs page surface"
             Expect.stringContains docsStyles "--fve-brand-solid: var(--spec-accent-500)" "component examples inherit the Docs sky accent"
+            Expect.stringContains docsStyles "--fve-overlay-backdrop:" "component examples inherit a Docs-owned overlay backdrop"
             Expect.stringContains dockerfile "FSharp.ViewEngine.Components/verify-tailwind.sh" "container CI executes the clean-consumer proof"
             Expect.stringContains componentsProject "..\\FSharp.ViewEngine\\FSharp.ViewEngine.fsproj" "Components depends on Core"
             Expect.isFalse (componentsProject.Contains("FSharp.ViewEngine.Docs")) "Components remains independent from Docs"
