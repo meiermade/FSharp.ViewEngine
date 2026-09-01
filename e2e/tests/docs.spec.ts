@@ -2,6 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
 const productionOrigin = 'https://fsharpviewengine.meiermade.com'
+const crossBrowser = { tag: '@cross-browser' }
 
 const routes = [
   { path: '/', heading: 'FSharp.ViewEngine', layout: 'article' },
@@ -146,7 +147,7 @@ test('canonical routes expose valid same-origin links, assets, and lazy previews
   expect(checked.size).toBeGreaterThan(routes.length)
 })
 
-test.describe('automated accessibility checks', () => {
+test.describe('automated accessibility checks', crossBrowser, () => {
   const scan = async (page: Page, context: string) => {
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -173,7 +174,7 @@ test.describe('automated accessibility checks', () => {
   })
 })
 
-test('Components pages provide focused examples, navigation, interaction, themes, and responsive accessibility', async ({ page }, testInfo) => {
+test('Components pages provide focused examples, navigation, interaction, themes, and responsive accessibility', crossBrowser, async ({ page }, testInfo) => {
   test.slow()
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
@@ -628,7 +629,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   expect(browserErrors).toEqual([])
 })
 
-test('DropdownMenu preserves groups, alignment, activation, sibling dismissal, morphs, and responsive behavior', async ({ page }, testInfo) => {
+test('DropdownMenu preserves groups, alignment, activation, sibling dismissal, morphs, and responsive behavior', crossBrowser, async ({ page }, testInfo) => {
   test.slow()
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
@@ -787,7 +788,7 @@ test('DropdownMenu preserves groups, alignment, activation, sibling dismissal, m
   expect(browserErrors).toEqual([])
 })
 
-test('Components layouts, accessibility, catalog, and responsive previews remain coherent', async ({ page }, testInfo) => {
+test('Components layouts, accessibility, catalog, and responsive previews remain coherent', crossBrowser, async ({ page }, testInfo) => {
   test.slow()
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
@@ -927,7 +928,7 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   expect(browserErrors).toEqual([])
 })
 
-test('Components examples preserve rounded panels without clipping anchored popups', async ({ page }) => {
+test('Components examples preserve rounded panels without clipping anchored popups', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/components/drawer', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
@@ -958,7 +959,7 @@ test('Components examples preserve rounded panels without clipping anchored popu
   expect(browserErrors).toEqual([])
 })
 
-test('Combobox preserves static and remote state, ordering, focus, and responsive behavior', async ({ page }, testInfo) => {
+test('Combobox preserves static and remote state, ordering, focus, and responsive behavior', crossBrowser, async ({ page }, testInfo) => {
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   )
@@ -1106,7 +1107,7 @@ test('Combobox preserves static and remote state, ordering, focus, and responsiv
   expect(browserErrors).toEqual([])
 })
 
-test('Tabs preserve variants, automatic keyboard selection, instances, morphs, and responsive accessibility', async ({ page }, testInfo) => {
+test('Tabs preserve variants, automatic keyboard selection, instances, morphs, and responsive accessibility', crossBrowser, async ({ page }, testInfo) => {
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   )
@@ -1220,7 +1221,7 @@ test('Tabs preserve variants, automatic keyboard selection, instances, morphs, a
   expect(browserErrors).toEqual([])
 })
 
-test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, instances, and responsive behavior', async ({ page }, testInfo) => {
+test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, instances, and responsive behavior', crossBrowser, async ({ page }, testInfo) => {
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   )
@@ -1396,7 +1397,7 @@ test('health and pinned application assets are available', async ({ request }) =
   }
 })
 
-test('search filters pages and headings with keyboard access', async ({ page }) => {
+test('search filters pages and headings with keyboard access', crossBrowser, async ({ page }) => {
   await page.goto('/', { waitUntil: 'domcontentloaded' })
   await page.keyboard.press(process.platform === 'darwin' ? 'Meta+K' : 'Control+K')
 
@@ -1440,7 +1441,7 @@ test('repository action and code typography stay compact', async ({ page }) => {
   expect(Number.parseFloat(await code.evaluate(element => getComputedStyle(element).lineHeight))).toBeCloseTo(20.15, 1)
 })
 
-test('color mode selector supports persistence, keyboard navigation, and system changes', async ({ page }) => {
+test('color mode selector supports persistence, keyboard navigation, and system changes', crossBrowser, async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
   await page.goto('/docs/components/layouts', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => localStorage.removeItem('fsharp-viewengine-docs-navigation-color-mode'))
@@ -1489,7 +1490,7 @@ test('color mode selector supports persistence, keyboard navigation, and system 
   await expect(page.locator('html')).not.toHaveClass(/dark/)
 })
 
-test('mobile navigation manages modal focus and does not overflow', async ({ page }) => {
+test('mobile navigation manages modal focus and does not overflow', crossBrowser, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
@@ -1569,7 +1570,7 @@ test('on-this-page links scroll the nested documentation viewport', async ({ pag
   await expect.poll(async () => (await target.boundingBox())!.y).toBeLessThan(1000)
 })
 
-test('Docs navigation scrolls content to top and highlights morphed code', async ({ page }) => {
+test('Docs navigation scrolls content to top and highlights morphed code', crossBrowser, async ({ page }) => {
   await page.goto('/extensions/svg', { waitUntil: 'domcontentloaded' })
   const main = page.locator('.spec-main')
   await main.evaluate(element => element.scrollTo({ top: element.scrollHeight }))
@@ -1583,7 +1584,7 @@ test('Docs navigation scrolls content to top and highlights morphed code', async
   await expect(page.locator('.spec-code .token.keyword').first()).toBeVisible()
 })
 
-test('Docs navigation loads Prism dependencies before highlighting a code page', async ({ page }) => {
+test('Docs navigation loads Prism dependencies before highlighting a code page', crossBrowser, async ({ page }) => {
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
 
@@ -1608,7 +1609,7 @@ test('code blocks copy their literal source', async ({ page }) => {
   expect(await page.evaluate(() => (window as any).__copiedSource)).toContain('let greeting')
 })
 
-test('code and preview examples support pointer and keyboard tabs', async ({ page }) => {
+test('code and preview examples support pointer and keyboard tabs', crossBrowser, async ({ page }) => {
   await page.goto('/extensions/svg', { waitUntil: 'domcontentloaded' })
   const example = page.locator('[data-docs-example="true"]').first()
   const preview = example.getByRole('tab', { name: 'Preview' })
@@ -1644,7 +1645,7 @@ test('inline prose links are visually identifiable and article pagers continue t
   await expect(page.getByRole('heading', { level: 1, name: 'Layouts' })).toBeVisible()
 })
 
-test('Tailwind Plus Elements previews render and operate the actual custom elements', async ({ page }) => {
+test('Tailwind Plus Elements previews render and operate the actual custom elements', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/extensions/svg', { waitUntil: 'domcontentloaded' })
   await page.locator('#nav-tailwind-elements').click()
@@ -1801,7 +1802,7 @@ test('a Mermaid render rejection shows the accessible failure state without an e
   expect(pageErrors).toEqual([])
 })
 
-test('diagrams render after Docs navigation and light-dark rerenders', async ({ page }) => {
+test('diagrams render after Docs navigation and light-dark rerenders', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
   await page.locator('#nav-docs-diagrams').click()
@@ -1827,7 +1828,7 @@ test('diagrams render after Docs navigation and light-dark rerenders', async ({ 
   expect(browserErrors).toEqual([])
 })
 
-test('diagram previews rerender after their hidden panel becomes visible', async ({ page }) => {
+test('diagram previews rerender after their hidden panel becomes visible', crossBrowser, async ({ page }) => {
   await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
   const example = page.locator('[data-docs-example="true"]:has(#docs-mermaid-example-tab-preview)')
   await example.getByRole('tab', { name: 'Preview' }).click()
@@ -1838,7 +1839,7 @@ test('diagram previews rerender after their hidden panel becomes visible', async
   expect((await diagram.boundingBox())!.width).toBeGreaterThan(200)
 })
 
-test('documentation remains readable when text is resized to 200 percent', async ({ page }) => {
+test('documentation remains readable when text is resized to 200 percent', crossBrowser, async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 })
   await page.goto('/docs', { waitUntil: 'domcontentloaded' })
   await page.locator('html').evaluate(element => { element.style.fontSize = '200%' })
@@ -1853,7 +1854,7 @@ test('documentation remains readable when text is resized to 200 percent', async
   expect(bounds.headingRight).toBeLessThanOrEqual(bounds.mainRight)
 })
 
-test('Docs catalog navigation updates articles without a full-page browser error', async ({ page }) => {
+test('Docs catalog navigation updates articles without a full-page browser error', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/docs/page-examples/api-reference', { waitUntil: 'domcontentloaded' })
   await expect(page.locator('#nav-fsharp-viewengine-docs')).toHaveAttribute('aria-expanded', 'true')
@@ -1965,7 +1966,7 @@ test('API reference page example renders endpoint and request-response compositi
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
-test('specification page example state tabs support pointer and keyboard navigation', async ({ page }) => {
+test('specification page example state tabs support pointer and keyboard navigation', crossBrowser, async ({ page }) => {
   await page.goto('/docs/page-examples/executable-specification', { waitUntil: 'domcontentloaded' })
   const example = page.locator('[data-docs-example="true"]').first()
   await example.getByRole('tab', { name: 'Preview' }).click()
@@ -1982,7 +1983,7 @@ test('specification page example state tabs support pointer and keyboard navigat
   await expect(ready).toHaveAttribute('aria-selected', 'true')
 })
 
-test('benchmark tables remain readable without page overflow on mobile', async ({ page }) => {
+test('benchmark tables remain readable without page overflow on mobile', crossBrowser, async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/benchmarks', { waitUntil: 'domcontentloaded' })
 
