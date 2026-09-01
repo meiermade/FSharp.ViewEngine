@@ -1013,6 +1013,8 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
     const panel = page.locator(`#${panelId}`)
     await expect(panel).toBeVisible()
     await expect(panel.locator('.fve-components')).toHaveCount(1)
+    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
+    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
     return panel.locator('.fve-components')
   }
   const attachScreenshot = async (name: string) => {
