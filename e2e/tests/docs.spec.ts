@@ -50,6 +50,8 @@ const routes = [
   { path: '/components/radio-group', heading: 'Radio group', layout: 'article' },
   { path: '/components/dropdown-menu', heading: 'Dropdown menu', layout: 'article' },
   { path: '/components/dialog', heading: 'Dialog', layout: 'article' },
+  { path: '/components/confirmation-dialog', heading: 'Confirmation dialog', layout: 'article' },
+  { path: '/components/drawer', heading: 'Drawer', layout: 'article' },
   { path: '/components/collection', heading: 'Collection', layout: 'article' },
   { path: '/components/detail', heading: 'Detail', layout: 'article' },
   { path: '/components/app-shell', heading: 'App shell', layout: 'article' },
@@ -767,7 +769,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
   await expect(appShellSurface.locator('[aria-current="page"]')).toBeVisible()
 
-  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/combobox', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/app-shell']) {
+  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/combobox', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/app-shell']) {
     await page.goto(path, { waitUntil: 'domcontentloaded' })
     await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
     await page.evaluate(() => (window as any).fsharpDocsCode.loading)
@@ -784,6 +786,8 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(catalog.getByRole('link', { name: /FEEDBACK Empty state/ })).toHaveAttribute('href', '/components/empty-state')
   await expect(catalog.getByRole('link', { name: /DATA DISPLAY Description list/ })).toHaveAttribute('href', '/components/description-list')
   await expect(catalog.getByRole('link', { name: /DATA DISPLAY Chart/ })).toHaveAttribute('href', '/components/chart')
+  await expect(catalog.getByRole('link', { name: /OVERLAYS Confirmation dialog/ })).toHaveAttribute('href', '/components/confirmation-dialog')
+  await expect(catalog.getByRole('link', { name: /OVERLAYS Drawer/ })).toHaveAttribute('href', '/components/drawer')
   await expect(catalog.getByRole('link', { name: /COMPOSITIONS App shell/ })).toHaveAttribute('href', '/components/app-shell')
   await attachScreenshot('components-catalog-desktop-dark')
 
@@ -989,6 +993,147 @@ test('Combobox preserves static and remote state, ordering, focus, and responsiv
   await expect(mobileComboboxSurface.locator('#fve-combobox-account-popup').getByRole('alert')).toHaveText('Accounts could not be loaded.')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await attachScreenshot('components-combobox-mobile-light-error')
+  expect(browserErrors).toEqual([])
+})
+
+test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, instances, and responsive behavior', async ({ page }, testInfo) => {
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+  const browserErrors = captureBrowserErrors(page)
+  const openPreview = async (path: string, heading: string) => {
+    await page.goto(path, { waitUntil: 'commit' })
+    await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
+    const example = page.locator('[data-docs-example="true"]')
+    await expect(example).toHaveCount(1)
+    const previewTab = example.getByRole('tab', { name: 'Preview' })
+    const panelId = await previewTab.getAttribute('aria-controls')
+    expect(panelId).toBeTruthy()
+    await previewTab.click()
+    const panel = page.locator(`#${panelId}`)
+    await expect(panel).toBeVisible()
+    await expect(panel.locator('.fve-components')).toHaveCount(1)
+    return panel.locator('.fve-components')
+  }
+  const attachScreenshot = async (name: string) => {
+    if (testInfo.project.name !== 'chromium') return
+    await testInfo.attach(name, {
+      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+  }
+  const expectOutsideFocusBlocked = async (modal: Locator, outside: Locator) => {
+    await outside.evaluate(element => (element as HTMLElement).focus())
+    await expect(outside).not.toBeFocused()
+    expect(await modal.evaluate(element => element.contains(document.activeElement) || document.activeElement === document.body)).toBe(true)
+  }
+
+  const dialogSurface = await openPreview('/components/dialog', 'Dialog')
+  const dialogTrigger = dialogSurface.getByRole('button', { name: 'Review account' })
+  const dialog = dialogSurface.getByRole('dialog', { name: 'Review account' })
+  await dialogTrigger.click()
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expectOutsideFocusBlocked(dialog, dialogTrigger)
+  await page.mouse.click(10, 400)
+  await expect(dialog).toBeHidden()
+  await expect(dialogTrigger).toBeFocused()
+
+  const confirmationSurface = await openPreview('/components/confirmation-dialog', 'Confirmation dialog')
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
+  const confirmationTrigger = confirmationSurface.locator('#delete-account-confirmation-trigger')
+  const confirmation = confirmationSurface.getByRole('alertdialog', { name: 'Delete account?' })
+  await confirmationTrigger.click()
+  await expect(confirmation).toBeVisible()
+  const cancelConfirmation = confirmation.getByRole('button', { name: 'Keep account' })
+  const confirmDeletion = confirmation.getByRole('button', { name: 'Delete account' })
+  await expect(cancelConfirmation).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expectOutsideFocusBlocked(confirmation, confirmationTrigger)
+  await confirmDeletion.focus()
+  await expect(confirmDeletion).toBeFocused()
+  const confirmationAccessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+  expect(confirmationAccessibility.violations, 'open ConfirmationDialog').toEqual([])
+
+  let confirmationRequests = 0
+  page.on('request', request => {
+    if (new URL(request.url()).pathname === '/components/dialogs/confirm') confirmationRequests++
+  })
+  const confirmationResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/dialogs/confirm')
+  await confirmDeletion.click()
+  await expect(confirmDeletion).toBeDisabled()
+  await expect(confirmDeletion).toHaveAttribute('aria-busy', 'true')
+  await expect(confirmation.getByRole('status')).toHaveText('Confirmation in progress.')
+  await page.keyboard.press('Escape')
+  await expect(confirmation).toBeVisible()
+  await attachScreenshot('components-confirmation-dialog-desktop-dark-pending')
+  await confirmationResponse
+  await expect(confirmation.getByRole('alert')).toHaveText('Operating cannot be deleted while posted entries are assigned to its open period.')
+  await expect(confirmation.getByRole('button', { name: 'Delete account' })).toBeFocused()
+  expect(confirmationRequests).toBe(1)
+  await confirmation.getByRole('button', { name: 'Keep account' }).click()
+  await expect(confirmation).toBeHidden()
+  await expect(confirmationTrigger).toBeFocused()
+
+  const drawerSurface = await openPreview('/components/drawer', 'Drawer')
+  const accountDrawerTrigger = drawerSurface.getByRole('button', { name: 'Open account panel' })
+  const filterDrawerTrigger = drawerSurface.getByRole('button', { name: 'Open filters' })
+  const accountDrawer = drawerSurface.getByRole('dialog', { name: 'Account settings' })
+  const filterDrawer = drawerSurface.getByRole('dialog', { name: 'Account filters' })
+  await accountDrawerTrigger.click()
+  await expect(accountDrawer).toBeVisible()
+  await expect(accountDrawer.getByRole('link', { name: 'Profile' })).toBeFocused()
+  await expect(accountDrawer.getByRole('navigation', { name: 'Account settings' })).toBeVisible()
+  const accountDrawerBox = await accountDrawer.boundingBox()
+  expect(accountDrawerBox).toBeTruthy()
+  expect(accountDrawerBox!.x + accountDrawerBox!.width).toBeCloseTo(await page.evaluate(() => window.innerWidth), 0)
+  expect(accountDrawerBox!.width).toBeLessThanOrEqual(384)
+  await attachScreenshot('components-drawer-desktop-dark-end')
+  await page.mouse.click(10, 400)
+  await expect(accountDrawer).toBeHidden()
+  await expect(accountDrawerTrigger).toBeFocused()
+
+  await filterDrawerTrigger.click()
+  await expect(filterDrawer).toBeVisible()
+  const filterDrawerBox = await filterDrawer.boundingBox()
+  expect(filterDrawerBox).toBeTruthy()
+  expect(filterDrawerBox!.x).toBeCloseTo(0, 0)
+  await page.keyboard.press('Escape')
+  await expect(filterDrawer).toBeHidden()
+  await expect(filterDrawerTrigger).toBeFocused()
+
+  await accountDrawerTrigger.click()
+  const refreshPanel = accountDrawer.getByRole('button', { name: 'Refresh panel' })
+  await refreshPanel.click()
+  await expect(accountDrawer.getByRole('status')).toHaveText('Panel content refreshed from the server.')
+  await expect(accountDrawer.getByRole('button', { name: 'Refresh panel' })).toBeFocused()
+  await expect(accountDrawer).toBeVisible()
+  await page.keyboard.press('Tab')
+  await expectOutsideFocusBlocked(accountDrawer, accountDrawerTrigger)
+  await page.keyboard.press('Escape')
+  await expect(accountDrawerTrigger).toBeFocused()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Light' }).click()
+  const mobileDrawerSurface = await openPreview('/components/drawer', 'Drawer')
+  const mobileDrawerTrigger = mobileDrawerSurface.getByRole('button', { name: 'Open account panel' })
+  const mobileDrawer = mobileDrawerSurface.getByRole('dialog', { name: 'Account settings' })
+  await mobileDrawerTrigger.click()
+  await expect(mobileDrawer.getByRole('link', { name: 'Profile' })).toBeFocused()
+  const mobileDrawerBox = await mobileDrawer.boundingBox()
+  expect(mobileDrawerBox).toBeTruthy()
+  expect(mobileDrawerBox!.x).toBeGreaterThanOrEqual(0)
+  expect(mobileDrawerBox!.x + mobileDrawerBox!.width).toBeLessThanOrEqual(390)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await attachScreenshot('components-drawer-mobile-light-end')
+  await page.mouse.click(10, 400)
+  await expect(mobileDrawer).toBeHidden()
+  await expect(mobileDrawerTrigger).toBeFocused()
   expect(browserErrors).toEqual([])
 })
 
