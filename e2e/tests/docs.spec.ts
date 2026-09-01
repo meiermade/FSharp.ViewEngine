@@ -215,6 +215,8 @@ test('Components pages provide focused examples, navigation, interaction, themes
   const openPreview = async (path: string, heading: string) => {
     await page.goto(path, { waitUntil: 'commit' })
     await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
+    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
+    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
     const example = page.locator('[data-docs-example="true"]')
     await expect(example).toHaveCount(1)
     const previewTab = example.getByRole('tab', { name: 'Preview' })
