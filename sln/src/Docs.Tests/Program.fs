@@ -57,6 +57,7 @@ let private expectedPaths =
         "/components/checkbox"
         "/components/switch"
         "/components/toggle-button"
+        "/components/tabs"
         "/components/radio-group"
         "/components/dropdown-menu"
         "/components/dialog"
@@ -140,6 +141,7 @@ let tests =
                 [ "Table"; "Description list"; "Metric"; "Pagination"; "Chart" ]
                 "data-display components"
             Expect.sequenceEqual (section "Form controls") [ "Select"; "Combobox"; "Checkbox"; "Switch"; "Toggle button"; "Radio group" ] "form controls"
+            Expect.sequenceEqual (section "Navigation") [ "Tabs" ] "navigation components"
             Expect.sequenceEqual (section "Menus and overlays") [ "Dropdown menu"; "Dialog"; "Confirmation dialog"; "Drawer" ] "menu and overlay components"
             Expect.sequenceEqual (section "Compositions") [ "Collection"; "Detail"; "App shell" ] "page compositions"
             Expect.sequenceEqual (section "Guides") [ "Interaction and server state"; "Accessibility"; "Theming and density"; "Tailwind CSS"; "Customization"; "Versioning" ] "shared Components guides"
@@ -425,13 +427,14 @@ after"""
                 Components.actionRegistrations
                 @ Components.dataDisplayRegistrations
                 @ Components.formControlRegistrations
+                @ Components.navigationRegistrations
                 @ Components.menuOverlayRegistrations
                 @ Components.compositionRegistrations
             let renderedComponents = componentRegistrations |> List.map render
             let renderedGuides = Components.guideRegistrations |> List.map render
             let allHtml = String.concat Environment.NewLine (overview :: installation :: renderedComponents @ renderedGuides)
 
-            Expect.equal Components.allRegistrations.Length 32 "overview, installation, twenty-four components, and six guides"
+            Expect.equal Components.allRegistrations.Length 33 "overview, installation, twenty-five components, and six guides"
             Expect.stringContains overview "Accessible, server-rendered Tailwind components" "consumer-facing introduction"
             Expect.stringContains overview "Browse components" "overview is a component catalog"
             Expect.stringContains overview "href=\"/components/button\"" "catalog deep-links Button"
@@ -495,6 +498,9 @@ after"""
                 "Checkbox.create &quot;includeArchived&quot; &quot;Include archived accounts&quot;"
                 "Switch.create &quot;postingNotifications&quot; &quot;Posting notifications&quot;"
                 "ToggleButton.create &quot;components-compact-rows&quot; &quot;Compact rows&quot;"
+                "Tabs.create &quot;components-example-format&quot; &quot;Example format&quot;"
+                "Tabs.withVariant TabsVariant.Underlined"
+                "Tab.create &quot;activity&quot; &quot;Activity&quot; activity"
                 "RadioGroup.create &quot;postingMode&quot; &quot;Posting mode&quot; id"
                 "DropdownMenu.create &quot;components-menu-actions&quot; &quot;Actions&quot;"
                 "Dialog.create &quot;review-account-dialog&quot; &quot;Review account&quot;"
@@ -537,6 +543,7 @@ after"""
             Expect.stringContains allHtml "aria-label=\"Account settings\"" "Drawer preserves consumer-owned navigation landmarks"
             Expect.stringContains allHtml "/components/dialogs/confirm" "ConfirmationDialog uses a real Docs-owned endpoint"
             Expect.stringContains allHtml "/components/drawers/account" "Drawer uses a real Docs-owned patch endpoint"
+            Expect.stringContains allHtml "/components/tabs/review" "Tabs uses a real Docs-owned patch endpoint"
             Expect.isFalse (allHtml.Contains("Select.describe")) "Select has no unobservable option-description modifier"
             Expect.stringContains allHtml "data-signals=\"{_components_menu_actions_open: false, _components_menu_actions_typeahead:" "menu IDs become valid isolated interaction signal tokens"
             Expect.isFalse (allHtml.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
@@ -547,6 +554,50 @@ after"""
             let versioning = render Components.versioningRegistration
             Expect.stringContains versioning "rel=\"prev\" href=\"/components/customization\"" "last guide follows customization"
             Expect.stringContains versioning "rel=\"next\" href=\"/docs\"" "Components precedes the specialized Docs toolkit"
+        }
+
+        test "Tabs render typed variants, collision-safe relationships, and isolated automatic activation" {
+            let first =
+                Tabs.create "account-tabs" "Account sections" [
+                    Tab.create "overview" "Overview" (p { "Summary" })
+                    Tab.create "tax.reserve" "Tax reserve" (a { _href "/tax"; "Tax settings" }) ]
+                |> Tabs.withSelected "tax.reserve"
+                |> Tabs.withVariant TabsVariant.Underlined
+                |> Tabs.render
+                |> Render.toString
+
+            Expect.stringContains first "id=\"account-tabs\"" "Tabs retain the consumer stable ID"
+            Expect.stringContains first "role=\"tablist\" aria-label=\"Account sections\" aria-orientation=\"horizontal\"" "tab list has required accessible identity"
+            Expect.equal (Regex.Matches(first, "role=\"tab\"").Count) 2 "one tab per item"
+            Expect.equal (Regex.Matches(first, "role=\"tabpanel\"").Count) 2 "one panel per item"
+            Expect.stringContains first "id=\"account-tabs-tab-v7461782e72657365727665\"" "UTF-8 hex identity preserves punctuation without collisions"
+            Expect.stringContains first "aria-controls=\"account-tabs-panel-v7461782e72657365727665\"" "tab controls its stable panel"
+            Expect.stringContains first "aria-labelledby=\"account-tabs-tab-v7461782e72657365727665\"" "panel is labelled by its tab"
+            Expect.stringContains first "aria-selected=\"true\" tabindex=\"0\"" "selected tab owns the composite tab stop"
+            Expect.stringContains first "hidden data-attr:hidden" "inactive panels leave interaction and accessibility trees"
+            Expect.stringContains first "evt.key == &#39;ArrowLeft&#39;" "Left Arrow is handled"
+            Expect.stringContains first "evt.key == &#39;ArrowRight&#39;" "Right Arrow is handled"
+            Expect.stringContains first "evt.key == &#39;Home&#39;" "Home is handled"
+            Expect.stringContains first "evt.key == &#39;End&#39;" "End is handled"
+            Expect.stringContains first "aria-selected:border-[var(--fve-brand-solid)]" "Underlined variant uses semantic selected treatment"
+
+            let adjacent =
+                div {
+                    Tabs.create "first-tabs" "First views" [ Tab.create "same" "Same" (p { "First" }) ] |> Tabs.render
+                    Tabs.create "second-tabs" "Second views" [ Tab.create "same" "Same" (p { "Second" }) ] |> Tabs.render
+                }
+                |> Render.toString
+            let ids = Regex.Matches(adjacent, " id=\"([^\"]+)\"") |> Seq.cast<Match> |> Seq.map (fun matched -> matched.Groups[1].Value) |> Seq.toList
+            Expect.equal ids.Length (ids |> List.distinct |> List.length) "adjacent instances produce no duplicate IDs"
+            Expect.stringContains adjacent "_tabs_v66697273742d74616273_selected" "first signal is collision-safe and local"
+            Expect.stringContains adjacent "_tabs_v7365636f6e642d74616273_selected" "second signal is collision-safe and local"
+
+            let duplicateItems = [ Tab.create "same" "One" (p { "One" }); Tab.create "same" "Two" (p { "Two" }) ]
+            Expect.throws (fun () -> Tabs.create "tabs" "Views" [] |> ignore) "Tabs reject empty item sets"
+            Expect.throws (fun () -> Tabs.create "tabs" "Views" duplicateItems |> ignore) "Tabs reject duplicate item IDs"
+            Expect.throws (fun () -> Tabs.create "tabs" "Views" [ Tab.create "one" "One" (p { "One" }) ] |> Tabs.withSelected "missing" |> ignore) "Tabs reject unknown selected items"
+            Expect.throws (fun () -> Tab.create " " "One" (p { "One" }) |> ignore) "Tab rejects whitespace IDs"
+            Expect.throws (fun () -> Tabs.create "tabs" " " [ Tab.create "one" "One" (p { "One" }) ] |> ignore) "Tabs require an accessible group label"
         }
 
         test "Dialog overlays preserve native modal semantics, safe confirmation state, and responsive drawer identity" {
@@ -1266,6 +1317,8 @@ after"""
             Expect.stringContains manifest ".dark .fve-theme-sky" "Sky ships theme-specific dark brand roles"
             Expect.stringContains manifest ".dark .fve-theme-emerald" "Emerald ships theme-specific dark brand roles"
             Expect.stringContains manifest "input[type=\"search\"]::-webkit-search-cancel-button" "branded Combobox clear action replaces duplicate WebKit search chrome"
+            Expect.stringContains manifest "aria-selected:bg-[var(--fve-surface)]" "segmented Tabs selected surface is forced"
+            Expect.stringContains manifest "aria-selected:border-[var(--fve-brand-solid)]" "underlined Tabs selected border is forced"
             Expect.stringContains renderer "py-[var(--fve-control-padding-block)]" "renderers consume the semantic density token"
             for role in [ "subtle"; "solid"; "hover"; "active"; "text"; "ring" ] do
                 Expect.isGreaterThanOrEqual
@@ -1279,6 +1332,8 @@ after"""
             Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
             Expect.stringContains verification ".active\\:bg-\\[var\\(--fve-brand-active\\)\\]" "verification checks generated active-state utility"
             Expect.stringContains verification ".overflow-x-auto" "verification checks data-display overflow utility"
+            Expect.stringContains verification ".aria-selected\\:bg-\\[var\\(--fve-surface\\)\\]" "verification checks segmented Tabs selection"
+            Expect.stringContains verification ".aria-selected\\:border-\\[var\\(--fve-brand-solid\\)\\]" "verification checks underlined Tabs selection"
             Expect.stringContains verification ".backdrop\\:bg-\\[var\\(--fve-overlay-backdrop\\)\\]" "verification checks semantic overlay backdrop utility"
             Expect.stringContains verification ".sm\\:w-96" "verification checks responsive drawer width"
             Expect.stringContains verification ".lg\\:grid-cols-3" "verification checks responsive detail columns"

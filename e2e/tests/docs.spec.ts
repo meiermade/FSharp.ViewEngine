@@ -47,6 +47,7 @@ const routes = [
   { path: '/components/checkbox', heading: 'Checkbox', layout: 'article' },
   { path: '/components/switch', heading: 'Switch', layout: 'article' },
   { path: '/components/toggle-button', heading: 'Toggle button', layout: 'article' },
+  { path: '/components/tabs', heading: 'Tabs', layout: 'article' },
   { path: '/components/radio-group', heading: 'Radio group', layout: 'article' },
   { path: '/components/dropdown-menu', heading: 'Dropdown menu', layout: 'article' },
   { path: '/components/dialog', heading: 'Dialog', layout: 'article' },
@@ -202,6 +203,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
     ['/components/checkbox', 'Checkbox'],
     ['/components/switch', 'Switch'],
     ['/components/toggle-button', 'Toggle button'],
+    ['/components/tabs', 'Tabs'],
     ['/components/radio-group', 'Radio group'],
     ['/components/dropdown-menu', 'Dropdown menu'],
     ['/components/dialog', 'Dialog'],
@@ -769,7 +771,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
   await expect(appShellSurface.locator('[aria-current="page"]')).toBeVisible()
 
-  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/combobox', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/app-shell']) {
+  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/combobox', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/tabs', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/app-shell']) {
     await page.goto(path, { waitUntil: 'domcontentloaded' })
     await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
     await page.evaluate(() => (window as any).fsharpDocsCode.loading)
@@ -836,6 +838,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await attachScreenshot('components-checkbox-mobile-dark')
   await openPreview('/components/switch', 'Switch')
   await openPreview('/components/toggle-button', 'Toggle button')
+  await openPreview('/components/tabs', 'Tabs')
   await openPreview('/components/radio-group', 'Radio group')
   await attachScreenshot('components-radio-group-mobile-dark')
 
@@ -993,6 +996,120 @@ test('Combobox preserves static and remote state, ordering, focus, and responsiv
   await expect(mobileComboboxSurface.locator('#fve-combobox-account-popup').getByRole('alert')).toHaveText('Accounts could not be loaded.')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await attachScreenshot('components-combobox-mobile-light-error')
+  expect(browserErrors).toEqual([])
+})
+
+test('Tabs preserve variants, automatic keyboard selection, instances, morphs, and responsive accessibility', async ({ page }, testInfo) => {
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+  const browserErrors = captureBrowserErrors(page)
+  const attachScreenshot = async (name: string) => {
+    if (testInfo.project.name !== 'chromium') return
+    await testInfo.attach(name, {
+      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+  }
+  const openPreview = async () => {
+    await page.goto('/components/tabs', { waitUntil: 'commit' })
+    await expect(page.getByRole('heading', { level: 1, name: 'Tabs', exact: true })).toBeVisible()
+    const example = page.locator('[data-docs-example="true"]')
+    const previewTab = example.getByRole('tab', { name: 'Preview' })
+    const panelId = await previewTab.getAttribute('aria-controls')
+    expect(panelId).toBeTruthy()
+    await previewTab.click()
+    const panel = page.locator(`#${panelId}`)
+    await expect(panel).toBeVisible()
+    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
+    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
+    return panel.locator('.fve-components')
+  }
+
+  const surface = await openPreview()
+  const segmented = surface.getByRole('tablist', { name: 'Example format' })
+  const codeTab = segmented.getByRole('tab', { name: 'Code' })
+  const previewTab = segmented.getByRole('tab', { name: 'Preview' })
+  const codePanel = surface.getByRole('tabpanel', { name: 'Code' })
+  const previewPanel = surface.getByRole('tabpanel', { name: 'Preview' })
+  await expect(previewTab).toHaveAttribute('aria-selected', 'true')
+  await expect(previewTab).toHaveAttribute('tabindex', '0')
+  await expect(previewPanel).toBeVisible()
+  await expect(codePanel).toBeHidden()
+
+  await previewTab.focus()
+  await page.keyboard.press('ArrowLeft')
+  await expect(codeTab).toBeFocused()
+  await expect(codeTab).toHaveAttribute('aria-selected', 'true')
+  await expect(codePanel).toBeVisible()
+  await expect(previewPanel).toBeHidden()
+  await page.keyboard.press('Tab')
+  await expect(codePanel).toBeFocused()
+  await codeTab.focus()
+  await page.keyboard.press('End')
+  await expect(previewTab).toBeFocused()
+  await expect(previewTab).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('Home')
+  await expect(codeTab).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(previewTab).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(codeTab).toBeFocused()
+  await previewTab.click()
+
+  const underlined = surface.getByRole('tablist', { name: 'Account sections' })
+  const overviewTab = underlined.getByRole('tab', { name: 'Overview' })
+  const activityTab = underlined.getByRole('tab', { name: 'Activity' })
+  const settingsTab = underlined.getByRole('tab', { name: 'Settings' })
+  await expect(overviewTab).toHaveAttribute('aria-selected', 'true')
+  await overviewTab.focus()
+  await page.keyboard.press('End')
+  await expect(settingsTab).toBeFocused()
+  await expect(settingsTab).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('ArrowRight')
+  await expect(overviewTab).toBeFocused()
+  await activityTab.click()
+  await expect(activityTab).toHaveAttribute('aria-selected', 'true')
+  await expect(surface.getByRole('tabpanel', { name: 'Activity' })).toBeVisible()
+  await expect(previewTab).toHaveAttribute('aria-selected', 'true')
+
+  const refresh = surface.getByRole('button', { name: 'Refresh activity' })
+  await refresh.click()
+  await expect(surface.getByRole('status')).toHaveText('Review refreshed')
+  await expect(surface.getByText('Updated just now.')).toBeVisible()
+  await expect(underlined.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true')
+  await expect(surface.getByRole('button', { name: 'Refresh activity' })).toBeFocused()
+  await expect(previewTab).toHaveAttribute('aria-selected', 'true')
+
+  const ids = await surface.locator('[id]').evaluateAll(elements => elements.map(element => element.id))
+  expect(new Set(ids).size).toBe(ids.length)
+  const accessibility = await new AxeBuilder({ page })
+    .include('#components-tabs-panel-preview')
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+  expect(accessibility.violations, 'Tabs preview').toEqual([])
+
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
+  await underlined.getByRole('tab', { name: 'Activity' }).focus()
+  await page.keyboard.press('ArrowLeft')
+  await page.keyboard.press('ArrowRight')
+  await expect(underlined.getByRole('tab', { name: 'Activity' })).toBeFocused()
+  await attachScreenshot('components-tabs-desktop-dark-variants')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Light' }).click()
+  const mobileSurface = await openPreview()
+  const mobileSegmented = mobileSurface.getByRole('tablist', { name: 'Example format' })
+  const mobileUnderlined = mobileSurface.getByRole('tablist', { name: 'Account sections' })
+  await mobileSegmented.getByRole('tab', { name: 'Code' }).focus()
+  await page.keyboard.press('ArrowRight')
+  await page.keyboard.press('ArrowLeft')
+  await expect(mobileSegmented.getByRole('tab', { name: 'Code' })).toBeFocused()
+  await expect(mobileUnderlined).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await attachScreenshot('components-tabs-mobile-light-variants')
   expect(browserErrors).toEqual([])
 })
 

@@ -357,6 +357,12 @@ let view =
         ToggleButton.create "package-compact" "Compact rows"
         |> ToggleButton.pending
         |> ToggleButton.render
+        Tabs.create "package-tabs" "Value sections" [
+            Tab.create "overview" "Overview" (p { "Value summary" })
+            Tab.create "activity" "Activity" (p { "Value activity" }) ]
+        |> Tabs.withSelected "activity"
+        |> Tabs.withVariant TabsVariant.Underlined
+        |> Tabs.render
         RadioGroup.create "mode" "Mode" id [ RadioGroup.option "automatic" "Automatic"; RadioGroup.option "manual" "Manual" ]
         |> RadioGroup.withId "package-mode"
         |> RadioGroup.required
@@ -405,6 +411,9 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "name=\"confirmed\"")
    || not (actual.Contains "role=\"switch\"")
    || not (actual.Contains "aria-pressed=\"false\"")
+   || not (actual.Contains "role=\"tablist\"")
+   || not (actual.Contains "role=\"tabpanel\"")
+   || not (actual.Contains "aria-selected:border-[var(--fve-brand-solid)]")
    || not (actual.Contains "role=\"radiogroup\"")
    || not (actual.Contains "role=\"group\"")
    || not (actual.Contains "left-0")

@@ -42,6 +42,7 @@
     <Compile Include="Checkbox.fs" />
     <Compile Include="Switch.fs" />
     <Compile Include="ToggleButton.fs" />
+    <Compile Include="Tabs.fs" />
     <Compile Include="RadioGroup.fs" />
     <Compile Include="DropdownMenu.fs" />
     <Compile Include="Dialog.fs" />
