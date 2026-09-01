@@ -71,7 +71,7 @@ DescriptionList and DetailField render responsive native `dl`/`dt`/`dd` relation
 
 Components use Datastar signals for ephemeral open, query, focus, and selection presentation. Applications remain responsible for durable state, authorization, validation, routing, and server actions.
 
-Select, Combobox, DropdownMenu, Dialog, Checkbox, Switch, ToggleButton, and RadioGroup preserve their distinct form and accessibility semantics. Required accessible labels are constructor inputs.
+Select, Combobox, DropdownMenu, Dialog, Checkbox, Switch, ToggleButton, Tabs, and RadioGroup preserve their distinct form and accessibility semantics. Required accessible labels are constructor inputs.
 
 Select is a typed select-only combobox: applications provide values, explicit encoding, options, and server validation while the component owns branded listbox presentation, active-descendant focus, disabled options, bounded typeahead, and the canonical closed/open keyboard model. `Select.required`, `Select.disabled`, `Select.pending`, and `Select.withValidation` expose truthful state without introducing a native-select wrapper. Disabled or pending Select values are omitted from ordinary form submission.
 
@@ -106,6 +106,20 @@ let requiredMode =
 ```
 
 `required` and `disabled` are not combined on native inputs because disabled controls do not participate in browser constraint validation. Applications must validate every received value, and client-disabled presentation is not authorization.
+
+Tabs switches among same-page peer panels with typed `TabsVariant.Segmented` and `TabsVariant.Underlined` presentation. A stable Tabs ID and required accessible group label produce collision-safe instance-local Datastar state, linked `tablist`/`tab`/`tabpanel` relationships, one roving tab stop, wrapping Left/Right movement, Home/End boundaries, automatic activation for immediately available server-rendered panels, and hidden inactive panels.
+
+```fsharp
+let accountTabs =
+    Tabs.create "account-tabs" "Account sections" [
+        Tab.create "overview" "Overview" overviewPanel
+        Tab.create "activity" "Activity" activityPanel ]
+    |> Tabs.withSelected "overview"
+    |> Tabs.withVariant TabsVariant.Underlined
+    |> Tabs.render
+```
+
+Use Tabs only when controls reveal associated panels in the same page. Use links for URL navigation, RadioGroup for a submitted mutually exclusive value, and ToggleButton for one independently pressed action. Patch the stable Tabs root with the same item identities so Datastar can preserve valid selected state and focus across server-rendered updates.
 
 DropdownMenu keeps typed destinations and trusted Datastar actions application-owned while providing labelled groups, separators, leading content, shortcut hints, destructive tone, disabled or pending items, and typed Start/End popup alignment. Enabled items support pointer activation, wrapping Arrow/Home/End movement, Enter/Space activation, bounded character navigation, outside/Tab dismissal, Escape focus restoration, isolated stable-ID signals, and server-rendered morph continuity.
 

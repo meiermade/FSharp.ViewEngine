@@ -52,6 +52,10 @@ module Handler =
         let html = Components.patchedAccountDrawerContent |> Render.toString
         setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
 
+    let private componentTabsPatch : HttpHandler =
+        let html = Components.reviewTabsRegion true |> Render.toString
+        setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
+
     let private componentConfirmationDialog : HttpHandler =
         fun next context ->
             task {
@@ -181,6 +185,7 @@ module Handler =
             route "/components/pagination" >=> componentPagination
             route "/components/menus/actions" >=> componentDropdownMenuPatch
             route "/components/drawers/account" >=> componentDrawerPatch
+            route "/components/tabs/review" >=> componentTabsPatch
             route "/components/accounts/search/settled" >=> componentAccountSearchSettled
             route "/components/accounts/search" >=> componentAccountSearch
             choose (previewRoutes @ pageRoutes)

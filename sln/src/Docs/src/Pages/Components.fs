@@ -632,6 +632,44 @@ module Components =
         themedSurface (div { _class "flex flex-wrap items-center gap-3"; compactRows; pendingCompactRows; disabledCompactRows })
     // docs-example:end toggle-button
 
+    // docs-example:start tabs
+    let codePreviewTabs =
+        Tabs.create "components-example-format" "Example format" [
+            Tab.create "code" "Code" (pre { _class "overflow-x-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-4 text-sm"; "Button.secondary \"Create account\"" })
+            Tab.create "preview" "Preview" (div { _class "rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] p-4"; Button.secondary "Create account" }) ]
+        |> Tabs.withSelected "preview"
+        |> Tabs.render
+
+    let reviewTabsRegion refreshed =
+        let refreshActivityButton =
+            Button.create "Refresh activity"
+            |> Button.withVariant ButtonVariant.Secondary
+            |> Button.withAttributes [ _id "components-tabs-refresh"; _dataOn ("click", "evt.currentTarget.focus(); @get('/components/tabs/review')") ]
+            |> Button.render
+        let activity =
+            if refreshed then
+                div {
+                    p { _role "status"; _class "font-medium"; "Review refreshed" }
+                    p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; "Updated just now." }
+                    refreshActivityButton
+                }
+            else
+                div {
+                    p { _class "text-sm text-[var(--fve-muted-text)]"; "Three account changes need review." }
+                    refreshActivityButton
+                }
+
+        Tabs.create "components-review-tabs" "Account sections" [
+            Tab.create "overview" "Overview" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Operating balance: $42,800" })
+            Tab.create "activity" "Activity" activity
+            Tab.create "settings" "Settings" (a { _href "/components/theming"; _class "font-medium text-[var(--fve-brand-text)]"; "Review account theme settings" }) ]
+        |> Tabs.withVariant TabsVariant.Underlined
+        |> Tabs.render
+
+    let tabsPreview =
+        themedSurface (div { _class "grid gap-8"; codePreviewTabs; reviewTabsRegion false })
+    // docs-example:end tabs
+
     // docs-example:start radio-group
     let private postingModeOptions =
         [ RadioGroup.option "automatic" "Automatic"
@@ -947,6 +985,7 @@ module Components =
     let checkboxRegistration = registration "components-checkbox" "/components/checkbox" "Checkbox" "Checkbox"
     let switchRegistration = registration "components-switch" "/components/switch" "Switch" "Switch"
     let toggleButtonRegistration = registration "components-toggle-button" "/components/toggle-button" "Toggle button" "Toggle button"
+    let tabsRegistration = registration "components-tabs" "/components/tabs" "Tabs" "Tabs"
     let radioGroupRegistration = registration "components-radio-group" "/components/radio-group" "Radio group" "Radio group"
     let dropdownMenuRegistration = registration "components-dropdown-menu" "/components/dropdown-menu" "Dropdown menu" "Dropdown menu"
     let dialogRegistration = registration "components-dialog" "/components/dialog" "Dialog" "Dialog"
@@ -977,6 +1016,7 @@ module Components =
           switchRegistration
           toggleButtonRegistration
           radioGroupRegistration ]
+    let navigationRegistrations = [ tabsRegistration ]
     let menuOverlayRegistrations = [ dropdownMenuRegistration; dialogRegistration; confirmationDialogRegistration; drawerRegistration ]
     let compositionRegistrations = [ collectionRegistration; detailRegistration; appShellRegistration ]
     let guideRegistrations =
@@ -992,6 +1032,7 @@ module Components =
         @ actionRegistrations
         @ dataDisplayRegistrations
         @ formControlRegistrations
+        @ navigationRegistrations
         @ menuOverlayRegistrations
         @ compositionRegistrations
         @ guideRegistrations
@@ -1064,6 +1105,7 @@ AppShell.create productName current navigation content
             catalogLink "/components/switch" "FORM CONTROLS" "Switch" "Immediate on/off settings with switch semantics."
             catalogLink "/components/toggle-button" "FORM CONTROLS" "Toggle button" "A pressed or unpressed action state."
             catalogLink "/components/radio-group" "FORM CONTROLS" "Radio group" "One submitted choice from a labelled set."
+            catalogLink "/components/tabs" "NAVIGATION" "Tabs" "Segmented or underlined switching among same-page peer panels."
             catalogLink "/components/dropdown-menu" "MENUS" "Dropdown menu" "Keyboard-navigable actions and destinations."
             catalogLink "/components/dialog" "OVERLAYS" "Dialog" "Connected trigger, initial focus, dismissal, and focus restoration."
             catalogLink "/components/confirmation-dialog" "OVERLAYS" "Confirmation dialog" "Destructive confirmation with server validation and duplicate-submit protection."
@@ -1197,6 +1239,13 @@ AppShell.create productName current navigation content
             docsSection "when-to-use" "When to use a toggle button" [ docsParagraph "Use ToggleButton for an action state such as compact rows or pinned filters. Do not substitute it for Checkbox, Switch, or a Radio group when form-choice semantics are required." ]
             docsSection "accessibility" "Accessibility" [ docsParagraph "The visible label stays stable while aria-pressed communicates state. Pointer, Enter, and Space activation retain normal button behavior. Disabled and pending buttons prevent activation; pending also exposes aria-busy and a reduced-motion-safe loading indicator." ] ]
 
+    let tabsPage =
+        componentPage tabsRegistration "Switch among same-page peer panels with segmented or underlined presentation and one accessible interaction model." "tabs" tabsPreview [
+            docsSection "variants" "Segmented and underlined variants" [ docsParagraph "Use Segmented for compact view modes such as Code and Preview. Use Underlined for page-local peer sections. Both variants retain the same tablist, tab, and tabpanel semantics rather than becoming toggle buttons or navigation links." ]
+            docsSection "keyboard" "Keyboard and focus" [ docsParagraph "Because every panel is already server-rendered and immediately available, focus automatically activates a tab. Tab enters the selected tab once; Left and Right wrap among peers; Home and End move to the boundaries; Tab then enters the active panel. Pointer activation follows the same selected state." ]
+            docsSection "patches" "Stable server patches" [ docsParagraph "Each stable Tabs ID owns one collision-safe sparse selection signal. Patch the stable Tabs root with the same item identities to refresh panel content while Datastar preserves a valid selected item and focused tab. Adjacent instances remain independent." ]
+            docsSection "semantics" "Tabs or another control" [ docsParagraph "Use Tabs only when controls reveal associated same-page panels. Use real links for URL navigation, RadioGroup for a submitted mutually exclusive value, and ToggleButton for one independently pressed action state." ] ]
+
     let radioGroupPage =
         componentPage radioGroupRegistration "Choose exactly one submitted value from a labelled group of typed options." "radio-group" radioGroupPreview [
             docsSection "when-to-use" "When to use a radio group" [ docsParagraph "Use RadioGroup when all mutually exclusive options should remain visible. Use Select when the finite choice needs a more compact presentation." ]
@@ -1256,7 +1305,7 @@ AppShell.create productName current navigation content
 
     let accessibilityPage =
         docsArticle accessibilityRegistration.id accessibilityRegistration.title "Understand the semantic, keyboard, focus, label, and customization guarantees shared by Components." [
-            docsSection "semantics" "Distinct semantics" [ docsParagraph "Select, Combobox, Checkbox, Switch, ToggleButton, RadioGroup, DropdownMenu, Dialog, and AppShell navigation retain the roles and keyboard models appropriate to each interaction rather than sharing one generic choice control." ]
+            docsSection "semantics" "Distinct semantics" [ docsParagraph "Select, Combobox, Checkbox, Switch, ToggleButton, Tabs, RadioGroup, DropdownMenu, Dialog, and AppShell navigation retain the roles and keyboard models appropriate to each interaction rather than sharing one generic choice control." ]
             docsSection "focus" "Focus and active options" [ docsParagraph "Select and Combobox keep DOM focus on the combobox while aria-activedescendant identifies the visually active option. Select typeahead buffers rapid characters for prefix matching and cycles options when the same character is repeated." ]
             docsSection "labels" "Required labels" [ docsParagraph "Accessible labels are required where visible content cannot provide them. Compact layouts use typed visually hidden labels rather than omitting the accessible name." ]
             docsSection "protected-attributes" "Protected behavior" [ docsParagraph "Package-owned structure, form attributes, ARIA relationships, Datastar bindings, and base classes cannot be replaced through generic customization. Interactive components support pointer and keyboard operation, visible focus, disabled and pending states, multiple instances, and representative morphs." ] ]
@@ -1302,6 +1351,7 @@ AppShell.create productName current navigation content
           checkboxRegistration.path, checkboxPage
           switchRegistration.path, switchPage
           toggleButtonRegistration.path, toggleButtonPage
+          tabsRegistration.path, tabsPage
           radioGroupRegistration.path, radioGroupPage
           dropdownMenuRegistration.path, dropdownMenuPage
           dialogRegistration.path, dialogPage
