@@ -37,6 +37,11 @@
   overflow: visible;
 }
 
+.spec-example:has(.fve-components) > [role="tabpanel"] {
+  border-bottom-right-radius: calc(0.75rem - 1px);
+  border-bottom-left-radius: calc(0.75rem - 1px);
+}
+
 /* The Docs application supplies its own consumer theme around package examples. */
 .docs-components-preview .fve-components {
   --fve-page: var(--spec-bg);
