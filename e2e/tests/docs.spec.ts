@@ -1014,6 +1014,8 @@ test('Tabs preserve variants, automatic keyboard selection, instances, morphs, a
   const openPreview = async () => {
     await page.goto('/components/tabs', { waitUntil: 'commit' })
     await expect(page.getByRole('heading', { level: 1, name: 'Tabs', exact: true })).toBeVisible()
+    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
+    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
     const example = page.locator('[data-docs-example="true"]')
     const previewTab = example.getByRole('tab', { name: 'Preview' })
     const panelId = await previewTab.getAttribute('aria-controls')
@@ -1021,8 +1023,6 @@ test('Tabs preserve variants, automatic keyboard selection, instances, morphs, a
     await previewTab.click()
     const panel = page.locator(`#${panelId}`)
     await expect(panel).toBeVisible()
-    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
     return panel.locator('.fve-components')
   }
 
