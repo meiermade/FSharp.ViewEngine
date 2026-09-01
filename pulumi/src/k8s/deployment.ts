@@ -12,9 +12,9 @@ let appConfigMap = new k8s.core.v1.ConfigMap(config.identifier, {
     immutable: true,
     data: {
         SERVER_URL: 'http://0.0.0.0:5000',
-        SEQ_ENDPOINT: config.seqConfig.endpoint,
+        OTEL_EXPORTER_OTLP_ENDPOINT: config.openTelemetryConfig.endpoint,
     }
-}, { provider })
+}, { provider, deleteBeforeReplace: true })
 
 const labels = { 'app.kubernetes.io/name': config.identifier }
 

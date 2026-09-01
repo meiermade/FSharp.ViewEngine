@@ -29,8 +29,8 @@ export const k8sConfig = {
     namespace: rawK8sConfig.require('namespace'),
 }
 
-const rawSeqConfig = new pulumi.Config('seq')
+const rawOpenTelemetryConfig = new pulumi.Config('openTelemetry')
 
-export const seqConfig = {
-    endpoint: rawSeqConfig.require('endpoint'),
+export const openTelemetryConfig = {
+    endpoint: rawOpenTelemetryConfig.require('endpoint'),
 }

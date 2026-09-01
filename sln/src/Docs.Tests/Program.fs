@@ -79,6 +79,16 @@ let private expectedPaths =
 [<Tests>]
 let tests =
     testList "Direct F# documentation" [
+        test "OpenTelemetry log endpoint uses the collector logs path" {
+            let endpoint =
+                { endpoint = "http://otel-collector.platform.svc.cluster.local:4318/" }
+
+            Expect.equal
+                (OpenTelemetryConfig.logsEndpoint endpoint)
+                "http://otel-collector.platform.svc.cluster.local:4318/v1/logs"
+                "HTTP/protobuf logs use the collector logs endpoint"
+        }
+
         test "Page registry covers every public documentation route" {
             let actual = Registry.all |> List.map _.path |> Set.ofList
             Expect.equal actual expectedPaths "documentation routes"
