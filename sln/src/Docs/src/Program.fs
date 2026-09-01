@@ -31,7 +31,7 @@ let configureLogger (config:Config) =
             .MinimumLevel.Override("Microsoft.AspNetCore", LogEventLevel.Warning)
             .WriteTo.Console()
             .WriteTo.OpenTelemetry(fun options ->
-                options.Endpoint <- config.seq.endpoint + "/ingest/otlp/v1/logs"
+                options.Endpoint <- OpenTelemetryConfig.logsEndpoint config.openTelemetry
                 options.Protocol <- OtlpProtocol.HttpProtobuf
                 options.ResourceAttributes <- dict [ "service.name", box config.appName ])
             .CreateLogger()

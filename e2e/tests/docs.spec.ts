@@ -293,11 +293,6 @@ test('Components pages provide focused examples, navigation, interaction, themes
   const lightDocsPage = await resolvedBackground(docsRoot, '--spec-bg')
   const lightBrand = await resolvedBackground(buttonSurface, '--fve-brand-solid')
   const lightDocsAccent = await resolvedBackground(docsRoot, '--spec-accent-500')
-  const comfortableControl = buttonSurface.getByRole('button', { name: 'Create account' })
-  const comfortableDensity = await comfortableControl.evaluate(element => ({
-    height: getComputedStyle(element).height,
-    paddingTop: getComputedStyle(element).paddingTop,
-  }))
   expect(lightPage).toBe(lightDocsPage)
   expect(lightBrand).toBe(lightDocsAccent)
 
@@ -630,7 +625,43 @@ test('Components pages provide focused examples, navigation, interaction, themes
   expect(await clonedControlEntries(radioSurface.locator('input[name="postingMode"]:disabled'))).toEqual([])
   await attachScreenshot('components-radio-state-matrix-desktop-dark')
 
+  expect(browserErrors).toEqual([])
+})
+
+test('DropdownMenu preserves groups, alignment, activation, sibling dismissal, morphs, and responsive behavior', async ({ page }, testInfo) => {
+  test.slow()
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+  const browserErrors = captureBrowserErrors(page)
+  const attachScreenshot = async (name: string) => {
+    if (testInfo.project.name !== 'chromium') return
+    await testInfo.attach(name, {
+      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+  }
+  const openPreview = async (path: string, heading: string) => {
+    await page.goto(path, { waitUntil: 'commit' })
+    await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
+    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
+    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
+    const example = page.locator('[data-docs-example="true"]')
+    await expect(example).toHaveCount(1)
+    const previewTab = example.getByRole('tab', { name: 'Preview' })
+    const panelId = await previewTab.getAttribute('aria-controls')
+    expect(panelId).toBeTruthy()
+    await previewTab.click()
+    const panel = page.locator(`#${panelId}`)
+    await expect(panel).toBeVisible()
+    await expect(panel.locator('.fve-components')).toHaveCount(1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), path).toBe(true)
+    return panel.locator('.fve-components')
+  }
+
   const menuSurface = await openPreview('/components/dropdown-menu', 'Dropdown menu')
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
   const menuRegion = menuSurface.locator('#components-dropdown-menu-region')
   const actionsTrigger = menuRegion.getByRole('button', { name: 'Actions', exact: true })
   const actionsMenu = menuRegion.getByRole('menu', { name: 'Actions', exact: true })
@@ -750,6 +781,48 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await actionsTrigger.click()
   await attachScreenshot('components-dropdown-menu-desktop-light-open')
   await page.keyboard.press('Escape')
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
+  expect(browserErrors).toEqual([])
+})
+
+test('Components layouts, accessibility, catalog, and responsive previews remain coherent', async ({ page }, testInfo) => {
+  test.slow()
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+  const browserErrors = captureBrowserErrors(page)
+  const attachScreenshot = async (name: string) => {
+    if (testInfo.project.name !== 'chromium') return
+    await testInfo.attach(name, {
+      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+  }
+  const openPreview = async (path: string, heading: string) => {
+    await page.goto(path, { waitUntil: 'commit' })
+    await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
+    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
+    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
+    const example = page.locator('[data-docs-example="true"]')
+    await expect(example).toHaveCount(1)
+    const previewTab = example.getByRole('tab', { name: 'Preview' })
+    const panelId = await previewTab.getAttribute('aria-controls')
+    expect(panelId).toBeTruthy()
+    await previewTab.click()
+    const panel = page.locator(`#${panelId}`)
+    await expect(panel).toBeVisible()
+    await expect(panel.locator('.fve-components')).toHaveCount(1)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), path).toBe(true)
+    return panel.locator('.fve-components')
+  }
+
+  const buttonSurface = await openPreview('/components/button', 'Button')
+  const comfortableControl = buttonSurface.getByRole('button', { name: 'Create account' })
+  const comfortableDensity = await comfortableControl.evaluate(element => ({
+    height: getComputedStyle(element).height,
+    paddingTop: getComputedStyle(element).paddingTop,
+  }))
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
 
