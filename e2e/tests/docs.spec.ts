@@ -926,6 +926,37 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   expect(browserErrors).toEqual([])
 })
 
+test('Components examples preserve rounded panels without clipping anchored popups', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('/components/drawer', { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
+  await page.evaluate(() => (window as any).fsharpDocsCode.loading)
+
+  const example = page.locator('[data-docs-example="true"]')
+  await expect(example).toHaveCSS('overflow', 'visible')
+
+  for (const name of ['Code', 'Preview']) {
+    const tab = example.getByRole('tab', { name })
+    const panelId = await tab.getAttribute('aria-controls')
+    expect(panelId).toBeTruthy()
+    await tab.click()
+    const panel = page.locator(`#${panelId}`)
+    await expect(panel).toBeVisible()
+    await expect(panel).toHaveCSS('border-bottom-left-radius', '11px')
+    await expect(panel).toHaveCSS('border-bottom-right-radius', '11px')
+  }
+
+  await page.goto('/components/dropdown-menu', { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
+  await page.evaluate(() => (window as any).fsharpDocsCode.loading)
+  const menuExample = page.locator('[data-docs-example="true"]')
+  await menuExample.getByRole('tab', { name: 'Preview' }).click()
+  await expect(menuExample).toHaveCSS('overflow', 'visible')
+  await menuExample.getByRole('button', { name: 'Actions', exact: true }).click()
+  await expect(menuExample.getByRole('menu', { name: 'Actions', exact: true })).toBeVisible()
+  expect(browserErrors).toEqual([])
+})
+
 test('Combobox preserves static and remote state, ordering, focus, and responsive behavior', async ({ page }, testInfo) => {
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
