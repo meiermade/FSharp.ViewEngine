@@ -925,6 +925,9 @@ after"""
             Expect.stringContains html "every(character =&gt; character == $_account_actions_typeahead[0])" "DropdownMenu cycles repeated characters"
             Expect.stringContains html ":not([aria-disabled=true])" "DropdownMenu movement skips unavailable items"
             Expect.stringContains html "document.activeElement.click()" "DropdownMenu activates focused items with Enter or Space"
+            Expect.stringContains html "data-on:pointermove__window=\"el.dataset.fvePointerX = evt.clientX; el.dataset.fvePointerY = evt.clientY\"" "DropdownMenu remembers the last intentional pointer coordinates"
+            Expect.stringContains html "data-preserve-attr=\"data-fve-pointer-x data-fve-pointer-y\"" "DropdownMenu retains pointer coordinates through a server morph"
+            Expect.stringContains html "evt.clientX != Number(document.getElementById(&#39;account-actions-menu&#39;).dataset.fvePointerX)" "DropdownMenu ignores stationary pointer events after keyboard focus movement"
             Expect.stringContains html "document.getElementById(&#39;account-actions-trigger&#39;)?.focus()" "DropdownMenu restores its trigger when appropriate"
 
             let unavailableLink = Regex.Match(html, "<a[^>]*aria-disabled=\"true\"[^>]*>", RegexOptions.IgnoreCase).Value

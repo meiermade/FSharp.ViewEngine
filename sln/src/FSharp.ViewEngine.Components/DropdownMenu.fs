@@ -97,6 +97,10 @@ module DropdownMenu =
         let lastItem = $"{enabledItems}.at(-1)"
         let currentIndex = $"{enabledItems}.indexOf(document.activeElement)"
         let focus item = $"({item})?.focus()"
+        // WebKit can retarget a stationary pointer after focus scrolling; only intentional coordinate changes move focus.
+        let menuElement = $"document.getElementById('{menuId}')"
+        let pointerMoved = $"(evt.clientX != Number({menuElement}.dataset.fvePointerX) || evt.clientY != Number({menuElement}.dataset.fvePointerY))"
+        let rememberPointer = "el.dataset.fvePointerX = evt.clientX; el.dataset.fvePointerY = evt.clientY"
         let move offset =
             let missingIndex = if offset > 0 then -1 else 0
             $"evt.preventDefault(), {enabledItems}.length && {enabledItems}.at((({currentIndex} < 0 ? {missingIndex} : {currentIndex}) + {offset} + {enabledItems}.length) %% {enabledItems}.length)?.focus()"
@@ -160,7 +164,7 @@ module DropdownMenu =
                     if content.pending then _ariaBusy true
                     _attr ("data-fve-menu-label", content.label.ToLowerInvariant())
                     if unavailable |> not then
-                        _dataOn ("pointermove", "el.focus()")
+                        _dataOn ("pointermove", $"{pointerMoved} && el.focus()")
                         _dataOn ("click", closeAndRestore)
                     _class (itemClasses MenuTone.Default unavailable)
                     itemContent content
@@ -177,7 +181,7 @@ module DropdownMenu =
                     if content.pending then _ariaBusy true
                     _attr ("data-fve-menu-label", content.label.ToLowerInvariant())
                     if unavailable |> not then
-                        _dataOn ("pointermove", "el.focus()")
+                        _dataOn ("pointermove", $"{pointerMoved} && el.focus()")
                         _dataOn ("click", $"{closeAndRestore}; {expression}")
                     _class (itemClasses tone unavailable)
                     itemContent content
@@ -217,6 +221,10 @@ module DropdownMenu =
                 _dataShow $"${openSignal}"
                 _dataOn ("click", [ "outside" ], $"${openSignal} = false; ${typeaheadSignal} = ''")
                 _dataOn ("keydown", menuKeydown)
+                _dataOn ("pointermove", [ "window" ], rememberPointer)
+                _attr ("data-fve-pointer-x", "NaN")
+                _attr ("data-fve-pointer-y", "NaN")
+                _dataPreserveAttr "data-fve-pointer-x data-fve-pointer-y"
                 _style "display:none"
                 _class (ComponentHtml.classes [
                     "absolute top-full z-30 mt-2 w-64 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] p-1 shadow-lg ring-1 ring-[var(--fve-border)]"
