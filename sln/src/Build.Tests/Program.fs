@@ -237,6 +237,18 @@ let tests =
             Expect.stringContains terminal "needs.preview.result == 'skipped'" "forks may skip privileged preview"
         }
 
+        test "Docs Cloudflare configuration disables unreliable RUM only for its hostname" {
+            let cloudflareIndex = repositoryFile "pulumi/src/cloudflare/index.ts"
+            let rum = repositoryFile "pulumi/src/cloudflare/rum.ts"
+            Expect.stringContains cloudflareIndex "import './rum'" "Cloudflare composition owns the RUM rule"
+            Expect.stringContains rum "phase: 'http_config_settings'" "configuration rule uses the Cloudflare settings phase"
+            Expect.stringContains rum "action: 'set_config'" "configuration rule changes only matched request settings"
+            Expect.stringContains rum "disableRum: true" "automatic browser RUM is deliberately disabled"
+            Expect.stringContains rum "http.host eq" "rule is hostname scoped"
+            Expect.stringContains rum "config.identifier" "hostname uses the product identifier"
+            Expect.stringContains rum "config.cloudflareConfig.zoneName" "hostname uses the configured zone"
+        }
+
         test "Pulumi workflows install the GKE credential plugin" {
             let expectedAction = "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1"
             for name in [ "deploy.yml"; "preview.yml" ] do
