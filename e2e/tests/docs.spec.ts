@@ -1685,7 +1685,7 @@ test('active-document Prism failures remain observable', async ({ page }) => {
   await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.29.0.min.js'))).toBe(true)
 })
 
-test('hidden active-document Prism failures remain observable', async ({ page }) => {
+test('hidden active-document Prism failures remain observable', crossBrowser, async ({ page }) => {
   await page.addInitScript(() => {
     Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
   })
