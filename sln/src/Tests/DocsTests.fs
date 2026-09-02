@@ -271,7 +271,8 @@ let tests =
             Expect.stringContains rendered "--docs-code-bg:#0d1117" "dark mode uses a dark code surface"
             Expect.stringContains rendered ".spec-document .token.atrule" "embedded Prism tokens follow the active color mode"
             Expect.stringContains rendered ".spec-document pre.spec-code code{background:transparent" "package code selector overrides host styles"
-            Expect.stringContains rendered "font-size:.8125rem;line-height:1.55;text-shadow:none" "code uses compact typography"
+            Expect.stringContains rendered "--docs-text-code:.875rem" "code uses the semantic 14px role"
+            Expect.stringContains rendered "font-size:var(--docs-text-code);line-height:1.55;text-shadow:none" "code selectors use semantic compact typography"
             Expect.stringContains rendered "rel=\"canonical\" href=\"https://docs.example.com/guides/detail\"" "canonical page URL"
             Expect.stringContains rendered "name=\"description\" content=\"A customizable page.\"" "page-specific description"
         }

@@ -341,6 +341,20 @@ let tests =
             Expect.isFalse (html.Contains("--spec-accent-500:#10b981")) "emerald primary is removed"
         }
 
+        test "Docs embedded styles use semantic typography roles with consumer-owned Noto preferences" {
+            let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
+            Expect.stringContains html "--docs-text-ancillary:.75rem" "ancillary text uses the 12px baseline"
+            Expect.stringContains html "--docs-text-ui:.875rem" "documentation UI uses the 14px baseline"
+            Expect.stringContains html "--docs-text-reading:1rem" "reading and form text use the 16px baseline"
+            Expect.stringContains html "--docs-text-code:.875rem" "code remains compact and readable at 14px"
+            Expect.stringContains html "--docs-font-sans:\"Noto Sans\",ui-sans-serif,system-ui,sans-serif" "Noto Sans remains preferred with system fallbacks"
+            Expect.stringContains html "--docs-font-mono:\"Noto Sans Mono\",ui-monospace" "Noto Sans Mono remains preferred with system fallbacks"
+            for forbidden in [ "font-size:.625rem"; "font-size:.6875rem"; "font-size:.8125rem" ] do
+                Expect.isFalse (html.Contains forbidden) $"embedded package styles remove non-semantic size {forbidden}"
+            Expect.isFalse (html.Contains("fonts.googleapis.com")) "the package makes no Google Fonts request"
+            Expect.isFalse (html.Contains("fonts.gstatic.com")) "the package ships no external font source"
+        }
+
         test "Homepage quick example is Datastar-first" {
             let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
             Expect.stringContains html "open type Datastar" "Datastar API"

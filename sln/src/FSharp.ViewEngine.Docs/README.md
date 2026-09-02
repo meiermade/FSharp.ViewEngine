@@ -208,7 +208,35 @@ The embedded component styles include coordinated light and dark Prism token pal
 
 Built-in accent themes include `DocsTheme.amber`, `DocsTheme.sky`, and `DocsTheme.emerald`. `defaultColorMode` accepts `DocsColorMode.System`, `Light`, or `Dark`; the built-in accessible selector persists the visitor's choice and responds to operating-system changes while in System mode. Article tables of contents use the nested documentation viewport for active-section tracking, expose `aria-current="location"` on the current section, and become a compact native disclosure below the page introduction on narrower screens. Use `DocsRepository.github` for the compact GitHub repository action or `DocsRepository.link` for another repository host.
 
-The embedded styles expose `--docs-font-sans` and `--docs-font-mono`. They prefer Noto Sans and Noto Sans Mono with system fallbacks; hosts may self-host those fonts or override the variables. Docs-managed Datastar navigation restores color mode, scrolls documentation content to the top, and reruns Prism and Mermaid after morphing. All JavaScript string configuration is serialized before insertion into scripts.
+The embedded styles expose `--docs-font-sans` and `--docs-font-mono`. They prefer Noto Sans and Noto Sans Mono with system fallbacks, but the package does not ship font binaries or request Google-hosted assets. Hosts that want the preferred appearance can self-host the variable WOFF2 files under their own CSP:
+
+```css
+@font-face {
+  font-family: "Noto Sans";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/noto-sans-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/noto-sans-latin-italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/noto-sans-mono-latin.woff2") format("woff2");
+}
+```
+
+Override the variables when another consumer-owned family is preferred. The semantic defaults are exposed as `--docs-text-ancillary` (12px equivalent), `--docs-text-ui` (14px), `--docs-text-reading` (16px), and `--docs-text-code` (14px). Docs-managed Datastar navigation restores color mode, scrolls documentation content to the top, and reruns Prism and Mermaid after morphing. All JavaScript string configuration is serialized before insertion into scripts.
 
 ## Structural validation
 
