@@ -1685,6 +1685,23 @@ test('active-document Prism failures remain observable', async ({ page }) => {
   await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.29.0.min.js'))).toBe(true)
 })
 
+test('hidden active-document Prism failures remain observable', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+  })
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+  await page.route('**/scripts/prism.1.29.0.min.js', route => route.abort('failed'))
+  const pageErrors: string[] = []
+  page.on('pageerror', error => pageErrors.push(error.message))
+
+  await page.goto('/custom', { waitUntil: 'domcontentloaded' })
+
+  expect(await page.evaluate(() => ({ visibility: document.visibilityState, unloading: (window as any).fsharpDocsCode?.unloading }))).toEqual({ visibility: 'hidden', unloading: false })
+  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.29.0.min.js'))).toBe(true)
+})
+
 test('code blocks copy their literal source', async ({ page }) => {
   await page.goto('/getting-started/first-view', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => {

@@ -805,7 +805,7 @@ window.fsharpDocsCode = window.fsharpDocsCode ?? {
   loading: null,
   unloading: false,
   abandonOrReject(resolve, reject, source) {
-    if (this.unloading || document.visibilityState === 'hidden') resolve();
+    if (this.unloading) resolve();
     else reject(new Error(`Unable to load Prism asset: ${source}`));
   },
   loadStylesheet(source) {
