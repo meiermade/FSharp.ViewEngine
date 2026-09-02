@@ -151,6 +151,18 @@ let tests =
             Expect.stringContains publish "Publish FSharp.ViewEngine.Components" "Components is independently publishable"
         }
 
+        test "Docs package documents consumer-owned Noto and semantic typography" {
+            let readme = repositoryFile "sln/src/FSharp.ViewEngine.Docs/README.md"
+            Expect.stringContains readme "does not ship font binaries or request Google-hosted assets" "font delivery remains consumer-owned"
+            Expect.stringContains readme "font-family: \"Noto Sans\"" "optional Noto Sans self-hosting is explicit"
+            Expect.stringContains readme "font-family: \"Noto Sans Mono\"" "optional Noto Sans Mono self-hosting is explicit"
+            Expect.stringContains readme "font-display: swap" "self-hosting recipe keeps fallback text readable"
+            for role in [ "--docs-text-ancillary"; "--docs-text-ui"; "--docs-text-reading"; "--docs-text-code" ] do
+                Expect.stringContains readme role $"README documents {role}"
+            Expect.isFalse (readme.Contains("fonts.googleapis.com")) "the package does not recommend runtime Google requests"
+            Expect.isFalse (readme.Contains("fonts.gstatic.com")) "the package does not recommend runtime Google assets"
+        }
+
         test "Package workflow verifies one release bundle before ordered publication" {
             let publish = workflow "publish.yml"
             let packageStart = publish.IndexOf("\n  package:", StringComparison.Ordinal)

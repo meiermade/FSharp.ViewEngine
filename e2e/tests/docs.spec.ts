@@ -1421,24 +1421,35 @@ test('getting started shows the product logo and Tailwind Sky accents', async ({
   expect(accent).toBe('#0ea5e9')
 })
 
-test('repository action and code typography stay compact', async ({ page }) => {
+test('Docs typography uses semantic ancillary, UI, reading, and code roles', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
   const repository = page.getByRole('link', { name: 'View repository on GitHub' })
   await expect(repository).toBeVisible()
   await expect(repository.locator('svg')).toHaveCount(1)
   await expect(repository).not.toContainText('Repository')
+  await expect(page.getByRole('button', { name: 'Search documentation' })).toHaveCSS('font-size', '14px')
+  await expect(page.locator('.spec-nav-link').first()).toHaveCSS('font-size', '14px')
 
   const paragraph = page.locator('.spec-paragraph').first()
   await expect(paragraph).toBeVisible()
-  expect(await paragraph.evaluate(element => getComputedStyle(element).fontSize)).toBe('16px')
+  await expect(paragraph).toHaveCSS('font-size', '16px')
   expect(await paragraph.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Noto Sans')
 
   const code = page.locator('.spec-code code').first()
   await expect(code).toBeVisible()
-  expect(await code.evaluate(element => getComputedStyle(element).fontSize)).toBe('13px')
+  await expect(code).toHaveCSS('font-size', '14px')
   expect(await code.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Noto Sans Mono')
-  expect(Number.parseFloat(await code.evaluate(element => getComputedStyle(element).lineHeight))).toBeCloseTo(20.15, 1)
+  expect(Number.parseFloat(await code.evaluate(element => getComputedStyle(element).lineHeight))).toBeCloseTo(21.7, 1)
+  await expect(page.getByRole('button', { name: 'Copy code' }).first()).toHaveCSS('font-size', '12px')
+
+  await page.goto('/docs/previews/tables', { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('.spec-table th').first()).toHaveCSS('font-size', '12px')
+  await expect(page.locator('.spec-table td').first()).toHaveCSS('font-size', '14px')
+
+  await page.goto('/custom', { waitUntil: 'domcontentloaded' })
+  await expect(page.locator('.spec-toc-title')).toHaveCSS('font-size', '12px')
 })
 
 test('color mode selector supports persistence, keyboard navigation, and system changes', crossBrowser, async ({ page }) => {
