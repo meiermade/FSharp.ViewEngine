@@ -194,12 +194,17 @@ let tests =
             Expect.isFalse (deploy.Contains("playwright install --with-deps")) "production acceptance skips host browser installation"
         }
 
-        test "E2E workflows share the pinned Playwright image" {
+        test "E2E workflows share the pinned Playwright image and stage browser coverage" {
             let preview = workflow "preview.yml"
+            let package = repositoryFile "e2e/package.json"
             let pullRequestRunner = repositoryFile "e2e/scripts/test-ci.sh"
             let productionRunner = repositoryFile "e2e/scripts/test-published-ci.sh"
             let image = repositoryFile "e2e/playwright-image.txt"
             Expect.stringContains preview "bash scripts/test-ci.sh" "workflow delegates container orchestration"
+            Expect.stringContains preview "name: E2E (${{ matrix.browser }})" "browser engines use isolated matrix jobs"
+            Expect.stringContains preview "fail-fast: false" "every browser reports its result"
+            Expect.stringContains preview "E2E_CROSS_BROWSER_MODE: focused" "pull requests use focused cross-browser coverage"
+            Expect.isFalse (preview.Contains("schedule:")) "the complete suite is not scheduled nightly"
             Expect.isFalse (preview.Contains("playwright install --with-deps")) "host browser installation is skipped"
             Expect.stringContains
                 image
@@ -207,10 +212,13 @@ let tests =
                 "browser image matches and pins the project dependency"
             for runner in [ pullRequestRunner; productionRunner ] do
                 Expect.stringContains runner "playwright-image.txt" "runner uses the shared image reference"
+                Expect.stringContains runner "E2E_CROSS_BROWSER_MODE" "runner selects an explicit delivery-stage mode"
             Expect.stringContains pullRequestRunner "--network host" "browser container reaches the local Docs image"
             for browser in [ "chromium"; "firefox"; "webkit" ] do
-                Expect.stringContains pullRequestRunner $"--project={browser}" $"{browser} remains covered"
-            Expect.stringContains productionRunner "npm run test:published" "production runner uses the smoke suite"
+                Expect.stringContains pullRequestRunner $"--project={browser}" $"pull requests retain {browser} coverage"
+                Expect.stringContains productionRunner $"--project={browser}" $"release acceptance retains complete {browser} coverage"
+            Expect.stringContains package "test:pr" "the focused pull-request mode is directly runnable"
+            Expect.stringContains package "test:release" "the complete release mode is directly runnable"
         }
 
         test "Privileged Pulumi preview excludes fork pull requests" {

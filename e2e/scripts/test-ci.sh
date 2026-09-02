@@ -6,7 +6,26 @@ e2e_dir="$(cd "$script_dir/.." && pwd)"
 server_port="${E2E_SERVER_PORT:-5054}"
 health_url="http://127.0.0.1:${server_port}/health"
 playwright_image="$(< "$e2e_dir/playwright-image.txt")"
+browser="${E2E_BROWSER:-all}"
+cross_browser_mode="${E2E_CROSS_BROWSER_MODE:-focused}"
 server_pid=""
+
+case "$browser" in
+  all) project_args=(--project=chromium --project=firefox --project=webkit) ;;
+  chromium|firefox|webkit) project_args=("--project=$browser") ;;
+  *)
+    echo "Unsupported E2E_BROWSER: $browser" >&2
+    exit 2
+    ;;
+esac
+
+case "$cross_browser_mode" in
+  focused|full) ;;
+  *)
+    echo "Unsupported E2E_CROSS_BROWSER_MODE: $cross_browser_mode" >&2
+    exit 2
+    ;;
+esac
 
 cleanup() {
   local exit_code=$?
@@ -46,8 +65,9 @@ fi
 docker run --rm --init --network host \
   --env CI=true \
   --env E2E_START_LOCAL=0 \
+  --env E2E_CROSS_BROWSER_MODE="$cross_browser_mode" \
   --env DOCS_E2E_BASE_URL="http://127.0.0.1:${server_port}" \
   --volume "$e2e_dir:/work" \
   --workdir /work \
   "$playwright_image" \
-  npx playwright test --project=chromium --project=firefox --project=webkit
+  npx playwright test "${project_args[@]}"

@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "test": "playwright test",
+    "test:pr": "E2E_CROSS_BROWSER_MODE=focused playwright test --project=chromium --project=firefox --project=webkit",
+    "test:release": "E2E_CROSS_BROWSER_MODE=full playwright test --project=chromium --project=firefox --project=webkit --retries=1",
     "test:published": "E2E_START_LOCAL=0 playwright test --project=chromium --retries=0"
   },
   "devDependencies": {
