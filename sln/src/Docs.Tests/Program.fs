@@ -1470,7 +1470,7 @@ after"""
                 Expect.stringContains html helper helper
 
             Expect.stringContains html "@tailwindplus/elements@1.0.22" "pinned Elements installation"
-            Expect.stringContains html "src=\"https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22\"" "pinned Elements runtime"
+            Expect.stringContains html "src=\"https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22\" type=\"module\" async" "pinned Elements runtime does not block unrelated Docs readiness"
             Expect.stringContains html "<el-autocomplete" "previews render the actual custom elements"
             Expect.isFalse (html.Contains("Native initial-state preview")) "previews are not static approximations"
             Expect.stringContains html "open type TailwindElements" "current API name"

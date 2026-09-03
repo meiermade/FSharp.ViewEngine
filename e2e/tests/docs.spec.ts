@@ -76,16 +76,16 @@ function captureBrowserErrors(page: Page) {
   return errors
 }
 
+async function waitForDocsCodeSettlement(page: Page) {
+  await page.waitForFunction(() => Boolean((window as any).fsharpDocsCode?.loading))
+  await page.evaluate(() => (window as any).fsharpDocsCode.loading)
+}
+
 // Request routing disables Playwright's HTTP cache, so settle the current document's
 // own assets before ordinary full navigation in workflows that mock the CDN runtime.
 async function waitForDocsAssetSettlement(page: Page) {
-  await page.waitForFunction(() => Boolean((window as any).fsharpDocsCode?.loading))
-  await page.evaluate(async () => {
-    await Promise.all([
-      (window as any).fsharpDocsCode.loading,
-      document.fonts?.ready,
-    ])
-  })
+  await waitForDocsCodeSettlement(page)
+  await page.evaluate(() => document.fonts?.ready)
 }
 
 async function gotoAfterDocsAssetSettlement(page: Page, path: string, waitUntil: 'commit' | 'domcontentloaded' = 'commit') {
@@ -2092,21 +2092,42 @@ test('API reference page example renders endpoint and request-response compositi
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
-test('specification page example state tabs support pointer and keyboard navigation', crossBrowser, async ({ page }) => {
-  await page.goto('/docs/page-examples/executable-specification', { waitUntil: 'domcontentloaded' })
-  const example = page.locator('[data-docs-example="true"]').first()
-  await example.getByRole('tab', { name: 'Preview' }).click()
-  const preview = example.locator('iframe').contentFrame()
-  const ready = preview.getByRole('tab', { name: 'Ready' })
-  const validation = preview.getByRole('tab', { name: 'Validation' })
+test('specification page example state tabs support pointer and keyboard navigation while the optional CDN module is pending', crossBrowser, async ({ page }) => {
+  let releaseTailwind = () => {}
+  const tailwindReleased = new Promise<void>(resolve => { releaseTailwind = resolve })
+  let markTailwindIntercepted = () => {}
+  const tailwindIntercepted = new Promise<void>(resolve => { markTailwindIntercepted = resolve })
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', async route => {
+    markTailwindIntercepted()
+    await tailwindReleased
+    await route.fulfill({ status: 200, contentType: 'text/javascript', body: '' })
+  })
 
-  await validation.click()
-  await expect(validation).toHaveAttribute('aria-selected', 'true')
-  await expect(preview.getByRole('tabpanel', { name: 'Validation' })).toBeVisible()
+  const browserErrors = captureBrowserErrors(page)
+  const navigation = page.goto('/docs/page-examples/executable-specification', { waitUntil: 'commit' })
+  await tailwindIntercepted
 
-  await validation.press('ArrowLeft')
-  await expect(ready).toBeFocused()
-  await expect(ready).toHaveAttribute('aria-selected', 'true')
+  try {
+    await navigation
+    await waitForDocsCodeSettlement(page)
+    const example = page.locator('[data-docs-example="true"]').first()
+    await example.getByRole('tab', { name: 'Preview' }).click()
+    const preview = example.locator('iframe').contentFrame()
+    const ready = preview.getByRole('tab', { name: 'Ready' })
+    const validation = preview.getByRole('tab', { name: 'Validation' })
+
+    await expect(ready).toBeVisible()
+    await validation.click()
+    await expect(validation).toHaveAttribute('aria-selected', 'true')
+    await expect(preview.getByRole('tabpanel', { name: 'Validation' })).toBeVisible()
+
+    await validation.press('ArrowLeft')
+    await expect(ready).toBeFocused()
+    await expect(ready).toHaveAttribute('aria-selected', 'true')
+    expect(browserErrors).toEqual([])
+  } finally {
+    releaseTailwind()
+  }
 })
 
 test('benchmark tables remain readable without page overflow on mobile', crossBrowser, async ({ page }) => {
