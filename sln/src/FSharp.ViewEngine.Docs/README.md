@@ -22,7 +22,40 @@ dotnet add package FSharp.ViewEngine.Docs
 dotnet paket add FSharp.ViewEngine.Docs
 ```
 
-The package targets `net8.0` and is compatible with .NET 8, .NET 9, and .NET 10 applications.
+The package targets `net8.0` and is compatible with .NET 8, .NET 9, and .NET 10 applications. Its supported package graph is `Core ← Components ← Docs`: installing Docs brings its minimum compatible `FSharp.ViewEngine.Components` dependency, which in turn declares its minimum compatible Core dependency.
+
+## Tailwind CSS 4
+
+Docs presentation is consumer-compiled. The NuGet packages include `FSharp.ViewEngine.Components.tailwind.css` and `FSharp.ViewEngine.Docs.tailwind.css` under `contentFiles/any/any`; copy both manifests into the application CSS source tree and import them after Tailwind:
+
+```css
+@import "tailwindcss";
+@import "./FSharp.ViewEngine.Components.tailwind.css";
+@import "./FSharp.ViewEngine.Docs.tailwind.css";
+@source "./src/**/*.fs";
+```
+
+The Components manifest supplies shared utilities and semantic component variables. The Docs manifest supplies the current documentation theme, layout, responsive, Prism, and specialized selectors. Later renderer migrations may replace applicable selectors with renderer-owned utilities without changing this two-manifest consumer boundary.
+
+Compile that source to a host-owned stylesheet and expose it through `DocsAssets.productStylesheets`. `DocsAssets.defaults` expects `/css/compiled.css`; use the actual output path when the host chooses another name:
+
+```fsharp
+let assets =
+    { DocsAssets.defaults with
+        productStylesheets = [ "/css/docs.css" ] }
+```
+
+The package does not inject a fallback `<style>` element. Omitting either manifest leaves its corresponding presentation unavailable rather than hiding an incomplete installation behind embedded global CSS.
+
+### Migrating from embedded Docs styles
+
+The consumer-compiled Tailwind contract intentionally replaces the former self-contained styling behavior:
+
+1. Add Tailwind CSS 4 to the consuming application build.
+2. Copy and import both package manifests in the order shown above.
+3. Serve the compiled stylesheet from the path configured in `productStylesheets`.
+4. Keep consumer overrides after the package imports so semantic variables and application-specific rules remain consumer-owned.
+5. Remove CSP allowances, hashes, or nonce handling that existed only for the former package-generated `<style>` element. Continue supplying `DocsAssets.nonce` when the generated inline scripts require it.
 
 ## Builder API
 
@@ -190,7 +223,7 @@ Use `DocsPageMetadata` and `docsWithMetadata` for browser titles, canonical over
 
 ## Assets and themes
 
-Default component CSS is embedded in the rendered document. `DocsAssets.defaults` references conventional consumer-hosted paths for Prism, Mermaid, Datastar, and a product stylesheet. Override or disable them as needed:
+Docs component CSS is compiled by the consuming Tailwind build. `DocsAssets.defaults` references conventional consumer-hosted paths for the compiled stylesheet, Prism, Mermaid, and Datastar. Override or disable them as needed:
 
 ```fsharp
 let assets =
@@ -204,11 +237,11 @@ let assets =
         nonce = Some requestNonce }
 ```
 
-The embedded component styles include coordinated light and dark Prism token palettes, so code samples follow the active documentation color mode without a separate default theme request. Set `prismStylesheet` when a consumer-owned Prism theme should override that palette. Prism scripts remain lazy and load only when code highlighting is requested. Mermaid assets are emitted only for typed diagram blocks. Custom HTML remains consumer-owned and should provide its own page-specific assets through `additionalHead`. Set `nonce` from each HTTP response when enforcing a nonce-based Content Security Policy.
+The Docs Tailwind manifest includes coordinated light and dark Prism token palettes, so code samples follow the active documentation color mode without a separate default theme request. Set `prismStylesheet` when a consumer-owned Prism theme should override that palette. Prism scripts remain lazy and load only when code highlighting is requested. Mermaid assets are emitted only for typed diagram blocks. Custom HTML remains consumer-owned and should provide its own page-specific assets through `additionalHead`. Set `nonce` from each HTTP response when enforcing a nonce-based Content Security Policy for the generated inline scripts.
 
 Built-in accent themes include `DocsTheme.amber`, `DocsTheme.sky`, and `DocsTheme.emerald`. `defaultColorMode` accepts `DocsColorMode.System`, `Light`, or `Dark`; the built-in accessible selector persists the visitor's choice and responds to operating-system changes while in System mode. Article tables of contents use the nested documentation viewport for active-section tracking, expose `aria-current="location"` on the current section, and become a compact native disclosure below the page introduction on narrower screens. Use `DocsRepository.github` for the compact GitHub repository action or `DocsRepository.link` for another repository host.
 
-The embedded styles expose `--docs-font-sans` and `--docs-font-mono`. They prefer Noto Sans and Noto Sans Mono with system fallbacks, but the package does not ship font binaries or request Google-hosted assets. Hosts that want the preferred appearance can self-host the variable WOFF2 files under their own CSP:
+The Docs Tailwind manifest exposes `--docs-font-sans` and `--docs-font-mono`. They prefer Noto Sans and Noto Sans Mono with system fallbacks, but the package does not ship font binaries or request Google-hosted assets. Hosts that want the preferred appearance can self-host the variable WOFF2 files under their own CSP:
 
 ```css
 @font-face {

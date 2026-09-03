@@ -67,15 +67,15 @@ let boolEnvironment name =
 
 let releaseInputs () =
     let packageId = Environment.environVarOrFail "PACKAGE_ID"
-    let minimumCoreVersion =
+    let minimumDependencyVersion =
         match packageId with
         | "FSharp.ViewEngine.Components" -> Environment.environVarOrNone "COMPONENTS_MINIMUM_CORE_VERSION"
-        | "FSharp.ViewEngine.Docs" -> Environment.environVarOrNone "DOCS_MINIMUM_CORE_VERSION"
+        | "FSharp.ViewEngine.Docs" -> Environment.environVarOrNone "DOCS_MINIMUM_COMPONENTS_VERSION"
         | _ -> None
     PackagePublishing.validateInputs
         packageId
         (Environment.environVarOrFail "PACKAGE_VERSION")
-        minimumCoreVersion
+        minimumDependencyVersion
         (boolEnvironment "MARK_LATEST")
 
 let optionalEnvironment name =
@@ -89,7 +89,7 @@ let releaseSelection () =
         (optionalEnvironment "COMPONENTS_PACKAGE_VERSION")
         (optionalEnvironment "DOCS_PACKAGE_VERSION")
         (optionalEnvironment "COMPONENTS_MINIMUM_CORE_VERSION")
-        (optionalEnvironment "DOCS_MINIMUM_CORE_VERSION")
+        (optionalEnvironment "DOCS_MINIMUM_COMPONENTS_VERSION")
 
 let selectedPackage () =
     match Environment.environVarOrFail "PACKAGE_ID" with
@@ -117,11 +117,11 @@ Target.create "PrepareRelease" <| fun _ ->
     let expectedRef = Environment.environVarOrDefault "GITHUB_REF" "refs/heads/main"
     if expectedRef <> "refs/heads/main" then failwith $"Releases must run from main, not {expectedRef}."
 
-    match inputs.minimumCoreVersion with
-    | Some coreVersion when not (PackagePublishing.confirmPublished "FSharp.ViewEngine" coreVersion) ->
-        match Environment.environVarOrNone "LOCAL_CORE_PACKAGE_PATH" with
-        | Some packagePath -> PackagePublishing.validateLocalCorePackage coreVersion packagePath
-        | None -> failwith $"FSharp.ViewEngine {coreVersion} must be available from NuGet before publishing {inputs.package.Id}."
+    match inputs.minimumDependency with
+    | Some dependency when not (PackagePublishing.confirmPublished dependency.package.Id dependency.minimumVersion) ->
+        match Environment.environVarOrNone "LOCAL_DEPENDENCY_PACKAGE_PATH" with
+        | Some packagePath -> PackagePublishing.validateLocalPackage dependency.package dependency.minimumVersion packagePath
+        | None -> failwith $"{dependency.package.Id} {dependency.minimumVersion} must be available from NuGet before publishing {inputs.package.Id}."
     | _ -> ()
 
     let metadata = Release.prepare releaseRepository releaseMetadataPath inputs.package.TagPrefix inputs.version
@@ -210,10 +210,10 @@ Target.create "Pack"  (fun _ ->
                 [ $"/p:FSharpViewEngineComponentsPackageVersion={version}"
                   $"/p:FSharpViewEnginePackageVersion={minimumCoreVersion}" ]
         | PackagePublishing.Package.Docs ->
-            let minimumCoreVersion = Environment.environVarOrFail "DOCS_MINIMUM_CORE_VERSION"
+            let minimumComponentsVersion = Environment.environVarOrFail "DOCS_MINIMUM_COMPONENTS_VERSION"
             arguments @
                 [ $"/p:FSharpViewEngineDocsPackageVersion={version}"
-                  $"/p:FSharpViewEnginePackageVersion={minimumCoreVersion}" ]
+                  $"/p:FSharpViewEngineComponentsPackageVersion={minimumComponentsVersion}" ]
 
     Trace.trace $"Packing {package.Id} {version}"
     dotnet rootDir arguments |> Async.RunSynchronously

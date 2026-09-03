@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "../FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.tailwind.css";
+@import "../FSharp.ViewEngine.Docs/FSharp.ViewEngine.Docs.tailwind.css";
 @source "./src/**/*.fs";
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));

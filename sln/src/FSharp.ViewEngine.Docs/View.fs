@@ -1050,7 +1050,6 @@ document.addEventListener('datastar-fetch', event => {
                 | None -> ()
                 if docPage.metadata.noIndex then meta { _name "robots"; _content "noindex" }
                 script { nonceAttribute (); raw colorModeScript }
-                style { nonceAttribute (); raw DefaultStyles.css }
                 for stylesheet in site.assets.productStylesheets do link { _rel "stylesheet"; _href stylesheet }
                 match site.assets.prismStylesheet with
                 | Some stylesheet -> link { _rel "stylesheet"; _href stylesheet }

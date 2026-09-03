@@ -12,6 +12,10 @@ open type Datastar
 open Docs.Common
 open Docs.Pages
 
+let private docsTailwindManifest () =
+    Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Docs", "FSharp.ViewEngine.Docs.tailwind.css"))
+    |> File.ReadAllText
+
 let private expectedPaths =
     set [
         "/"
@@ -252,7 +256,9 @@ let tests =
             Expect.stringContains home "href=\"/installation\" class=\"spec-content-link\"" "Installation is a styled inline link"
             Expect.stringContains home "href=\"/getting-started/first-view\" class=\"spec-content-link\"" "first-view guide is a styled inline link"
             Expect.stringContains installation "href=\"/getting-started/first-view\" class=\"spec-content-link\"" "next-step first-view link is styled"
-            Expect.stringContains home ".spec-content-link{text-decoration:underline" "inline links have a non-color affordance"
+            let manifest = docsTailwindManifest ()
+            Expect.stringContains manifest ".spec-content-link {" "inline links have package styling"
+            Expect.stringContains manifest "text-decoration: underline;" "inline links have a non-color affordance"
         }
 
         test "Code examples are encoded and retain Prism language classes" {
@@ -341,16 +347,20 @@ let tests =
             Expect.isFalse (html.Contains("--spec-accent-500:#10b981")) "emerald primary is removed"
         }
 
-        test "Docs embedded styles use semantic typography roles with consumer-owned Noto preferences" {
+        test "Docs manifest uses semantic typography roles with consumer-owned Noto preferences" {
             let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "--docs-text-ancillary:.75rem" "ancillary text uses the 12px baseline"
-            Expect.stringContains html "--docs-text-ui:.875rem" "documentation UI uses the 14px baseline"
-            Expect.stringContains html "--docs-text-reading:1rem" "reading and form text use the 16px baseline"
-            Expect.stringContains html "--docs-text-code:.875rem" "code remains compact and readable at 14px"
-            Expect.stringContains html "--docs-font-sans:\"Noto Sans\",ui-sans-serif,system-ui,sans-serif" "Noto Sans remains preferred with system fallbacks"
-            Expect.stringContains html "--docs-font-mono:\"Noto Sans Mono\",ui-monospace" "Noto Sans Mono remains preferred with system fallbacks"
-            for forbidden in [ "font-size:.625rem"; "font-size:.6875rem"; "font-size:.8125rem" ] do
-                Expect.isFalse (html.Contains forbidden) $"embedded package styles remove non-semantic size {forbidden}"
+            let manifest = docsTailwindManifest ()
+            Expect.stringContains manifest "--docs-text-ancillary: 0.75rem" "ancillary text uses the 12px baseline"
+            Expect.stringContains manifest "--docs-text-ui: 0.875rem" "documentation UI uses the 14px baseline"
+            Expect.stringContains manifest "--docs-text-reading: 1rem" "reading and form text use the 16px baseline"
+            Expect.stringContains manifest "--docs-text-code: 0.875rem" "code remains compact and readable at 14px"
+            Expect.stringContains manifest "--docs-font-sans: \"Noto Sans\", ui-sans-serif, system-ui, sans-serif" "Noto Sans remains preferred with system fallbacks"
+            Expect.stringContains manifest "--docs-font-mono:" "the semantic monospace variable is declared"
+            Expect.stringContains manifest "\"Noto Sans Mono\", ui-monospace" "Noto Sans Mono remains preferred with system fallbacks"
+            for forbidden in [ "font-size: 0.625rem"; "font-size: 0.6875rem"; "font-size: 0.8125rem" ] do
+                Expect.isFalse (manifest.Contains forbidden) $"package styles omit non-semantic size {forbidden}"
+            Expect.isFalse (html.Contains("<style")) "the package does not embed its presentation"
+            Expect.stringContains html "rel=\"stylesheet\" href=\"/css/output.css\"" "the repository host links its compiled stylesheet"
             Expect.isFalse (html.Contains("fonts.googleapis.com")) "the package makes no Google Fonts request"
             Expect.isFalse (html.Contains("fonts.gstatic.com")) "the package ships no external font source"
         }
@@ -368,8 +378,9 @@ let tests =
             let diagrams = Showcase.previewRoutes["/docs/previews/mermaid-diagram"]
             Expect.stringContains home "/scripts/prism.1.29.0.min.js" "pinned Prism script"
             Expect.isFalse (home.Contains("prism-tomorrow.1.29.0.min.css")) "dark-only Prism theme is not loaded"
-            Expect.stringContains home "--docs-code-bg:#f6f8fa" "light code palette is embedded"
-            Expect.stringContains home "--docs-code-bg:#0d1117" "dark code palette is embedded"
+            let manifest = docsTailwindManifest ()
+            Expect.stringContains manifest "--docs-code-bg: #f6f8fa" "light code palette ships in the manifest"
+            Expect.stringContains manifest "--docs-code-bg: #0d1117" "dark code palette ships in the manifest"
             Expect.stringContains home "/scripts/prism-fsharp.1.29.0.min.js" "pinned FSharp grammar"
             Expect.stringContains home "unloading: false" "Prism distinguishes active documents from documents being abandoned"
             Expect.stringContains home "if (this.unloading) resolve()" "only positively identified unloading documents suppress canceled asset errors"
@@ -396,7 +407,8 @@ let tests =
 
             for path, document in Showcase.previewRoutes |> Map.toSeq do
                 Expect.stringStarts document "<!DOCTYPE html>" $"{path} is a complete HTML document"
-                Expect.stringContains document "<style>" $"{path} includes the Docs component styles"
+                Expect.isFalse (document.Contains("<style")) $"{path} does not embed the Docs component styles"
+                Expect.stringContains document "rel=\"stylesheet\" href=\"/css/output.css\"" $"{path} links the compiled consumer stylesheet"
                 Expect.stringContains document "class=\"spec-document\"" $"{path} initializes the Docs document body"
         }
 

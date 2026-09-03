@@ -50,7 +50,7 @@ For documentation sites, API references, and executable software specifications,
 dotnet add package FSharp.ViewEngine.Docs
 ```
 
-`FSharp.ViewEngine.Docs` provides article, reference, and canvas layouts; configurable navigation; accessible code/preview examples; API documentation components; diagrams; product frames; typed destinations; and structural validation. See its [package documentation](./sln/src/FSharp.ViewEngine.Docs/README.md).
+`FSharp.ViewEngine.Docs` provides article, reference, and canvas layouts; configurable navigation; accessible code/preview examples; API documentation components; diagrams; product frames; typed destinations; and structural validation. Docs depends on Components in the supported `Core ← Components ← Docs` package graph. Consumers compile presentation through both package-owned Tailwind CSS 4 manifests; see the [package documentation](./sln/src/FSharp.ViewEngine.Docs/README.md).
 
 ## Releases
 
@@ -59,9 +59,9 @@ The three NuGet packages have independent release trains managed through the **P
 - `FSharp.ViewEngine` uses tags such as `v2026.8.1`.
 - `FSharp.ViewEngine.Components` uses tags such as `components/v2026.8.0`.
 - `FSharp.ViewEngine.Docs` uses tags such as `docs/v2026.8.0`.
-- A dispatch can select Core, Components, Docs, or the existing Core-and-Docs bundle with independent versions.
+- A dispatch can select Core, Components, Docs, or a Components-and-Docs bundle with independent versions.
 
-Components and Docs releases each declare their minimum compatible published Core version. Matching package versions are not required. Selected packages are tested, packed, and verified before publication. Core releases become the repository-wide GitHub “Latest” release; Components and Docs package releases do not. Directly packing either dependent package requires explicit package and minimum Core MSBuild version properties so it cannot silently produce incorrect dependency metadata.
+Components releases declare their minimum compatible published Core version. Docs releases declare their minimum compatible published Components version, which carries Core transitively. Matching package versions are not required. Selected packages are tested, packed, and verified before publication, and a bundled Components-and-Docs release publishes Components first. Core releases become the repository-wide GitHub “Latest” release; Components and Docs package releases do not. Direct packing requires explicit package and direct-dependency MSBuild version properties so it cannot silently produce incorrect dependency metadata.
 
 Versioned changelog entries are added in a follow-up pull request after the package is published and verified and its GitHub release has been reconciled. Feature pull requests and pre-publication workflow steps must not claim a package version or release date that does not yet exist.
 

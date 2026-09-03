@@ -1,5 +1,6 @@
 module DocsTests
 
+open System.IO
 open Expecto
 open FSharp.ViewEngine
 open FSharp.ViewEngine.Docs
@@ -12,6 +13,10 @@ type Destination =
     | Reference
 
 let private issueCodes (issues:ValidationIssue list) = issues |> List.map _.code |> Set.ofList
+
+let private docsTailwindManifest () =
+    Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Docs", "FSharp.ViewEngine.Docs.tailwind.css"))
+    |> File.ReadAllText
 
 let private sequenceDiagram () =
     let person = SequenceDiagram.participant "Person" "Person"
@@ -250,7 +255,9 @@ let tests =
                     docsSection "custom" "Custom" [ docsCustom (div { _data("example", "true"); "Product content" }) ] ]
 
             let rendered = docsDocument site page |> Render.toString
-            Expect.stringContains rendered "<style>" "default component styles are self-contained"
+            let manifest = docsTailwindManifest ()
+            Expect.isFalse (rendered.Contains("<style")) "component presentation is consumer-compiled"
+            Expect.stringContains rendered "rel=\"stylesheet\" href=\"/css/compiled.css\"" "default compiled stylesheet contract"
             Expect.stringContains rendered "class=\"spec-heading-visually-hidden\"" "hidden semantic heading"
             Expect.stringContains rendered "aria-label=\"Toggle Guides section\"" "accessible disclosure"
             Expect.stringContains rendered "class=\"spec-nav-chevron\"" "groups expose compact disclosure chevrons"
@@ -267,12 +274,12 @@ let tests =
             Expect.stringContains rendered "id=\"spec-color-mode-button\"" "built-in color mode selector"
             Expect.stringContains rendered "role=\"menuitemradio\"" "color mode options use menu semantics"
             Expect.stringContains rendered "window.fsharpDocsColorMode" "color mode is applied before paint and persisted"
-            Expect.stringContains rendered "--docs-code-bg:#f6f8fa" "light mode uses a light code surface"
-            Expect.stringContains rendered "--docs-code-bg:#0d1117" "dark mode uses a dark code surface"
-            Expect.stringContains rendered ".spec-document .token.atrule" "embedded Prism tokens follow the active color mode"
-            Expect.stringContains rendered ".spec-document pre.spec-code code{background:transparent" "package code selector overrides host styles"
-            Expect.stringContains rendered "--docs-text-code:.875rem" "code uses the semantic 14px role"
-            Expect.stringContains rendered "font-size:var(--docs-text-code);line-height:1.55;text-shadow:none" "code selectors use semantic compact typography"
+            Expect.stringContains manifest "--docs-code-bg: #f6f8fa" "light mode uses a light code surface"
+            Expect.stringContains manifest "--docs-code-bg: #0d1117" "dark mode uses a dark code surface"
+            Expect.stringContains manifest ".spec-document .token.atrule" "Prism tokens follow the active color mode"
+            Expect.stringContains manifest ".spec-document pre.spec-code code" "package code selector overrides host styles"
+            Expect.stringContains manifest "--docs-text-code: 0.875rem" "code uses the semantic 14px role"
+            Expect.stringContains manifest "font-size: var(--docs-text-code)" "code selectors use semantic compact typography"
             Expect.stringContains rendered "rel=\"canonical\" href=\"https://docs.example.com/guides/detail\"" "canonical page URL"
             Expect.stringContains rendered "name=\"description\" content=\"A customizable page.\"" "page-specific description"
         }
@@ -346,9 +353,10 @@ let tests =
             Expect.stringContains plainHtml "window.fsharpDocsMermaid" "plain pages configure lazy Mermaid for later navigation"
             Expect.stringContains plainHtml "/scripts/mermaid.11.16.0.min.js" "plain pages retain the configured Mermaid source"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "plain pages do not eagerly load Mermaid"
-            Expect.isFalse (plainHtml.Contains("prism-tomorrow.1.29.0.min.css")) "default Prism colors are embedded rather than loaded from a dark-only stylesheet"
-            Expect.stringContains plainHtml "--docs-code-green:#116329" "light Prism palette is available before highlighting"
-            Expect.stringContains plainHtml "--docs-code-green:#7ee787" "dark Prism palette is available before highlighting"
+            let manifest = docsTailwindManifest ()
+            Expect.isFalse (plainHtml.Contains("prism-tomorrow.1.29.0.min.css")) "default Prism colors come from the consumer-compiled manifest rather than a dark-only stylesheet"
+            Expect.stringContains manifest "--docs-code-green: #116329" "light Prism palette is available before highlighting"
+            Expect.stringContains manifest "--docs-code-green: #7ee787" "dark Prism palette is available before highlighting"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/prism.1.29.0.min.js\"")) "plain pages omit Prism scripts"
             Expect.stringContains diagramHtml "data-init=\"window.renderMermaid?.(el)\"" "diagram elements own their Datastar initialization"
             Expect.stringContains diagramHtml "data-mermaid-source=\"flowchart LR" "diagram source is encoded as data rather than visible content"
@@ -360,11 +368,11 @@ let tests =
             Expect.stringContains highlightedHtml "prism.1.29.0" "code pages configure Prism"
         }
 
-        test "CSP nonces apply to package-owned inline scripts and styles" {
+        test "CSP nonces apply to package-owned scripts without embedded presentation" {
             let configuredSite = { site with assets = { DocsAssets.defaults with nonce = Some "request-nonce" } }
             let rendered = docsDocument configuredSite (docsArticle "guide" "Guide" "Description" []) |> Render.toString
 
-            Expect.stringContains rendered "<style nonce=\"request-nonce\">" "default style nonce"
+            Expect.isFalse (rendered.Contains("<style")) "the package emits no style element requiring a nonce"
             Expect.stringContains rendered "<script nonce=\"request-nonce\">" "inline script nonce"
             Expect.stringContains rendered "type=\"module\" src=\"/scripts/datastar.1.0.2.js\" nonce=\"request-nonce\"" "external runtime nonce"
         }
