@@ -21,6 +21,21 @@ module Changelog =
             ];
             Heading { id = "released"; title = "Released packages"; level = 2 };
             Paragraph [ Text "Published artifacts and complete commit histories are available from "; Link("GitHub Releases", "https://github.com/meiermade/FSharp.ViewEngine/releases"); Text "." ];
+            Heading { id = "fsharp-viewengine-docs-2026-8-3"; title = "FSharp.ViewEngine.Docs 2026.8.3 · August 24, 2026"; level = 3 };
+            UnorderedList [
+                [ Text "Compacted the documentation navigation tree with left-aligned disclosure chevrons, aligned page labels, and reduced icon noise." ];
+                [ Text "Added coordinated light and dark code-sample palettes while preserving consumer-provided Prism stylesheet overrides." ];
+                [ Text "Fixed component previews by rendering fragments in the styled host and reserving iframe isolation for complete HTML documents." ];
+                [ Text "Declared FSharp.ViewEngine 2026.8.2 as the minimum compatible Core package version." ];
+                [ Text "See "; Link("release docs/v2026.8.3", "https://github.com/meiermade/FSharp.ViewEngine/releases/tag/docs%2Fv2026.8.3"); Text " for the immutable source and artifacts." ]
+            ];
+            Heading { id = "fsharp-viewengine-docs-2026-8-2"; title = "FSharp.ViewEngine.Docs 2026.8.2 · August 19, 2026"; level = 3 };
+            UnorderedList [
+                [ Text "Fixed Mermaid diagrams so they render after documentation navigation and when a hidden preview becomes visible." ];
+                [ Text "Strengthened independent package-release verification and artifact handling." ];
+                [ Text "Declared FSharp.ViewEngine 2026.8.2 as the minimum compatible Core package version." ];
+                [ Text "See "; Link("release docs/v2026.8.2", "https://github.com/meiermade/FSharp.ViewEngine/releases/tag/docs%2Fv2026.8.2"); Text " for the immutable source and artifacts." ]
+            ];
             Heading { id = "fsharp-viewengine-docs-2026-8-1"; title = "FSharp.ViewEngine.Docs 2026.8.1 · August 18, 2026"; level = 3 };
             UnorderedList [
                 [ Text "Migrated the reusable documentation components and examples to wrapper-free fragments and standardized title computation expressions." ];
