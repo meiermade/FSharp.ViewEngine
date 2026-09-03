@@ -2092,7 +2092,7 @@ test('API reference page example renders endpoint and request-response compositi
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
-test('specification page example state tabs support pointer and keyboard navigation while the optional CDN module is pending', crossBrowser, async ({ page }) => {
+test('specification page example state tabs work after parsing while the optional CDN module is pending', crossBrowser, async ({ page }) => {
   let releaseTailwind = () => {}
   const tailwindReleased = new Promise<void>(resolve => { releaseTailwind = resolve })
   let markTailwindIntercepted = () => {}
@@ -2109,6 +2109,7 @@ test('specification page example state tabs support pointer and keyboard navigat
 
   try {
     await navigation
+    await expect.poll(() => page.evaluate(() => (window as any).fsharpDocsTailwindElements?.startedAt)).toBe('interactive')
     await waitForDocsCodeSettlement(page)
     const example = page.locator('[data-docs-example="true"]').first()
     await example.getByRole('tab', { name: 'Preview' }).click()
@@ -2124,6 +2125,9 @@ test('specification page example state tabs support pointer and keyboard navigat
     await validation.press('ArrowLeft')
     await expect(ready).toBeFocused()
     await expect(ready).toHaveAttribute('aria-selected', 'true')
+
+    releaseTailwind()
+    await page.evaluate(() => (window as any).fsharpDocsTailwindElements.loading)
     expect(browserErrors).toEqual([])
   } finally {
     releaseTailwind()

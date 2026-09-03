@@ -104,7 +104,7 @@ module View =
             additionalHead =
                 [ link { _rel "icon"; _href "/favicon.svg"; _type "image/svg+xml" }
                   link { _rel "manifest"; _href "/site.webmanifest" }
-                  script { _src "https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22"; _type "module"; _async true } ] }
+                  script { _src "/scripts/tailwind-elements-loader.1.0.22.js"; _type "module" } ] }
 
     let private site (sections:NavSection list) search : DocsSite<string> =
         { name = "FSharp.ViewEngine"
