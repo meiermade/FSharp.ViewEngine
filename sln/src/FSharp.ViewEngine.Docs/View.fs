@@ -797,11 +797,17 @@ window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(doc
 
         let navigationScript =
             """
+const markDocsCodeUnloading = () => { window.fsharpDocsCode.unloading = true; };
 window.fsharpDocsCode = window.fsharpDocsCode ?? {
   stylesheet: __PRISM_STYLESHEET__,
   scripts: __PRISM_SCRIPTS__,
   nonce: __ASSET_NONCE__,
   loading: null,
+  unloading: false,
+  abandonOrReject(resolve, reject, source) {
+    if (this.unloading) resolve();
+    else reject(new Error(`Unable to load Prism asset: ${source}`));
+  },
   loadStylesheet(source) {
     const href = new URL(source, document.baseURI).href;
     const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).find(link => link.href === href);
@@ -812,7 +818,7 @@ window.fsharpDocsCode = window.fsharpDocsCode ?? {
       link.href = source;
       link.dataset.docsPrismAsset = 'true';
       link.addEventListener('load', resolve, { once: true });
-      link.addEventListener('error', () => reject(new Error(`Unable to load Prism asset: ${source}`)), { once: true });
+      link.addEventListener('error', () => this.abandonOrReject(resolve, reject, source), { once: true });
       if (!existing) document.head.append(link);
     });
   },
@@ -823,19 +829,24 @@ window.fsharpDocsCode = window.fsharpDocsCode ?? {
       script.dataset.docsPrismAsset = 'true';
       if (this.nonce) script.nonce = this.nonce;
       script.addEventListener('load', resolve, { once: true });
-      script.addEventListener('error', () => reject(new Error(`Unable to load Prism asset: ${source}`)), { once: true });
+      script.addEventListener('error', () => this.abandonOrReject(resolve, reject, source), { once: true });
       document.head.append(script);
     });
   },
   async ensure() {
     if (!this.loading) {
+      this.unloading = false;
+      window.addEventListener('beforeunload', markDocsCodeUnloading);
       this.loading = (async () => {
         if (this.stylesheet) await this.loadStylesheet(this.stylesheet);
-        if (window.Prism?.languages?.fsharp) return;
+        if (this.unloading || window.Prism?.languages?.fsharp) return;
         window.Prism = window.Prism || {};
         window.Prism.manual = true;
-        for (const source of this.scripts) await this.loadScript(source);
-      })();
+        for (const source of this.scripts) {
+          if (this.unloading) return;
+          await this.loadScript(source);
+        }
+      })().finally(() => window.removeEventListener('beforeunload', markDocsCodeUnloading));
     }
     await this.loading;
   },
@@ -846,6 +857,8 @@ window.fsharpDocsCode = window.fsharpDocsCode ?? {
     window.Prism?.highlightAllUnder?.(root);
   }
 };
+window.addEventListener('pagehide', markDocsCodeUnloading);
+window.addEventListener('pageshow', () => { window.fsharpDocsCode.unloading = false; });
 window.renderCode = el => window.fsharpDocsCode.render(el);
 window.renderDocsPreview = (el) => {
   for (const frame of el?.querySelectorAll?.('iframe[data-docs-preview-src]') ?? []) {
@@ -893,6 +906,7 @@ window.fsharpDocsNavigation = {
   pending: false,
   begin() { this.pending = true; },
   observer: null,
+  layoutObserver: null,
   scrollRoot: null,
   scrollHandler: null,
   setCurrentFragment(id) {
@@ -903,22 +917,30 @@ window.fsharpDocsNavigation = {
   },
   initializeToc() {
     this.observer?.disconnect();
+    this.layoutObserver?.disconnect();
     if (this.scrollRoot && this.scrollHandler) this.scrollRoot.removeEventListener('scroll', this.scrollHandler);
     const root = document.querySelector('.spec-main');
     const links = Array.from(document.querySelectorAll('.spec-toc-nav a[href^="#"]'));
     const sections = links.map(link => document.getElementById(decodeURIComponent(link.hash.slice(1)))).filter(Boolean);
     if (!root || sections.length === 0) return;
+    const finalSection = sections.at(-1);
     const update = () => {
-      const rootTop = root.getBoundingClientRect().top;
+      if (!root.isConnected || !finalSection.isConnected) return;
+      const rootBounds = root.getBoundingClientRect();
+      const finalBounds = finalSection.getBoundingClientRect();
       const atEnd = root.scrollTop + root.clientHeight >= root.scrollHeight - 2;
-      const current = atEnd ? sections.at(-1) : (sections.filter(section => section.getBoundingClientRect().top <= rootTop + 160).at(-1) ?? sections[0]);
+      const finalSectionVisible = finalBounds.top < rootBounds.bottom && finalBounds.bottom > rootBounds.top;
+      const current = atEnd || finalSectionVisible ? finalSection : (sections.filter(section => section.getBoundingClientRect().top <= rootBounds.top + 160).at(-1) ?? sections[0]);
       this.setCurrentFragment(current.id);
     };
     this.observer = new IntersectionObserver(update, { root, rootMargin: '-96px 0px -65% 0px', threshold: [0, 1] });
     for (const section of sections) this.observer.observe(section);
+    this.layoutObserver = new ResizeObserver(update);
+    this.layoutObserver.observe(root.querySelector('.spec-main-inner') ?? root);
     this.scrollRoot = root;
     this.scrollHandler = update;
     root.addEventListener('scroll', update, { passive: true });
+    document.fonts?.ready.then(() => { if (this.scrollRoot === root) update(); });
     update();
   },
   navigateToFragment(event, href) {

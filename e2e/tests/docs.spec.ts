@@ -1551,6 +1551,41 @@ test('desktop table of contents tracks the visible section and survives Docs nav
   await expect(page.locator('.spec-toc a[href="#overview"]')).toHaveAttribute('aria-current', 'location')
 })
 
+test('desktop table of contents follows the final visible section after preferred-font reflow', crossBrowser, async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+
+  let releaseFont = () => {}
+  const fontGate = new Promise<void>(resolve => { releaseFont = resolve })
+  await page.route('**/fonts/noto-sans-latin.woff2', async route => {
+    await fontGate
+    await route.continue().catch(() => {})
+  })
+
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('/custom', { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => document.fonts.status === 'loading')
+
+  const main = page.locator('.spec-main')
+  const finalSectionLink = page.locator('.spec-toc a[href="#shoelace-example"]')
+  await expect(page.locator('.spec-toc a[aria-current="location"]')).toHaveCount(1)
+  const fallbackHeight = await main.evaluate(element => element.scrollHeight)
+  await main.evaluate(element => element.scrollTo({ top: element.scrollHeight, behavior: 'instant' }))
+  await expect(finalSectionLink).toHaveAttribute('aria-current', 'location')
+
+  releaseFont()
+  await page.evaluate(() => document.fonts.ready)
+  await expect.poll(() => main.evaluate(element => element.scrollHeight)).toBeGreaterThan(fallbackHeight)
+  await main.evaluate(element => element.scrollTo({ top: element.scrollHeight - element.clientHeight - 70, behavior: 'instant' }))
+  await expect(page.locator('#shoelace-example')).toBeInViewport()
+  await main.dispatchEvent('scroll')
+
+  await expect(finalSectionLink).toHaveAttribute('aria-current', 'location')
+  expect(browserErrors).toEqual([])
+})
+
 test('mobile table of contents is a compact keyboard-operable disclosure', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
@@ -1607,6 +1642,75 @@ test('Docs navigation loads Prism dependencies before highlighting a code page',
   await expect(keyword).toBeVisible()
   await expect(keyword).toHaveCSS('color', 'rgb(207, 34, 46)')
   expect(pageErrors.filter(error => error.includes('Prism is not defined'))).toEqual([])
+})
+
+test('rapid full-document navigation cancels old Prism loading without browser errors', crossBrowser, async ({ page }) => {
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+
+  let interceptedPrism: import('@playwright/test').Route | undefined
+  let releaseIntercept = () => {}
+  const interceptReleased = new Promise<void>(resolve => { releaseIntercept = resolve })
+  let markIntercepted = () => {}
+  const prismIntercepted = new Promise<void>(resolve => { markIntercepted = resolve })
+  await page.route('**/scripts/prism*.js', async route => {
+    if (!interceptedPrism) {
+      interceptedPrism = route
+      markIntercepted()
+      await interceptReleased
+      return
+    }
+    await route.continue()
+  })
+
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('/custom', { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => Boolean((window as any).fsharpDocsCode?.loading))
+  await prismIntercepted
+
+  const navigationRequest = page.waitForRequest(request => request.isNavigationRequest() && new URL(request.url()).pathname === '/getting-started/first-view')
+  const navigation = page.goto('/getting-started/first-view', { waitUntil: 'domcontentloaded' })
+  await navigationRequest
+  await interceptedPrism!.abort('aborted').catch(() => {})
+  releaseIntercept()
+  await navigation
+  await page.waitForFunction(() => Boolean((window as any).fsharpDocsCode?.loading))
+  await page.evaluate(() => (window as any).fsharpDocsCode.loading)
+
+  await expect(page.locator('.spec-code .token.keyword').first()).toBeVisible()
+  expect(browserErrors).toEqual([])
+})
+
+test('active-document Prism failures remain observable', async ({ page }) => {
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+  await page.route('**/scripts/prism.1.29.0.min.js', route => route.abort('failed'))
+  const pageErrors: string[] = []
+  page.on('pageerror', error => pageErrors.push(error.message))
+
+  await page.goto('/custom', { waitUntil: 'domcontentloaded' })
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Custom Elements & Attributes' })).toBeVisible()
+  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.29.0.min.js'))).toBe(true)
+})
+
+test('hidden active-document Prism failures remain observable', crossBrowser, async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+  })
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+  await page.route('**/scripts/prism.1.29.0.min.js', route => route.abort('failed'))
+  const pageErrors: string[] = []
+  page.on('pageerror', error => pageErrors.push(error.message))
+
+  await page.goto('/custom', { waitUntil: 'domcontentloaded' })
+
+  expect(await page.evaluate(() => ({ visibility: document.visibilityState, unloading: (window as any).fsharpDocsCode?.unloading }))).toEqual({ visibility: 'hidden', unloading: false })
+  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.29.0.min.js'))).toBe(true)
 })
 
 test('code blocks copy their literal source', async ({ page }) => {
