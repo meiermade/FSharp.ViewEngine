@@ -21,6 +21,12 @@ module Changelog =
             ];
             Heading { id = "released"; title = "Released packages"; level = 2 };
             Paragraph [ Text "Published artifacts and complete commit histories are available from "; Link("GitHub Releases", "https://github.com/meiermade/FSharp.ViewEngine/releases"); Text "." ];
+            Heading { id = "fsharp-viewengine-docs-2026-8-2"; title = "FSharp.ViewEngine.Docs 2026.8.2 · August 19, 2026"; level = 3 };
+            UnorderedList [
+                [ Text "Added lazy Mermaid loading so diagrams introduced by Docs-managed navigation render even when the initial page did not need Mermaid." ];
+                [ Text "Moved diagram initialization to Datastar "; InlineContent.Code "data-init"; Text " and deferred the Mermaid download until the first diagram needs it." ];
+                [ Text "See "; Link("release docs/v2026.8.2", "https://github.com/meiermade/FSharp.ViewEngine/releases/tag/docs%2Fv2026.8.2"); Text " for the immutable source and artifacts." ]
+            ];
             Heading { id = "fsharp-viewengine-docs-2026-8-1"; title = "FSharp.ViewEngine.Docs 2026.8.1 · August 18, 2026"; level = 3 };
             UnorderedList [
                 [ Text "Migrated the reusable documentation components and examples to wrapper-free fragments and standardized title computation expressions." ];
