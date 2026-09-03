@@ -59,17 +59,17 @@ jobs:
           COMPONENTS_MINIMUM_CORE_VERSION: 0.0.0-preview
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
-      - name: Pack Docs with an independent version and Core dependency
+      - name: Pack Docs with an independent version and Components dependency
         env:
           PACKAGE_ID: FSharp.ViewEngine.Docs
           PACKAGE_VERSION: 0.0.1-preview
-          DOCS_MINIMUM_CORE_VERSION: 0.0.0-preview
+          DOCS_MINIMUM_COMPONENTS_VERSION: 0.0.1-preview
         run: ./fake.sh Pack --single-target
         working-directory: ./sln
       - name: Verify Docs package compatibility
         env:
           PACKAGE_ID: FSharp.ViewEngine.Docs
-          DOCS_MINIMUM_CORE_VERSION: 0.0.0-preview
+          DOCS_MINIMUM_COMPONENTS_VERSION: 0.0.1-preview
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
 

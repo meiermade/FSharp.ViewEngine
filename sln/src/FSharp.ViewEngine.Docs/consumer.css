@@ -1,0 +1,3 @@
+@import "tailwindcss" source(none);
+@import "../FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.tailwind.css";
+@import "./FSharp.ViewEngine.Docs.tailwind.css";

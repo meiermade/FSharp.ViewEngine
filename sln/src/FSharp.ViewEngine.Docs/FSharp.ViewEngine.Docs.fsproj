@@ -23,7 +23,7 @@
   </PropertyGroup>
   <Target Name="ValidateDocsPackageVersions" BeforeTargets="GenerateNuspec">
     <Error Condition="'$(FSharpViewEngineDocsPackageVersion)' == ''" Text="Packing FSharp.ViewEngine.Docs requires /p:FSharpViewEngineDocsPackageVersion=YYYY.M.MINOR. Use the package release workflow for publication." />
-    <Error Condition="'$(FSharpViewEnginePackageVersion)' == ''" Text="Packing FSharp.ViewEngine.Docs requires /p:FSharpViewEnginePackageVersion=YYYY.M.MINOR for its minimum Core dependency. Use the package release workflow for publication." />
+    <Error Condition="'$(FSharpViewEngineComponentsPackageVersion)' == ''" Text="Packing FSharp.ViewEngine.Docs requires /p:FSharpViewEngineComponentsPackageVersion=YYYY.M.MINOR for its minimum Components dependency. Use the package release workflow for publication." />
   </Target>
   <ItemGroup>
     <Compile Include="ValidationIssue.fs" />
@@ -32,7 +32,6 @@
     <Compile Include="Navigation.fs" />
     <Compile Include="Document.fs" />
     <Compile Include="ApiReference.fs" />
-    <Compile Include="DefaultStyles.fs" />
     <Compile Include="Wireframe.fs" />
     <Compile Include="Registry.fs" />
     <Compile Include="Search.fs" />
@@ -42,9 +41,10 @@
     <Compile Include="DirectedGraph.fs" />
     <None Include="../../../LICENSE" Pack="True" Visible="false" PackagePath="" />
     <None Include="README.md" Pack="True" Visible="false" PackagePath="" />
+    <None Include="FSharp.ViewEngine.Docs.tailwind.css" Pack="True" PackagePath="contentFiles/any/any" PackageCopyToOutput="false" />
     <PackageReference Update="FSharp.Core" Version="10.0.102" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
+    <ProjectReference Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.fsproj" />
   </ItemGroup>
 </Project>

@@ -143,7 +143,7 @@ let private packageVersion packageId (packagePath:string) =
     if matched.Success then matched.Groups[1].Value
     else fail $"Unexpected package name: {Path.GetFileName packagePath}"
 
-let private verifyCoreDependency dependentPackageId expectedVersion (archive:ZipArchive) =
+let private verifyDependency dependentPackageId expectedDependencyId expectedVersion (archive:ZipArchive) =
     let nuspecEntry =
         archive.Entries
         |> Seq.filter (fun entry -> entry.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
@@ -155,19 +155,19 @@ let private verifyCoreDependency dependentPackageId expectedVersion (archive:Zip
         | null -> ""
         | attribute -> attribute.Value
 
-    let coreDependencies =
+    let dependencies =
         document.Descendants()
         |> Seq.filter (fun element ->
             element.Name.LocalName = "dependency"
-            && attributeValue "id" element = "FSharp.ViewEngine")
+            && attributeValue "id" element = expectedDependencyId)
         |> Seq.toList
 
-    match coreDependencies with
+    match dependencies with
     | [ dependency ] ->
         let actualVersion = attributeValue "version" dependency
         if actualVersion <> expectedVersion then
-            fail $"Expected {dependentPackageId} FSharp.ViewEngine dependency {expectedVersion}, found {actualVersion}"
-    | dependencies -> fail $"Expected exactly one {dependentPackageId} FSharp.ViewEngine dependency, found {dependencies.Length}"
+            fail $"Expected {dependentPackageId} {expectedDependencyId} dependency {expectedVersion}, found {actualVersion}"
+    | dependencies -> fail $"Expected exactly one {dependentPackageId} {expectedDependencyId} dependency, found {dependencies.Length}"
 
 let private verifyComponentsContents (archive:ZipArchive) =
     let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
@@ -193,6 +193,11 @@ let private verifyComponentsContents (archive:ZipArchive) =
     let licenseType = license.Attribute(XName.Get "type")
     if isNull licenseType || licenseType.Value <> "file" || license.Value <> "LICENSE" then
         fail "Components package license metadata is incorrect"
+
+let private verifyDocsContents (archive:ZipArchive) =
+    let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
+    for required in [ "LICENSE"; "README.md"; "contentFiles/any/any/FSharp.ViewEngine.Docs.tailwind.css" ] do
+        if not (entries.Contains required) then fail $"Docs package is missing {required}"
 
 let private testFrameworks () =
     let configured =
@@ -472,8 +477,15 @@ let page =
     |> docsWithPager (docsPager (Some(docsPageLink "Home" "/")) None)
 
 let actual = docsDocument site page |> Render.toString
-if not (actual.Contains "class=\"spec-shell\"") || not (actual.Contains "data-docs-example=\"true\"") || not (actual.Contains "aria-label=\"Page navigation\"") || not (actual.Contains "data-mermaid-source=\"sequenceDiagram") || not (actual.Contains "data-mermaid-state=\"pending\"") || actual.Contains ">sequenceDiagram" then
-    failwith "documentation document did not render expected components"
+if not (actual.Contains "class=\"spec-shell\"")
+   || not (actual.Contains "data-docs-example=\"true\"")
+   || not (actual.Contains "aria-label=\"Page navigation\"")
+   || not (actual.Contains "data-mermaid-source=\"sequenceDiagram")
+   || not (actual.Contains "data-mermaid-state=\"pending\"")
+   || not (actual.Contains "rel=\"stylesheet\" href=\"/css/compiled.css\"")
+   || actual.Contains "<style"
+   || actual.Contains ">sequenceDiagram" then
+    failwith "documentation document did not render expected components and external stylesheet contract"
 
 let graph: DirectedGraph<Destination> =
     { nodes = [ Home; Guide ]
@@ -525,13 +537,14 @@ let verify runDotnet packagePath =
         let expectedCoreVersion = Environment.GetEnvironmentVariable "COMPONENTS_MINIMUM_CORE_VERSION"
         if String.IsNullOrWhiteSpace expectedCoreVersion then
             fail "COMPONENTS_MINIMUM_CORE_VERSION is required when verifying FSharp.ViewEngine.Components"
-        verifyCoreDependency definition.packageId expectedCoreVersion packageArchive
+        verifyDependency definition.packageId "FSharp.ViewEngine" expectedCoreVersion packageArchive
         verifyComponentsContents packageArchive
     | "FSharp.ViewEngine.Docs" ->
-        let expectedCoreVersion = Environment.GetEnvironmentVariable "DOCS_MINIMUM_CORE_VERSION"
-        if String.IsNullOrWhiteSpace expectedCoreVersion then
-            fail "DOCS_MINIMUM_CORE_VERSION is required when verifying FSharp.ViewEngine.Docs"
-        verifyCoreDependency definition.packageId expectedCoreVersion packageArchive
+        let expectedComponentsVersion = Environment.GetEnvironmentVariable "DOCS_MINIMUM_COMPONENTS_VERSION"
+        if String.IsNullOrWhiteSpace expectedComponentsVersion then
+            fail "DOCS_MINIMUM_COMPONENTS_VERSION is required when verifying FSharp.ViewEngine.Docs"
+        verifyDependency definition.packageId "FSharp.ViewEngine.Components" expectedComponentsVersion packageArchive
+        verifyDocsContents packageArchive
     | _ -> ()
 
     let repositoryCommit = repositoryMetadata packageArchive

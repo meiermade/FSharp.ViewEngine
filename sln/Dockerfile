@@ -20,8 +20,9 @@ COPY src src
 COPY fake.sh .
 RUN chmod +x ./fake.sh
 
-# verify the external-library Tailwind contract, then publish the docs app
+# verify the external-library Tailwind contracts, then publish the docs app
 RUN bash src/FSharp.ViewEngine.Components/verify-tailwind.sh
+RUN bash src/FSharp.ViewEngine.Docs/verify-tailwind.sh
 RUN ./fake.sh PublishDocs
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS runner
