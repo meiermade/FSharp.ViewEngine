@@ -76,6 +76,25 @@ function captureBrowserErrors(page: Page) {
   return errors
 }
 
+// Request routing disables Playwright's HTTP cache, so settle the current document's
+// own assets before ordinary full navigation in workflows that mock the CDN runtime.
+async function waitForDocsAssetSettlement(page: Page) {
+  await page.waitForFunction(() => Boolean((window as any).fsharpDocsCode?.loading))
+  await page.evaluate(async () => {
+    await Promise.all([
+      (window as any).fsharpDocsCode.loading,
+      document.fonts?.ready,
+    ])
+  })
+}
+
+async function gotoAfterDocsAssetSettlement(page: Page, path: string, waitUntil: 'commit' | 'domcontentloaded' = 'commit') {
+  if (page.url() !== 'about:blank') await waitForDocsAssetSettlement(page)
+  const response = await page.goto(path, { waitUntil })
+  await waitForDocsAssetSettlement(page)
+  return response
+}
+
 test.describe('public documentation routes', () => {
   for (const route of routes) {
     test(`GET ${route.path} renders`, async ({ page }) => {
@@ -214,10 +233,8 @@ test('Components pages provide focused examples, navigation, interaction, themes
   ] as const
 
   const openPreview = async (path: string, heading: string) => {
-    await page.goto(path, { waitUntil: 'commit' })
+    await gotoAfterDocsAssetSettlement(page, path)
     await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
-    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
     const example = page.locator('[data-docs-example="true"]')
     await expect(example).toHaveCount(1)
     const previewTab = example.getByRole('tab', { name: 'Preview' })
@@ -241,7 +258,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
     expect(duplicateIds, path).toEqual([])
   }
 
-  await page.goto('/components/select', { waitUntil: 'domcontentloaded' })
+  await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
   const packageNavOrder = await page.locator('#nav-fsharp-viewengine-components, #nav-fsharp-viewengine-docs').evaluateAll(elements => elements.map(element => element.id))
   expect(packageNavOrder).toEqual(['nav-fsharp-viewengine-components', 'nav-fsharp-viewengine-docs'])
   await expect(page.locator('#nav-fsharp-viewengine-components')).toHaveAttribute('aria-expanded', 'true')
@@ -401,18 +418,21 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(nextPage).toHaveAttribute('href', '/components/pagination?page=3#components-pagination-panel-preview')
   await nextPage.click()
   await expect(page).toHaveURL(/\/components\/pagination\?page=3#components-pagination-panel-preview$/)
+  await waitForDocsAssetSettlement(page)
   await expect(accountPages.getByText('Showing 51–75 of 184 accounts')).toBeVisible()
   await expect(accountPages.getByText('3', { exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(accountPages.getByText('Previous', { exact: true })).toHaveAttribute('href', '/components/pagination?page=2#components-pagination-panel-preview')
   await expect(accountPages.getByText('Next', { exact: true })).toHaveAttribute('href', '/components/pagination?page=4#components-pagination-panel-preview')
   await accountPages.getByRole('link', { name: 'Page 8' }).click()
   await expect(page).toHaveURL(/\/components\/pagination\?page=8#components-pagination-panel-preview$/)
+  await waitForDocsAssetSettlement(page)
   await expect(accountPages.getByText('Showing 176–184 of 184 accounts')).toBeVisible()
   await expect(accountPages.getByText('8', { exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(accountPages.getByText('Next', { exact: true })).toHaveAttribute('aria-disabled', 'true')
   await expect(accountPages.locator('a[href*="ledger.example.test"]')).toHaveCount(0)
   await page.goBack()
   await expect(page).toHaveURL(/\/components\/pagination\?page=3#components-pagination-panel-preview$/)
+  await waitForDocsAssetSettlement(page)
   await expect(accountPages.getByText('Showing 51–75 of 184 accounts')).toBeVisible()
   await expect(accountPages.getByText('3', { exact: true })).toHaveAttribute('aria-current', 'page')
 
@@ -643,10 +663,8 @@ test('DropdownMenu preserves groups, alignment, activation, sibling dismissal, m
     })
   }
   const openPreview = async (path: string, heading: string) => {
-    await page.goto(path, { waitUntil: 'commit' })
+    await gotoAfterDocsAssetSettlement(page, path)
     await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
-    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
     const example = page.locator('[data-docs-example="true"]')
     await expect(example).toHaveCount(1)
     const previewTab = example.getByRole('tab', { name: 'Preview' })
@@ -802,10 +820,8 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
     })
   }
   const openPreview = async (path: string, heading: string) => {
-    await page.goto(path, { waitUntil: 'commit' })
+    await gotoAfterDocsAssetSettlement(page, path)
     await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
-    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
     const example = page.locator('[data-docs-example="true"]')
     await expect(example).toHaveCount(1)
     const previewTab = example.getByRole('tab', { name: 'Preview' })
@@ -849,16 +865,14 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   await expect(appShellSurface.locator('[aria-current="page"]')).toBeVisible()
 
   for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/combobox', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/tabs', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/app-shell']) {
-    await page.goto(path, { waitUntil: 'domcontentloaded' })
-    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
+    await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
       .analyze()
     expect(results.violations, path).toEqual([])
   }
 
-  await page.goto('/components', { waitUntil: 'domcontentloaded' })
+  await gotoAfterDocsAssetSettlement(page, '/components', 'domcontentloaded')
   const catalog = page.locator('.docs-catalog-grid')
   await expect(catalog.getByRole('link', { name: /ACTIONS Button/ })).toHaveAttribute('href', '/components/button')
   await expect(catalog.getByRole('link', { name: /ACTIONS Icon button/ })).toHaveAttribute('href', '/components/icon-button')
@@ -919,7 +933,7 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   await openPreview('/components/radio-group', 'Radio group')
   await attachScreenshot('components-radio-group-mobile-dark')
 
-  await page.goto('/components', { waitUntil: 'commit' })
+  await gotoAfterDocsAssetSettlement(page, '/components')
   await expect(page.getByRole('heading', { level: 1, name: 'Components' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await page.getByRole('button', { name: 'Open navigation' }).click()
@@ -965,7 +979,7 @@ test('Combobox preserves static and remote state, ordering, focus, and responsiv
   )
   const browserErrors = captureBrowserErrors(page)
   const openPreview = async () => {
-    await page.goto('/components/combobox', { waitUntil: 'commit' })
+    await gotoAfterDocsAssetSettlement(page, '/components/combobox')
     await expect(page.getByRole('heading', { level: 1, name: 'Combobox', exact: true })).toBeVisible()
     const example = page.locator('[data-docs-example="true"]')
     await expect(example).toHaveCount(1)
@@ -1120,10 +1134,8 @@ test('Tabs preserve variants, automatic keyboard selection, instances, morphs, a
     })
   }
   const openPreview = async () => {
-    await page.goto('/components/tabs', { waitUntil: 'commit' })
+    await gotoAfterDocsAssetSettlement(page, '/components/tabs')
     await expect(page.getByRole('heading', { level: 1, name: 'Tabs', exact: true })).toBeVisible()
-    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
     const example = page.locator('[data-docs-example="true"]')
     const previewTab = example.getByRole('tab', { name: 'Preview' })
     const panelId = await previewTab.getAttribute('aria-controls')
@@ -1227,7 +1239,7 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
   )
   const browserErrors = captureBrowserErrors(page)
   const openPreview = async (path: string, heading: string) => {
-    await page.goto(path, { waitUntil: 'commit' })
+    await gotoAfterDocsAssetSettlement(page, path)
     await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
     const example = page.locator('[data-docs-example="true"]')
     await expect(example).toHaveCount(1)
@@ -1238,8 +1250,6 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
     const panel = page.locator(`#${panelId}`)
     await expect(panel).toBeVisible()
     await expect(panel.locator('.fve-components')).toHaveCount(1)
-    await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-    await page.evaluate(() => (window as any).fsharpDocsCode.loading)
     return panel.locator('.fve-components')
   }
   const attachScreenshot = async (name: string) => {
@@ -1668,6 +1678,7 @@ test('rapid full-document navigation cancels old Prism loading without browser e
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => Boolean((window as any).fsharpDocsCode?.loading))
   await prismIntercepted
+  await page.waitForFunction(() => document.fonts?.status === 'loaded')
 
   const navigationRequest = page.waitForRequest(request => request.isNavigationRequest() && new URL(request.url()).pathname === '/getting-started/first-view')
   const navigation = page.goto('/getting-started/first-view', { waitUntil: 'domcontentloaded' })
