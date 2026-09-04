@@ -22,6 +22,18 @@ module Components =
         | Settings
         | DropdownMenuGuide
 
+    type ShellDestination =
+        | LedgerHome
+        | LedgerAccounts
+        | LedgerAccount of int
+        | LedgerReports
+        | LedgerSettings
+        | FieldHome
+        | FieldRegion of string
+        | FieldSchedule
+        | FieldRiders
+        | FieldInventory
+
     type AccountRow =
         { id:int
           name:string
@@ -40,6 +52,42 @@ module Components =
         | Account id -> $"https://ledger.example.test/accounts/{id}"
         | Settings -> "https://ledger.example.test/settings"
         | DropdownMenuGuide -> "/components/dropdown-menu#keyboard"
+
+    let private shellDestinationKey = function
+        | LedgerHome -> "ledger-home"
+        | LedgerAccounts -> "ledger-accounts"
+        | LedgerAccount id -> $"ledger-account-{id}"
+        | LedgerReports -> "ledger-reports"
+        | LedgerSettings -> "ledger-settings"
+        | FieldHome -> "field-home"
+        | FieldRegion region -> $"field-region-{region.ToLowerInvariant()}"
+        | FieldSchedule -> "field-schedule"
+        | FieldRiders -> "field-riders"
+        | FieldInventory -> "field-inventory"
+
+    let tryShellDestination = function
+        | "ledger-home" -> Some LedgerHome
+        | "ledger-accounts" -> Some LedgerAccounts
+        | value when value.StartsWith("ledger-account-", StringComparison.Ordinal) ->
+            match Int32.TryParse(value["ledger-account-".Length..]) with
+            | true, id -> Some(LedgerAccount id)
+            | false, _ -> None
+        | "ledger-reports" -> Some LedgerReports
+        | "ledger-settings" -> Some LedgerSettings
+        | "field-home" -> Some FieldHome
+        | value when value.StartsWith("field-region-", StringComparison.Ordinal) -> Some(FieldRegion value["field-region-".Length..])
+        | "field-schedule" -> Some FieldSchedule
+        | "field-riders" -> Some FieldRiders
+        | "field-inventory" -> Some FieldInventory
+        | _ -> None
+
+    let shellDestinationUrl destination =
+        $"/components/app-shell?destination={shellDestinationKey destination}"
+
+    let private shellNavigationAttributes destination =
+        let href = shellDestinationUrl destination
+        let encoded = System.Text.Json.JsonSerializer.Serialize href
+        [ _dataOn ("click", $"if (!evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) {{ evt.preventDefault(); window.fsharpDocsNavigation?.begin(); window.history.pushState(null, '', {encoded}); @get({encoded}) }}") ]
 
     let private sourceText =
         lazy (SourceRegion.readEmbedded typeof<DocPage>.Assembly "Docs.Pages.Components.fs")
@@ -927,30 +975,262 @@ module Components =
     let detailPreview = themedSurface detailPage
     // docs-example:end detail
 
-    // docs-example:start app-shell
-    let shellContent =
+    let private ledgerMark =
+        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5"><path d="M4 3.75A1.75 1.75 0 0 1 5.75 2h8.5A1.75 1.75 0 0 1 16 3.75v12.5A1.75 1.75 0 0 1 14.25 18h-8.5A1.75 1.75 0 0 1 4 16.25V3.75Zm3 1.5A.75.75 0 0 0 7.75 6h4.5a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75Zm0 4A.75.75 0 0 0 7.75 10h4.5a.75.75 0 0 0 0-1.5h-4.5a.75.75 0 0 0-.75.75Zm0 4a.75.75 0 0 0 .75.75h2.5a.75.75 0 0 0 0-1.5h-2.5a.75.75 0 0 0-.75.75Z"/></svg>"""
+
+    let private fieldMark =
+        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5"><path fill-rule="evenodd" d="M10 2a6 6 0 0 0-6 6c0 4.25 5.16 9.3 5.38 9.51a.88.88 0 0 0 1.24 0C10.84 17.3 16 12.25 16 8a6 6 0 0 0-6-6Zm0 8.25a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" clip-rule="evenodd"/></svg>"""
+
+    let private navigationGlyph =
+        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5"><path d="M3.5 4.75A1.25 1.25 0 0 1 4.75 3.5h10.5a1.25 1.25 0 0 1 1.25 1.25v10.5a1.25 1.25 0 0 1-1.25 1.25H4.75a1.25 1.25 0 0 1-1.25-1.25V4.75Z"/></svg>"""
+
+    let private shellItem destination label =
+        SideNavigationItem.create destination label
+        |> SideNavigationItem.withLeading navigationGlyph
+        |> SideNavigationItem.withAttributes (shellNavigationAttributes destination)
+
+    let private ledgerBreadcrumbs current =
+        let items =
+            match current with
+            | LedgerHome -> [ BreadcrumbItem.create LedgerHome "Home" ]
+            | LedgerAccounts -> [ BreadcrumbItem.create LedgerHome "Home"; BreadcrumbItem.create LedgerAccounts "Accounts" ]
+            | LedgerAccount id -> [ BreadcrumbItem.create LedgerHome "Home"; BreadcrumbItem.create LedgerAccounts "Accounts"; BreadcrumbItem.create (LedgerAccount id) $"Account {id}" ]
+            | LedgerReports -> [ BreadcrumbItem.create LedgerHome "Home"; BreadcrumbItem.create LedgerReports "Reports" ]
+            | LedgerSettings -> [ BreadcrumbItem.create LedgerHome "Home"; BreadcrumbItem.create LedgerSettings "Settings" ]
+            | _ -> [ BreadcrumbItem.create LedgerHome "Home" ]
+        Breadcrumbs.create "ledger-breadcrumbs" "Breadcrumb" items
+
+    let private fieldBreadcrumbs current =
+        let items =
+            match current with
+            | FieldHome -> [ BreadcrumbItem.create FieldHome "Home" ]
+            | FieldRegion region -> [ BreadcrumbItem.create FieldHome "Home"; BreadcrumbItem.create (FieldRegion region) region ]
+            | FieldSchedule -> [ BreadcrumbItem.create FieldHome "Home"; BreadcrumbItem.create (FieldRegion "East") "East region"; BreadcrumbItem.create FieldSchedule "Schedule" ]
+            | FieldRiders -> [ BreadcrumbItem.create FieldHome "Home"; BreadcrumbItem.create FieldRiders "Riders" ]
+            | FieldInventory -> [ BreadcrumbItem.create FieldHome "Home"; BreadcrumbItem.create FieldInventory "Inventory" ]
+            | _ -> [ BreadcrumbItem.create FieldHome "Home" ]
+        Breadcrumbs.create "field-breadcrumbs" "Breadcrumb" items
+
+    // docs-example:start breadcrumbs
+    let accountBreadcrumbs = ledgerBreadcrumbs (LedgerAccount 2048)
+
+    let breadcrumbsPreview =
+        accountBreadcrumbs
+        |> Breadcrumbs.render shellDestinationUrl
+        |> themedSurface
+    // docs-example:end breadcrumbs
+
+    let private ledgerNavigation current =
+        let navigationCurrent =
+            match current with
+            | LedgerAccount _ -> LedgerAccounts
+            | LedgerHome | LedgerAccounts | LedgerReports | LedgerSettings -> current
+            | _ -> LedgerHome
+        SideNavigation.create "ledger-side-navigation" "Ledger primary navigation" "Ledger" navigationCurrent [
+            SideNavigationSection.group "Manage" [
+                shellItem LedgerHome "Dashboard"
+                shellItem LedgerAccounts "Accounts" ]
+            SideNavigationSection.group "Analyze" [ shellItem LedgerReports "Reports" ]
+            SideNavigationSection.group "Configure" [ shellItem LedgerSettings "Settings" ] ]
+        |> SideNavigation.withMark ledgerMark
+        |> SideNavigation.withContext (
+            div {
+                p { _class "text-xs font-semibold uppercase tracking-wide text-[var(--fve-muted-text)]"; "Workspace" }
+                p { _class "mt-1 truncate text-sm font-semibold"; "Meier Made" }
+            })
+        |> SideNavigation.withFooter (
+            a {
+                _href (shellDestinationUrl LedgerSettings)
+                for attribute in shellNavigationAttributes LedgerSettings do attribute
+                _class "flex min-h-[var(--fve-control-min-height)] items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+                span { _ariaHidden true; _class "flex size-8 items-center justify-center rounded-full bg-[var(--fve-brand-subtle)] text-xs text-[var(--fve-brand-text)]"; "AM" }
+                span { _class "min-w-0"; span { _class "block truncate"; "Andrew Meier" }; span { _class "block truncate text-xs font-normal text-[var(--fve-muted-text)]"; "Account settings" } }
+            })
+
+    // docs-example:start side-navigation
+    let groupedLedgerNavigation = ledgerNavigation LedgerAccounts
+
+    let sideNavigationPreview =
         div {
-            h1 { _class "text-2xl font-semibold"; "Accounts" }
-            p { _class "mt-2 text-sm text-[var(--fve-muted-text)]"; "Review balances and posting availability." }
+            _class "h-[36rem] overflow-hidden rounded-xl ring-1 ring-[var(--fve-border)]"
+            groupedLedgerNavigation |> SideNavigation.render shellDestinationUrl
+        }
+        |> themedSurface
+    // docs-example:end side-navigation
+
+    let private ledgerTitle = function
+        | LedgerHome -> "Dashboard"
+        | LedgerAccounts -> "Accounts"
+        | LedgerAccount id -> $"Account {id}"
+        | LedgerReports -> "Reports"
+        | LedgerSettings -> "Settings"
+        | _ -> "Ledger"
+
+    let private refreshBalancesAction =
+        Button.create "Refresh balances"
+        |> Button.withVariant ButtonVariant.Secondary
+        |> Button.withAttributes [ _dataOn ("click", "$ledgerRefreshes++") ]
+        |> Button.render
+
+    let private pageAction destination (label:string) =
+        a {
+            _href (shellDestinationUrl destination)
+            for attribute in shellNavigationAttributes destination do attribute
+            _class "inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-brand-text)] ring-1 ring-inset ring-[var(--fve-brand-solid)] outline-none hover:bg-[var(--fve-brand-subtle)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+            label
         }
 
-    let shellAccountMenu =
-        DropdownMenu.create "components-shell-actions" "Account" accountMenuItems
-        |> DropdownMenu.render destinationUrl
+    // docs-example:start page-header
+    let accountPageHeader =
+        PageHeader.create "Account 2048" (ledgerBreadcrumbs (LedgerAccount 2048))
+        |> PageHeader.withActions refreshBalancesAction
 
-    let shellPreview =
-        AppShell.create "Ledger" Accounts [
-            NavigationItem.create Accounts "Accounts"
-            NavigationItem.create Settings "Settings"
-        ] shellContent
-        |> AppShell.withBreadcrumbs [ NavigationItem.create Accounts "Accounts" ]
-        |> AppShell.withAccountMenu shellAccountMenu
+    let pageHeaderPreview =
+        div {
+            _dataSignals "{ledgerRefreshes: 0}"
+            accountPageHeader |> PageHeader.render shellDestinationUrl
+            output { _class "sr-only"; _role "status"; _dataText "'Balance refreshes: ' + $ledgerRefreshes"; "Balance refreshes: 0" }
+        }
+        |> themedSurface
+    // docs-example:end page-header
+
+    let private fieldNavigation current =
+        let navigationCurrent =
+            match current with
+            | FieldRegion _ -> FieldSchedule
+            | FieldHome | FieldSchedule | FieldRiders | FieldInventory -> current
+            | _ -> FieldHome
+        SideNavigation.create "field-side-navigation" "Fieldwork primary navigation" "Fieldwork" navigationCurrent [
+            SideNavigationSection.ungrouped [
+                shellItem FieldHome "Overview"
+                shellItem FieldSchedule "Schedule"
+                shellItem FieldRiders "Riders"
+                shellItem FieldInventory "Inventory" ] ]
+        |> SideNavigation.withMark fieldMark
+        |> SideNavigation.withFooter (
+            a {
+                _href (shellDestinationUrl FieldHome)
+                for attribute in shellNavigationAttributes FieldHome do attribute
+                _class "block rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+                "Nantucket MX"
+                span { _class "mt-1 block text-xs font-normal text-[var(--fve-muted-text)]"; "Operations workspace" }
+            })
+
+    let private scheduleSectionNavigation =
+        nav {
+            _ariaLabel "Schedule views"
+            _class "flex gap-4 border-b border-[var(--fve-border)] px-4 sm:px-6"
+            a { _href "#upcoming-sessions"; _class "border-b-2 border-[var(--fve-brand-solid)] px-1 py-3 text-sm font-semibold text-[var(--fve-brand-text)]"; "Upcoming" }
+            a { _href "#completed-sessions"; _class "border-b-2 border-transparent px-1 py-3 text-sm font-semibold text-[var(--fve-muted-text)] hover:text-[var(--fve-text)]"; "Completed" }
+        }
+
+    let private scheduleContent =
+        div {
+            _class "grid gap-6 bg-[var(--fve-page)] p-4 sm:p-6"
+            section {
+                _id "upcoming-sessions"
+                _class "overflow-hidden rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] ring-1 ring-[var(--fve-border)]"
+                div { _class "border-b border-[var(--fve-border)] p-4"; h2 { _class "text-base font-semibold"; "Upcoming sessions" }; p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; "Saturday practice and Sunday race operations." } }
+                ul { _role "list"; _class "divide-y divide-[var(--fve-border)]"; li { _class "flex items-center justify-between gap-4 p-4 text-sm"; span { "Saturday · Practice" }; Status.positive "Ready" }; li { _class "flex items-center justify-between gap-4 p-4 text-sm"; span { "Sunday · Race day" }; Status.create "Planning" |> Status.withTone Tone.Informative |> Status.render } }
+            }
+            section { _id "completed-sessions"; h2 { _class "text-base font-semibold"; "Completed sessions" }; p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; "Results remain available from the event archive." } }
+        }
+
+    // docs-example:start page
+    let fieldSchedulePage =
+        PageHeader.create "Schedule" (fieldBreadcrumbs FieldSchedule)
+        |> fun pageHeader -> Page.create pageHeader scheduleContent
+        |> Page.withSectionNavigation scheduleSectionNavigation
+        |> Page.withWidth PageWidth.Full
+        |> Page.withBodyLayout PageBodyLayout.FullBleed
+
+    let pagePreview =
+        div {
+            _class "h-[36rem] overflow-hidden rounded-xl ring-1 ring-[var(--fve-border)]"
+            fieldSchedulePage |> Page.render shellDestinationUrl
+        }
+        |> fun content ->
+            div {
+                for attribute in ComponentsTheme.attributes ComponentsTheme.emerald do attribute
+                content
+            }
+        |> themedPreview
+    // docs-example:end page
+
+    let private ledgerPage current =
+        let activity = div { p { _class "text-base"; "Balance refreshes and posting changes appear here." } }
+        let summary =
+            div {
+                _class "grid gap-4 sm:grid-cols-2"
+                Metric.text "Available balance" "$42,800" |> Metric.withTrend "Up 8%" |> Metric.render
+                div { _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-5 ring-1 ring-[var(--fve-border)]"; p { _class "text-sm text-[var(--fve-muted-text)]"; "Refreshes this visit" }; strong { _class "mt-2 block text-2xl"; _dataText "$ledgerRefreshes"; "0" } }
+            }
+        let actions =
+            match current with
+            | LedgerAccounts | LedgerAccount _ -> refreshBalancesAction
+            | _ -> pageAction LedgerAccounts "View accounts"
+        let pageHeader =
+            PageHeader.create (ledgerTitle current) (ledgerBreadcrumbs current)
+            |> PageHeader.withActions actions
+        let page = Page.create pageHeader empty
+        match current with
+        | LedgerAccounts | LedgerAccount _ ->
+            page
+            |> Page.withTabs (
+                Tabs.create "ledger-account-tabs" "Account sections" [
+                    Tab.create "summary" "Summary" summary
+                    Tab.create "activity" "Activity" activity ]
+                |> Tabs.withVariant TabsVariant.Underlined
+                |> Tabs.render)
+        | _ ->
+            Page.create pageHeader (
+                div {
+                    _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-6 ring-1 ring-[var(--fve-border)]"
+                    h2 { _class "text-lg font-semibold"; ledgerTitle current }
+                    p { _class "mt-2 text-base text-[var(--fve-muted-text)]"; "This route keeps its content and actions inside the Page boundary." }
+                })
+
+    let private fieldPage current =
+        let pageHeader = PageHeader.create (match current with | FieldSchedule -> "Schedule" | FieldRiders -> "Riders" | FieldInventory -> "Inventory" | _ -> "Overview") (fieldBreadcrumbs current)
+        if current = FieldSchedule then fieldSchedulePage
+        else
+            Page.create pageHeader (
+                div {
+                    _class "grid min-h-full place-items-center p-6 text-center"
+                    div { h2 { _class "text-lg font-semibold"; "Fieldwork operations" }; p { _class "mt-2 text-base text-[var(--fve-muted-text)]"; "Choose a destination from the product navigation." } }
+                })
+            |> Page.withWidth PageWidth.Full
+            |> Page.withBodyLayout PageBodyLayout.FullBleed
+
+    // docs-example:start app-shell
+    let ledgerShell current =
+        let page =
+            div {
+                _dataSignals "{ledgerRefreshes: 0}"
+                ledgerPage current |> Page.render shellDestinationUrl
+            }
+        AppShell.create "ledger-app-shell" (ledgerNavigation current) page
         |> AppShell.withTheme (
             ComponentsTheme.sky
             |> ComponentsTheme.withRadius Radius.Large
             |> ComponentsTheme.withDensity Density.Compact)
-        |> AppShell.render destinationUrl
+        |> AppShell.render shellDestinationUrl
+
+    let fieldworkShell current =
+        AppShell.create "field-app-shell" (fieldNavigation current) (fieldPage current |> Page.render shellDestinationUrl)
+        |> AppShell.withTheme (
+            ComponentsTheme.emerald
+            |> ComponentsTheme.withRadius Radius.Medium
+            |> ComponentsTheme.withDensity Density.Comfortable)
+        |> AppShell.render shellDestinationUrl
+
+    let shellPreviewFor current =
+        match current with
+        | LedgerHome | LedgerAccounts | LedgerAccount _ | LedgerReports | LedgerSettings -> ledgerShell current
+        | FieldHome | FieldRegion _ | FieldSchedule | FieldRiders | FieldInventory -> fieldworkShell current
         |> themedPreview
+
+    let shellPreview = shellPreviewFor (LedgerAccount 2048)
     // docs-example:end app-shell
 
     let private registration id path navLabel title : DocPage =
@@ -985,12 +1265,16 @@ module Components =
     let checkboxRegistration = registration "components-checkbox" "/components/checkbox" "Checkbox" "Checkbox"
     let switchRegistration = registration "components-switch" "/components/switch" "Switch" "Switch"
     let toggleButtonRegistration = registration "components-toggle-button" "/components/toggle-button" "Toggle button" "Toggle button"
+    let breadcrumbsRegistration = registration "components-breadcrumbs" "/components/breadcrumbs" "Breadcrumbs" "Breadcrumbs"
+    let sideNavigationRegistration = registration "components-side-navigation" "/components/side-navigation" "Side navigation" "Side navigation"
     let tabsRegistration = registration "components-tabs" "/components/tabs" "Tabs" "Tabs"
     let radioGroupRegistration = registration "components-radio-group" "/components/radio-group" "Radio group" "Radio group"
     let dropdownMenuRegistration = registration "components-dropdown-menu" "/components/dropdown-menu" "Dropdown menu" "Dropdown menu"
     let dialogRegistration = registration "components-dialog" "/components/dialog" "Dialog" "Dialog"
     let confirmationDialogRegistration = registration "components-confirmation-dialog" "/components/confirmation-dialog" "Confirmation dialog" "Confirmation dialog"
     let drawerRegistration = registration "components-drawer" "/components/drawer" "Drawer" "Drawer"
+    let pageHeaderRegistration = registration "components-page-header" "/components/page-header" "Page header" "Page header"
+    let pageRegistration = registration "components-page" "/components/page" "Page" "Page"
     let collectionRegistration = registration "components-collection" "/components/collection" "Collection" "Collection"
     let detailRegistration = registration "components-detail" "/components/detail" "Detail" "Detail"
     let appShellRegistration = registration "components-app-shell" "/components/app-shell" "App shell" "App shell"
@@ -1016,9 +1300,9 @@ module Components =
           switchRegistration
           toggleButtonRegistration
           radioGroupRegistration ]
-    let navigationRegistrations = [ tabsRegistration ]
+    let navigationRegistrations = [ breadcrumbsRegistration; sideNavigationRegistration; tabsRegistration ]
     let menuOverlayRegistrations = [ dropdownMenuRegistration; dialogRegistration; confirmationDialogRegistration; drawerRegistration ]
-    let compositionRegistrations = [ collectionRegistration; detailRegistration; appShellRegistration ]
+    let compositionRegistrations = [ pageHeaderRegistration; pageRegistration; collectionRegistration; detailRegistration; appShellRegistration ]
     let guideRegistrations =
         [ interactionRegistration
           accessibilityRegistration
@@ -1044,7 +1328,7 @@ module Components =
     |> ComponentsTheme.withRadius Radius.Large
     |> ComponentsTheme.withDensity Density.Comfortable
 
-AppShell.create productName current navigation content
+AppShell.create "product-shell" sideNavigation pageContent
 |> AppShell.withTheme theme
 |> AppShell.render destinationUrl"""
 
@@ -1105,14 +1389,18 @@ AppShell.create productName current navigation content
             catalogLink "/components/switch" "FORM CONTROLS" "Switch" "Immediate on/off settings with switch semantics."
             catalogLink "/components/toggle-button" "FORM CONTROLS" "Toggle button" "A pressed or unpressed action state."
             catalogLink "/components/radio-group" "FORM CONTROLS" "Radio group" "One submitted choice from a labelled set."
+            catalogLink "/components/breadcrumbs" "NAVIGATION" "Breadcrumbs" "Linked ancestors, compact deep paths, and a truthful current page."
+            catalogLink "/components/side-navigation" "NAVIGATION" "Side navigation" "Product identity, grouped destinations, context, current state, and account access."
             catalogLink "/components/tabs" "NAVIGATION" "Tabs" "Segmented or underlined switching among same-page peer panels."
             catalogLink "/components/dropdown-menu" "MENUS" "Dropdown menu" "Keyboard-navigable actions and destinations."
             catalogLink "/components/dialog" "OVERLAYS" "Dialog" "Connected trigger, initial focus, dismissal, and focus restoration."
             catalogLink "/components/confirmation-dialog" "OVERLAYS" "Confirmation dialog" "Destructive confirmation with server validation and duplicate-submit protection."
             catalogLink "/components/drawer" "OVERLAYS" "Drawer" "Responsive start or end panels with native modal focus behavior."
+            catalogLink "/components/page-header" "COMPOSITIONS" "Page header" "Responsive breadcrumbs and actions with one document heading."
+            catalogLink "/components/page" "COMPOSITIONS" "Page" "Route-owned navigation, scrolling, width, and padded or full-bleed content."
             catalogLink "/components/collection" "COMPOSITIONS" "Collection" "Collection heading, actions, toolbar, and application-owned results."
             catalogLink "/components/detail" "COMPOSITIONS" "Detail" "Detail heading, metadata, actions, and custom sections."
-            catalogLink "/components/app-shell" "COMPOSITIONS" "App shell" "Typed destinations, navigation, breadcrumbs, account actions, and theme."
+            catalogLink "/components/app-shell" "COMPOSITIONS" "App shell" "Responsive sidebar framing, mobile focus behavior, one main landmark, and a page slot."
         }
 
     let overviewPage =
@@ -1239,6 +1527,18 @@ AppShell.create productName current navigation content
             docsSection "when-to-use" "When to use a toggle button" [ docsParagraph "Use ToggleButton for an action state such as compact rows or pinned filters. Do not substitute it for Checkbox, Switch, or a Radio group when form-choice semantics are required." ]
             docsSection "accessibility" "Accessibility" [ docsParagraph "The visible label stays stable while aria-pressed communicates state. Pointer, Enter, and Space activation retain normal button behavior. Disabled and pending buttons prevent activation; pending also exposes aria-busy and a reduced-motion-safe loading indicator." ] ]
 
+    let breadcrumbsPage =
+        componentPage breadcrumbsRegistration "Show a typed page path with linked ancestors and one truthful current location." "breadcrumbs" breadcrumbsPreview [
+            docsSection "semantics" "Semantic path" [ docsParagraph "Breadcrumbs renders one labelled navigation landmark and an ordered path. Every ancestor is a real link resolved from the consumer destination; the final current-page item is text with aria-current=page rather than a redundant self-link." ]
+            docsSection "responsive" "Compact deep paths" [ docsParagraph "Narrow screens keep the current page visible and move every ancestor into the package DropdownMenu. Wider screens expose the complete ordered path without changing destinations or current-page semantics." ]
+            docsSection "composition" "Independent composition" [ docsParagraph "Breadcrumbs is independently renderable and also composes into PageHeader. A stable ID keeps its responsive overflow menu independent when several breadcrumb regions exist." ] ]
+
+    let sideNavigationPage =
+        componentPage sideNavigationRegistration "Compose persistent product identity, grouped destinations, context, current state, and account access." "side-navigation" sideNavigationPreview [
+            docsSection "sections" "Grouped and ungrouped sections" [ docsParagraph "Use labelled groups when destinations need scan-friendly hierarchy and one ungrouped section for compact products. Each typed destination appears once, and the configured current destination must exist in the navigation." ]
+            docsSection "ownership" "Consumer ownership" [ docsParagraph "Applications supply product identity, optional marks, authorized destinations, URL resolution, optional workspace context, and footer or account content. SideNavigation owns only semantic navigation structure and consistent presentation." ]
+            docsSection "responsive" "One navigation tree" [ docsParagraph "AppShell places the same rendered SideNavigation tree persistently on desktop and in the mobile overlay. This preserves equivalent destinations, hierarchy, current state, names, and account access without duplicated IDs or divergent mobile markup." ] ]
+
     let tabsPage =
         componentPage tabsRegistration "Switch among same-page peer panels with segmented or underlined presentation and one accessible interaction model." "tabs" tabsPreview [
             docsSection "variants" "Segmented and underlined variants" [ docsParagraph "Use Segmented for compact view modes such as Code and Preview. Use Underlined for page-local peer sections. Both variants retain the same tablist, tab, and tabpanel semantics rather than becoming toggle buttons or navigation links." ]
@@ -1278,6 +1578,18 @@ AppShell.create productName current navigation content
             docsSection "focus" "Focus and dismissal" [ docsParagraph "Native showModal behavior contains focus. Choose a deliberate initial target, dismiss with Escape, the close action, or the backdrop, and return focus to the connected trigger." ]
             docsSection "patches" "Stable server patches" [ docsParagraph "Patch a stable consumer-owned region inside the drawer rather than replacing the open native dialog. The example refreshes its navigation content from the server while preserving the active modal, landmark, focus, and trigger relationship." ] ]
 
+    let pageHeaderPage =
+        componentPage pageHeaderRegistration "Render a responsive route identity region with breadcrumbs, actions, and one document heading." "page-header" pageHeaderPreview [
+            docsSection "heading" "One document heading" [ docsParagraph "The required title renders exactly once as a visually hidden h1. The visible current breadcrumb remains compact and is not duplicated as another visual heading." ]
+            docsSection "actions" "Page actions" [ docsParagraph "Actions remain ordinary consumer-supplied HtmlElement content. Keep the highest-priority action visible, use no more than two direct actions, and use DropdownMenu for additional unrelated commands." ]
+            docsSection "ownership" "Route identity" [ docsParagraph "PageHeader owns route-specific breadcrumbs and actions. Product navigation and responsive sidebar controls belong to SideNavigation and AppShell instead." ] ]
+
+    let pagePage =
+        componentPage pageRegistration "Own route-local headers, navigation, scrolling, width, and padded or full-bleed content." "page" pagePreview [
+            docsSection "layouts" "Padded and full-bleed bodies" [ docsParagraph "PageBodyLayout.Padded supplies consistent responsive page spacing. FullBleed lets route content reach the selected width boundary for tables, maps, and application canvases without moving that policy into AppShell." ]
+            docsSection "width" "Content width" [ docsParagraph "Reading, Wide, and Full widths are semantic route decisions. The PageHeader aligns to the same width while the Page-owned body remains the only scroll region." ]
+            docsSection "navigation" "Local navigation" [ docsParagraph "Use withSectionNavigation for route links or withTabs for immediately available same-page peer panels. The supplied region and route content scroll together beneath the persistent PageHeader." ] ]
+
     let collectionPageDocumentation =
         componentPage collectionRegistration "Compose a collection heading, description, actions, toolbar, and application-owned result content." "collection" collectionPreview [
             docsSection "ownership" "Application responsibilities" [ docsParagraph "The application retains query parsing, filters, sorting, pagination, authorization, empty/loading/error states, and result rendering. Collection supplies consistent page hierarchy and slots." ]
@@ -1288,11 +1600,14 @@ AppShell.create productName current navigation content
             docsSection "ownership" "Application responsibilities" [ docsParagraph "The application retains resource loading, authorization, formatting, validation, mutations, and destinations. Detail supplies consistent page hierarchy without imposing a domain model." ]
             docsSection "composition" "Composition" [ docsParagraph "Metadata, actions, and sections remain ordinary HtmlElement values and can contain other Components primitives." ] ]
 
-    let appShellPage =
-        componentPage appShellRegistration "Render a typed application shell with product identity, navigation, breadcrumbs, account actions, content, and one semantic theme." "app-shell" shellPreview [
-            docsSection "typed-navigation" "Typed navigation" [ docsParagraph "AppShell keeps destinations generic. The application provides navigation items, the current destination, and one resolver from typed destinations to URLs." ]
-            docsSection "theme" "Theme" [ docsParagraph "Apply ComponentsTheme once to coordinate semantic colors, radius, density, light mode, and dark mode across shell navigation and content." ]
-            docsSection "responsibilities" "Application responsibilities" [ docsParagraph "Product routes, authorization, current-user behavior, responsive content, and durable state remain in the consuming application." ] ]
+    let appShellPageFor current =
+        componentPage appShellRegistration "Frame one route-owned Page with persistent desktop navigation and an accessible mobile navigation overlay." "app-shell" (shellPreviewFor current) [
+            docsSection "brands" "Two consumer-owned products" [ docsParagraph "Use the example navigation to deep-link between the grouped Ledger shell and ungrouped Fieldwork shell. Both products use the same package APIs while owning their destination union, URL resolver, marks, hierarchy, workspace or account content, page layout, and semantic theme." ]
+            docsSection "responsive" "Responsive navigation" [ docsParagraph "AppShell renders one SideNavigation tree. Desktop keeps it persistent; mobile opens the same tree as a modal overlay, focuses the current destination, contains Tab focus, dismisses through Escape or the backdrop, and restores the trigger when the current page remains in place." ]
+            docsSection "ownership" "Shell and page boundaries" [ docsParagraph "AppShell owns only theme, responsive sidebar placement, one main landmark, and the rendered page slot. Breadcrumbs, actions, Tabs or section navigation, scrolling, content width, and body padding remain in Page and PageHeader." ]
+            docsSection "state" "Application state" [ docsParagraph "Applications own authorization, product routes, current destination, account identity, and durable state. The Docs example uses its normal server-rendered Datastar navigation so current-page and focus semantics survive a representative document morph without adding another runtime." ] ]
+
+    let appShellPage = appShellPageFor (LedgerAccount 2048)
 
     let interactionPage =
         docsArticle interactionRegistration.id interactionRegistration.title "Keep ephemeral interaction local while applications retain authoritative, durable, and security-sensitive state." [
@@ -1351,12 +1666,16 @@ AppShell.create productName current navigation content
           checkboxRegistration.path, checkboxPage
           switchRegistration.path, switchPage
           toggleButtonRegistration.path, toggleButtonPage
+          breadcrumbsRegistration.path, breadcrumbsPage
+          sideNavigationRegistration.path, sideNavigationPage
           tabsRegistration.path, tabsPage
           radioGroupRegistration.path, radioGroupPage
           dropdownMenuRegistration.path, dropdownMenuPage
           dialogRegistration.path, dialogPage
           confirmationDialogRegistration.path, confirmationDialogPage
           drawerRegistration.path, drawerPage
+          pageHeaderRegistration.path, pageHeaderPage
+          pageRegistration.path, pagePage
           collectionRegistration.path, collectionPageDocumentation
           detailRegistration.path, detailPageDocumentation
           appShellRegistration.path, appShellPage

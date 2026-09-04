@@ -42,7 +42,7 @@ For accessible, server-rendered Tailwind components with Datastar interactions, 
 dotnet add package FSharp.ViewEngine.Components
 ```
 
-`FSharp.ViewEngine.Components` provides typed themes, actions, feedback, tables, branded form controls, menus, overlays, collection/detail compositions, and application shells. See its [package documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fsharpviewengine.meiermade.com/components).
+`FSharp.ViewEngine.Components` provides typed themes, actions, feedback, tables, branded form controls, menus, overlays, collection/detail compositions, and destination-generic Breadcrumbs, SideNavigation, PageHeader, Page, and sidebar-oriented AppShell primitives. See its [package documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fsharpviewengine.meiermade.com/components).
 
 For documentation sites, API references, and executable software specifications, install the separate add-on package:
 

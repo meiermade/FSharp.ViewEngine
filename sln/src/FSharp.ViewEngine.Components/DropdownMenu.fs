@@ -37,7 +37,8 @@ type DropdownMenuConfig<'destination> =
         { id:string
           label:string
           items:MenuItem<'destination> list
-          alignment:MenuAlignment }
+          alignment:MenuAlignment
+          triggerContent:HtmlElement option }
 
 [<RequireQualifiedAccess>]
 module MenuItem =
@@ -81,9 +82,14 @@ module DropdownMenu =
     let create id label items =
         if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable menu ID is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A menu label is required."
-        { id = id; label = label; items = items; alignment = MenuAlignment.End }
+        { id = id
+          label = label
+          items = items
+          alignment = MenuAlignment.End
+          triggerContent = None }
 
     let withAlignment alignment config = { config with alignment = alignment }
+    let withTriggerContent content config = { config with triggerContent = Some content }
 
     let render resolve config =
         let instanceId = ComponentHtml.signalToken config.id
@@ -207,12 +213,13 @@ module DropdownMenu =
                 _type "button"
                 _ariaHaspopup "menu"
                 _ariaExpanded false
+                if config.triggerContent.IsSome then _ariaLabel config.label
                 _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
                 _ariaControls menuId
                 _dataOn ("click", [ "stop" ], $"{announceOpen}; ${openSignal} = !${openSignal}; ${typeaheadSignal} = ''; ${openSignal} && queueMicrotask(() => {focus firstItem})")
                 _dataOn ("keydown", triggerKeydown)
                 _class "inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
-                config.label
+                config.triggerContent |> Option.defaultValue (text config.label)
             }
             div {
                 _id menuId
