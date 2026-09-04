@@ -34,7 +34,7 @@ module Breadcrumbs =
     let private separator =
         span {
             _ariaHidden true
-            _class "flex size-4 shrink-0 items-center justify-center text-[var(--fve-muted-text)]"
+            _class "hidden size-4 shrink-0 items-center justify-center text-[var(--fve-muted-text)] sm:flex"
             raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
         }
 
@@ -51,10 +51,10 @@ module Breadcrumbs =
         nav {
             _id config.id
             _ariaLabel config.label
-            _class "min-w-0"
+            _class "@container min-w-0"
             ol {
                 _role "list"
-                _class "flex min-w-0 items-center gap-1 text-sm text-[var(--fve-muted-text)]"
+                _class "flex min-w-0 flex-wrap items-center gap-1 text-sm text-[var(--fve-muted-text)]"
                 if hiddenItems.IsEmpty |> not then
                     li {
                         _class "flex shrink-0 sm:hidden"
@@ -70,12 +70,15 @@ module Breadcrumbs =
                     let current = index = currentIndex
                     let compacted = index < currentIndex
                     li {
-                        _class (ComponentHtml.classes [ "min-w-0 items-center gap-1"; if compacted then "hidden sm:flex" else "flex" ])
+                        _class (
+                            ComponentHtml.classes [
+                                "min-w-0 items-center gap-1"
+                                if compacted then "hidden sm:flex" else "flex flex-1 basis-full @min-[280px]:basis-auto" ])
                         if index > 0 then separator
                         if current then
                             span {
                                 _ariaCurrent "page"
-                                _class "block min-w-0 truncate font-semibold text-[var(--fve-text)]"
+                                _class "block min-w-0 break-words font-semibold text-[var(--fve-text)] sm:truncate"
                                 item.label
                             }
                         else

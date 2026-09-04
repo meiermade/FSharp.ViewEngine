@@ -89,7 +89,7 @@ module AppShell =
                 _dataAttr ("aria-hidden", $"${openSignal} ? 'true' : null")
                 _class "flex min-w-0 flex-1 flex-col"
                 header {
-                    _class "flex min-h-16 shrink-0 items-center gap-3 border-b border-[var(--fve-border)] bg-[var(--fve-surface)] px-4 lg:hidden"
+                    _class "@container flex min-h-16 shrink-0 flex-wrap items-center gap-3 border-b border-[var(--fve-border)] bg-[var(--fve-surface)] px-4 py-3 lg:hidden"
                     IconButton.create "Open navigation" menuIcon
                     |> IconButton.withVariant ButtonVariant.Ghost
                     |> IconButton.withAttributes [
@@ -99,7 +99,7 @@ module AppShell =
                         _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
                         _dataOn ("click", openAndFocus) ]
                     |> IconButton.render
-                    strong { _class "min-w-0 truncate text-sm font-semibold"; SideNavigationView.productName config.navigation }
+                    strong { _class "min-w-0 flex-1 basis-full break-words text-sm font-semibold @min-[280px]:basis-auto"; SideNavigationView.productName config.navigation }
                 }
                 main {
                     _class "min-h-0 min-w-0 flex-1"

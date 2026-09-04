@@ -64,7 +64,7 @@ module internal SideNavigationView =
         (attributes:HtmlAttribute list)
         (closeControl:HtmlElement option)
         (resolve:'destination -> string)
-        (config:SideNavigationConfig<'destination>) = 
+        (config:SideNavigationConfig<'destination>) =
         let renderItem (item:SideNavigationItem<'destination>) =
             let current = item.destination = config.current
             li {
