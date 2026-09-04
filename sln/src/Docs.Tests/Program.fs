@@ -16,6 +16,20 @@ let private docsTailwindManifest () =
     Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Docs", "FSharp.ViewEngine.Docs.tailwind.css"))
     |> File.ReadAllText
 
+type private ShellTestDestination =
+    | Home
+    | Accounts
+    | Account of int
+    | Reports
+    | Settings
+
+let private shellTestUrl = function
+    | Home -> "/"
+    | Accounts -> "/accounts"
+    | Account id -> $"/accounts/{id}"
+    | Reports -> "/reports"
+    | Settings -> "/settings"
+
 let private expectedPaths =
     set [
         "/"
@@ -61,12 +75,16 @@ let private expectedPaths =
         "/components/checkbox"
         "/components/switch"
         "/components/toggle-button"
+        "/components/breadcrumbs"
+        "/components/side-navigation"
         "/components/tabs"
         "/components/radio-group"
         "/components/dropdown-menu"
         "/components/dialog"
         "/components/confirmation-dialog"
         "/components/drawer"
+        "/components/page-header"
+        "/components/page"
         "/components/collection"
         "/components/detail"
         "/components/app-shell"
@@ -155,9 +173,9 @@ let tests =
                 [ "Table"; "Description list"; "Metric"; "Pagination"; "Chart" ]
                 "data-display components"
             Expect.sequenceEqual (section "Form controls") [ "Select"; "Combobox"; "Checkbox"; "Switch"; "Toggle button"; "Radio group" ] "form controls"
-            Expect.sequenceEqual (section "Navigation") [ "Tabs" ] "navigation components"
+            Expect.sequenceEqual (section "Navigation") [ "Breadcrumbs"; "Side navigation"; "Tabs" ] "navigation components"
             Expect.sequenceEqual (section "Menus and overlays") [ "Dropdown menu"; "Dialog"; "Confirmation dialog"; "Drawer" ] "menu and overlay components"
-            Expect.sequenceEqual (section "Compositions") [ "Collection"; "Detail"; "App shell" ] "page compositions"
+            Expect.sequenceEqual (section "Compositions") [ "Page header"; "Page"; "Collection"; "Detail"; "App shell" ] "page compositions"
             Expect.sequenceEqual (section "Guides") [ "Interaction and server state"; "Accessibility"; "Theming and density"; "Tailwind CSS"; "Customization"; "Versioning" ] "shared Components guides"
             Expect.sequenceEqual (section "Project") [ "Benchmarks"; "Changelog" ] "project order"
         }
@@ -481,7 +499,7 @@ after"""
             let renderedGuides = Components.guideRegistrations |> List.map render
             let allHtml = String.concat Environment.NewLine (overview :: installation :: renderedComponents @ renderedGuides)
 
-            Expect.equal Components.allRegistrations.Length 33 "overview, installation, twenty-five components, and six guides"
+            Expect.equal Components.allRegistrations.Length 37 "overview, installation, twenty-nine components, and six guides"
             Expect.stringContains overview "Accessible, server-rendered Tailwind components" "consumer-facing introduction"
             Expect.stringContains overview "Browse components" "overview is a component catalog"
             Expect.stringContains overview "href=\"/components/button\"" "catalog deep-links Button"
@@ -545,6 +563,10 @@ after"""
                 "Checkbox.create &quot;includeArchived&quot; &quot;Include archived accounts&quot;"
                 "Switch.create &quot;postingNotifications&quot; &quot;Posting notifications&quot;"
                 "ToggleButton.create &quot;components-compact-rows&quot; &quot;Compact rows&quot;"
+                "Breadcrumbs.render shellDestinationUrl"
+                "SideNavigation.render shellDestinationUrl"
+                "PageHeader.create &quot;Account 2048&quot;"
+                "Page.withBodyLayout PageBodyLayout.FullBleed"
                 "Tabs.create &quot;components-example-format&quot; &quot;Example format&quot;"
                 "Tabs.withVariant TabsVariant.Underlined"
                 "Tab.create &quot;activity&quot; &quot;Activity&quot; activity"
@@ -561,7 +583,8 @@ after"""
                 "Drawer.withSide DrawerSide.Start"
                 "Collection.create &quot;Accounts&quot; accountTable"
                 "Detail.create &quot;Operating&quot;"
-                "AppShell.create &quot;Ledger&quot; Accounts" ] do
+                "AppShell.create &quot;ledger-app-shell&quot;"
+                "AppShell.create &quot;field-app-shell&quot;" ] do
                 Expect.stringContains allHtml source source
 
             Expect.stringContains allHtml "data-signals=\"{_account_open: false, account_query:" "remote Combobox emits local open state and an intentionally submitted query"
@@ -594,13 +617,140 @@ after"""
             Expect.isFalse (allHtml.Contains("Select.describe")) "Select has no unobservable option-description modifier"
             Expect.stringContains allHtml "data-signals=\"{_components_menu_actions_open: false, _components_menu_actions_typeahead:" "menu IDs become valid isolated interaction signal tokens"
             Expect.isFalse (allHtml.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
-            Expect.stringContains allHtml "aria-current=\"page\"" "AppShell retains typed current destination"
+            Expect.stringContains allHtml "aria-current=\"page\"" "typed navigation retains the current destination"
+            Expect.stringContains allHtml "grouped Ledger shell and ungrouped Fieldwork shell" "two branded shell examples are documented"
+            Expect.stringContains allHtml "one main landmark" "AppShell ownership excludes route-local page policy"
             Expect.stringContains allHtml "--fve-brand-solid" "consumer theme overrides are documented"
             Expect.stringContains overview "rel=\"prev\" href=\"/extensions/tailwind-elements\"" "Components follows integrations"
             Expect.stringContains overview "rel=\"next\" href=\"/components/installation\"" "overview continues to installation"
             let versioning = render Components.versioningRegistration
             Expect.stringContains versioning "rel=\"prev\" href=\"/components/customization\"" "last guide follows customization"
             Expect.stringContains versioning "rel=\"next\" href=\"/docs\"" "Components precedes the specialized Docs toolkit"
+        }
+
+        test "Breadcrumbs, SideNavigation, PageHeader, Page, and AppShell preserve typed ownership and responsive semantics" {
+            let breadcrumbs =
+                Breadcrumbs.create "account-breadcrumbs" "Breadcrumb" [
+                    BreadcrumbItem.create Home "Home"
+                    BreadcrumbItem.create Accounts "Accounts"
+                    BreadcrumbItem.create (Account 2048) "Account 2048" ]
+            let breadcrumbsHtml = breadcrumbs |> Breadcrumbs.render shellTestUrl |> Render.toString
+            Expect.stringContains breadcrumbsHtml "<nav id=\"account-breadcrumbs\" aria-label=\"Breadcrumb\"" "Breadcrumbs renders a labelled landmark"
+            Expect.stringContains breadcrumbsHtml "href=\"/accounts\"" "breadcrumb ancestors use the typed resolver"
+            Expect.stringContains breadcrumbsHtml "aria-current=\"page\"" "breadcrumb current location is identified"
+            Expect.equal (Regex.Matches(breadcrumbsHtml, "aria-current=\"page\"").Count) 1 "Breadcrumbs identifies one current item"
+            Expect.isFalse (breadcrumbsHtml.Contains("href=\"/accounts/2048\"")) "the current breadcrumb is not a redundant link"
+            Expect.stringContains breadcrumbsHtml "aria-label=\"Show hidden breadcrumbs\"" "deep paths expose compact overflow access"
+            Expect.stringContains breadcrumbsHtml "sm:hidden" "deep paths compact on narrow screens"
+            Expect.stringContains breadcrumbsHtml "hidden sm:flex" "the complete path remains available on wider screens"
+
+            let icon = span { "L" }
+            let grouped =
+                SideNavigation.create "product-navigation" "Product navigation" "Ledger" Accounts [
+                    SideNavigationSection.group "Manage" [
+                        SideNavigationItem.create Home "Dashboard" |> SideNavigationItem.withLeading icon
+                        SideNavigationItem.create Accounts "Accounts" ]
+                    SideNavigationSection.group "Analyze" [ SideNavigationItem.create Reports "Reports" ]
+                    SideNavigationSection.group "Configure" [ SideNavigationItem.create Settings "Settings" ] ]
+                |> SideNavigation.withMark icon
+                |> SideNavigation.withContext (p { "Meier Made" })
+                |> SideNavigation.withFooter (a { _href "/account"; "Andrew Meier" })
+            let groupedHtml = grouped |> SideNavigation.render shellTestUrl |> Render.toString
+            Expect.stringContains groupedHtml "aria-label=\"Product navigation\"" "SideNavigation has its consumer label"
+            Expect.stringContains groupedHtml "aria-label=\"Manage\"" "group hierarchy is semantic"
+            Expect.stringContains groupedHtml "aria-current=\"page\"" "typed current destination is exposed"
+            Expect.stringContains groupedHtml "Meier Made" "optional context renders"
+            Expect.stringContains groupedHtml "Andrew Meier" "optional footer renders"
+            Expect.equal (Regex.Matches(groupedHtml, "aria-current=\"page\"").Count) 1 "SideNavigation exposes one current destination"
+
+            let ungrouped =
+                SideNavigation.create "compact-navigation" "Compact navigation" "Fieldwork" Home [
+                    SideNavigationSection.ungrouped [
+                        SideNavigationItem.create Home "Overview"
+                        SideNavigationItem.create Reports "Schedule" ] ]
+            let ungroupedHtml = ungrouped |> SideNavigation.render shellTestUrl |> Render.toString
+            Expect.stringContains ungroupedHtml "aria-label=\"Compact navigation\"" "ungrouped navigation retains its name"
+            Expect.isFalse (ungroupedHtml.Contains("uppercase tracking-wide")) "ungrouped navigation adds no invented group heading"
+
+            let pageHeader = PageHeader.create "Account 2048" breadcrumbs |> PageHeader.withActions (Button.primary "Refresh")
+            let pageHeaderHtml = pageHeader |> PageHeader.render shellTestUrl |> Render.toString
+            Expect.equal (Regex.Matches(pageHeaderHtml, "<h1").Count) 1 "PageHeader emits exactly one h1"
+            Expect.stringContains pageHeaderHtml "<h1 class=\"sr-only\">Account 2048</h1>" "the required title is visually hidden"
+            Expect.equal (Regex.Matches(pageHeaderHtml, "Account 2048").Count) 2 "the title appears once in the hidden h1 and once as the current breadcrumb"
+
+            let pageTabs =
+                Tabs.create "account-sections" "Account sections" [
+                    Tab.create "summary" "Summary" (p { "Summary panel" })
+                    Tab.create "activity" "Activity" (p { "Activity panel" }) ]
+                |> Tabs.withVariant TabsVariant.Underlined
+                |> Tabs.render
+            let fullBleedPageHtml =
+                Page.create pageHeader empty
+                |> Page.withTabs pageTabs
+                |> Page.withWidth PageWidth.Full
+                |> Page.withBodyLayout PageBodyLayout.FullBleed
+                |> Page.render shellTestUrl
+                |> Render.toString
+            Expect.stringContains fullBleedPageHtml "data-fve-page-scroll=\"true\"" "Page owns its scroll region"
+            Expect.stringContains fullBleedPageHtml "max-w-none" "Page owns full content width"
+            Expect.isFalse (fullBleedPageHtml.Contains("lg:p-8")) "full-bleed Page omits body padding"
+            Expect.stringContains fullBleedPageHtml "role=\"tablist\"" "Page accepts package Tabs as local navigation"
+
+            let readingPageHtml =
+                Page.create pageHeader (p { "Reading content" })
+                |> Page.withSectionNavigation (nav { _ariaLabel "Article sections"; a { _href "#summary"; "Summary" } })
+                |> Page.withWidth PageWidth.Reading
+                |> Page.render shellTestUrl
+                |> Render.toString
+            Expect.stringContains readingPageHtml "max-w-4xl" "Page owns semantic reading width"
+            Expect.stringContains readingPageHtml "p-4 sm:p-6 lg:p-8" "padded Page supplies responsive body spacing"
+            Expect.stringContains readingPageHtml "aria-label=\"Article sections\"" "Page accepts route section navigation"
+
+            let shellHtml =
+                AppShell.create "product-shell" grouped (div { "Route-owned page" })
+                |> AppShell.withTheme ComponentsTheme.emerald
+                |> AppShell.render shellTestUrl
+                |> Render.toString
+            Expect.equal (Regex.Matches(shellHtml, "<main").Count) 1 "AppShell owns exactly one main landmark"
+            Expect.equal (Regex.Matches(shellHtml, "aria-label=\"Product navigation\"").Count) 1 "desktop and mobile share one navigation tree"
+            Expect.equal (Regex.Matches(shellHtml, "id=\"product-navigation\"").Count) 1 "responsive placement does not duplicate component IDs"
+            Expect.isFalse (shellHtml.Contains("<h1")) "AppShell does not invent page identity"
+            Expect.isFalse (shellHtml.Contains("max-w-7xl")) "AppShell does not own page width"
+            Expect.stringContains shellHtml "aria-label=\"Open navigation\"" "mobile navigation has a named trigger"
+            Expect.stringContains shellHtml "aria-label=\"Close navigation\"" "mobile navigation has a named close control"
+            Expect.stringContains shellHtml "evt.key == &#39;Escape&#39;" "mobile navigation handles Escape dismissal"
+            Expect.stringContains shellHtml "evt.key == &#39;Tab&#39;" "mobile navigation contains keyboard focus"
+            Expect.stringContains shellHtml "?.focus()" "mobile navigation restores or moves focus intentionally"
+            Expect.stringContains shellHtml "data-attr:inert" "open mobile navigation removes the page from interaction"
+            Expect.stringContains shellHtml "data-on:resize__window" "desktop resize clears stale mobile overlay state"
+            Expect.stringContains shellHtml "fve-theme-emerald" "AppShell applies one consumer-controlled semantic theme"
+
+            let adjacentShells =
+                div {
+                    AppShell.create "first-shell" grouped (div { "First" }) |> AppShell.render shellTestUrl
+                    AppShell.create "second-shell" ungrouped (div { "Second" }) |> AppShell.render shellTestUrl
+                }
+                |> Render.toString
+            let ids = Regex.Matches(adjacentShells, " id=\"([^\"]+)\"") |> Seq.cast<Match> |> Seq.map (fun matched -> matched.Groups[1].Value) |> Seq.toList
+            Expect.equal ids.Length (ids |> List.distinct |> List.length) "adjacent shell instances retain independent IDs"
+            Expect.stringContains adjacentShells "_app_shell_v66697273742d7368656c6c_navigation_open" "first shell signal is collision-safe"
+            Expect.stringContains adjacentShells "_app_shell_v7365636f6e642d7368656c6c_navigation_open" "second shell signal is collision-safe"
+
+            Expect.throws (fun () -> BreadcrumbItem.create Home " " |> ignore) "breadcrumb items require labels"
+            Expect.throws (fun () -> Breadcrumbs.create " " "Breadcrumb" [ BreadcrumbItem.create Home "Home" ] |> ignore) "Breadcrumbs requires a stable ID"
+            Expect.throws (fun () -> Breadcrumbs.create "crumbs" " " [ BreadcrumbItem.create Home "Home" ] |> ignore) "Breadcrumbs requires an accessible label"
+            Expect.throws (fun () -> Breadcrumbs.create "crumbs" "Breadcrumb" [] |> ignore) "Breadcrumbs rejects an empty path"
+            Expect.throws (fun () -> SideNavigationItem.create Home " " |> ignore) "side-navigation items require labels"
+            Expect.throws (fun () -> SideNavigationSection.ungrouped [] |> ignore) "SideNavigation rejects an empty ungrouped section"
+            Expect.throws (fun () -> SideNavigationSection.group "Manage" [] |> ignore) "SideNavigation rejects an empty group"
+            Expect.throws (fun () -> SideNavigation.create " " "Navigation" "Product" Home [ SideNavigationSection.ungrouped [ SideNavigationItem.create Home "Home" ] ] |> ignore) "SideNavigation requires a stable ID"
+            Expect.throws (fun () -> SideNavigation.create "nav" " " "Product" Home [ SideNavigationSection.ungrouped [ SideNavigationItem.create Home "Home" ] ] |> ignore) "SideNavigation requires an accessible label"
+            Expect.throws (fun () -> SideNavigation.create "nav" "Navigation" " " Home [ SideNavigationSection.ungrouped [ SideNavigationItem.create Home "Home" ] ] |> ignore) "SideNavigation requires product identity"
+            Expect.throws (fun () -> SideNavigation.create "nav" "Navigation" "Product" Settings [ SideNavigationSection.ungrouped [ SideNavigationItem.create Home "Home" ] ] |> ignore) "SideNavigation requires a represented current destination"
+            Expect.throws (fun () -> SideNavigation.create "nav" "Navigation" "Product" Home [ SideNavigationSection.ungrouped [ SideNavigationItem.create Home "Home"; SideNavigationItem.create Home "Duplicate" ] ] |> ignore) "SideNavigation rejects duplicate destinations"
+            Expect.throws (fun () -> PageHeader.create " " breadcrumbs |> ignore) "PageHeader requires a route title"
+            Expect.throws (fun () -> AppShell.create " " grouped empty |> ignore) "AppShell requires a stable ID"
+            Expect.throws (fun () -> AppShell.create "same-id" (SideNavigation.create "same-id" "Navigation" "Product" Home [ SideNavigationSection.ungrouped [ SideNavigationItem.create Home "Home" ] ]) empty |> ignore) "AppShell and SideNavigation IDs must differ"
         }
 
         test "Tabs render typed variants, collision-safe relationships, and isolated automatic activation" {
@@ -1386,6 +1536,8 @@ after"""
             Expect.stringContains verification ".aria-selected\\:border-\\[var\\(--fve-brand-solid\\)\\]" "verification checks underlined Tabs selection"
             Expect.stringContains verification ".backdrop\\:bg-\\[var\\(--fve-overlay-backdrop\\)\\]" "verification checks semantic overlay backdrop utility"
             Expect.stringContains verification ".sm\\:w-96" "verification checks responsive drawer width"
+            Expect.stringContains verification ".lg\\:visible" "verification checks responsive shell navigation"
+            Expect.stringContains verification ".max-w-4xl" "verification checks Page width contracts"
             Expect.stringContains verification ".lg\\:grid-cols-3" "verification checks responsive detail columns"
             Expect.stringContains verification ".size-9" "verification checks pagination sizing"
             Expect.stringContains verification ".peer-focus-visible\\:ring-\\[var\\(--fve-critical-ring\\)\\]" "verification checks invalid native-control focus treatment"

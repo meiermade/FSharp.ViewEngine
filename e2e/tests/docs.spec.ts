@@ -48,12 +48,16 @@ const routes = [
   { path: '/components/checkbox', heading: 'Checkbox', layout: 'article' },
   { path: '/components/switch', heading: 'Switch', layout: 'article' },
   { path: '/components/toggle-button', heading: 'Toggle button', layout: 'article' },
+  { path: '/components/breadcrumbs', heading: 'Breadcrumbs', layout: 'article' },
+  { path: '/components/side-navigation', heading: 'Side navigation', layout: 'article' },
   { path: '/components/tabs', heading: 'Tabs', layout: 'article' },
   { path: '/components/radio-group', heading: 'Radio group', layout: 'article' },
   { path: '/components/dropdown-menu', heading: 'Dropdown menu', layout: 'article' },
   { path: '/components/dialog', heading: 'Dialog', layout: 'article' },
   { path: '/components/confirmation-dialog', heading: 'Confirmation dialog', layout: 'article' },
   { path: '/components/drawer', heading: 'Drawer', layout: 'article' },
+  { path: '/components/page-header', heading: 'Page header', layout: 'article' },
+  { path: '/components/page', heading: 'Page', layout: 'article' },
   { path: '/components/collection', heading: 'Collection', layout: 'article' },
   { path: '/components/detail', heading: 'Detail', layout: 'article' },
   { path: '/components/app-shell', heading: 'App shell', layout: 'article' },
@@ -223,10 +227,14 @@ test('Components pages provide focused examples, navigation, interaction, themes
     ['/components/checkbox', 'Checkbox'],
     ['/components/switch', 'Switch'],
     ['/components/toggle-button', 'Toggle button'],
+    ['/components/breadcrumbs', 'Breadcrumbs'],
+    ['/components/side-navigation', 'Side navigation'],
     ['/components/tabs', 'Tabs'],
     ['/components/radio-group', 'Radio group'],
     ['/components/dropdown-menu', 'Dropdown menu'],
     ['/components/dialog', 'Dialog'],
+    ['/components/page-header', 'Page header'],
+    ['/components/page', 'Page'],
     ['/components/collection', 'Collection'],
     ['/components/detail', 'Detail'],
     ['/components/app-shell', 'App shell'],
@@ -855,16 +863,17 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   await expect(dialogTrigger).toBeFocused()
 
   const appShellSurface = await openPreview('/components/app-shell', 'App shell')
-  const compactControl = appShellSurface.getByRole('button', { name: 'Account' })
+  const compactControl = appShellSurface.getByRole('button', { name: 'Refresh balances' })
   const compactDensity = await compactControl.evaluate(element => ({
     height: getComputedStyle(element).height,
     paddingTop: getComputedStyle(element).paddingTop,
   }))
   expect(parseFloat(comfortableDensity.paddingTop)).toBeGreaterThan(parseFloat(compactDensity.paddingTop))
   expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
-  await expect(appShellSurface.locator('[aria-current="page"]')).toBeVisible()
+  await expect(appShellSurface.getByRole('navigation', { name: 'Ledger primary navigation' }).locator('[aria-current="page"]')).toHaveCount(1)
+  await expect(appShellSurface.getByRole('navigation', { name: 'Breadcrumb' }).locator('[aria-current="page"]')).toHaveCount(1)
 
-  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/combobox', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/tabs', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/app-shell']) {
+  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/chart', '/components/select', '/components/combobox', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/breadcrumbs', '/components/side-navigation', '/components/tabs', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/page-header', '/components/page', '/components/app-shell']) {
     await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -879,8 +888,12 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   await expect(catalog.getByRole('link', { name: /FEEDBACK Empty state/ })).toHaveAttribute('href', '/components/empty-state')
   await expect(catalog.getByRole('link', { name: /DATA DISPLAY Description list/ })).toHaveAttribute('href', '/components/description-list')
   await expect(catalog.getByRole('link', { name: /DATA DISPLAY Chart/ })).toHaveAttribute('href', '/components/chart')
+  await expect(catalog.getByRole('link', { name: /NAVIGATION Breadcrumbs/ })).toHaveAttribute('href', '/components/breadcrumbs')
+  await expect(catalog.getByRole('link', { name: /NAVIGATION Side navigation/ })).toHaveAttribute('href', '/components/side-navigation')
   await expect(catalog.getByRole('link', { name: /OVERLAYS Confirmation dialog/ })).toHaveAttribute('href', '/components/confirmation-dialog')
   await expect(catalog.getByRole('link', { name: /OVERLAYS Drawer/ })).toHaveAttribute('href', '/components/drawer')
+  await expect(catalog.getByRole('link', { name: /COMPOSITIONS Page header/ })).toHaveAttribute('href', '/components/page-header')
+  await expect(catalog.locator('a[href="/components/page"]')).toHaveCount(1)
   await expect(catalog.getByRole('link', { name: /COMPOSITIONS App shell/ })).toHaveAttribute('href', '/components/app-shell')
   await attachScreenshot('components-catalog-desktop-dark')
 
@@ -939,6 +952,138 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   await page.getByRole('button', { name: 'Open navigation' }).click()
   await expect(page.locator('#nav-fsharp-viewengine-components')).toBeVisible()
   await attachScreenshot('components-catalog-mobile-dark')
+  expect(browserErrors).toEqual([])
+})
+
+test('AppShell keeps typed page ownership, responsive navigation, focus, deep links, and morph state coherent', crossBrowser, async ({ page }, testInfo) => {
+  test.slow()
+  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+  )
+  const browserErrors = captureBrowserErrors(page)
+  const attachScreenshot = async (name: string) => {
+    if (testInfo.project.name !== 'chromium') return
+    await testInfo.attach(name, {
+      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
+      contentType: 'image/png',
+    })
+  }
+  const openShellPreview = async (path: string, shellId: string) => {
+    await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
+    const example = page.locator('[data-docs-example="true"]')
+    await expect(example).toHaveCount(1)
+    await example.getByRole('tab', { name: 'Preview' }).click()
+    const shell = page.locator(`#${shellId}`)
+    await expect(shell).toBeVisible()
+    return shell
+  }
+
+  await page.setViewportSize({ width: 1280, height: 800 })
+  let shell = await openShellPreview('/components/app-shell?destination=ledger-account-2048', 'ledger-app-shell')
+  await expect(shell.getByRole('heading', { level: 1, name: 'Account 2048', exact: true })).toHaveCount(1)
+  await expect(shell.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Account 2048', { exact: true })).toHaveAttribute('aria-current', 'page')
+  const ledgerNavigation = shell.getByRole('navigation', { name: 'Ledger primary navigation' })
+  await expect(ledgerNavigation).toHaveCount(1)
+  await expect(ledgerNavigation.getByRole('link', { name: 'Accounts', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(shell.getByRole('button', { name: 'Open navigation' })).toBeHidden()
+  await expect(shell.locator('main')).toHaveCount(1)
+  expect(await shell.locator('[id]').evaluateAll(elements => new Set(elements.map(element => element.id)).size === elements.length)).toBe(true)
+  await attachScreenshot('components-app-shell-ledger-desktop-light')
+
+  await ledgerNavigation.getByRole('link', { name: 'Reports', exact: true }).click()
+  await expect(page).toHaveURL('/components/app-shell?destination=ledger-reports')
+  shell = page.locator('#ledger-app-shell')
+  await expect(shell).toBeVisible()
+  await expect(shell.getByRole('heading', { level: 1, name: 'Reports', exact: true })).toHaveCount(1)
+  await expect(shell.getByRole('navigation', { name: 'Ledger primary navigation' }).getByRole('link', { name: 'Reports', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(shell.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Reports', { exact: true })).toHaveAttribute('aria-current', 'page')
+  await shell.getByRole('link', { name: 'View accounts', exact: true }).click()
+  await expect(page).toHaveURL('/components/app-shell?destination=ledger-accounts')
+  await expect(shell.getByRole('heading', { level: 1, name: 'Accounts', exact: true })).toHaveCount(1)
+  await shell.getByRole('button', { name: 'Refresh balances' }).click()
+  await expect(shell.getByText('1', { exact: true })).toBeVisible()
+
+  shell = await openShellPreview('/components/app-shell?destination=field-schedule', 'field-app-shell')
+  await expect(shell.getByRole('navigation', { name: 'Fieldwork primary navigation' })).toHaveCount(1)
+  await expect(shell.getByRole('navigation', { name: 'Fieldwork primary navigation' }).getByRole('link', { name: 'Schedule', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(shell.getByRole('navigation', { name: 'Schedule views' })).toBeVisible()
+  await expect(shell.locator('[data-fve-page-scroll="true"]')).toBeVisible()
+  await expect(shell.getByRole('heading', { level: 2, name: 'Manage' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Choose color theme' }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
+  await attachScreenshot('components-app-shell-fieldwork-desktop-dark')
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  shell = await openShellPreview('/components/app-shell?destination=ledger-account-2048', 'ledger-app-shell')
+  const breadcrumbOverflow = shell.getByRole('button', { name: 'Show hidden breadcrumbs' })
+  await expect(breadcrumbOverflow).toBeVisible()
+  await breadcrumbOverflow.click()
+  const breadcrumbMenu = shell.getByRole('menu', { name: 'Show hidden breadcrumbs' })
+  await expect(breadcrumbMenu).toBeVisible()
+  await expect(breadcrumbMenu.getByRole('menuitem', { name: 'Home' })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(breadcrumbMenu).toBeHidden()
+  await expect(breadcrumbOverflow).toBeFocused()
+  const openNavigation = shell.getByRole('button', { name: 'Open navigation' })
+  await expect(openNavigation).toBeVisible()
+  await openNavigation.click()
+  const mobileNavigation = shell.locator('#ledger-side-navigation')
+  await expect(mobileNavigation).toBeVisible()
+  await expect(mobileNavigation).toHaveAttribute('role', 'dialog')
+  await expect(mobileNavigation).toHaveAttribute('aria-label', 'Ledger navigation')
+  await expect(mobileNavigation).toHaveAttribute('aria-modal', 'true')
+  await expect(mobileNavigation.getByRole('link', { name: 'Accounts', exact: true })).toBeFocused()
+  await expect(shell.locator('[data-fve-app-shell-content="true"]')).toHaveAttribute('inert', /^(|true)$/)
+  const openAccessibility = await new AxeBuilder({ page })
+    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+    .analyze()
+  expect(openAccessibility.violations).toEqual([])
+
+  const closeNavigation = mobileNavigation.getByRole('button', { name: 'Close navigation' })
+  await closeNavigation.focus()
+  await page.keyboard.press('Shift+Tab')
+  await expect(mobileNavigation.getByRole('link', { name: /Andrew Meier/ })).toBeFocused()
+  await page.keyboard.press('Tab')
+  await expect(closeNavigation).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(mobileNavigation).toBeHidden()
+  await expect(openNavigation).toBeFocused()
+
+  await openNavigation.click()
+  const backdrop = shell.locator('[data-fve-app-shell-backdrop="true"]')
+  const backdropBox = await backdrop.boundingBox()
+  expect(backdropBox).toBeTruthy()
+  await backdrop.click({ position: { x: backdropBox!.width - 8, y: 120 } })
+  await expect(mobileNavigation).toBeHidden()
+  await expect(openNavigation).toBeFocused()
+
+  await page.locator('html').evaluate(element => { element.style.fontSize = '200%' })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  await expect(openNavigation).toBeVisible()
+  const resizedProductName = shell.locator('[data-fve-app-shell-content="true"] > header').getByText('Ledger', { exact: true })
+  await expect(resizedProductName).toBeVisible()
+  expect(await resizedProductName.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  const resizedCurrentBreadcrumb = shell.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Account 2048', { exact: true })
+  await expect(resizedCurrentBreadcrumb).toBeVisible()
+  expect(await resizedCurrentBreadcrumb.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
+  const resizedAction = shell.getByRole('button', { name: 'Refresh balances' })
+  await expect(resizedAction).toBeVisible()
+  const resizedBounds = await resizedAction.boundingBox()
+  const resizedShellBounds = await shell.boundingBox()
+  expect(resizedBounds).toBeTruthy()
+  expect(resizedShellBounds).toBeTruthy()
+  expect(resizedBounds!.x).toBeGreaterThanOrEqual(resizedShellBounds!.x)
+  expect(resizedBounds!.x + resizedBounds!.width).toBeLessThanOrEqual(resizedShellBounds!.x + resizedShellBounds!.width)
+  await attachScreenshot('components-app-shell-ledger-mobile-dark-200-percent')
+
+  await page.locator('html').evaluate(element => { element.style.fontSize = '100%' })
+  await openNavigation.click()
+  await page.setViewportSize({ width: 1280, height: 800 })
+  await expect(mobileNavigation).toBeVisible()
+  await expect(mobileNavigation).not.toHaveAttribute('role', 'dialog')
+  expect(await shell.locator('[data-fve-app-shell-content="true"]').evaluate(element => element.hasAttribute('inert'))).toBe(false)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await expect(mobileNavigation).toBeHidden()
   expect(browserErrors).toEqual([])
 })
 

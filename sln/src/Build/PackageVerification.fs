@@ -305,6 +305,36 @@ let packageDrawer =
     Drawer.create "package-drawer" "Value settings" (nav { _ariaLabel "Value settings"; a { _href "/values"; "Values" } })
     |> Drawer.withSide DrawerSide.Start
 
+type PackageDestination = Home | Values | Value of int | Reports
+let destinationUrl = function Home -> "/" | Values -> "/values" | Value id -> $"/values/{id}" | Reports -> "/reports"
+
+let packageBreadcrumbs =
+    Breadcrumbs.create "package-breadcrumbs" "Breadcrumb" [
+        BreadcrumbItem.create Home "Home"
+        BreadcrumbItem.create Values "Values"
+        BreadcrumbItem.create (Value 42) "Value 42" ]
+
+let packageNavigation =
+    SideNavigation.create "package-navigation" "Package navigation" "Package smoke" Values [
+        SideNavigationSection.group "Manage" [
+            SideNavigationItem.create Home "Home"
+            SideNavigationItem.create Values "Values" ]
+        SideNavigationSection.group "Analyze" [ SideNavigationItem.create Reports "Reports" ] ]
+    |> SideNavigation.withMark icon
+    |> SideNavigation.withContext (p { "Default workspace" })
+    |> SideNavigation.withFooter (a { _href "/account"; "Account" })
+
+let packagePage =
+    PageHeader.create "Value 42" packageBreadcrumbs
+    |> fun pageHeader -> Page.create pageHeader (p { "Value details" })
+    |> Page.withWidth PageWidth.Reading
+    |> Page.render destinationUrl
+
+let packageShell =
+    AppShell.create "package-shell" packageNavigation packagePage
+    |> AppShell.withTheme ComponentsTheme.emerald
+    |> AppShell.render destinationUrl
+
 let view =
     div {
         for attribute in ComponentsTheme.attributes ComponentsTheme.sky do
@@ -391,6 +421,7 @@ let view =
         packageConfirmation |> ConfirmationDialog.render
         packageDrawer |> Drawer.trigger "Open settings"
         packageDrawer |> Drawer.render
+        packageShell
     }
 
 let actual = view |> Render.toString
@@ -430,7 +461,14 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "role=\"alertdialog\"")
    || not (actual.Contains "data-indicator:_package_confirmation_pending")
    || not (actual.Contains "Value settings")
-   || not (actual.Contains "left-0 ml-0 mr-auto border-r") then
+   || not (actual.Contains "left-0 ml-0 mr-auto border-r")
+   || not (actual.Contains "id=\"package-breadcrumbs\"")
+   || not (actual.Contains "aria-label=\"Package navigation\"")
+   || not (actual.Contains "<h1 class=\"sr-only\">Value 42</h1>")
+   || not (actual.Contains "data-fve-page-scroll=\"true\"")
+   || not (actual.Contains "id=\"package-shell\"")
+   || not (actual.Contains "aria-label=\"Open navigation\"")
+   || not (actual.Contains "<main") then
     failwith $"Components package rendered unexpected HTML: {actual}"
 
 printfn "FSharp.ViewEngine.Components package works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription

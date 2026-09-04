@@ -160,6 +160,55 @@ let accountDrawer =
 
 Applications own authorization, durable workflow state, validation, and the trusted Datastar action. Patch `ConfirmationDialog.renderContent` or a stable consumer-owned region inside Drawer so an open native dialog and its focus relationship remain intact.
 
+## Navigation and page composition
+
+`Breadcrumbs`, `SideNavigation`, `PageHeader`, `Page`, and `AppShell` preserve a sidebar-oriented ownership boundary:
+
+- `Breadcrumbs` renders a labelled path whose ancestors are typed links and whose final item is the non-linked current page. Deep paths move earlier ancestors into a `DropdownMenu` on narrow screens.
+- `SideNavigation` owns product identity and optional mark, grouped or ungrouped destinations, current-page state, optional workspace context, and optional footer/account content.
+- `PageHeader` owns the route title, breadcrumbs, and actions. It renders exactly one visually hidden `h1` without duplicating the visible current breadcrumb as another heading.
+- `Page` owns local section navigation or Tabs, the scroll region, semantic `Reading`, `Wide`, or `Full` width, and `Padded` or `FullBleed` body layout.
+- `AppShell` owns only the semantic theme, persistent desktop sidebar, accessible mobile navigation overlay, one `main` landmark, and the rendered Page slot.
+
+```fsharp
+type Destination = Home | Accounts | Account of int | Reports
+
+let destinationUrl = function
+    | Home -> "/"
+    | Accounts -> "/accounts"
+    | Account id -> $"/accounts/{id}"
+    | Reports -> "/reports"
+
+let breadcrumbs =
+    Breadcrumbs.create "account-breadcrumbs" "Breadcrumb" [
+        BreadcrumbItem.create Home "Home"
+        BreadcrumbItem.create Accounts "Accounts"
+        BreadcrumbItem.create (Account 42) "Account 42" ]
+
+let sideNavigation =
+    SideNavigation.create "product-navigation" "Primary navigation" "Ledger" Accounts [
+        SideNavigationSection.group "Manage" [
+            SideNavigationItem.create Home "Dashboard"
+            SideNavigationItem.create Accounts "Accounts" ]
+        SideNavigationSection.group "Analyze" [
+            SideNavigationItem.create Reports "Reports" ] ]
+
+let page =
+    PageHeader.create "Account 42" breadcrumbs
+    |> fun pageHeader -> Page.create pageHeader accountContent
+    |> Page.withWidth PageWidth.Wide
+    |> Page.render destinationUrl
+
+let application =
+    AppShell.create "ledger-shell" sideNavigation page
+    |> AppShell.withTheme ComponentsTheme.sky
+    |> AppShell.render destinationUrl
+```
+
+Desktop and mobile use one SideNavigation tree, so destination hierarchy, current state, account access, and component IDs cannot drift. On mobile, AppShell focuses the current destination when opened, contains Tab focus, dismisses through Escape or backdrop interaction, and restores the trigger when dismissal stays on the current route. Applications continue to own authorization, route state, URL/history policy, product identity, and durable account state.
+
+Standalone Navbar, stacked/top-navigation shells, generic non-navigation sidebars, icon-only collapse, floating or inset variants, right-side navigation, and multi-column shells are intentionally outside the first sidebar-shell contract.
+
 ## Documentation
 
 The complete component gallery, typed examples, theming guidance, and application-boundary guidance are published at:

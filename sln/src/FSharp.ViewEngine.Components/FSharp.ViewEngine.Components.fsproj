@@ -46,6 +46,9 @@
     <Compile Include="RadioGroup.fs" />
     <Compile Include="DropdownMenu.fs" />
     <Compile Include="Dialog.fs" />
+    <Compile Include="Breadcrumbs.fs" />
+    <Compile Include="SideNavigation.fs" />
+    <Compile Include="Page.fs" />
     <Compile Include="Compositions.fs" />
     <Compile Include="AppShell.fs" />
     <None Include="../../../LICENSE" Pack="True" Visible="false" PackagePath="" />
