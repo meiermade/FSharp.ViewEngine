@@ -8,9 +8,9 @@ test('Input gallery teaches single fields with accessible adornments and native 
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components/input')
   const examples = page.locator('[data-docs-example="true"]')
-  await expect(examples).toHaveCount(12)
+  await expect(examples).toHaveCount(13)
   for (const example of await examples.all()) {
-    await expect(example.locator('input')).toHaveCount(1)
+    await expect(example.locator('input:not([type="hidden"])')).toHaveCount(1)
     await expect(example.locator('form, textarea')).toHaveCount(0)
     await expect(example.locator('[data-docs-copy-source]')).not.toContainText('contactFormRegion')
   }

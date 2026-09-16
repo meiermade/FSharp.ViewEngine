@@ -784,6 +784,8 @@
   background: var(--docs-code-surface);
   padding: 0 0.5rem;
   color: var(--docs-code-muted);
+  font-size: 0.75rem;
+  line-height: 1rem;
   white-space: nowrap;
   cursor: pointer;
 }

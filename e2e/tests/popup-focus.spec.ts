@@ -12,7 +12,14 @@ async function paint(locator: Locator) {
       context.fillRect(0, 0, 1, 1)
       return Array.from(context.getImageData(0, 0, 1, 1).data)
     }
-    return { background: rgba(style.backgroundColor), foreground: rgba(style.color), outline: style.outlineStyle, shadow: style.boxShadow, border: style.borderTopWidth }
+    const background = rgba(style.backgroundColor)
+    let effectiveBackground = background
+    let ancestor = element.parentElement
+    while (effectiveBackground[3] === 0 && ancestor) {
+      effectiveBackground = rgba(getComputedStyle(ancestor).backgroundColor)
+      ancestor = ancestor.parentElement
+    }
+    return { background, effectiveBackground, foreground: rgba(style.color), outline: style.outlineStyle, shadow: style.boxShadow, border: style.borderTopWidth }
   })
 }
 
@@ -237,10 +244,12 @@ for (const dark of [false, true]) {
         await expect(popup).toBeHidden()
         await expect(control).toBeFocused()
         if (kind === 'dropdown-menu') {
-          await expect(control).toHaveCSS('outline-style', 'none')
+          await expect(control).toHaveCSS('outline-style', 'solid')
+          await expect(control).toHaveCSS('outline-width', '2px')
+          await expect(control).toHaveCSS('outline-offset', '-2px')
           const controlPaint = await paint(control)
           expect(controlPaint.shadow).not.toMatch(/0px 0px 0px 2px/)
-          expect(contrast(controlPaint.background, controlPaint.foreground)).toBeGreaterThanOrEqual(4.5)
+          expect(contrast(controlPaint.effectiveBackground, controlPaint.foreground)).toBeGreaterThanOrEqual(4.5)
         }
       }
       expect(errors).toEqual([])

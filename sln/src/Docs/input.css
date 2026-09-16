@@ -49,14 +49,14 @@
 }
 
 /* The Docs application supplies its own consumer theme around package examples. */
-.docs-components-preview .fve-components {
+.docs-components-preview .fve-components.fve-components {
   --fve-page: var(--spec-bg);
   --fve-surface: var(--spec-input-bg);
   --fve-surface-subtle: var(--spec-subtle);
   --fve-surface-hover: var(--spec-hover);
   --fve-surface-active: var(--spec-border);
   --fve-text: var(--spec-text);
-  --fve-muted-text: var(--spec-muted);
+  --fve-muted-text: var(--spec-text-secondary);
   --fve-border: var(--spec-border-strong);
   --fve-overlay-backdrop: color-mix(in oklab, var(--spec-text) 55%, transparent);
   --fve-neutral-subtle: var(--spec-hover);

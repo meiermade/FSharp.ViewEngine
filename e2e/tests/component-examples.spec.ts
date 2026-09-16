@@ -313,8 +313,8 @@ test('AppShell mobile bottom navigation remains visible link navigation above pa
   })).toBe(true)
 })
 
-test('gallery toolbars and examples remain accessible in narrow themes and resized text @cross-browser', async ({ page }, testInfo) => {
-  for (const id of ['button', 'select', 'side-nav', 'table', 'input', 'breadcrumbs', 'collection', 'detail', 'app-shell']) {
+for (const id of ['button', 'select', 'side-nav', 'table', 'input', 'breadcrumbs', 'collection', 'detail', 'app-shell']) {
+  test(`${id} gallery remains accessible in narrow themes and resized text @cross-browser`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 1000 })
     await page.goto(`/components/${id}`)
     const gallery = page.locator('.docs-gallery-layout')
@@ -339,8 +339,8 @@ test('gallery toolbars and examples remain accessible in narrow themes and resiz
       }
     }
     if (id === 'button') await page.screenshot({ path: testInfo.outputPath('button-dark-320-200.png') })
-  }
-})
+  })
+}
 
 test('denied gallery copying reports failure without losing the source @cross-browser', async ({ page }) => {
   await page.goto('/components/button')

@@ -273,7 +273,13 @@ test('Components pages provide focused examples, navigation, interaction, themes
 
   for (const [path, heading] of componentRoutes) {
     const surface = await openPreview(path, heading)
-    await expect(surface.locator('select')).toHaveCount(0)
+    if (path === '/components/collection' || path === '/components/app-shell') {
+      const accountType = surface.locator('select[name="accountType"]')
+      await expect(accountType).toHaveCount(1)
+      await expect(accountType).toHaveAttribute('aria-label', 'Filter by account type')
+    } else {
+      await expect(surface.locator('select')).toHaveCount(0)
+    }
     const duplicateIds = await page.locator('[id]').evaluateAll(elements => {
       const ids = elements.map(element => element.id)
       return [...new Set(ids.filter((id, index) => ids.indexOf(id) !== index))]
@@ -293,8 +299,14 @@ test('Components pages provide focused examples, navigation, interaction, themes
     probe.style.backgroundColor = `var(${cssVariable})`
     element.appendChild(probe)
     const value = getComputedStyle(probe).backgroundColor
+    const canvas = document.createElement('canvas')
+    canvas.width = canvas.height = 1
+    const context = canvas.getContext('2d')!
+    context.fillStyle = value
+    context.fillRect(0, 0, 1, 1)
+    const pixel = Array.from(context.getImageData(0, 0, 1, 1).data).join(',')
     probe.remove()
-    return value
+    return pixel
   }, variable)
 
   const pressedBackgrounds = async (control: Locator) => {
@@ -414,8 +426,9 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(emptyStateSurface.getByRole('link', { name: 'Create account' })).toHaveAttribute('href', '/components/app-shell?destination=ledger-create-account')
 
   const simpleTables = await openPreview('/components/table', 'Table')
-  await expect(simpleTables.getByRole('table')).toHaveCount(6)
-  await expect(simpleTables.getByRole('link')).toHaveCount(2)
+  await expect(simpleTables.getByRole('table')).toHaveCount(7)
+  await expect(simpleTables.locator('th[aria-sort] a')).toHaveCount(1)
+  await expect(simpleTables.getByRole('link', { name: 'Operating checking', exact: true })).toBeVisible()
   await expect(simpleTables.first().getByRole('columnheader')).toHaveText(['Name', 'Email', 'Role'])
   // Rich record menus belong to the integrated Collection fixture, not the basic Table gallery.
   const tableSurface = await openPreview('/components/collection', 'Collection')
@@ -611,10 +624,9 @@ test('Components pages provide focused examples, navigation, interaction, themes
 
   const collectionSurface = await openPreview('/components/collection', 'Collection')
   const accountTypeFilter = collectionSurface.getByRole('combobox', { name: 'Filter by account type' })
-  const accountTypeListbox = collectionSurface.getByRole('listbox', { name: 'Filter by account type' })
-  await accountTypeFilter.press('l')
-  await expect.poll(() => accountTypeFilter.getAttribute('aria-activedescendant')).toBe(await accountTypeListbox.getByRole('option', { name: 'Liability' }).getAttribute('id'))
-  await accountTypeFilter.press('Escape')
+  await expect(accountTypeFilter.locator('option')).toHaveText(['All types', 'Asset', 'Liability', 'Equity', 'Revenue', 'Expense'])
+  await accountTypeFilter.selectOption('liability')
+  await expect(accountTypeFilter).toHaveValue('liability')
 
   const checkboxSurface = await openPreview('/components/checkbox', 'Checkbox')
   const checkboxForm = checkboxSurface.locator('#components-checkbox-form-region form')
@@ -938,7 +950,7 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
 
   await gotoAfterDocsAssetSettlement(page, '/components', 'domcontentloaded')
   const catalog = page.locator('.docs-catalog-grid')
-  await expect(catalog.getByRole('link')).toHaveCount(5)
+  await expect(catalog.getByRole('link')).toHaveCount(3)
   await attachScreenshot('components-catalog-desktop-dark')
   await catalog.getByRole('link', { name: /^Primitives / }).click()
   await expect(page).toHaveURL('/components/primitives')
@@ -1079,7 +1091,7 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
   }
   const openShellPreview = async (path: string, shellId: string) => {
     await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
-    const example = page.locator('[data-docs-example="true"]')
+    const example = page.locator('#components-app-shell [data-docs-example="true"]')
     await expect(example).toHaveCount(1)
     await example.getByRole('tab', { name: 'Preview' }).click()
     const shell = page.locator(`#${shellId}`)
@@ -2173,7 +2185,7 @@ test('inline prose links are visually identifiable and article pagers continue t
   const pager = page.getByRole('navigation', { name: 'Page navigation' })
   await expect(page.getByRole('link', { name: 'Browse components' })).toHaveAttribute('href', '/docs/components/layouts')
   await expect(page.getByRole('link', { name: 'Browse page examples' })).toHaveAttribute('href', '/docs/page-examples/documentation-site')
-  await expect(pager.getByRole('link', { name: /Previous Application/ })).toHaveAttribute('href', '/components/application')
+  await expect(pager.getByRole('link', { name: /Previous Form layouts/ })).toHaveAttribute('href', '/components/form-layouts')
   const next = pager.getByRole('link', { name: /Next Layouts/ })
   await expect(next).toBeVisible()
   await next.click()

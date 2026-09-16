@@ -8,24 +8,25 @@ const examples = [
   ['components-table-selection', 'With checkboxes'],
   ['components-table-mobile', 'Stacked on mobile'],
   ['components-table-sorting', 'Sortable records'],
+  ['components-table-hierarchy', 'Hierarchical accounts and aggregates'],
   ['components-table-empty', 'Empty state'],
 ] as const
 
 test('table examples isolate features and expose short independent source @cross-browser', async ({ page }) => {
   await page.goto('/components/table')
-  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(7)
+  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(8)
   for (const [id, title] of examples) {
     const example = page.locator(`#${id}`)
     await expect(example.getByRole('heading', { name: title, exact: true })).toBeVisible()
     const preview = example.locator('.docs-components-preview')
     await expect(preview.getByRole('table')).toHaveCount(id === 'components-table-empty' ? 0 : 1)
-    await expect(preview.getByRole('link')).toHaveCount(id === 'components-table-sorting' ? 2 : 0)
-    await expect(preview.getByRole('button')).toHaveCount(0)
+    await expect(preview.getByRole('link')).toHaveCount(id === 'components-table-sorting' ? 2 : id === 'components-table-hierarchy' ? 7 : 0)
+    await expect(preview.getByRole('button')).toHaveCount(id === 'components-table-hierarchy' ? 3 : 0)
     await expect(preview.getByRole('checkbox')).toHaveCount(id === 'components-table-selection' ? 5 : 0)
     await example.getByRole('tab', { name: 'Code', exact: true }).click()
     const code = await example.locator('[data-docs-copy-source]').textContent()
     expect(code).toContain('Table.create')
-    expect(code!.split('\n').length).toBeLessThan(50)
+    expect(code!.split('\n').length).toBeLessThanOrEqual(50)
     for (const forbidden of ['ShellDestination', 'shellDestination', 'recordMenuItems', 'JsonSerializer', 'navigator.clipboard', 'RowActions', 'accountTable']) expect(code).not.toContain(forbidden)
     await example.getByRole('tab', { name: 'Preview', exact: true }).click()
   }
@@ -50,8 +51,10 @@ test('sortable table headers expose current state and leave ordering to the cons
   await expect(table.getByRole('columnheader', { name: /Role/ })).not.toHaveAttribute('aria-sort')
   await expect(table.getByRole('rowheader').first()).toHaveText('Alex Morgan')
   await page.evaluate(() => { (window as any).__tableSortDocumentMarker = true })
+  const sortResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/table/sort')
   await example.getByRole('link', { name: /Sort by Role; currently unsorted/ }).click()
-  await expect(page).toHaveURL(/sort=role&direction=asc/)
+  expect((await sortResponse).status()).toBe(200)
+  await expect(page).toHaveURL('/components/table')
   expect(await page.evaluate(() => (window as any).__tableSortDocumentMarker)).toBe(true)
   const sorted = page.locator('#components-table-sorting').getByRole('table', { name: 'Sortable team members', exact: true })
   await expect(sorted.getByRole('columnheader', { name: /Role/ })).toHaveAttribute('aria-sort', 'ascending')

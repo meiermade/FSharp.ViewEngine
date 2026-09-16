@@ -29,7 +29,7 @@ module Collection =
 
     let render resolve config =
         section {
-            _class "grid min-w-0 gap-4"
+            _class "grid min-w-0 grid-cols-1 gap-4"
             header {
                 _class (if config.titleVisible || config.actions.IsSome then "@container flex flex-wrap items-start justify-between gap-4" else "sr-only")
                 div {
@@ -68,7 +68,7 @@ module Detail =
 
     let render resolve config =
         article {
-            _class "grid min-w-0 gap-6"
+            _class "grid min-w-0 grid-cols-1 gap-6"
             header {
                 _class (if config.titleVisible || config.metadata.IsSome || config.actions.IsSome then "@container flex flex-wrap items-start justify-between gap-4" else "sr-only")
                 div {

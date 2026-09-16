@@ -53,6 +53,7 @@ module BulkActions =
         let result = "$" + ComponentHtml.signalToken (config.id + "-result")
         let signalName = signal.TrimStart '$'
         div {
+            _class "min-w-0"
             _dataSignals $"{{{signalName}: [], {result.TrimStart '$'}: ''}}"
             _dataOn ("fve-table-selection-change", $"{signal} = evt.detail.keys")
             _dataOn ("fve-selection-change", $"{signal} = evt.detail.keys")

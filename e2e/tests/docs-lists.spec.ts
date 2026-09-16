@@ -11,6 +11,7 @@ for (const [path, text, marker] of [
     await page.goto(path)
     const list = page.getByRole('list').filter({ hasText: text })
     await expect(list).toHaveCount(1)
+    await list.evaluate(element => { element.id = 'list-marker-under-test' })
     for (const width of [1400, 390]) {
       await page.setViewportSize({ width, height: 1000 })
       for (const theme of ['Light', 'Dark']) {
@@ -22,7 +23,7 @@ for (const [path, text, marker] of [
           await expect(item).toHaveCSS('display', 'list-item')
           await expect(item).toHaveCSS('list-style-type', marker)
         }
-        expect((await new AxeBuilder({ page }).include(marker === 'disc' ? 'ul.spec-bullets' : 'ol.spec-bullets').analyze()).violations).toEqual([])
+        expect((await new AxeBuilder({ page }).include('#list-marker-under-test').analyze()).violations).toEqual([])
         await list.screenshot({ path: testInfo.outputPath(`${marker}-${theme.toLowerCase()}-${width}.png`) })
       }
     }
