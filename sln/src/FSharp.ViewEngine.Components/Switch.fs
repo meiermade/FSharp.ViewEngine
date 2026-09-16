@@ -1,4 +1,4 @@
-namespace FSharp.ViewEngine.Components
+namespace FSharp.ViewEngine.Components.Primitives
 
 open System
 open FSharp.ViewEngine
@@ -57,13 +57,14 @@ module Switch =
                 "block h-5 w-9 rounded-full bg-[var(--fve-neutral-subtle)] ring-1 ring-inset transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2"
                 if config.validation.IsSome then "ring-[var(--fve-critical-ring)] peer-focus-visible:ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)] peer-focus-visible:ring-[var(--fve-brand-ring)]" ]
         div {
+            _class "min-w-0 [overflow-wrap:anywhere]"
             _dataSignals $"{{{valueSignal}: {initialValue}}}"
             label {
                 _for fieldId
-                _class "flex cursor-pointer items-start justify-between gap-4 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
-                span { _class "font-medium"; config.label }
+                _class "flex min-w-0 flex-wrap cursor-pointer items-start justify-between gap-4 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                span { _class "min-w-0 font-medium"; config.label }
                 span {
-                    _class "flex shrink-0 items-center gap-2"
+                    _class "ml-auto flex shrink-0 items-center gap-2"
                     if config.isPending then ComponentHtml.loadingGlyph ControlSize.Small
                     span {
                         _class "relative mt-0.5 shrink-0"

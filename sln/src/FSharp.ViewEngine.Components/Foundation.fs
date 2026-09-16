@@ -1,4 +1,4 @@
-namespace FSharp.ViewEngine.Components
+namespace FSharp.ViewEngine.Components.Primitives
 
 open System
 open System.Text
@@ -50,6 +50,28 @@ module ComponentsTheme =
 
     let emerald =
         { paletteClass = "fve-theme-emerald"
+          radiusClass = "fve-radius-large"
+          densityClass = "fve-density-comfortable" }
+
+    let amber =
+        { paletteClass = "fve-theme-amber"
+          radiusClass = "fve-radius-large"
+          densityClass = "fve-density-comfortable" }
+
+    let cyan =
+        { paletteClass = "fve-theme-cyan"
+          radiusClass = "fve-radius-large"
+          densityClass = "fve-density-comfortable" }
+
+    let neutral =
+        { paletteClass = "fve-theme-neutral"
+          radiusClass = "fve-radius-large"
+          densityClass = "fve-density-comfortable" }
+
+    let custom paletteClass =
+        if String.IsNullOrWhiteSpace paletteClass || Regex.IsMatch(paletteClass, "\\s") then
+            invalidArg (nameof paletteClass) "A custom theme requires one non-empty CSS class."
+        { paletteClass = paletteClass
           radiusClass = "fve-radius-large"
           densityClass = "fve-density-comfortable" }
 
@@ -111,7 +133,7 @@ module internal ComponentHtml =
 
     let sizeClasses = function
         | ControlSize.Small -> "min-h-[calc(var(--fve-control-min-height)-0.25rem)] px-2.5 py-[var(--fve-control-padding-block)] text-xs"
-        | ControlSize.Medium -> "min-h-[var(--fve-control-min-height)] px-3 py-[var(--fve-control-padding-block)] text-sm"
+        | ControlSize.Medium -> "min-h-[var(--fve-control-min-height)] px-2 py-[var(--fve-control-padding-block)] text-sm"
         | ControlSize.Large -> "min-h-[calc(var(--fve-control-min-height)+0.5rem)] px-4 py-[var(--fve-control-padding-block)] text-base"
 
     let iconButtonSizeClasses = function

@@ -7,7 +7,7 @@
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Andrew Meier</Authors>
-    <Description>Accessible, server-rendered Tailwind components for FSharp.ViewEngine with Datastar interactions.</Description>
+    <Description>Shared primitives, application, marketing, ecommerce, and documentation UI for FSharp.ViewEngine with Tailwind and Datastar.</Description>
     <PackageTags>fsharp;html;components;tailwind;datastar;accessibility;server-rendered</PackageTags>
     <RepositoryUrl>https://github.com/meiermade/FSharp.ViewEngine</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -31,29 +31,56 @@
     <Compile Include="Badge.fs" />
     <Compile Include="Status.fs" />
     <Compile Include="LoadingIndicator.fs" />
+    <Compile Include="Progress.fs" />
     <Compile Include="EmptyState.fs" />
     <Compile Include="Table.fs" />
+    <Compile Include="BulkActions.fs" />
     <Compile Include="DescriptionList.fs" />
     <Compile Include="Metric.fs" />
     <Compile Include="Pagination.fs" />
-    <Compile Include="Chart.fs" />
+    <Compile Include="ChoiceSelection.fs" />
+    <Compile Include="TextField.fs" />
     <Compile Include="Select.fs" />
-    <Compile Include="Combobox.fs" />
+    <Compile Include="Notice.fs" />
     <Compile Include="Checkbox.fs" />
     <Compile Include="Switch.fs" />
     <Compile Include="ToggleButton.fs" />
     <Compile Include="Tabs.fs" />
     <Compile Include="RadioGroup.fs" />
     <Compile Include="DropdownMenu.fs" />
+    <Compile Include="Actions.fs" />
     <Compile Include="Dialog.fs" />
     <Compile Include="Breadcrumbs.fs" />
-    <Compile Include="SideNavigation.fs" />
+    <Compile Include="SideNav.fs" />
+    <Compile Include="BottomNavigation.fs" />
     <Compile Include="Page.fs" />
+    <Compile Include="Section.fs" />
     <Compile Include="Compositions.fs" />
+    <Compile Include="FirstSteps.fs" />
     <Compile Include="AppShell.fs" />
+    <Compile Include="PreviewFrame.fs" />
+    <Compile Include="Browser.fs" />
+    <Compile Include="Phone.fs" />
+    <Compile Include="Documentation/ValidationIssue.fs" />
+    <Compile Include="Documentation/SequenceDiagram.fs" />
+    <Compile Include="Documentation/Target.fs" />
+    <Compile Include="Documentation/Navigation.fs" />
+    <Compile Include="Documentation/Document.fs" />
+    <Compile Include="Documentation/ApiReference.fs" />
+    <Compile Include="Documentation/Example.fs" />
+    <Compile Include="Documentation/Fixture.fs" />
+    <Compile Include="Documentation/Registry.fs" />
+    <Compile Include="Documentation/Search.fs" />
+    <Compile Include="Documentation/Version.fs" />
+    <Compile Include="Documentation/View.fs" />
+    <Compile Include="Documentation/DirectedGraph.fs" />
     <None Include="../../../LICENSE" Pack="True" Visible="false" PackagePath="" />
     <None Include="README.md" Pack="True" Visible="false" PackagePath="" />
     <None Include="FSharp.ViewEngine.Components.tailwind.css" Pack="True" PackagePath="contentFiles/any/any" PackageCopyToOutput="false" />
+    <None Include="AppMode.tailwind.css" Pack="True" PackagePath="contentFiles/any/any" PackageCopyToOutput="false" />
+    <None Include="app-mode.js" Pack="True" PackagePath="contentFiles/any/any" PackageCopyToOutput="false" />
+    <None Include="Documentation/Documentation.tailwind.css" Pack="True" PackagePath="contentFiles/any/any/Documentation" PackageCopyToOutput="false" />
+    <None Include="Documentation/README.md" Pack="True" PackagePath="Documentation" />
     <PackageReference Update="FSharp.Core" Version="10.0.102" />
   </ItemGroup>
   <ItemGroup>

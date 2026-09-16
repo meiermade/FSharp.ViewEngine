@@ -1,4 +1,4 @@
-namespace FSharp.ViewEngine.Components
+namespace FSharp.ViewEngine.Components.Primitives
 
 open System
 open FSharp.ViewEngine
@@ -14,6 +14,8 @@ type CheckboxConfig =
           description:string option
           validation:string option
           isChecked:bool
+          isIndeterminate:bool
+          labelHidden:bool
           isRequired:bool
           isDisabled:bool
           isPending:bool }
@@ -29,6 +31,8 @@ module Checkbox =
           description = None
           validation = None
           isChecked = false
+          isIndeterminate = false
+          labelHidden = false
           isRequired = false
           isDisabled = false
           isPending = false }
@@ -39,6 +43,8 @@ module Checkbox =
     let withDescription description (config:CheckboxConfig) = { config with description = Some description }
     let withValidation message (config:CheckboxConfig) = { config with validation = Some message }
     let withChecked (config:CheckboxConfig) = { config with isChecked = true }
+    let withIndeterminate (config:CheckboxConfig) = { config with isIndeterminate = true }
+    let withVisuallyHiddenLabel (config:CheckboxConfig) = { config with labelHidden = true }
     let required (config:CheckboxConfig) = { config with isRequired = true }
     let disabled (config:CheckboxConfig) = { config with isDisabled = true }
     let pending (config:CheckboxConfig) = { config with isPending = true }
@@ -50,6 +56,8 @@ module Checkbox =
         let validationId = $"{fieldId}-validation"
         let valueSignal = $"{token}_checked"
         let initialValue = if config.isChecked then "true" else "false"
+        let mixedSignal = $"{token}_mixed"
+        let initialMixed = if config.isIndeterminate then "true" else "false"
         let unavailable = config.isDisabled || config.isPending
         let describedBy =
             [ if config.description.IsSome then descriptionId
@@ -60,13 +68,14 @@ module Checkbox =
                 "mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] text-xs font-bold text-white ring-1 ring-inset transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2"
                 if config.validation.IsSome then "ring-[var(--fve-critical-ring)] peer-focus-visible:ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)] peer-focus-visible:ring-[var(--fve-brand-ring)]" ]
         div {
-            _dataSignals $"{{{valueSignal}: {initialValue}}}"
+            _dataSignals $"{{{valueSignal}: {initialValue}, {mixedSignal}: {initialMixed}}}"
             label {
                 _for fieldId
                 _class "flex cursor-pointer items-start gap-3 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
                 input {
                     _id fieldId
                     _type "checkbox"
+                    _tabindex 0
                     _name config.name
                     _value "true"
                     _checked config.isChecked
@@ -76,16 +85,24 @@ module Checkbox =
                     _ariaInvalid config.validation.IsSome
                     if config.isPending then _ariaBusy true
                     _dataBind valueSignal
+                    _dataEffect $"el.indeterminate = ${mixedSignal}"
+                    _dataOn ("change", $"${mixedSignal} = false")
                     if String.IsNullOrEmpty describedBy |> not then _ariaDescribedby describedBy
                     _class "peer sr-only"
                 }
                 span {
                     _ariaHidden "true"
                     _class controlClasses
-                    span { _dataShow $"${valueSignal}"; _style "display:none"; "✓" }
+                    span { _dataShow $"${valueSignal} && !${mixedSignal}"; _style "display:none"; "✓" }
+                    span {
+                        _dataShow $"${mixedSignal}"
+                        _style "display:none"
+                        _class "text-[var(--fve-text)]"
+                        "−"
+                    }
                 }
                 span {
-                    _class "font-medium"
+                    _class (if config.labelHidden then "sr-only" else "font-medium")
                     config.label
                     if config.isRequired then
                         span {

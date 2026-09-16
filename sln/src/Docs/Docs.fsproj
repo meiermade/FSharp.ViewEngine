@@ -12,6 +12,7 @@
     <Compile Include="src\Common\SourceRegion.fs" />
     <Compile Include="src\Pages\Showcase.fs" />
     <Compile Include="src\Pages\Components.fs" />
+    <Compile Include="src\Pages\Catalog.fs" />
     <Compile Include="src\Common\View.fs" />
     <Compile Include="src\Pages\Home.fs" />
     <Compile Include="src\Pages\Installation.fs" />
@@ -41,7 +42,6 @@
   <ItemGroup>
     <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
     <ProjectReference Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.fsproj" />
-    <ProjectReference Include="..\FSharp.ViewEngine.Docs\FSharp.ViewEngine.Docs.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

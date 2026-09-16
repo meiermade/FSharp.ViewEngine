@@ -1,5 +1,3 @@
-open System.Net
-open System.Net.Sockets
 open System.Text.RegularExpressions
 open Fake.Core
 open Fake.Core.TargetOperators
@@ -51,11 +49,6 @@ let execEnv key value workDir cmd args =
 let dotnet workdir args = exec workdir "dotnet" args
 let tailwindcss args = exec docsDir "tailwindcss" args
 
-let availableLocalPort () =
-    use listener = new TcpListener(IPAddress.Loopback, 0)
-    listener.Start()
-    (listener.LocalEndpoint :?> IPEndPoint).Port
-
 let packageProject (package:PackagePublishing.Package) =
     srcDir </> package.Id </> $"{package.Id}.fsproj"
 
@@ -70,7 +63,6 @@ let releaseInputs () =
     let minimumDependencyVersion =
         match packageId with
         | "FSharp.ViewEngine.Components" -> Environment.environVarOrNone "COMPONENTS_MINIMUM_CORE_VERSION"
-        | "FSharp.ViewEngine.Docs" -> Environment.environVarOrNone "DOCS_MINIMUM_COMPONENTS_VERSION"
         | _ -> None
     PackagePublishing.validateInputs
         packageId
@@ -87,15 +79,12 @@ let releaseSelection () =
         (Environment.environVarOrFail "PACKAGE_SELECTION")
         (optionalEnvironment "CORE_PACKAGE_VERSION")
         (optionalEnvironment "COMPONENTS_PACKAGE_VERSION")
-        (optionalEnvironment "DOCS_PACKAGE_VERSION")
         (optionalEnvironment "COMPONENTS_MINIMUM_CORE_VERSION")
-        (optionalEnvironment "DOCS_MINIMUM_COMPONENTS_VERSION")
 
 let selectedPackage () =
     match Environment.environVarOrFail "PACKAGE_ID" with
     | "FSharp.ViewEngine" -> PackagePublishing.Package.ViewEngine
     | "FSharp.ViewEngine.Components" -> PackagePublishing.Package.Components
-    | "FSharp.ViewEngine.Docs" -> PackagePublishing.Package.Docs
     | packageId -> failwith $"Unsupported package: {packageId}"
 
 let getVersion () =
@@ -106,7 +95,7 @@ let getVersion () =
 Target.create "ValidateReleaseSelection" <| fun _ ->
     let selection = releaseSelection ()
     let selected =
-        [ selection.core; selection.components; selection.docs ]
+        [ selection.core; selection.components ]
         |> List.choose id
         |> List.map (fun inputs -> $"{inputs.package.Id} {inputs.version}")
         |> String.concat ", "
@@ -209,11 +198,6 @@ Target.create "Pack"  (fun _ ->
             arguments @
                 [ $"/p:FSharpViewEngineComponentsPackageVersion={version}"
                   $"/p:FSharpViewEnginePackageVersion={minimumCoreVersion}" ]
-        | PackagePublishing.Package.Docs ->
-            let minimumComponentsVersion = Environment.environVarOrFail "DOCS_MINIMUM_COMPONENTS_VERSION"
-            arguments @
-                [ $"/p:FSharpViewEngineDocsPackageVersion={version}"
-                  $"/p:FSharpViewEngineComponentsPackageVersion={minimumComponentsVersion}" ]
 
     Trace.trace $"Packing {package.Id} {version}"
     dotnet rootDir arguments |> Async.RunSynchronously
@@ -248,22 +232,23 @@ Target.create "VerifyPackage" (fun _ ->
 )
 
 Target.create "WatchDocs" (fun _ ->
-    let docsUrl =
-        System.Environment.GetEnvironmentVariable("SERVER_URL")
-        |> Option.ofObj
-        |> Option.defaultWith (fun () -> $"http://127.0.0.1:{availableLocalPort ()}")
+    let docsUrl = WatchDocs.configuredUrl ()
 
-    Trace.trace $"Starting the FSharp.ViewEngine Docs at {docsUrl}"
+    WatchDocs.runExclusiveWatcher "WatchDocs" docsUrl <| fun () ->
+        Trace.trace $"Starting the FSharp.ViewEngine Docs at {docsUrl}"
 
-    let watchApp =
-        execEnv "SERVER_URL" docsUrl docsDir "dotnet" ["watch"; "run"; "--no-restore"]
+        let watchApp =
+            execEnv "DOCS_SERVER_URL" docsUrl docsDir "dotnet" ["watch"; "run"; "--no-restore"]
 
-    let watchCss =
-        tailwindcss ["--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--watch"]
+        let watchCss =
+            // Imported package stylesheets are siblings of Docs, so watch their common root.
+            exec (System.IO.Path.GetDirectoryName docsDir) "tailwindcss"
+                [ "--input"; "Docs/input.css"; "--output"; "Docs/wwwroot/css/output.css"
+                  "--watch=always"; "--minify" ]
 
-    Async.Parallel [| watchApp; watchCss |]
-    |> Async.RunSynchronously
-    |> ignore
+        Async.Parallel [| watchApp; watchCss |]
+        |> Async.RunSynchronously
+        |> ignore
 )
 
 Target.create "Benchmark" <| fun parameters ->

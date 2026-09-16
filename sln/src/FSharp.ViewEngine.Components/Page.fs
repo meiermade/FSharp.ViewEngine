@@ -1,40 +1,75 @@
-namespace FSharp.ViewEngine.Components
+namespace FSharp.ViewEngine.Components.Application
+
+open FSharp.ViewEngine.Components.Primitives
 
 open System
 open FSharp.ViewEngine
 open type Html
 
 [<NoEquality; NoComparison>]
+type PageTopBarConfig =
+    private
+        { content:HtmlElement option
+          attributes:HtmlAttribute list }
+
+[<RequireQualifiedAccess>]
+module PageTopBar =
+    let create () = { content = None; attributes = [] }
+    let withContent content (config:PageTopBarConfig) = { config with content = Some content }
+    let withAttributes attributes (config:PageTopBarConfig) = { config with attributes = attributes }
+
+    let render config =
+        header {
+            _attr ("data-fve-page-top-bar", "true")
+            _class "shrink-0 border-b border-[var(--fve-border)] bg-[var(--fve-surface)]"
+            for attribute in ComponentHtml.safeAttributes [ "class"; "data-fve-page-top-bar" ] config.attributes do attribute
+            div {
+                _class "min-h-[var(--fve-shell-bar-min-height)] w-full"
+                config.content |> Option.defaultValue empty
+            }
+        }
+
+[<NoEquality; NoComparison>]
 type PageHeaderConfig<'destination> =
     private
         { title:string
-          breadcrumbs:BreadcrumbsConfig<'destination>
-          actions:HtmlElement option }
+          subtitle:string option
+          actions:ActionClusterConfig<'destination> option
+          attributes:HtmlAttribute list }
 
 module internal PageHeaderView =
-    let render contentWidth resolve (config:PageHeaderConfig<'destination>) =
+    let render resolve (config:PageHeaderConfig<'destination>) =
         header {
-            _class "shrink-0 border-b border-[var(--fve-border)] bg-[var(--fve-surface)]"
+            _attr ("data-fve-page-header", "true")
+            _class "@container flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8"
+            for attribute in ComponentHtml.safeAttributes [ "class"; "data-fve-page-header" ] config.attributes do attribute
             div {
-                _class (ComponentHtml.classes [ "mx-auto flex min-h-16 w-full flex-wrap items-center justify-between gap-x-4 gap-y-3 px-4 py-3 sm:px-6"; contentWidth ])
-                h1 { _class "sr-only"; config.title }
-                div { _class "w-full min-w-0 sm:w-auto sm:flex-1"; Breadcrumbs.render resolve config.breadcrumbs }
-                match config.actions with
-                | Some actions -> div { _class "flex w-full min-w-0 flex-wrap items-center gap-2 sm:w-auto sm:shrink-0 sm:justify-end"; actions }
+                _class "min-w-0 flex-1"
+                h1 { _class "text-xl font-semibold tracking-tight text-[var(--fve-text)]"; config.title }
+                match config.subtitle with
+                | Some subtitle -> p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; subtitle }
                 | None -> ()
             }
+            match config.actions with
+            | Some actions -> ActionCluster.render resolve actions
+            | None -> ()
         }
 
 [<RequireQualifiedAccess>]
 module PageHeader =
-    let create title breadcrumbs =
+    let create title =
         if String.IsNullOrWhiteSpace title then invalidArg (nameof title) "A page title is required."
-        { title = title; breadcrumbs = breadcrumbs; actions = None }
+        { title = title; subtitle = None; actions = None; attributes = [] }
+
+    let withSubtitle subtitle (config:PageHeaderConfig<'destination>) =
+        if String.IsNullOrWhiteSpace subtitle then invalidArg (nameof subtitle) "A page subtitle cannot be empty."
+        { config with subtitle = Some subtitle }
 
     let withActions actions (config:PageHeaderConfig<'destination>) = { config with actions = Some actions }
+    let withAttributes attributes (config:PageHeaderConfig<'destination>) = { config with attributes = attributes }
 
     let render resolve config =
-        PageHeaderView.render "max-w-7xl" resolve config
+        div { _class "w-full"; PageHeaderView.render resolve config }
 
 [<RequireQualifiedAccess>]
 type PageWidth =
@@ -46,6 +81,7 @@ type PageWidth =
 type PageBodyLayout =
     | Padded
     | FullBleed
+    | Canvas
 
 [<NoEquality; NoComparison>]
 type private PageLocalNavigation =
@@ -55,7 +91,8 @@ type private PageLocalNavigation =
 [<NoEquality; NoComparison>]
 type PageConfig<'destination> =
     private
-        { header:PageHeaderConfig<'destination>
+        { topBar:PageTopBarConfig
+          header:PageHeaderConfig<'destination>
           content:HtmlElement
           localNavigation:PageLocalNavigation option
           width:PageWidth
@@ -64,20 +101,24 @@ type PageConfig<'destination> =
 [<RequireQualifiedAccess>]
 module Page =
     let create header content =
-        { header = header
+        { topBar = PageTopBar.create ()
+          header = header
           content = content
           localNavigation = None
           width = PageWidth.Wide
           bodyLayout = PageBodyLayout.Padded }
 
-    let withSectionNavigation navigation config =
+    let withTopBar topBar (config:PageConfig<'destination>) = { config with topBar = topBar }
+
+    let withSectionNavigation navigation (config:PageConfig<'destination>) =
         { config with localNavigation = Some(SectionNavigation navigation) }
 
-    let withTabs tabs config =
+    let withTabs tabs (config:PageConfig<'destination>) =
         { config with localNavigation = Some(PageTabs tabs) }
 
-    let withWidth width config = { config with width = width }
-    let withBodyLayout layout config = { config with bodyLayout = layout }
+    let withWidth width (config:PageConfig<'destination>) = { config with width = width }
+    let withBodyLayout layout (config:PageConfig<'destination>) =
+        { config with bodyLayout = layout; width = if layout = PageBodyLayout.Canvas then PageWidth.Full else config.width }
 
     let private widthClasses = function
         | PageWidth.Reading -> "max-w-4xl"
@@ -88,24 +129,37 @@ module Page =
         let width = widthClasses config.width
         div {
             _class "flex h-full min-h-0 flex-col bg-[var(--fve-page)] text-[var(--fve-text)]"
-            PageHeaderView.render width resolve config.header
-            div {
+            PageTopBar.render config.topBar
+            if config.bodyLayout = PageBodyLayout.Canvas then
+                PageHeaderView.render resolve config.header
+                match config.localNavigation with
+                | Some(SectionNavigation navigation)
+                | Some(PageTabs navigation) -> div { _class "shrink-0 px-4 sm:px-6 lg:px-8"; navigation }
+                | None -> ()
+                div {
+                    _attr ("data-fve-page-canvas", "true")
+                    _class "min-h-0 min-w-0 flex-1 overflow-hidden"
+                    config.content
+                }
+            else div {
                 _attr ("data-fve-page-scroll", "true")
                 _class "min-h-0 flex-1 overflow-y-auto"
                 div {
-                    _class (
-                        ComponentHtml.classes [
-                            "mx-auto w-full"
-                            if config.localNavigation.IsSome then "grid gap-6"
-                            width
+                    _class (ComponentHtml.classes [ "mx-auto w-full"; width ])
+                    PageHeaderView.render resolve config.header
+                    match config.localNavigation with
+                    | Some(SectionNavigation sectionNavigation)
+                    | Some(PageTabs sectionNavigation) ->
+                        div { _class "px-4 sm:px-6 lg:px-8"; sectionNavigation }
+                    | None -> ()
+                    div {
+                        _class (
                             match config.bodyLayout with
                             | PageBodyLayout.Padded -> "p-4 sm:p-6 lg:p-8"
-                            | PageBodyLayout.FullBleed -> "" ])
-                    match config.localNavigation with
-                    | Some(SectionNavigation sectionNavigation) -> sectionNavigation
-                    | Some(PageTabs tabs) -> tabs
-                    | None -> ()
-                    config.content
+                            | PageBodyLayout.FullBleed
+                            | PageBodyLayout.Canvas -> "")
+                        config.content
+                    }
                 }
             }
         }

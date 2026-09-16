@@ -1,4 +1,4 @@
-namespace FSharp.ViewEngine.Components
+namespace FSharp.ViewEngine.Components.Primitives
 
 open System
 open FSharp.ViewEngine
@@ -51,7 +51,7 @@ module Breadcrumbs =
         nav {
             _id config.id
             _ariaLabel config.label
-            _class "@container min-w-0"
+            _class "@container min-w-0 w-full"
             ol {
                 _role "list"
                 _class "flex min-w-0 flex-wrap items-center gap-1 text-sm text-[var(--fve-muted-text)]"
