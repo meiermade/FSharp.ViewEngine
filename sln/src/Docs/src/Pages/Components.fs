@@ -2473,15 +2473,39 @@ AppShell.create "product-shell" sideNav pageContent
         }
 
     let periodCloseStepsExample =
-        Steps.create "Period close progress"
-            [ Step.create "Review balances" StepState.Complete
-              |> Step.withDestination "/components/collection"
-              Step.create "Reconcile statements" StepState.Current
-              |> Step.withDescription "Resolve the remaining statement differences."
-              Step.create "Post adjustments" StepState.Available
-              |> Step.withDestination "/components/detail"
-              Step.create "Close period" StepState.Unavailable ]
-        |> Steps.render id
+        div {
+            _dataSignals "{stepnote: '', stepattempted: false}"
+            _class "grid gap-4"
+            Steps.create "Period close progress"
+                [ Step.create "Review balances" StepState.Complete
+                  |> Step.withDestination "/components/collection"
+                  Step.create "Reconcile statements" StepState.Current
+                  |> Step.withDescription "Resolve the remaining statement differences."
+                  Step.create "Post adjustments" StepState.Available
+                  |> Step.withDestination "/components/detail"
+                  Step.create "Close period" StepState.Unavailable ]
+            |> Steps.render id
+            Input.create "reconciliationNote" "Reconciliation note"
+            |> Input.withAttributes [ _dataBind "stepnote" ]
+            |> Input.required
+            |> Input.render
+            Button.create "Continue"
+            |> Button.withVariant ButtonVariant.Primary
+            |> Button.withAttributes [ _dataOn ("click", "$stepattempted = true") ]
+            |> Button.render
+            p {
+                _dataShow "$stepattempted && !$stepnote.trim()"
+                _role "alert"
+                _class "text-sm text-[var(--fve-critical-text)]"
+                "Enter a reconciliation note before continuing. The current step has not changed."
+            }
+            p {
+                _dataShow "$stepattempted && $stepnote.trim()"
+                _role "status"
+                _class "text-sm text-[var(--fve-positive-text)]"
+                "Reconciliation is ready for server validation."
+            }
+        }
 
     let identityExample =
         div {
@@ -2561,50 +2585,115 @@ AppShell.create "product-shell" sideNav pageContent
         |> BulkActions.render
         |> fun libraryWithActions ->
             div {
+                _dataSignals "{mediastate: 'ready'}"
                 _class "grid gap-4"
-                libraryWithActions
-                Textarea.create "altText" "Alt text"
-                |> Textarea.withId "media-alt-text"
-                |> Textarea.withValue "Blue trail pack shown from the front"
-                |> Textarea.withDescription "Describe the selected asset for people who cannot see it."
-                |> Textarea.render
-                Button.create "Save alt text"
-                |> Button.withAttributes [ _dataOn ("click", "(() => { const value = document.getElementById('media-alt-text').value; document.querySelectorAll('#product-media input:checked').forEach(input => input.closest('li').querySelector('img').alt = value); document.getElementById('media-edit-feedback').textContent = 'Alt text updated for selected media.' })()") ]
-                |> Button.render
-                p { _id "media-edit-feedback"; _role "status"; _ariaLive "polite"; _class "text-sm text-[var(--fve-muted-text)]" }
+                div {
+                    _class "flex flex-wrap gap-2"
+                    for state, label in [ "empty", "Show empty"; "pending", "Simulate loading"; "error", "Simulate error"; "ready", "Restore media" ] do
+                        button {
+                            _type "button"
+                            _dataOn ("click", $"$mediastate = '{state}'")
+                            _class "rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold ring-1 ring-[var(--fve-border)]"
+                            label
+                        }
+                }
+                p {
+                    _dataShow "$mediastate == 'empty'"
+                    _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-neutral-subtle)] p-4 text-sm text-[var(--fve-muted-text)]"
+                    "No media assets. Upload an image to begin."
+                }
+                p {
+                    _dataShow "$mediastate == 'pending'"
+                    _role "status"
+                    _ariaLive "polite"
+                    _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-neutral-subtle)] p-4 text-sm text-[var(--fve-muted-text)]"
+                    "Loading media…"
+                }
+                div {
+                    _dataShow "$mediastate == 'error'"
+                    _role "alert"
+                    _class "flex flex-wrap items-center justify-between gap-3 rounded-[var(--fve-radius-panel)] bg-[var(--fve-critical-subtle)] p-4 text-sm text-[var(--fve-critical-text)]"
+                    span { "Media could not be loaded." }
+                    button { _type "button"; _dataOn ("click", "$mediastate = 'ready'"); _class "rounded-[var(--fve-radius-control)] px-3 py-2 font-semibold ring-1 ring-[var(--fve-critical-ring)]"; "Retry media" }
+                }
+                div {
+                    _dataShow "$mediastate == 'ready'"
+                    _class "grid gap-4"
+                    libraryWithActions
+                    Textarea.create "altText" "Alt text"
+                    |> Textarea.withId "media-alt-text"
+                    |> Textarea.withValue "Blue trail pack shown from the front"
+                    |> Textarea.withDescription "Describe the selected asset for people who cannot see it."
+                    |> Textarea.render
+                    Button.create "Save alt text"
+                    |> Button.withAttributes [ _dataOn ("click", "(() => { const value = document.getElementById('media-alt-text').value; document.querySelectorAll('#product-media input:checked').forEach(input => input.closest('li').querySelector('img').alt = value); document.getElementById('media-edit-feedback').textContent = 'Alt text updated for selected media.' })()") ]
+                    |> Button.render
+                    FileSelection.create "media-replacement" "replacementImage" "Replacement image"
+                    |> FileSelection.withDescription "Choose a local image; this provider-free example does not upload it."
+                    |> FileSelection.withAccept "image/*"
+                    |> FileSelection.render
+                    Button.create "Apply demo replacement"
+                    |> Button.withAttributes [ _dataOn ("click", "document.querySelectorAll('#product-media input:checked').forEach(input => input.closest('li').querySelector('img').src = '/favicon-32x32.png'); document.getElementById('media-edit-feedback').textContent = 'Demo replacement applied to selected media.'") ]
+                    |> Button.render
+                    p { _id "media-edit-feedback"; _role "status"; _ariaLive "polite"; _class "text-sm text-[var(--fve-muted-text)]" }
+                }
             }
 
     let traceViewerIntegrationExample =
-        figure {
+        div {
+            _dataSignals "{tracestate: 'ready'}"
             _class "grid gap-3"
             div {
-                _tabindex 0
-                _ariaLabel "Scrollable trace diagram"
-                _class "overflow-x-auto rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-4 ring-1 ring-[var(--fve-border)]"
-                svg {
-                    _viewBox "0 0 720 180"
-                    _role "img"
-                    _ariaLabel "Request trace from browser through API and database"
-                    _class "min-w-[40rem] w-full"
-                    line { _x1 120; _y1 90; _x2 600; _y2 90; _stroke "currentColor"; _strokeWidth 2 }
-                    for x, label, duration in [ 120, "Browser", "0 ms"; 360, "API", "42 ms"; 600, "Database", "18 ms" ] do
-                        circle { _cx x; _cy 90; _r 34; _fill "var(--fve-brand-subtle)"; _stroke "var(--fve-brand-solid)"; _strokeWidth 2 }
-                        textElement { _x x; _y 86; _textAnchor "middle"; _fill "currentColor"; label }
-                        textElement { _x x; _y 108; _textAnchor "middle"; _fill "currentColor"; duration }
-                }
-            }
-            figcaption {
-                _class "text-sm text-[var(--fve-muted-text)]"
-                "Trace request-84f2 · 60 ms total. The ordered list remains the accessible source of truth."
-            }
-            ol {
-                _class "grid gap-2"
-                for label, detail in [ "Browser", "GET /accounts · starts at 0 ms"; "API", "Authorization and query · 42 ms"; "Database", "SELECT accounts · 18 ms" ] do
-                    li {
-                        _class "flex items-start justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-3 text-sm"
-                        strong { label }
-                        span { _class "text-right text-[var(--fve-muted-text)]"; detail }
+                _class "flex flex-wrap gap-2"
+                for state, label in [ "ready", "Show trace"; "pending", "Load trace"; "empty", "Show empty trace"; "error", "Simulate trace error" ] do
+                    button {
+                        _type "button"
+                        _dataOn ("click", $"$tracestate = '{state}'")
+                        _class "rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold ring-1 ring-[var(--fve-border)]"
+                        label
                     }
+            }
+            p { _dataShow "$tracestate == 'pending'"; _role "status"; _class "text-sm text-[var(--fve-muted-text)]"; "Loading trace…" }
+            p { _dataShow "$tracestate == 'empty'"; _class "text-sm text-[var(--fve-muted-text)]"; "No spans matched this trace query." }
+            div {
+                _dataShow "$tracestate == 'error'"
+                _role "alert"
+                _class "flex flex-wrap items-center justify-between gap-3 rounded-[var(--fve-radius-panel)] bg-[var(--fve-critical-subtle)] p-3 text-sm text-[var(--fve-critical-text)]"
+                span { "Trace data could not be loaded." }
+                button { _type "button"; _dataOn ("click", "$tracestate = 'ready'"); _class "rounded-[var(--fve-radius-control)] px-3 py-2 font-semibold ring-1 ring-[var(--fve-critical-ring)]"; "Retry trace" }
+            }
+            figure {
+                _dataShow "$tracestate == 'ready'"
+                _class "grid gap-3"
+                div {
+                    _tabindex 0
+                    _ariaLabel "Scrollable trace diagram"
+                    _class "overflow-x-auto rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-4 ring-1 ring-[var(--fve-border)]"
+                    svg {
+                        _viewBox "0 0 720 180"
+                        _role "img"
+                        _ariaLabel "Request trace from browser through API and database"
+                        _class "min-w-[40rem] w-full"
+                        line { _x1 120; _y1 90; _x2 600; _y2 90; _stroke "currentColor"; _strokeWidth 2 }
+                        for x, label, duration in [ 120, "Browser", "0 ms"; 360, "API", "42 ms"; 600, "Database", "18 ms" ] do
+                            circle { _cx x; _cy 90; _r 34; _fill "var(--fve-brand-subtle)"; _stroke "var(--fve-brand-solid)"; _strokeWidth 2 }
+                            textElement { _x x; _y 86; _textAnchor "middle"; _fill "currentColor"; label }
+                            textElement { _x x; _y 108; _textAnchor "middle"; _fill "currentColor"; duration }
+                    }
+                }
+                figcaption {
+                    _class "text-sm text-[var(--fve-muted-text)]"
+                    "Trace request-84f2 · 60 ms total. The ordered list remains the accessible source of truth."
+                }
+                ol {
+                    _class "grid gap-2"
+                    for label, detail in [ "Browser", "GET /accounts · starts at 0 ms"; "API", "Authorization and query · 42 ms"; "Database", "SELECT accounts · 18 ms" ] do
+                        li {
+                            _class "flex items-start justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-3 text-sm"
+                            strong { label }
+                            span { _class "text-right text-[var(--fve-muted-text)]"; detail }
+                        }
+                }
             }
         }
 

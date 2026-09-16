@@ -133,6 +133,14 @@ test('Free-form tags add, reject, remove, and submit repeated native values @cro
   await expect(example.getByRole('status')).toHaveText('That tag has already been added.')
   await expect(example.locator('input[type="hidden"][name="tags"][value="priority"]')).toHaveCount(1)
 
+  await entry.evaluate(element => {
+    const event = new Event('paste', { bubbles: true, cancelable: true })
+    Object.defineProperty(event, 'clipboardData', { value: { getData: () => 'owner,\nblocked' } })
+    element.dispatchEvent(event)
+  })
+  await expect(example.getByRole('button', { name: 'Remove owner', exact: true })).toBeVisible()
+  await expect(example.getByRole('button', { name: 'Remove blocked', exact: true })).toBeVisible()
+
   await example.getByRole('button', { name: 'Remove priority', exact: true }).click()
   await expect(example.getByRole('button', { name: 'Remove priority', exact: true })).toHaveCount(0)
   await expect(entry).toBeFocused()
@@ -170,6 +178,19 @@ test('Media library shares stable selection with page-level bulk actions @cross-
   await expect(example.getByRole('img', { name: 'Updated strap detail', exact: true })).toBeVisible()
   await example.getByRole('button', { name: 'Set primary', exact: true }).click()
   await expect(example.getByRole('status').last()).toHaveText('Primary asset: trail-detail')
+  await example.getByRole('button', { name: 'Apply demo replacement', exact: true }).click()
+  await expect(example.getByRole('img', { name: 'Updated strap detail', exact: true })).toHaveAttribute('src', '/favicon-32x32.png')
+
+  await example.getByRole('button', { name: 'Simulate loading', exact: true }).click()
+  await expect(example.getByRole('status', { name: '' }).filter({ hasText: 'Loading media' })).toBeVisible()
+  await example.getByRole('button', { name: 'Simulate error', exact: true }).click()
+  await expect(example.getByRole('alert')).toContainText('Media could not be loaded.')
+  await example.getByRole('button', { name: 'Retry media', exact: true }).click()
+  await expect(example.getByRole('alert')).toBeHidden()
+  await example.getByRole('button', { name: 'Show empty', exact: true }).click()
+  await expect(example.getByText('No media assets. Upload an image to begin.')).toBeVisible()
+  await example.getByRole('button', { name: 'Restore media', exact: true }).click()
+  await expect(example.getByRole('region', { name: 'Selected media actions', exact: true })).toBeVisible()
 })
 
 test('Bounded trace, financial chart, and messaging integrations retain accessible alternatives @cross-browser', async ({ page }) => {
@@ -178,6 +199,14 @@ test('Bounded trace, financial chart, and messaging integrations retain accessib
   const trace = page.locator('#components-trace-viewer-panel-preview')
   await expect(trace.getByRole('img', { name: 'Request trace from browser through API and database' })).toBeVisible()
   await expect(trace.getByRole('listitem')).toHaveCount(3)
+  await trace.getByRole('button', { name: 'Simulate trace error', exact: true }).click()
+  await expect(trace.getByRole('alert')).toContainText('Trace data could not be loaded.')
+  await trace.getByRole('button', { name: 'Retry trace', exact: true }).click()
+  await trace.getByRole('button', { name: 'Show empty trace', exact: true }).click()
+  await expect(trace.getByText('No spans matched this trace query.')).toBeVisible()
+  await trace.getByRole('button', { name: 'Load trace', exact: true }).click()
+  await expect(trace.getByRole('status')).toHaveText('Loading trace…')
+  await trace.getByRole('button', { name: 'Show trace', exact: true }).click()
 
   const chart = page.locator('#components-financial-chart-panel-preview')
   await chart.getByRole('button', { name: '90 days', exact: true }).click()
@@ -235,14 +264,21 @@ test('Operational application examples preserve native input and recoverable act
   ])
   await expect(page.locator('#statement-files-selected')).toContainText('checking.csv')
   await expect(page.locator('#statement-files-selected')).toContainText('card.ofx')
-  await page.getByRole('button', { name: 'Clear selected files', exact: true }).click()
+  await page.locator('#components-file-selection-panel-preview').getByRole('button', { name: 'Clear selected files', exact: true }).click()
   await expect(file).toHaveValue('')
 
   await page.locator('#components-upload-queue-panel-preview').getByRole('button', { name: 'Retry', exact: true }).click()
   await expect(page.locator('#components-upload-queue-panel-preview').getByRole('status').last()).toHaveText('Retry queued for savings-july.csv.')
 
   await expect(page.getByRole('progressbar', { name: 'Statement import', exact: true })).toHaveAttribute('value', '68')
-  await expect(page.getByRole('navigation', { name: 'Period close progress', exact: true }).locator('[aria-current="step"]')).toContainText('Reconcile statements')
+  const steps = page.locator('#components-step-navigation-panel-preview')
+  await expect(steps.getByRole('navigation', { name: 'Period close progress', exact: true }).locator('[aria-current="step"]')).toContainText('Reconcile statements')
+  await steps.getByRole('button', { name: 'Continue', exact: true }).click()
+  await expect(steps.getByRole('alert')).toContainText('The current step has not changed.')
+  await expect(steps.getByRole('navigation', { name: 'Period close progress', exact: true }).locator('[aria-current="step"]')).toContainText('Reconcile statements')
+  await steps.getByRole('textbox', { name: 'Reconciliation note', exact: true }).fill('Statement totals agree.')
+  await steps.getByRole('button', { name: 'Continue', exact: true }).click()
+  await expect(steps.getByRole('status')).toHaveText('Reconciliation is ready for server validation.')
 
   const credential = page.locator('#demo-token')
   await expect(credential).toHaveAttribute('type', 'password')

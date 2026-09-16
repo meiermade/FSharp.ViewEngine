@@ -42,10 +42,15 @@ module TagInput =
         let validationId = config.id + "-validation"
         let unavailable = config.disabled || config.pending
         let add =
-            "(() => { const field = document.getElementById('" + inputId + "'); const value = field.value.trim(); "
-            + "if (!value) { " + message + " = 'Enter a tag before adding it.' } "
-            + "else if (" + values + ".includes(value)) { " + message + " = 'That tag has already been added.' } "
-            + "else { " + values + " = [..." + values + ", value]; field.value = ''; " + message + " = value + ' added.'; field.focus() } })()"
+            "(() => { const field = document.getElementById('" + inputId + "'); const candidates = field.value.split(',').map(value => value.trim()).filter(Boolean); "
+            + "const additions = candidates.filter((value, index) => !" + values + ".includes(value) && candidates.indexOf(value) == index); "
+            + "if (!candidates.length) { " + message + " = 'Enter a tag before adding it.' } "
+            + "else if (!additions.length) { " + message + " = 'That tag has already been added.' } "
+            + "else { " + values + " = [..." + values + ", ...additions]; field.value = ''; " + message + " = additions.join(', ') + ' added.'; field.focus() } })()"
+        let paste =
+            "(() => { const pasted = evt.clipboardData?.getData('text') || ''; if (!/[,\\n]/.test(pasted)) return; evt.preventDefault(); "
+            + "const candidates = pasted.split(/[,\\n]+/).map(value => value.trim()).filter(Boolean); const additions = candidates.filter((value, index) => !" + values + ".includes(value) && candidates.indexOf(value) == index); "
+            + "if (!additions.length) { " + message + " = 'That tag has already been added.' } else { " + values + " = [..." + values + ", ...additions]; " + message + " = additions.join(', ') + ' added.' } })()"
         let reconcile =
             "const existing = new Map(Array.from(el.children).map(node => [node.dataset.fveTagValue, node])); "
             + "for (const [index, value] of " + values + ".entries()) { let node = existing.get(value); if (!node) { "
@@ -83,6 +88,7 @@ module TagInput =
                     _autocomplete "off"
                     _class "min-h-[var(--fve-control-min-height)] min-w-40 flex-1 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 text-base text-[var(--fve-text)] ring-1 ring-[var(--fve-border)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
                     _dataOn ("keydown", "(evt.key == 'Enter' || evt.key == ',') && (evt.preventDefault(), " + add + ")")
+                    _dataOn ("paste", paste)
                 }
                 button {
                     _type "button"

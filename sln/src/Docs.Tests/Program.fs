@@ -166,6 +166,7 @@ let tests =
             Expect.stringContains tags "field.name = &quot;tags&quot;" "dynamic tags create repeated successful controls"
             Expect.stringContains tags "Enter a tag before adding it." "empty creation has explicit rejection feedback"
             Expect.stringContains tags "That tag has already been added." "duplicates have explicit rejection feedback"
+            Expect.stringContains tags "clipboardData" "pasted comma- or line-delimited values are handled explicitly"
             Expect.isFalse (tags.Contains("Backspace")) "Backspace does not remove tags implicitly"
 
             let calendar = Components.calendarExample CalendarView.Week 0 |> Render.toString
@@ -178,6 +179,8 @@ let tests =
             Expect.stringContains media "name=\"assetIds\" value=\"trail-front\"" "media selection uses native repeated controls"
             Expect.stringContains media "alt=\"Blue trail pack shown from the front\"" "media thumbnails require consumer-authored alternatives"
             Expect.stringContains media "fve-selection-change" "media selection publishes stable identities to shared bulk actions"
+            Expect.stringContains media "No media assets. Upload an image to begin." "media example includes its empty state"
+            Expect.stringContains media "Media could not be loaded." "media example includes its recoverable error state"
         }
 
         test "Native fields preserve encoded values and protect their semantic attributes" {
