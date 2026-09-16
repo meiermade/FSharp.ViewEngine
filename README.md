@@ -42,7 +42,7 @@ For accessible, server-rendered Tailwind components with Datastar interactions, 
 dotnet add package FSharp.ViewEngine.Components
 ```
 
-`FSharp.ViewEngine.Components` provides typed themes, actions, feedback, tables, branded form controls, menus, overlays, collection/detail compositions, and destination-generic Breadcrumbs, SideNav, PageTopBar, visible PageHeader, Section, Page, and sidebar-oriented AppShell primitives. See its [package documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fsharpviewengine.meiermade.com/components).
+`FSharp.ViewEngine.Components` provides typed themes, actions, feedback, tables and hierarchy, branded form controls, files/uploads, tags, choice cards, progress/steps, calendar/media compositions, menus, overlays, collection/detail compositions, and destination-generic Breadcrumbs, SideNav, PageTopBar, visible PageHeader, Section, Page, and sidebar-oriented AppShell primitives. See its [package documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fsharpviewengine.meiermade.com/components).
 
 Documentation sites, API references, and executable specifications use the same Components package through `FSharp.ViewEngine.Components.Documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Import its optional `Documentation/Documentation.tailwind.css` only for Documentation surfaces. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
 
@@ -59,10 +59,13 @@ cd sln
 
 The watcher serves F# changes and compiles CSS from the common `sln/src` source root, including the shared and optional Documentation manifests, at the stable review URL `http://127.0.0.1:5054`. Starting it replaces only the previous FSharp.ViewEngine Docs watcher, including across worktrees; it never takes an unrelated listener. Override the local origin only when necessary with `DOCS_SERVER_URL=http://127.0.0.1:6054 ./fake.sh WatchDocs --single-target`. Package publication and sibling application changes are not needed. After adding/removing project references or compile items, restart this candidate's watcher so it reloads the project graph; ordinary edits stay in the same loop.
 
-- `/components` — shared installation/guides and the five-area directory.
+- `/components` — shared installation/guides and the staged Primitives, Application, and Documentation directory.
 - `/components/primitives` — shared controls and layout foundations.
 - `/components/select#components-select-multiple`, `components/select#components-select-search-multiple` — typed multiple selection, native repeated form values, validation and unavailable states. The remote searchable Select example also demonstrates error/retry and whole-field refresh.
 - `/components/application` — shell/page, collection/detail and form-layout examples.
+- `/components/app-shell#components-calendar-schedule` — linked List/Day/Week/Month scheduling.
+- `/components/app-shell#components-media-library` — native media selection, shared bulk actions, alt text, and primary-state presentation.
+- `/components/app-shell#components-trace-viewer`, `components-financial-chart`, `components-messaging` — bounded specialist integrations with accessible alternatives.
 - `/components/form-layouts` — stacked, two-column and sectioned server-validation forms, plus query/result search. These complete workflows moved out of the focused Input gallery; the validation endpoint and default field IDs are unchanged.
 - `/docs` — Documentation components and assembled examples; App mode remains in progress.
 

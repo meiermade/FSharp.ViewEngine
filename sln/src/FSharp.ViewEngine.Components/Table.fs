@@ -78,6 +78,25 @@ module TableSelection =
         if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A selection form name is required."
         { config with formName = name }
 
+/// Hierarchy is consumer-authored: keys, ancestors, levels, aggregates, and eligibility remain application policy.
+[<NoEquality; NoComparison>]
+type TableHierarchyConfig<'row> =
+    private
+        { id:string
+          keyFor:'row -> string
+          labelFor:'row -> string
+          ancestorsFor:'row -> string list
+          levelFor:'row -> int
+          hasChildrenFor:'row -> bool
+          expandedKeys:Set<string> }
+
+[<RequireQualifiedAccess>]
+module TableHierarchy =
+    let create id keyFor labelFor ancestorsFor levelFor hasChildrenFor =
+        if String.IsNullOrWhiteSpace id || id |> Seq.exists Char.IsWhiteSpace then invalidArg (nameof id) "A stable hierarchy ID is required."
+        { id = id; keyFor = keyFor; labelFor = labelFor; ancestorsFor = ancestorsFor; levelFor = levelFor; hasChildrenFor = hasChildrenFor; expandedKeys = Set.empty }
+    let withExpandedKeys keys config = { config with expandedKeys = Set.ofList keys }
+
 [<NoEquality; NoComparison>]
 type TableConfig<'row> =
     private
@@ -90,6 +109,7 @@ type TableConfig<'row> =
           surface:TableSurface
           mobileLayout:TableMobileLayout
           selection:TableSelectionConfig<'row> option
+          hierarchy:TableHierarchyConfig<'row> option
           rowAttributes:'row -> HtmlAttribute list
           attributes:HtmlAttribute list }
 
@@ -115,7 +135,7 @@ module Table =
         { caption = caption; columns = columns; rows = rows
           emptyState = div { _class "p-6 text-center text-sm text-[var(--fve-muted-text)]"; "No records" }
           captionVisible = false; density = Density.Compact; surface = TableSurface.Plain
-          mobileLayout = TableMobileLayout.Scroll; selection = None; rowAttributes = (fun _ -> []); attributes = [] }
+          mobileLayout = TableMobileLayout.Scroll; selection = None; hierarchy = None; rowAttributes = (fun _ -> []); attributes = [] }
 
     let withEmptyState emptyState config = { config with emptyState = emptyState }
     let withVisibleCaption config = { config with captionVisible = true }
@@ -123,6 +143,7 @@ module Table =
     let withSurface surface config = { config with surface = surface }
     let withMobileLayout layout config = { config with mobileLayout = layout }
     let withSelection selection config = { config with selection = Some selection }
+    let withHierarchy hierarchy config = { config with hierarchy = Some hierarchy }
     /// Adds consumer-owned presentation or Datastar attributes to each rendered row without replacing table semantics.
     let withRowAttributes rowAttributes (config:TableConfig<'row>) = { config with rowAttributes = rowAttributes }
     let withAttributes attributes (config:TableConfig<'row>) = { config with attributes = attributes }
@@ -144,6 +165,20 @@ module Table =
                 let keys = rows |> List.map (fun (key, _, _) -> key)
                 if keys.Length <> (keys |> Set.ofList |> Set.count) then invalidArg (nameof config) "Selection keys must be unique."
                 rows
+        let hierarchyRows =
+            match config.hierarchy with
+            | None -> []
+            | Some hierarchy ->
+                let rows = config.rows |> List.map (fun row -> hierarchy.keyFor row, hierarchy.labelFor row, hierarchy.ancestorsFor row, hierarchy.levelFor row, hierarchy.hasChildrenFor row)
+                let keys = rows |> List.map (fun (key, _, _, _, _) -> key)
+                if rows |> List.exists (fun (key, label, _, level, _) -> String.IsNullOrWhiteSpace key || String.IsNullOrWhiteSpace label || level < 0) then
+                    invalidArg (nameof config) "Every hierarchical row requires a key, label, and non-negative level."
+                if keys.Length <> (keys |> Set.ofList |> Set.count) then invalidArg (nameof config) "Hierarchy keys must be unique."
+                if rows |> List.collect (fun (_, _, ancestors, _, _) -> ancestors) |> List.exists (fun ancestor -> not (List.contains ancestor keys)) then
+                    invalidArg (nameof config) "Every hierarchy ancestor must reference a rendered row."
+                rows
+        let hierarchySignal = config.hierarchy |> Option.map (fun hierarchy -> $"_table_{ComponentHtml.optionToken hierarchy.id}_expanded") |> Option.defaultValue ""
+        let expanded = "$" + hierarchySignal
         let eligible = selectionRows |> List.choose (fun (key, _, disabled) -> if disabled then None else Some key)
         let eligibleJson = ComponentHtml.javascriptString eligible
         let signal = config.selection |> Option.map (fun selection -> $"_table_{ComponentHtml.optionToken selection.id}_selected") |> Option.defaultValue ""
@@ -213,7 +248,11 @@ module Table =
                 _attr ("data-signals__ifmissing", $"{{ {signal}: {ComponentHtml.javascriptString initial} }}")
                 // Retain eligible selections across morphs; never select off-page or disabled records.
                 _dataEffect $"if ({selected}.some(key => !{eligibleJson}.includes(key))) {{ {selected} = {selected}.filter(key => {eligibleJson}.includes(key)); {notify} }}"
-                _dataOn ("fve-table-selection-clear", $"{selected} = []; {notify}")
+                _dataOn ("fve-selection-clear", $"{selected} = []; {notify}")
+            | None -> ()
+            match config.hierarchy with
+            | Some hierarchy ->
+                _dataSignals ("{" + hierarchySignal + ": " + ComponentHtml.javascriptString (Set.toList hierarchy.expandedKeys) + "}")
             | None -> ()
             div {
                 _role "region"
@@ -281,7 +320,17 @@ module Table =
                                 tr {
                                     _role "row"
                                     _class "fve-table-row"
-                                    for attribute in ComponentHtml.safeAttributes [ "role"; "class"; "id"; "data-selected" ] (config.rowAttributes row) do attribute
+                                    let protectedRowAttributes =
+                                        [ "role"; "class"; "id"; "data-selected"
+                                          if Option.isSome config.hierarchy then "data-show" ]
+                                    for attribute in ComponentHtml.safeAttributes protectedRowAttributes (config.rowAttributes row) do attribute
+                                    match config.hierarchy with
+                                    | Some _ ->
+                                        let _, _, ancestors, _, _ = hierarchyRows[index]
+                                        if not (List.isEmpty ancestors) then
+                                            let visible = ancestors |> List.map (fun ancestor -> expanded + ".includes(" + ComponentHtml.javascriptString ancestor + ")") |> String.concat " && "
+                                            _dataShow visible
+                                    | None -> ()
                                     match config.selection with
                                     | Some selection ->
                                         let key, _, _ = selectionRows[index]
@@ -309,7 +358,26 @@ module Table =
                                         let content = fragment {
                                             if column.mobile = MobileCell.Field then
                                                 span { _ariaHidden true; _class "fve-table-mobile-label"; column.heading }
-                                            column.cell row }
+                                            match config.hierarchy with
+                                            | Some _ when column.rowHeader ->
+                                                let key, label, _, level, hasChildren = hierarchyRows[index]
+                                                span {
+                                                    _class "inline-flex items-center gap-2"
+                                                    _style ("padding-inline-start:" + string (float level * 1.25) + "rem")
+                                                    if hasChildren then
+                                                        button {
+                                                            _type "button"
+                                                            _ariaLabel ("Toggle " + label)
+                                                            _dataAttr ("aria-expanded", expanded + ".includes(" + ComponentHtml.javascriptString key + ") ? 'true' : 'false'")
+                                                            _dataOn ("click", expanded + " = " + expanded + ".includes(" + ComponentHtml.javascriptString key + ") ? " + expanded + ".filter(key => key != " + ComponentHtml.javascriptString key + ") : [..." + expanded + ", " + ComponentHtml.javascriptString key + "]")
+                                                            _class "inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                                                            span { _ariaHidden true; _dataText (expanded + ".includes(" + ComponentHtml.javascriptString key + ") ? '−' : '+'"); "+" }
+                                                        }
+                                                    else
+                                                        span { _ariaHidden true; _class "inline-block size-8 shrink-0" }
+                                                    column.cell row
+                                                }
+                                            | _ -> column.cell row }
                                         if column.rowHeader then
                                             th {
                                                 _scope "row"

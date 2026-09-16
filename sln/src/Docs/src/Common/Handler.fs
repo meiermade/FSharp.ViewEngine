@@ -66,8 +66,14 @@ module Handler =
                 context.Request.Query["destination"].ToString()
                 |> Components.tryShellDestination
                 |> Option.defaultValue Components.LedgerAccounts
+            let calendarView =
+                context.Request.Query["calendarView"].ToString()
+                |> Components.calendarViewFromQuery
+            let calendarDate =
+                context.Request.Query["calendarDate"].ToString()
+                |> Components.calendarDateFromQuery
             let html =
-                Components.appShellPageFor destination
+                Components.appShellPageForState destination calendarView calendarDate
                 |> View.documentWithPage Registry.navigation Components.appShellRegistration
                 |> Render.toHtmlDocString
             htmlString html next context

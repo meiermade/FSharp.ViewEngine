@@ -88,7 +88,9 @@ Table renders typed consumer-owned rows with a required caption that is visually
 
 Opt into `TableMobileLayout.Records` with `Table.withMobileLayout`, mark exactly one column `Table.asMobilePrimary`, and optionally mark one `Table.asMobileSummary`. Below a 40rem container width the same table tree becomes labelled records; no duplicate links, IDs, selection controls, or menus are created. All other fields remain visible. Names and summaries reclaim the checkbox space when selection is absent; below a 16rem container width, supporting labels stack above their values to accommodate narrow layouts and enlarged text. `Scroll` is the default for financial comparisons that need columns side by side.
 
-`Table.withSelection (TableSelection.create id keyFor labelFor)` adds native row checkboxes and a mixed-state select-all checkbox. Keys must be non-empty and unique. Configure initial keys, disabled rows, and form names with `withSelectedKeys`, `withDisabledRows`, and `withFormName`. Select-all covers only eligible rendered rows. State survives resizing and same-instance morphs; off-page and disabled keys are pruned. The bubbling `fve-table-selection-change` event carries `detail.keys`; checked inputs also participate in native form submission. Applications own bulk commands, authorization, and validation of every submitted key. Cross-page selection is not implicit.
+`Table.withSelection (TableSelection.create id keyFor labelFor)` adds native row checkboxes and a mixed-state select-all checkbox. Keys must be non-empty and unique. Configure initial keys, disabled rows, and form names with `withSelectedKeys`, `withDisabledRows`, and `withFormName`. Select-all covers only eligible rendered rows. State survives resizing and same-instance morphs; off-page and disabled keys are pruned. The bubbling `fve-table-selection-change` event carries `detail.keys`; checked inputs also participate in native form submission. `BulkActions` consumes those stable keys for page-scoped commands and can clear the owning selection. Applications own commands, authorization, and validation of every submitted key. Cross-page selection is not implicit.
+
+`Table.withRowAttributes` lets applications add bounded presentation behavior such as local filtering without transferring row semantics. `Table.withHierarchy` adds consumer-authored row levels, expanded state, disclosure actions, and aggregate descriptions to the same table tree; consumers remain responsible for computing hierarchy, totals, permissions, and server persistence.
 
 `DescriptionList` and `DetailField` render full-width native `dl`/`dt`/`dd` relationships. Labels use muted uppercase 12px-equivalent text; values use normal-weight 14px-equivalent text. `DescriptionList.withColumns` accepts `One`, `Two` (default), `Three`, or `Four`: all stack on small screens, multi-column layouts use two columns from `sm`, and `Three`/`Four` reach their maximum at `lg`/`xl` respectively. Fields use consistent grid gaps, wrap long content, and add no cards, headings, dividers, or outer padding. The surrounding `Page`/`Section` owns those boundaries. `DetailField.withDescription` adds optional supporting text; status values remain content-sized.
 
@@ -114,7 +116,7 @@ let notes =
     |> Textarea.render
 ```
 
-Input types are Text, Email, Telephone, Password, Number, Search, Url, Date, Time, and DateTimeLocal. Use `withAttributes` for native constraints, autocomplete/inputmode, and application-owned Datastar bindings; the component protects its structural and validation attributes. File inputs remain ordinary Core HTML, not a new upload subsystem. `InputType.Search` adds an accessible clear action that restores input focus and dispatches normal input/change events; it is query text, not a selected entity or popup combobox. Signal names used in HTML attribute keys must respect Datastar's casing conventions (lowercase names are simplest).
+Input types are Text, Email, Telephone, Password, Number, Search, Url, Date, Time, and DateTimeLocal. Use `withAttributes` for native constraints, autocomplete/inputmode, and application-owned Datastar bindings; the component protects its structural and validation attributes. `FileSelection` renders a labelled native file input with accept/multiple/capture constraints and explicit description, validation, disabled, and pending states; applications still own upload transport and file validation. `TagInput` submits one hidden successful control per free-form value and provides named addition/removal, duplicate/empty feedback, and disabled/pending states. `InputType.Search` adds an accessible clear action that restores input focus and dispatches normal input/change events; it is query text, not a selected entity or popup combobox. Signal names used in HTML attribute keys must respect Datastar's casing conventions (lowercase names are simplest).
 
 `Input.withLeadingIcon` accepts a decorative, non-interactive HTML icon; the visible label remains the accessible name. `Input.withPrefix` and `Input.withSuffix` add encoded, non-editable context such as `https://` or `USD`. Prefix/suffix text is associated through `aria-describedby`, independently of help/errors, and is **not** included in the input's submitted value. Adorned controls retain native input behavior and an outer focus-visible outline; consumers still own parsing and validation.
 
@@ -251,6 +253,16 @@ let accountDrawer =
 ```
 
 Applications own authorization, durable workflow state, validation, and the trusted Datastar action. Patch `ConfirmationDialog.renderContent` or a stable consumer-owned region inside Drawer so an open native dialog and its focus relationship remain intact.
+
+## Operational application patterns
+
+`ChoiceCards` retains native radio semantics while adding descriptions, metadata, badges, disabled choices, required validation, and responsive card presentation. `Progress` renders determinate native progress or an indeterminate status. `Steps` renders linked list, compact, or progress presentation from one typed sequence. `FirstSteps` provides optional setup guidance whose minimized state always exposes a restore action.
+
+`UploadList` presents consumer-owned queued, uploading, complete, failed, and cancelled files with determinate progress and explicit cancel/retry/remove actions. It is presentation only: applications own file bytes, transport, retry policy, validation, and durable state. `Avatar` and `CopyReveal` provide identity fallback and intentionally user-triggered credential reveal/copy behavior.
+
+`Calendar` renders typed List, Day, Week, or Month schedules with real previous/next/view destinations and accessible event links; applications own time zones, recurrence, collision policy, fetching, and route state. `MediaLibrary` renders native repeated selection values, descriptive images, primary state, and stable selection events compatible with `BulkActions`; applications own storage, transformations, save operations, and media authorization.
+
+The Application gallery also includes deliberately bounded graph/trace, financial-chart, and messaging recipes. They use contained SVG, visible ordered/table alternatives, native buttons/fields, and consumer-owned data rather than introducing universal graph, chart, or messaging engines.
 
 ## Navigation and page composition
 

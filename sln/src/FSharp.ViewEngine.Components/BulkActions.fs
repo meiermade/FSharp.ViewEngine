@@ -55,7 +55,8 @@ module BulkActions =
         div {
             _dataSignals $"{{{signalName}: [], {result.TrimStart '$'}: ''}}"
             _dataOn ("fve-table-selection-change", $"{signal} = evt.detail.keys")
-            _dataOn ("fve-table-selection-clear", $"{signal} = []")
+            _dataOn ("fve-selection-change", $"{signal} = evt.detail.keys")
+            _dataOn ("fve-selection-clear", $"{signal} = []")
             config.content
             section {
                 _id config.id
@@ -70,7 +71,7 @@ module BulkActions =
                     button {
                         _type "button"
                         _class "rounded-[var(--fve-radius-control)] px-2 py-1 text-sm text-[var(--fve-brand-text)] underline-offset-2 hover:underline focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
-                        _dataOn ("click", $"document.getElementById({ComponentHtml.javascriptString config.tableSelectionId})?.dispatchEvent(new CustomEvent('fve-table-selection-clear'))")
+                        _dataOn ("click", $"document.getElementById({ComponentHtml.javascriptString config.tableSelectionId})?.dispatchEvent(new CustomEvent('fve-selection-clear'))")
                         "Clear selection"
                     }
                 }

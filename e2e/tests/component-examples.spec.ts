@@ -15,57 +15,56 @@ const components = [
   ['page', 'Page.create'], ['collection', 'Collection.create'], ['detail', 'Detail.create'], ['app-shell', 'AppShell.create'],
 ]
 
-test('all component galleries expose named previews and complete copyable code @cross-browser', async ({ page, context, browserName }, testInfo) => {
-  if (browserName === 'chromium') await context.grantPermissions(['clipboard-write'])
-  const errors: string[] = []
-  page.on('pageerror', error => errors.push(error.message))
-  // Observe the real clipboard implementation; Chromium requires an explicit automation permission.
-  await page.addInitScript(() => {
-    const write = navigator.clipboard.writeText.bind(navigator.clipboard)
-    navigator.clipboard.writeText = async text => {
-      await write(text)
-      ;(window as any).__copiedExample = text
-    }
-  })
-  let exampleCount = 0
+test.describe('component gallery code', () => {
   for (const [id, api] of components) {
-    await page.goto(`/components/${id}`)
-    const gallery = page.locator('.docs-gallery-layout')
-    await expect(gallery).toBeVisible()
-    await expect(page.locator('.spec-toc-nav, .spec-mobile-toc-nav')).toHaveCount(0)
-    await expect(page.getByRole('heading', { name: /^(Usage|Example setup|Accessibility)$/ })).toHaveCount(0)
-    await expect(page.getByRole('link', { name: 'Imports and supporting code', exact: true })).toHaveCount(0)
-    const examples = gallery.locator('[data-docs-example="true"]')
-    for (const example of await examples.all()) {
-      exampleCount++
-      const toolbar = example.locator(':scope > .spec-example-toolbar')
-      await expect(toolbar.getByRole('heading', { level: 2 })).toBeVisible()
-      await expect(toolbar.getByRole('tab').first()).toHaveText('Preview')
-      await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
-      await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
-      const code = example.locator('[data-docs-copy-source]')
-      await expect(code).toBeVisible()
-      await expect(code).toContainText('open FSharp.ViewEngine.Components')
-      await expect(code).not.toContainText('FSharp.ViewEngine.Docs')
-      await expect(code).not.toContainText('themedSurface')
-      await expect(code).not.toContainText('fullBleedThemedSurface')
-      const copy = toolbar.getByRole('button', { name: /^Copy .+ code$/ })
-      await copy.click()
-      await expect(copy).toHaveAttribute('data-copied', 'true')
-      expect(await page.evaluate(() => (window as any).__copiedExample)).toBe(await code.textContent())
-      await toolbar.getByRole('tab', { name: 'Code', exact: true }).focus()
-      await page.keyboard.press('Home')
-      await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeFocused()
-      await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
-    }
-    await expect(examples.first().locator('code').first()).toContainText(api)
-    if (['button', 'breadcrumbs', 'collection', 'app-shell'].includes(id)) {
-      await examples.first().scrollIntoViewIfNeeded()
-      await page.screenshot({ path: testInfo.outputPath(`${id}-gallery.png`) })
-    }
+    test(`${id} exposes named previews and complete copyable code @cross-browser`, async ({ page, context, browserName }, testInfo) => {
+      if (browserName === 'chromium') await context.grantPermissions(['clipboard-write'])
+      const errors: string[] = []
+      page.on('pageerror', error => errors.push(error.message))
+      // Observe the real clipboard implementation; Chromium requires an explicit automation permission.
+      await page.addInitScript(() => {
+        const write = navigator.clipboard.writeText.bind(navigator.clipboard)
+        navigator.clipboard.writeText = async text => {
+          await write(text)
+          ;(window as any).__copiedExample = text
+        }
+      })
+      await page.goto(`/components/${id}`)
+      const gallery = page.locator('.docs-gallery-layout')
+      await expect(gallery).toBeVisible()
+      await expect(page.locator('.spec-toc-nav, .spec-mobile-toc-nav')).toHaveCount(0)
+      await expect(page.getByRole('heading', { name: /^(Usage|Example setup|Accessibility)$/ })).toHaveCount(0)
+      await expect(page.getByRole('link', { name: 'Imports and supporting code', exact: true })).toHaveCount(0)
+      const examples = gallery.locator('[data-docs-example="true"]')
+      for (const example of await examples.all()) {
+        const toolbar = example.locator(':scope > .spec-example-toolbar')
+        await expect(toolbar.getByRole('heading', { level: 2 })).toBeVisible()
+        await expect(toolbar.getByRole('tab').first()).toHaveText('Preview')
+        await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
+        await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
+        const code = example.locator('[data-docs-copy-source]')
+        await expect(code).toBeVisible()
+        await expect(code).toContainText('open FSharp.ViewEngine.Components')
+        await expect(code).not.toContainText('FSharp.ViewEngine.Docs')
+        await expect(code).not.toContainText('themedSurface')
+        await expect(code).not.toContainText('fullBleedThemedSurface')
+        const copy = example.getByRole('button', { name: /^Copy .+ code$/ })
+        await copy.click()
+        await expect(copy).toHaveAttribute('data-copied', 'true')
+        expect(await page.evaluate(() => (window as any).__copiedExample)).toBe(await code.textContent())
+        await toolbar.getByRole('tab', { name: 'Code', exact: true }).focus()
+        await page.keyboard.press('Home')
+        await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeFocused()
+        await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
+      }
+      await expect(examples.first().locator('code').first()).toContainText(api)
+      if (['button', 'breadcrumbs', 'collection', 'app-shell'].includes(id)) {
+        await examples.first().scrollIntoViewIfNeeded()
+        await page.screenshot({ path: testInfo.outputPath(`${id}-gallery.png`) })
+      }
+      expect(errors).toEqual([])
+    })
   }
-  expect(exampleCount).toBe(115)
-  expect(errors).toEqual([])
 })
 
 test('Collection filters narrow the actual rendered account rows @cross-browser', async ({ page }) => {
@@ -74,12 +73,36 @@ test('Collection filters narrow the actual rendered account rows @cross-browser'
   const visibleNames = () => table.locator('tbody tr').evaluateAll(rows =>
     rows.filter(row => row.getClientRects().length).map(row => row.querySelector('th')?.textContent?.trim()))
 
-  await page.getByRole('searchbox', { name: 'Search accounts', exact: true }).fill('assets')
+  const search = page.getByRole('searchbox', { name: 'Search accounts', exact: true })
+  await search.fill('assets')
+  await expect.poll(visibleNames).toEqual(['Assets'])
+  await expect(page).toHaveURL(/query=assets/)
+
+  await page.reload()
+  await expect(page.getByRole('searchbox', { name: 'Search accounts', exact: true })).toHaveValue('assets')
   await expect.poll(visibleNames).toEqual(['Assets'])
 
-  await page.getByRole('searchbox', { name: 'Search accounts', exact: true }).fill('')
+  await page.getByRole('button', { name: 'Clear filters', exact: true }).click()
+  await expect.poll(visibleNames).toHaveLength(6)
+  await expect(page).not.toHaveURL(/query=/)
+
+  await page.getByRole('searchbox', { name: 'Search accounts', exact: true }).fill('nothing-here')
+  await expect(page.getByText('No accounts match these filters. Clear filters to restore all accounts.')).toBeVisible()
+  await page.getByRole('button', { name: 'Clear filters', exact: true }).click()
+
+  await page.getByRole('button', { name: 'Refresh filters', exact: true }).click()
+  await expect(page.getByRole('status').filter({ hasText: 'Refreshing filter options' })).toBeVisible()
+  await expect(page.getByRole('searchbox', { name: 'Search accounts', exact: true })).toBeDisabled()
+  await expect(page.getByRole('searchbox', { name: 'Search accounts', exact: true })).toBeEnabled()
+
+  await page.getByRole('button', { name: 'Simulate filter error', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Filter options are temporarily unavailable.')
+  await page.getByRole('button', { name: 'Retry filters', exact: true }).click()
+  await expect(page.getByRole('alert')).toBeHidden()
+
   await page.getByRole('combobox', { name: 'Filter by account type', exact: true }).selectOption('liability')
   await expect.poll(visibleNames).toEqual(['Liabilities'])
+  await expect(page).toHaveURL(/accountType=liability/)
 })
 
 test('Collection bulk actions receive and clear selected table identities @cross-browser', async ({ page }) => {
@@ -94,6 +117,137 @@ test('Collection bulk actions receive and clear selected table identities @cross
   await page.getByRole('button', { name: 'Clear selection', exact: true }).click()
   await expect(page.getByRole('checkbox', { name: 'Select Assets', exact: true })).not.toBeChecked()
   await expect(actions).toBeHidden()
+})
+
+test('Free-form tags add, reject, remove, and submit repeated native values @cross-browser', async ({ page }) => {
+  await page.goto('/components/input')
+  const example = page.locator('#components-tag-input-panel-preview')
+  const entry = example.getByRole('textbox', { name: 'Tags', exact: true })
+  await entry.fill('priority')
+  await entry.press('Enter')
+  await expect(example.getByRole('button', { name: 'Remove priority', exact: true })).toBeVisible()
+  await expect(example.getByRole('status')).toHaveText('priority added.')
+
+  await entry.fill('priority')
+  await example.getByRole('button', { name: 'Add tag', exact: true }).click()
+  await expect(example.getByRole('status')).toHaveText('That tag has already been added.')
+  await expect(example.locator('input[type="hidden"][name="tags"][value="priority"]')).toHaveCount(1)
+
+  await example.getByRole('button', { name: 'Remove priority', exact: true }).click()
+  await expect(example.getByRole('button', { name: 'Remove priority', exact: true })).toHaveCount(0)
+  await expect(entry).toBeFocused()
+})
+
+test('Calendar view navigation is linked, stateful, and preserves event alternatives @cross-browser', async ({ page }) => {
+  await page.goto('/components/app-shell?calendarView=list')
+  const calendar = page.locator('#components-calendar-schedule-panel-preview')
+  await expect(calendar.getByRole('link', { name: 'List', exact: true })).toHaveAttribute('aria-current', 'page')
+  await calendar.getByRole('link', { name: 'Week', exact: true }).click()
+  await expect(page).toHaveURL(/calendarView=week/)
+  await expect(page.locator('#components-calendar-schedule-panel-preview').getByRole('link', { name: 'Week', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(page.locator('#components-calendar-schedule-panel-preview').getByText('Overlaps Northwind by one hour')).toBeVisible()
+  await page.locator('#components-calendar-schedule-panel-preview').getByRole('link', { name: 'Next', exact: true }).click()
+  await expect(page).toHaveURL(/calendarDate=1/)
+  await expect(page.locator('#components-calendar-schedule-panel-preview').getByText('September 28–October 4, 2026')).toBeVisible()
+  await expect(page.locator('#components-calendar-schedule-panel-preview').getByText('Autumn orientation')).toBeVisible()
+})
+
+test('Media library shares stable selection with page-level bulk actions @cross-browser', async ({ page }) => {
+  await page.goto('/components/app-shell')
+  const example = page.locator('#components-media-library-panel-preview')
+  const detail = example.getByRole('checkbox', { name: 'Select Trail pack detail', exact: true })
+  await detail.check()
+  const libraryStatus = example.locator('[data-fve-media-library] output[role="status"]')
+  await expect(libraryStatus).toHaveText('2 selected')
+  await expect(example.getByRole('button', { name: 'Set primary', exact: true })).toBeVisible()
+  await example.getByRole('button', { name: 'Clear selection', exact: true }).click()
+  await expect(libraryStatus).toHaveText('0 selected')
+  await expect(detail).not.toBeChecked()
+
+  await detail.check()
+  await example.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Updated strap detail')
+  await example.getByRole('button', { name: 'Save alt text', exact: true }).click()
+  await expect(example.getByRole('img', { name: 'Updated strap detail', exact: true })).toBeVisible()
+  await example.getByRole('button', { name: 'Set primary', exact: true }).click()
+  await expect(example.getByRole('status').last()).toHaveText('Primary asset: trail-detail')
+})
+
+test('Bounded trace, financial chart, and messaging integrations retain accessible alternatives @cross-browser', async ({ page }) => {
+  await page.goto('/components/app-shell')
+
+  const trace = page.locator('#components-trace-viewer-panel-preview')
+  await expect(trace.getByRole('img', { name: 'Request trace from browser through API and database' })).toBeVisible()
+  await expect(trace.getByRole('listitem')).toHaveCount(3)
+
+  const chart = page.locator('#components-financial-chart-panel-preview')
+  await chart.getByRole('button', { name: '90 days', exact: true }).click()
+  await expect(chart.getByRole('button', { name: '90 days', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await expect(chart.getByRole('img', { name: 'Ninety-day balance: $24,820' })).toBeVisible()
+  await expect(chart.getByRole('table', { name: 'Balance data' }).getByText('90 days')).toBeVisible()
+
+  const messaging = page.locator('#components-messaging-panel-preview')
+  await messaging.getByRole('button', { name: /Contoso/ }).click()
+  await expect(messaging.getByRole('heading', { name: 'Contoso', exact: true })).toBeVisible()
+  await messaging.getByRole('button', { name: 'Send message', exact: true }).click()
+  await expect(messaging.getByRole('status')).toHaveText('Message queued in this resettable demo.')
+})
+
+test('Rich choice cards retain native selection and disabled semantics @cross-browser', async ({ page }) => {
+  await page.goto('/components/radio-group')
+  const example = page.locator('#components-choice-cards-panel-preview')
+  const selfService = example.getByRole('radio', { name: /Self-service/, exact: false })
+  const assisted = example.getByRole('radio', { name: /Staff assisted/, exact: false })
+  const unavailable = example.getByRole('radio', { name: /Managed service/, exact: false })
+  await expect(assisted).toBeChecked()
+  await selfService.check()
+  await expect(selfService).toBeChecked()
+  await expect(assisted).not.toBeChecked()
+  await expect(unavailable).toBeDisabled()
+})
+
+test('Hierarchical tables disclose only their matching descendants @cross-browser', async ({ page }) => {
+  await page.goto('/components/table')
+  const example = page.locator('#components-table-hierarchy-panel-preview')
+  const checking = example.getByRole('link', { name: 'Operating checking', exact: true })
+  await expect(checking).toBeVisible()
+
+  await example.getByRole('button', { name: 'Toggle Cash', exact: true }).click()
+  await expect(checking).toBeHidden()
+  await expect(example.getByRole('link', { name: 'Accounts receivable', exact: true })).toBeVisible()
+
+  await example.getByRole('button', { name: 'Toggle Cash', exact: true }).click()
+  await expect(checking).toBeVisible()
+})
+
+test('Operational application examples preserve native input and recoverable actions @cross-browser', async ({ page }) => {
+  await page.goto('/components/app-shell')
+
+  const firstSteps = page.locator('#components-first-steps-panel-preview')
+  await firstSteps.getByRole('button', { name: 'Minimize first steps', exact: true }).click()
+  await expect(firstSteps.getByRole('region', { name: 'First steps', exact: true })).toBeHidden()
+  await firstSteps.getByRole('button', { name: 'Restore first steps', exact: true }).click()
+  await expect(firstSteps.getByRole('region', { name: 'First steps', exact: true })).toBeVisible()
+
+  const file = page.locator('#statement-files')
+  await file.setInputFiles([
+    { name: 'checking.csv', mimeType: 'text/csv', buffer: Buffer.from('date,amount') },
+    { name: 'card.ofx', mimeType: 'application/x-ofx', buffer: Buffer.from('OFX') },
+  ])
+  await expect(page.locator('#statement-files-selected')).toContainText('checking.csv')
+  await expect(page.locator('#statement-files-selected')).toContainText('card.ofx')
+  await page.getByRole('button', { name: 'Clear selected files', exact: true }).click()
+  await expect(file).toHaveValue('')
+
+  await page.locator('#components-upload-queue-panel-preview').getByRole('button', { name: 'Retry', exact: true }).click()
+  await expect(page.locator('#components-upload-queue-panel-preview').getByRole('status').last()).toHaveText('Retry queued for savings-july.csv.')
+
+  await expect(page.getByRole('progressbar', { name: 'Statement import', exact: true })).toHaveAttribute('value', '68')
+  await expect(page.getByRole('navigation', { name: 'Period close progress', exact: true }).locator('[aria-current="step"]')).toContainText('Reconcile statements')
+
+  const credential = page.locator('#demo-token')
+  await expect(credential).toHaveAttribute('type', 'password')
+  await page.locator('#components-identity-copy-reveal-panel-preview').getByRole('button', { name: 'Reveal', exact: true }).click()
+  await expect(credential).toHaveAttribute('type', 'text')
 })
 
 test('AppShell mobile bottom navigation remains visible link navigation above page scroll @cross-browser', async ({ page }) => {
@@ -147,6 +301,7 @@ test('denied gallery copying reports failure without losing the source @cross-br
     navigator.clipboard.writeText = async () => { throw new DOMException('Permission denied', 'NotAllowedError') }
   })
   const example = page.locator('#components-button')
+  await example.getByRole('tab', { name: 'Code', exact: true }).click()
   const copy = example.getByRole('button', { name: 'Copy Primary buttons code' })
   await copy.click()
   await expect(copy).toHaveAttribute('data-copy-error', 'true')

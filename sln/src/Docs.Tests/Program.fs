@@ -111,6 +111,75 @@ let private expectedPaths =
 [<Tests>]
 let tests =
     testList "Direct F# documentation" [
+        test "Operational components retain native form and accessible state contracts" {
+            let files =
+                FileSelection.create "statements" "statements" "Statements"
+                |> FileSelection.multiple
+                |> FileSelection.withAccept ".csv"
+                |> FileSelection.required
+                |> FileSelection.render
+                |> Render.toString
+            for expected in [ "type=\"file\""; "name=\"statements\""; "multiple"; "accept=\".csv\""; "required"; "Clear selected files" ] do
+                Expect.stringContains files expected "native file-selection contract"
+
+            let progress = Progress.create "Import" 3 4 |> Progress.withValueText "Three of four" |> Progress.render |> Render.toString
+            Expect.stringContains progress "value=\"3\" max=\"4\"" "native progress range"
+            Expect.stringContains progress "Three of four" "readable value text"
+            Expect.throws (fun () -> Progress.create "Import" 5 4 |> ignore) "out-of-range progress is rejected"
+
+            let steps =
+                Steps.create "Close"
+                    [ Step.create "Review" StepState.Current
+                      Step.create "Post" StepState.Available |> Step.withDestination "/post" ]
+                |> Steps.render id
+                |> Render.toString
+            Expect.stringContains steps "aria-current=\"step\"" "current step is explicit"
+            Expect.stringContains steps "href=\"/post\"" "available destination stays a link"
+
+            let credential = CopyReveal.create "credential" "Demo token" "safe-demo" |> CopyReveal.render |> Render.toString
+            Expect.stringContains credential "type=\"password\"" "credential starts masked"
+            Expect.isFalse (credential.Contains("aria-label=\"safe-demo\"")) "secret value is not an accessible action name"
+
+            let hierarchy =
+                Table.create "Tree" [ Table.column "Name" text |> Table.asRowHeader ] [ "Parent"; "Child" ]
+                |> Table.withHierarchy (
+                    TableHierarchy.create "tree" id id (function "Child" -> [ "Parent" ] | _ -> []) (function "Child" -> 1 | _ -> 0) ((=) "Parent")
+                    |> TableHierarchy.withExpandedKeys [ "Parent" ])
+                |> Table.render
+                |> Render.toString
+            Expect.stringContains hierarchy "aria-label=\"Toggle Parent\"" "parent disclosure is named"
+            Expect.stringContains hierarchy "data-show=\"$_table_v74726565_expanded.includes(&quot;Parent&quot;)\"" "descendant visibility follows its supplied ancestor"
+
+            let cards =
+                ChoiceCards.multiple "preferences" "preferences" "Preferences" id
+                    [ ChoiceCardOption.create "email" "Email" |> ChoiceCardOption.withDescription "Weekly summary"
+                      ChoiceCardOption.create "sms" "Text message" |> ChoiceCardOption.disabled ]
+                |> ChoiceCards.withSelected [ "email" ]
+                |> ChoiceCards.render
+                |> Render.toString
+            Expect.stringContains cards "type=\"checkbox\"" "multiple cards remain native checkboxes"
+            Expect.stringContains cards "name=\"preferences\"" "cards retain native form names"
+            Expect.stringContains cards "value=\"email\" checked" "selected cards submit their value"
+            Expect.stringContains cards "value=\"sms\" disabled" "disabled cards remain unavailable"
+
+            let tags = TagInput.create "tags" "tags" "Tags" [ "reviewed" ] |> TagInput.render |> Render.toString
+            Expect.stringContains tags "field.name = &quot;tags&quot;" "dynamic tags create repeated successful controls"
+            Expect.stringContains tags "Enter a tag before adding it." "empty creation has explicit rejection feedback"
+            Expect.stringContains tags "That tag has already been added." "duplicates have explicit rejection feedback"
+            Expect.isFalse (tags.Contains("Backspace")) "Backspace does not remove tags implicitly"
+
+            let calendar = Components.calendarExample CalendarView.Week 0 |> Render.toString
+            Expect.stringContains calendar "aria-label=\"Calendar view\"" "calendar view navigation is a labelled native nav"
+            Expect.stringContains calendar "aria-current=\"page\"" "calendar identifies the current linked view"
+            Expect.stringContains calendar ">Week</a>" "calendar preserves the selected view label"
+            Expect.stringContains calendar "Overlaps Northwind by one hour" "calendar retains consumer-authored overlap context"
+
+            let media = Components.mediaLibraryExample |> Render.toString
+            Expect.stringContains media "name=\"assetIds\" value=\"trail-front\"" "media selection uses native repeated controls"
+            Expect.stringContains media "alt=\"Blue trail pack shown from the front\"" "media thumbnails require consumer-authored alternatives"
+            Expect.stringContains media "fve-selection-change" "media selection publishes stable identities to shared bulk actions"
+        }
+
         test "Native fields preserve encoded values and protect their semantic attributes" {
             let config =
                 Input.create "email" "Email address"
@@ -582,7 +651,7 @@ after"""
 
         test "Input galleries teach individual fields and Application owns complete forms" {
             let examples = Components.examplesFor "input"
-            Expect.equal (examples |> List.map _.title) [ "With label"; "With help text"; "Required"; "Optional"; "With validation error"; "With leading icon"; "With prefix"; "With suffix"; "Search with clear action"; "Read-only"; "Disabled"; "Pending" ] "basic before variations and states"
+            Expect.equal (examples |> List.map _.title) [ "With label"; "With help text"; "Required"; "Optional"; "With validation error"; "With leading icon"; "With prefix"; "With suffix"; "Search with clear action"; "Free-form tags"; "Read-only"; "Disabled"; "Pending" ] "basic before variations and states"
             for example in examples do
                 Expect.equal (Regex.Matches(Render.toString example.preview, "<input ").Count) 1 "one native input per example"
                 Expect.isLessThan (example.source.Split('\n').Length) 35 "short independently copyable input code"
@@ -673,22 +742,23 @@ after"""
             finally Directory.Delete(directory, true)
         }
 
-        test "Table galleries isolate seven features without financial fixture dependencies" {
+        test "Table galleries isolate eight features without financial fixture dependencies" {
             let examples = Components.examplesFor "table"
-            Expect.equal (examples |> List.map _.title) [ "Simple"; "Comfortable rows"; "With status values"; "With checkboxes"; "Stacked on mobile"; "Sortable records"; "Empty state" ] "each table feature has a named example"
+            Expect.equal (examples |> List.map _.title) [ "Simple"; "Comfortable rows"; "With status values"; "With checkboxes"; "Stacked on mobile"; "Sortable records"; "Hierarchical accounts and aggregates"; "Empty state" ] "each table feature has a named example"
             for example in examples do
                 Expect.stringContains example.source "Table.create" "the construction is directly visible"
-                Expect.isLessThan (example.source.Split('\n').Length) 50 "copied table code stays focused"
+                Expect.isLessThan (example.source.Split('\n').Length) 51 "copied table code stays focused"
                 for forbidden in [ "ShellDestination"; "shellDestination"; "JsonSerializer"; "RowActions"; "navigator.clipboard"; "accountTable" ] do
                     Expect.isFalse (example.source.Contains forbidden) "the table gallery excludes application plumbing"
                 let preview = Render.toString example.preview
-                if example.title <> "Sortable records" then
-                    Expect.isFalse (preview.Contains("<a ")) "first-column values are plain text, not fixture navigation"
+                if example.title <> "Sortable records" && example.title <> "Hierarchical accounts and aggregates" then
+                    Expect.isFalse (preview.Contains("<a ")) "ordinary first-column values are plain text"
             Expect.stringContains examples[3].source "TableSelection.withDisabledRows" "selection demonstrates disabled-row exclusion"
             Expect.stringContains examples[4].source "TableMobileLayout.Records" "responsive records are an explicit opt-in"
             Expect.stringContains examples[5].source "TableSort.ascending" "sorting exposes the current sort direction"
             Expect.stringContains examples[5].source "Table.withSort" "sorting keeps the next destination consumer-owned"
-            Expect.stringContains examples[6].source "Table.withEmptyState" "empty-state composition stays visible"
+            Expect.stringContains examples[6].source "Table.withHierarchy" "hierarchy is an explicit consumer-authored opt-in"
+            Expect.stringContains examples[7].source "Table.withEmptyState" "empty-state composition stays visible"
         }
 
         test "Every gallery example compiles using only its copied code and the public packages" {
@@ -721,7 +791,7 @@ after"""
                     child.WaitForExit()
                     failtest "Standalone Components examples did not compile within 60 seconds."
                 Expect.equal child.ExitCode 0 (output.Result + errors.Result)
-                Expect.equal examples.Length 117 "all focused variants from thirty-seven galleries compile against the public packages"
+                Expect.equal examples.Length 131 "all focused variants from thirty-seven galleries compile against the public packages"
             finally
                 System.IO.Directory.Delete(directory, true)
         }

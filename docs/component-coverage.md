@@ -4,7 +4,7 @@ Working inventory for [MEIER-752](https://www.notion.so/3c878df1e7ed816595fcf35c
 
 ## Sources reviewed
 
-The executable Specs, not accidentally incomplete production applications, define the product UI to support. Source review currently covers workflow declarations and representative shared shell, public-site, product/cart, and viewer implementations; the full route/state acceptance inventory is still being filled in.
+The executable Specs, not accidentally incomplete production applications, define the product UI to support. This inventory records the staged MEIER-1220 Primitives, Application, and Documentation delivery. Marketing and Ecommerce are separate MEIER-1221/1222 deliveries and are intentionally absent from the current catalog until their reusable APIs and connected examples exist.
 
 | Product | Source checkout HEAD | Relevant source |
 | --- | --- | --- |
@@ -17,7 +17,7 @@ These are local checkouts, not immutable snapshots of all working files. At inve
 
 ## Public organization
 
-`FSharp.ViewEngine` remains the engine. The UI assembly is `FSharp.ViewEngine.Components`, organized into `Primitives`, `Application`, `Marketing`, `Ecommerce`, and `Documentation`. These are not separate UI packages. Common controls and tokens belong to Primitives; the remaining areas compose them. Documentation owns the viewer, not consumer journeys or domain state.
+`FSharp.ViewEngine` remains the engine. The UI assembly is `FSharp.ViewEngine.Components`, currently organized into `Primitives`, `Application`, and `Documentation`. These are namespaces in one package, not separate UI packages. Common controls and tokens belong to Primitives; Application composes them; Documentation owns the viewer, not consumer journeys or domain state. Marketing and Ecommerce do not have placeholder catalog areas in this delivery.
 
 ## Coverage and remaining deltas
 
@@ -29,12 +29,11 @@ These are local checkouts, not immutable snapshots of all working files. At inve
 | Geldos Accounts/Transactions; Funktos Functions/Runs; ACKMX Team/equipment | Primitives + Application | Local Table, DescriptionList, Metric, Pagination, Collection, Detail | Server sorting; complete populated/empty/loading/no-match/permission states and connected form actions |
 | All four: navigation and responsive identity | Primitives + Application | Local Breadcrumbs, SideNav, action clusters, PageHeader/Page/AppShell | Consolidate API ownership; retain one navigation tree, genuine record destinations and one main landmark |
 | Geldos ViewHome/Accounts/ViewAccount; Funktos console/settings; ACKMX administrative resources | Application | Local financial workspace and record fixtures | Connected shell → collection → matching detail → edit/action → settings example, without private duplicate components |
-| Enslie Landing/HowItWorks/Help/Contact; Geldos ViewLandingPage/Pricing; Funktos public site; ACKMX Home/Ride/About | Marketing | Bespoke product source, no public Marketing family yet | Site header/footer, hero, feature, pricing, FAQ, CTA, content/contact sections; coherent home/features/pricing/contact site |
-| ACKMX Shop/Product; Enslie Products/Shop/ProductPage | Ecommerce | Bespoke product grids/cards and detail source | Product card/grid, category/filter presentation, image/detail layout and finite variant selection |
-| ACKMX Cart/CartEmpty/CheckoutShopOnly; Enslie Cart/Checkout/Orders | Ecommerce | Bespoke cart, summary and checkout source | Quantity/removal/empty states, validation, consistent demo totals and selected variants; matching explicitly simulated order/detail/history |
+| Enslie Landing/HowItWorks/Help/Contact; Geldos ViewLandingPage/Pricing; Funktos public site; ACKMX Home/Ride/About | Future MEIER-1221 | Intentionally absent from this catalog | Implement reusable Marketing APIs and a coherent connected site before adding the family |
+| ACKMX Shop/Product; Enslie Products/Shop/ProductPage; cart/checkout/order flows | Future MEIER-1222 | Intentionally absent from this catalog | Implement reusable Ecommerce APIs and connected product/cart/checkout/order flows before adding the family |
 | All four: executable Specs and reference material | Documentation | Article/reference/canvas/gallery/diagram/frame APIs now compile inside Components; shared assembly and optional-asset boundary tested | Shared public renderers; close landmark and outstanding loader/readiness gaps |
 | Enslie browser/phone journey and other products' browser frames | Documentation | Stable frame/journey patterns in siblings; local FVE App mode not implemented | One typed App mode, authored frame identity, Previous/State/Next, dock placement and Exit; real navigation/forms/history |
-| Local developer loop | Repository host/build | One WatchDocs loop, shared stylesheet watching, five-family navigation and documented focused catalog checks | Complete connected examples and resettable provider-free demo journeys |
+| Local developer loop | Repository host/build | One WatchDocs loop, shared stylesheet watching, staged three-area navigation and documented focused catalog checks | Complete release verification and resettable provider-free demo journeys |
 
 ## Product-owned boundaries
 
@@ -42,7 +41,7 @@ These are local checkouts, not immutable snapshots of all working files. At inve
 - Funktos owns dependency execution, scheduling policy, run lifecycle and worker orchestration.
 - ACKMX owns availability, staffing, booking/participant/waiver rules, inventory, custody, payments and fulfillment.
 - Enslie owns group participation, consent, messaging, recommendation policy and merchant integrations.
-- Product-specific phone content, maps, graphs, rich editors and specialized visualizations remain consumer-owned unless a concrete reusable UI need is separately agreed. This is not permission to defer an ordinary missing control.
+- Product-specific phone content, maps, domain-rich editors and specialist engines remain consumer-owned. MEIER-1220 includes bounded graph/trace, financial-chart, and messaging integration recipes plus shared Calendar and MediaLibrary presentation; it does not introduce universal engines.
 
 ## Local consolidation checkpoint
 
@@ -53,9 +52,11 @@ These are local checkouts, not immutable snapshots of all working files. At inve
 - A real isolated `.NET 10.0.5` consumer restores the locally packed Components package, renders controls and Documentation, and passes dependency/asset/symbol checks. This is **not** .NET 8/9 evidence or final release acceptance. The full retry-free browser/lifecycle and packaged-framework matrix remains open.
 - The candidate watcher serves `http://127.0.0.1:5054`; only this repository's watcher was restarted after the project graph changed. Nothing is committed, pushed, deployed, published or deprecated. Marketing, Ecommerce, App mode, the full Spec route/state inventory and remaining controls/journeys are still implementation work, not accepted merely because their planned family names appear above.
 
-## Five-area catalog checkpoint
+## Historical five-area catalog checkpoint (superseded)
 
-The host now exposes peer **Primitives, Application, Marketing, Ecommerce and Documentation** navigation. `/components` is the shared directory; `/components/primitives` owns existing controls and Section; `/components/application` links the six existing shell/page/collection/detail galleries. Marketing and Ecommerce have explicit in-development indexes rather than fake previews. Documentation remains at `/docs`; every old component route and copied-example fragment is retained.
+This checkpoint is retained as implementation history only. MEIER-1220 superseded it: the current host exposes **Primitives, Application, and Documentation**; Marketing and Ecommerce routes/cards are removed until MEIER-1221/1222 implement them.
+
+At this earlier checkpoint, the host exposed peer **Primitives, Application, Marketing, Ecommerce and Documentation** navigation. `/components` is the shared directory; `/components/primitives` owns existing controls and Section; `/components/application` links the six existing shell/page/collection/detail galleries. Marketing and Ecommerce have explicit in-development indexes rather than fake previews. Documentation remains at `/docs`; every old component route and copied-example fragment is retained.
 
 `Catalog.fs` owns family organization, and the host registry drives navigation, search, breadcrumbs and previous/next ordering. Tests check unique route ownership and every registered pager edge. Catalog cards use Documentation/Datastar navigation, retaining the document through browsing and back/forward. Unit coverage remains 79 compiled examples; focused browser coverage includes real clipboard writes, family browsing/search/history, mobile navigation dismissal/focus, light/dark, 1440px/390px/320px, 200% text and Axe.
 
@@ -90,6 +91,12 @@ After review against the licensed Tailwind Plus Select Menu source, Select trigg
 Evidence: **60** retry-free Chromium/Firefox/WebKit checks (**18** focus/contrast/forced-colors/sticky-table checks, **33** multiple-choice regressions and **9** existing menu/searchable Select/anchoring regressions); **58** catalog tests still compile all **114** snippets; isolated Tailwind and genuine **.NET 10.0.5** package **0.0.7-field-focus** verification pass. Desktop light/dark and 320px/200%-text popup screenshots plus focused Select/searchable Select field states were inspected. Regression-driven fixes removed unsafe color interpolation, restored field-only keyboard outlines after review, corrected dark active-row foreground/boundary contrast, and retained the table overflow trigger fill. Earlier full-suite, AppShell, runtime-matrix and integrated delivery limitations remain unchanged. Nothing committed, pushed, published or deployed.
 
 Everything remains in the preserved uncommitted candidate. No commit, push, PR update, sibling change, publication, deployment or Docs deprecation occurred. Watcher: `/tmp/fve-multiple-watchdocs.log`; evidence: `/tmp/fve-multiple-{unit,core,build-tests,tailwind,package-verification,final-browser,single-regression}.log`.
+
+## MEIER-1220 completion checkpoint
+
+The current candidate adds typed hierarchy, shared bulk actions, file selection/upload presentation, free-form tags, rich choice cards, determinate/indeterminate progress, linked steps, recoverable First steps, avatar/copy-reveal controls, linked calendar views, and media selection/editor presentation. The App-shell gallery also contains bounded graph/trace, financial-chart, and messaging recipes with contained SVG and visible ordered/table alternatives. Marketing and Ecommerce remain absent.
+
+The catalog currently compiles **131 copied examples across 37 galleries**. Focused contracts cover native form values, stable selected identities, hierarchy disclosure, file/upload recovery, tags, progress, steps, credentials, calendar route state, media bulk actions, and specialist alternatives. This remains candidate evidence until the full retry-free three-browser, Tailwind, package/framework, responsive, and accessibility gates complete.
 
 ## Acceptance rules
 

@@ -7,6 +7,7 @@ open FSharp.ViewEngine.Components.Primitives
 open FSharp.ViewEngine.Components.Application
 open FSharp.ViewEngine.Components.Documentation
 open type Html
+open type Svg
 open type Datastar
 
 module Components =
@@ -44,6 +45,15 @@ module Components =
           commodity:string
           balance:decimal
           totalBalance:decimal }
+
+    type HierarchyAccount =
+        { key:string
+          ancestors:string list
+          level:int
+          name:string
+          accountType:string
+          total:decimal
+          hasChildren:bool }
 
     type TransactionStatus =
         | Verified
@@ -299,11 +309,42 @@ module Components =
 
     let accountTable = accountTableConfig LedgerAccount shellDestinationUrl (fun _ -> []) |> Table.render |> recordActionFeedback "account"
 
+    let hierarchyAccounts =
+        [ { key = "assets"; ancestors = []; level = 0; name = "Assets"; accountType = "Aggregate"; total = 184230.19M; hasChildren = true }
+          { key = "cash"; ancestors = [ "assets" ]; level = 1; name = "Cash"; accountType = "Aggregate"; total = 96110.27M; hasChildren = true }
+          { key = "checking"; ancestors = [ "assets"; "cash" ]; level = 2; name = "Operating checking"; accountType = "Account"; total = 72104.18M; hasChildren = false }
+          { key = "savings"; ancestors = [ "assets"; "cash" ]; level = 2; name = "Tax savings"; accountType = "Account"; total = 24006.09M; hasChildren = false }
+          { key = "receivables"; ancestors = [ "assets" ]; level = 1; name = "Accounts receivable"; accountType = "Account"; total = 88119.92M; hasChildren = false }
+          { key = "liabilities"; ancestors = []; level = 0; name = "Liabilities"; accountType = "Aggregate"; total = -42118.44M; hasChildren = true }
+          { key = "card"; ancestors = [ "liabilities" ]; level = 1; name = "Business card"; accountType = "Account"; total = -42118.44M; hasChildren = false } ]
+
+    let hierarchicalAccountTable =
+        Table.create "Account hierarchy"
+            [ Table.column "Account" (fun row -> a { _href "/components/collection"; _class "font-medium text-[var(--fve-brand-text)]"; row.name })
+              |> Table.asRowHeader
+              |> Table.asMobilePrimary
+              Table.column "Type" (fun row -> text row.accountType)
+              Table.column "Total balance (USD) · Current" (fun row -> text (money row.total))
+              |> Table.alignEnd ]
+            hierarchyAccounts
+        |> Table.withMobileLayout TableMobileLayout.Records
+        |> Table.withHierarchy (
+            TableHierarchy.create "account-hierarchy" _.key (fun row -> row.name) _.ancestors _.level _.hasChildren
+            |> TableHierarchy.withExpandedKeys [ "assets"; "cash"; "liabilities" ])
+        |> Table.render
+
+    let private accountFilterExpression (row:AccountRow) =
+        let searchable = System.Text.Json.JsonSerializer.Serialize($"{row.name} {row.accountType} {row.commodity}".ToLowerInvariant())
+        let accountType = System.Text.Json.JsonSerializer.Serialize(row.accountType.ToLowerInvariant())
+        $"(!$collectionquery.trim() || {searchable}.includes($collectionquery.trim().toLowerCase())) && ($collectiontype == 'all' || $collectiontype == {accountType})"
+
+    let private collectionHasMatches =
+        rows
+        |> List.map (fun row -> $"({accountFilterExpression row})")
+        |> String.concat " || "
+
     let private filteredAccountTable =
-        accountTableConfig LedgerAccount shellDestinationUrl (fun row ->
-            let searchable = System.Text.Json.JsonSerializer.Serialize($"{row.name} {row.accountType} {row.commodity}".ToLowerInvariant())
-            let accountType = System.Text.Json.JsonSerializer.Serialize(row.accountType.ToLowerInvariant())
-            [ _dataShow $"(!$collectionquery.trim() || {searchable}.includes($collectionquery.trim().toLowerCase())) && ($collectiontype == 'all' || $collectiontype == {accountType})" ])
+        accountTableConfig LedgerAccount shellDestinationUrl (fun row -> [ _dataShow (accountFilterExpression row) ])
         |> Table.render
         |> recordActionFeedback "account"
 
@@ -708,6 +749,10 @@ module Components =
         |> Input.withType InputType.Search
         |> Input.withAttributes [ _placeholder "Search…"; _autocomplete "off" ]
         |> Input.render
+    let tagInputExample =
+        TagInput.create "ledger-tags" "tags" "Tags" [ "reviewed"; "quarter-end" ]
+        |> TagInput.withDescription "Type any tag and press Enter or Add tag. Duplicate and empty values are rejected explicitly."
+        |> TagInput.render
     let labelledTextarea =
         Textarea.create "message" "Message"
         |> Textarea.withAttributes [ _placeholder "Write your message…" ]
@@ -994,6 +1039,21 @@ module Components =
             RadioGroup.option "express" "Express" ]
         |> RadioGroup.withDescription "Choose how you would like your order delivered."
         |> RadioGroup.render
+
+    let richChoiceCards =
+        ChoiceCards.single "assistance-choice" "assistance" "Booking assistance" id
+            [ ChoiceCardOption.create "self" "Self-service"
+              |> ChoiceCardOption.withDescription "The participant completes details and waivers before arrival."
+              |> ChoiceCardOption.withMetadata "No staff coordination required"
+              ChoiceCardOption.create "staff" "Staff assisted"
+              |> ChoiceCardOption.withDescription "A coordinator confirms equipment and participant details."
+              |> ChoiceCardOption.withMetadata "Recommended for group bookings"
+              ChoiceCardOption.create "unavailable" "Managed service"
+              |> ChoiceCardOption.withDescription "Available only to contracted organizations."
+              |> ChoiceCardOption.disabled ]
+        |> ChoiceCards.withSelected [ "staff" ]
+        |> ChoiceCards.required
+        |> ChoiceCards.render
 
     let selectFormRegion selected validation result =
         let config =
@@ -1417,6 +1477,7 @@ module Components =
                     _ariaLabel "Search accounts"
                     _placeholder "Search accounts"
                     _dataBind "collectionquery"
+                    _dataAttr ("disabled", "$collectionstate != 'ready'")
                     _class "min-h-[var(--fve-control-min-height)] min-w-40 flex-1 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 text-sm ring-1 ring-[var(--fve-border)] outline-none focus:ring-2 focus:ring-[var(--fve-brand-ring)]"
                 }
                 label {
@@ -1428,6 +1489,7 @@ module Components =
                     _name "accountType"
                     _ariaLabel "Filter by account type"
                     _dataBind "collectiontype"
+                    _dataAttr ("disabled", "$collectionstate != 'ready'")
                     _class "min-h-[var(--fve-control-min-height)] rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 text-sm ring-1 ring-[var(--fve-border)] outline-none focus:ring-2 focus:ring-[var(--fve-brand-ring)]"
                     option { _value "all"; "All types" }
                     option { _value "asset"; "Asset" }
@@ -1435,6 +1497,46 @@ module Components =
                     option { _value "equity"; "Equity" }
                     option { _value "revenue"; "Revenue" }
                     option { _value "expense"; "Expense" }
+                }
+                button {
+                    _type "button"
+                    _dataOn ("click", "$collectionquery = ''; $collectiontype = 'all'")
+                    _dataAttr ("disabled", "(!$collectionquery && $collectiontype == 'all') || $collectionstate != 'ready'")
+                    _class "rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold ring-1 ring-[var(--fve-border)] disabled:opacity-50"
+                    "Clear filters"
+                }
+                button {
+                    _type "button"
+                    _dataOn ("click", "$collectionstate = 'pending'; setTimeout(() => $collectionstate = 'ready', 350)")
+                    _dataAttr ("disabled", "$collectionstate != 'ready'")
+                    _class "rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold ring-1 ring-[var(--fve-border)] disabled:opacity-50"
+                    "Refresh filters"
+                }
+                button {
+                    _type "button"
+                    _dataOn ("click", "$collectionstate = 'error'")
+                    _dataAttr ("disabled", "$collectionstate != 'ready'")
+                    _class "rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold ring-1 ring-[var(--fve-border)] disabled:opacity-50"
+                    "Simulate filter error"
+                }
+            }
+            p {
+                _dataShow "$collectionstate == 'pending'"
+                _role "status"
+                _ariaLive "polite"
+                _class "text-sm text-[var(--fve-muted-text)]"
+                "Refreshing filter options…"
+            }
+            div {
+                _dataShow "$collectionstate == 'error'"
+                _role "alert"
+                _class "flex flex-wrap items-center justify-between gap-3 rounded-[var(--fve-radius-panel)] bg-[var(--fve-critical-subtle)] p-3 text-sm text-[var(--fve-critical-text)]"
+                span { "Filter options are temporarily unavailable." }
+                button {
+                    _type "button"
+                    _dataOn ("click", "$collectionstate = 'ready'")
+                    _class "rounded-[var(--fve-radius-control)] px-3 py-2 font-semibold ring-1 ring-[var(--fve-critical-ring)]"
+                    "Retry filters"
                 }
             }
         }
@@ -1466,8 +1568,16 @@ module Components =
 
     let collectionPage =
         div {
-            _dataSignals "{collectionquery: '', collectiontype: 'all'}"
+            _dataSignals "{collectionquery: '', collectiontype: 'all', collectionstate: 'ready'}"
+            _dataInit "(() => { const params = new URL(window.location.href).searchParams; $collectionquery = params.get('query') || ''; $collectiontype = params.get('accountType') || 'all' })()"
+            _dataEffect "(() => { const url = new URL(window.location.href); $collectionquery ? url.searchParams.set('query', $collectionquery) : url.searchParams.delete('query'); $collectiontype != 'all' ? url.searchParams.set('accountType', $collectiontype) : url.searchParams.delete('accountType'); window.history.replaceState(window.history.state, '', url) })()"
             collectionExample shellDestinationUrl collectionActions toolbar collectionBulkActions
+            p {
+                _dataShow $"!({collectionHasMatches})"
+                _role "status"
+                _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-neutral-subtle)] p-4 text-sm text-[var(--fve-muted-text)]"
+                "No accounts match these filters. Clear filters to restore all accounts."
+            }
             p {
                 _role "status"
                 _class "text-sm text-[var(--fve-muted-text)]"
@@ -2238,7 +2348,7 @@ AppShell.create "product-shell" sideNav pageContent
           preview:HtmlElement
           note:string option }
 
-    let exampleImports = "open System\nopen FSharp.ViewEngine\nopen FSharp.ViewEngine.Components.Primitives\nopen FSharp.ViewEngine.Components.Application\nopen type Html\nopen type Datastar"
+    let exampleImports = "open System\nopen FSharp.ViewEngine\nopen FSharp.ViewEngine.Components.Primitives\nopen FSharp.ViewEngine.Components.Application\nopen type Html\nopen type Svg\nopen type Datastar"
 
     let private sample id title names preview =
         { id = "components-" + id
@@ -2311,6 +2421,285 @@ AppShell.create "product-shell" sideNav pageContent
                     [ Example.gallery item.id item.title "fsharp" item.source item.preview ]
                     @ (item.note |> Option.map prose |> Option.toList)) ]
 
+    let firstStepsExample =
+        FirstSteps.create "ledger-first-steps" "First steps"
+            [ FirstStep.create "connect-bank" "Connect a bank account"
+              |> FirstStep.withDescription "Import accounts and reconcile current balances."
+              |> FirstStep.withAction (a { _href "/components/collection"; _class "text-sm font-semibold text-[var(--fve-brand-text)] underline-offset-2 hover:underline"; "Connect account" })
+              FirstStep.create "review-accounts" "Review imported accounts"
+              |> FirstStep.complete ]
+        |> FirstSteps.render
+
+    let operationalProgressExample =
+        Progress.create "Statement import" 68 100
+        |> Progress.withValueText "68% · about 20 seconds remaining"
+        |> Progress.withDetail "The application supplies current progress and task status."
+        |> Progress.render
+
+    let fileSelectionExample =
+        FileSelection.create "statement-files" "statements" "Statements"
+        |> FileSelection.withDescription "Choose one or more CSV or OFX statements. Each file remains a native form value."
+        |> FileSelection.withAccept ".csv,.ofx,text/csv"
+        |> FileSelection.multiple
+        |> FileSelection.render
+
+    let uploadQueueExample =
+        div {
+            _dataSignals "{uploadFeedback: ''}"
+            UploadList.create "Statement uploads"
+                [ UploadItem.create "upload-complete" "checking-july.ofx" UploadState.Complete
+                  |> UploadItem.withDetail "84 KB"
+                  UploadItem.create "upload-active" "card-july.csv" (UploadState.Uploading (68, 100))
+                  |> UploadItem.withDetail "142 KB"
+                  |> UploadItem.withActions (
+                      Button.create "Cancel"
+                      |> Button.withAttributes [ _dataOn ("click", "$uploadFeedback = 'Upload cancelled. The selected local file remains available to retry.'") ]
+                      |> Button.render)
+                  UploadItem.create "upload-failed" "savings-july.csv" (UploadState.Failed "The demo transport rejected this file.")
+                  |> UploadItem.withActions (
+                      Button.create "Retry"
+                      |> Button.withVariant ButtonVariant.Primary
+                      |> Button.withAttributes [ _dataOn ("click", "$uploadFeedback = 'Retry queued for savings-july.csv.'") ]
+                      |> Button.render) ]
+            |> UploadList.render
+            output {
+                _role "status"
+                _ariaLive "polite"
+                _dataShow "$uploadFeedback != ''"
+                _dataText "$uploadFeedback"
+                _style "display:none"
+                _class "mt-2 text-sm text-[var(--fve-muted-text)]"
+            }
+        }
+
+    let periodCloseStepsExample =
+        Steps.create "Period close progress"
+            [ Step.create "Review balances" StepState.Complete
+              |> Step.withDestination "/components/collection"
+              Step.create "Reconcile statements" StepState.Current
+              |> Step.withDescription "Resolve the remaining statement differences."
+              Step.create "Post adjustments" StepState.Available
+              |> Step.withDestination "/components/detail"
+              Step.create "Close period" StepState.Unavailable ]
+        |> Steps.render id
+
+    let identityExample =
+        div {
+            _class "grid gap-4"
+            div {
+                _class "flex items-center gap-3"
+                Avatar.create "Alex Morgan" "AM" |> Avatar.render
+                div {
+                    p { _class "font-semibold text-[var(--fve-text)]"; "Alex Morgan" }
+                    p { _class "text-sm text-[var(--fve-muted-text)]"; "Platform operator" }
+                }
+            }
+            CopyReveal.create "demo-token" "Demo API token" "fve_demo_84fK2s"
+            |> CopyReveal.render
+        }
+
+    let calendarViewFromQuery = function
+        | "day" -> CalendarView.Day
+        | "week" -> CalendarView.Week
+        | "month" -> CalendarView.Month
+        | _ -> CalendarView.List
+
+    let calendarDateFromQuery (value:string) =
+        match Int32.TryParse value with
+        | true, offset when offset >= -1 && offset <= 1 -> offset
+        | _ -> 0
+
+    let private calendarViewUrl view offset =
+        let value = match view with CalendarView.List -> "list" | CalendarView.Day -> "day" | CalendarView.Week -> "week" | CalendarView.Month -> "month"
+        $"/components/app-shell?destination=ledger-accounts&calendarView={value}&calendarDate={offset}"
+
+    let calendarExample view offset =
+        let rangeLabel, events =
+            match offset with
+            | -1 ->
+                "September 14–20, 2026",
+                [ CalendarEvent.create "booking-100" "Trail inspection" "Thursday, September 17" (shellDestinationUrl LedgerAccounts)
+                  |> CalendarEvent.withTime "2:00–3:00 PM" ]
+            | 1 ->
+                "September 28–October 4, 2026",
+                [ CalendarEvent.create "booking-104" "Autumn orientation" "Tuesday, September 29" (shellDestinationUrl LedgerAccounts)
+                  |> CalendarEvent.withTime "11:00 AM–12:30 PM" ]
+            | _ ->
+                "September 21–27, 2026",
+                [ CalendarEvent.create "booking-101" "Northwind group rental" "Monday, September 21" (shellDestinationUrl (LedgerAccount 101))
+                  |> CalendarEvent.withTime "9:00–11:30 AM"
+                  |> CalendarEvent.withDetail "12 participants · Trail equipment"
+                  CalendarEvent.create "booking-102" "Contoso skills session" "Monday, September 21" (shellDestinationUrl (LedgerAccount 102))
+                  |> CalendarEvent.withTime "10:30 AM–1:00 PM"
+                  |> CalendarEvent.withDetail "Overlaps Northwind by one hour"
+                  CalendarEvent.create "booking-103" "Equipment return" "Wednesday, September 23" (shellDestinationUrl LedgerAccounts)
+                  |> CalendarEvent.withTime "4:00–4:30 PM" ]
+        Calendar.create "Booking schedule" view rangeLabel events
+        |> Calendar.withPrevious (calendarViewUrl view (max -1 (offset - 1)))
+        |> Calendar.withNext (calendarViewUrl view (min 1 (offset + 1)))
+        |> Calendar.withViewDestinations [ for target in [ CalendarView.List; CalendarView.Day; CalendarView.Week; CalendarView.Month ] -> target, calendarViewUrl target offset ]
+        |> Calendar.render id
+
+    let mediaLibraryExample =
+        let library =
+            MediaLibrary.create "product-media" "Product media" "assetIds"
+                [ MediaAsset.create "trail-front" "Trail pack front" "/social-card.png" "Blue trail pack shown from the front" LedgerAccounts
+                  |> MediaAsset.withDetail "1600 × 900 · PNG"
+                  |> MediaAsset.primary
+                  MediaAsset.create "trail-detail" "Trail pack detail" "/android-chrome-512x512.png" "Close view of the trail pack straps" LedgerAccounts
+                  |> MediaAsset.withDetail "512 × 512 · PNG"
+                  MediaAsset.create "trail-draft" "Packaging draft" "/apple-touch-icon.png" "Draft packaging artwork" LedgerAccounts
+                  |> MediaAsset.withDetail "180 × 180 · PNG" ]
+            |> MediaLibrary.withSelected [ "trail-front" ]
+            |> MediaLibrary.render shellDestinationUrl
+        BulkActions.create "media-bulk-actions" "product-media" "Selected media actions"
+            [ BulkAction.create "Set primary" "Primary media updated in this resettable demo." (fun keys -> "document.getElementById('media-edit-feedback').textContent = 'Primary asset: ' + " + keys + ".at(0)")
+              |> BulkAction.primary
+              BulkAction.create "Remove" "Selected media removed in this resettable demo." (fun keys -> "document.getElementById('media-edit-feedback').textContent = 'Remove requested for: ' + " + keys + ".join(', ')")
+              |> BulkAction.destructive ]
+            library
+        |> BulkActions.render
+        |> fun libraryWithActions ->
+            div {
+                _class "grid gap-4"
+                libraryWithActions
+                Textarea.create "altText" "Alt text"
+                |> Textarea.withId "media-alt-text"
+                |> Textarea.withValue "Blue trail pack shown from the front"
+                |> Textarea.withDescription "Describe the selected asset for people who cannot see it."
+                |> Textarea.render
+                Button.create "Save alt text"
+                |> Button.withAttributes [ _dataOn ("click", "(() => { const value = document.getElementById('media-alt-text').value; document.querySelectorAll('#product-media input:checked').forEach(input => input.closest('li').querySelector('img').alt = value); document.getElementById('media-edit-feedback').textContent = 'Alt text updated for selected media.' })()") ]
+                |> Button.render
+                p { _id "media-edit-feedback"; _role "status"; _ariaLive "polite"; _class "text-sm text-[var(--fve-muted-text)]" }
+            }
+
+    let traceViewerIntegrationExample =
+        figure {
+            _class "grid gap-3"
+            div {
+                _tabindex 0
+                _ariaLabel "Scrollable trace diagram"
+                _class "overflow-x-auto rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-4 ring-1 ring-[var(--fve-border)]"
+                svg {
+                    _viewBox "0 0 720 180"
+                    _role "img"
+                    _ariaLabel "Request trace from browser through API and database"
+                    _class "min-w-[40rem] w-full"
+                    line { _x1 120; _y1 90; _x2 600; _y2 90; _stroke "currentColor"; _strokeWidth 2 }
+                    for x, label, duration in [ 120, "Browser", "0 ms"; 360, "API", "42 ms"; 600, "Database", "18 ms" ] do
+                        circle { _cx x; _cy 90; _r 34; _fill "var(--fve-brand-subtle)"; _stroke "var(--fve-brand-solid)"; _strokeWidth 2 }
+                        textElement { _x x; _y 86; _textAnchor "middle"; _fill "currentColor"; label }
+                        textElement { _x x; _y 108; _textAnchor "middle"; _fill "currentColor"; duration }
+                }
+            }
+            figcaption {
+                _class "text-sm text-[var(--fve-muted-text)]"
+                "Trace request-84f2 · 60 ms total. The ordered list remains the accessible source of truth."
+            }
+            ol {
+                _class "grid gap-2"
+                for label, detail in [ "Browser", "GET /accounts · starts at 0 ms"; "API", "Authorization and query · 42 ms"; "Database", "SELECT accounts · 18 ms" ] do
+                    li {
+                        _class "flex items-start justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-3 text-sm"
+                        strong { label }
+                        span { _class "text-right text-[var(--fve-muted-text)]"; detail }
+                    }
+            }
+        }
+
+    let financialChartIntegrationExample =
+        div {
+            _dataSignals "{chartperiod: '30d'}"
+            _class "grid gap-4"
+            div {
+                _class "flex flex-wrap gap-2"
+                for value, label in [ "30d", "30 days"; "90d", "90 days" ] do
+                    button {
+                        _type "button"
+                        _dataOn ("click", $"$chartperiod = '{value}'")
+                        _dataAttr ("aria-pressed", $"$chartperiod == '{value}' ? 'true' : 'false'")
+                        _class "rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold ring-1 ring-[var(--fve-border)] aria-pressed:bg-[var(--fve-brand-subtle)] aria-pressed:text-[var(--fve-brand-text)]"
+                        label
+                    }
+            }
+            div {
+                _tabindex 0
+                _ariaLabel "Scrollable balance chart"
+                _class "overflow-x-auto rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-4 ring-1 ring-[var(--fve-border)]"
+                for value, label, points in
+                    [ "30d", "Thirty-day balance: $24,820", "0,130 120,112 240,122 360,76 480,58 600,32"
+                      "90d", "Ninety-day balance: $24,820", "0,150 120,138 240,96 360,118 480,70 600,32" ] do
+                    svg {
+                        _viewBox "0 0 600 180"
+                        _role "img"
+                        _ariaLabel label
+                        _dataShow ($"$chartperiod == '{value}'")
+                        _class "min-w-[36rem] w-full"
+                        line { _x1 0; _y1 160; _x2 600; _y2 160; _stroke "var(--fve-border)"; _strokeWidth 1 }
+                        polyline { _points points; _fill "none"; _stroke "var(--fve-brand-solid)"; _strokeWidth 4; _vectorEffect "non-scaling-stroke" }
+                    }
+            }
+            table {
+                _class "w-full text-sm"
+                caption { _class "text-left font-semibold text-[var(--fve-text)]"; "Balance data" }
+                thead { tr { th { _scope "col"; _class "py-2 text-left"; "Period" }; th { _scope "col"; _class "py-2 text-right"; "Closing balance" } } }
+                tbody {
+                    tr { _dataShow "$chartperiod == '30d'"; td { _class "py-2"; "30 days" }; td { _class "py-2 text-right"; "$24,820" } }
+                    tr { _dataShow "$chartperiod == '90d'"; td { _class "py-2"; "90 days" }; td { _class "py-2 text-right"; "$24,820" } }
+                }
+            }
+        }
+
+    let messagingIntegrationExample =
+        div {
+            _dataSignals "{thread: 'northwind'}"
+            _class "grid min-w-0 gap-4 md:grid-cols-[16rem_minmax(0,1fr)]"
+            nav {
+                _ariaLabel "Conversations"
+                ul {
+                    _class "grid gap-2"
+                    for value, label, preview in [ "northwind", "Northwind", "Can we move pickup?"; "contoso", "Contoso", "Thanks for the update." ] do
+                        li {
+                            button {
+                                _type "button"
+                                _dataOn ("click", $"$thread = '{value}'")
+                                _dataAttr ("aria-pressed", $"$thread == '{value}' ? 'true' : 'false'")
+                                _class "w-full rounded-[var(--fve-radius-control)] p-3 text-left ring-1 ring-[var(--fve-border)] aria-pressed:bg-[var(--fve-brand-subtle)]"
+                                strong { _class "block"; label }
+                                span { _class "block truncate text-sm text-[var(--fve-muted-text)]"; preview }
+                            }
+                        }
+                }
+            }
+            section {
+                _ariaLabel "Current conversation"
+                _class "grid min-w-0 gap-3"
+                div {
+                    _dataShow "$thread == 'northwind'"
+                    h3 { _class "font-semibold"; "Northwind" }
+                    p { _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface-subtle)] p-3"; "Can we move pickup to 10:30 AM?" }
+                }
+                div {
+                    _dataShow "$thread == 'contoso'"
+                    h3 { _class "font-semibold"; "Contoso" }
+                    p { _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface-subtle)] p-3"; "Thanks for the update." }
+                }
+                Textarea.create "reply" "Reply"
+                |> Textarea.withDescription "Messages in this bounded example stay local to the rendered page."
+                |> Textarea.render
+                Button.create "Send message"
+                |> Button.withAttributes [ _dataOn ("click", "document.getElementById('message-feedback').textContent = 'Message queued in this resettable demo.'") ]
+                |> Button.render
+                p {
+                    _id "message-feedback"
+                    _role "status"
+                    _ariaLive "polite"
+                    _class "text-sm text-[var(--fve-muted-text)]"
+                }
+            }
+        }
+
     let private shellSource = [ "ShellDestination"; "shellDestinationKey"; "shellDestinationUrl" ]
     let private formSource = [ "choiceSubmitButton"; "choiceResult" ]
     let private selectSource = [ "AccountStatus"; "statusValue"; "selectStatusOptions" ]
@@ -2320,8 +2709,19 @@ AppShell.create "product-shell" sideNav pageContent
     let paginationExamples requestedPage =
         [ sample "pagination" "Page navigation" [ "PaginationDestination"; "paginationDestinationUrl"; "paginationPreview" ] (centered (paginationPreviewRegion requestedPage)) ]
 
-    let appShellExamples current =
-        [ sample "app-shell" "Sidebar application" (shellSource @ [ "ledgerShellExample"; "treasuryShellExample" ]) (shellFixtureFor current) ]
+    let appShellExamples current calendarView calendarDate =
+        [ sample "app-shell" "Sidebar application" (shellSource @ [ "ledgerShellExample"; "treasuryShellExample" ]) (shellFixtureFor current)
+          sample "first-steps" "Recoverable setup guidance" [ "firstStepsExample" ] (detailsSurface firstStepsExample)
+          sample "file-selection" "Native file selection" [ "fileSelectionExample" ] (detailsSurface fileSelectionExample)
+          sample "upload-queue" "Upload queue and recovery" [ "uploadQueueExample" ] (detailsSurface uploadQueueExample)
+          sample "determinate-progress" "Determinate progress" [ "operationalProgressExample" ] (detailsSurface operationalProgressExample)
+          sample "step-navigation" "Period-close steps" [ "periodCloseStepsExample" ] (detailsSurface periodCloseStepsExample)
+          sample "identity-copy-reveal" "Identity and credentials" [ "identityExample" ] (detailsSurface identityExample)
+          sample "calendar-schedule" "Calendar and schedule" (shellSource @ [ "calendarViewFromQuery"; "calendarDateFromQuery"; "calendarViewUrl"; "calendarExample" ]) (detailsSurface (calendarExample calendarView calendarDate))
+          sample "media-library" "Media library and editor" (shellSource @ [ "mediaLibraryExample" ]) (detailsSurface mediaLibraryExample)
+          sample "trace-viewer" "Graph and trace integration" [ "traceViewerIntegrationExample" ] (detailsSurface traceViewerIntegrationExample)
+          sample "financial-chart" "Financial chart integration" [ "financialChartIntegrationExample" ] (detailsSurface financialChartIntegrationExample)
+          sample "messaging" "Messaging integration" [ "messagingIntegrationExample" ] (detailsSurface messagingIntegrationExample) ]
 
     let private tableExamples current =
         [ sample "table" "Simple" [ "TeamMember"; "teamMembers"; "teamColumns"; "simpleTeamTable" ] (detailsSurface simpleTeamTable)
@@ -2332,6 +2732,8 @@ AppShell.create "product-shell" sideNav pageContent
           sample "table-mobile" "Stacked on mobile" [ "TeamMember"; "teamMembers"; "mobileTeamTable" ] (detailsSurface mobileTeamTable)
           sample "table-sorting" "Sortable records" [ "TeamMember"; "teamMembers"; "TeamMemberSort"; "teamMemberSortUrl"; "documentSort"; "sortFor"; "sortableTeamTable" ] (detailsSurface (sortableTeamTablePreview current))
           |> note "The application owns the query, destination, and ordered rows. Table only renders the accessible sort controls."
+          sample "table-hierarchy" "Hierarchical accounts and aggregates" [ "HierarchyAccount"; "money"; "hierarchyAccounts"; "hierarchicalAccountTable" ] (detailsSurface hierarchicalAccountTable)
+          |> note "The consumer supplies every ancestor, level, aggregate value, and destination. Table owns disclosure presentation only."
           sample "table-empty" "Empty state" [ "TeamMember"; "teamColumns"; "emptyTeamTable" ] (detailsSurface emptyTeamTable) ]
 
     let examplesFor = function
@@ -2372,6 +2774,7 @@ AppShell.create "product-shell" sideNav pageContent
             sample "input-prefix" "With prefix" [ "inputWithPrefix" ] (fieldSurface inputWithPrefix)
             sample "input-suffix" "With suffix" [ "inputWithSuffix" ] (fieldSurface inputWithSuffix)
             sample "search-input" "Search with clear action" [ "searchInputExample" ] (fieldSurface searchInputExample)
+            sample "tag-input" "Free-form tags" [ "tagInputExample" ] (fieldSurface tagInputExample)
             sample "input-readonly" "Read-only" [ "readonlyInput" ] (fieldSurface readonlyInput)
             sample "input-disabled" "Disabled" [ "disabledInput" ] (fieldSurface disabledInput)
             sample "input-pending" "Pending" [ "pendingInput" ] (fieldSurface pendingInput) ]
@@ -2446,6 +2849,7 @@ AppShell.create "product-shell" sideNav pageContent
         | "radio-group" -> [
             sample "radio-group" "With label" [ "basicRadioGroup" ] (fieldSurface basicRadioGroup)
             sample "radio-group-help" "With help text" [ "radioGroupWithHelp" ] (fieldSurface radioGroupWithHelp)
+            sample "choice-cards" "Rich choice cards" [ "richChoiceCards" ] (detailsSurface richChoiceCards)
             sample "radio-group-validation" "Required choice with validation" (formSource @ [ "postingModeOptions"; "radioGroupFormRegion"; "postingMode" ]) (fieldSurface postingMode)
             sample "radio-group-pending" "Pending" [ "postingModeOptions"; "pendingPostingMode" ] (fieldSurface pendingPostingMode)
             sample "radio-group-disabled" "Disabled" [ "postingModeOptions"; "disabledPostingMode" ] (fieldSurface disabledPostingMode) ]
@@ -2478,7 +2882,7 @@ AppShell.create "product-shell" sideNav pageContent
             sample "page-canvas" "Remaining-height canvas" [ "canvasPage" ] canvasPagePreview ]
         | "collection" -> [ sample "collection" "Collection with record actions" [ "collectionExample" ] collectionPreview ]
         | "detail" -> [ sample "detail" "Detail with related records" [ "detailExample" ] detailPreview ]
-        | "app-shell" -> appShellExamples LedgerAccounts
+        | "app-shell" -> appShellExamples LedgerAccounts CalendarView.List 0
         | id -> invalidArg (nameof id) $"No component examples registered for '{id}'."
 
     let allExamples () =
@@ -2537,7 +2941,9 @@ AppShell.create "product-shell" sideNav pageContent
 
     let paginationPageFor requestedPage = gallery paginationRegistration (paginationExamples requestedPage)
     let paginationPage = paginationPageFor 2
-    let appShellPageFor current = gallery appShellRegistration (appShellExamples current)
+    let appShellPageForState current calendarView calendarDate = gallery appShellRegistration (appShellExamples current calendarView calendarDate)
+    let appShellPageForView current calendarView = appShellPageForState current calendarView 0
+    let appShellPageFor current = appShellPageForView current CalendarView.List
     let appShellPage = appShellPageFor LedgerAccounts
 
     let interactionPage =

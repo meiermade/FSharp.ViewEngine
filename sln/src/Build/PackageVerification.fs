@@ -416,8 +416,8 @@ let view =
         |> Select.withLoadingMessage "Loading accounts"
         |> Select.render
         Select.create "error-account" "Error account" id []
+        |> Select.withSearch SelectSearch.Static
         |> Select.withError "Accounts could not be loaded."
-        |> Select.pending
         |> Select.render
         Input.create "contactEmail" "Contact email"
         |> Input.withId "package-email"
@@ -450,6 +450,22 @@ let view =
         |> Notice.withTone Tone.Positive
         |> Notice.withAnnouncement NoticeAnnouncement.Polite
         |> Notice.render
+        FileSelection.create "package-files" "files" "Files"
+        |> FileSelection.withAccept ".csv"
+        |> FileSelection.multiple
+        |> FileSelection.render
+        TagInput.create "package-tags" "tags" "Tags" [ "reviewed" ]
+        |> TagInput.render
+        Progress.create "Import progress" 3 4
+        |> Progress.render
+        Steps.create "Import steps" [ Step.create "Upload" StepState.Complete |> Step.withDestination "/upload"; Step.create "Review" StepState.Current ]
+        |> Steps.render id
+        Calendar.create "Package schedule" CalendarView.Week "September 21–27" [ CalendarEvent.create "package-event" "Review package" "September 24" "/events/1" ]
+        |> Calendar.withViewDestinations [ CalendarView.Week, "/schedule?view=week" ]
+        |> Calendar.render id
+        MediaLibrary.create "package-media" "Package media" "assetIds" [ MediaAsset.create "package-image" "Package image" "/package.png" "Package preview" "/media/1" |> MediaAsset.primary ]
+        |> MediaLibrary.withSelected [ "package-image" ]
+        |> MediaLibrary.render id
         Checkbox.create "confirmed" "Confirmed"
         |> Checkbox.withId "package-confirmed"
         |> Checkbox.required
@@ -515,6 +531,12 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "aria-label=\"Add account\"")
    || not (actual.Contains "role=\"status\"")
    || not (actual.Contains "No accounts")
+   || not (actual.Contains "type=\"file\"")
+   || not (actual.Contains "package_tags_values")
+   || not (actual.Contains "<progress")
+   || not (actual.Contains "aria-current=\"step\"")
+   || not (actual.Contains "aria-label=\"Calendar view\"")
+   || not (actual.Contains "data-fve-media-library=\"true\"")
    || not (actual.Contains "<caption")
    || not (actual.Contains "fve-table-records")
    || not (actual.Contains "fve-table-selection-change")
@@ -524,14 +546,14 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "Trend: ")
    || not (actual.Contains "aria-current=\"page\"")
    || not (actual.Contains "role=\"combobox\"")
-   || not (actual.Contains "aria-label=\"Clear Account\"")
+   || not (actual.Contains "aria-label=\"Clear Search Account\"")
    || not (actual.Contains "requestCancellation: &#39;auto&#39;")
    || not (actual.Contains "Loading accounts")
    || not (actual.Contains "Accounts could not be loaded.")
    || not (actual.Contains "aria-required=\"true\"")
    || not (actual.Contains "aria-describedby=\"package-price-suffix\"")
    || not (actual.Contains "aria-multiselectable=\"true\"")
-   || not (actual.Contains "aria-label=\"Remove Jamie\"")
+   || not (actual.Contains "id=\"fve-select-packagesearchids-selection\"")
    || (System.Text.RegularExpressions.Regex.Matches(actual, "name=\"packageMemberIds\"").Count <> 2)
    || (System.Text.RegularExpressions.Regex.Matches(actual, "name=\"packageSearchIds\"").Count <> 2)
    || not (actual.Contains "name=\"confirmed\"")
