@@ -3,7 +3,7 @@ namespace Docs.Common
 open System
 open Docs.Pages
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Docs
+open FSharp.ViewEngine.Components.Documentation
 open type Html
 
 module View =
@@ -46,33 +46,41 @@ module View =
             }
         }
 
-    let private block (node:DocNode) =
+    let private element (node:DocNode) =
         match node with
-        | DocNode.Paragraph children -> docsCustom (p { _class "spec-paragraph"; for child in children do renderInline child })
+        | DocNode.Paragraph children -> p { _class "spec-paragraph"; for child in children do renderInline child }
         | DocNode.UnorderedList items ->
-            docsCustom (ul { _class "spec-bullets"; for item in items do li { for child in item do renderInline child } })
+            ul { _class "spec-bullets list-disc"; for item in items do li { for child in item do renderInline child } }
         | DocNode.OrderedList items ->
-            docsCustom (ol { _class "spec-bullets"; for item in items do li { for child in item do renderInline child } })
-        | DocNode.BarChart chart -> docsCustom (comparisonChart chart)
-        | DocNode.DataTable(headers, rows) -> docsTable headers rows
-        | DocNode.CodeBlock(language, source) -> docsCode language source
-        | DocNode.Example(id, label, language, source, preview) -> docsCustom (docsExample id label language source preview)
+            ol { _class "spec-bullets list-decimal"; for item in items do li { for child in item do renderInline child } }
+        | DocNode.BarChart chart -> comparisonChart chart
+        | DocNode.DataTable(headers, rows) ->
+            div {
+                _class "spec-table-wrap"
+                table {
+                    _class "spec-table"
+                    thead { tr { for header in headers do th { header } } }
+                    tbody { for row in rows do tr { for cell in row do td { cell } } }
+                }
+            }
+        | DocNode.CodeBlock(language, source) -> CodeBlock.create language source |> CodeBlock.render
+        | DocNode.Example(id, label, language, source, preview) -> Example.codeFirst id label language source preview
         | DocNode.Heading _ -> invalidOp "Headings are converted to documentation sections."
 
     let private sections (nodes:DocNode list) : DocsSection list =
-        let flush isDeclared title id level blocks sections =
-            if not isDeclared && List.isEmpty blocks then sections
+        let flush isDeclared title id level content sections =
+            if not isDeclared && List.isEmpty content then sections
             else
-                { id = id; title = title; level = level; blocks = List.rev blocks }
+                { id = id; title = title; level = level; content = List.rev content }
                 :: sections
 
-        let rec loop isDeclared title id level blocks sections remaining =
+        let rec loop isDeclared title id level content sections remaining =
             match remaining with
-            | [] -> flush isDeclared title id level blocks sections |> List.rev
+            | [] -> flush isDeclared title id level content sections |> List.rev
             | DocNode.Heading heading :: tail ->
-                let sections = flush isDeclared title id level blocks sections
+                let sections = flush isDeclared title id level content sections
                 loop true heading.title heading.id heading.level [] sections tail
-            | node :: tail -> loop isDeclared title id level (block node :: blocks) sections tail
+            | node :: tail -> loop isDeclared title id level (element node :: content) sections tail
 
         loop false "Overview" "overview" 2 [] [] nodes
 
@@ -86,11 +94,11 @@ module View =
         let rec group (section:NavSection) =
             let pages =
                 section.pages
-                |> List.map (fun page -> docsNavPage page.id page.navLabel page.path page.path)
+                |> List.map (fun page -> Nav.page page.id page.navLabel page.path page.path)
 
             let groups = section.sections |> List.map group
 
-            docsNavGroup
+            Nav.group
                 (slug section.label)
                 section.label
                 (section.label = "Getting started")
@@ -104,7 +112,8 @@ module View =
             additionalHead =
                 [ link { _rel "icon"; _href "/favicon.svg"; _type "image/svg+xml" }
                   link { _rel "manifest"; _href "/site.webmanifest" }
-                  script { _src "/scripts/tailwind-elements-loader.1.0.22.js"; _type "module" } ] }
+                  script { _src "/scripts/tailwind-elements-loader.1.0.22.js"; _type "module" }
+                  FSharp.ViewEngine.Components.Primitives.Browser.script "/scripts/fve-app-mode.js" ] }
 
     let private site (sections:NavSection list) search : DocsSite<string> =
         { name = "FSharp.ViewEngine"
@@ -134,95 +143,65 @@ module View =
             |> List.tryPick (function | DocNode.Paragraph content -> Some(inlineText content) | _ -> None)
             |> Option.defaultValue page.title
         let rendered =
-            docsArticle page.id page.title description (sections page.nodes)
-            |> docsWithMetadata {
+            DocumentationPage.create page.id page.title
+            |> DocumentationPage.withDescription description
+            |> DocumentationPage.withSections (sections page.nodes)
+            |> DocumentationPage.withMetadata {
                 DocsPageMetadata.defaults with
                     browserTitle = Some page.browserTitle
                     socialImage = Some "https://fsharpviewengine.meiermade.com/social-card.png" }
         if page.id = "home" then
             rendered
-            |> docsWithHeadingAdornment (
+            |> DocumentationPage.withHeadingAdornment (
                 div {
                     _class "docs-home-logo"
                     img { _src "/logo.svg"; _alt "" }
                 })
         else rendered
 
-    let private pageLink label href = Some(docsPageLink label href)
-
-    let private componentsPager activeId =
-        Components.allRegistrations
-        |> List.tryFindIndex (fun page -> page.id = activeId)
-        |> Option.map (fun index ->
-            let previous =
-                if index = 0 then pageLink "Tailwind Plus Elements" "/extensions/tailwind-elements"
-                else
-                    let page = Components.allRegistrations[index - 1]
-                    pageLink page.navLabel page.path
-            let next =
-                if index = Components.allRegistrations.Length - 1 then pageLink "FSharp.ViewEngine.Docs" "/docs"
-                else
-                    let page = Components.allRegistrations[index + 1]
-                    pageLink page.navLabel page.path
-            docsPager previous next)
-
-    let private pager activeId =
-        match activeId with
-        | "home" -> Some(docsPager None (pageLink "Installation" "/installation"))
-        | "installation" -> Some(docsPager (pageLink "Introduction" "/") (pageLink "Build your first view" "/getting-started/first-view"))
-        | "first-view" -> Some(docsPager (pageLink "Installation" "/installation") (pageLink "Elements and attributes" "/guides/elements-and-attributes"))
-        | "elements-and-attributes" -> Some(docsPager (pageLink "Build your first view" "/getting-started/first-view") (pageLink "Composition and control flow" "/guides/composition-and-control-flow"))
-        | "composition-control-flow" -> Some(docsPager (pageLink "Elements and attributes" "/guides/elements-and-attributes") (pageLink "Rendering" "/guides/rendering"))
-        | "rendering" -> Some(docsPager (pageLink "Composition and control flow" "/guides/composition-and-control-flow") (pageLink "Encoding and trusted content" "/guides/encoding-and-trusted-content"))
-        | "encoding" -> Some(docsPager (pageLink "Rendering" "/guides/rendering") (pageLink "Accessibility" "/guides/accessibility"))
-        | "accessibility" -> Some(docsPager (pageLink "Encoding and trusted content" "/guides/encoding-and-trusted-content") (pageLink "Custom elements and extensions" "/custom"))
-        | "custom" -> Some(docsPager (pageLink "Accessibility" "/guides/accessibility") (pageLink "Giraffe" "/usage"))
-        | "usage" -> Some(docsPager (pageLink "Custom elements and extensions" "/custom") (pageLink "SVG" "/extensions/svg"))
-        | "svg" -> Some(docsPager (pageLink "Giraffe" "/usage") (pageLink "Datastar" "/extensions/datastar"))
-        | "datastar" -> Some(docsPager (pageLink "SVG" "/extensions/svg") (pageLink "HTMX" "/extensions/htmx"))
-        | "htmx" -> Some(docsPager (pageLink "Datastar" "/extensions/datastar") (pageLink "Alpine" "/extensions/alpine"))
-        | "alpine" -> Some(docsPager (pageLink "HTMX" "/extensions/htmx") (pageLink "Tailwind Plus Elements" "/extensions/tailwind-elements"))
-        | "tailwind-elements" -> Some(docsPager (pageLink "Alpine" "/extensions/alpine") (pageLink "Components" "/components"))
-        | "docs-overview" -> Some(docsPager (pageLink "Versioning" "/components/versioning") (pageLink "Layouts" "/docs/components/layouts"))
-        | "docs-layouts" -> Some(docsPager (pageLink "Overview" "/docs") (pageLink "Content" "/docs/components/content"))
-        | "docs-content" -> Some(docsPager (pageLink "Layouts" "/docs/components/layouts") (pageLink "Navigation" "/docs/components/navigation"))
-        | "docs-navigation" -> Some(docsPager (pageLink "Content" "/docs/components/content") (pageLink "Interactive examples" "/docs/components/interactive-examples"))
-        | "docs-interactive" -> Some(docsPager (pageLink "Navigation" "/docs/components/navigation") (pageLink "API reference components" "/docs/components/api-reference"))
-        | "docs-api-components" -> Some(docsPager (pageLink "Interactive examples" "/docs/components/interactive-examples") (pageLink "Diagrams" "/docs/components/diagrams"))
-        | "docs-diagrams" -> Some(docsPager (pageLink "API reference components" "/docs/components/api-reference") (pageLink "Documentation site" "/docs/page-examples/documentation-site"))
-        | "docs-page-documentation-site" -> Some(docsPager (pageLink "Diagrams" "/docs/components/diagrams") (pageLink "API reference page" "/docs/page-examples/api-reference"))
-        | "docs-page-api-reference" -> Some(docsPager (pageLink "Documentation site" "/docs/page-examples/documentation-site") (pageLink "Executable specification page" "/docs/page-examples/executable-specification"))
-        | "docs-page-executable-specification" -> Some(docsPager (pageLink "API reference page" "/docs/page-examples/api-reference") (pageLink "Benchmarks" "/benchmarks"))
-        | componentId when componentId.StartsWith("components-", StringComparison.Ordinal) -> componentsPager componentId
-        | "benchmarks" -> Some(docsPager (pageLink "Executable specification page" "/docs/page-examples/executable-specification") (pageLink "Changelog" "/changelog"))
-        | "changelog" -> Some(docsPager (pageLink "Benchmarks" "/benchmarks") None)
-        | _ -> None
-
     let private registeredPages (navigation:NavSection list) =
         let rec sectionPages section = section.pages @ (section.sections |> List.collect sectionPages)
         navigation |> List.collect sectionPages
 
+    let private pager navigation activeId =
+        let pages = registeredPages navigation
+        let linkAt index =
+            if index < 0 || index >= pages.Length then None
+            else
+                let page = pages[index]
+                let label = if page.navLabel = "Overview" then page.title else page.navLabel
+                Some(DocsPageLink.create label page.path)
+        pages
+        |> List.tryFindIndex (fun page -> page.id = activeId)
+        |> Option.map (fun index -> DocsPager.create (linkAt (index - 1)) (linkAt (index + 1)))
+
     let private resolvePage (page:DocPage) =
-        Components.tryPage page.path
+        Catalog.tryPage page.path
+        |> Option.orElseWith (fun () -> Components.tryPage page.path)
         |> Option.orElseWith (fun () -> Showcase.tryPage page.path)
         |> Option.defaultWith (fun () -> legacyPage page)
 
-    let private renderResolvedPage (navigation:NavSection list) (registration:DocPage) (docsPage:DocsPage) =
+    let private renderResolvedPage (sections:NavSection list) (registration:DocPage) (docsPage:DocsPage) =
         let search =
-            registeredPages navigation
+            registeredPages sections
             |> List.map (fun (page:DocPage) ->
-                docsSearchEntry page.path (resolvePage page) [ page.category; page.navLabel ])
+                DocsSearchEntry.create page.path (resolvePage page) [ page.category; page.navLabel ])
             |> DocsSearch.index
         let docsPage =
             docsPage
-            |> docsWithMetadata {
+            |> DocumentationPage.withMetadata {
                 docsPage.metadata with
                     socialImage = Some "https://fsharpviewengine.meiermade.com/social-card.png" }
-        let docsPage = pager registration.id |> Option.map (fun value -> docsWithPager value docsPage) |> Option.defaultValue docsPage
-        docsDocument (site navigation search) docsPage
+        let docsPage = pager sections registration.id |> Option.map (fun value -> DocumentationPage.withPager value docsPage) |> Option.defaultValue docsPage
+        let site = site sections search
+        let sideNavItems = navigation sections
+        Document.create site docsPage
+        |> Document.withBreadcrumbs (Navigation.breadcrumbs sideNavItems site.homeId docsPage.activeId)
+        |> Document.withSideNavItems sideNavItems
+        |> Document.render
 
-    let renderPage navigation registration =
-        renderResolvedPage navigation registration (resolvePage registration)
+    let renderPage sections registration =
+        renderResolvedPage sections registration (resolvePage registration)
 
-    let document navigation page = renderPage navigation page
-    let documentWithPage navigation registration docsPage = renderResolvedPage navigation registration docsPage
+    let document sections page = renderPage sections page
+    let documentWithPage sections registration docsPage = renderResolvedPage sections registration docsPage

@@ -23,6 +23,22 @@ let private repositoryFile path =
 
 let tests =
     testList "Package publishing" [
+        test "WatchDocs owns a stable loopback review URL" {
+            let build = repositoryFile "sln/src/Build/Program.fs"
+            let docsConfig = repositoryFile "sln/src/Docs/src/Common/Config.fs"
+            let compose = repositoryFile "compose.yml"
+            let deployment = repositoryFile "pulumi/src/k8s/deployment.ts"
+            Expect.equal WatchDocs.defaultUrl "http://127.0.0.1:5054" "Docs has one stable product-specific URL"
+            Expect.stringContains docsConfig "DOCS_SERVER_URL\" \"http://127.0.0.1:5054" "the direct Docs host uses the same default"
+            Expect.stringContains compose "DOCS_SERVER_URL: http://0.0.0.0:5000" "the Docker host names its listener explicitly"
+            Expect.stringContains deployment "DOCS_SERVER_URL: 'http://0.0.0.0:5000'" "the deployed host names its listener explicitly"
+            Expect.stringContains build "\"--watch=always\"" "background WatchDocs must not silently stop its CSS watcher"
+            Expect.stringContains build "WatchDocs.runExclusiveWatcher" "one owned watcher replaces only its predecessor"
+            Expect.stringContains build "DOCS_SERVER_URL" "local review has a Docs-specific override"
+            for invalid in [ "https://localhost:5054"; "http://localhost:5054"; "http://127.0.0.1:5054/path"; "http://127.0.0.1:5054?state=ready" ] do
+                Expect.throws (fun () -> WatchDocs.ensureLoopbackUrlAvailable "WatchDocs test" invalid) $"rejects {invalid}"
+        }
+
         test "Core release inputs select Core and Latest" {
             let inputs = PackagePublishing.validateInputs "FSharp.ViewEngine" "2026.8.2" None true
             Expect.equal inputs.package PackagePublishing.Package.ViewEngine "Core package"
@@ -40,13 +56,9 @@ let tests =
                 "Components depends on Core"
             Expect.isFalse components.markLatest "Components is not Latest"
 
-            let docs = PackagePublishing.validateInputs "FSharp.ViewEngine.Docs" "2026.8.1" (Some "2026.8.0") false
-            Expect.equal docs.package PackagePublishing.Package.Docs "Docs package"
-            Expect.equal
-                docs.minimumDependency
-                (Some { package = PackagePublishing.Package.Components; minimumVersion = "2026.8.0" })
-                "Docs depends on Components"
-            Expect.isFalse docs.markLatest "Docs is not Latest"
+            Expect.throws
+                (fun () -> PackagePublishing.validateInputs "FSharp.ViewEngine.Docs" "2026.8.1" (Some "2026.8.0") false |> ignore)
+                "the retired Docs package cannot be published"
         }
 
         testCase "Invalid package release inputs fail" <| fun _ ->
@@ -62,49 +74,34 @@ let tests =
             for invalid in invalidCases do Expect.throws invalid "invalid release input"
 
         test "Release selection validates conditional package versions" {
-            let core = PackagePublishing.validateSelection "core" (Some "2026.8.3") None None None None
+            let core = PackagePublishing.validateSelection "core" (Some "2026.8.3") None None
             Expect.isSome core.core "Core selected"
             Expect.isNone core.components "Components package not selected"
-            Expect.isNone core.docs "Docs package not selected"
 
-            let components = PackagePublishing.validateSelection "components" None (Some "2026.8.1") None (Some "2026.8.3") None
+            let components = PackagePublishing.validateSelection "components" None (Some "2026.8.1") (Some "2026.8.3")
             Expect.isNone components.core "Core not selected"
             Expect.isSome components.components "Components selected"
-            Expect.isNone components.docs "Docs package not selected"
 
-            let docs = PackagePublishing.validateSelection "docs" None None (Some "2026.8.2") None (Some "2026.8.1")
-            Expect.isNone docs.core "Core not selected"
-            Expect.isNone docs.components "Components package not selected"
-            Expect.isSome docs.docs "Docs package selected"
-
-            let both =
-                PackagePublishing.validateSelection
-                    "both"
-                    None
-                    (Some "2026.8.1")
-                    (Some "2026.8.2")
-                    (Some "2026.8.3")
-                    None
-            Expect.isNone both.core "Core package not selected"
+            let both = PackagePublishing.validateSelection "both" (Some "2026.8.3") (Some "2026.8.1") None
+            Expect.isSome both.core "Core package selected together"
             Expect.isSome both.components "Components package selected together"
-            Expect.isSome both.docs "Docs package selected together"
             Expect.equal
-                both.docs.Value.minimumDependency
-                (Some { package = PackagePublishing.Package.Components; minimumVersion = "2026.8.1" })
-                "Docs uses the selected Components version"
+                both.components.Value.minimumDependency
+                (Some { package = PackagePublishing.Package.ViewEngine; minimumVersion = "2026.8.3" })
+                "Components uses the selected Core version"
         }
 
         testCase "Invalid conditional package versions fail" <| fun _ ->
             let invalidCases = [
-                fun () -> PackagePublishing.validateSelection "core" None None None None None |> ignore
-                fun () -> PackagePublishing.validateSelection "core" (Some "2026.8.3") (Some "2026.8.2") None None None |> ignore
-                fun () -> PackagePublishing.validateSelection "components" None (Some "2026.8.1") None None None |> ignore
-                fun () -> PackagePublishing.validateSelection "components" (Some "2026.8.3") (Some "2026.8.1") None (Some "2026.8.3") None |> ignore
-                fun () -> PackagePublishing.validateSelection "docs" None None (Some "2026.8.2") None None |> ignore
-                fun () -> PackagePublishing.validateSelection "docs" (Some "2026.8.3") None (Some "2026.8.2") None (Some "2026.8.3") |> ignore
-                fun () -> PackagePublishing.validateSelection "both" (Some "2026.8.3") None None None (Some "2026.8.3") |> ignore
-                fun () -> PackagePublishing.validateSelection "both" None (Some "2026.8.1") (Some "2026.8.2") (Some "2026.8.3") (Some "2026.8.1") |> ignore
-                fun () -> PackagePublishing.validateSelection "other" None None None None None |> ignore
+                fun () -> PackagePublishing.validateSelection "core" None None None |> ignore
+                fun () -> PackagePublishing.validateSelection "core" (Some "2026.8.3") (Some "2026.8.2") None |> ignore
+                fun () -> PackagePublishing.validateSelection "components" None (Some "2026.8.1") None |> ignore
+                fun () -> PackagePublishing.validateSelection "components" (Some "2026.8.3") (Some "2026.8.1") (Some "2026.8.3") |> ignore
+                fun () -> PackagePublishing.validateSelection "docs" None (Some "2026.8.2") (Some "2026.8.1") |> ignore
+                fun () -> PackagePublishing.validateSelection "both" (Some "2026.8.3") None None |> ignore
+                fun () -> PackagePublishing.validateSelection "both" None (Some "2026.8.1") None |> ignore
+                fun () -> PackagePublishing.validateSelection "both" (Some "2026.8.3") (Some "2026.8.1") (Some "2026.8.2") |> ignore
+                fun () -> PackagePublishing.validateSelection "other" None None None |> ignore
             ]
             for invalid in invalidCases do Expect.throws invalid "invalid package selection"
 
@@ -125,16 +122,17 @@ let tests =
         test "One public workflow selects independent package releases" {
             let publish = workflow "publish.yml"
             Expect.stringContains publish "type: choice" "package selection is a choice"
-            for selection in [ "core"; "components"; "docs"; "both" ] do
+            for selection in [ "core"; "components"; "both" ] do
                 Expect.stringContains publish $"- {selection}" $"{selection} selection"
             Expect.stringContains publish "coreVersion:" "independent Core version"
             Expect.stringContains publish "componentsVersion:" "independent Components package version"
             Expect.stringContains publish "componentsMinimumCoreVersion:" "Components minimum Core version"
-            Expect.stringContains publish "docsVersion:" "independent Docs package version"
-            Expect.stringContains publish "docsMinimumComponentsVersion:" "Docs minimum Components version"
+            Expect.isFalse (publish.Contains("docsVersion:")) "no new Docs versions"
+            Expect.isFalse (publish.Contains("FSharp.ViewEngine.Docs")) "no Docs publication path"
             Expect.stringContains publish "inputs.packages == 'components' || inputs.packages == 'both'" "both selects Components"
-            Expect.stringContains publish "inputs.packages == 'docs' || inputs.packages == 'both'" "both selects Docs"
-            Expect.stringContains publish "LOCAL_DEPENDENCY_PACKAGE_PATH:" "a selected Components package can satisfy Docs preflight"
+            Expect.stringContains publish "inputs.packages == 'core' || inputs.packages == 'both'" "both selects Core"
+            Expect.stringContains publish "LOCAL_DEPENDENCY_PACKAGE_PATH:" "a selected Core package can satisfy Components preflight"
+            Expect.stringContains publish "inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion" "bundled dependency matches the selected Core"
             Expect.isFalse (File.Exists(workflowPath "publish-docs.yml")) "there is no second package-publishing entry point"
             Expect.isFalse (File.Exists(workflowPath "_publish-package.yml")) "single-use reusable workflow is removed"
             Expect.isFalse (File.Exists(workflowPath "verify-nuget-auth.yml")) "publication owns its OIDC authentication"
@@ -165,33 +163,38 @@ let tests =
             Expect.stringContains publish "Publish FSharp.ViewEngine.Components" "Components is independently publishable"
         }
 
-        test "Docs follows the Components dependency and Tailwind distribution contract" {
-            let project = repositoryFile "sln/src/FSharp.ViewEngine.Docs/FSharp.ViewEngine.Docs.fsproj"
-            let componentsProject = repositoryFile "sln/src/FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.fsproj"
-            let view = repositoryFile "sln/src/FSharp.ViewEngine.Docs/View.fs"
-            let readme = repositoryFile "sln/src/FSharp.ViewEngine.Docs/README.md"
-            let manifest = repositoryFile "sln/src/FSharp.ViewEngine.Docs/FSharp.ViewEngine.Docs.tailwind.css"
+        test "Documentation is compiled and packaged inside Components with selective CSS" {
+            let project = repositoryFile "sln/src/FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.fsproj"
+            let view = repositoryFile "sln/src/FSharp.ViewEngine.Components/Documentation/View.fs"
+            let document = repositoryFile "sln/src/FSharp.ViewEngine.Components/Documentation/Document.fs"
+            let manifest = repositoryFile "sln/src/FSharp.ViewEngine.Components/Documentation/Documentation.tailwind.css"
+            let appModeRuntime = repositoryFile "sln/src/FSharp.ViewEngine.Components/app-mode.js"
+            let hostedAppModeRuntime = repositoryFile "sln/src/Docs/wwwroot/scripts/fve-app-mode.js"
             let docsStyles = repositoryFile "sln/src/Docs/input.css"
             let dockerfile = repositoryFile "sln/Dockerfile"
-
-            Expect.stringContains project "contentFiles/any/any" "Docs Tailwind manifest is packaged"
-            Expect.stringContains project "..\\FSharp.ViewEngine.Components\\FSharp.ViewEngine.Components.fsproj" "Docs depends on Components"
-            Expect.isFalse (project.Contains("..\\FSharp.ViewEngine\\FSharp.ViewEngine.fsproj")) "Docs has no direct Core project dependency"
-            Expect.isFalse (componentsProject.Contains("FSharp.ViewEngine.Docs")) "Components never depends on Docs"
+            let solution = repositoryFile "sln/FSharp.ViewEngine.slnx"
+            Expect.stringContains project "Documentation/View.fs" "Components compiles the maintained Documentation implementation"
+            Expect.isFalse (project.Contains("Documentation/Builders.fs")) "legacy Documentation builders are not compiled"
+            Expect.isFalse (document.Contains("DocsBlock")) "documentation sections store typed HTML rather than legacy blocks"
+            Expect.isFalse (document.Contains("DocsInline")) "documentation sections have no legacy inline model"
+            Expect.stringContains project "contentFiles/any/any/Documentation" "optional Documentation stylesheet ships in Components"
+            Expect.isFalse (solution.Contains("FSharp.ViewEngine.Docs")) "there is no separate Docs project"
             Expect.isFalse (project.Contains("DefaultStyles.fs")) "embedded stylesheet source is removed"
-            Expect.stringContains manifest ".spec-shell" "current Docs selectors move to the readable manifest"
+            Expect.stringContains manifest ".spec-shell" "Documentation layout remains in the readable manifest"
+            Expect.equal hostedAppModeRuntime appModeRuntime "Docs serves the package-owned App mode runtime verbatim"
             Expect.stringContains manifest "--docs-text-reading: 1rem" "semantic typography remains in the manifest"
             Expect.isFalse (view.Contains("DefaultStyles.css")) "documents do not inject package CSS"
-            Expect.stringContains docsStyles "FSharp.ViewEngine.Components.tailwind.css" "repository host imports Components"
-            Expect.stringContains docsStyles "FSharp.ViewEngine.Docs.tailwind.css" "repository host imports Docs"
-            Expect.stringContains dockerfile "FSharp.ViewEngine.Docs/verify-tailwind.sh" "container CI verifies the Docs consumer contract"
-            Expect.stringContains readme "Core ← Components ← Docs" "README documents the package graph"
-            Expect.stringContains readme "FSharp.ViewEngine.Docs.tailwind.css" "README documents the Docs manifest"
-            Expect.stringContains readme "FSharp.ViewEngine.Components.tailwind.css" "README documents the Components manifest"
+            Expect.stringContains docsStyles "FSharp.ViewEngine.Components.tailwind.css" "repository host imports shared styles"
+            Expect.stringContains docsStyles "Documentation/Documentation.tailwind.css" "repository host explicitly opts into Documentation"
+            Expect.stringContains project "Browser.fs" "Browser is a shared Primitive"
+            Expect.stringContains project "Phone.fs" "Phone is a shared Primitive"
+            Expect.isFalse (project.Contains("Documentation/AppMode.fs")) "App mode is not a Documentation public component"
+            Expect.stringContains dockerfile "FSharp.ViewEngine.Components/Documentation/verify-tailwind.sh" "container verifies optional Documentation CSS"
+            Expect.isFalse ((workflow "preview.yml").Contains("PACKAGE_ID: FSharp.ViewEngine.Docs")) "CI verifies one UI package"
         }
 
-        test "Docs package documents consumer-owned Noto and semantic typography" {
-            let readme = repositoryFile "sln/src/FSharp.ViewEngine.Docs/README.md"
+        test "Documentation documents consumer-owned Noto and semantic typography" {
+            let readme = repositoryFile "sln/src/FSharp.ViewEngine.Components/Documentation/README.md"
             Expect.stringContains readme "does not ship font binaries or request Google-hosted assets" "font delivery remains consumer-owned"
             Expect.stringContains readme "font-family: \"Noto Sans\"" "optional Noto Sans self-hosting is explicit"
             Expect.stringContains readme "font-family: \"Noto Sans Mono\"" "optional Noto Sans Mono self-hosting is explicit"
@@ -222,14 +225,13 @@ let tests =
             Expect.stringContains packageBlock "./fake.sh Test --single-target" "release source is tested once"
             Expect.stringContains packageBlock "Verify Core package" "Core package is verified"
             Expect.stringContains packageBlock "Verify Components package" "Components package is verified"
-            Expect.stringContains packageBlock "Verify Docs package" "Docs package is verified"
+            Expect.isFalse (packageBlock.Contains("Verify Docs package")) "Documentation is verified within Components"
 
             let publishBlock = publish.Substring(publishStart)
             let publishCore = publishBlock.IndexOf("Publish FSharp.ViewEngine", StringComparison.Ordinal)
             let publishComponents = publishBlock.IndexOf("Publish FSharp.ViewEngine.Components", StringComparison.Ordinal)
-            let publishDocs = publishBlock.IndexOf("Publish FSharp.ViewEngine.Docs", StringComparison.Ordinal)
-            Expect.isTrue (publishCore > 0 && publishComponents > publishCore) "Core and Components steps remain ordered"
-            Expect.isTrue (publishDocs > publishComponents) "Docs publication follows Components"
+            Expect.isTrue (publishCore > 0 && publishComponents > publishCore) "Core publication precedes Components"
+            Expect.isFalse (publishBlock.Contains("Publish FSharp.ViewEngine.Docs")) "retired Docs publication is absent"
             Expect.stringContains publishBlock "environment: release" "publication uses the protected environment"
             Expect.stringContains publishBlock "NuGet/login@8d196754b4036150537f80ac539e15c2f1028841" "publication uses trusted publishing"
         }

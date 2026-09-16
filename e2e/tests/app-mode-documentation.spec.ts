@@ -1,0 +1,130 @@
+import { test, expect } from '@playwright/test'
+
+test('Documentation App mode fixtures expand browser and phone surfaces with independent review states @cross-browser', async ({ page }) => {
+  await page.goto('/docs/components/fixture')
+  const documentRequests: string[] = []
+  page.on('request', request => {
+    if (request.resourceType() === 'document') documentRequests.push(request.url())
+  })
+  await page.evaluate(() => { (window as typeof window & { fixtureDocument?: string }).fixtureDocument = 'retained' })
+
+  await page.evaluate(() => window.fsharpDocsColorMode.set('dark'))
+  await expect(page.locator('html')).toHaveClass(/dark/)
+
+  await page.getByRole('button', { name: 'Open Create a view in App mode' }).click()
+  const root = page.locator('[data-fve-app-mode-root="true"]')
+  const controls = page.locator('[data-fve-app-mode-controls="true"]')
+  await expect(root).toHaveAttribute('data-fve-app-mode-surface', 'browser')
+  await expect(root.locator('.spec-browser-toolbar')).toHaveCount(0)
+  const productSurface = root.locator('.docs-product-screen')
+  await expect(productSurface).toBeVisible()
+  expect(await productSurface.evaluate((element) => element.getBoundingClientRect().height)).toBeGreaterThanOrEqual(await page.evaluate(() => window.innerHeight))
+  await expect(root.getByRole('textbox', { name: 'View name' })).toHaveValue('accountSummary')
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { fixtureDocument?: string }).fixtureDocument)).toBe('retained')
+
+  const reviewState = controls.getByRole('combobox', { name: 'Review state' })
+  await expect(controls).toHaveCSS('font-size', '12px')
+  await expect(reviewState).toHaveCSS('display', 'flex')
+  await expect(reviewState).toHaveCSS('min-height', '32px')
+  await expect(controls.locator(':scope > span[aria-disabled="true"]')).toHaveCount(0)
+
+  const colorMode = controls.getByRole('button', { name: 'Choose color theme' })
+  await expect(colorMode).toBeVisible()
+  await expect(colorMode).toHaveCSS('width', '32px')
+  await expect(colorMode).toHaveText('')
+  await expect(colorMode.locator('svg:visible')).toHaveCount(1)
+  await colorMode.click()
+  const darkThemeOption = page.getByRole('menuitemradio', { name: 'Dark', exact: true })
+  await expect(darkThemeOption).toBeVisible()
+  await reviewState.click()
+  await expect(darkThemeOption).not.toBeVisible()
+  const validationInLightDock = page.getByRole('option', { name: 'Validation', exact: true })
+  await expect(validationInLightDock).toBeVisible()
+  await validationInLightDock.hover()
+  await expect.poll(() => validationInLightDock.evaluate(element => getComputedStyle(element).color)).not.toBe('rgb(255, 255, 255)')
+  await reviewState.press('Escape')
+
+  await colorMode.click()
+  await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click()
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await expect(productSurface).toHaveCSS('background-color', 'rgb(15, 23, 42)')
+  await expect(controls).toHaveAttribute('data-fve-color-mode', 'light')
+  await colorMode.click()
+  const lightThemeOption = page.getByRole('menuitemradio', { name: 'Light', exact: true })
+  await lightThemeOption.hover()
+  await expect(lightThemeOption).toBeFocused()
+  await expect(lightThemeOption).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await lightThemeOption.click()
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
+  await expect(controls).toHaveAttribute('data-fve-color-mode', 'dark')
+
+  await reviewState.click()
+  const validation = page.getByRole('option', { name: 'Validation', exact: true })
+  await expect(validation).toHaveCSS('display', 'flex')
+  await validation.hover()
+  await expect(validation).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  await page.getByRole('option', { name: 'Validation', exact: true }).click()
+  await expect(root).toContainText('Enter a view name.')
+  await expect(page).toHaveURL(/fixtureState=validation.*fveAppMode=app/)
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { fixtureDocument?: string }).fixtureDocument)).toBe('retained')
+
+  await controls.getByRole('link', { name: 'Exit App mode' }).click()
+  await expect(page).not.toHaveURL(/fveAppMode=/)
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { fixtureDocument?: string }).fixtureDocument)).toBe('retained')
+  expect(documentRequests).toEqual([])
+  await page.evaluate(() => window.fsharpDocsColorMode.set('dark'))
+  await page.getByRole('button', { name: 'Open Create a view on phone in App mode' }).click()
+  await expect(root).toHaveAttribute('data-fve-app-mode-surface', 'phone')
+  await expect(root).toContainText('Render your first component')
+  const phoneScreen = root.locator('.fve-phone-screen')
+  const phoneStatus = root.locator('.fve-phone-status')
+  const phoneCamera = root.locator('.fve-phone-camera')
+  await expect(phoneScreen).toHaveCSS('background-color', 'rgb(23, 23, 23)')
+  await expect(phoneStatus).toHaveCSS('background-color', 'rgb(23, 23, 23)')
+  expect(await phoneCamera.evaluate((camera) => {
+    const cameraBounds = camera.getBoundingClientRect()
+    const statusBounds = camera.parentElement!.getBoundingClientRect()
+    return Math.abs((cameraBounds.left + cameraBounds.width / 2) - (statusBounds.left + statusBounds.width / 2))
+  })).toBeLessThan(0.5)
+})
+
+test('Fixture keeps its exact compiled source beside preview and copy controls', async ({ page }) => {
+  await page.goto('/docs/components/fixture')
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText: async (value: string) => { (window as typeof window & { copiedFixtureSource?: string }).copiedFixtureSource = value } },
+    })
+  })
+
+  const example = page.locator('[data-docs-example="true"]').filter({ has: page.locator('button[aria-label="Copy Workflow fixture code"]') })
+  await example.getByRole('tab', { name: 'Code' }).click()
+  const copy = example.getByRole('button', { name: 'Copy Workflow fixture code' })
+  await copy.click()
+  await expect(copy).toHaveAttribute('data-copied', 'true')
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { copiedFixtureSource?: string }).copiedFixtureSource)).toContain('Fixture.create "checkout-shipping"')
+})
+
+test('Browser and Phone primitives render independently while Fixture adds review context @cross-browser', async ({ page }) => {
+  const root = page.locator('[data-fve-app-mode-root="true"]')
+
+  await page.goto('/components/browser')
+  await expect(page.locator('.spec-browser-address')).toContainText('shop.example.test/checkout/shipping')
+  await page.getByRole('button', { name: 'Open Shipping address in App mode' }).click()
+  await expect(root).toHaveAttribute('data-fve-app-mode-surface', 'browser')
+  await expect(root.locator('.spec-browser-toolbar')).toHaveCount(0)
+  await page.locator('[data-fve-app-mode-controls="true"]').getByRole('link', { name: 'Exit App mode' }).click()
+
+  await page.goto('/components/phone')
+  await expect(page.locator('[data-fve-phone="true"]')).toBeVisible()
+  await page.getByRole('button', { name: 'Open Saved offers in App mode' }).click()
+  await expect(root).toHaveAttribute('data-fve-app-mode-surface', 'phone')
+  await page.locator('[data-fve-app-mode-controls="true"]').getByRole('link', { name: 'Exit App mode' }).click()
+
+  await page.goto('/docs/components/fixture')
+  await page.getByRole('button', { name: 'Open Shipping address in App mode' }).click()
+  const controls = page.locator('[data-fve-app-mode-controls="true"]')
+  await expect(controls.getByRole('combobox', { name: 'Review state' })).toBeVisible()
+  await expect(controls.getByRole('link', { name: 'Previous: Cart' })).toBeVisible()
+  await expect(controls.getByRole('link', { name: 'Next: Payment' })).toBeVisible()
+})
