@@ -7,7 +7,7 @@
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <Authors>Andrew Meier</Authors>
-    <Description>Shared primitives, application, marketing, ecommerce, and documentation UI for FSharp.ViewEngine with Tailwind and Datastar.</Description>
+    <Description>Shared primitives, application, and documentation UI for FSharp.ViewEngine with Tailwind and Datastar.</Description>
     <PackageTags>fsharp;html;components;tailwind;datastar;accessibility;server-rendered</PackageTags>
     <RepositoryUrl>https://github.com/meiermade/FSharp.ViewEngine</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
@@ -31,7 +31,6 @@
     <Compile Include="Badge.fs" />
     <Compile Include="Status.fs" />
     <Compile Include="LoadingIndicator.fs" />
-    <Compile Include="Progress.fs" />
     <Compile Include="EmptyState.fs" />
     <Compile Include="Table.fs" />
     <Compile Include="BulkActions.fs" />
@@ -56,7 +55,6 @@
     <Compile Include="Page.fs" />
     <Compile Include="Section.fs" />
     <Compile Include="Compositions.fs" />
-    <Compile Include="FirstSteps.fs" />
     <Compile Include="AppShell.fs" />
     <Compile Include="PreviewFrame.fs" />
     <Compile Include="Browser.fs" />

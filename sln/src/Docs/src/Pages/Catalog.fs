@@ -45,20 +45,6 @@ module Catalog =
                   section "Collections and details" [ Components.collectionRegistration; Components.detailRegistration ]
                   section "Forms" [ Components.formLayoutsRegistration ] ]
             planned = [] }
-          { overview = overview "Marketing" "marketing"
-            description = "Public-site sections and complete product-site examples, built on the shared primitives and theme system."
-            sections = []
-            planned =
-                [ "Site headers and footers, heroes, features and calls to action."
-                  "Pricing, FAQs, content and contact sections."
-                  "A connected home, features, pricing and contact example with demo-only form submission." ] }
-          { overview = overview "Ecommerce" "ecommerce"
-            description = "Storefront presentation and connected shopping examples, with commerce policy owned by the consumer."
-            sections = []
-            planned =
-                [ "Product cards and grids, categories, filters, product details, images and finite variants."
-                  "Carts with quantity, removal and empty states; checkout presentation and order summaries."
-                  "A connected browse, product, cart, simulated checkout and matching order example—without real payments." ] }
           { overview = Showcase.overviewRegistration
             description = "Documentation sites, API references, galleries and executable specifications using the same Components package."
             sections =
@@ -85,7 +71,7 @@ module Catalog =
         }
 
     let overviewPage =
-        DocumentationPage.create Components.overviewRegistration.id "Components" |> DocumentationPage.withDescription "Accessible, server-rendered Tailwind components for applications, public sites, storefronts and documentation." |> DocumentationPage.withSections [
+        DocumentationPage.create Components.overviewRegistration.id "Components" |> DocumentationPage.withDescription "Accessible, server-rendered Tailwind components for applications and documentation." |> DocumentationPage.withSections [
             DocumentationSection.create "areas" "Explore the library" [
                 div {
                     _class "docs-catalog-grid"
@@ -97,7 +83,7 @@ module Catalog =
                 } ]
             DocumentationSection.create "start" "Get started" [
                 CodeBlock.create "shell" "dotnet add package FSharp.ViewEngine.Components" |> CodeBlock.render
-                p { _class "spec-paragraph"; "The engine and Components version independently. All five areas share one Components package; there are no family packages." }
+                p { _class "spec-paragraph"; "The engine and Components version independently. Delivered areas share one Components package; there are no family packages." }
                 p {
                     _class "spec-paragraph"
                     a { _class "spec-content-link"; _href "/components/installation"; "Installation" }

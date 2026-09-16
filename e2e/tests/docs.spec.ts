@@ -47,8 +47,6 @@ const routes = [
   { path: '/components', heading: 'Components', layout: 'article' },
   { path: '/components/primitives', heading: 'Primitives', layout: 'article' },
   { path: '/components/application', heading: 'Application', layout: 'article' },
-  { path: '/components/marketing', heading: 'Marketing', layout: 'article' },
-  { path: '/components/ecommerce', heading: 'Ecommerce', layout: 'article' },
   { path: '/components/installation', heading: 'Installation', layout: 'article' },
   { path: '/components/button', heading: 'Button', layout: 'gallery' },
   { path: '/components/icon-button', heading: 'Icon button', layout: 'gallery' },
@@ -284,8 +282,8 @@ test('Components pages provide focused examples, navigation, interaction, themes
   }
 
   await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
-  const packageNavOrder = await page.locator('#nav-primitives, #nav-application, #nav-marketing, #nav-ecommerce, #nav-documentation').evaluateAll(elements => elements.map(element => element.id))
-  expect(packageNavOrder).toEqual(['nav-primitives', 'nav-application', 'nav-marketing', 'nav-ecommerce', 'nav-documentation'])
+  const packageNavOrder = await page.locator('#nav-primitives, #nav-application, #nav-documentation').evaluateAll(elements => elements.map(element => element.id))
+  expect(packageNavOrder).toEqual(['nav-primitives', 'nav-application', 'nav-documentation'])
   await expect(page.locator('#nav-primitives')).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#nav-form-controls')).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#nav-components-select')).toHaveAttribute('data-selected', 'true')
@@ -2175,7 +2173,7 @@ test('inline prose links are visually identifiable and article pagers continue t
   const pager = page.getByRole('navigation', { name: 'Page navigation' })
   await expect(page.getByRole('link', { name: 'Browse components' })).toHaveAttribute('href', '/docs/components/layouts')
   await expect(page.getByRole('link', { name: 'Browse page examples' })).toHaveAttribute('href', '/docs/page-examples/documentation-site')
-  await expect(pager.getByRole('link', { name: /Previous Ecommerce/ })).toHaveAttribute('href', '/components/ecommerce')
+  await expect(pager.getByRole('link', { name: /Previous Application/ })).toHaveAttribute('href', '/components/application')
   const next = pager.getByRole('link', { name: /Next Layouts/ })
   await expect(next).toBeVisible()
   await next.click()
@@ -2398,7 +2396,7 @@ test('code-free catalog indexes settle without starting Prism', crossBrowser, as
   page.on('request', request => {
     if (/\/scripts\/prism|\/css\/prism/.test(new URL(request.url()).pathname)) prismRequests.push(request.url())
   })
-  for (const path of ['/components/application', '/components/marketing', '/components/ecommerce', '/components/primitives']) {
+  for (const path of ['/components/application', '/components/primitives']) {
     await gotoAfterDocsAssetSettlement(page, path)
     await expect(page.locator('code[class*="language-"]')).toHaveCount(0)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()

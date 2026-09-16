@@ -46,7 +46,7 @@ dotnet add package FSharp.ViewEngine.Components
 
 Documentation sites, API references, and executable specifications use the same Components package through `FSharp.ViewEngine.Components.Documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Import its optional `Documentation/Documentation.tailwind.css` only for Documentation surfaces. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
 
-The unified catalog targets **Primitives, Application, Marketing, Ecommerce, and Documentation**. The current candidate is in progress: [four-product coverage](./docs/component-coverage.md) records implemented APIs and outstanding connected examples. It is not yet a published replacement release. Historical `FSharp.ViewEngine.Docs` versions remain available; deprecation with Components as the alternative follows verified replacement delivery.
+The unified catalog currently targets **Primitives, Application, and Documentation**. The current candidate is in progress: [four-product coverage](./docs/component-coverage.md) records implemented APIs and outstanding connected examples. It is not yet a published replacement release. Historical `FSharp.ViewEngine.Docs` versions remain available; deprecation with Components as the alternative follows verified replacement delivery.
 
 ## Local catalog development
 
@@ -64,7 +64,6 @@ The watcher serves F# changes and compiles CSS from the common `sln/src` source 
 - `/components/select#components-select-multiple`, `components/select#components-select-search-multiple` — typed multiple selection, native repeated form values, validation and unavailable states. The remote searchable Select example also demonstrates error/retry and whole-field refresh.
 - `/components/application` — shell/page, collection/detail and form-layout examples.
 - `/components/form-layouts` — stacked, two-column and sectioned server-validation forms, plus query/result search. These complete workflows moved out of the focused Input gallery; the validation endpoint and default field IDs are unchanged.
-- `/components/marketing`, `/components/ecommerce` — explicitly in-development coverage indexes until their components and connected examples are implemented.
 - `/docs` — Documentation components and assembled examples; App mode remains in progress.
 
 Existing component URLs and fragment IDs remain supported. Use a fresh browser/test context to reset current browser-local example state; do not run real customer/payment operations. Complete connected journey/reset behavior remains part of the tracked work.

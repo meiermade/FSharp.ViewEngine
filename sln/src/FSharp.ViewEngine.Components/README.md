@@ -10,7 +10,7 @@ dotnet add package FSharp.ViewEngine.Components
 
 The package declares its minimum compatible `FSharp.ViewEngine` version. Components and the engine version independently. Documentation now lives in this assembly; no new `FSharp.ViewEngine.Docs` package is produced.
 
-The unified library is organized into **Primitives**, **Application**, **Marketing**, **Ecommerce**, and **Documentation**. Primitives supplies shared controls, themes, actions and sections; Application supplies pages, shells and collection/detail compositions; [Documentation](Documentation/README.md) supplies authoring, navigation and preview mechanics. Marketing and Ecommerce implementation and connected examples are in progress—see the repository coverage inventory, not this namespace list, for current acceptance status.
+The unified library currently supplies **Primitives**, **Application**, and **Documentation**. Primitives supplies shared controls, themes, actions and sections; Application supplies pages, shells and collection/detail compositions; [Documentation](Documentation/README.md) supplies authoring, navigation and preview mechanics. Marketing and Ecommerce will be added when their reusable components and connected examples are implemented.
 
 ## Render a component
 

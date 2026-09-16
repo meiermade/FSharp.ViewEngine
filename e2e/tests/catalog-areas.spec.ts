@@ -4,8 +4,6 @@ import AxeBuilder from '@axe-core/playwright'
 const families = [
   ['Primitives', '/components/primitives'],
   ['Application', '/components/application'],
-  ['Marketing', '/components/marketing'],
-  ['Ecommerce', '/components/ecommerce'],
   ['Documentation', '/docs'],
 ] as const
 
@@ -17,12 +15,12 @@ test.beforeEach(async ({ page }) => {
   )
 })
 
-test('five catalog families expose Application examples and preserve morph history', crossBrowser, async ({ page }) => {
+test('delivered catalog families expose Application examples and preserve morph history', crossBrowser, async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components')
   const cards = page.locator('#page-content .docs-catalog-grid')
-  await expect(cards.getByRole('link')).toHaveCount(5)
+  await expect(cards.getByRole('link')).toHaveCount(3)
   for (const [name, path] of families) {
     await expect(cards.getByRole('link', { name: new RegExp(`^${name} `) })).toHaveAttribute('href', path)
     await expect(page.getByRole('button', { name: `Toggle ${name} section`, exact: true })).toBeVisible()
@@ -62,21 +60,12 @@ test('catalog search and pagers use family destinations without pretending unfin
   await page.goto('/components/application')
   await page.getByRole('button', { name: 'Search documentation', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Search documentation', exact: true })
-  await dialog.getByRole('searchbox').fill('Marketing')
-  const result = dialog.locator('[data-docs-search-entry][href="/components/marketing"]')
+  await dialog.getByRole('searchbox').fill('Documentation')
+  const result = dialog.locator('[data-docs-search-entry][href="/docs"]')
   await expect(result).toBeVisible()
   await result.focus()
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL('/components/marketing')
-  await expect(page.getByRole('heading', { name: 'Marketing', level: 1, exact: true })).toBeVisible()
-  for (const [name, next] of [['Marketing', '/components/ecommerce'], ['Ecommerce', '/docs']]) {
-    await expect(page.getByRole('heading', { name: 'Not yet implemented', exact: true })).toBeVisible()
-    await expect(page.locator('#page-content [data-docs-example]')).toHaveCount(0)
-    const nextLink = page.getByRole('navigation', { name: 'Page navigation', exact: true }).locator('a[rel="next"]')
-    await expect(nextLink, name).toHaveAttribute('href', next)
-    await nextLink.click()
-    await expect(page).toHaveURL(next)
-  }
+  await expect(page).toHaveURL('/docs')
   await expect(page.getByRole('heading', { name: 'Documentation', level: 1, exact: true })).toBeVisible()
   await page.reload()
   await expect(page.getByRole('button', { name: 'Toggle Documentation section', exact: true })).toHaveAttribute('aria-expanded', 'true')

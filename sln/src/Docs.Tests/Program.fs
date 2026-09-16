@@ -61,8 +61,6 @@ let private expectedPaths =
         "/components"
         "/components/primitives"
         "/components/application"
-        "/components/marketing"
-        "/components/ecommerce"
         "/components/installation"
         "/components/button"
         "/components/icon-button"
@@ -207,8 +205,8 @@ let tests =
             let components = Registry.navigation |> List.find (fun section -> section.label = "FSharp.ViewEngine.Components")
             Expect.sequenceEqual
                 (components.sections |> List.map _.label)
-                [ "Guides"; "Primitives"; "Application"; "Marketing"; "Ecommerce"; "Documentation" ]
-                "all five catalog areas belong to the Components package"
+                [ "Guides"; "Primitives"; "Application"; "Documentation" ]
+                "delivered catalog areas belong to the Components package"
 
             let rec findSection label sections =
                 sections
@@ -259,7 +257,7 @@ let tests =
             Expect.sequenceEqual (section "Layout foundations") [ "Section"; "Browser"; "Phone" ] "shared framing primitives are catalogued with Section"
             Expect.sequenceEqual (section "Shells and pages") [ "App shell"; "Page"; "Page top bar"; "Page header" ] "Application shell and page compositions"
             Expect.sequenceEqual (section "Collections and details") [ "Collection"; "Detail" ] "Application record compositions"
-            for area in [ "Primitives"; "Application"; "Marketing"; "Ecommerce" ] do
+            for area in [ "Primitives"; "Application" ] do
                 Expect.sequenceEqual (section area) [ "Overview" ] $"{area} has a real index destination"
             Expect.sequenceEqual (section "Guides") [ "Interaction and server state"; "Accessibility"; "Theming and density"; "Tailwind CSS"; "Customization"; "Versioning" ] "shared Components guides"
             Expect.sequenceEqual (section "Project") [ "Benchmarks"; "Changelog" ] "project order"
@@ -267,7 +265,7 @@ let tests =
 
         test "Catalog families have unique ownership, honest indexes and registry-derived pagers" {
             let families = Catalog.navigation
-            Expect.sequenceEqual (families |> List.map _.label) [ "Primitives"; "Application"; "Marketing"; "Ecommerce"; "Documentation" ] "five public family names"
+            Expect.sequenceEqual (families |> List.map _.label) [ "Primitives"; "Application"; "Documentation" ] "delivered public family names"
             let rec flatten (group:NavSection) = group.pages @ (group.sections |> List.collect flatten)
             let familyPages = families |> List.collect flatten
             Expect.equal (familyPages |> List.map _.path |> Set.ofList |> Set.count) familyPages.Length "each family route occurs exactly once"
@@ -277,10 +275,6 @@ let tests =
             let root = Catalog.overviewPage |> FSharp.ViewEngine.Components.Documentation.DocsView.content |> Render.toString
             for family in families do
                 Expect.stringContains root ($"href=\"{family.pages.Head.path}\"") "each area has a working root-index link"
-            for slug in [ "marketing"; "ecommerce" ] do
-                let html = Catalog.tryPage ("/components/" + slug) |> Option.get |> FSharp.ViewEngine.Components.Documentation.DocsView.content |> Render.toString
-                Expect.stringContains html "Not yet implemented" "unfinished family is not presented as a working library"
-                Expect.isFalse (html.Contains("data-docs-example")) "planned coverage is not a fake executable example"
             for index, page in List.indexed Registry.all do
                 let html = View.document Registry.navigation page |> Render.toString
                 let pager = Regex.Match(html, "<nav aria-label=\"Page navigation\"[^>]*>.*?</nav>", RegexOptions.Singleline).Value
@@ -751,7 +745,7 @@ after"""
             Expect.stringContains overview "Browse components" "component catalog link"
             Expect.stringContains overview "Browse page examples" "page-example catalog link"
             Expect.isFalse (overview.Contains("Example content")) "overview omits the old fixture callout"
-            Expect.stringContains overview "rel=\"prev\" href=\"/components/ecommerce\"" "Documentation follows Ecommerce in the family order"
+            Expect.stringContains overview "rel=\"prev\" href=\"/components/form-layouts\"" "Documentation follows the Application catalog in the family order"
             Expect.stringContains overview "rel=\"next\" href=\"/docs/components/layouts\"" "overview continues to layouts"
 
             for registration in Showcase.componentRegistrations @ Showcase.pageExampleRegistrations do
