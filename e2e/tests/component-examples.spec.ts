@@ -280,10 +280,21 @@ test('Operational application examples preserve native input and recoverable act
   await steps.getByRole('button', { name: 'Continue', exact: true }).click()
   await expect(steps.getByRole('status')).toHaveText('Reconciliation is ready for server validation.')
 
+  const identity = page.locator('#components-identity-copy-reveal-panel-preview')
   const credential = page.locator('#demo-token')
+  const reveal = identity.getByRole('button', { name: 'Reveal', exact: true })
   await expect(credential).toHaveAttribute('type', 'password')
-  await page.locator('#components-identity-copy-reveal-panel-preview').getByRole('button', { name: 'Reveal', exact: true }).click()
+  await reveal.focus()
+  await page.keyboard.press('Space')
   await expect(credential).toHaveAttribute('type', 'text')
+  await expect(identity.getByRole('button', { name: 'Hide', exact: true })).toBeFocused()
+
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } }))
+  await identity.getByRole('button', { name: 'Copy', exact: true }).click()
+  await expect(identity.getByRole('status')).toHaveText('Could not copy Demo API token. Check clipboard permissions.')
+  await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.resolve() } }))
+  await identity.getByRole('button', { name: 'Copy', exact: true }).click()
+  await expect(identity.getByRole('status')).toHaveText('Demo API token copied.')
 })
 
 test('AppShell mobile bottom navigation remains visible link navigation above page scroll @cross-browser', async ({ page }) => {
