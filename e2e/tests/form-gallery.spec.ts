@@ -86,8 +86,8 @@ for (const [title, prefix, endpoint] of [
 }
 
 for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
-  test(`form galleries keep focused layouts and readable fields at ${width}px ${scale}x`, crossBrowser, async ({ page }, testInfo) => {
-    for (const slug of ['input', 'textarea', 'select', 'checkbox', 'switch', 'radio-group', 'form-layouts']) {
+  for (const slug of ['input', 'textarea', 'select', 'checkbox', 'switch', 'radio-group', 'form-layouts']) {
+    test(`${slug} gallery keeps focused layouts and readable fields at ${width}px ${scale}x`, crossBrowser, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 1000 })
       await page.goto(`/components/${slug}`)
       for (const dark of [false, true]) {
@@ -101,15 +101,16 @@ for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1)
         for (const input of await gallery.locator('input:not([type="hidden"]), textarea').all()) {
           if (!await input.isVisible()) continue
-          const box = (await input.boundingBox())!
-          expect(box.x).toBeGreaterThanOrEqual(0)
-          expect(box.x + box.width).toBeLessThanOrEqual(width + 1)
+          const box = await input.boundingBox()
+          expect(box, `${slug} input must retain a measurable box`).not.toBeNull()
+          expect(box!.x).toBeGreaterThanOrEqual(0)
+          expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1)
           if (slug === 'input' || slug === 'textarea') await expect(input).toHaveCSS('font-size', `${16 * scale}px`)
         }
         if (slug === 'input' || slug === 'form-layouts') {
           await page.screenshot({ path: testInfo.outputPath(`${slug}-${dark ? 'dark' : 'light'}-${width}-${scale}x.png`) })
         }
       }
-    }
-  })
+    })
+  }
 }
