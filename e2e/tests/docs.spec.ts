@@ -2221,7 +2221,7 @@ test('inline prose links are visually identifiable and article pagers continue t
   const pager = page.getByRole('navigation', { name: 'Page navigation' })
   await expect(page.getByRole('link', { name: 'Browse components' })).toHaveAttribute('href', '/docs/components/layouts')
   await expect(page.getByRole('link', { name: 'Browse page examples' })).toHaveAttribute('href', '/docs/page-examples/documentation-site')
-  await expect(pager.getByRole('link', { name: /Previous Form layouts/ })).toHaveAttribute('href', '/components/form-layouts')
+  await expect(pager.getByRole('link', { name: /Previous Messaging/ })).toHaveAttribute('href', '/components/integrations/messaging')
   const next = pager.getByRole('link', { name: /Next Layouts/ })
   await expect(next).toBeVisible()
   await next.click()
