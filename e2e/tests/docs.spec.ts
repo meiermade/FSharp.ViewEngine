@@ -112,6 +112,25 @@ const routes = [
   { path: '/changelog', heading: 'Changelog', layout: 'article' },
 ]
 
+const componentAccessibilityRouteGroups = [
+  {
+    name: 'foundations and data display',
+    paths: ['/components', '/components/icon-button', '/components/action-cluster', '/components/row-actions', '/components/loading-indicator', '/components/progress', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination'],
+  },
+  {
+    name: 'fields and navigation',
+    paths: ['/components/avatar', '/components/copy-reveal', '/components/file-selection', '/components/tag-input', '/components/select', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/breadcrumbs', '/components/side-nav', '/components/bottom-navigation'],
+  },
+  {
+    name: 'choices overlays and page composition',
+    paths: ['/components/tabs', '/components/radio-group', '/components/choice-cards', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/page-top-bar', '/components/page-header', '/components/section', '/components/page'],
+  },
+  {
+    name: 'application and integrations',
+    paths: ['/components/app-shell', '/components/bulk-actions', '/components/upload', '/components/steps', '/components/first-steps', '/components/calendar', '/components/media-library', '/components/integrations/graph-and-trace', '/components/integrations/financial-chart', '/components/integrations/messaging'],
+  },
+]
+
 function captureBrowserErrors(page: Page) {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
@@ -916,8 +935,28 @@ test('DropdownMenu preserves groups, alignment, activation, sibling dismissal, m
   expect(browserErrors).toEqual([])
 })
 
-test('Components layouts, accessibility, catalog, and responsive previews remain coherent', crossBrowser, async ({ page }, testInfo) => {
-  test.slow()
+test.describe('Components route accessibility', () => {
+  for (const group of componentAccessibilityRouteGroups) {
+    test(`${group.name} remain accessible`, crossBrowser, async ({ page }) => {
+      await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
+        route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
+      )
+      const browserErrors = captureBrowserErrors(page)
+
+      for (const path of group.paths) {
+        await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
+        const results = await new AxeBuilder({ page })
+          .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
+          .analyze()
+        expect(results.violations, path).toEqual([])
+      }
+
+      expect(browserErrors).toEqual([])
+    })
+  }
+})
+
+test('Components layouts, catalog, and responsive previews remain coherent', crossBrowser, async ({ page }, testInfo) => {
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   )
@@ -975,14 +1014,6 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   await completedTab.press('ArrowLeft')
   await expect(upcomingTab).toBeFocused()
   await expect(upcomingTab).toHaveAttribute('aria-selected', 'true')
-
-  for (const path of ['/components', '/components/icon-button', '/components/action-cluster', '/components/row-actions', '/components/loading-indicator', '/components/progress', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/avatar', '/components/copy-reveal', '/components/file-selection', '/components/tag-input', '/components/select', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/breadcrumbs', '/components/side-nav', '/components/bottom-navigation', '/components/tabs', '/components/radio-group', '/components/choice-cards', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/page-top-bar', '/components/page-header', '/components/section', '/components/page', '/components/app-shell', '/components/bulk-actions', '/components/upload', '/components/steps', '/components/first-steps', '/components/calendar', '/components/media-library', '/components/integrations/graph-and-trace', '/components/integrations/financial-chart', '/components/integrations/messaging']) {
-    await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
-    const results = await new AxeBuilder({ page })
-      .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-      .analyze()
-    expect(results.violations, path).toEqual([])
-  }
 
   await gotoAfterDocsAssetSettlement(page, '/components', 'domcontentloaded')
   const catalog = page.locator('.docs-catalog-grid')

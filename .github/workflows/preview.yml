@@ -63,9 +63,7 @@ jobs:
   e2e:
     name: E2E (${{ matrix.browser }})
     runs-on: ubuntu-latest
-    # The expanded dedicated component catalog runs 194 focused Firefox/WebKit checks serially.
-    # Keep individual Playwright assertion/test timeouts unchanged; this only bounds the complete matrix job.
-    timeout-minutes: 25
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
