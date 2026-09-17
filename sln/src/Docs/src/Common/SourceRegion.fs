@@ -43,6 +43,34 @@ module SourceRegion =
         |> String.concat "\n"
         |> _.Trim('\n')
 
+    /// Supporting definitions from the four-space-indented Docs source modules.
+    /// Preserve source order so the setup and example can compile together.
+    let declarations names source =
+        let sourceLines = lines source
+        let declaration = System.Text.RegularExpressions.Regex("^    (?:let (?:private )?|type )([A-Za-z][A-Za-z0-9_']*)\\b")
+        let definitions =
+            sourceLines
+            |> Array.indexed
+            |> Array.choose (fun (index, line) ->
+                let matched = declaration.Match line
+                if matched.Success then Some(index, matched.Groups[1].Value) else None)
+        for name in names do
+            if definitions |> Array.filter (fun (_, candidate) -> candidate = name) |> Array.length <> 1 then
+                invalidArg (nameof names) $"Supporting definition '{name}' must exist exactly once."
+        definitions
+        |> Array.indexed
+        |> Array.choose (fun (position, (start, name)) ->
+            if not (List.contains name names) then None
+            else
+                let finish = if position + 1 < definitions.Length then fst definitions[position + 1] else sourceLines.Length
+                sourceLines[start..finish - 1]
+                |> Array.filter (fun line -> not (line.TrimStart().StartsWith("// docs-example:", StringComparison.Ordinal)))
+                |> Array.map (fun line -> if line.StartsWith("    ", StringComparison.Ordinal) then line[4..] else line)
+                |> String.concat "\n"
+                |> _.Trim()
+                |> Some)
+        |> String.concat "\n\n"
+
     let readEmbedded (assembly:Assembly) resourceName =
         use stream = assembly.GetManifestResourceStream resourceName
         if isNull stream then

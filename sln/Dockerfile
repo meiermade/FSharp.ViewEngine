@@ -4,7 +4,7 @@ WORKDIR /app
 
 # install tailwindcss v4 CLI (match builder platform)
 RUN ARCH=$(uname -m | sed 's/aarch64/arm64/' | sed 's/x86_64/x64/') \
-    && curl -fsSLo /usr/local/bin/tailwindcss "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.3.3/tailwindcss-linux-${ARCH}" \
+    && curl -fsSLo /usr/local/bin/tailwindcss "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.2.2/tailwindcss-linux-${ARCH}" \
     && chmod +x /usr/local/bin/tailwindcss
 
 # restore tools
@@ -22,7 +22,7 @@ RUN chmod +x ./fake.sh
 
 # verify the external-library Tailwind contracts, then publish the docs app
 RUN bash src/FSharp.ViewEngine.Components/verify-tailwind.sh
-RUN bash src/FSharp.ViewEngine.Docs/verify-tailwind.sh
+RUN bash src/FSharp.ViewEngine.Components/Documentation/verify-tailwind.sh
 RUN ./fake.sh PublishDocs
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble-chiseled-extra AS runner

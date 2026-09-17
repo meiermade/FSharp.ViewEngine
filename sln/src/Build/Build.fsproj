@@ -9,6 +9,7 @@
     <Compile Include="Release.fs" />
     <Compile Include="PackagePublishing.fs" />
     <Compile Include="PackageVerification.fs" />
+    <Compile Include="WatchDocs.fs" />
     <Compile Include="Program.fs" />
     <Content Include="paket.references" />
   </ItemGroup>

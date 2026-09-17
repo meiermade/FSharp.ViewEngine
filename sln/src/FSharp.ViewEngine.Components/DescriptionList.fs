@@ -1,4 +1,4 @@
-namespace FSharp.ViewEngine.Components
+namespace FSharp.ViewEngine.Components.Primitives
 
 open System
 open FSharp.ViewEngine
@@ -9,6 +9,7 @@ type DescriptionListColumns =
     | One
     | Two
     | Three
+    | Four
 
 [<NoEquality; NoComparison>]
 type DetailFieldConfig =
@@ -43,9 +44,9 @@ module DetailField =
         div {
             _class "min-w-0"
             for attribute in ComponentHtml.safeAttributes [ "class"; "role" ] config.attributes do attribute
-            dt { _class "text-xs font-medium text-[var(--fve-muted-text)]"; config.label }
+            dt { _class "break-words text-xs font-medium uppercase tracking-wide text-[var(--fve-muted-text)]"; config.label }
             dd {
-                _class "mt-1 break-words text-sm font-medium text-[var(--fve-text)]"
+                _class "mt-1 break-words text-sm font-normal text-[var(--fve-text)]"
                 config.value
                 match config.description with
                 | Some description -> p { _class "mt-1 text-xs font-normal text-[var(--fve-muted-text)]"; description }
@@ -70,9 +71,10 @@ module DescriptionList =
             | DescriptionListColumns.One -> "grid-cols-1"
             | DescriptionListColumns.Two -> "grid-cols-1 sm:grid-cols-2"
             | DescriptionListColumns.Three -> "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+            | DescriptionListColumns.Four -> "grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
 
         dl {
-            _class (ComponentHtml.classes [ "grid gap-x-6 gap-y-5"; columns ])
+            _class (ComponentHtml.classes [ "grid gap-x-6 gap-y-4"; columns ])
             for attribute in ComponentHtml.safeAttributes [ "class"; "role" ] config.attributes do attribute
             for field in config.fields do DetailField.render field
         }

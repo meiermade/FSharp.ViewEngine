@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @import "../FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.tailwind.css";
-@import "../FSharp.ViewEngine.Docs/FSharp.ViewEngine.Docs.tailwind.css";
+@import "../FSharp.ViewEngine.Components/Documentation/Documentation.tailwind.css";
 @source "./src/**/*.fs";
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
@@ -38,28 +38,33 @@
   overflow: visible;
 }
 
-.spec-example:has(.fve-components) > [role="tabpanel"] {
+.spec-example:not(.spec-example-gallery):has(.fve-components) > [role="tabpanel"] {
   border-bottom-right-radius: calc(0.75rem - 1px);
   border-bottom-left-radius: calc(0.75rem - 1px);
 }
 
+/* Application compositions use the complete preview width instead of an inset demo canvas. */
+.spec-example:has([data-fve-full-bleed-example="true"]) > .spec-example-preview {
+  padding: 0;
+}
+
 /* The Docs application supplies its own consumer theme around package examples. */
-.docs-components-preview .fve-components {
+.docs-components-preview .fve-components.fve-components {
   --fve-page: var(--spec-bg);
   --fve-surface: var(--spec-input-bg);
   --fve-surface-subtle: var(--spec-subtle);
   --fve-surface-hover: var(--spec-hover);
   --fve-surface-active: var(--spec-border);
   --fve-text: var(--spec-text);
-  --fve-muted-text: var(--spec-muted);
+  --fve-muted-text: var(--spec-text-secondary);
   --fve-border: var(--spec-border-strong);
   --fve-overlay-backdrop: color-mix(in oklab, var(--spec-text) 55%, transparent);
   --fve-neutral-subtle: var(--spec-hover);
   --fve-neutral-text: var(--spec-text-secondary);
   --fve-neutral-ring: var(--spec-border-strong);
   --fve-brand-subtle: var(--spec-selection-bg);
-  --fve-brand-solid: var(--spec-accent-500);
-  --fve-brand-hover: var(--spec-accent-700);
+  --fve-brand-solid: var(--spec-accent-700);
+  --fve-brand-hover: color-mix(in oklab, var(--spec-accent-700) 80%, var(--spec-accent-900));
   --fve-brand-active: var(--spec-accent-900);
   --fve-brand-text: var(--spec-selection-text);
   --fve-brand-ring: var(--spec-accent-500);
@@ -921,6 +926,64 @@
   color: white;
 }
 
+/* The App-mode product fixture follows the document-wide color preference. */
+.dark .docs-product-screen {
+  background: #0f172a;
+  color: #f8fafc;
+}
+
+.dark .docs-product-header {
+  border-color: #334155;
+  background: #111827;
+}
+
+.dark .docs-product-header span {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.dark .docs-product-content > small {
+  color: #38bdf8;
+}
+
+.dark .docs-product-content > p {
+  color: #94a3b8;
+}
+
+.dark .docs-product-card {
+  border-color: #334155;
+  background: #111827;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
+}
+
+.dark .docs-product-card input {
+  border-color: #475569;
+  background: #0f172a;
+  color: #e2e8f0;
+}
+
+.dark .docs-product-card input::placeholder {
+  color: #94a3b8;
+}
+
+.dark .docs-product-error {
+  color: #fca5a5;
+}
+
+.dark .docs-product-actions button,
+.dark .docs-navigation-actions button,
+.dark .docs-navigation-actions a {
+  border-color: #475569;
+  background: #1e293b;
+  color: #e2e8f0;
+}
+
+.dark .docs-product-actions .docs-product-primary {
+  border-color: #0284c7;
+  background: #0284c7;
+  color: white;
+}
+
 .docs-navigation-actions {
   display: flex;
   min-height: 12rem;
@@ -1123,3 +1186,15 @@
 .prose code::after {
   content: none !important;
 }
+
+/* Documentation's phone fixture supplies product content inside the shared Phone primitive. */
+.fve-phone-screen:has(.docs-app-mode-phone-screen) { --fve-surface: var(--spec-bg); --fve-text: var(--spec-text); }
+.docs-app-mode-phone-screen { display: flex; min-height: 100%; flex-direction: column; background: var(--spec-bg); color: var(--spec-text); }
+.docs-app-mode-phone-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--spec-border); padding: 1rem 1.25rem; }
+.docs-app-mode-phone-header > span { display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border-radius: 50%; background: var(--spec-accent-100); color: var(--spec-accent-900); font-size: var(--docs-text-ancillary); font-weight: 700; }
+.docs-app-mode-phone-content { display: grid; flex: 1; align-content: start; gap: 1rem; padding: 2rem 1.25rem; }
+.docs-app-mode-phone-content small { color: var(--spec-muted); font-size: var(--docs-text-ancillary); font-weight: 700; letter-spacing: .08em; }
+.docs-app-mode-phone-content h3, .docs-app-mode-phone-content p { margin: 0; }
+.docs-app-mode-phone-content p { color: var(--spec-text-secondary); }
+.docs-app-mode-phone-content input { min-height: 2.75rem; border: 1px solid var(--spec-border-strong); border-radius: .5rem; background: var(--spec-input-bg); padding: .5rem .75rem; color: var(--spec-text); font: inherit; }
+.docs-app-mode-phone-content button { justify-self: stretch; }

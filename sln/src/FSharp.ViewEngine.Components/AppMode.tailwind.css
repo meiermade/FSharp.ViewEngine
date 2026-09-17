@@ -1,0 +1,53 @@
+/* Optional viewport expansion for Browser.withAppMode and Phone.withAppMode. */
+html[data-fve-app-mode-ready="true"], html[data-fve-app-mode-ready="true"] body { overflow: hidden; }
+[data-fve-app-mode-hidden="true"] { visibility: hidden; pointer-events: none; }
+.fve-app-mode-frame { position: relative; }
+.fve-app-mode-launch { position: absolute; z-index: 2; top: .75rem; right: .75rem; display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid var(--fve-border, #d4d4d4); border-radius: .375rem; background: var(--fve-surface, white); color: var(--fve-text, #171717); cursor: pointer; box-shadow: 0 1px 3px rgb(0 0 0 / 12%); }
+.fve-app-mode-launch:hover { background: var(--fve-surface-hover, #f5f5f5); }
+.fve-app-mode-launch:focus-visible, [data-fve-app-mode-controls="true"] a:focus-visible, [data-fve-app-mode-controls="true"] button:focus-visible, [data-fve-app-mode-controls="true"] .fve-popup-control:focus-visible { outline: 2px solid var(--fve-brand-ring, #2563eb); outline-offset: 2px; }
+.fve-app-mode-launch svg { width: 1rem; height: 1rem; }
+[data-fve-app-mode-navigation="true"], [data-fve-app-mode-state-destinations="true"] { display: none; }
+[data-fve-app-mode-root="true"], [data-fve-app-mode-controls="true"] { visibility: visible; }
+[data-fve-app-mode-root="true"] { position: fixed; inset: 0; z-index: 100; overflow: auto; background: var(--fve-page, #fff); color: var(--fve-text, #171717); }
+[data-fve-app-mode-root="true"][data-fve-app-mode-surface="browser"] > * { min-height: 100dvh; }
+[data-fve-app-mode-root="true"][data-fve-app-mode-surface="phone"] { display: grid; place-items: center; padding: 1rem; background: var(--fve-surface-subtle, #fafafa); }
+[data-fve-app-mode-root="true"][data-fve-app-mode-surface="phone"] > * { width: min(100%, 21.5rem); max-height: 100%; }
+[data-fve-app-mode-controls="true"] { position: fixed; z-index: 110; right: max(.75rem, env(safe-area-inset-right)); bottom: max(.5rem, env(safe-area-inset-bottom)); display: flex; max-width: calc(100vw - 1.5rem); min-height: 2.5rem; align-items: center; gap: .125rem; border: 1px solid var(--fve-border); border-radius: var(--fve-radius-panel); background: var(--fve-surface); padding: .25rem; color: var(--fve-text); font: 600 .75rem/1 ui-sans-serif, system-ui, sans-serif; box-shadow: 0 12px 32px rgb(0 0 0 / 20%); backdrop-filter: blur(14px); }
+[data-fve-app-mode-controls="true"][data-fve-app-dock="top"] { top: max(.5rem, env(safe-area-inset-top)); bottom: auto; }
+[data-fve-app-mode-controls="true"] > a, [data-fve-app-mode-controls="true"] > button, [data-fve-app-mode-controls="true"] > span[aria-disabled="true"] { display: grid; width: 2rem; height: 2rem; flex: none; place-items: center; border: 0; border-radius: var(--fve-radius-control); background: transparent; color: inherit; font: inherit; text-decoration: none; cursor: pointer; }
+[data-fve-app-mode-controls="true"] > span[aria-disabled="true"] { color: var(--fve-muted-text); cursor: default; }
+[data-fve-app-mode-controls="true"] > a:hover, [data-fve-app-mode-controls="true"] > button:hover, [data-fve-app-mode-state-select="true"] .fve-popup-control:hover { background: var(--fve-surface-hover); }
+[data-fve-app-mode-controls="true"] svg { width: 1rem; height: 1rem; }
+[data-fve-app-mode-divider="true"] { width: 1px; height: 1.25rem; margin-inline: .15rem; background: var(--fve-border); }
+[data-fve-app-mode-state-select="true"] { display: block; min-width: 0; max-width: min(14rem, 42vw); }
+[data-fve-app-mode-state-select="true"] > div { display: block; }
+[data-fve-app-mode-state-select="true"] .fve-popup-control { display: flex; min-height: 2rem; width: auto; max-width: 100%; align-items: center; gap: .55rem; border: 0; border-radius: var(--fve-radius-control); background: transparent; padding: 0 .55rem; color: inherit; font: inherit; line-height: 1; box-shadow: none; }
+[data-fve-app-mode-state-select="true"] .fve-popup-control > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+[data-fve-app-mode-state-select="true"] [role="group"] { z-index: 120; min-width: 10rem; border: 1px solid var(--fve-border); border-radius: var(--fve-radius-panel); background: var(--fve-surface); padding: .25rem; color: var(--fve-text); box-shadow: 0 16px 40px rgb(0 0 0 / 20%); }
+[data-fve-app-mode-state-select="true"] [role="option"] { display: flex; min-height: 2rem; align-items: center; color: inherit; font: inherit; line-height: 1; }
+/* The compact dock deliberately uses a quiet row hover for its review-state Select. */
+[data-fve-app-mode-controls="true"][data-fve-color-mode][data-fve-app-dock] [data-fve-app-mode-state-select="true"] .fve-popup-item:where(:not(:disabled):not([aria-disabled="true"])):is(:focus, [data-active="true"]),
+[data-fve-app-mode-controls="true"][data-fve-color-mode][data-fve-app-dock] [data-fve-app-mode-state-select="true"] .fve-popup-item[aria-selected="true"]:is(:focus, [data-active="true"]) { background-color: var(--fve-surface-hover); color: var(--fve-text); }
+/* App mode uses the normal Components color tokens, explicitly scoped to the
+   inverse of the current document appearance. */
+[data-fve-app-mode-controls="true"][data-fve-color-mode="dark"] { color-scheme: dark; }
+[data-fve-app-mode-controls="true"][data-fve-color-mode="light"] { color-scheme: light; }
+[data-fve-app-mode-controls="true"] .spec-color-mode { flex: none; }
+/* Browser is a Primitive: its treatment does not require Documentation styles. */
+.spec-browser-frame { width: 100%; min-width: 0; overflow: hidden; border: 1px solid var(--fve-border, #d4d4d4); border-radius: .75rem; background: var(--fve-surface, white); box-shadow: 0 1px 2px rgb(0 0 0 / 5%); }
+.spec-browser-toolbar { display: flex; align-items: center; gap: .75rem; border-bottom: 1px solid var(--fve-border, #d4d4d4); background: var(--fve-surface-subtle, #f5f5f5); padding: .5rem .75rem; }
+.spec-browser-dots { display: flex; flex: none; gap: .375rem; }
+.spec-browser-dot { width: .625rem; height: .625rem; border-radius: 999px; }
+.spec-browser-dot-red { background: #f87171; }.spec-browser-dot-amber { background: #fbbf24; }.spec-browser-dot-green { background: #34d399; }
+.spec-browser-address { display: flex; min-width: 0; flex: 1; align-items: center; gap: .5rem; border: 1px solid var(--fve-border, #d4d4d4); border-radius: .375rem; background: var(--fve-surface, white); padding: .375rem .75rem; color: var(--fve-muted-text, #525252); font-size: .75rem; font-weight: 500; box-shadow: 0 1px 2px rgb(0 0 0 / 4%); }
+.spec-browser-address svg { width: .75rem; height: .75rem; flex: none; color: var(--fve-muted-text, #737373); }.spec-browser-address span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Enslie-inspired device hardware; product UI remains the Phone content slot. */
+.fve-phone { position: relative; width: min(19.25rem, 100%); height: 40rem; max-height: 100%; margin-inline: auto; border: 5px solid #525252; border-radius: 3.25rem; background: #09090b; padding: .375rem; box-shadow: 0 24px 48px rgb(0 0 0 / 24%); }
+.fve-phone-screen { display: flex; height: 100%; min-height: 0; flex-direction: column; overflow: hidden; border-radius: 2.8rem; background: var(--fve-surface, white); }
+.fve-phone-status { display: grid; height: 3rem; flex: none; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; background: var(--fve-surface, white); padding: .5rem 1.25rem 0; color: var(--fve-text, #171717); font-size: .75rem; font-weight: 600; }
+.fve-phone-status > :last-child { justify-self: end; }
+.fve-phone-camera { width: 4rem; height: 1.125rem; border-radius: 999px; background: #0a0a0a; }
+.fve-phone-content { min-height: 0; flex: 1; overflow: auto; overscroll-behavior: contain; }
+.fve-phone-side-button { position: absolute; z-index: -1; width: .375rem; border-radius: .25rem; background: #525252; }
+.fve-phone-side-button-volume-up { left: -.6rem; top: 7rem; height: 2.5rem; }.fve-phone-side-button-volume-down { left: -.6rem; top: 10.25rem; height: 2.5rem; }.fve-phone-side-button-power { right: -.6rem; top: 8.5rem; height: 5rem; }
+@media (max-width: 32rem) { [data-fve-app-mode-controls="true"] { right: .5rem; bottom: .5rem; } [data-fve-app-mode-controls="true"][data-fve-app-dock="top"] { top: .5rem; bottom: auto; } [data-fve-app-mode-root="true"][data-fve-app-mode-surface="phone"] { place-items: stretch; padding: 0; } [data-fve-app-mode-root="true"][data-fve-app-mode-surface="phone"] > * { width: 100%; max-height: none; } [data-fve-app-mode-root="true"][data-fve-app-mode-surface="phone"] .fve-phone { width: 100%; height: 100dvh; max-height: none; border: 0; border-radius: 0; padding: 0; box-shadow: none; } [data-fve-app-mode-root="true"][data-fve-app-mode-surface="phone"] .fve-phone-screen { border-radius: 0; } [data-fve-app-mode-root="true"][data-fve-app-mode-surface="phone"] .fve-phone-side-button { display: none; } }

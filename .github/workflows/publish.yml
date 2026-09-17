@@ -10,10 +10,9 @@ on:
         options:
           - core
           - components
-          - docs
           - both
       coreVersion:
-        description: FSharp.ViewEngine version; required for core
+        description: FSharp.ViewEngine version; required for core or both
         required: false
         type: string
       componentsVersion:
@@ -21,15 +20,7 @@ on:
         required: false
         type: string
       componentsMinimumCoreVersion:
-        description: Minimum Core version for FSharp.ViewEngine.Components; required for components or both
-        required: false
-        type: string
-      docsVersion:
-        description: FSharp.ViewEngine.Docs version; required for docs or both
-        required: false
-        type: string
-      docsMinimumComponentsVersion:
-        description: Minimum Components version for a Docs-only release
+        description: Minimum published Core version; required only for components (both uses coreVersion)
         required: false
         type: string
 
@@ -74,8 +65,6 @@ jobs:
           CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
           COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
           COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
-          DOCS_PACKAGE_VERSION: ${{ inputs.docsVersion }}
-          DOCS_MINIMUM_COMPONENTS_VERSION: ${{ inputs.docsMinimumComponentsVersion }}
         run: ./fake.sh ValidateReleaseSelection --single-target
         working-directory: ./sln
       - name: Record release source
@@ -86,7 +75,7 @@ jobs:
         working-directory: ./sln
 
       - name: Prepare Core release
-        if: inputs.packages == 'core'
+        if: inputs.packages == 'core' || inputs.packages == 'both'
         env:
           PACKAGE_ID: FSharp.ViewEngine
           PACKAGE_VERSION: ${{ inputs.coreVersion }}
@@ -95,20 +84,20 @@ jobs:
         run: ./fake.sh PrepareRelease --single-target
         working-directory: ./sln
       - name: Pack Core package
-        if: inputs.packages == 'core'
+        if: inputs.packages == 'core' || inputs.packages == 'both'
         env:
           PACKAGE_ID: FSharp.ViewEngine
           PACKAGE_VERSION: ${{ inputs.coreVersion }}
         run: ./fake.sh Pack --single-target
         working-directory: ./sln
       - name: Verify Core package
-        if: inputs.packages == 'core'
+        if: inputs.packages == 'core' || inputs.packages == 'both'
         env:
           PACKAGE_ID: FSharp.ViewEngine
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
       - name: Stage verified Core release
-        if: inputs.packages == 'core'
+        if: inputs.packages == 'core' || inputs.packages == 'both'
         env:
           PACKAGE_VERSION: ${{ inputs.coreVersion }}
           RELEASE_METADATA_PATH: ${{ runner.temp }}/core-release-metadata.json
@@ -118,7 +107,7 @@ jobs:
           cp "nugets/FSharp.ViewEngine.${PACKAGE_VERSION}.snupkg" release/core/
           cp "$RELEASE_METADATA_PATH" release/core/release-metadata.json
       - name: Record Core checksums
-        if: inputs.packages == 'core'
+        if: inputs.packages == 'core' || inputs.packages == 'both'
         env:
           PACKAGE_ID: FSharp.ViewEngine
           PACKAGE_DIRECTORY: ${{ github.workspace }}/release/core
@@ -130,7 +119,8 @@ jobs:
         env:
           PACKAGE_ID: FSharp.ViewEngine.Components
           PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion }}
+          LOCAL_DEPENDENCY_PACKAGE_PATH: ${{ inputs.packages == 'both' && format('{0}/nugets/FSharp.ViewEngine.{1}.nupkg', github.workspace, inputs.coreVersion) || '' }}
           MARK_LATEST: false
           RELEASE_METADATA_PATH: ${{ runner.temp }}/components-release-metadata.json
         run: ./fake.sh PrepareRelease --single-target
@@ -140,14 +130,14 @@ jobs:
         env:
           PACKAGE_ID: FSharp.ViewEngine.Components
           PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion }}
         run: ./fake.sh Pack --single-target
         working-directory: ./sln
       - name: Verify Components package
         if: inputs.packages == 'components' || inputs.packages == 'both'
         env:
           PACKAGE_ID: FSharp.ViewEngine.Components
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion }}
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
       - name: Stage verified Components release
@@ -165,50 +155,6 @@ jobs:
         env:
           PACKAGE_ID: FSharp.ViewEngine.Components
           PACKAGE_DIRECTORY: ${{ github.workspace }}/release/components
-        run: ./fake.sh RecordPackageChecksums --single-target
-        working-directory: ./sln
-
-      - name: Prepare Docs package release
-        if: inputs.packages == 'docs' || inputs.packages == 'both'
-        env:
-          PACKAGE_ID: FSharp.ViewEngine.Docs
-          PACKAGE_VERSION: ${{ inputs.docsVersion }}
-          DOCS_MINIMUM_COMPONENTS_VERSION: ${{ inputs.packages == 'both' && inputs.componentsVersion || inputs.docsMinimumComponentsVersion }}
-          LOCAL_DEPENDENCY_PACKAGE_PATH: ${{ github.workspace }}/nugets/FSharp.ViewEngine.Components.${{ inputs.packages == 'both' && inputs.componentsVersion || inputs.docsMinimumComponentsVersion }}.nupkg
-          MARK_LATEST: false
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/docs-release-metadata.json
-        run: ./fake.sh PrepareRelease --single-target
-        working-directory: ./sln
-      - name: Pack Docs package
-        if: inputs.packages == 'docs' || inputs.packages == 'both'
-        env:
-          PACKAGE_ID: FSharp.ViewEngine.Docs
-          PACKAGE_VERSION: ${{ inputs.docsVersion }}
-          DOCS_MINIMUM_COMPONENTS_VERSION: ${{ inputs.packages == 'both' && inputs.componentsVersion || inputs.docsMinimumComponentsVersion }}
-        run: ./fake.sh Pack --single-target
-        working-directory: ./sln
-      - name: Verify Docs package
-        if: inputs.packages == 'docs' || inputs.packages == 'both'
-        env:
-          PACKAGE_ID: FSharp.ViewEngine.Docs
-          DOCS_MINIMUM_COMPONENTS_VERSION: ${{ inputs.packages == 'both' && inputs.componentsVersion || inputs.docsMinimumComponentsVersion }}
-        run: ./fake.sh VerifyPackage --single-target
-        working-directory: ./sln
-      - name: Stage verified Docs release
-        if: inputs.packages == 'docs' || inputs.packages == 'both'
-        env:
-          PACKAGE_VERSION: ${{ inputs.docsVersion }}
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/docs-release-metadata.json
-        run: |
-          mkdir -p release/docs
-          cp "nugets/FSharp.ViewEngine.Docs.${PACKAGE_VERSION}.nupkg" release/docs/
-          cp "nugets/FSharp.ViewEngine.Docs.${PACKAGE_VERSION}.snupkg" release/docs/
-          cp "$RELEASE_METADATA_PATH" release/docs/release-metadata.json
-      - name: Record Docs checksums
-        if: inputs.packages == 'docs' || inputs.packages == 'both'
-        env:
-          PACKAGE_ID: FSharp.ViewEngine.Docs
-          PACKAGE_DIRECTORY: ${{ github.workspace }}/release/docs
         run: ./fake.sh RecordPackageChecksums --single-target
         working-directory: ./sln
 
@@ -255,7 +201,7 @@ jobs:
         with:
           user: ${{ vars.NUGET_USER }}
       - name: Publish FSharp.ViewEngine
-        if: inputs.packages == 'core'
+        if: inputs.packages == 'core' || inputs.packages == 'both'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
@@ -276,22 +222,8 @@ jobs:
           PACKAGE_DIRECTORY: ${{ runner.temp }}/release/components
           PACKAGE_ID: FSharp.ViewEngine.Components
           PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion }}
           MARK_LATEST: false
           RELEASE_METADATA_PATH: ${{ runner.temp }}/release/components/release-metadata.json
-        run: ./fake.sh PublishPackageRelease --single-target
-        working-directory: ./sln
-      - name: Publish FSharp.ViewEngine.Docs
-        if: inputs.packages == 'docs' || inputs.packages == 'both'
-        env:
-          GH_TOKEN: ${{ github.token }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/docs
-          PACKAGE_ID: FSharp.ViewEngine.Docs
-          PACKAGE_VERSION: ${{ inputs.docsVersion }}
-          DOCS_MINIMUM_COMPONENTS_VERSION: ${{ inputs.packages == 'both' && inputs.componentsVersion || inputs.docsMinimumComponentsVersion }}
-          MARK_LATEST: false
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/release/docs/release-metadata.json
         run: ./fake.sh PublishPackageRelease --single-target
         working-directory: ./sln

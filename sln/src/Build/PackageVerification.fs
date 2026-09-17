@@ -171,7 +171,7 @@ let private verifyDependency dependentPackageId expectedDependencyId expectedVer
 
 let private verifyComponentsContents (archive:ZipArchive) =
     let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
-    for required in [ "LICENSE"; "README.md"; "contentFiles/any/any/FSharp.ViewEngine.Components.tailwind.css" ] do
+    for required in [ "LICENSE"; "README.md"; "contentFiles/any/any/FSharp.ViewEngine.Components.tailwind.css"; "contentFiles/any/any/AppMode.tailwind.css"; "contentFiles/any/any/app-mode.js"; "contentFiles/any/any/Documentation/Documentation.tailwind.css" ] do
         if not (entries.Contains required) then fail $"Components package is missing {required}"
 
     let nuspecEntry =
@@ -193,11 +193,6 @@ let private verifyComponentsContents (archive:ZipArchive) =
     let licenseType = license.Attribute(XName.Get "type")
     if isNull licenseType || licenseType.Value <> "file" || license.Value <> "LICENSE" then
         fail "Components package license metadata is incorrect"
-
-let private verifyDocsContents (archive:ZipArchive) =
-    let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
-    for required in [ "LICENSE"; "README.md"; "contentFiles/any/any/FSharp.ViewEngine.Docs.tailwind.css" ] do
-        if not (entries.Contains required) then fail $"Docs package is missing {required}"
 
 let private testFrameworks () =
     let configured =
@@ -286,7 +281,8 @@ let private verifyFragmentAttributeRejection projectDirectory framework =
 
 let private componentsConsumerProgram =
     """open FSharp.ViewEngine
-open FSharp.ViewEngine.Components
+open FSharp.ViewEngine.Components.Primitives
+open FSharp.ViewEngine.Components.Application
 open type Html
 
 let icon = span { "+" }
@@ -305,6 +301,64 @@ let packageDrawer =
     Drawer.create "package-drawer" "Value settings" (nav { _ariaLabel "Value settings"; a { _href "/values"; "Values" } })
     |> Drawer.withSide DrawerSide.Start
 
+type PackageDestination = Home | Values | Value of int | Reports
+let destinationUrl = function Home -> "/" | Values -> "/values" | Value id -> $"/values/{id}" | Reports -> "/reports"
+
+let packageBreadcrumbs =
+    Breadcrumbs.create "package-breadcrumbs" "Breadcrumb" [
+        BreadcrumbItem.create Home "Home"
+        BreadcrumbItem.create Values "Values"
+        BreadcrumbItem.create (Value 42) "Value 42" ]
+
+let packageNavigation =
+    SideNav.create
+        "package-navigation"
+        "Package navigation"
+        (SideNavHeader.create "Package smoke" |> SideNavHeader.withContent (strong { icon; " Package smoke" }))
+        [ SideNavSection.group "Manage" [
+              SideNavItem.create Home "Home"
+              SideNavItem.create Values "Values"
+              SideNavItem.unavailable "Unavailable" ]
+          SideNavSection.group "Analyze" [ SideNavItem.create Reports "Reports" ] ]
+    |> SideNav.withCurrent Values
+    |> SideNav.withWidth SideNavWidth.Standard
+    |> SideNav.withContext (p { "Default workspace" })
+    |> SideNav.withMobileContext (p { "Default workspace" })
+    |> SideNav.withFooter (a { _href "/account"; "Account" })
+
+let packagePage =
+    let actions =
+        ActionCluster.create "package-page-actions" [
+            ApplicationAction.command "$refreshes++" "Refresh"
+            ApplicationAction.link Reports "Reports" ]
+        |> ActionCluster.withOverflow [ MenuItem.link Home "Home" ]
+    let topBar =
+        PageTopBar.create ()
+        |> PageTopBar.withContent (div { _class "flex min-h-[var(--fve-shell-bar-min-height)] items-center px-4"; Breadcrumbs.render destinationUrl packageBreadcrumbs })
+    PageHeader.create "Value 42"
+    |> PageHeader.withSubtitle "Current package value"
+    |> PageHeader.withActions actions
+    |> fun pageHeader -> Page.create pageHeader (p { "Value details" })
+    |> Page.withTopBar topBar
+    |> Page.withWidth PageWidth.Reading
+    |> Page.render destinationUrl
+
+let packageShell =
+    AppShell.create "package-shell" packageNavigation packagePage
+    |> AppShell.withTheme ComponentsTheme.emerald
+    |> AppShell.withBreakpoint AppShellBreakpoint.Large
+    |> AppShell.withBoundary AppShellBoundary.Container
+    |> AppShell.render destinationUrl
+
+let packageSection =
+    SectionHeader.create "Activity"
+    |> SectionHeader.withDivider
+    |> SectionHeader.withDescription "Recent package activity."
+    |> SectionHeader.withActions (ActionCluster.create "package-section-actions" [ ApplicationAction.link Reports "View reports" ])
+    |> fun sectionHeader -> Section.create sectionHeader (p { "No recent activity." })
+    |> Section.withSurface SectionSurface.Plain
+    |> Section.render destinationUrl
+
 let view =
     div {
         for attribute in ComponentsTheme.attributes ComponentsTheme.sky do
@@ -317,10 +371,18 @@ let view =
         EmptyState.create "No accounts" "Create an account to begin."
         |> EmptyState.withActions (Button.primary "Create account")
         |> EmptyState.render
-        Table.create "Values" [ Table.column "Value" text |> Table.asRowHeader ] [ "One" ]
+        Table.create "Values" [
+            Table.column "Value" text |> Table.asRowHeader |> Table.asMobilePrimary
+            Table.rowActionsColumn (fun value ->
+                RowActions.create $"{value}-actions" value [ MenuItem.link Values "View values" ]
+                |> RowActions.render destinationUrl) ] [ "One" ]
+        |> Table.withSelection (TableSelection.create "package-selection" id id |> TableSelection.withSelectedKeys [ "One" ])
+        |> Table.withMobileLayout TableMobileLayout.Records
         |> Table.withVisibleCaption
+        |> Table.withSurface TableSurface.Plain
         |> Table.render
         DescriptionList.create [ DetailField.text "Type" "Asset" ]
+        |> DescriptionList.withColumns DescriptionListColumns.Four
         |> DescriptionList.render
         Metric.text "Balance" "$42,800"
         |> Metric.withTrend "Up 8%"
@@ -328,30 +390,90 @@ let view =
         Pagination.create "Value pages" [ PaginationItem.current 1; PaginationItem.link 2 2 ]
         |> Pagination.withNext 2
         |> Pagination.render (fun page -> $"/values?page={page}")
-        Chart.create "value-chart" "Value history" (p { "Value increased." }) (raw "<svg aria-hidden=\"true\"></svg>")
-        |> Chart.render
         Select.create "status" "Status" id [ Select.option "active" "Active"; Select.option "disabled" "Disabled" |> Select.disable ]
         |> Select.withId "package-status"
         |> Select.withPlaceholder "Choose status"
         |> Select.required
         |> Select.withValidation "Choose a status."
         |> Select.render
-        Combobox.create "account" "Account" id [ Select.option "operating" "Operating" ]
-        |> Combobox.withSearch (ComboboxSearch.Remote "/accounts/search")
-        |> Combobox.withSelected "operating"
-        |> Combobox.clearable
-        |> Combobox.render
-        Combobox.create "loading-account" "Loading account" id []
-        |> Combobox.loading
-        |> Combobox.withLoadingMessage "Loading accounts"
-        |> Combobox.render
-        Combobox.create "error-account" "Error account" id []
-        |> Combobox.withError "Accounts could not be loaded."
-        |> Combobox.pending
-        |> Combobox.render
+        Select.create "account" "Account" id [ Select.option "operating" "Operating" ]
+        |> Select.withSearch (SelectSearch.Remote "/accounts/search")
+        |> Select.withSelected "operating"
+        |> Select.render
+        Select.create "packageMemberIds" "Members" id [ Select.option "alex" "Alex"; Select.option "jamie" "Jamie" ]
+        |> Select.multiple
+        |> Select.withSelectedMany [ "alex"; "jamie" ]
+        |> Select.render
+        Select.create "packageSearchIds" "Search members" id [ Select.option "alex" "Alex"; Select.option "jamie" "Jamie" ]
+        |> Select.multiple
+        |> Select.withSelectedMany [ "alex"; "jamie" ]
+        |> Select.required
+        |> Select.withQuery ""
+        |> Select.withSearch (SelectSearch.Remote "/members/search")
+        |> Select.render
+        Select.create "loading-account" "Loading account" id []
+        |> Select.loading
+        |> Select.withLoadingMessage "Loading accounts"
+        |> Select.render
+        Select.create "error-account" "Error account" id []
+        |> Select.withSearch SelectSearch.Static
+        |> Select.withError "Accounts could not be loaded."
+        |> Select.render
+        Input.create "contactEmail" "Contact email"
+        |> Input.withId "package-email"
+        |> Input.withLeadingIcon icon
+        |> Input.withType InputType.Email
+        |> Input.withValue "account@example.test"
+        |> Input.withDescription "For correspondence."
+        |> Input.required
+        |> Input.withValidation "Use the account address."
+        |> Input.render
+        Input.create "price" "Price"
+        |> Input.withId "package-price"
+        |> Input.withSuffix "USD"
+        |> Input.withValue "12.50"
+        |> Input.render
+        Input.create "website" "Website"
+        |> Input.withPrefix "https://"
+        |> Input.render
+        Input.create "query" "Search values"
+        |> Input.withType InputType.Search
+        |> Input.render
+        Textarea.create "notes" "Notes"
+        |> Textarea.withRows 3
+        |> Textarea.withValue "Preserved while checking."
+        |> Textarea.pending
+        |> Textarea.render
+        ErrorSummary.create "package-errors" "Check details" [ FieldError.create "package-email" "Contact email" "Use the account address." ]
+        |> ErrorSummary.render
+        Notice.create "package-feedback" "Details checked" (p { "Continue with the reviewed values." })
+        |> Notice.withTone Tone.Positive
+        |> Notice.withAnnouncement NoticeAnnouncement.Polite
+        |> Notice.render
+        FileSelection.create "package-files" "files" "Files"
+        |> FileSelection.withAccept ".csv"
+        |> FileSelection.multiple
+        |> FileSelection.pending
+        |> FileSelection.render
+        TagInput.create "package-tags" "tags" "Tags" [ "reviewed" ]
+        |> TagInput.render
+        Progress.create "Import progress" 3 4
+        |> Progress.render
+        Steps.create "Import steps" [ Step.create "Upload" StepState.Complete |> Step.withDestination "/upload"; Step.create "Review" StepState.Current ]
+        |> Steps.render id
+        Calendar.create "Package schedule" CalendarView.Week "September 21–27" [ CalendarEvent.create "package-event" "Review package" "September 24" "/events/1" ]
+        |> Calendar.withViewDestinations [ CalendarView.Week, "/schedule?view=week" ]
+        |> Calendar.withError "Package schedule failed."
+        |> Calendar.withStateAction (a { _href "/schedule/retry"; "Retry schedule" })
+        |> Calendar.render id
+        MediaLibrary.create "package-media" "Package media" "assetIds" [ MediaAsset.create "package-image" "Package image" "/package.png" "Package preview" "/media/1" |> MediaAsset.primary ]
+        |> MediaLibrary.withSelected [ "package-image" ]
+        |> MediaLibrary.render id
         Checkbox.create "confirmed" "Confirmed"
         |> Checkbox.withId "package-confirmed"
         |> Checkbox.required
+        |> Checkbox.withIndeterminate
+        |> Checkbox.withVisuallyHiddenLabel
         |> Checkbox.pending
         |> Checkbox.render
         Switch.create "notifications" "Notifications"
@@ -386,12 +508,22 @@ let view =
         |> DropdownMenu.withAlignment MenuAlignment.Start
         |> DropdownMenu.render (fun value -> $"/values/{value}")
         packageDialog |> Dialog.trigger "Review value"
+        packageSection
+        Section.withoutHeader "Period note" (p { "Current period" }) |> Section.render destinationUrl
+        Page.create (PageHeader.create "Posting flow") (p { "Graph workspace" })
+        |> Page.withBodyLayout PageBodyLayout.Canvas
+        |> Page.render destinationUrl
         packageDialog |> Dialog.render
         packageConfirmation |> ConfirmationDialog.trigger "Delete value"
         packageConfirmation |> ConfirmationDialog.render
         packageDrawer |> Drawer.trigger "Open settings"
         packageDrawer |> Drawer.render
+        packageShell
     }
+
+for removedType in [ "FSharp.ViewEngine.Components.Chart"; "FSharp.ViewEngine.Components.ChartConfig"; "FSharp.ViewEngine.Components.Primitives.Chart"; "FSharp.ViewEngine.Components.Primitives.ChartConfig" ] do
+    if not (isNull (typeof<TableSurface>.Assembly.GetType removedType)) then
+        failwith $"Removed public API remains in the package: {removedType}"
 
 let actual = view |> Render.toString
 if not (actual.Contains "fve-components fve-theme-sky")
@@ -402,17 +534,33 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "aria-label=\"Add account\"")
    || not (actual.Contains "role=\"status\"")
    || not (actual.Contains "No accounts")
+   || not (System.Text.RegularExpressions.Regex.IsMatch(actual, "<input id=\"package-files\"[^>]*disabled[^>]*aria-busy=\"true\""))
+   || not (actual.Contains "package_tags_values")
+   || not (actual.Contains "<progress")
+   || not (actual.Contains "aria-current=\"step\"")
+   || not (actual.Contains "aria-label=\"Calendar view\"")
+   || not (actual.Contains "Package schedule failed.")
+   || not (actual.Contains "Retry schedule")
+   || not (actual.Contains "data-fve-media-library=\"true\"")
    || not (actual.Contains "<caption")
+   || not (actual.Contains "fve-table-records")
+   || not (actual.Contains "fve-table-selection-change")
+   || not (actual.Contains "package_confirmed_mixed: true")
+   || not (actual.Contains "data-fve-page-canvas=\"true\"")
    || not (actual.Contains "<dl")
    || not (actual.Contains "Trend: ")
    || not (actual.Contains "aria-current=\"page\"")
-   || not (actual.Contains "<figure")
    || not (actual.Contains "role=\"combobox\"")
-   || not (actual.Contains "aria-label=\"Clear Account\"")
+   || not (actual.Contains "aria-label=\"Clear Search Account\"")
    || not (actual.Contains "requestCancellation: &#39;auto&#39;")
    || not (actual.Contains "Loading accounts")
    || not (actual.Contains "Accounts could not be loaded.")
    || not (actual.Contains "aria-required=\"true\"")
+   || not (actual.Contains "aria-describedby=\"package-price-suffix\"")
+   || not (actual.Contains "aria-multiselectable=\"true\"")
+   || not (actual.Contains "id=\"fve-select-packagesearchids-selection\"")
+   || (System.Text.RegularExpressions.Regex.Matches(actual, "name=\"packageMemberIds\"").Count <> 2)
+   || (System.Text.RegularExpressions.Regex.Matches(actual, "name=\"packageSearchIds\"").Count <> 2)
    || not (actual.Contains "name=\"confirmed\"")
    || not (actual.Contains "role=\"switch\"")
    || not (actual.Contains "aria-pressed=\"false\"")
@@ -430,7 +578,17 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "role=\"alertdialog\"")
    || not (actual.Contains "data-indicator:_package_confirmation_pending")
    || not (actual.Contains "Value settings")
-   || not (actual.Contains "left-0 ml-0 mr-auto border-r") then
+   || not (actual.Contains "left-0 ml-0 mr-auto border-r")
+   || not (actual.Contains "id=\"package-breadcrumbs\"")
+   || not (actual.Contains "aria-label=\"Package navigation\"")
+   || not (actual.Contains ">Value 42</h1>")
+   || not (actual.Contains "data-fve-page-top-bar=\"true\"")
+   || not (actual.Contains "data-fve-section-header=\"true\"")
+   || not (actual.Contains "aria-label=\"More actions for One\"")
+   || not (actual.Contains "data-fve-page-scroll=\"true\"")
+   || not (actual.Contains "id=\"package-shell\"")
+   || not (actual.Contains "aria-label=\"Open navigation\"")
+   || not (actual.Contains "<main") then
     failwith $"Components package rendered unexpected HTML: {actual}"
 
 printfn "FSharp.ViewEngine.Components package works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
@@ -438,7 +596,7 @@ printfn "FSharp.ViewEngine.Components package works on %s" System.Runtime.Intero
 
 let private docsConsumerProgram =
     """open FSharp.ViewEngine
-open FSharp.ViewEngine.Docs
+open FSharp.ViewEngine.Components.Documentation
 open type Html
 
 type Destination = Home | Guide
@@ -455,28 +613,25 @@ match Navigation.validate navigation with
 | [] -> ()
 | issues -> failwith $"unexpected navigation issues: {issues}"
 
-let site: DocsSite<Destination> =
-    { name = "Package smoke"
-      baseUrl = None
-      description = None
-      repository = None
-      brandMark = span { "S" }
-      homeId = "home"
-      navigation = navigation
-      storageKey = "package-smoke"
-      defaultColorMode = DocsColorMode.System
-      theme = DocsTheme.amber
-      assets = DocsAssets.defaults
-      search = [] }
+let site =
+    DocsSite.create "Package smoke" "home"
+    |> DocsSite.withNavigation navigation
+    |> DocsSite.withBrandMark (span { "S" })
+    |> DocsSite.withStorageKey "package-smoke"
+    |> DocsSite.withTheme DocsTheme.amber
 
 let page =
-    docsArticle "guide" "Guide" "Package verification" [
-        docsSection "example" "Example" [
-            docsCustom (docsExample "smoke-example" "Smoke example" "fsharp" "div { \"ok\" }" (div { "ok" })) ]
-        docsSection "diagram" "Diagram" [ docsSequence diagram ] ]
-    |> docsWithPager (docsPager (Some(docsPageLink "Home" "/")) None)
+    DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Package verification" |> DocumentationPage.withSections [
+        DocumentationSection.create "example" "Example" [
+            Example.codeFirst "smoke-example" "Smoke example" "fsharp" "div { \"ok\" }" (div { "ok" }) ]
+        DocumentationSection.create "diagram" "Diagram" [
+            diagram |> SequenceDiagram.render |> Mermaid.create |> Mermaid.render ] ]
+    |> DocumentationPage.withPager (DocsPager.create (Some(DocsPageLink.create "Home" "/")) None)
 
-let actual = docsDocument site page |> Render.toString
+let actual =
+    Document.create site page
+    |> Document.render
+    |> Render.toString
 if not (actual.Contains "class=\"spec-shell\"")
    || not (actual.Contains "data-docs-example=\"true\"")
    || not (actual.Contains "aria-label=\"Page navigation\"")
@@ -496,7 +651,7 @@ match DirectedGraph.validate graph with
 | [] -> ()
 | issues -> failwith $"unexpected graph issues: {issues}"
 
-printfn "FSharp.ViewEngine.Docs package works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
+printfn "Components Documentation works on %s" System.Runtime.InteropServices.RuntimeInformation.FrameworkDescription
 """
 
 type private PackageDefinition =
@@ -510,12 +665,12 @@ let private packageDefinition (packagePath:string) =
     if fileName.StartsWith("FSharp.ViewEngine.Components.", StringComparison.Ordinal) then
         { packageId = "FSharp.ViewEngine.Components"
           assemblyName = "FSharp.ViewEngine.Components"
-          consumerProgram = componentsConsumerProgram }
-    elif fileName.StartsWith("FSharp.ViewEngine.Docs.", StringComparison.Ordinal) then
-        { packageId = "FSharp.ViewEngine.Docs"
-          assemblyName = "FSharp.ViewEngine.Docs"
-          consumerProgram = docsConsumerProgram }
-    elif fileName.StartsWith("FSharp.ViewEngine.", StringComparison.Ordinal) then
+          consumerProgram =
+            [ "Controls", componentsConsumerProgram; "Documentation", docsConsumerProgram ]
+            |> List.map (fun (name, source) ->
+                "module " + name + " =\n" + (source.Split('\n') |> Array.map (fun line -> "    " + line) |> String.concat "\n"))
+            |> String.concat "\n\n" }
+    elif PackagePublishing.belongsToPackage "FSharp.ViewEngine" packagePath then
         { packageId = "FSharp.ViewEngine"
           assemblyName = "FSharp.ViewEngine"
           consumerProgram = viewEngineConsumerProgram }
@@ -539,12 +694,6 @@ let verify runDotnet packagePath =
             fail "COMPONENTS_MINIMUM_CORE_VERSION is required when verifying FSharp.ViewEngine.Components"
         verifyDependency definition.packageId "FSharp.ViewEngine" expectedCoreVersion packageArchive
         verifyComponentsContents packageArchive
-    | "FSharp.ViewEngine.Docs" ->
-        let expectedComponentsVersion = Environment.GetEnvironmentVariable "DOCS_MINIMUM_COMPONENTS_VERSION"
-        if String.IsNullOrWhiteSpace expectedComponentsVersion then
-            fail "DOCS_MINIMUM_COMPONENTS_VERSION is required when verifying FSharp.ViewEngine.Docs"
-        verifyDependency definition.packageId "FSharp.ViewEngine.Components" expectedComponentsVersion packageArchive
-        verifyDocsContents packageArchive
     | _ -> ()
 
     let repositoryCommit = repositoryMetadata packageArchive
