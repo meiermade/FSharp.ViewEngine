@@ -50,7 +50,7 @@ The unified catalog currently targets **Primitives, Application, and Documentati
 
 ## Local catalog development
 
-From the preserved candidate checkout, use the .NET 10 SDK and Tailwind CSS CLI v4.3.3 on `PATH`. After restoring the repository's tools/packages, run one watcher:
+From the preserved candidate checkout, use the .NET 10 SDK and Tailwind CSS CLI v4.2.2 on `PATH`. After restoring the repository's tools/packages, run one watcher:
 
 ```sh
 cd sln
@@ -62,14 +62,14 @@ The watcher serves F# changes and compiles CSS from the common `sln/src` source 
 - `/components` — shared installation/guides and the staged Primitives, Application, and Documentation directory.
 - `/components/primitives` — shared controls and layout foundations.
 - `/components/select#components-select-multiple`, `components/select#components-select-search-multiple` — typed multiple selection, native repeated form values, validation and unavailable states. The remote searchable Select example also demonstrates error/retry and whole-field refresh.
-- `/components/application` — shell/page, collection/detail and form-layout examples.
-- `/components/app-shell#components-calendar-schedule` — linked List/Day/Week/Month scheduling.
-- `/components/app-shell#components-media-library` — native media selection, shared bulk actions, alt text, and primary-state presentation.
-- `/components/app-shell#components-trace-viewer`, `components-financial-chart`, `components-messaging` — bounded specialist integrations with accessible alternatives.
-- `/components/form-layouts` — stacked, two-column and sectioned server-validation forms, plus query/result search. These complete workflows moved out of the focused Input gallery; the validation endpoint and default field IDs are unchanged.
-- `/docs` — Documentation components and assembled examples; App mode remains in progress.
+- `/components/application` — the delivered shell/page, collection/detail, forms, workflows, resources, and Integration examples directory.
+- `/components/calendar` — linked List/Day/Week/Month scheduling with empty, loading, error/retry, and unavailable states.
+- `/components/media-library` — native media selection, shared bulk actions, alt text, primary-state presentation, editing, replacement, and recovery.
+- `/components/integrations/graph-and-trace`, `/components/integrations/financial-chart`, `/components/integrations/messaging` — bounded specialist recipes with accessible alternatives.
+- `/components/form-layouts` — stacked, two-column and sectioned server-validation forms, plus query/result search. These complete workflows remain separate from the focused Input gallery; the validation endpoint and default field IDs are unchanged.
+- `/docs` — Documentation components and assembled examples, including the shared App mode.
 
-Existing component URLs and fragment IDs remain supported. Use a fresh browser/test context to reset current browser-local example state; do not run real customer/payment operations. Complete connected journey/reset behavior remains part of the tracked work.
+Every consumer-facing reusable component has a dedicated route and navigation entry; composition pages are connected demonstrations rather than the only documentation location for nested components. Use a fresh browser/test context to reset current browser-local example state, and do not run real customer/payment operations.
 
 In another terminal at the checkout root, run focused catalog checks:
 

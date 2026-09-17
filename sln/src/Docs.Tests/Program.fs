@@ -67,12 +67,19 @@ let private expectedPaths =
         "/components/badge"
         "/components/status"
         "/components/loading-indicator"
+        "/components/progress"
         "/components/empty-state"
+        "/components/action-cluster"
+        "/components/row-actions"
         "/components/table"
         "/components/description-list"
         "/components/metric"
         "/components/pagination"
+        "/components/avatar"
+        "/components/copy-reveal"
         "/components/input"
+        "/components/file-selection"
+        "/components/tag-input"
         "/components/form-layouts"
         "/components/textarea"
         "/components/error-summary"
@@ -85,6 +92,7 @@ let private expectedPaths =
         "/components/side-nav"
         "/components/tabs"
         "/components/radio-group"
+        "/components/choice-cards"
         "/components/dropdown-menu"
         "/components/dialog"
         "/components/confirmation-dialog"
@@ -98,6 +106,16 @@ let private expectedPaths =
         "/components/collection"
         "/components/detail"
         "/components/app-shell"
+        "/components/bottom-navigation"
+        "/components/bulk-actions"
+        "/components/upload"
+        "/components/steps"
+        "/components/first-steps"
+        "/components/calendar"
+        "/components/media-library"
+        "/components/integrations/graph-and-trace"
+        "/components/integrations/financial-chart"
+        "/components/integrations/messaging"
         "/components/interaction-and-server-state"
         "/components/accessibility"
         "/components/theming"
@@ -121,6 +139,9 @@ let tests =
                 |> Render.toString
             for expected in [ "type=\"file\""; "name=\"statements\""; "multiple"; "accept=\".csv\""; "required"; "Clear selected files" ] do
                 Expect.stringContains files expected "native file-selection contract"
+            let pendingFiles = FileSelection.create "pending" "pending" "Pending files" |> FileSelection.pending |> FileSelection.render |> Render.toString
+            Expect.stringContains pendingFiles "aria-busy=\"true\"" "pending file selection exposes busy state"
+            Expect.stringContains pendingFiles "disabled" "pending file selection prevents replacement while work settles"
 
             let progress = Progress.create "Import" 3 4 |> Progress.withValueText "Three of four" |> Progress.render |> Render.toString
             Expect.stringContains progress "value=\"3\" max=\"4\"" "native progress range"
@@ -174,6 +195,14 @@ let tests =
             Expect.stringContains calendar "aria-current=\"page\"" "calendar identifies the current linked view"
             Expect.stringContains calendar ">Week</a>" "calendar preserves the selected view label"
             Expect.stringContains calendar "Overlaps Northwind by one hour" "calendar retains consumer-authored overlap context"
+            let loadingCalendar = Calendar.create "Schedule" CalendarView.List "September" [] |> Calendar.loading |> Calendar.render id |> Render.toString
+            Expect.stringContains loadingCalendar "role=\"status\"" "loading calendar announces its state"
+            Expect.stringContains loadingCalendar "Loading calendar…" "loading calendar remains readable"
+            let errorCalendar = Calendar.create "Schedule" CalendarView.List "September" [] |> Calendar.withError "Schedule failed." |> Calendar.render id |> Render.toString
+            Expect.stringContains errorCalendar "role=\"alert\"" "calendar errors are urgent feedback"
+            Expect.stringContains errorCalendar "Schedule failed." "calendar errors preserve consumer-authored messages"
+            let unavailableCalendar = Calendar.create "Schedule" CalendarView.List "September" [] |> Calendar.withUnavailable "Schedule unavailable." |> Calendar.render id |> Render.toString
+            Expect.stringContains unavailableCalendar "Schedule unavailable." "unavailable calendar state is explicit"
 
             let media = Components.mediaLibraryExample |> Render.toString
             Expect.stringContains media "name=\"assetIds\" value=\"trail-front\"" "media selection uses native repeated controls"
@@ -317,18 +346,22 @@ let tests =
             Expect.sequenceEqual (section "FSharp.ViewEngine.Components") [ "Overview"; "Installation" ] "Components starts with overview and installation"
             Expect.sequenceEqual
                 (section "Actions and feedback")
-                [ "Button"; "Icon button"; "Badge"; "Status"; "Notice"; "Loading indicator"; "Empty state" ]
+                [ "Button"; "Icon button"; "Action cluster"; "Row actions"; "Badge"; "Status"; "Notice"; "Loading indicator"; "Progress"; "Empty state" ]
                 "action and feedback foundations"
             Expect.sequenceEqual
                 (section "Data display")
-                [ "Table"; "Description list"; "Metric"; "Pagination" ]
+                [ "Table"; "Description list"; "Metric"; "Pagination"; "Avatar"; "Copy and reveal" ]
                 "data-display components"
-            Expect.sequenceEqual (section "Form controls") [ "Input"; "Textarea"; "Error summary"; "Select"; "Checkbox"; "Switch"; "Toggle button"; "Radio group" ] "form controls"
+            Expect.sequenceEqual (section "Form controls") [ "Input"; "Textarea"; "File selection"; "Tag input"; "Error summary"; "Select"; "Checkbox"; "Switch"; "Toggle button"; "Radio group"; "Choice cards" ] "form controls"
             Expect.sequenceEqual (section "Navigation") [ "Breadcrumbs"; "Side nav"; "Tabs" ] "navigation components"
             Expect.sequenceEqual (section "Menus and overlays") [ "Dropdown menu"; "Dialog"; "Confirmation dialog"; "Drawer" ] "menu and overlay components"
             Expect.sequenceEqual (section "Layout foundations") [ "Section"; "Browser"; "Phone" ] "shared framing primitives are catalogued with Section"
-            Expect.sequenceEqual (section "Shells and pages") [ "App shell"; "Page"; "Page top bar"; "Page header" ] "Application shell and page compositions"
-            Expect.sequenceEqual (section "Collections and details") [ "Collection"; "Detail" ] "Application record compositions"
+            Expect.sequenceEqual (section "Shells and pages") [ "App shell"; "Bottom navigation"; "Page"; "Page top bar"; "Page header" ] "Application shell and page compositions"
+            Expect.sequenceEqual (section "Collections and details") [ "Collection"; "Detail"; "Bulk actions" ] "Application record compositions"
+            Expect.sequenceEqual (section "Forms") [ "Form layouts"; "Upload" ] "Application form compositions"
+            Expect.sequenceEqual (section "Workflows") [ "Steps"; "First steps" ] "Application workflow compositions"
+            Expect.sequenceEqual (section "Resources") [ "Calendar"; "Media library" ] "Application resource compositions"
+            Expect.sequenceEqual (section "Integration examples") [ "Graph and trace"; "Financial chart"; "Messaging" ] "bounded recipes are discoverable without claiming universal component ownership"
             for area in [ "Primitives"; "Application" ] do
                 Expect.sequenceEqual (section area) [ "Overview" ] $"{area} has a real index destination"
             Expect.sequenceEqual (section "Guides") [ "Interaction and server state"; "Accessibility"; "Theming and density"; "Tailwind CSS"; "Customization"; "Versioning" ] "shared Components guides"
@@ -654,7 +687,7 @@ after"""
 
         test "Input galleries teach individual fields and Application owns complete forms" {
             let examples = Components.examplesFor "input"
-            Expect.equal (examples |> List.map _.title) [ "With label"; "With help text"; "Required"; "Optional"; "With validation error"; "With leading icon"; "With prefix"; "With suffix"; "Search with clear action"; "Free-form tags"; "Read-only"; "Disabled"; "Pending" ] "basic before variations and states"
+            Expect.equal (examples |> List.map _.title) [ "With label"; "With help text"; "Required"; "Optional"; "With validation error"; "With leading icon"; "With prefix"; "With suffix"; "Search with clear action"; "Read-only"; "Disabled"; "Pending" ] "basic before variations and states"
             for example in examples do
                 Expect.equal (Regex.Matches(Render.toString example.preview, "<input ").Count) 1 "one native input per example"
                 Expect.isLessThan (example.source.Split('\n').Length) 35 "short independently copyable input code"
@@ -662,6 +695,7 @@ after"""
                     Expect.isFalse (example.source.Contains forbidden) "input examples exclude complete workflows"
             for slug in [ "textarea"; "select"; "checkbox"; "switch"; "radio-group" ] do
                 Expect.equal (Components.examplesFor slug |> List.head).title "With label" "other form galleries also start with the basic control"
+            Expect.equal (Components.examplesFor "tag-input" |> List.map _.title) [ "Free-form tags"; "Validation"; "Pending"; "Disabled" ] "Tag input owns its focused states"
             Expect.equal Components.formLayoutsRegistration.category "Application" "forms are Application composition"
             Expect.equal (Components.examplesFor "form-layouts" |> List.length) 4 "three complete forms and the retained result-search example"
         }
@@ -794,7 +828,7 @@ after"""
                     child.WaitForExit()
                     failtest "Standalone Components examples did not compile within 60 seconds."
                 Expect.equal child.ExitCode 0 (output.Result + errors.Result)
-                Expect.equal examples.Length 131 "all focused variants from thirty-seven galleries compile against the public packages"
+                Expect.equal examples.Length 151 "all focused variants from fifty-four galleries compile against the public packages"
             finally
                 System.IO.Directory.Delete(directory, true)
         }
@@ -818,7 +852,7 @@ after"""
             Expect.stringContains overview "Browse components" "component catalog link"
             Expect.stringContains overview "Browse page examples" "page-example catalog link"
             Expect.isFalse (overview.Contains("Example content")) "overview omits the old fixture callout"
-            Expect.stringContains overview "rel=\"prev\" href=\"/components/form-layouts\"" "Documentation follows the Application catalog in the family order"
+            Expect.stringContains overview "rel=\"prev\" href=\"/components/integrations/messaging\"" "Documentation follows the Application catalog in the family order"
             Expect.stringContains overview "rel=\"next\" href=\"/docs/components/layouts\"" "overview continues to layouts"
 
             for registration in Showcase.componentRegistrations @ Showcase.pageExampleRegistrations do
@@ -848,6 +882,15 @@ after"""
             Expect.stringContains specification "spec-browser-frame" "specification preview uses a browser frame"
         }
 
+        test "Repository guidance preserves one documentation page per public component" {
+            let guidance =
+                Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", "AGENTS.md"))
+                |> File.ReadAllText
+            Expect.stringContains guidance "every consumer-facing reusable component a dedicated documentation route and navigation entry" "repository agents retain the catalog ownership rule"
+            Expect.stringContains guidance "must never be the only documentation location for a component" "composition examples cannot hide component documentation"
+            Expect.stringContains guidance "Integration examples" "bounded recipes retain separate catalog ownership"
+        }
+
         test "Components publishes a first-class page for every public component and focused shared guides" {
             let render registration = registration |> View.document Registry.navigation |> Render.toHtmlDocString
             let overview = render Components.overviewRegistration
@@ -859,11 +902,16 @@ after"""
                 @ Components.navigationRegistrations
                 @ Components.menuOverlayRegistrations
                 @ Components.compositionRegistrations
+                @ Components.frameRegistrations
+                @ Components.applicationNavigationRegistrations
+                @ Components.applicationWorkflowRegistrations
+                @ Components.applicationResourceRegistrations
+                @ Components.integrationExampleRegistrations
             let renderedComponents = componentRegistrations |> List.map render
             let renderedGuides = Components.guideRegistrations |> List.map render
             let allHtml = String.concat Environment.NewLine (overview :: installation :: renderedComponents @ renderedGuides)
 
-            Expect.equal Components.allRegistrations.Length 44 "overview, installation, thirty-six galleries, and six guides"
+            Expect.equal Components.allRegistrations.Length 62 "overview, installation, fifty-four galleries, and six guides"
             Expect.isFalse (allHtml.Contains("href=\"/components/chart\"")) "removed Chart is absent from the catalog and navigation"
             Expect.isFalse (allHtml.Contains("href=\"/components/layouts\"")) "redundant layout guide is absent from navigation and search"
             Expect.stringContains overview "Accessible, server-rendered Tailwind components" "consumer-facing introduction"
@@ -873,6 +921,11 @@ after"""
             Expect.stringContains (index "/components/primitives") "href=\"/components/browser\"" "Primitives index deep-links Browser"
             Expect.stringContains (index "/components/primitives") "href=\"/components/phone\"" "Primitives index deep-links Phone"
             Expect.stringContains (index "/components/application") "href=\"/components/app-shell\"" "Application index deep-links App shell"
+            Expect.stringContains (index "/components/application") "href=\"/components/calendar\"" "Application index deep-links Calendar"
+            Expect.stringContains (index "/components/application") "href=\"/components/media-library\"" "Application index deep-links Media library"
+            Expect.stringContains (index "/components/application") "href=\"/components/integrations/graph-and-trace\"" "Application index deep-links bounded integration recipes"
+            Expect.stringContains (index "/components/application") "connects the financial workspace, collections, matching record details, forms, actions, reports and settings" "Application index describes the delivered connected journey"
+            Expect.sequenceEqual (Components.examplesFor "app-shell" |> List.map _.title) [ "Sidebar application" ] "App shell owns only shell examples"
             Expect.stringContains overview "Required inputs stay visible" "required input policy"
             Expect.stringContains overview "Optional behavior is piped" "configuration policy"
             Expect.stringContains overview "Custom content stays HTML" "slot policy"

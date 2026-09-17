@@ -53,12 +53,19 @@ const routes = [
   { path: '/components/badge', heading: 'Badge', layout: 'gallery' },
   { path: '/components/status', heading: 'Status', layout: 'gallery' },
   { path: '/components/loading-indicator', heading: 'Loading indicator', layout: 'gallery' },
+  { path: '/components/progress', heading: 'Progress', layout: 'gallery' },
   { path: '/components/empty-state', heading: 'Empty state', layout: 'gallery' },
+  { path: '/components/action-cluster', heading: 'Action cluster', layout: 'gallery' },
+  { path: '/components/row-actions', heading: 'Row actions', layout: 'gallery' },
   { path: '/components/table', heading: 'Table', layout: 'gallery' },
   { path: '/components/description-list', heading: 'Description list', layout: 'gallery' },
   { path: '/components/metric', heading: 'Metric', layout: 'gallery' },
   { path: '/components/pagination', heading: 'Pagination', layout: 'gallery' },
+  { path: '/components/avatar', heading: 'Avatar', layout: 'gallery' },
+  { path: '/components/copy-reveal', heading: 'Copy and reveal', layout: 'gallery' },
   { path: '/components/input', heading: 'Input', layout: 'gallery' },
+  { path: '/components/file-selection', heading: 'File selection', layout: 'gallery' },
+  { path: '/components/tag-input', heading: 'Tag input', layout: 'gallery' },
   { path: '/components/form-layouts', heading: 'Form layouts', layout: 'gallery' },
   { path: '/components/textarea', heading: 'Textarea', layout: 'gallery' },
   { path: '/components/error-summary', heading: 'Error summary', layout: 'gallery' },
@@ -71,6 +78,7 @@ const routes = [
   { path: '/components/side-nav', heading: 'Side nav', layout: 'gallery' },
   { path: '/components/tabs', heading: 'Tabs', layout: 'gallery' },
   { path: '/components/radio-group', heading: 'Radio group', layout: 'gallery' },
+  { path: '/components/choice-cards', heading: 'Choice cards', layout: 'gallery' },
   { path: '/components/dropdown-menu', heading: 'Dropdown menu', layout: 'gallery' },
   { path: '/components/dialog', heading: 'Dialog', layout: 'gallery' },
   { path: '/components/confirmation-dialog', heading: 'Confirmation dialog', layout: 'gallery' },
@@ -84,6 +92,16 @@ const routes = [
   { path: '/components/collection', heading: 'Collection', layout: 'gallery' },
   { path: '/components/detail', heading: 'Detail', layout: 'gallery' },
   { path: '/components/app-shell', heading: 'App shell', layout: 'gallery' },
+  { path: '/components/bottom-navigation', heading: 'Bottom navigation', layout: 'gallery' },
+  { path: '/components/bulk-actions', heading: 'Bulk actions', layout: 'gallery' },
+  { path: '/components/upload', heading: 'Upload', layout: 'gallery' },
+  { path: '/components/steps', heading: 'Steps', layout: 'gallery' },
+  { path: '/components/first-steps', heading: 'First steps', layout: 'gallery' },
+  { path: '/components/calendar', heading: 'Calendar', layout: 'gallery' },
+  { path: '/components/media-library', heading: 'Media library', layout: 'gallery' },
+  { path: '/components/integrations/graph-and-trace', heading: 'Graph and trace integration', layout: 'gallery' },
+  { path: '/components/integrations/financial-chart', heading: 'Financial chart integration', layout: 'gallery' },
+  { path: '/components/integrations/messaging', heading: 'Messaging integration', layout: 'gallery' },
   { path: '/components/interaction-and-server-state', heading: 'Interaction and server state', layout: 'article' },
   { path: '/components/accessibility', heading: 'Accessibility', layout: 'article' },
   { path: '/components/theming', heading: 'Theming and density', layout: 'article' },
@@ -245,11 +263,18 @@ test('Components pages provide focused examples, navigation, interaction, themes
     ['/components/badge', 'Badge'],
     ['/components/status', 'Status'],
     ['/components/loading-indicator', 'Loading indicator'],
+    ['/components/progress', 'Progress'],
     ['/components/empty-state', 'Empty state'],
+    ['/components/action-cluster', 'Action cluster'],
+    ['/components/row-actions', 'Row actions'],
     ['/components/table', 'Table'],
     ['/components/description-list', 'Description list'],
     ['/components/metric', 'Metric'],
     ['/components/pagination', 'Pagination'],
+    ['/components/avatar', 'Avatar'],
+    ['/components/copy-reveal', 'Copy and reveal'],
+    ['/components/file-selection', 'File selection'],
+    ['/components/tag-input', 'Tag input'],
     ['/components/select', 'Select'],
     ['/components/checkbox', 'Checkbox'],
     ['/components/switch', 'Switch'],
@@ -258,6 +283,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
     ['/components/side-nav', 'Side nav'],
     ['/components/tabs', 'Tabs'],
     ['/components/radio-group', 'Radio group'],
+    ['/components/choice-cards', 'Choice cards'],
     ['/components/dropdown-menu', 'Dropdown menu'],
     ['/components/dialog', 'Dialog'],
     ['/components/page-top-bar', 'Page top bar'],
@@ -267,6 +293,16 @@ test('Components pages provide focused examples, navigation, interaction, themes
     ['/components/collection', 'Collection'],
     ['/components/detail', 'Detail'],
     ['/components/app-shell', 'App shell'],
+    ['/components/bottom-navigation', 'Bottom navigation'],
+    ['/components/bulk-actions', 'Bulk actions'],
+    ['/components/upload', 'Upload'],
+    ['/components/steps', 'Steps'],
+    ['/components/first-steps', 'First steps'],
+    ['/components/calendar', 'Calendar'],
+    ['/components/media-library', 'Media library'],
+    ['/components/integrations/graph-and-trace', 'Graph and trace integration'],
+    ['/components/integrations/financial-chart', 'Financial chart integration'],
+    ['/components/integrations/messaging', 'Messaging integration'],
   ] as const
 
   const openPreview = (path: string, heading: string) => openComponentGallery(page, path, heading)
@@ -940,7 +976,7 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   await expect(upcomingTab).toBeFocused()
   await expect(upcomingTab).toHaveAttribute('aria-selected', 'true')
 
-  for (const path of ['/components', '/components/icon-button', '/components/loading-indicator', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/select', '/components/select', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/breadcrumbs', '/components/side-nav', '/components/tabs', '/components/radio-group', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/page-top-bar', '/components/page-header', '/components/section', '/components/page', '/components/app-shell']) {
+  for (const path of ['/components', '/components/icon-button', '/components/action-cluster', '/components/row-actions', '/components/loading-indicator', '/components/progress', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination', '/components/avatar', '/components/copy-reveal', '/components/file-selection', '/components/tag-input', '/components/select', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/breadcrumbs', '/components/side-nav', '/components/bottom-navigation', '/components/tabs', '/components/radio-group', '/components/choice-cards', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/page-top-bar', '/components/page-header', '/components/section', '/components/page', '/components/app-shell', '/components/bulk-actions', '/components/upload', '/components/steps', '/components/first-steps', '/components/calendar', '/components/media-library', '/components/integrations/graph-and-trace', '/components/integrations/financial-chart', '/components/integrations/messaging']) {
     await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -959,7 +995,7 @@ test('Components layouts, accessibility, catalog, and responsive previews remain
   }
   await expect(page.locator('a[href="/components/chart"], a[href="/components/layouts"]')).toHaveCount(0)
   await gotoAfterDocsAssetSettlement(page, '/components/application', 'domcontentloaded')
-  for (const [label, slug] of [['Page top bar', 'page-top-bar'], ['Page header', 'page-header'], ['Page', 'page'], ['App shell', 'app-shell']]) {
+  for (const [label, slug] of [['Page top bar', 'page-top-bar'], ['Page header', 'page-header'], ['Page', 'page'], ['App shell', 'app-shell'], ['Bottom navigation', 'bottom-navigation'], ['Bulk actions', 'bulk-actions'], ['Upload', 'upload'], ['Steps', 'steps'], ['First steps', 'first-steps'], ['Calendar', 'calendar'], ['Media library', 'media-library']]) {
     await expect(catalog.locator(`a[href="/components/${slug}"]`)).toHaveCount(1)
     await expect(catalog.locator(`a[href="/components/${slug}"]`)).toContainText(label)
   }

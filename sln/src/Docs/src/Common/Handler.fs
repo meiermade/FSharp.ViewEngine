@@ -66,15 +66,26 @@ module Handler =
                 context.Request.Query["destination"].ToString()
                 |> Components.tryShellDestination
                 |> Option.defaultValue Components.LedgerAccounts
-            let calendarView =
+            let html =
+                Components.appShellPageFor destination
+                |> View.documentWithPage Registry.navigation Components.appShellRegistration
+                |> Render.toHtmlDocString
+            htmlString html next context
+
+    let private componentCalendar : HttpHandler =
+        fun next context ->
+            let view =
                 context.Request.Query["calendarView"].ToString()
                 |> Components.calendarViewFromQuery
-            let calendarDate =
+            let date =
                 context.Request.Query["calendarDate"].ToString()
                 |> Components.calendarDateFromQuery
+            let state =
+                context.Request.Query["calendarState"].ToString()
+                |> Components.calendarStateFromQuery
             let html =
-                Components.appShellPageForState destination calendarView calendarDate
-                |> View.documentWithPage Registry.navigation Components.appShellRegistration
+                Components.calendarPageForState state view date
+                |> View.documentWithPage Registry.navigation Components.calendarRegistration
                 |> Render.toHtmlDocString
             htmlString html next context
 
@@ -282,6 +293,7 @@ module Handler =
             route "/components/members/field" >=> componentMemberSearch true
             route "/components/app-shell/fixture" >=> componentAppShellFixture
             route "/components/app-shell" >=> componentAppShell
+            route "/components/calendar" >=> componentCalendar
             // Keep the former page URL reachable while the catalog consolidates its examples into Fixture.
             route "/docs/components/interactive-examples" >=> fixture
             route "/docs/components/fixture" >=> fixture

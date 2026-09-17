@@ -26,6 +26,9 @@ module CalendarEvent =
     let withTime timeLabel (event:CalendarEvent<'destination>) = { event with timeLabel = Some timeLabel }
     let withDetail detail (event:CalendarEvent<'destination>) = { event with detail = Some detail }
 
+[<RequireQualifiedAccess>]
+type CalendarState = Ready | Loading | Error of message:string | Unavailable of message:string
+
 [<NoEquality; NoComparison>]
 type CalendarConfig<'destination> =
     private
@@ -36,7 +39,9 @@ type CalendarConfig<'destination> =
           previous:'destination option
           next:'destination option
           viewDestinations:(CalendarView * 'destination) list
-          emptyState:HtmlElement }
+          emptyState:HtmlElement
+          state:CalendarState
+          stateAction:HtmlElement option }
 
 [<RequireQualifiedAccess>]
 module Calendar =
@@ -47,11 +52,21 @@ module Calendar =
             p {
                 _class "p-4 text-sm text-[var(--fve-muted-text)]"
                 "No events in this range."
-            } }
+            }
+          state = CalendarState.Ready
+          stateAction = None }
     let withPrevious destination config = { config with previous = Some destination }
     let withNext destination config = { config with next = Some destination }
     let withViewDestinations destinations config = { config with viewDestinations = destinations }
     let withEmptyState emptyState config = { config with emptyState = emptyState }
+    let loading (config:CalendarConfig<'destination>) = { config with state = CalendarState.Loading; stateAction = None }
+    let withError message (config:CalendarConfig<'destination>) =
+        if String.IsNullOrWhiteSpace message then invalidArg (nameof message) "A calendar error message is required."
+        { config with state = CalendarState.Error message; stateAction = None }
+    let withUnavailable message (config:CalendarConfig<'destination>) =
+        if String.IsNullOrWhiteSpace message then invalidArg (nameof message) "A calendar unavailable message is required."
+        { config with state = CalendarState.Unavailable message; stateAction = None }
+    let withStateAction action (config:CalendarConfig<'destination>) = { config with stateAction = Some action }
     let render resolve config =
         let viewLabel = function CalendarView.List -> "List" | CalendarView.Day -> "Day" | CalendarView.Week -> "Week" | CalendarView.Month -> "Month"
         section {
@@ -71,7 +86,7 @@ module Calendar =
                 }
                 nav {
                     _ariaLabel "Calendar date navigation"
-                    _class "flex items-center gap-2"
+                    _class "flex flex-wrap items-center gap-2"
                     match config.previous with
                     | Some destination ->
                         a {
@@ -93,17 +108,38 @@ module Calendar =
             if not (List.isEmpty config.viewDestinations) then
                 nav {
                     _ariaLabel "Calendar view"
-                    _class "flex flex-wrap gap-2"
+                    _class "grid gap-2 sm:flex sm:flex-wrap"
                     for view, destination in config.viewDestinations do
                         a {
                             _href (resolve destination)
                             if view = config.view then _ariaCurrent "page"
-                            _class (if view = config.view then "rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] px-3 py-2 text-sm font-semibold text-[var(--fve-brand-text)]" else "rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)]")
+                            _class (if view = config.view then "rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] px-3 py-2 text-center text-sm font-semibold text-[var(--fve-brand-text)]" else "rounded-[var(--fve-radius-control)] px-3 py-2 text-center text-sm font-semibold text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)]")
                             viewLabel view
                         }
                 }
-            if List.isEmpty config.events then config.emptyState
-            else
+            match config.state with
+            | CalendarState.Loading ->
+                p {
+                    _role "status"
+                    _ariaLive "polite"
+                    _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-neutral-subtle)] p-4 text-sm text-[var(--fve-muted-text)]"
+                    "Loading calendar…"
+                }
+            | CalendarState.Error message ->
+                div {
+                    _role "alert"
+                    _class "flex flex-wrap items-center justify-between gap-3 rounded-[var(--fve-radius-panel)] bg-[var(--fve-critical-subtle)] p-4 text-sm text-[var(--fve-critical-text)]"
+                    p { message }
+                    config.stateAction |> Option.defaultValue empty
+                }
+            | CalendarState.Unavailable message ->
+                div {
+                    _class "flex flex-wrap items-center justify-between gap-3 rounded-[var(--fve-radius-panel)] bg-[var(--fve-neutral-subtle)] p-4 text-sm text-[var(--fve-muted-text)]"
+                    p { message }
+                    config.stateAction |> Option.defaultValue empty
+                }
+            | CalendarState.Ready when List.isEmpty config.events -> config.emptyState
+            | CalendarState.Ready ->
                 ol {
                     _class (match config.view with CalendarView.List -> "grid gap-2" | CalendarView.Day -> "grid gap-2 md:grid-cols-2" | CalendarView.Week -> "grid gap-2 md:grid-cols-3" | CalendarView.Month -> "grid gap-2 sm:grid-cols-2 lg:grid-cols-4")
                     for event in config.events do

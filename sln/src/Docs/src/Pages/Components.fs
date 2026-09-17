@@ -753,6 +753,19 @@ module Components =
         TagInput.create "ledger-tags" "tags" "Tags" [ "reviewed"; "quarter-end" ]
         |> TagInput.withDescription "Type any tag and press Enter or Add tag. Duplicate and empty values are rejected explicitly."
         |> TagInput.render
+    let invalidTagInputExample =
+        TagInput.create "required-tags" "requiredTags" "Required tags" []
+        |> TagInput.withDescription "Add at least one classification."
+        |> TagInput.withValidation "Add a tag before continuing."
+        |> TagInput.render
+    let pendingTagInputExample =
+        TagInput.create "pending-tags" "pendingTags" "Updating tags" [ "reviewed" ]
+        |> TagInput.pending
+        |> TagInput.render
+    let disabledTagInputExample =
+        TagInput.create "disabled-tags" "disabledTags" "Unavailable tags" [ "archived" ]
+        |> TagInput.disabled
+        |> TagInput.render
     let labelledTextarea =
         Textarea.create "message" "Message"
         |> Textarea.withAttributes [ _placeholder "Write your message…" ]
@@ -1053,6 +1066,27 @@ module Components =
               |> ChoiceCardOption.disabled ]
         |> ChoiceCards.withSelected [ "staff" ]
         |> ChoiceCards.required
+        |> ChoiceCards.render
+
+    let multipleChoiceCards =
+        ChoiceCards.multiple "equipment-choice" "equipmentIds" "Equipment" id
+            [ ChoiceCardOption.create "helmet" "Helmet"
+              |> ChoiceCardOption.withDescription "Required protective equipment."
+              |> ChoiceCardOption.withMetadata "Available"
+              ChoiceCardOption.create "pads" "Protective pads"
+              |> ChoiceCardOption.withDescription "Knee and elbow protection."
+              ChoiceCardOption.create "radio" "Trail radio"
+              |> ChoiceCardOption.withDescription "Unavailable for this booking."
+              |> ChoiceCardOption.disabled ]
+        |> ChoiceCards.withSelected [ "helmet"; "pads" ]
+        |> ChoiceCards.render
+
+    let invalidChoiceCards =
+        ChoiceCards.single "invalid-assistance-choice" "invalidAssistance" "Booking assistance" id
+            [ ChoiceCardOption.create "self" "Self-service"
+              ChoiceCardOption.create "staff" "Staff assisted" ]
+        |> ChoiceCards.required
+        |> ChoiceCards.withValidation "Choose how this booking will be supported."
         |> ChoiceCards.render
 
     let selectFormRegion selected validation result =
@@ -2159,12 +2193,19 @@ module Components =
     let badgeRegistration = registration "components-badge" "/components/badge" "Badge" "Badge"
     let statusRegistration = registration "components-status" "/components/status" "Status" "Status"
     let loadingIndicatorRegistration = registration "components-loading-indicator" "/components/loading-indicator" "Loading indicator" "Loading indicator"
+    let progressRegistration = registration "components-progress" "/components/progress" "Progress" "Progress"
     let emptyStateRegistration = registration "components-empty-state" "/components/empty-state" "Empty state" "Empty state"
+    let actionClusterRegistration = registration "components-action-cluster" "/components/action-cluster" "Action cluster" "Action cluster"
+    let rowActionsRegistration = registration "components-row-actions" "/components/row-actions" "Row actions" "Row actions"
     let tableRegistration = registration "components-table" "/components/table" "Table" "Table"
     let descriptionListRegistration = registration "components-description-list" "/components/description-list" "Description list" "Description list"
     let metricRegistration = registration "components-metric" "/components/metric" "Metric" "Metric"
     let paginationRegistration = registration "components-pagination" "/components/pagination" "Pagination" "Pagination"
+    let avatarRegistration = registration "components-avatar" "/components/avatar" "Avatar" "Avatar"
+    let copyRevealRegistration = registration "components-copy-reveal" "/components/copy-reveal" "Copy and reveal" "Copy and reveal"
     let inputRegistration = registration "components-input" "/components/input" "Input" "Input"
+    let fileSelectionRegistration = registration "components-file-selection" "/components/file-selection" "File selection" "File selection"
+    let tagInputRegistration = registration "components-tag-input" "/components/tag-input" "Tag input" "Tag input"
     let formLayoutsRegistration = applicationRegistration "components-form-layouts" "/components/form-layouts" "Form layouts" "Form layouts"
     let textareaRegistration = registration "components-textarea" "/components/textarea" "Textarea" "Textarea"
     let errorSummaryRegistration = registration "components-error-summary" "/components/error-summary" "Error summary" "Error summary"
@@ -2177,6 +2218,7 @@ module Components =
     let sideNavRegistration = registration "components-side-nav" "/components/side-nav" "Side nav" "Side nav"
     let tabsRegistration = registration "components-tabs" "/components/tabs" "Tabs" "Tabs"
     let radioGroupRegistration = registration "components-radio-group" "/components/radio-group" "Radio group" "Radio group"
+    let choiceCardsRegistration = registration "components-choice-cards" "/components/choice-cards" "Choice cards" "Choice cards"
     let dropdownMenuRegistration = registration "components-dropdown-menu" "/components/dropdown-menu" "Dropdown menu" "Dropdown menu"
     let dialogRegistration = registration "components-dialog" "/components/dialog" "Dialog" "Dialog"
     let confirmationDialogRegistration = registration "components-confirmation-dialog" "/components/confirmation-dialog" "Confirmation dialog" "Confirmation dialog"
@@ -2190,6 +2232,16 @@ module Components =
     let collectionRegistration = applicationRegistration "components-collection" "/components/collection" "Collection" "Collection"
     let detailRegistration = applicationRegistration "components-detail" "/components/detail" "Detail" "Detail"
     let appShellRegistration = applicationRegistration "components-app-shell" "/components/app-shell" "App shell" "App shell"
+    let bottomNavigationRegistration = applicationRegistration "components-bottom-navigation" "/components/bottom-navigation" "Bottom navigation" "Bottom navigation"
+    let bulkActionsRegistration = applicationRegistration "components-bulk-actions" "/components/bulk-actions" "Bulk actions" "Bulk actions"
+    let uploadRegistration = applicationRegistration "components-upload" "/components/upload" "Upload" "Upload"
+    let stepsRegistration = applicationRegistration "components-steps" "/components/steps" "Steps" "Steps"
+    let firstStepsRegistration = applicationRegistration "components-first-steps" "/components/first-steps" "First steps" "First steps"
+    let calendarRegistration = applicationRegistration "components-calendar" "/components/calendar" "Calendar" "Calendar"
+    let mediaLibraryRegistration = applicationRegistration "components-media-library" "/components/media-library" "Media library" "Media library"
+    let graphTraceIntegrationRegistration = applicationRegistration "components-integration-graph-trace" "/components/integrations/graph-and-trace" "Graph and trace" "Graph and trace integration"
+    let financialChartIntegrationRegistration = applicationRegistration "components-integration-financial-chart" "/components/integrations/financial-chart" "Financial chart" "Financial chart integration"
+    let messagingIntegrationRegistration = applicationRegistration "components-integration-messaging" "/components/integrations/messaging" "Messaging" "Messaging integration"
     let interactionRegistration = packageRegistration "components-interaction" "/components/interaction-and-server-state" "Interaction and server state" "Interaction and server state"
     let accessibilityRegistration = packageRegistration "components-accessibility" "/components/accessibility" "Accessibility" "Accessibility"
     let themingRegistration = packageRegistration "components-theming" "/components/theming" "Theming and density" "Theming and density"
@@ -2200,25 +2252,35 @@ module Components =
     let actionRegistrations =
         [ buttonRegistration
           iconButtonRegistration
+          actionClusterRegistration
+          rowActionsRegistration
           badgeRegistration
           statusRegistration
           noticeRegistration
           loadingIndicatorRegistration
+          progressRegistration
           emptyStateRegistration ]
-    let dataDisplayRegistrations = [ tableRegistration; descriptionListRegistration; metricRegistration; paginationRegistration ]
+    let dataDisplayRegistrations = [ tableRegistration; descriptionListRegistration; metricRegistration; paginationRegistration; avatarRegistration; copyRevealRegistration ]
     let formControlRegistrations =
         [ inputRegistration
           textareaRegistration
+          fileSelectionRegistration
+          tagInputRegistration
           errorSummaryRegistration
           selectRegistration
           checkboxRegistration
           switchRegistration
           toggleButtonRegistration
-          radioGroupRegistration ]
+          radioGroupRegistration
+          choiceCardsRegistration ]
     let navigationRegistrations = [ breadcrumbsRegistration; sideNavRegistration; tabsRegistration ]
     let menuOverlayRegistrations = [ dropdownMenuRegistration; dialogRegistration; confirmationDialogRegistration; drawerRegistration ]
     let compositionRegistrations = [ pageTopBarRegistration; pageHeaderRegistration; sectionRegistration; pageRegistration; collectionRegistration; detailRegistration; appShellRegistration; formLayoutsRegistration ]
     let frameRegistrations = [ browserRegistration; phoneRegistration ]
+    let applicationNavigationRegistrations = [ bottomNavigationRegistration ]
+    let applicationWorkflowRegistrations = [ bulkActionsRegistration; uploadRegistration; stepsRegistration; firstStepsRegistration ]
+    let applicationResourceRegistrations = [ calendarRegistration; mediaLibraryRegistration ]
+    let integrationExampleRegistrations = [ graphTraceIntegrationRegistration; financialChartIntegrationRegistration; messagingIntegrationRegistration ]
     let guideRegistrations =
         [ interactionRegistration
           accessibilityRegistration
@@ -2236,6 +2298,10 @@ module Components =
         @ menuOverlayRegistrations
         @ compositionRegistrations
         @ frameRegistrations
+        @ applicationNavigationRegistrations
+        @ applicationWorkflowRegistrations
+        @ applicationResourceRegistrations
+        @ integrationExampleRegistrations
         @ guideRegistrations
 
     let page = overviewRegistration
@@ -2325,6 +2391,78 @@ AppShell.create "product-shell" sideNav pageContent
     let periodNote =
         Section.withoutHeader "Period note" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Amounts reflect the current accounting period." })
         |> Section.render id
+
+    let actionClusterExample =
+        div {
+            _dataSignals "{actionMessage: 'No action requested.'}"
+            _class "grid gap-3"
+            ActionCluster.create "account-actions-example" [
+                ApplicationAction.link "/components/app-shell?destination=create-account" "New account"
+                |> ApplicationAction.withVariant ButtonVariant.Primary
+                ApplicationAction.link "/components/collection" "View accounts" ]
+            |> ActionCluster.withOverflow [
+                MenuItem.link "/components/theming" "Account settings"
+                MenuItem.destructiveAction "$actionMessage = 'Archive requested.'" "Archive account" ]
+            |> ActionCluster.render id
+            output { _ariaLive "polite"; _dataText "$actionMessage"; _class "text-sm text-[var(--fve-muted-text)]"; "No action requested." }
+        }
+
+    let pendingActionClusterExample =
+        div {
+            _dataSignals "{actionMessage: 'No action requested.'}"
+            _class "grid gap-3"
+            ActionCluster.create "pending-actions-example" [
+                ApplicationAction.command "$actionMessage = 'Refresh requested.'" "Refresh"
+                |> ApplicationAction.pending
+                ApplicationAction.link "/components/collection" "View accounts" ]
+            |> ActionCluster.render id
+            output { _ariaLive "polite"; _dataText "$actionMessage"; _class "text-sm text-[var(--fve-muted-text)]"; "No action requested." }
+        }
+
+    let rowActionsExample =
+        div {
+            _dataSignals "{rowActionMessage: 'No row action requested.'}"
+            _class "grid gap-3"
+            RowActions.create "operating-row-actions" "Operating checking" [
+                MenuItem.link "/components/app-shell?destination=account-2048" "View account"
+                MenuItem.link "/components/detail" "View detail"
+                MenuItem.destructiveAction "$rowActionMessage = 'Archive requested for Operating checking.'" "Archive account" ]
+            |> RowActions.render id
+            output { _ariaLive "polite"; _dataText "$rowActionMessage"; _class "text-sm text-[var(--fve-muted-text)]"; "No row action requested." }
+        }
+
+    let bottomNavigationExample =
+        BottomNavigation.create "example-bottom-navigation" "Primary navigation" [
+            BottomNavigationItem.create "/components/application" "Home"
+            BottomNavigationItem.create "/components/collection" "Accounts"
+            BottomNavigationItem.create "/components/metric" "Reports"
+            BottomNavigationItem.create "/components/theming" "Settings" ]
+        |> BottomNavigation.withCurrent "/components/collection"
+        |> BottomNavigation.render id
+
+    let compactBottomNavigationExample =
+        BottomNavigation.create "compact-bottom-navigation" "Workspace navigation" [
+            BottomNavigationItem.create "/components/application" "Home"
+            BottomNavigationItem.create "/components/calendar" "Schedule"
+            BottomNavigationItem.create "/components/media-library" "Media" ]
+        |> BottomNavigation.withCurrent "/components/calendar"
+        |> BottomNavigation.render id
+
+    let bulkActionsExample selectionSource (content:HtmlElement) =
+        let contentWithFeedback =
+            div {
+                _class "grid gap-3"
+                content
+                output { _id "bulk-action-feedback"; _ariaLive "polite"; _class "text-sm text-[var(--fve-muted-text)]"; "Select records to use bulk actions." }
+            }
+        BulkActions.create "example-bulk-actions" selectionSource "Selected account actions" [
+            BulkAction.create "Queue review" "Selected accounts queued for review."
+                (fun keys -> $"document.getElementById('bulk-action-feedback').textContent = 'Queued IDs: ' + {keys}.join(', ')")
+            |> BulkAction.primary
+            BulkAction.create "Archive" "Selected accounts archived in this resettable demo."
+                (fun keys -> $"document.getElementById('bulk-action-feedback').textContent = 'Archived IDs: ' + {keys}.join(', ')")
+            |> BulkAction.destructive ] contentWithFeedback
+        |> BulkActions.render
 
     let private workspacePreview (content:HtmlElement) =
         div {
@@ -2436,11 +2574,39 @@ AppShell.create "product-shell" sideNav pageContent
         |> Progress.withDetail "The application supplies current progress and task status."
         |> Progress.render
 
+    let completedProgressExample =
+        Progress.create "Statement import" 100 100
+        |> Progress.withValueText "100%"
+        |> Progress.complete
+        |> Progress.render
+
+    let failedProgressExample =
+        Progress.create "Statement import" 68 100
+        |> Progress.withValueText "Stopped at 68%"
+        |> Progress.withDetail "The application can provide a retry action beside the progress component."
+        |> Progress.failed
+        |> Progress.render
+
     let fileSelectionExample =
         FileSelection.create "statement-files" "statements" "Statements"
         |> FileSelection.withDescription "Choose one or more CSV or OFX statements. Each file remains a native form value."
         |> FileSelection.withAccept ".csv,.ofx,text/csv"
         |> FileSelection.multiple
+        |> FileSelection.render
+
+    let invalidFileSelectionExample =
+        FileSelection.create "receipt-file" "receipt" "Receipt"
+        |> FileSelection.withDescription "Choose one PDF receipt."
+        |> FileSelection.withAccept ".pdf,application/pdf"
+        |> FileSelection.required
+        |> FileSelection.withValidation "Choose a PDF receipt before continuing."
+        |> FileSelection.render
+
+    let pendingFileSelectionExample =
+        FileSelection.create "pending-files" "pendingFiles" "Evidence files"
+        |> FileSelection.withDescription "The current files are being validated."
+        |> FileSelection.multiple
+        |> FileSelection.pending
         |> FileSelection.render
 
     let uploadQueueExample =
@@ -2471,6 +2637,10 @@ AppShell.create "product-shell" sideNav pageContent
                 _class "mt-2 text-sm text-[var(--fve-muted-text)]"
             }
         }
+
+    let emptyUploadQueueExample =
+        UploadList.create "Statement uploads" []
+        |> UploadList.render
 
     let periodCloseStepsExample =
         div {
@@ -2507,20 +2677,35 @@ AppShell.create "product-shell" sideNav pageContent
             }
         }
 
-    let identityExample =
+    let avatarFallbackExample =
         div {
-            _class "grid gap-4"
-            div {
-                _class "flex items-center gap-3"
-                Avatar.create "Alex Morgan" "AM" |> Avatar.render
-                div {
-                    p { _class "font-semibold text-[var(--fve-text)]"; "Alex Morgan" }
-                    p { _class "text-sm text-[var(--fve-muted-text)]"; "Platform operator" }
-                }
-            }
-            CopyReveal.create "demo-token" "Demo API token" "fve_demo_84fK2s"
-            |> CopyReveal.render
+            _class "flex flex-wrap items-center gap-4"
+            Avatar.create "Alex Morgan" "AM" |> Avatar.small |> Avatar.render
+            Avatar.create "Jamie Lee" "JL" |> Avatar.render
+            Avatar.create "Riley Chen" "RC" |> Avatar.large |> Avatar.render
         }
+
+    let avatarImageExample =
+        Avatar.create "FSharp.ViewEngine" "FV"
+        |> Avatar.withImage "/android-chrome-512x512.png"
+        |> Avatar.large
+        |> Avatar.render
+
+    let decorativeAvatarExample =
+        Avatar.create "Decorative account mark" "AM"
+        |> Avatar.decorative
+        |> Avatar.render
+
+    let copyRevealExample =
+        CopyReveal.create "demo-token" "Demo API token" "fve_demo_84fK2s"
+        |> CopyReveal.render
+
+    let revealedCopyRevealExample =
+        CopyReveal.create "revealed-demo-token" "Revealed demo token" "fve_demo_safe"
+        |> CopyReveal.revealed
+        |> CopyReveal.render
+
+    type CalendarDemoState = Schedule | Empty | Loading | Error | Unavailable
 
     let calendarViewFromQuery = function
         | "day" -> CalendarView.Day
@@ -2533,12 +2718,26 @@ AppShell.create "product-shell" sideNav pageContent
         | true, offset when offset >= -1 && offset <= 1 -> offset
         | _ -> 0
 
-    let private calendarViewUrl view offset =
-        let value = match view with CalendarView.List -> "list" | CalendarView.Day -> "day" | CalendarView.Week -> "week" | CalendarView.Month -> "month"
-        $"/components/app-shell?destination=ledger-accounts&calendarView={value}&calendarDate={offset}"
+    let calendarStateFromQuery = function
+        | "empty" -> CalendarDemoState.Empty
+        | "loading" -> CalendarDemoState.Loading
+        | "error" -> CalendarDemoState.Error
+        | "unavailable" -> CalendarDemoState.Unavailable
+        | _ -> CalendarDemoState.Schedule
 
-    let calendarExample view offset =
-        let rangeLabel, events =
+    let private calendarStateValue = function
+        | CalendarDemoState.Schedule -> "schedule"
+        | CalendarDemoState.Empty -> "empty"
+        | CalendarDemoState.Loading -> "loading"
+        | CalendarDemoState.Error -> "error"
+        | CalendarDemoState.Unavailable -> "unavailable"
+
+    let private calendarViewUrl state view offset =
+        let value = match view with CalendarView.List -> "list" | CalendarView.Day -> "day" | CalendarView.Week -> "week" | CalendarView.Month -> "month"
+        $"/components/calendar?calendarState={calendarStateValue state}&calendarView={value}&calendarDate={offset}"
+
+    let calendarStateExample state view offset =
+        let rangeLabel, scheduledEvents =
             match offset with
             | -1 ->
                 "September 14–20, 2026",
@@ -2558,11 +2757,40 @@ AppShell.create "product-shell" sideNav pageContent
                   |> CalendarEvent.withDetail "Overlaps Northwind by one hour"
                   CalendarEvent.create "booking-103" "Equipment return" "Wednesday, September 23" (shellDestinationUrl LedgerAccounts)
                   |> CalendarEvent.withTime "4:00–4:30 PM" ]
-        Calendar.create "Booking schedule" view rangeLabel events
-        |> Calendar.withPrevious (calendarViewUrl view (max -1 (offset - 1)))
-        |> Calendar.withNext (calendarViewUrl view (min 1 (offset + 1)))
-        |> Calendar.withViewDestinations [ for target in [ CalendarView.List; CalendarView.Day; CalendarView.Week; CalendarView.Month ] -> target, calendarViewUrl target offset ]
-        |> Calendar.render id
+        let events = if state = CalendarDemoState.Schedule then scheduledEvents else []
+        let calendar =
+            Calendar.create "Booking schedule" view rangeLabel events
+            |> Calendar.withPrevious (calendarViewUrl state view (max -1 (offset - 1)))
+            |> Calendar.withNext (calendarViewUrl state view (min 1 (offset + 1)))
+            |> Calendar.withViewDestinations [ for target in [ CalendarView.List; CalendarView.Day; CalendarView.Week; CalendarView.Month ] -> target, calendarViewUrl state target offset ]
+            |> (match state with
+                | CalendarDemoState.Schedule -> id
+                | CalendarDemoState.Empty -> Calendar.withEmptyState (p { _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-neutral-subtle)] p-4 text-sm text-[var(--fve-muted-text)]"; "No bookings in this range." })
+                | CalendarDemoState.Loading -> Calendar.loading
+                | CalendarDemoState.Error ->
+                    Calendar.withError "Bookings could not be loaded."
+                    >> Calendar.withStateAction (a { _href (calendarViewUrl CalendarDemoState.Schedule view offset); _class "rounded-[var(--fve-radius-control)] px-3 py-2 font-semibold ring-1 ring-[var(--fve-critical-ring)]"; "Retry calendar" })
+                | CalendarDemoState.Unavailable ->
+                    Calendar.withUnavailable "This schedule is unavailable for your current workspace."
+                    >> Calendar.withStateAction (a { _href "/components/application"; _class "font-semibold text-[var(--fve-brand-text)] underline underline-offset-2"; "Return to Application" }))
+            |> Calendar.render id
+        div {
+            _class "grid gap-4"
+            nav {
+                _ariaLabel "Calendar example states"
+                _class "grid gap-2 sm:grid-cols-5"
+                for target, label in [ CalendarDemoState.Schedule, "Schedule"; CalendarDemoState.Empty, "Empty"; CalendarDemoState.Loading, "Loading"; CalendarDemoState.Error, "Error"; CalendarDemoState.Unavailable, "Unavailable" ] do
+                    a {
+                        _href (calendarViewUrl target view offset)
+                        if target = state then _ariaCurrent "page"
+                        _class (if target = state then "rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] px-3 py-2 text-center text-sm font-semibold text-[var(--fve-brand-text)]" else "rounded-[var(--fve-radius-control)] px-3 py-2 text-center text-sm font-semibold text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)]")
+                        label
+                    }
+            }
+            calendar
+        }
+
+    let calendarExample view offset = calendarStateExample CalendarDemoState.Schedule view offset
 
     let mediaLibraryExample =
         let library =
@@ -2798,19 +3026,11 @@ AppShell.create "product-shell" sideNav pageContent
     let paginationExamples requestedPage =
         [ sample "pagination" "Page navigation" [ "PaginationDestination"; "paginationDestinationUrl"; "paginationPreview" ] (centered (paginationPreviewRegion requestedPage)) ]
 
-    let appShellExamples current calendarView calendarDate =
-        [ sample "app-shell" "Sidebar application" (shellSource @ [ "ledgerShellExample"; "treasuryShellExample" ]) (shellFixtureFor current)
-          sample "first-steps" "Recoverable setup guidance" [ "firstStepsExample" ] (detailsSurface firstStepsExample)
-          sample "file-selection" "Native file selection" [ "fileSelectionExample" ] (detailsSurface fileSelectionExample)
-          sample "upload-queue" "Upload queue and recovery" [ "uploadQueueExample" ] (detailsSurface uploadQueueExample)
-          sample "determinate-progress" "Determinate progress" [ "operationalProgressExample" ] (detailsSurface operationalProgressExample)
-          sample "step-navigation" "Period-close steps" [ "periodCloseStepsExample" ] (detailsSurface periodCloseStepsExample)
-          sample "identity-copy-reveal" "Identity and credentials" [ "identityExample" ] (detailsSurface identityExample)
-          sample "calendar-schedule" "Calendar and schedule" (shellSource @ [ "calendarViewFromQuery"; "calendarDateFromQuery"; "calendarViewUrl"; "calendarExample" ]) (detailsSurface (calendarExample calendarView calendarDate))
-          sample "media-library" "Media library and editor" (shellSource @ [ "mediaLibraryExample" ]) (detailsSurface mediaLibraryExample)
-          sample "trace-viewer" "Graph and trace integration" [ "traceViewerIntegrationExample" ] (detailsSurface traceViewerIntegrationExample)
-          sample "financial-chart" "Financial chart integration" [ "financialChartIntegrationExample" ] (detailsSurface financialChartIntegrationExample)
-          sample "messaging" "Messaging integration" [ "messagingIntegrationExample" ] (detailsSurface messagingIntegrationExample) ]
+    let appShellExamples current =
+        [ sample "app-shell" "Sidebar application" (shellSource @ [ "ledgerShellExample"; "treasuryShellExample" ]) (shellFixtureFor current) ]
+
+    let calendarExamples state view offset =
+        [ sample "calendar-schedule" "Schedule and states" (shellSource @ [ "CalendarDemoState"; "calendarViewFromQuery"; "calendarDateFromQuery"; "calendarStateFromQuery"; "calendarStateValue"; "calendarViewUrl"; "calendarStateExample" ]) (detailsSurface (calendarStateExample state view offset)) ]
 
     let private tableExamples current =
         [ sample "table" "Simple" [ "TeamMember"; "teamMembers"; "teamColumns"; "simpleTeamTable" ] (detailsSurface simpleTeamTable)
@@ -2843,7 +3063,15 @@ AppShell.create "product-shell" sideNav pageContent
         | "loading-indicator" -> [
             sample "loading-indicator" "Compact indicator" [ "smallLoadingIndicator" ] (centered smallLoadingIndicator)
             sample "loading-indicator-label" "With visible label" [ "visibleLoadingIndicator" ] (centered visibleLoadingIndicator) ]
+        | "progress" -> [
+            sample "progress-active" "Active" [ "operationalProgressExample" ] (fieldSurface operationalProgressExample)
+            sample "progress-complete" "Complete" [ "completedProgressExample" ] (fieldSurface completedProgressExample)
+            sample "progress-failed" "Failed" [ "failedProgressExample" ] (fieldSurface failedProgressExample) ]
         | "empty-state" -> [ sample "empty-state" "With recovery action" [ "plusIcon"; "emptyStateExample" ] (fieldSurface emptyStateExample) ]
+        | "action-cluster" -> [
+            sample "action-cluster" "Primary, secondary, and overflow actions" [ "actionClusterExample" ] (centered actionClusterExample)
+            sample "action-cluster-pending" "Pending action" [ "pendingActionClusterExample" ] (centered pendingActionClusterExample) ]
+        | "row-actions" -> [ sample "row-actions" "Record actions" [ "rowActionsExample" ] (centered rowActionsExample) ]
         | "table" -> tableExamples NameAscending
         | "description-list" -> [
             sample "description-list" "Three-column details" [ "accountDetails" ] (detailsSurface accountDetails)
@@ -2853,6 +3081,13 @@ AppShell.create "product-shell" sideNav pageContent
             sample "metric" "With trend and status" [ "availableBalanceMetric" ] (fieldSurface availableBalanceMetric)
             sample "metric-pending" "With review status" [ "pendingEntriesMetric" ] (fieldSurface pendingEntriesMetric) ]
         | "pagination" -> paginationExamples 2
+        | "avatar" -> [
+            sample "avatar-fallback" "Fallbacks and sizes" [ "avatarFallbackExample" ] (centered avatarFallbackExample)
+            sample "avatar-image" "Image" [ "avatarImageExample" ] (centered avatarImageExample)
+            sample "avatar-decorative" "Decorative" [ "decorativeAvatarExample" ] (centered decorativeAvatarExample) ]
+        | "copy-reveal" -> [
+            sample "copy-reveal" "Masked value" [ "copyRevealExample" ] (fieldSurface copyRevealExample)
+            sample "copy-reveal-revealed" "Initially revealed" [ "revealedCopyRevealExample" ] (fieldSurface revealedCopyRevealExample) ]
         | "input" -> [
             sample "input" "With label" [ "labelledInput" ] (fieldSurface labelledInput)
             sample "input-help" "With help text" [ "inputWithHelp" ] (fieldSurface inputWithHelp)
@@ -2863,7 +3098,6 @@ AppShell.create "product-shell" sideNav pageContent
             sample "input-prefix" "With prefix" [ "inputWithPrefix" ] (fieldSurface inputWithPrefix)
             sample "input-suffix" "With suffix" [ "inputWithSuffix" ] (fieldSurface inputWithSuffix)
             sample "search-input" "Search with clear action" [ "searchInputExample" ] (fieldSurface searchInputExample)
-            sample "tag-input" "Free-form tags" [ "tagInputExample" ] (fieldSurface tagInputExample)
             sample "input-readonly" "Read-only" [ "readonlyInput" ] (fieldSurface readonlyInput)
             sample "input-disabled" "Disabled" [ "disabledInput" ] (fieldSurface disabledInput)
             sample "input-pending" "Pending" [ "pendingInput" ] (fieldSurface pendingInput) ]
@@ -2873,6 +3107,15 @@ AppShell.create "product-shell" sideNav pageContent
             sample "form-layouts-grid" "Two-column form" [ "choiceSubmitButton"; "ContactDetails"; "ContactFormLayout"; "contactFormRegion"; "emptyContact"; "twoColumnFormExample" ] (fullBleedThemedSurface twoColumnFormExample)
             sample "form-layouts-sections" "Sectioned form" [ "choiceSubmitButton"; "ContactDetails"; "ContactFormLayout"; "contactFormRegion"; "emptyContact"; "sectionedFormExample" ] (fullBleedThemedSurface sectionedFormExample)
             sample "form-layouts-search" "Search with results" [ "accountSearchExample" ] (fullBleedThemedSurface accountSearchExample) ]
+        | "file-selection" -> [
+            sample "file-selection" "Multiple files" [ "fileSelectionExample" ] (fieldSurface fileSelectionExample)
+            sample "file-selection-validation" "Validation" [ "invalidFileSelectionExample" ] (fieldSurface invalidFileSelectionExample)
+            sample "file-selection-pending" "Pending" [ "pendingFileSelectionExample" ] (fieldSurface pendingFileSelectionExample) ]
+        | "tag-input" -> [
+            sample "tag-input" "Free-form tags" [ "tagInputExample" ] (fieldSurface tagInputExample)
+            sample "tag-input-validation" "Validation" [ "invalidTagInputExample" ] (fieldSurface invalidTagInputExample)
+            sample "tag-input-pending" "Pending" [ "pendingTagInputExample" ] (fieldSurface pendingTagInputExample)
+            sample "tag-input-disabled" "Disabled" [ "disabledTagInputExample" ] (fieldSurface disabledTagInputExample) ]
         | "textarea" -> [
             sample "textarea" "With label" [ "labelledTextarea" ] (fieldSurface labelledTextarea)
             sample "textarea-help" "With instructions" [ "editableInstructions" ] (fieldSurface editableInstructions)
@@ -2938,10 +3181,13 @@ AppShell.create "product-shell" sideNav pageContent
         | "radio-group" -> [
             sample "radio-group" "With label" [ "basicRadioGroup" ] (fieldSurface basicRadioGroup)
             sample "radio-group-help" "With help text" [ "radioGroupWithHelp" ] (fieldSurface radioGroupWithHelp)
-            sample "choice-cards" "Rich choice cards" [ "richChoiceCards" ] (detailsSurface richChoiceCards)
             sample "radio-group-validation" "Required choice with validation" (formSource @ [ "postingModeOptions"; "radioGroupFormRegion"; "postingMode" ]) (fieldSurface postingMode)
             sample "radio-group-pending" "Pending" [ "postingModeOptions"; "pendingPostingMode" ] (fieldSurface pendingPostingMode)
             sample "radio-group-disabled" "Disabled" [ "postingModeOptions"; "disabledPostingMode" ] (fieldSurface disabledPostingMode) ]
+        | "choice-cards" -> [
+            sample "choice-cards" "Single choice" [ "richChoiceCards" ] (detailsSurface richChoiceCards)
+            sample "choice-cards-multiple" "Multiple choices" [ "multipleChoiceCards" ] (detailsSurface multipleChoiceCards)
+            sample "choice-cards-validation" "Validation" [ "invalidChoiceCards" ] (detailsSurface invalidChoiceCards) ]
         | "dropdown-menu" -> [
             sample "dropdown-menu" "Actions and destinations" [ "Destination"; "destinationUrl"; "menuLeadingIcon"; "dropdownMenuItems"; "actionMenu"; "moreActionsMenu"; "dropdownMenuRegion" ] (fieldSurface (dropdownMenuRegion false))
             |> note "Counters demonstrate activation; no records are deleted. Refresh actions fetches new menu content." ]
@@ -2971,7 +3217,27 @@ AppShell.create "product-shell" sideNav pageContent
             sample "page-canvas" "Remaining-height canvas" [ "canvasPage" ] canvasPagePreview ]
         | "collection" -> [ sample "collection" "Collection with record actions" [ "collectionExample" ] collectionPreview ]
         | "detail" -> [ sample "detail" "Detail with related records" [ "detailExample" ] detailPreview ]
-        | "app-shell" -> appShellExamples LedgerAccounts CalendarView.List 0
+        | "app-shell" -> appShellExamples LedgerAccounts
+        | "bottom-navigation" -> [
+            sample "bottom-navigation" "Four destinations" [ "bottomNavigationExample" ] (detailsSurface bottomNavigationExample)
+            sample "bottom-navigation-compact" "Three destinations" [ "compactBottomNavigationExample" ] (detailsSurface compactBottomNavigationExample) ]
+        | "bulk-actions" -> [ sample "bulk-actions" "Table selection actions" [ "bulkActionsExample" ] (detailsSurface (bulkActionsExample "team-member-selection" selectableTeamTable)) ]
+        | "upload" -> [
+            sample "upload" "Queue and recovery" [ "uploadQueueExample" ] (detailsSurface uploadQueueExample)
+            sample "upload-empty" "Empty queue" [ "emptyUploadQueueExample" ] (detailsSurface emptyUploadQueueExample) ]
+        | "steps" -> [ sample "steps" "Period-close steps" [ "periodCloseStepsExample" ] (detailsSurface periodCloseStepsExample) ]
+        | "first-steps" -> [ sample "first-steps" "Recoverable setup guidance" [ "firstStepsExample" ] (detailsSurface firstStepsExample) ]
+        | "calendar" -> calendarExamples CalendarDemoState.Schedule CalendarView.List 0
+        | "media-library" -> [ sample "media-library" "Library and editor" (shellSource @ [ "mediaLibraryExample" ]) (detailsSurface mediaLibraryExample) ]
+        | "integrations/graph-and-trace" -> [
+            sample "trace-viewer" "Graph and trace workspace" [ "traceViewerIntegrationExample" ] (detailsSurface traceViewerIntegrationExample)
+            |> note "This package-only recipe has no graph-runtime dependency. If an application replaces the contained SVG, it owns the selected library, its license, and the visible ordered alternative." ]
+        | "integrations/financial-chart" -> [
+            sample "financial-chart" "Financial chart with data alternative" [ "financialChartIntegrationExample" ] (detailsSurface financialChartIntegrationExample)
+            |> note "This package-only recipe has no chart-runtime dependency. Applications own any chart library and license they introduce, while retaining a visible table alternative." ]
+        | "integrations/messaging" -> [
+            sample "messaging" "Messaging workspace" [ "messagingIntegrationExample" ] (detailsSurface messagingIntegrationExample)
+            |> note "This package-only recipe has no messaging-provider dependency. Applications own transport, persistence, authorization, provider SDKs, and their licenses." ]
         | id -> invalidArg (nameof id) $"No component examples registered for '{id}'."
 
     let allExamples () =
@@ -2997,12 +3263,19 @@ AppShell.create "product-shell" sideNav pageContent
     let badgePage = gallery badgeRegistration (examplesFor "badge")
     let statusPage = gallery statusRegistration (examplesFor "status")
     let loadingIndicatorPage = gallery loadingIndicatorRegistration (examplesFor "loading-indicator")
+    let progressPage = gallery progressRegistration (examplesFor "progress")
     let emptyStatePage = gallery emptyStateRegistration (examplesFor "empty-state")
+    let actionClusterPage = gallery actionClusterRegistration (examplesFor "action-cluster")
+    let rowActionsPage = gallery rowActionsRegistration (examplesFor "row-actions")
     let tablePageFor sort = gallery tableRegistration (tableExamples sort)
     let tablePage = tablePageFor NameAscending
     let descriptionListPage = gallery descriptionListRegistration (examplesFor "description-list")
     let metricPage = gallery metricRegistration (examplesFor "metric")
+    let avatarPage = gallery avatarRegistration (examplesFor "avatar")
+    let copyRevealPage = gallery copyRevealRegistration (examplesFor "copy-reveal")
     let inputPage = gallery inputRegistration (examplesFor "input")
+    let fileSelectionPage = gallery fileSelectionRegistration (examplesFor "file-selection")
+    let tagInputPage = gallery tagInputRegistration (examplesFor "tag-input")
     let formLayoutsPage = gallery formLayoutsRegistration (examplesFor "form-layouts")
     let textareaPage = gallery textareaRegistration (examplesFor "textarea")
     let errorSummaryPage = gallery errorSummaryRegistration (examplesFor "error-summary")
@@ -3015,6 +3288,7 @@ AppShell.create "product-shell" sideNav pageContent
     let sideNavPage = gallery sideNavRegistration (examplesFor "side-nav")
     let tabsPage = gallery tabsRegistration (examplesFor "tabs")
     let radioGroupPage = gallery radioGroupRegistration (examplesFor "radio-group")
+    let choiceCardsPage = gallery choiceCardsRegistration (examplesFor "choice-cards")
     let dropdownMenuPage = gallery dropdownMenuRegistration (examplesFor "dropdown-menu")
     let dialogPage = gallery dialogRegistration (examplesFor "dialog")
     let confirmationDialogPage = gallery confirmationDialogRegistration (examplesFor "confirmation-dialog")
@@ -3030,10 +3304,19 @@ AppShell.create "product-shell" sideNav pageContent
 
     let paginationPageFor requestedPage = gallery paginationRegistration (paginationExamples requestedPage)
     let paginationPage = paginationPageFor 2
-    let appShellPageForState current calendarView calendarDate = gallery appShellRegistration (appShellExamples current calendarView calendarDate)
-    let appShellPageForView current calendarView = appShellPageForState current calendarView 0
-    let appShellPageFor current = appShellPageForView current CalendarView.List
+    let appShellPageFor current = gallery appShellRegistration (appShellExamples current)
     let appShellPage = appShellPageFor LedgerAccounts
+    let bottomNavigationPage = gallery bottomNavigationRegistration (examplesFor "bottom-navigation")
+    let bulkActionsPage = gallery bulkActionsRegistration (examplesFor "bulk-actions")
+    let uploadPage = gallery uploadRegistration (examplesFor "upload")
+    let stepsPage = gallery stepsRegistration (examplesFor "steps")
+    let firstStepsPage = gallery firstStepsRegistration (examplesFor "first-steps")
+    let calendarPageForState state view offset = gallery calendarRegistration (calendarExamples state view offset)
+    let calendarPage = calendarPageForState CalendarDemoState.Schedule CalendarView.List 0
+    let mediaLibraryPage = gallery mediaLibraryRegistration (examplesFor "media-library")
+    let graphTraceIntegrationPage = gallery graphTraceIntegrationRegistration (examplesFor "integrations/graph-and-trace")
+    let financialChartIntegrationPage = gallery financialChartIntegrationRegistration (examplesFor "integrations/financial-chart")
+    let messagingIntegrationPage = gallery messagingIntegrationRegistration (examplesFor "integrations/messaging")
 
     let interactionPage =
         DocumentationPage.create interactionRegistration.id interactionRegistration.title |> DocumentationPage.withDescription "Keep ephemeral interaction local while applications retain authoritative, durable, and security-sensitive state." |> DocumentationPage.withSections [
@@ -3081,12 +3364,19 @@ AppShell.create "product-shell" sideNav pageContent
           badgeRegistration.path, badgePage
           statusRegistration.path, statusPage
           loadingIndicatorRegistration.path, loadingIndicatorPage
+          progressRegistration.path, progressPage
           emptyStateRegistration.path, emptyStatePage
+          actionClusterRegistration.path, actionClusterPage
+          rowActionsRegistration.path, rowActionsPage
           tableRegistration.path, tablePage
           descriptionListRegistration.path, descriptionListPage
           metricRegistration.path, metricPage
           paginationRegistration.path, paginationPage
+          avatarRegistration.path, avatarPage
+          copyRevealRegistration.path, copyRevealPage
           inputRegistration.path, inputPage
+          fileSelectionRegistration.path, fileSelectionPage
+          tagInputRegistration.path, tagInputPage
           formLayoutsRegistration.path, formLayoutsPage
           textareaRegistration.path, textareaPage
           errorSummaryRegistration.path, errorSummaryPage
@@ -3099,6 +3389,7 @@ AppShell.create "product-shell" sideNav pageContent
           sideNavRegistration.path, sideNavPage
           tabsRegistration.path, tabsPage
           radioGroupRegistration.path, radioGroupPage
+          choiceCardsRegistration.path, choiceCardsPage
           dropdownMenuRegistration.path, dropdownMenuPage
           dialogRegistration.path, dialogPage
           confirmationDialogRegistration.path, confirmationDialogPage
@@ -3112,6 +3403,16 @@ AppShell.create "product-shell" sideNav pageContent
           collectionRegistration.path, collectionPageDocumentation
           detailRegistration.path, detailPageDocumentation
           appShellRegistration.path, appShellPage
+          bottomNavigationRegistration.path, bottomNavigationPage
+          bulkActionsRegistration.path, bulkActionsPage
+          uploadRegistration.path, uploadPage
+          stepsRegistration.path, stepsPage
+          firstStepsRegistration.path, firstStepsPage
+          calendarRegistration.path, calendarPage
+          mediaLibraryRegistration.path, mediaLibraryPage
+          graphTraceIntegrationRegistration.path, graphTraceIntegrationPage
+          financialChartIntegrationRegistration.path, financialChartIntegrationPage
+          messagingIntegrationRegistration.path, messagingIntegrationPage
           interactionRegistration.path, interactionPage
           accessibilityRegistration.path, accessibilityPage
           themingRegistration.path, themingPage

@@ -256,13 +256,13 @@ Applications own authorization, durable workflow state, validation, and the trus
 
 ## Operational application patterns
 
-`ChoiceCards` retains native radio semantics while adding descriptions, metadata, badges, disabled choices, required validation, and responsive card presentation. `Progress` renders determinate native progress or an indeterminate status. `Steps` renders linked list, compact, or progress presentation from one typed sequence. `FirstSteps` provides optional setup guidance whose minimized state always exposes a restore action.
+`ChoiceCards` retains native radio or checkbox semantics while adding descriptions, metadata, disabled choices, required validation, and responsive card presentation. `Progress` renders determinate native progress with active, complete, or failed context. `Steps` renders current, completed, available, and unavailable destinations from one typed sequence. `FirstSteps` provides optional setup guidance whose minimized state always exposes a restore action.
 
 `UploadList` presents consumer-owned queued, uploading, complete, failed, and cancelled files with determinate progress and explicit cancel/retry/remove actions. It is presentation only: applications own file bytes, transport, retry policy, validation, and durable state. `Avatar` and `CopyReveal` provide identity fallback and intentionally user-triggered credential reveal/copy behavior.
 
-`Calendar` renders typed List, Day, Week, or Month schedules with real previous/next/view destinations and accessible event links; applications own time zones, recurrence, collision policy, fetching, and route state. `MediaLibrary` renders native repeated selection values, descriptive images, primary state, and stable selection events compatible with `BulkActions`; applications own storage, transformations, save operations, and media authorization.
+`Calendar` renders typed List, Day, Week, or Month schedules with real previous/next/view destinations, accessible event links, and explicit empty, loading, error, and unavailable presentation; applications own time zones, recurrence, collision policy, fetching, and route state. `MediaLibrary` renders native repeated selection values, descriptive images, primary state, and stable selection events compatible with `BulkActions`; applications own storage, transformations, save operations, and media authorization.
 
-The Application gallery also includes deliberately bounded graph/trace, financial-chart, and messaging recipes. They use contained SVG, visible ordered/table alternatives, native buttons/fields, and consumer-owned data rather than introducing universal graph, chart, or messaging engines.
+Each consumer-facing component has a dedicated catalog page for its focused variants and copyable code. App shell contains only shell examples. Deliberately bounded graph/trace, financial-chart, and messaging recipes live on separate **Integration examples** pages; they use contained SVG, visible ordered/table alternatives, native buttons/fields, and consumer-owned data rather than introducing universal graph, chart, or messaging engines.
 
 ## Navigation and page composition
 

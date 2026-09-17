@@ -453,6 +453,7 @@ let view =
         FileSelection.create "package-files" "files" "Files"
         |> FileSelection.withAccept ".csv"
         |> FileSelection.multiple
+        |> FileSelection.pending
         |> FileSelection.render
         TagInput.create "package-tags" "tags" "Tags" [ "reviewed" ]
         |> TagInput.render
@@ -462,6 +463,8 @@ let view =
         |> Steps.render id
         Calendar.create "Package schedule" CalendarView.Week "September 21–27" [ CalendarEvent.create "package-event" "Review package" "September 24" "/events/1" ]
         |> Calendar.withViewDestinations [ CalendarView.Week, "/schedule?view=week" ]
+        |> Calendar.withError "Package schedule failed."
+        |> Calendar.withStateAction (a { _href "/schedule/retry"; "Retry schedule" })
         |> Calendar.render id
         MediaLibrary.create "package-media" "Package media" "assetIds" [ MediaAsset.create "package-image" "Package image" "/package.png" "Package preview" "/media/1" |> MediaAsset.primary ]
         |> MediaLibrary.withSelected [ "package-image" ]
@@ -531,11 +534,13 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "aria-label=\"Add account\"")
    || not (actual.Contains "role=\"status\"")
    || not (actual.Contains "No accounts")
-   || not (actual.Contains "type=\"file\"")
+   || not (System.Text.RegularExpressions.Regex.IsMatch(actual, "<input id=\"package-files\"[^>]*disabled[^>]*aria-busy=\"true\""))
    || not (actual.Contains "package_tags_values")
    || not (actual.Contains "<progress")
    || not (actual.Contains "aria-current=\"step\"")
    || not (actual.Contains "aria-label=\"Calendar view\"")
+   || not (actual.Contains "Package schedule failed.")
+   || not (actual.Contains "Retry schedule")
    || not (actual.Contains "data-fve-media-library=\"true\"")
    || not (actual.Contains "<caption")
    || not (actual.Contains "fve-table-records")

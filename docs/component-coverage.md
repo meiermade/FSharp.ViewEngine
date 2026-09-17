@@ -94,9 +94,9 @@ Everything remains in the preserved uncommitted candidate. No commit, push, PR u
 
 ## MEIER-1220 completion checkpoint
 
-The current candidate adds typed hierarchy, shared bulk actions, file selection/upload presentation, free-form tags, rich choice cards, determinate/indeterminate progress, linked steps, recoverable First steps, avatar/copy-reveal controls, linked calendar views, and media selection/editor presentation. The App-shell gallery also contains bounded graph/trace, financial-chart, and messaging recipes with contained SVG and visible ordered/table alternatives. Marketing and Ecommerce remain absent.
+The current candidate adds typed hierarchy, shared bulk actions, file selection/upload presentation, free-form tags, rich choice cards, determinate progress, linked steps, recoverable First steps, avatar/copy-reveal controls, linked calendar views and states, and media selection/editor presentation. Every consumer-facing reusable component has a dedicated catalog route whose gallery owns its variants and copyable code; App shell now contains only shell examples. Bounded graph/trace, financial-chart, and messaging recipes have separate **Integration examples** pages rather than appearing as App shell variants. Marketing and Ecommerce remain absent.
 
-The catalog currently compiles **131 copied examples across 37 galleries**. Focused contracts cover native form values, stable selected identities, hierarchy disclosure, file/upload recovery, tags, progress, steps, credentials, calendar route state, media bulk actions, and specialist alternatives. This remains candidate evidence until the full retry-free three-browser, Tailwind, package/framework, responsive, and accessibility gates complete.
+The catalog currently compiles **151 copied examples across 54 galleries**. Focused contracts cover dedicated route/navigation ownership, native form values, stable selected identities, hierarchy disclosure, file/upload recovery, tags, progress, steps, credentials, Calendar empty/loading/error/unavailable state and route behavior, media bulk actions, and specialist alternatives. This remains candidate evidence until the full retry-free three-browser, Tailwind, package/framework, responsive, and accessibility gates complete.
 
 ## Acceptance rules
 

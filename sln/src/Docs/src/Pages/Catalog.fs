@@ -41,9 +41,12 @@ module Catalog =
           { overview = overview "Application" "application"
             description = "Compose application shells, pages, collections and matching record details from shared primitives."
             sections =
-                [ section "Shells and pages" [ Components.appShellRegistration; Components.pageRegistration; Components.pageTopBarRegistration; Components.pageHeaderRegistration ]
-                  section "Collections and details" [ Components.collectionRegistration; Components.detailRegistration ]
-                  section "Forms" [ Components.formLayoutsRegistration ] ]
+                [ section "Shells and pages" [ Components.appShellRegistration; Components.bottomNavigationRegistration; Components.pageRegistration; Components.pageTopBarRegistration; Components.pageHeaderRegistration ]
+                  section "Collections and details" [ Components.collectionRegistration; Components.detailRegistration; Components.bulkActionsRegistration ]
+                  section "Forms" [ Components.formLayoutsRegistration; Components.uploadRegistration ]
+                  section "Workflows" [ Components.stepsRegistration; Components.firstStepsRegistration ]
+                  section "Resources" [ Components.calendarRegistration; Components.mediaLibraryRegistration ]
+                  section "Integration examples" Components.integrationExampleRegistrations ]
             planned = [] }
           { overview = Showcase.overviewRegistration
             description = "Documentation sites, API references, galleries and executable specifications using the same Components package."
@@ -129,7 +132,7 @@ module Catalog =
                     DocumentationSection.create "composition-ownership" "Composition ownership" [
                         p { "AppShell owns the responsive frame and one main landmark. Page owns route-local width, navigation, gutters and scrolling; PageHeader supplies the visible page heading. Collection and Detail compose the body without another shell." } ]
                     DocumentationSection.create "connected-experience" "Connected Application experience" [
-                        p { "The existing financial shell, collections and record details are available above. The complete form/action/settings journey and shared Documentation App mode are still being implemented; Application is not the App-mode viewer." } ] ]
+                        p { "The App shell example connects the financial workspace, collections, matching record details, forms, actions, reports and settings through consumer-owned destinations. Browser and Phone can present that same application with optional App mode; Application does not own the Documentation viewer." } ] ]
 
     let private pages =
         [ yield Components.overviewRegistration.path, overviewPage

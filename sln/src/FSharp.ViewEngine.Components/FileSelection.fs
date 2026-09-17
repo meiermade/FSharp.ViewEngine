@@ -16,6 +16,7 @@ type FileSelectionConfig =
           multiple:bool
           required:bool
           disabled:bool
+          pending:bool
           validation:string option }
 
 [<RequireQualifiedAccess>]
@@ -24,14 +25,16 @@ module FileSelection =
         if String.IsNullOrWhiteSpace id || id |> Seq.exists Char.IsWhiteSpace then invalidArg (nameof id) "A stable file field ID is required."
         if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A file form name is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A file field label is required."
-        { id = id; name = name; label = label; description = None; accept = None; multiple = false; required = false; disabled = false; validation = None }
+        { id = id; name = name; label = label; description = None; accept = None; multiple = false; required = false; disabled = false; pending = false; validation = None }
     let withDescription description (config:FileSelectionConfig) = { config with description = Some description }
     let withAccept accept (config:FileSelectionConfig) = { config with accept = Some accept }
     let multiple (config:FileSelectionConfig) = { config with multiple = true }
     let required (config:FileSelectionConfig) = { config with required = true }
     let disabled (config:FileSelectionConfig) = { config with disabled = true }
+    let pending (config:FileSelectionConfig) = { config with pending = true }
     let withValidation validation (config:FileSelectionConfig) = { config with validation = Some validation }
     let render config =
+        let unavailable = config.disabled || config.pending
         let descriptionId = config.id + "-description"
         let validationId = config.id + "-validation"
         let selectedId = config.id + "-selected"
@@ -55,8 +58,9 @@ module FileSelection =
                 _name config.name
                 _type "file"
                 _multiple config.multiple
-                _required (config.required && not config.disabled)
-                _disabled config.disabled
+                _required (config.required && not unavailable)
+                _disabled unavailable
+                if config.pending then _ariaBusy true
                 _ariaInvalid config.validation.IsSome
                 if describedBy <> "" then _ariaDescribedby describedBy
                 match config.accept with
@@ -80,7 +84,7 @@ module FileSelection =
             }
             button {
                 _type "button"
-                _disabled config.disabled
+                _disabled unavailable
                 _class "justify-self-start rounded-[var(--fve-radius-control)] px-2 py-1 text-sm font-semibold text-[var(--fve-brand-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
                 _dataOn ("click", "const field = document.getElementById('" + config.id + "'); field.value = ''; field.dispatchEvent(new Event('change', {bubbles:true})); field.focus()")
                 "Clear selected files"
