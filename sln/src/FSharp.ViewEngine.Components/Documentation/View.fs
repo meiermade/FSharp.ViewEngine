@@ -736,10 +736,10 @@ const wireMermaidLinks = node => {
     link.setAttribute('data-on:click', `window.fsharpDocsNavigation.navigate(evt, ${encodedHref})`);
   }
 };
-window.renderMermaid = (el, pendingOnly = false) => {
+window.renderMermaid = (el, force = false) => {
   const render = async () => {
     const candidates = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
-    const nodes = pendingOnly ? candidates.filter(node => node.dataset.mermaidState === 'pending') : candidates;
+    const nodes = candidates.filter(node => force || node.dataset.mermaidState !== 'rendered');
     if (nodes.length === 0) return;
     for (const node of nodes) setMermaidPending(node);
     try {
@@ -769,7 +769,7 @@ window.renderMermaid = (el, pendingOnly = false) => {
   mermaidRenderQueue = mermaidRenderQueue.then(render, render);
   return mermaidRenderQueue;
 };
-window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document));
+window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document, true));
             """
             |> fun source ->
                 source
@@ -992,16 +992,22 @@ window.fsharpDocsNavigation = {
     document.fonts?.ready.then(() => { if (this.scrollRoot === root) update(); });
     update();
   },
-  navigateToFragment(event, href) {
-    if (!href?.startsWith('#') || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+  showFragment(href) {
+    if (!href?.startsWith('#')) return false;
     const target = document.getElementById(decodeURIComponent(href.slice(1)));
-    if (!target) return;
-    event.preventDefault();
-    window.history.pushState(null, '', href);
+    if (!target) return false;
     target.scrollIntoView({ block: 'start' });
     target.focus({ preventScroll: true });
-    event.currentTarget.closest('details')?.removeAttribute('open');
     this.setCurrentFragment(target.id);
+    return true;
+  },
+  navigateToFragment(event, href) {
+    if (!href?.startsWith('#') || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    if (!document.getElementById(decodeURIComponent(href.slice(1)))) return;
+    event.preventDefault();
+    window.history.pushState(null, '', href);
+    this.showFragment(href);
+    event.currentTarget.closest('details')?.removeAttribute('open');
   },
   async complete() {
     window.fsharpDocsColorMode?.apply(window.fsharpDocsColorMode.current());
@@ -1017,9 +1023,16 @@ window.fsharpDocsNavigation = {
     }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     const content = document.getElementById('page-content');
-    await window.renderCode?.(content);
-    await window.renderInitialDocsPreviews?.(content);
+    // Datastar may preserve a Mermaid host whose data-init expression has
+    // already run. Complete independent enhancement lifecycles together.
+    const [codeResult] = await Promise.allSettled([
+      window.renderCode?.(content),
+      window.renderMermaid?.(content),
+      window.renderInitialDocsPreviews?.(content)
+    ]);
     this.initializeToc();
+    this.showFragment(window.location.hash);
+    if (codeResult.status === 'rejected') throw codeResult.reason;
   },
   fail() {
     if (!this.pending) return;
