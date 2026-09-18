@@ -736,10 +736,10 @@ const wireMermaidLinks = node => {
     link.setAttribute('data-on:click', `window.fsharpDocsNavigation.navigate(evt, ${encodedHref})`);
   }
 };
-window.renderMermaid = (el, force = false) => {
+window.renderMermaid = (el, pendingOnly = false) => {
   const render = async () => {
     const candidates = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
-    const nodes = candidates.filter(node => force || node.dataset.mermaidState !== 'rendered');
+    const nodes = candidates.filter(node => !pendingOnly || node.dataset.mermaidState !== 'rendered');
     if (nodes.length === 0) return;
     for (const node of nodes) setMermaidPending(node);
     try {
@@ -769,7 +769,7 @@ window.renderMermaid = (el, force = false) => {
   mermaidRenderQueue = mermaidRenderQueue.then(render, render);
   return mermaidRenderQueue;
 };
-window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document, true));
+window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document));
             """
             |> fun source ->
                 source
@@ -868,16 +868,16 @@ window.fsharpDocsPreviewColorMode = window.fsharpDocsPreviewColorMode ?? {
   }
 };
 window.addEventListener('fsharpdocs:colormode', () => window.fsharpDocsPreviewColorMode.sync(document));
-window.renderDocsPreview = (el) => {
+window.renderDocsPreview = (el, pendingOnly = false) => {
   for (const frame of el?.querySelectorAll?.('iframe[data-docs-preview-src]') ?? []) {
     window.fsharpDocsPreviewColorMode.wire(frame);
     if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.docsPreviewSrc);
   }
-  return window.renderMermaid?.(el);
+  return window.renderMermaid?.(el, pendingOnly);
 };
 window.renderInitialDocsPreviews = (el) => Promise.all(
   Array.from(el?.querySelectorAll?.('[data-docs-preview-initial="true"]') ?? [])
-    .map(preview => window.renderDocsPreview(preview))
+    .map(preview => window.renderDocsPreview(preview, true))
 );
 window.fsharpDocsCopy = async button => {
   const source = button.closest('.docs-copyable-code')?.querySelector('[data-docs-copy-source]')?.textContent ?? '';
@@ -1027,7 +1027,7 @@ window.fsharpDocsNavigation = {
     // already run. Complete independent enhancement lifecycles together.
     const [codeResult] = await Promise.allSettled([
       window.renderCode?.(content),
-      window.renderMermaid?.(content),
+      window.renderMermaid?.(content, true),
       window.renderInitialDocsPreviews?.(content)
     ]);
     this.initializeToc();
