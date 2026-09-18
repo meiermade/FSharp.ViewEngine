@@ -397,6 +397,12 @@ let tests =
             Expect.stringContains home "/scripts/mermaid.11.16.0.min.js" "pages without diagrams retain the pinned Mermaid source"
             Expect.isFalse (home.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "pages without diagrams do not eagerly load Mermaid"
             Expect.stringContains diagrams "data-init=\"window.renderMermaid?.(el)\"" "diagram elements initialize through Datastar"
+            Expect.stringContains home "window.renderCode?.(content),\n      window.renderMermaid?.(content)" "completed Datastar navigation independently renders pending diagrams even when their data-init host is reused"
+            Expect.stringContains home "node.dataset.mermaidState !== 'rendered'" "overlapping initialization and navigation completion do not render an unchanged diagram twice"
+            Expect.stringContains home "window.renderMermaid?.(document, true)" "color-mode changes still deliberately rerender completed diagrams"
+            Expect.stringContains home "Promise.allSettled" "code and diagram enhancement complete independently after navigation"
+            Expect.stringContains home "if (codeResult.status === 'rejected') throw codeResult.reason" "Prism failures retain their prior error behavior after independent diagram rendering"
+            Expect.stringContains home "this.showFragment(window.location.hash)" "completed cross-page navigation restores the requested fragment after asynchronous content rendering"
             Expect.isFalse (diagrams.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "diagram pages also load pinned Mermaid lazily"
             Expect.isFalse (home.Contains("cdnjs.cloudflare.com")) "documentation assets are self-hosted"
         }

@@ -755,9 +755,10 @@ const wireMermaidLinks = node => {
     link.setAttribute('data-on:click', `if (!evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) { evt.preventDefault(); $sideNavOpen = false; $breadcrumbMenuOpen = false; window.fsharpDocsNavigation?.begin(); window.history.pushState(null, '', ${encodedHref}); @get(${encodedHref}) }`);
   }
 };
-window.renderMermaid = (el) => {
+window.renderMermaid = (el, force = false) => {
   const render = async () => {
-    const nodes = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
+    const candidates = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
+    const nodes = candidates.filter(node => force || node.dataset.mermaidState !== 'rendered');
     if (nodes.length === 0) return;
     for (const node of nodes) setMermaidPending(node);
     try {
@@ -787,7 +788,7 @@ window.renderMermaid = (el) => {
   mermaidRenderQueue = mermaidRenderQueue.then(render, render);
   return mermaidRenderQueue;
 };
-window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document));
+window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document, true));
             """
             |> fun source ->
                 source
@@ -943,16 +944,22 @@ window.fsharpDocsNavigation = {
     document.fonts?.ready.then(() => { if (this.scrollRoot === root) update(); });
     update();
   },
-  navigateToFragment(event, href) {
-    if (!href?.startsWith('#') || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+  showFragment(href) {
+    if (!href?.startsWith('#')) return false;
     const target = document.getElementById(decodeURIComponent(href.slice(1)));
-    if (!target) return;
-    event.preventDefault();
-    window.history.pushState(null, '', href);
+    if (!target) return false;
     target.scrollIntoView({ block: 'start' });
     target.focus({ preventScroll: true });
-    event.currentTarget.closest('details')?.removeAttribute('open');
     this.setCurrentFragment(target.id);
+    return true;
+  },
+  navigateToFragment(event, href) {
+    if (!href?.startsWith('#') || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    if (!document.getElementById(decodeURIComponent(href.slice(1)))) return;
+    event.preventDefault();
+    window.history.pushState(null, '', href);
+    this.showFragment(href);
+    event.currentTarget.closest('details')?.removeAttribute('open');
   },
   async complete() {
     window.fsharpDocsColorMode?.apply(window.fsharpDocsColorMode.current());
@@ -963,8 +970,15 @@ window.fsharpDocsNavigation = {
     }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     const content = document.getElementById('page-content');
-    await window.renderCode?.(content);
+    // Datastar may preserve a Mermaid host whose data-init expression has
+    // already run. Complete both independent enhancement lifecycles.
+    const [codeResult] = await Promise.allSettled([
+      window.renderCode?.(content),
+      window.renderMermaid?.(content)
+    ]);
     this.initializeToc();
+    this.showFragment(window.location.hash);
+    if (codeResult.status === 'rejected') throw codeResult.reason;
   }
 };
 window.fsharpDocsMobileNav = {
