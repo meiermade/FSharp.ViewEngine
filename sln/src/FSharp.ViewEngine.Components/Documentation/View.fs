@@ -720,6 +720,7 @@ const mermaidStatus = (role, message) => {
 };
 const setMermaidPending = node => {
   node.dataset.mermaidState = 'pending';
+  delete node.dataset.mermaidRenderedSource;
   node.setAttribute('aria-busy', 'true');
   node.replaceChildren(mermaidStatus('status', 'Rendering diagram…'));
 };
@@ -739,7 +740,7 @@ const wireMermaidLinks = node => {
 window.renderMermaid = (el, pendingOnly = false) => {
   const render = async () => {
     const candidates = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
-    const nodes = candidates.filter(node => !pendingOnly || node.dataset.mermaidState !== 'rendered');
+    const nodes = candidates.filter(node => !pendingOnly || node.dataset.mermaidState !== 'rendered' || node.dataset.mermaidRenderedSource !== (node.dataset.mermaidSource ?? '') || !node.querySelector('svg'));
     if (nodes.length === 0) return;
     for (const node of nodes) setMermaidPending(node);
     try {
@@ -759,6 +760,7 @@ window.renderMermaid = (el, pendingOnly = false) => {
         node.innerHTML = svg;
         bindFunctions?.(node);
         node.dataset.mermaidState = 'rendered';
+        node.dataset.mermaidRenderedSource = node.dataset.mermaidSource ?? '';
         node.removeAttribute('aria-busy');
         wireMermaidLinks(node);
       } catch {

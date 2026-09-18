@@ -2513,6 +2513,15 @@ test('pending diagrams render after Docs navigation without relying on repeated 
   await expect(diagram.locator('svg')).toBeVisible()
   await expect.poll(() => page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('page-content')
   expect(await page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('data-init')
+
+  await page.evaluate(async () => {
+    const diagram = document.querySelector<HTMLElement>('main .mermaid.spec-diagram')!
+    diagram.dataset.mermaidState = 'rendered'
+    diagram.dataset.mermaidRenderedSource = 'stale-source'
+    diagram.replaceChildren()
+    await (window as typeof window & { renderMermaid?: (element: Element, pendingOnly?: boolean) => Promise<void> }).renderMermaid?.(document.getElementById('page-content')!, true)
+  })
+  await expect(diagram.locator('svg')).toBeVisible()
   await expectNoRawMermaid(diagram)
   expect(browserErrors).toEqual([])
 })
