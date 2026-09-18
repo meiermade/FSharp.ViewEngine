@@ -1933,15 +1933,15 @@ test('pending diagrams render after Docs navigation without relying on repeated 
   await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => {
     const docsWindow = window as typeof window & {
-      renderMermaid?: (element: Element) => Promise<void>
+      renderMermaid?: (element: Element, pendingOnly?: boolean) => Promise<void>
       mermaidRenderHosts?: string[]
     }
     const renderMermaid = docsWindow.renderMermaid
     docsWindow.mermaidRenderHosts = []
-    docsWindow.renderMermaid = element => {
+    docsWindow.renderMermaid = (element, pendingOnly) => {
       const fromDataInit = element.matches('.mermaid')
       docsWindow.mermaidRenderHosts?.push(fromDataInit ? 'data-init' : element.id)
-      return fromDataInit ? Promise.resolve() : renderMermaid?.(element) ?? Promise.resolve()
+      return fromDataInit ? Promise.resolve() : renderMermaid?.(element, pendingOnly) ?? Promise.resolve()
     }
   })
 

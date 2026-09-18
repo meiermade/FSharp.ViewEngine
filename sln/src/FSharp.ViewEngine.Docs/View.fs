@@ -755,10 +755,10 @@ const wireMermaidLinks = node => {
     link.setAttribute('data-on:click', `if (!evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) { evt.preventDefault(); $sideNavOpen = false; $breadcrumbMenuOpen = false; window.fsharpDocsNavigation?.begin(); window.history.pushState(null, '', ${encodedHref}); @get(${encodedHref}) }`);
   }
 };
-window.renderMermaid = (el, force = false) => {
+window.renderMermaid = (el, pendingOnly = false) => {
   const render = async () => {
     const candidates = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
-    const nodes = candidates.filter(node => force || node.dataset.mermaidState !== 'rendered');
+    const nodes = candidates.filter(node => !pendingOnly || node.dataset.mermaidState !== 'rendered');
     if (nodes.length === 0) return;
     for (const node of nodes) setMermaidPending(node);
     try {
@@ -788,7 +788,7 @@ window.renderMermaid = (el, force = false) => {
   mermaidRenderQueue = mermaidRenderQueue.then(render, render);
   return mermaidRenderQueue;
 };
-window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document, true));
+window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document));
             """
             |> fun source ->
                 source
@@ -974,7 +974,7 @@ window.fsharpDocsNavigation = {
     // already run. Complete both independent enhancement lifecycles.
     const [codeResult] = await Promise.allSettled([
       window.renderCode?.(content),
-      window.renderMermaid?.(content)
+      window.renderMermaid?.(content, true)
     ]);
     this.initializeToc();
     this.showFragment(window.location.hash);
