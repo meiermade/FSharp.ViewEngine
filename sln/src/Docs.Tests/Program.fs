@@ -398,7 +398,7 @@ let tests =
             Expect.isFalse (home.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "pages without diagrams do not eagerly load Mermaid"
             Expect.stringContains diagrams "data-init=\"window.renderMermaid?.(el)\"" "diagram elements initialize through Datastar"
             Expect.stringContains home "window.renderCode?.(content),\n      window.renderMermaid?.(content, true)" "completed Datastar navigation independently renders pending diagrams even when their data-init host is reused"
-            Expect.stringContains home "!pendingOnly || node.dataset.mermaidState !== 'rendered'" "navigation completion does not render an unchanged diagram twice"
+            Expect.stringContains home "node.dataset.mermaidRenderedSource !== (node.dataset.mermaidSource ?? '') || !node.querySelector('svg')" "navigation completion rerenders a reused host when its source or rendered SVG changed"
             Expect.stringContains home "window.renderMermaid?.(document)" "color-mode changes still deliberately rerender completed diagrams"
             Expect.stringContains home "Promise.allSettled" "code and diagram enhancement complete independently after navigation"
             Expect.stringContains home "if (codeResult.status === 'rejected') throw codeResult.reason" "Prism failures retain their prior error behavior after independent diagram rendering"
