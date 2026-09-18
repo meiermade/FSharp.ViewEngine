@@ -1928,6 +1928,44 @@ test('a Mermaid render rejection shows the accessible failure state without an e
   expect(pageErrors).toEqual([])
 })
 
+test('pending diagrams render after Docs navigation without relying on repeated data-init', crossBrowser, async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
+  await page.evaluate(() => {
+    const docsWindow = window as typeof window & {
+      renderMermaid?: (element: Element, pendingOnly?: boolean) => Promise<void>
+      mermaidRenderHosts?: string[]
+    }
+    const renderMermaid = docsWindow.renderMermaid
+    docsWindow.mermaidRenderHosts = []
+    docsWindow.renderMermaid = (element, pendingOnly) => {
+      const fromDataInit = element.matches('.mermaid')
+      docsWindow.mermaidRenderHosts?.push(fromDataInit ? 'data-init' : element.id)
+      return fromDataInit ? Promise.resolve() : renderMermaid?.(element, pendingOnly) ?? Promise.resolve()
+    }
+  })
+
+  await page.locator('#nav-docs-diagrams').click()
+  await expect(page).toHaveURL('/docs/components/diagrams')
+
+  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
+  await expect(diagram.locator('svg')).toBeVisible()
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('page-content')
+  expect(await page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('data-init')
+
+  await page.evaluate(async () => {
+    const diagram = document.querySelector<HTMLElement>('main .mermaid.spec-diagram')!
+    diagram.dataset.mermaidState = 'rendered'
+    diagram.dataset.mermaidRenderedSource = 'stale-source'
+    diagram.replaceChildren()
+    await (window as typeof window & { renderMermaid?: (element: Element, pendingOnly?: boolean) => Promise<void> }).renderMermaid?.(document.getElementById('page-content')!, true)
+  })
+  await expect(diagram.locator('svg')).toBeVisible()
+  await expectNoRawMermaid(diagram)
+  expect(browserErrors).toEqual([])
+})
+
 test('diagrams render after Docs navigation and light-dark rerenders', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
