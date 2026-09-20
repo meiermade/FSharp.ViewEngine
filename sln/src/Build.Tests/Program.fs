@@ -31,7 +31,7 @@ let tests =
             Expect.equal WatchDocs.defaultUrl "http://127.0.0.1:5054" "Docs has one stable product-specific URL"
             Expect.stringContains docsConfig "DOCS_SERVER_URL\" \"http://127.0.0.1:5054" "the direct Docs host uses the same default"
             Expect.stringContains compose "DOCS_SERVER_URL: http://0.0.0.0:5000" "the Docker host names its listener explicitly"
-            Expect.stringContains deployment "DOCS_SERVER_URL: 'http://0.0.0.0:5000'" "the deployed host names its listener explicitly"
+            Expect.stringContains deployment "name: 'DOCS_SERVER_URL', value: 'http://0.0.0.0:5000'" "the deployed host names its listener explicitly"
             Expect.stringContains build "\"--watch=always\"" "background WatchDocs must not silently stop its CSS watcher"
             Expect.stringContains build "WatchDocs.runExclusiveWatcher" "one owned watcher replaces only its predecessor"
             Expect.stringContains build "DOCS_SERVER_URL" "local review has a Docs-specific override"

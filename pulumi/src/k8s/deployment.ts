@@ -4,18 +4,6 @@ import * as image from '../docker/image'
 import * as tunnel from '../cloudflare/tunnel'
 import * as config from '../config'
 
-let appConfigMap = new k8s.core.v1.ConfigMap(config.identifier, {
-    metadata: {
-        name: config.identifier,
-        namespace: config.k8sConfig.namespace
-    },
-    immutable: true,
-    data: {
-        DOCS_SERVER_URL: 'http://0.0.0.0:5000',
-        OTEL_EXPORTER_OTLP_ENDPOINT: config.openTelemetryConfig.endpoint,
-    }
-}, { provider, deleteBeforeReplace: true })
-
 const labels = { 'app.kubernetes.io/name': config.identifier }
 
 const cloudflaredSecret = new k8s.core.v1.Secret(`${config.identifier}-cloudflared`, {
@@ -61,8 +49,9 @@ const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                         image: image.imageRef,
                         securityContext: containerSecurityContext,
                         imagePullPolicy: 'IfNotPresent',
-                        envFrom: [ { configMapRef: { name: appConfigMap.metadata.name } } ],
                         env: [
+                            { name: 'DOCS_SERVER_URL', value: 'http://0.0.0.0:5000' },
+                            { name: 'OTEL_EXPORTER_OTLP_ENDPOINT', value: config.openTelemetryConfig.endpoint },
                             { name: 'RELEASE_COMMIT', value: config.releaseCommit },
                         ],
                         resources: {
