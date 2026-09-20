@@ -14,6 +14,15 @@ const productNavigation: Record<string, string> = {
   'media-management': 'Fieldwork navigation',
 };
 const frame = (page: import('@playwright/test').Page) => page.locator('[data-fve-fixture-id="page-workspace"]');
+const uploadFixture = async (
+  page: import('@playwright/test').Page,
+  input: import('@playwright/test').Locator,
+  color: 'blue' | 'teal',
+) => {
+  const response = await page.request.get(new URL(`/images/page-examples/${color}.png`, page.url()).href);
+  expect(response.ok()).toBeTruthy();
+  await input.setInputFiles({ name: `${color}.png`, mimeType: 'image/png', buffer: await response.body() });
+};
 
 test('dependency selection opens the matching execution and span cross-browser', async ({ page }) => {
   await page.goto(root + 'dependency-graph');
@@ -108,7 +117,7 @@ test('media edits, selection and drawer upload affect the selected asset cross-b
   await expect(frame(page).getByRole('button', { name: 'Use selected as cover' })).toHaveCount(0);
   await frame(page).getByRole('link', { name: 'Before the lesson', exact: true }).click();
   await frame(page).getByRole('textbox', { name: 'Image description' }).fill('A new description for the lesson photograph.');
-  await frame(page).locator('input[type=file]').setInputFiles('../sln/src/Docs/wwwroot/images/page-examples/teal.png');
+  await uploadFixture(page, frame(page).locator('input[type=file]'), 'teal');
   await frame(page).getByRole('button', { name: 'Save changes' }).click();
   await expect(frame(page).getByRole('img', { name: 'A new description for the lesson photograph.' })).toHaveAttribute('src', /page-examples\/images\//);
   await expect(frame(page)).toContainText('Changes saved');
@@ -125,7 +134,7 @@ test('media edits, selection and drawer upload affect the selected asset cross-b
   await expect(drawer.getByRole('textbox', { name: 'Photo name' })).toBeFocused();
   await drawer.getByRole('textbox', { name: 'Photo name' }).fill('Trail review');
   await drawer.getByRole('textbox', { name: 'Image description' }).fill('Riders reviewing the trail.');
-  await drawer.locator('input[type=file]').setInputFiles('../sln/src/Docs/wwwroot/images/page-examples/blue.png');
+  await uploadFixture(page, drawer.locator('input[type=file]'), 'blue');
   await drawer.getByRole('button', { name: 'Upload', exact: true }).click();
   await expect(frame(page).getByRole('heading', { name: 'Trail review', exact: true })).toBeVisible();
   await frame(page).getByRole('link', { name: 'Back to photos' }).click();
