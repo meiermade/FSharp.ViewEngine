@@ -46,8 +46,6 @@ dotnet add package FSharp.ViewEngine.Components
 
 Documentation sites, API references, and executable specifications use the same Components package through `FSharp.ViewEngine.Components.Documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Import its optional `Documentation/Documentation.tailwind.css` only for Documentation surfaces. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
 
-The unified catalog currently targets **Primitives, Application, and Documentation**. The current candidate is in progress: [four-product coverage](./docs/component-coverage.md) records implemented APIs, connected examples, local evidence, and remaining package/publication gates. It is not yet a published replacement release. Historical `FSharp.ViewEngine.Docs` versions remain available; deprecation with Components as the alternative follows verified replacement delivery.
-
 ## Local catalog development
 
 From the preserved candidate checkout, use the .NET 10 SDK and Tailwind CSS CLI v4.2.2 on `PATH`. After restoring the repository's tools/packages, run one watcher:
@@ -66,11 +64,10 @@ The watcher serves F# changes and compiles CSS from the common `sln/src` source 
 - `/components/app-shell` — minimal shell layouts with constrained/full-width content and optional mobile bottom navigation.
 - `/components/page-examples/account-management` — connected dashboard, accounts, matching details, create-account form, reports, settings, and transaction pages.
 - `/components/calendar` — Primitives → Data display: focused Month, Week, Day and twelve-month Year views, with responsive agenda reflow for detailed views; typed dates/times, Today/selected-date navigation and empty/loading/error/unavailable recovery.
-- `/components/media-library` — native media selection, shared bulk actions, alt text, primary-state presentation, editing, replacement, and recovery.
+- `/components/media-library` — native media selection, shared bulk actions, alt text, editing, replacement, and recovery.
 - `/components/page-examples/dependency-graph`, `/components/page-examples/execution-detail` — connected dependency selection, execution metadata, timed spans and logs; the former graph-and-trace URL redirects to the graph.
 - `/components/page-examples/financial-reporting`, `/components/page-examples/messaging` — labelled actual/plan balances and a session-backed conversation workspace.
 - `/components/page-examples/operations-dashboard`, `/components/page-examples/scheduling`, `/components/page-examples/media-management` — linked operational records, calendar navigation, repository-owned color-background media, retained selection, editing, replacement and drawer-based uploads.
-- See [Page-example compositions and host boundaries](docs/page-examples.md) for source references, data limits, asset provenance, and verification.
 - `/components/form-layouts` — stacked, two-column and sectioned server-validation forms. Fields retain aligned labels and control heights when adjacent help/error text differs. Search controls belong in the Input gallery; result filtering is demonstrated by Account management. The validation endpoint and default field IDs are unchanged.
 - `/docs` — Documentation components and assembled examples, including the shared App mode.
 

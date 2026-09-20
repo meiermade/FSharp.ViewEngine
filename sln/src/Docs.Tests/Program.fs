@@ -2397,7 +2397,9 @@ after"""
         test "Components Tailwind contract is isolated and CI-proven" {
             let packageDirectory = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components"))
             let manifest = File.ReadAllText(Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.tailwind.css"))
+            let appModeManifest = File.ReadAllText(Path.Combine(packageDirectory, "AppMode.tailwind.css"))
             let consumer = File.ReadAllText(Path.Combine(packageDirectory, "consumer.css"))
+            let appModeConsumer = File.ReadAllText(Path.Combine(packageDirectory, "app-mode.consumer.css"))
             let verification = File.ReadAllText(Path.Combine(packageDirectory, "verify-tailwind.sh"))
             let renderer =
                 Directory.EnumerateFiles(packageDirectory, "*.fs")
@@ -2417,6 +2419,14 @@ after"""
             Expect.stringContains manifest ".dark .fve-theme-emerald" "Emerald ships theme-specific dark brand roles"
             Expect.stringContains manifest ".dark .fve-theme-cyan" "Cyan ships theme-specific dark brand roles"
             Expect.stringContains manifest ".dark .fve-theme-neutral" "Neutral ships theme-specific dark brand roles"
+            Expect.stringContains manifest ".spec-browser-frame" "static Browser presentation remains in the base manifest"
+            Expect.stringContains manifest ".fve-phone" "static Phone presentation remains in the base manifest"
+            Expect.isFalse (manifest.Contains("AppMode.tailwind.css")) "the base manifest does not import optional App mode"
+            Expect.isFalse (manifest.Contains("data-fve-app-mode-root")) "the base manifest excludes App-mode viewer selectors"
+            Expect.stringContains appModeManifest ".fve-app-mode-launch" "the optional manifest styles the App-mode launcher"
+            Expect.stringContains appModeManifest "data-fve-app-mode-root" "the optional manifest owns viewer selectors"
+            Expect.isFalse (appModeManifest.Contains(".spec-browser-frame")) "static Browser presentation is not coupled to App mode"
+            Expect.isFalse (appModeManifest.Contains(".fve-phone { position: relative")) "static Phone presentation is not coupled to App mode"
             Expect.stringContains manifest "--fve-shell-bar-min-height" "shell bars share one semantic height token"
             Expect.stringContains manifest "input[type=\"search\"]::-webkit-search-cancel-button" "branded Combobox clear action replaces duplicate WebKit search chrome"
             Expect.stringContains manifest "aria-selected:bg-[var(--fve-surface)]" "segmented Tabs selected surface is forced"
@@ -2428,7 +2438,10 @@ after"""
                     4
                     $"light and dark theme definitions include brand {role}"
             Expect.stringContains consumer "@import \"tailwindcss\" source(none)" "fixture disables automatic source scanning"
-            Expect.stringContains consumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "clean consumer imports only the contract"
+            Expect.stringContains consumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "clean consumer imports only the base contract"
+            Expect.isFalse (consumer.Contains("AppMode.tailwind.css")) "ordinary consumers do not opt into App mode"
+            Expect.stringContains appModeConsumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "App-mode consumer imports the base contract"
+            Expect.stringContains appModeConsumer "@import \"./AppMode.tailwind.css\"" "App-mode consumer explicitly imports the optional contract"
             Expect.stringContains consumer ".acme-theme" "consumer override is independent"
             Expect.stringContains consumer "--fve-brand-active" "consumer override includes pressed feedback"
             Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
@@ -2445,7 +2458,10 @@ after"""
             Expect.stringContains verification ".lg\\:grid-cols-3" "verification checks responsive detail columns"
             Expect.stringContains verification ".size-9" "verification checks pagination sizing"
             Expect.stringContains verification ".peer-focus-visible\\:ring-\\[var\\(--fve-critical-ring\\)\\]" "verification checks invalid native-control focus treatment"
+            Expect.stringContains verification "assert_base_excludes '.fve-app-mode-launch'" "verification proves the base output excludes App mode"
+            Expect.stringContains verification "assert_app_mode_output '.fve-app-mode-launch'" "verification proves opted-in output includes App mode"
             Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
+            Expect.stringContains docsStyles "FSharp.ViewEngine.Components/AppMode.tailwind.css" "repository host explicitly opts into App mode"
             Expect.stringContains docsStyles ".docs-components-preview .fve-components" "Docs owns the example theme adapter"
             Expect.stringContains docsStyles "--fve-page: var(--spec-bg)" "component examples inherit the Docs page surface"
             Expect.stringContains docsStyles "--fve-brand-solid: var(--spec-accent-700)" "component examples use a contrast-safe Docs sky accent"

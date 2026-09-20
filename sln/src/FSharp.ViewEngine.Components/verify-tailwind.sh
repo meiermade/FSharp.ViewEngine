@@ -2,18 +2,40 @@
 set -euo pipefail
 
 contract_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-output="$(mktemp)"
-trap 'rm -f "$output"' EXIT
+base_output="$(mktemp)"
+app_mode_output="$(mktemp)"
+trap 'rm -f "$base_output" "$app_mode_output"' EXIT
 
 tailwindcss \
   --input "$contract_dir/consumer.css" \
-  --output "$output" \
+  --output "$base_output" \
+  --minify
+
+tailwindcss \
+  --input "$contract_dir/app-mode.consumer.css" \
+  --output "$app_mode_output" \
   --minify
 
 assert_output() {
   local expected="$1"
-  if ! grep -Fq -- "$expected" "$output"; then
+  if ! grep -Fq -- "$expected" "$base_output"; then
     echo "Components Tailwind contract did not emit: $expected" >&2
+    exit 1
+  fi
+}
+
+assert_base_excludes() {
+  local unexpected="$1"
+  if grep -Fq -- "$unexpected" "$base_output"; then
+    echo "Base Components Tailwind contract unexpectedly emitted: $unexpected" >&2
+    exit 1
+  fi
+}
+
+assert_app_mode_output() {
+  local expected="$1"
+  if ! grep -Fq -- "$expected" "$app_mode_output"; then
+    echo "App-mode Tailwind contract did not emit: $expected" >&2
     exit 1
   fi
 }
@@ -106,5 +128,15 @@ assert_output '.acme-theme'
 assert_output '--fve-shell-bar-min-height:'
 assert_output '--fve-brand-solid:oklch(58% .18 264)'
 assert_output '--fve-brand-active:oklch(44% .18 264)'
+assert_output '.spec-browser-frame'
+assert_output '.fve-phone'
+assert_base_excludes '.fve-app-mode-launch'
+assert_base_excludes 'data-fve-app-mode-root'
+assert_base_excludes 'data-fve-app-mode-controls'
+assert_app_mode_output '.spec-browser-frame'
+assert_app_mode_output '.fve-phone'
+assert_app_mode_output '.fve-app-mode-launch'
+assert_app_mode_output 'data-fve-app-mode-root'
+assert_app_mode_output 'data-fve-app-mode-controls'
 
-echo "Components Tailwind clean-consumer contract passed."
+echo "Components base and optional App-mode Tailwind clean-consumer contracts passed."

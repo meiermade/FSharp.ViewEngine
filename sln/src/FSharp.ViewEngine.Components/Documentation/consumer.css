@@ -1,3 +1,4 @@
 @import "tailwindcss" source(none);
 @import "../FSharp.ViewEngine.Components.tailwind.css";
+@import "../AppMode.tailwind.css";
 @import "./Documentation.tailwind.css";

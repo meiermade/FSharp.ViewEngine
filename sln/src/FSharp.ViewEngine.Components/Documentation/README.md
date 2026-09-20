@@ -26,7 +26,7 @@ Documentation is part of the single Components package, not a separate assembly 
 
 ## Tailwind CSS 4
 
-Documentation presentation is consumer-compiled. Components includes `FSharp.ViewEngine.Components.tailwind.css` and the optional `Documentation/Documentation.tailwind.css` under `contentFiles/any/any`; copy them into the application CSS source tree, retaining that directory structure, and import them after Tailwind:
+Documentation presentation is consumer-compiled. Components includes `FSharp.ViewEngine.Components.tailwind.css` and the optional `Documentation/Documentation.tailwind.css` and `AppMode.tailwind.css` manifests under `contentFiles/any/any`; copy the manifests you use into the application CSS source tree, retaining that directory structure, and import the Documentation manifests after Tailwind:
 
 ```css
 @import "tailwindcss";
@@ -89,7 +89,14 @@ let checkout =
 let head = Browser.script "/scripts/fve-app-mode.js"
 ```
 
-Copy `app-mode.js` from the package root to the URL supplied to `Browser.script`, include it once in the host document head, and import the shared `FSharp.ViewEngine.Components.tailwind.css` manifest. The runtime uses normal document navigation and history; it does not use the browser Fullscreen API or replace the document body.
+Copy `app-mode.js` from the package root to the URL supplied to `Browser.script`, include it once in the host document head, and import the optional App-mode CSS after the shared manifest:
+
+```css
+@import "./FSharp.ViewEngine.Components.tailwind.css";
+@import "./AppMode.tailwind.css";
+```
+
+The base manifest keeps static Browser and Phone frames styled without emitting viewer selectors. `AppMode.tailwind.css` and `app-mode.js` are the explicit viewer opt-in. The runtime uses normal document navigation and history; it does not use the browser Fullscreen API or replace the document body.
 
 ## Builder API
 
