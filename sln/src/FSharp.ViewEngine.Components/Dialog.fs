@@ -1,4 +1,4 @@
-namespace FSharp.ViewEngine.Components
+namespace FSharp.ViewEngine.Components.Primitives
 
 open System
 open FSharp.ViewEngine
@@ -223,6 +223,11 @@ type DrawerSide =
     | Start
     | End
 
+[<RequireQualifiedAccess>]
+type DrawerWidth =
+    | Standard
+    | Wide
+
 [<NoEquality; NoComparison>]
 type DrawerConfig =
     private
@@ -232,7 +237,8 @@ type DrawerConfig =
           description:string option
           footer:HtmlElement option
           initialFocusId:string
-          side:DrawerSide }
+          side:DrawerSide
+          width:DrawerWidth }
 
 [<RequireQualifiedAccess>]
 module Drawer =
@@ -245,7 +251,8 @@ module Drawer =
           description = None
           footer = None
           initialFocusId = $"{id}-close"
-          side = DrawerSide.End }
+          side = DrawerSide.End
+          width = DrawerWidth.Standard }
 
     let withDescription description (config:DrawerConfig) =
         NativeOverlay.requireText (nameof description) "A drawer description cannot be empty." description
@@ -258,6 +265,8 @@ module Drawer =
         { config with initialFocusId = initialFocusId }
 
     let withSide side (config:DrawerConfig) = { config with side = side }
+
+    let withWidth width (config:DrawerConfig) = { config with width = width }
 
     let trigger label (config:DrawerConfig) =
         NativeOverlay.trigger config.id (Some config.initialFocusId) label
@@ -272,6 +281,10 @@ module Drawer =
             match config.side with
             | DrawerSide.Start -> "left-0 ml-0 mr-auto border-r"
             | DrawerSide.End -> "right-0 ml-auto mr-0 border-l"
+        let widthClasses =
+            match config.width with
+            | DrawerWidth.Standard -> "w-[min(24rem,calc(100%-3rem))] sm:w-96"
+            | DrawerWidth.Wide -> "w-[min(42rem,calc(100%-3rem))]"
         dialog {
             _id config.id
             _ariaLabelledby titleId
@@ -280,7 +293,8 @@ module Drawer =
             _dataOn ("click", NativeOverlay.dismissOnBackdropExpression config.id)
             _dataOn ("close", NativeOverlay.restoreFocusExpression config.id)
             _class (ComponentHtml.classes [
-                "fixed inset-y-0 h-dvh max-h-none w-[min(24rem,calc(100%-3rem))] rounded-none border-y-0 border-[var(--fve-border)] bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)] sm:w-96"
+                "fixed inset-y-0 h-dvh max-h-none rounded-none border-y-0 border-[var(--fve-border)] bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]"
+                widthClasses
                 sideClasses ])
             div {
                 _class "flex h-full flex-col"
@@ -296,7 +310,7 @@ module Drawer =
                 }
                 div { _class "min-h-0 flex-1 overflow-y-auto p-5"; config.body }
                 match config.footer with
-                | Some footer -> div { _class "flex shrink-0 justify-end gap-3 border-t border-[var(--fve-border)] p-5"; footer }
+                | Some footer -> div { _class "flex shrink-0 flex-wrap justify-end gap-3 border-t border-[var(--fve-border)] p-5"; footer }
                 | None -> ()
             }
         }

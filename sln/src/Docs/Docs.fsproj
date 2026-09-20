@@ -11,7 +11,9 @@
     <Compile Include="src\Common\Model.fs" />
     <Compile Include="src\Common\SourceRegion.fs" />
     <Compile Include="src\Pages\Showcase.fs" />
+    <Compile Include="src\Pages\PageExamples.fs" />
     <Compile Include="src\Pages\Components.fs" />
+    <Compile Include="src\Pages\Catalog.fs" />
     <Compile Include="src\Common\View.fs" />
     <Compile Include="src\Pages\Home.fs" />
     <Compile Include="src\Pages\Installation.fs" />
@@ -26,6 +28,7 @@
     <Compile Include="src\Pages\Benchmarks.fs" />
     <Compile Include="src\Pages\Changelog.fs" />
     <Compile Include="src\Pages\Registry.fs" />
+    <Compile Include="src\Common\PageExampleSession.fs" />
     <Compile Include="src\Common\Handler.fs" />
     <Compile Include="src\Program.fs" />
   </ItemGroup>
@@ -33,6 +36,7 @@
   <ItemGroup>
     <EmbeddedResource Include="src\Pages\Showcase.fs" LogicalName="Docs.Pages.Showcase.fs" />
     <EmbeddedResource Include="src\Pages\Components.fs" LogicalName="Docs.Pages.Components.fs" />
+    <EmbeddedResource Include="src\Pages\PageExamples.fs" LogicalName="Docs.Pages.PageExamples.fs" />
     <Content Include="input.css">
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -41,7 +45,6 @@
   <ItemGroup>
     <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
     <ProjectReference Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.fsproj" />
-    <ProjectReference Include="..\FSharp.ViewEngine.Docs\FSharp.ViewEngine.Docs.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

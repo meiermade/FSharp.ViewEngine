@@ -11,7 +11,7 @@ let appConfigMap = new k8s.core.v1.ConfigMap(config.identifier, {
     },
     immutable: true,
     data: {
-        SERVER_URL: 'http://0.0.0.0:5000',
+        DOCS_SERVER_URL: 'http://0.0.0.0:5000',
         OTEL_EXPORTER_OTLP_ENDPOINT: config.openTelemetryConfig.endpoint,
     }
 }, { provider, deleteBeforeReplace: true })

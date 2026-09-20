@@ -32,6 +32,6 @@ module Config =
     let load () =
         { debug = Env.variableOrDefault "DEBUG" "false" |> Boolean.Parse
           appName = "fsharp-viewengine-docs"
-          serverUrl = Env.variableOrDefault "SERVER_URL" "https://localhost:5000"
+          serverUrl = Env.variableOrDefault "DOCS_SERVER_URL" "http://127.0.0.1:5054"
           commit = Env.variableOrDefault "RELEASE_COMMIT" "local"
           openTelemetry = OpenTelemetryConfig.load () }

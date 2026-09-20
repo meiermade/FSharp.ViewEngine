@@ -1,7 +1,7 @@
 [![Publish Packages](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml)
 [![Deploy](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml)
 [![NuGet Core](https://img.shields.io/nuget/v/FSharp.ViewEngine)](https://www.nuget.org/packages/FSharp.ViewEngine)
-[![NuGet Docs](https://img.shields.io/nuget/v/FSharp.ViewEngine.Docs)](https://www.nuget.org/packages/FSharp.ViewEngine.Docs)
+[![NuGet Components](https://img.shields.io/nuget/v/FSharp.ViewEngine.Components)](https://www.nuget.org/packages/FSharp.ViewEngine.Components)
 
 <p align="center">
   <img src="etc/logo.svg" alt="FSharp.ViewEngine" width="128">
@@ -42,26 +42,59 @@ For accessible, server-rendered Tailwind components with Datastar interactions, 
 dotnet add package FSharp.ViewEngine.Components
 ```
 
-`FSharp.ViewEngine.Components` provides typed themes, actions, feedback, tables, branded form controls, menus, overlays, collection/detail compositions, and application shells. See its [package documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fsharpviewengine.meiermade.com/components).
+`FSharp.ViewEngine.Components` provides typed themes, actions, feedback, tables and hierarchy, branded form controls, files/uploads, tags, choice cards, progress/steps, calendar/media compositions, menus, overlays, collection/detail compositions, and destination-generic Breadcrumbs, SideNav, PageTopBar, visible PageHeader, Section, Page, and sidebar-oriented AppShell primitives. See its [package documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fsharpviewengine.meiermade.com/components).
 
-For documentation sites, API references, and executable software specifications, install the separate add-on package:
+Documentation sites, API references, and executable specifications use the same Components package through `FSharp.ViewEngine.Components.Documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Import its optional `Documentation/Documentation.tailwind.css` only for Documentation surfaces. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
 
-```shell
-dotnet add package FSharp.ViewEngine.Docs
+## Local catalog development
+
+From the preserved candidate checkout, use the .NET 10 SDK and Tailwind CSS CLI v4.2.2 on `PATH`. After restoring the repository's tools/packages, run one watcher:
+
+```sh
+cd sln
+./fake.sh WatchDocs --single-target
 ```
 
-`FSharp.ViewEngine.Docs` provides article, reference, and canvas layouts; configurable navigation; accessible code/preview examples; API documentation components; diagrams; product frames; typed destinations; and structural validation. Docs depends on Components in the supported `Core ← Components ← Docs` package graph. Consumers compile presentation through both package-owned Tailwind CSS 4 manifests; see the [package documentation](./sln/src/FSharp.ViewEngine.Docs/README.md).
+The watcher serves F# changes and compiles CSS from the common `sln/src` source root, including the shared and optional Documentation manifests, at the stable review URL `http://127.0.0.1:5054`. Starting it replaces only the previous FSharp.ViewEngine Docs watcher, including across worktrees; it never takes an unrelated listener. Override the local origin only when necessary with `DOCS_SERVER_URL=http://127.0.0.1:6054 ./fake.sh WatchDocs --single-target`. Package publication and sibling application changes are not needed. After adding/removing project references or compile items, restart this candidate's watcher so it reloads the project graph; ordinary edits stay in the same loop.
+
+- `/components` — shared installation/guides and the staged Primitives, Application, and Documentation directory.
+- `/components/primitives` — shared controls and layout foundations.
+- `/components/select#components-select-multiple`, `components/select#components-select-search-multiple` — typed multiple selection, native repeated form values, validation and unavailable states. The remote searchable Select example also demonstrates error/retry and whole-field refresh.
+- `/components/application` — the delivered shell/page, collection/detail, forms, workflows, and Page examples directory.
+- `/components/app-shell` — minimal shell layouts with constrained/full-width content and optional mobile bottom navigation.
+- `/components/page-examples/account-management` — connected dashboard, accounts, matching details, create-account form, reports, settings, and transaction pages.
+- `/components/calendar` — Primitives → Data display: focused Month, Week, Day and twelve-month Year views, with responsive agenda reflow for detailed views; typed dates/times, Today/selected-date navigation and empty/loading/error/unavailable recovery.
+- `/components/media-library` — native media selection, shared bulk actions, alt text, editing, replacement, and recovery.
+- `/components/page-examples/dependency-graph`, `/components/page-examples/execution-detail` — connected dependency selection, execution metadata, timed spans and logs; the former graph-and-trace URL redirects to the graph.
+- `/components/page-examples/financial-reporting`, `/components/page-examples/messaging` — labelled actual/plan balances and a session-backed conversation workspace.
+- `/components/page-examples/operations-dashboard`, `/components/page-examples/scheduling`, `/components/page-examples/media-management` — linked operational records, calendar navigation, repository-owned color-background media, retained selection, editing, replacement and drawer-based uploads.
+- `/components/form-layouts` — stacked, two-column and sectioned server-validation forms. Fields retain aligned labels and control heights when adjacent help/error text differs. Search controls belong in the Input gallery; result filtering is demonstrated by Account management. The validation endpoint and default field IDs are unchanged.
+- `/docs` — Documentation components and assembled examples, including the shared App mode.
+
+Every consumer-facing reusable component has a dedicated route and navigation entry; composition pages are connected demonstrations rather than the only documentation location for nested components. Use a fresh browser/test context to reset examples. Page-example messages, accounts, settings and uploaded media use bounded, cookie-isolated server memory that expires after 30 minutes or a Docs restart; do not enter private data or run real customer/payment operations.
+
+In another terminal at the checkout root, run focused catalog checks:
+
+```sh
+cd e2e
+E2E_START_LOCAL=0 E2E_CROSS_BROWSER_MODE=full DOCS_E2E_BASE_URL=http://127.0.0.1:5054 \
+  npx playwright test tests/catalog-areas.spec.ts \
+  --project=chromium --project=firefox --project=webkit --workers=1
+```
+
+For multiple-choice behavior, run the same command with `tests/multiple-choice.spec.ts`. It covers keyboard selection/removal, native POST values, result/whole-field morphs, request cancellation and removal, and light/dark/390px/320px/200% layouts. The examples do not save data; clear selection or use a fresh browser context to reset them. `tests/popup-focus.spec.ts` checks Select/searchable Select keyboard field outlines, solid active rows, selected-versus-active contrast, borderless floating panels, forced-colors fallbacks and sticky-table DropdownMenu integration.
+
+These checks do not replace the full release suite or genuine .NET 8/9/10 packaged consumers.
 
 ## Releases
 
-The three NuGet packages have independent release trains managed through the **Publish packages** workflow:
+Two NuGet packages have independent release trains managed through the **Publish packages** workflow:
 
 - `FSharp.ViewEngine` uses tags such as `v2026.8.1`.
 - `FSharp.ViewEngine.Components` uses tags such as `components/v2026.8.0`.
-- `FSharp.ViewEngine.Docs` uses tags such as `docs/v2026.8.0`.
-- A dispatch can select Core, Components, Docs, or a Components-and-Docs bundle with independent versions.
+- A dispatch selects `core`, `components`, or `both` (engine plus Components). The former Docs-only and Components-plus-Docs choices are retired.
 
-Components releases declare their minimum compatible published Core version. Docs releases declare their minimum compatible published Components version, which carries Core transitively. Matching package versions are not required. Selected packages are tested, packed, and verified before publication, and a bundled Components-and-Docs release publishes Components first. Core releases become the repository-wide GitHub “Latest” release; Components and Docs package releases do not. Direct packing requires explicit package and direct-dependency MSBuild version properties so it cannot silently produce incorrect dependency metadata.
+Components-only releases declare their minimum compatible published engine version. A `both` release uses the selected engine version as that minimum, verifies both packages before publication, then publishes the engine before Components. Versions need not match. Engine releases become the repository-wide GitHub “Latest” release; Components releases do not. Direct packing requires explicit package and engine-dependency MSBuild version properties. Documentation smoke consumers and its optional CSS are verified inside the Components package, not through a separate release.
 
 Versioned changelog entries are added in a follow-up pull request after the package is published and verified and its GitHub release has been reconciled. Feature pull requests and pre-publication workflow steps must not claim a package version or release date that does not yet exist.
 
