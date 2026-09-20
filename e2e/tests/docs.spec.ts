@@ -41,9 +41,9 @@ const routes = [
   { path: '/docs/components/fixture', heading: 'Fixture', layout: 'article' },
   { path: '/docs/components/api-reference', heading: 'API reference components', layout: 'article' },
   { path: '/docs/components/diagrams', heading: 'Diagrams', layout: 'article' },
-  { path: '/docs/page-examples/documentation-site', heading: 'Documentation site', layout: 'article' },
-  { path: '/docs/page-examples/api-reference', heading: 'API reference page', layout: 'article' },
-  { path: '/docs/page-examples/executable-specification', heading: 'Executable specification page', layout: 'article' },
+  { path: '/docs/page-examples/documentation-site', heading: 'Documentation site', layout: 'gallery' },
+  { path: '/docs/page-examples/api-reference', heading: 'API reference page', layout: 'gallery' },
+  { path: '/docs/page-examples/executable-specification', heading: 'Executable specification page', layout: 'gallery' },
   { path: '/components', heading: 'Components', layout: 'article' },
   { path: '/components/primitives', heading: 'Primitives', layout: 'article' },
   { path: '/components/application', heading: 'Application', layout: 'article' },
@@ -92,6 +92,7 @@ const routes = [
   { path: '/components/collection', heading: 'Collection', layout: 'gallery' },
   { path: '/components/detail', heading: 'Detail', layout: 'gallery' },
   { path: '/components/app-shell', heading: 'App shell', layout: 'gallery' },
+  { path: '/components/page-examples/account-management', heading: 'Account management', layout: 'gallery' },
   { path: '/components/bottom-navigation', heading: 'Bottom navigation', layout: 'gallery' },
   { path: '/components/bulk-actions', heading: 'Bulk actions', layout: 'gallery' },
   { path: '/components/upload', heading: 'Upload', layout: 'gallery' },
@@ -99,9 +100,13 @@ const routes = [
   { path: '/components/first-steps', heading: 'First steps', layout: 'gallery' },
   { path: '/components/calendar', heading: 'Calendar', layout: 'gallery' },
   { path: '/components/media-library', heading: 'Media library', layout: 'gallery' },
-  { path: '/components/integrations/graph-and-trace', heading: 'Graph and trace integration', layout: 'gallery' },
-  { path: '/components/integrations/financial-chart', heading: 'Financial chart integration', layout: 'gallery' },
-  { path: '/components/integrations/messaging', heading: 'Messaging integration', layout: 'gallery' },
+  { path: '/components/page-examples/dependency-graph', heading: 'Dependency graph', layout: 'gallery' },
+  { path: '/components/page-examples/execution-detail', heading: 'Execution detail', layout: 'gallery' },
+  { path: '/components/page-examples/operations-dashboard', heading: 'Operations dashboard', layout: 'gallery' },
+  { path: '/components/page-examples/scheduling', heading: 'Scheduling', layout: 'gallery' },
+  { path: '/components/page-examples/media-management', heading: 'Media management', layout: 'gallery' },
+  { path: '/components/page-examples/financial-reporting', heading: 'Financial reporting', layout: 'gallery' },
+  { path: '/components/page-examples/messaging', heading: 'Messaging', layout: 'gallery' },
   { path: '/components/interaction-and-server-state', heading: 'Interaction and server state', layout: 'article' },
   { path: '/components/accessibility', heading: 'Accessibility', layout: 'article' },
   { path: '/components/theming', heading: 'Theming and density', layout: 'article' },
@@ -126,8 +131,12 @@ const componentAccessibilityRouteGroups = [
     paths: ['/components/tabs', '/components/radio-group', '/components/choice-cards', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/page-top-bar', '/components/page-header', '/components/section', '/components/page'],
   },
   {
-    name: 'application and integrations',
-    paths: ['/components/app-shell', '/components/bulk-actions', '/components/upload', '/components/steps', '/components/first-steps', '/components/calendar', '/components/media-library', '/components/integrations/graph-and-trace', '/components/integrations/financial-chart', '/components/integrations/messaging'],
+    name: 'application workflows',
+    paths: ['/components/app-shell', '/components/page-examples/account-management', '/components/bulk-actions', '/components/upload', '/components/steps', '/components/first-steps', '/components/calendar', '/components/media-library'],
+  },
+  {
+    name: 'page examples',
+    paths: ['/components/page-examples/dependency-graph', '/components/page-examples/execution-detail', '/components/page-examples/financial-reporting', '/components/page-examples/messaging', '/components/page-examples/operations-dashboard', '/components/page-examples/scheduling', '/components/page-examples/media-management'],
   },
 ]
 
@@ -312,6 +321,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
     ['/components/collection', 'Collection'],
     ['/components/detail', 'Detail'],
     ['/components/app-shell', 'App shell'],
+    ['/components/page-examples/account-management', 'Account management'],
     ['/components/bottom-navigation', 'Bottom navigation'],
     ['/components/bulk-actions', 'Bulk actions'],
     ['/components/upload', 'Upload'],
@@ -319,19 +329,23 @@ test('Components pages provide focused examples, navigation, interaction, themes
     ['/components/first-steps', 'First steps'],
     ['/components/calendar', 'Calendar'],
     ['/components/media-library', 'Media library'],
-    ['/components/integrations/graph-and-trace', 'Graph and trace integration'],
-    ['/components/integrations/financial-chart', 'Financial chart integration'],
-    ['/components/integrations/messaging', 'Messaging integration'],
+    ['/components/page-examples/dependency-graph', 'Dependency graph'],
+    ['/components/page-examples/execution-detail', 'Execution detail'],
+    ['/components/page-examples/operations-dashboard', 'Operations dashboard'],
+    ['/components/page-examples/scheduling', 'Scheduling'],
+    ['/components/page-examples/media-management', 'Media management'],
+    ['/components/page-examples/financial-reporting', 'Financial reporting'],
+    ['/components/page-examples/messaging', 'Messaging'],
   ] as const
 
   const openPreview = (path: string, heading: string) => openComponentGallery(page, path, heading)
 
   for (const [path, heading] of componentRoutes) {
     const surface = await openPreview(path, heading)
-    if (path === '/components/collection' || path === '/components/app-shell') {
-      const accountType = surface.locator('select[name="accountType"]')
+    if (path === '/components/collection' || path === '/components/page-examples/account-management') {
+      const accountType = surface.getByRole('combobox', { name: 'Filter by account type', exact: true })
       await expect(accountType).toHaveCount(1)
-      await expect(accountType).toHaveAttribute('aria-label', 'Filter by account type')
+      await expect(surface.locator('select[name="accountType"]')).toHaveCount(path === '/components/collection' ? 1 : 0)
     } else {
       await expect(surface.locator('select')).toHaveCount(0)
     }
@@ -343,10 +357,10 @@ test('Components pages provide focused examples, navigation, interaction, themes
   }
 
   await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
-  const packageNavOrder = await page.locator('#nav-primitives, #nav-application, #nav-documentation').evaluateAll(elements => elements.map(element => element.id))
-  expect(packageNavOrder).toEqual(['nav-primitives', 'nav-application', 'nav-documentation'])
-  await expect(page.locator('#nav-primitives')).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#nav-form-controls')).toHaveAttribute('aria-expanded', 'true')
+  const packageNavOrder = await page.locator('#nav-fsharp-viewengine-components-primitives, #nav-fsharp-viewengine-components-application, #nav-fsharp-viewengine-components-documentation').evaluateAll(elements => elements.map(element => element.id))
+  expect(packageNavOrder).toEqual(['nav-fsharp-viewengine-components-primitives', 'nav-fsharp-viewengine-components-application', 'nav-fsharp-viewengine-components-documentation'])
+  await expect(page.locator('#nav-fsharp-viewengine-components-primitives')).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.locator('#nav-fsharp-viewengine-components-primitives-form-controls')).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#nav-components-select')).toHaveAttribute('data-selected', 'true')
 
   const resolvedBackground = (root: Locator, variable: string) => root.first().evaluate((element, cssVariable) => {
@@ -478,7 +492,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
 
   const emptyStateSurface = await openPreview('/components/empty-state', 'Empty state')
   await expect(emptyStateSurface.getByText('No accounts yet', { exact: true })).toBeVisible()
-  await expect(emptyStateSurface.getByRole('link', { name: 'Create account' })).toHaveAttribute('href', '/components/app-shell?destination=ledger-create-account')
+  await expect(emptyStateSurface.getByRole('link', { name: 'Create account' })).toHaveAttribute('href', '/components/page-examples/account-management?destination=ledger-create-account')
 
   const simpleTables = await openPreview('/components/table', 'Table')
   await expect(simpleTables.getByRole('table')).toHaveCount(7)
@@ -505,7 +519,7 @@ test('Components pages provide focused examples, navigation, interaction, themes
   await expect(assetsMenu).toBeFocused()
   await page.keyboard.press('ArrowDown')
   const viewAccountItem = assetsMenu.getByRole('menuitem', { name: 'View account' })
-  await expect(viewAccountItem).toHaveAttribute('href', '/components/app-shell?destination=ledger-account-101')
+  await expect(viewAccountItem).toHaveAttribute('href', '/components/page-examples/account-management?destination=ledger-account-101')
   await expect(viewAccountItem).toBeFocused()
   await expect(viewAccountItem).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   await expect(viewAccountItem).toHaveCSS('box-shadow', 'none')
@@ -989,14 +1003,17 @@ test('Components layouts, catalog, and responsive previews remain coherent', cro
   await expect(dialog).toBeHidden()
   await expect(dialogTrigger).toBeFocused()
 
-  const appShellSurface = await openPreview('/components/app-shell', 'App shell')
+  const appShellSurface = await openPreview('/components/page-examples/account-management', 'Account management')
   const compactControl = appShellSurface.getByRole('link', { name: 'Create', exact: true })
   const compactDensity = await compactControl.evaluate(element => ({
     height: getComputedStyle(element).height,
     paddingTop: getComputedStyle(element).paddingTop,
   }))
-  expect(parseFloat(comfortableDensity.paddingTop)).toBeGreaterThan(parseFloat(compactDensity.paddingTop))
-  expect(parseFloat(comfortableDensity.height)).toBeGreaterThan(parseFloat(compactDensity.height))
+  // Application action regions opt into the compact size without changing the default form size.
+  expect(parseFloat(comfortableDensity.paddingTop)).toBe(8)
+  expect(parseFloat(comfortableDensity.height)).toBe(40)
+  expect(parseFloat(compactDensity.paddingTop)).toBe(6)
+  expect(parseFloat(compactDensity.height)).toBe(32)
   await expect(appShellSurface.getByRole('navigation', { name: 'Ledger primary navigation' }).locator('[aria-current="page"]')).toHaveCount(1)
   await expect(appShellSurface.getByRole('navigation', { name: 'Breadcrumb' }).locator('[aria-current="page"]')).toHaveCount(1)
 
@@ -1021,12 +1038,12 @@ test('Components layouts, catalog, and responsive previews remain coherent', cro
   await attachScreenshot('components-catalog-desktop-dark')
   await catalog.getByRole('link', { name: /^Primitives / }).click()
   await expect(page).toHaveURL('/components/primitives')
-  for (const [label, slug] of [['Button', 'button'], ['Icon button', 'icon-button'], ['Empty state', 'empty-state'], ['Description list', 'description-list'], ['Breadcrumbs', 'breadcrumbs'], ['Side nav', 'side-nav'], ['Confirmation dialog', 'confirmation-dialog'], ['Drawer', 'drawer'], ['Section', 'section']]) {
+  for (const [label, slug] of [['Button', 'button'], ['Icon button', 'icon-button'], ['Notification', 'notification'], ['Empty state', 'empty-state'], ['Description list', 'description-list'], ['Calendar', 'calendar'], ['Breadcrumbs', 'breadcrumbs'], ['Side nav', 'side-nav'], ['Pagination', 'pagination'], ['Confirmation dialog', 'confirmation-dialog'], ['Drawer', 'drawer'], ['Floating panel', 'floating-panel'], ['Section', 'section']]) {
     await expect(catalog.getByRole('link', { name: new RegExp(`^${label} `) })).toHaveAttribute('href', `/components/${slug}`)
   }
   await expect(page.locator('a[href="/components/chart"], a[href="/components/layouts"]')).toHaveCount(0)
   await gotoAfterDocsAssetSettlement(page, '/components/application', 'domcontentloaded')
-  for (const [label, slug] of [['Page top bar', 'page-top-bar'], ['Page header', 'page-header'], ['Page', 'page'], ['App shell', 'app-shell'], ['Bottom navigation', 'bottom-navigation'], ['Bulk actions', 'bulk-actions'], ['Upload', 'upload'], ['Steps', 'steps'], ['First steps', 'first-steps'], ['Calendar', 'calendar'], ['Media library', 'media-library']]) {
+  for (const [label, slug] of [['Page top bar', 'page-top-bar'], ['Page header', 'page-header'], ['Page', 'page'], ['App shell', 'app-shell'], ['Bottom navigation', 'bottom-navigation'], ['Bulk actions', 'bulk-actions'], ['Upload', 'upload'], ['Steps', 'steps'], ['First steps', 'first-steps'], ['Media library', 'media-library']]) {
     await expect(catalog.locator(`a[href="/components/${slug}"]`)).toHaveCount(1)
     await expect(catalog.locator(`a[href="/components/${slug}"]`)).toContainText(label)
   }
@@ -1100,7 +1117,7 @@ test('Composition fixture destinations use Datastar navigation instead of native
   const destinationRequests: { path: string; resourceType: string }[] = []
   page.on('request', request => {
     const url = new URL(request.url())
-    if (url.pathname.startsWith('/components/app-shell')) {
+    if (url.pathname.startsWith('/components/page-examples/account-management')) {
       destinationRequests.push({ path: url.pathname, resourceType: request.resourceType() })
     }
   })
@@ -1118,10 +1135,10 @@ test('Composition fixture destinations use Datastar navigation instead of native
     destinationRequests.length = 0
 
     await example.getByRole('link', { name: fixture.link, exact: true }).click()
-    await expect(page).toHaveURL(`/components/app-shell?destination=${fixture.destination}`)
-    await expect(page.getByRole('heading', { level: 1, name: 'App shell' })).toBeVisible()
+    await expect(page).toHaveURL(`/components/page-examples/account-management?destination=${fixture.destination}`)
+    await expect(page.getByRole('heading', { level: 1, name: 'Account management' })).toBeVisible()
     expect(await page.evaluate(() => (window as any).__fixtureNavigationSentinel)).toBe('preserved')
-    expect(destinationRequests).toEqual([{ path: '/components/app-shell', resourceType: 'fetch' }])
+    expect(destinationRequests).toEqual([{ path: '/components/page-examples/account-management', resourceType: 'fetch' }])
   }
 
   expect(browserErrors).toEqual([])
@@ -1136,13 +1153,13 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
   const shellRequests: { path: string; resourceType: string }[] = []
   page.on('request', request => {
     const url = new URL(request.url())
-    if (url.pathname.startsWith('/components/app-shell')) {
+    if (url.pathname.startsWith('/components/page-examples/account-management')) {
       shellRequests.push({ path: url.pathname, resourceType: request.resourceType() })
     }
   })
   const expectFixtureMorph = async () => {
     await expect.poll(() => shellRequests.length).toBe(1)
-    expect(shellRequests.shift()).toEqual({ path: '/components/app-shell/fixture', resourceType: 'fetch' })
+    expect(shellRequests.shift()).toEqual({ path: '/components/page-examples/account-management/fixture', resourceType: 'fetch' })
     await expect(page.locator('#page-content')).toHaveAttribute('data-fixture-navigation-marker', 'preserved')
   }
   const prepareFixtureMorph = async () => {
@@ -1158,7 +1175,7 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
   }
   const openShellPreview = async (path: string, shellId: string) => {
     await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
-    const example = page.locator('#components-app-shell [data-docs-example="true"]')
+    const example = page.locator('#components-account-management [data-docs-example="true"]')
     await expect(example).toHaveCount(1)
     await example.getByRole('tab', { name: 'Preview' }).click()
     const shell = page.locator(`#${shellId}`)
@@ -1167,7 +1184,7 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
   }
 
   await page.setViewportSize({ width: 1440, height: 800 })
-  let shell = await openShellPreview('/components/app-shell?destination=ledger-account-2048', 'ledger-app-shell')
+  let shell = await openShellPreview('/components/page-examples/account-management?destination=ledger-account-2048', 'ledger-app-shell')
   await expect(shell.getByRole('heading', { level: 1, name: 'Operating checking', exact: true })).toHaveCount(1)
   await expect(shell.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Operating checking', { exact: true })).toHaveAttribute('aria-current', 'page')
   const ledgerNavigation = shell.getByRole('navigation', { name: 'Ledger primary navigation' })
@@ -1188,14 +1205,14 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
 
   await prepareFixtureMorph()
   await shell.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Accounts', exact: true }).click()
-  await expect(page).toHaveURL('/components/app-shell?destination=ledger-accounts')
+  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-accounts')
   shell = page.locator('#ledger-app-shell')
   await expect(shell.getByRole('heading', { level: 1, name: 'Accounts', exact: true })).toHaveCount(1)
   await expectFixtureMorph()
 
   await prepareFixtureMorph()
   await shell.getByRole('navigation', { name: 'Ledger primary navigation' }).getByRole('link', { name: 'Reports', exact: true }).click()
-  await expect(page).toHaveURL('/components/app-shell?destination=ledger-reports')
+  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-reports')
   shell = page.locator('#ledger-app-shell')
   await expect(shell).toBeVisible()
   await expect(shell.getByRole('heading', { level: 1, name: 'Reports', exact: true })).toHaveCount(1)
@@ -1205,26 +1222,26 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
 
   await prepareFixtureMorph()
   await shell.getByRole('link', { name: 'View accounts', exact: true }).click()
-  await expect(page).toHaveURL('/components/app-shell?destination=ledger-accounts')
+  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-accounts')
   shell = page.locator('#ledger-app-shell')
   await expect(shell.getByRole('heading', { level: 1, name: 'Accounts', exact: true })).toHaveCount(1)
   await expectFixtureMorph()
   await prepareFixtureMorph()
   await shell.getByRole('link', { name: 'Assets', exact: true }).click()
-  await expect(page).toHaveURL('/components/app-shell?destination=ledger-account-101')
+  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-account-101')
   shell = page.locator('#ledger-app-shell')
   await expectFixtureMorph()
   await shell.getByRole('button', { name: 'Refresh balances' }).click()
   await expect(shell.getByRole('status').filter({ hasText: 'Balance refreshes:' })).toHaveText('Balance refreshes: 1')
 
   await prepareFixtureMorph()
-  await shell.getByRole('link', { name: /Andrew Meier/ }).click()
-  await expect(page).toHaveURL('/components/app-shell?destination=ledger-settings')
+  await shell.getByRole('link', { name: /Andy Meier/ }).click()
+  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-settings')
   shell = page.locator('#ledger-app-shell')
   await expect(shell.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toHaveCount(1)
   await expectFixtureMorph()
 
-  shell = await openShellPreview('/components/app-shell?destination=treasury-transactions', 'treasury-app-shell')
+  shell = await openShellPreview('/components/page-examples/account-management?destination=treasury-transactions', 'treasury-app-shell')
   await expect(shell.getByRole('navigation', { name: 'Treasury primary navigation' })).toHaveCount(1)
   await expect(shell.getByRole('navigation', { name: 'Treasury primary navigation' }).getByRole('link', { name: 'Transactions', exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(shell.getByRole('tablist', { name: 'Transaction views' })).toBeVisible()
@@ -1236,27 +1253,31 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
 
   await prepareFixtureMorph()
   await shell.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'July 2026', exact: true }).click()
-  await expect(page).toHaveURL('/components/app-shell?destination=treasury-period-july')
+  await expect(page).toHaveURL('/components/page-examples/account-management?destination=treasury-period-july')
   shell = page.locator('#treasury-app-shell')
   await expect(shell.getByRole('heading', { level: 1, name: 'Overview', exact: true })).toHaveCount(1)
   await expectFixtureMorph()
 
   await prepareFixtureMorph()
   await shell.getByRole('navigation', { name: 'Treasury primary navigation' }).getByRole('link', { name: 'Payees', exact: true }).click()
-  await expect(page).toHaveURL('/components/app-shell?destination=treasury-payees')
+  await expect(page).toHaveURL('/components/page-examples/account-management?destination=treasury-payees')
   shell = page.locator('#treasury-app-shell')
   await expect(shell.getByRole('heading', { level: 1, name: 'Payees', exact: true })).toHaveCount(1)
   await expectFixtureMorph()
 
+  await expect(shell.locator('#treasury-side-navigation').getByText('Workspace', { exact: true })).toBeVisible()
+  await expect(shell.locator('#treasury-side-navigation').getByText('Meier Made', { exact: true })).toBeVisible()
+  await expect(shell.locator('#treasury-side-navigation').getByText('Andy Meier', { exact: true })).toBeVisible()
+  await expect(shell.locator('#treasury-side-navigation').getByText('Cash management', { exact: true })).toHaveCount(0)
   await prepareFixtureMorph()
-  await shell.getByRole('link', { name: /Meier Made/ }).click()
-  await expect(page).toHaveURL('/components/app-shell?destination=treasury-home')
+  await shell.getByRole('navigation', { name: 'Treasury primary navigation' }).getByRole('link', { name: 'Overview', exact: true }).click()
+  await expect(page).toHaveURL('/components/page-examples/account-management?destination=treasury-home')
   shell = page.locator('#treasury-app-shell')
   await expect(shell.getByRole('heading', { level: 1, name: 'Overview', exact: true })).toHaveCount(1)
   await expectFixtureMorph()
 
   await page.setViewportSize({ width: 390, height: 844 })
-  shell = await openShellPreview('/components/app-shell?destination=ledger-account-2048', 'ledger-app-shell')
+  shell = await openShellPreview('/components/page-examples/account-management?destination=ledger-account-2048', 'ledger-app-shell')
   const breadcrumbOverflow = shell.getByRole('button', { name: 'Show hidden breadcrumbs' })
   await expect(breadcrumbOverflow).toBeVisible()
   await breadcrumbOverflow.click()
@@ -1286,7 +1307,7 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
   const firstNavigationLink = mobileNavigation.getByRole('link', { name: 'Ledger', exact: true })
   await firstNavigationLink.focus()
   await page.keyboard.press('Shift+Tab')
-  await expect(mobileNavigation.getByRole('link', { name: /Andrew Meier/ })).toBeFocused()
+  await expect(mobileNavigation.getByRole('link', { name: /Andy Meier/ })).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(firstNavigationLink).toBeFocused()
   await page.keyboard.press('Escape')
@@ -1304,7 +1325,7 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
   await page.locator('html').evaluate(element => { element.style.fontSize = '200%' })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await expect(openNavigation).toBeVisible()
-  const resizedProductName = shell.locator('[data-fve-app-shell-content="true"] > header').getByText('Ledger', { exact: true })
+  const resizedProductName = shell.locator('[data-fve-app-shell-content="true"]').getByText('Ledger', { exact: true })
   await expect(resizedProductName).toBeVisible()
   expect(await resizedProductName.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
   const resizedCurrentBreadcrumb = shell.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Operating checking', { exact: true })
@@ -1342,7 +1363,7 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
   await expect(breadcrumbMenu).toBeVisible()
   await prepareFixtureMorph()
   await breadcrumbMenu.getByRole('menuitem', { name: 'Accounts', exact: true }).click()
-  await expect(page).toHaveURL('/components/app-shell?destination=ledger-accounts')
+  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-accounts')
   shell = page.locator('#ledger-app-shell')
   await expect(shell.getByRole('heading', { level: 1, name: 'Accounts', exact: true })).toHaveCount(1)
   await expectFixtureMorph()
@@ -1589,7 +1610,7 @@ test('searchable Select keeps a standard trigger and popup search for static and
   await page.goto('/components/select')
 
   const staticExample = page.locator('#components-select-search')
-  const staticTrigger = staticExample.getByRole('button', { name: 'Static account' })
+  const staticTrigger = staticExample.getByRole('button', { name: 'Static account', exact: true })
   await staticTrigger.click()
   const staticSearch = staticExample.locator('#fve-select-components_static_account-search')
   await expect(staticSearch).toBeFocused()
@@ -1603,7 +1624,7 @@ test('searchable Select keeps a standard trigger and popup search for static and
   await expect(staticExample.locator('input[type="hidden"][name="staticAccount"]')).toHaveValue('102')
 
   const remoteExample = page.locator('#components-select-search-remote')
-  const remoteTrigger = remoteExample.getByRole('button', { name: 'Parent account' })
+  const remoteTrigger = remoteExample.getByRole('button', { name: 'Parent account', exact: true })
   await remoteTrigger.click()
   const remoteSearch = remoteExample.locator('#fve-select-account-search')
   await expect(remoteSearch).toBeFocused()
@@ -1620,6 +1641,8 @@ test('searchable Select keeps a standard trigger and popup search for static and
   await expect(remotePopup.getByRole('alert')).toHaveText('Accounts could not be loaded.')
   await remotePopup.getByRole('button', { name: 'Retry' }).click()
   await expect(remotePopup.getByRole('status')).toHaveText('No matching accounts')
+  await remoteSearch.press('Escape')
+  await expect(remoteTrigger).toBeFocused()
 
   await expect(page.locator('#components-select-search-disabled').getByRole('button', { name: 'Disabled account' })).toBeDisabled()
   await expect(page.locator('#components-select-search-pending').getByRole('button', { name: 'Updating account' })).toBeDisabled()
@@ -1802,14 +1825,16 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
   await expect(confirmationTrigger).toBeFocused()
 
   const drawerSurface = await openPreview('/components/drawer', 'Drawer')
-  const accountDrawerTrigger = drawerSurface.getByRole('button', { name: 'Open account panel' })
+  const accountDrawerTrigger = drawerSurface.getByRole('button', { name: 'Open account details' })
+  const editorDrawerTrigger = drawerSurface.getByRole('button', { name: 'Edit account', exact: true })
   const filterDrawerTrigger = drawerSurface.getByRole('button', { name: 'Open filters' })
-  const accountDrawer = drawerSurface.getByRole('dialog', { name: 'Account settings' })
+  const accountDrawer = drawerSurface.getByRole('dialog', { name: 'Account details' })
+  const editorDrawer = drawerSurface.getByRole('dialog', { name: 'Edit account' })
   const filterDrawer = drawerSurface.getByRole('dialog', { name: 'Account filters' })
   await accountDrawerTrigger.click()
   await expect(accountDrawer).toBeVisible()
-  await expect(accountDrawer.getByRole('link', { name: 'Profile' })).toBeFocused()
-  await expect(accountDrawer.getByRole('navigation', { name: 'Account settings' })).toBeVisible()
+  await expect(accountDrawer.getByRole('button', { name: 'Refresh details' })).toBeFocused()
+  await expect(accountDrawer).toContainText('Operating checking')
   const accountDrawerBox = await accountDrawer.boundingBox()
   expect(accountDrawerBox).toBeTruthy()
   expect(accountDrawerBox!.x + accountDrawerBox!.width).toBeCloseTo(await page.evaluate(() => window.innerWidth), 0)
@@ -1829,24 +1854,48 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
   await expect(filterDrawerTrigger).toBeFocused()
 
   await accountDrawerTrigger.click()
-  const refreshPanel = accountDrawer.getByRole('button', { name: 'Refresh panel' })
+  const refreshPanel = accountDrawer.getByRole('button', { name: 'Refresh details' })
   await refreshPanel.click()
-  await expect(accountDrawer.getByRole('status')).toHaveText('Panel content refreshed from the server.')
-  await expect(accountDrawer.getByRole('button', { name: 'Refresh panel' })).toBeFocused()
+  await expect(accountDrawer.getByRole('status')).toHaveText('Account details refreshed from the server.')
+  await expect(accountDrawer.getByRole('button', { name: 'Refresh details' })).toBeFocused()
   await expect(accountDrawer).toBeVisible()
   await page.keyboard.press('Tab')
   await expectOutsideFocusBlocked(accountDrawer, accountDrawerTrigger)
   await page.keyboard.press('Escape')
   await expect(accountDrawerTrigger).toBeFocused()
 
+  await page.setViewportSize({ width: 1100, height: 600 })
+  await editorDrawerTrigger.click()
+  await expect(editorDrawer.getByLabel('Account name', { exact: true })).toBeFocused()
+  const editorBox = await editorDrawer.boundingBox()
+  expect(editorBox).toBeTruthy()
+  expect(editorBox!.width).toBeGreaterThan(384)
+  expect(editorBox!.width).toBeLessThanOrEqual(672)
+  const editorBody = editorDrawer.locator('#account-editor-form').locator('..')
+  const editorFooter = editorDrawer.getByRole('button', { name: 'Save changes', exact: true }).locator('../..')
+  await expect.poll(() => editorBody.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0)
+  const footerBeforeScroll = await editorFooter.boundingBox()
+  await editorDrawer.getByLabel('Account name', { exact: true }).fill('Operating account')
+  await editorBody.evaluate(element => { element.scrollTop = element.scrollHeight })
+  const footerAfterScroll = await editorFooter.boundingBox()
+  expect(footerBeforeScroll).toBeTruthy()
+  expect(footerAfterScroll).toBeTruthy()
+  expect(footerAfterScroll!.y).toBeCloseTo(footerBeforeScroll!.y, 0)
+  await expect(editorDrawer.getByRole('button', { name: 'Save changes', exact: true })).toHaveAttribute('form', 'account-editor-form')
+  await page.keyboard.press('Escape')
+  await expect(editorDrawerTrigger).toBeFocused()
+  await editorDrawerTrigger.click()
+  await expect(editorDrawer.getByLabel('Account name', { exact: true })).toHaveValue('Operating account')
+  await page.keyboard.press('Escape')
+
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Light' }).click()
   const mobileDrawerSurface = await openPreview('/components/drawer', 'Drawer')
-  const mobileDrawerTrigger = mobileDrawerSurface.getByRole('button', { name: 'Open account panel' })
-  const mobileDrawer = mobileDrawerSurface.getByRole('dialog', { name: 'Account settings' })
+  const mobileDrawerTrigger = mobileDrawerSurface.getByRole('button', { name: 'Open account details' })
+  const mobileDrawer = mobileDrawerSurface.getByRole('dialog', { name: 'Account details' })
   await mobileDrawerTrigger.click()
-  await expect(mobileDrawer.getByRole('link', { name: 'Profile' })).toBeFocused()
+  await expect(mobileDrawer.getByRole('button', { name: 'Refresh details' })).toBeFocused()
   const mobileDrawerBox = await mobileDrawer.boundingBox()
   expect(mobileDrawerBox).toBeTruthy()
   expect(mobileDrawerBox!.x).toBeGreaterThanOrEqual(0)
@@ -2252,7 +2301,7 @@ test('inline prose links are visually identifiable and article pagers continue t
   const pager = page.getByRole('navigation', { name: 'Page navigation' })
   await expect(page.getByRole('link', { name: 'Browse components' })).toHaveAttribute('href', '/docs/components/layouts')
   await expect(page.getByRole('link', { name: 'Browse page examples' })).toHaveAttribute('href', '/docs/page-examples/documentation-site')
-  await expect(pager.getByRole('link', { name: /Previous Messaging/ })).toHaveAttribute('href', '/components/integrations/messaging')
+  await expect(pager.getByRole('link', { name: /Previous Media management/ })).toHaveAttribute('href', '/components/page-examples/media-management')
   const next = pager.getByRole('link', { name: /Next Layouts/ })
   await expect(next).toBeVisible()
   await next.click()
@@ -2504,9 +2553,9 @@ test('Docs catalog navigation updates articles without a full-page browser error
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/docs/page-examples/api-reference', { waitUntil: 'domcontentloaded' })
   await expect(page.getByRole('button', { name: 'Toggle Documentation section', exact: true })).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#nav-children-documentation > li > #nav-components')).toBeVisible()
-  await expect(page.locator('#nav-children-documentation > li > #nav-page-examples')).toBeVisible()
-  await page.locator('#nav-components').click()
+  await expect(page.locator('#nav-fsharp-viewengine-components-documentation-components')).toBeVisible()
+  await expect(page.locator('#nav-fsharp-viewengine-components-documentation-page-examples')).toBeVisible()
+  await page.locator('#nav-fsharp-viewengine-components-documentation-components').click()
   await page.locator('#nav-docs-layouts').click()
   await expect(page).toHaveURL('/docs/components/layouts')
   await expect(page.getByRole('heading', { level: 1, name: 'Layouts' })).toBeVisible()
@@ -2612,6 +2661,7 @@ test('API reference page example renders endpoint and request-response compositi
   await example.getByRole('tab', { name: 'Preview' }).click()
   const preview = example.locator('iframe').contentFrame()
   await expect(preview.locator('[data-http-method="POST"]')).toBeVisible()
+  await expect(preview.getByText('Rendered HTML and response media type.')).toBeVisible()
   await expect(preview.locator('.docs-code-panel')).toHaveCount(2)
 
   await page.setViewportSize({ width: 390, height: 844 })
@@ -2643,7 +2693,12 @@ test('specification page example state tabs work after parsing while the optiona
     const ready = preview.getByRole('tab', { name: 'Ready' })
     const validation = preview.getByRole('tab', { name: 'Validation' })
 
+    await expect(preview.locator('body')).toHaveClass(/fve-components/)
+    await expect(preview.locator('body')).toHaveClass(/fve-theme-sky/)
     await expect(ready).toBeVisible()
+    const restingColor = await validation.evaluate(element => getComputedStyle(element).color)
+    await validation.hover()
+    await expect.poll(() => validation.evaluate(element => getComputedStyle(element).color)).not.toBe(restingColor)
     await validation.click()
     await expect(validation).toHaveAttribute('aria-selected', 'true')
     await expect(preview.getByRole('tabpanel', { name: 'Validation' })).toBeVisible()

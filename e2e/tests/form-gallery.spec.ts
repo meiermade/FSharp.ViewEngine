@@ -9,7 +9,8 @@ test('Input gallery teaches single fields with accessible adornments and native 
   await page.goto('/components/input')
   const examples = page.locator('[data-docs-example="true"]')
   await expect(examples).toHaveCount(12)
-  for (const example of await examples.all()) {
+  await expect(page.getByRole('heading', { name: 'Read-only', exact: true })).toHaveCount(0)
+  for (const example of await examples.filter({ hasNot: page.getByRole('searchbox', { name: 'Compact search', exact: true }) }).all()) {
     await expect(example.locator('input:not([type="hidden"])')).toHaveCount(1)
     await expect(example.locator('form, textarea')).toHaveCount(0)
     await expect(example.locator('[data-docs-copy-source]')).not.toContainText('contactFormRegion')
@@ -28,7 +29,7 @@ test('Input gallery teaches single fields with accessible adornments and native 
   await expect(page.locator('#components-input-icon [aria-hidden="true"] svg')).toHaveCount(1)
   const query = page.getByRole('searchbox', { name: 'Search', exact: true })
   const clear = page.getByRole('button', { name: 'Clear Search', exact: true, includeHidden: true })
-  await expect(clear).toBeDisabled()
+  await expect(clear).toBeHidden()
   await query.fill('preview')
   await query.evaluate(input => {
     input.addEventListener('input', () => { input.setAttribute('data-native-input', 'true') })
@@ -40,7 +41,7 @@ test('Input gallery teaches single fields with accessible adornments and native 
   await expect(query).toHaveValue('')
   await expect(query).toHaveAttribute('data-native-input', 'true')
   await expect(query).toHaveAttribute('data-native-change', 'true')
-  await expect(clear).toBeDisabled()
+  await expect(clear).toBeHidden()
   const values = await page.locator('.docs-gallery-layout').evaluate(gallery => {
     const form = document.createElement('form')
     for (const field of gallery.querySelectorAll('input')) form.append(field.cloneNode(true))
@@ -48,7 +49,6 @@ test('Input gallery teaches single fields with accessible adornments and native 
   })
   expect(values.website).toBe('example.com')
   expect(values.price).toBe('12.50')
-  expect(values.memberId).toBe('MEM-2048')
   expect(values.pendingEmail).toBe('alex@example.com')
   expect(values).not.toHaveProperty('disabledEmail')
   expect(errors).toEqual([])
@@ -105,7 +105,10 @@ for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
           expect(box, `${slug} input must retain a measurable box`).not.toBeNull()
           expect(box!.x).toBeGreaterThanOrEqual(0)
           expect(box!.x + box!.width).toBeLessThanOrEqual(width + 1)
-          if (slug === 'input' || slug === 'textarea') await expect(input).toHaveCSS('font-size', `${16 * scale}px`)
+          if (slug === 'input' || slug === 'textarea') {
+            const compact = await input.evaluate(element => element.closest('.fve-control-small, .fve-control-medium, .fve-control-large')?.classList.contains('fve-control-small') ?? false)
+            await expect(input).toHaveCSS('font-size', `${(compact ? 14 : 16) * scale}px`)
+          }
         }
         if (slug === 'input' || slug === 'form-layouts') {
           await page.screenshot({ path: testInfo.outputPath(`${slug}-${dark ? 'dark' : 'light'}-${width}-${scale}x.png`) })

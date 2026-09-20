@@ -404,7 +404,9 @@
   border-left: 2px solid var(--spec-border-strong);
   padding-left: 0.75rem;
 }
-.docs-api-policy p {
+.docs-api-policy p,
+.docs-api-policy > code {
+  display: block;
   margin: 0.25rem 0 0;
   color: var(--spec-muted);
   font-size: var(--docs-text-ui);
@@ -777,12 +779,13 @@
   right: 0.75rem;
   display: grid;
   min-width: 2rem;
+  width: 2rem;
   height: 2rem;
   place-items: center;
   border: 1px solid var(--docs-code-border);
   border-radius: 0.375rem;
   background: var(--docs-code-surface);
-  padding: 0 0.5rem;
+  padding: 0;
   color: var(--docs-code-muted);
   font-size: 0.75rem;
   line-height: 1rem;
@@ -792,6 +795,19 @@
 .docs-copy-code svg {
   width: 1rem;
   height: 1rem;
+}
+.docs-copy-code [data-docs-copy-icon] {
+  grid-area: 1 / 1;
+}
+.docs-copy-code [data-docs-copy-icon="success"],
+.docs-copy-code [data-docs-copy-icon="error"],
+.docs-copy-code[data-copied="true"] [data-docs-copy-icon="copy"],
+.docs-copy-code[data-copy-error="true"] [data-docs-copy-icon="copy"] {
+  display: none;
+}
+.docs-copy-code[data-copied="true"] [data-docs-copy-icon="success"],
+.docs-copy-code[data-copy-error="true"] [data-docs-copy-icon="error"] {
+  display: block;
 }
 .docs-copy-code:hover,
 .docs-copy-code:focus-visible,
@@ -1110,11 +1126,15 @@
   gap: 1rem;
   padding: 2rem 1.5rem;
 }
+.docs-custom-rail-inner > div {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 1rem;
+}
 .docs-api-endpoint {
-  border: 1px solid var(--spec-border);
-  border-radius: 0.75rem;
-  background: var(--spec-input-bg);
-  padding: 1rem;
+  border-bottom: 1px solid var(--spec-border);
+  padding-bottom: 1rem;
 }
 .docs-api-endpoint-line {
   display: flex;
@@ -1187,12 +1207,11 @@
 }
 .docs-parameters {
   overflow: hidden;
-  border: 1px solid var(--spec-border);
-  border-radius: 0.75rem;
-  background: var(--spec-input-bg);
+  border-top: 1px solid var(--spec-border);
+  border-bottom: 1px solid var(--spec-border);
 }
 .docs-parameter {
-  padding: 1rem;
+  padding: 1rem 0;
 }
 .docs-parameter + .docs-parameter {
   border-top: 1px solid var(--spec-border);
@@ -1229,6 +1248,35 @@
   color: var(--spec-muted);
   font-size: var(--docs-text-ui);
   line-height: 1.6;
+}
+.docs-api-operation-links {
+  overflow: hidden;
+  border-top: 1px solid var(--spec-border);
+  border-bottom: 1px solid var(--spec-border);
+}
+.docs-api-operation-links > a {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.875rem 0;
+  color: var(--spec-text);
+  text-decoration: none;
+}
+.docs-api-operation-links > a:hover {
+  color: var(--spec-selection-text);
+}
+.docs-api-operation-links > a:focus-visible {
+  border-radius: 0.25rem;
+  outline: 2px solid var(--spec-accent-700);
+  outline-offset: 2px;
+}
+.docs-api-operation-link-path {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.625rem;
+  color: var(--spec-muted);
+  font-size: var(--docs-text-ancillary);
 }
 .docs-code-panel,
 .docs-response-panel {

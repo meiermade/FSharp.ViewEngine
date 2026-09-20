@@ -405,7 +405,7 @@ module private NavigationView =
                 }
             }
             div {
-                _class "spec-top-actions fve-components fve-theme-sky fve-density-compact"
+                _class "spec-top-actions fve-components fve-theme-sky fve-density-compact fve-control-small"
                 if not site.search.IsEmpty then SearchView.render site.search
                 ColorModeView.render site.defaultColorMode
                 match site.repository with
@@ -841,8 +841,35 @@ window.fsharpDocsCode = window.fsharpDocsCode ?? {
 window.addEventListener('pagehide', markDocsCodeUnloading);
 window.addEventListener('pageshow', () => { window.fsharpDocsCode.unloading = false; });
 window.renderCode = el => window.fsharpDocsCode.render(el);
+window.fsharpDocsPreviewColorMode = window.fsharpDocsPreviewColorMode ?? {
+  resolved() {
+    return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
+  },
+  apply(frame) {
+    try {
+      const preview = frame.contentWindow;
+      if (!preview || preview.location.origin !== window.location.origin || !preview.fsharpDocsColorMode) return;
+      const mode = this.resolved();
+      const root = preview.document.documentElement;
+      if (root.dataset.colorMode === mode && root.classList.contains('dark') === (mode === 'dark')) return;
+      preview.fsharpDocsColorMode.set(mode);
+    } catch {}
+  },
+  wire(frame) {
+    if (frame.dataset.docsColorModeWired !== 'true') {
+      frame.dataset.docsColorModeWired = 'true';
+      frame.addEventListener('load', () => this.apply(frame));
+    }
+    this.apply(frame);
+  },
+  sync(root) {
+    for (const frame of root?.querySelectorAll?.('iframe[data-docs-preview-src]') ?? []) this.wire(frame);
+  }
+};
+window.addEventListener('fsharpdocs:colormode', () => window.fsharpDocsPreviewColorMode.sync(document));
 window.renderDocsPreview = (el) => {
   for (const frame of el?.querySelectorAll?.('iframe[data-docs-preview-src]') ?? []) {
+    window.fsharpDocsPreviewColorMode.wire(frame);
     if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.docsPreviewSrc);
   }
   return window.renderMermaid?.(el);
@@ -854,16 +881,22 @@ window.renderInitialDocsPreviews = (el) => Promise.all(
 window.fsharpDocsCopy = async button => {
   const source = button.closest('.docs-copyable-code')?.querySelector('[data-docs-copy-source]')?.textContent ?? '';
   const label = button.querySelector('[data-docs-copy-label]');
+  window.clearTimeout(button.docsCopyReset);
+  delete button.dataset.copied;
+  delete button.dataset.copyError;
   try {
     await navigator.clipboard.writeText(source);
     if (label) label.textContent = 'Copied';
+    button.title = 'Copied';
     button.dataset.copied = 'true';
   } catch {
     if (label) label.textContent = 'Copy failed';
+    button.title = 'Copy failed';
     button.dataset.copyError = 'true';
   }
-  window.setTimeout(() => {
-    if (label) label.textContent = 'Copy';
+  button.docsCopyReset = window.setTimeout(() => {
+    if (label) label.textContent = '';
+    button.title = button.getAttribute('aria-label');
     delete button.dataset.copied;
     delete button.dataset.copyError;
   }, 1600);
@@ -1095,12 +1128,12 @@ document.addEventListener('datastar-fetch', event => {
                 for element in site.assets.additionalHead do element
             }
             body {
-                _class "spec-document"
+                _class "spec-document fve-components fve-theme-sky fve-density-compact"
                 _data("signals", signals)
                 _data("effect", "window.fsharpDocsColorMode.set($colorMode)")
                 _data("on-signal-patch", $"window.fsharpDocsNav.save({navState})")
                 _data("on:click", "window.fsharpDocsNavigation.navigate(evt)")
-                _data("on:fsharpdocs:navigate", "@get(evt.detail.href, { requestCancellation: evt.detail.controller, retry: 'never', retryMaxCount: 0 })")
+                _data("on:fsharpdocs:navigate", "@get(evt.detail.href, { filterSignals: { exclude: /.*/ }, requestCancellation: evt.detail.controller, retry: 'never', retryMaxCount: 0 })")
                 _data("on:popstate__window", "window.fsharpDocsNavigation.restore()")
                 _data("on:keydown__window", "evt.key == 'Escape' ? ($sideNavOpen = false, $breadcrumbMenuOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)")
                 pageWithNavigation site breadcrumbs sideNavItems docPage

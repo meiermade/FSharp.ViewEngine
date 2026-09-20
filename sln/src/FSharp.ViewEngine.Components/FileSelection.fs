@@ -47,7 +47,7 @@ module FileSelection =
             + "list.replaceChildren(...Array.from(el.files).map(file => { const item = document.createElement('li'); item.textContent = file.name + ' · ' + Math.ceil(file.size / 1024) + ' KB'; return item })); "
             + "list.hidden = el.files.length == 0"
         div {
-            _class "grid gap-2"
+            _class "grid min-w-0 content-start gap-2"
             label {
                 _for config.id
                 _class "text-sm font-medium text-[var(--fve-text)]"

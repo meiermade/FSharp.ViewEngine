@@ -8,7 +8,7 @@ Accessible, server-rendered Tailwind components for [FSharp.ViewEngine](https://
 dotnet add package FSharp.ViewEngine.Components
 ```
 
-The package declares its minimum compatible `FSharp.ViewEngine` version. Components and the engine version independently. Documentation now lives in this assembly; no new `FSharp.ViewEngine.Docs` package is produced.
+The package declares its minimum compatible `FSharp.ViewEngine` version. Components and the engine are versioned independently. Documentation now lives in this assembly; no new `FSharp.ViewEngine.Docs` package is produced.
 
 The unified library currently supplies **Primitives**, **Application**, and **Documentation**. Primitives supplies shared controls, themes, actions and sections; Application supplies pages, shells and collection/detail compositions; [Documentation](Documentation/README.md) supplies authoring, navigation and preview mechanics. Marketing and Ecommerce will be added when their reusable components and connected examples are implemented.
 
@@ -62,6 +62,30 @@ The manifest contains the renderer-owned utility inventory and semantic CSS vari
 }
 ```
 
+## Control sizes and density
+
+Single-line controls share three rem-based minimum heights: `ControlSize.Small` (32px), `Medium` (40px, the default), and `Large` (48px), at a 16px root font. Text can reflow rather than being clipped. Small is the compact application size with 14px text and a 20px line-height; Medium and Large use 16px text with a 24px line-height. Field values use regular (400) weight and action labels use medium (500); field labels stay at 14px. Navigation and tabs retain their separate UI typography. Application page headers, collection toolbars, section actions, and calendar navigation establish the compact size locally while data-entry forms inherit the surrounding theme size. The connected Page examples select Small for their complete application shells so page actions, filters, forms, and mode controls stay consistent; consumers can retain Medium for form-heavy products or override a local region explicitly.
+
+```fsharp
+let theme =
+    ComponentsTheme.sky
+    |> ComponentsTheme.withDensity Density.Compact
+    |> ComponentsTheme.withControlSize ControlSize.Medium
+
+// A local region can override the inherited size without resetting its theme.
+div {
+    _class (ControlSize.className ControlSize.Small)
+    Input.create "query" "Search records"
+    |> Input.withType InputType.Search
+    |> Input.render
+    Button.create "Search" |> Button.asSubmit |> Button.render
+}
+```
+
+`Button.withSize`, `IconButton.withSize`, `Input.withSize`, and `Select.withSize` explicitly override the region. Controls otherwise inherit its size, including application actions and dropdown triggers. `Density` controls navigation/shell spacing; `Table.withDensity` controls record spacing. Neither changes the control-size selection. To retain dense 32px controls, select `ControlSize.Small` explicitly.
+
+`InputType.Search` uses the shared Input renderer with a decorative magnifying glass and a keyboard-accessible, labelled clear button. The clear button follows the native value (including bound changes and form reset), disappears when empty or unavailable, restores input focus, and dispatches native `input` and `change` events. It clears only that field, not other filters, and does not submit the form automatically. `Input.withVisuallyHiddenLabel` supports compact search bars without losing their accessible name.
+
 ## Product frames
 
 `Browser` and `Phone` are Primitives for rendering consumer-owned product HTML in browser and device treatments. `Browser.withAppMode` and `Phone.withAppMode` opt a named frame into the optional expanded viewer; they do not add Documentation dependencies or product behavior. Compose `Documentation.Fixture` only when a documentation or Spec host needs review workflow destinations and alternate states.
@@ -100,6 +124,8 @@ Metric highlights consumer-formatted value content with optional trend text, sta
 
 `Input.create name label` and `Textarea.create name label` render native controls with required labels, optional descriptions and validation, and normal form values. `withId` sets the exact DOM ID; `Input.id` / `Textarea.id` return the focus target for an error summary. Default IDs encode the form name without collapsing punctuation; repeated names require explicit distinct IDs.
 
+Field wrappers top-align their contents in taller form rows: neighboring helper/error text or a textarea must not stretch a label or single-line control. Input, Textarea and Select present label → control → help/error text; help remains associated through `aria-describedby`. File and tag fields also retain their natural internal geometry. Compose columns with normal responsive grids—no spacer descriptions or fixed row heights are needed.
+
 ```fsharp
 let email =
     Input.create "email" "Email address"
@@ -120,13 +146,15 @@ Input types are Text, Email, Telephone, Password, Number, Search, Url, Date, Tim
 
 `Input.withLeadingIcon` accepts a decorative, non-interactive HTML icon; the visible label remains the accessible name. `Input.withPrefix` and `Input.withSuffix` add encoded, non-editable context such as `https://` or `USD`. Prefix/suffix text is associated through `aria-describedby`, independently of help/errors, and is **not** included in the input's submitted value. Adorned controls retain native input behavior and an outer focus-visible outline; consumers still own parsing and validation.
 
-The catalog starts with focused [Input examples](https://fsharpviewengine.meiermade.com/components/input) and meaningful field states. Complete stacked, responsive two-column and sectioned forms are under **Application → Forms → Form layouts** (`/components/form-layouts`), rather than embedded in the Input primitive. The former contact-validation and result-search workflows moved there; their existing endpoint and default field IDs remain supported at the new page. Choice controls retain focused submission/validation demonstrations after their basic examples.
+The catalog starts with focused [Input examples](https://fsharpviewengine.meiermade.com/components/input) and meaningful field states. Complete stacked, responsive two-column and sectioned forms are under **Application → Forms → Form layouts** (`/components/form-layouts`), rather than embedded in the Input primitive. The contact-validation endpoint and default field IDs remain supported there. Search with clear behavior stays in the Input gallery; result filtering is demonstrated in **Page examples → Account management**, not Form layouts. Choice controls retain focused submission/validation demonstrations after their basic examples.
 
-`withValue` encodes input attributes or textarea content. `withValidation` associates corrective text through `aria-describedby`; it does not make every field an alert. `required` retains native constraints for editable controls. Disabled fields are omitted from FormData; **read-only and pending Input/Textarea values remain submitted**, unlike disabled choice controls. Pending fields are read-only and visibly busy. Applications own validation, submission, state, and whether to disable native constraint checking.
+`withValue` encodes input attributes or textarea content. `withValidation` associates corrective text through `aria-describedby`; it does not make every field an alert. `required` retains native constraints for editable controls. Disabled fields are omitted from FormData; **pending Input/Textarea values remain submitted**, unlike disabled choice controls. Pending fields prevent editing and are visibly busy. Input and Textarea have no standalone read-only state; use `DescriptionList` / `DetailField` for non-editable information. Applications own validation, submission, state, and whether to disable native constraint checking.
 
 `ErrorSummary.create id title errors` requires at least one `FieldError.create controlId label message`. Links focus the exact control and retain native fragment navigation. `ErrorSummary.focusOnMount` optionally focuses a newly inserted summary after a server rejection; it does not continually steal focus. Render a new summary only when there are errors, and preserve submitted values in the returned controls.
 
-`Notice.create id title content` presents inline feedback, with `withTone` and optional consumer-owned `withActions`. Announcements are independent of tone: Static is the default, Polite adds a status region, and Assertive adds an alert. Actions sit outside the live region. Use record `Status` for field data, Notice for contextual feedback. There is no automatic dismissal, toast queue, persistence, or invented success outcome.
+`Notice.create id title content` presents persistent inline feedback, with `withTone` and optional consumer-owned `withActions`. Announcements are independent of tone: Static is the default, Polite adds a status region, and Assertive adds an alert. Actions sit outside the live region. Use record `Status` for field data and Notice for contextual feedback.
+
+`Notification.create id title content` presents floating feedback inside a consumer-owned `NotificationRegion.create id label notifications` stack. It supports tone, announcement policy, meaningful actions, and explicit dismissal. Dismissal hides only that notification and dispatches `fve-notification-dismiss`; applications own the stack, timing, persistence, and server outcome. Notifications never auto-dismiss, so keyboard and assistive-technology users receive the same durable opportunity to act.
 
 ## Interaction and state
 
@@ -215,7 +243,7 @@ let accountTabs =
 
 Use Tabs only when controls reveal associated panels in the same page. Use links for URL navigation, RadioGroup for a submitted mutually exclusive value, and ToggleButton for one independently pressed action. Patch the stable Tabs root with the same item identities so Datastar can preserve valid selected state and focus across server-rendered updates.
 
-DropdownMenu keeps typed destinations and trusted Datastar actions application-owned while providing labelled groups, separators, leading content, shortcut hints, destructive tone, disabled or pending items, and typed Start/End popup alignment. Its native auto popover places the menu in the top layer. CSS anchor positioning keeps ordinary menus attached while scrolling and flips them at viewport edges; standardized sticky table cells use a fixed top-layer fallback that updates on nested scroll and resize events to avoid a narrow-viewport Chromium compositor defect. `DropdownMenu.asOverflow` supplies a compact ghost 32px horizontal-ellipsis trigger for page, section, and row action overflow. `DropdownMenu.withIconTrigger icon` uses the same compact treatment with a consumer-supplied decorative icon and the constructor's accessible label. `MenuItem.radio action label` creates a mutually exclusive choice; use `MenuItem.withChecked` for its initial state and optional `MenuItem.withCheckedExpression` for a trusted Datastar expression. The caller owns the choice state and action (and groups independent choice sets with `MenuItem.group`). Radio items expose `menuitemradio`/`aria-checked` and a checkmark, with the same hover/focus treatment as ordinary menu items. Enabled items support pointer activation, wrapping Arrow/Home/End movement, Enter/Space activation, bounded character navigation, outside/Tab dismissal, Escape focus restoration, isolated stable-ID signals, and server-rendered morph continuity.
+DropdownMenu keeps typed destinations and trusted Datastar actions application-owned while providing labelled groups, separators, leading content, shortcut hints, destructive tone, disabled or pending items, and typed Start/End popup alignment. Its native auto popover places the menu in the top layer. CSS anchor positioning keeps ordinary menus attached while scrolling and flips them at viewport edges; standardized sticky table cells use a fixed top-layer fallback that updates on nested scroll and resize events to avoid a narrow-viewport Chromium compositor defect. `DropdownMenu.asOverflow` supplies a ghost horizontal-ellipsis trigger using the inherited control size for page, section, and row action overflow. `DropdownMenu.withIconTrigger icon` uses the same compact treatment with a consumer-supplied decorative icon and the constructor's accessible label. `MenuItem.radio action label` creates a mutually exclusive choice; use `MenuItem.withChecked` for its initial state and optional `MenuItem.withCheckedExpression` for a trusted Datastar expression. The caller owns the choice state and action (and groups independent choice sets with `MenuItem.group`). Radio items expose `menuitemradio`/`aria-checked` and a checkmark, with the same hover/focus treatment as ordinary menu items. Enabled items support pointer activation, wrapping Arrow/Home/End movement, Enter/Space activation, bounded character navigation, outside/Tab dismissal, Escape focus restoration, isolated stable-ID signals, and server-rendered morph continuity.
 
 ```fsharp
 let accountActions =
@@ -234,7 +262,7 @@ let accountActions =
 
 Disabled and pending presentation is not authorization. Applications decide which commands exist and enforce every action on the server.
 
-Dialog, ConfirmationDialog, and Drawer use native modal dialogs and their top-layer backdrop. They require stable IDs and accessible titles, contain focus while open, and restore focus to their connected triggers. Dialog retains consumer-authored body and footer content and can opt into safe backdrop dismissal. ConfirmationDialog focuses the least destructive cancel action first, renders a destructive submit action, exposes server validation and pending state, and uses a Datastar request indicator to prevent duplicate confirmation. Drawer renders consumer-owned landmarks in a responsive typed Start or End panel and dismisses through Escape, its close action, or the backdrop.
+Dialog, ConfirmationDialog, and Drawer use native modal dialogs and their top-layer backdrop. They require stable IDs and accessible titles, contain focus while open, and restore focus to their connected triggers. Dialog retains consumer-authored body and footer content and can opt into safe backdrop dismissal. ConfirmationDialog focuses the least destructive cancel action first, renders a destructive submit action, exposes server validation and pending state, and uses a Datastar request indicator to prevent duplicate confirmation. Drawer renders consumer-owned detail or form content in a responsive typed Start or End panel. `Drawer.withWidth DrawerWidth.Standard` is the default focused task width; `Wide` supports denser editing without becoming a full-page shell. Headers and optional footers remain fixed while the body scrolls. Drawers dismiss through Escape, their close action, or the backdrop.
 
 ```fsharp
 let deleteConfirmation =
@@ -254,15 +282,17 @@ let accountDrawer =
 
 Applications own authorization, durable workflow state, validation, and the trusted Datastar action. Patch `ConfirmationDialog.renderContent` or a stable consumer-owned region inside Drawer so an open native dialog and its focus relationship remain intact.
 
+`FloatingPanel.create id title content` renders persistent, non-modal assistance. Open, minimized, and dismissed states each retain an explicit recovery path; transitions dispatch `fve-floating-panel-state` with the panel ID and new state, then restore focus to the newly available control or heading. Viewport positioning is the default; `FloatingPanel.withinContainer` positions it inside a consumer-owned relative region. The panel has no backdrop and never traps focus. Consumers own persistence and decide whether dismissed guidance should be offered again.
+
 ## Operational application patterns
 
-`ChoiceCards` retains native radio or checkbox semantics while adding descriptions, metadata, disabled choices, required validation, and responsive card presentation. `Progress` renders determinate native progress with active, complete, or failed context. `Steps` renders current, completed, available, and unavailable destinations from one typed sequence. `FirstSteps` provides optional setup guidance whose minimized state always exposes a restore action.
+`ChoiceCards` retains native radio or checkbox semantics while adding descriptions, metadata, disabled choices, required validation, and responsive card presentation. `Progress` renders determinate native progress with active, complete, or failed context. `Steps` renders current, completed, available, and unavailable destinations from one typed sequence. `FirstSteps` composes `FloatingPanel` for optional setup guidance, with open, minimized, dismissed, and container-boundary modes that always preserve a recovery path.
 
 `UploadList` presents consumer-owned queued, uploading, complete, failed, and cancelled files with determinate progress and explicit cancel/retry/remove actions. It is presentation only: applications own file bytes, transport, retry policy, validation, and durable state. `Avatar` and `CopyReveal` provide identity fallback and intentionally user-triggered credential reveal/copy behavior.
 
-`Calendar` renders typed List, Day, Week, or Month schedules with real previous/next/view destinations, accessible event links, and explicit empty, loading, error, and unavailable presentation; applications own time zones, recurrence, collision policy, fetching, and route state. `MediaLibrary` renders native repeated selection values, descriptive images, primary state, and stable selection events compatible with `BulkActions`; applications own storage, transformations, save operations, and media authorization.
+`Primitives.Calendar` renders four focused views: a Monday-first Month grid, minute-positioned Day and Week timelines with separate lanes for overlapping events, and a Year overview of twelve compact months. Day, Week, and Month reflow to a date-grouped agenda below a 48rem container width; Year stacks its compact months. `Calendar.create label view date events` takes a `DateOnly` anchor, not a display string; ranges are derived from that date. `CalendarEvent.create id title date destination` creates an all-day event; `CalendarEvent.withTime start finish` takes positive same-day `TimeOnly` intervals in whole minutes. Consumers split overnight/multi-day events and resolve time zones before rendering. Calendar does not infer today's date from the server clock: `withToday date destination`, `withSelectedDate` and `withDateDestination` provide explicit consumer-owned date navigation. Previous/next/view destinations remain real links. In Year, only dates containing events become date-destination links, keeping the overview’s keyboard focus order bounded; Day, Week, and Month retain direct event-detail links. Empty, loading, error/retry and unavailable presentation suppress stale event actions. Applications own time zones, recurrence, collision policy, fetching, and route state. Labels currently use invariant English and weeks start on Monday; this bounded renderer is not a localization or scheduling engine. `MediaLibrary` renders native repeated selection values, descriptive images, primary state, and stable selection events compatible with `BulkActions`; applications own storage, transformations, save operations, and media authorization.
 
-Each consumer-facing component has a dedicated catalog page for its focused variants and copyable code. App shell contains only shell examples. Deliberately bounded graph/trace, financial-chart, and messaging recipes live on separate **Integration examples** pages; they use contained SVG, visible ordered/table alternatives, native buttons/fields, and consumer-owned data rather than introducing universal graph, chart, or messaging engines.
+Each consumer-facing component has a dedicated catalog page for its focused variants and copyable code. App shell teaches layout with minimal content. Reference-backed account management, dependency graph, execution detail, financial reporting, messaging, operations, scheduling and media workflows live under **Page examples**. They compose shared components with contained SVG and visible list/table alternatives rather than introducing universal graph, chart, or messaging engines. Docs-only handlers provide bounded, cookie-isolated temporary state; applications own their actual persistence, authorization, transport and image licensing. See [page-example sources and boundaries](../../../docs/page-examples.md).
 
 ## Navigation and page composition
 

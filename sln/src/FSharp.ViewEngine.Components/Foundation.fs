@@ -23,6 +23,14 @@ type ControlSize =
     | Large
 
 [<RequireQualifiedAccess>]
+module ControlSize =
+    /// Apply to a region to size its controls independently of layout density.
+    let className = function
+        | ControlSize.Small -> "fve-control-small"
+        | ControlSize.Medium -> "fve-control-medium"
+        | ControlSize.Large -> "fve-control-large"
+
+[<RequireQualifiedAccess>]
 type Radius =
     | None
     | Medium
@@ -39,41 +47,48 @@ type ComponentsTheme =
     private
         { paletteClass:string
           radiusClass:string
-          densityClass:string }
+          densityClass:string
+          controlSizeClass:string }
 
 [<RequireQualifiedAccess>]
 module ComponentsTheme =
     let sky =
         { paletteClass = "fve-theme-sky"
           radiusClass = "fve-radius-large"
-          densityClass = "fve-density-comfortable" }
+          densityClass = "fve-density-comfortable"
+          controlSizeClass = ControlSize.className ControlSize.Medium }
 
     let emerald =
         { paletteClass = "fve-theme-emerald"
           radiusClass = "fve-radius-large"
-          densityClass = "fve-density-comfortable" }
+          densityClass = "fve-density-comfortable"
+          controlSizeClass = ControlSize.className ControlSize.Medium }
 
     let amber =
         { paletteClass = "fve-theme-amber"
           radiusClass = "fve-radius-large"
-          densityClass = "fve-density-comfortable" }
+          densityClass = "fve-density-comfortable"
+          controlSizeClass = ControlSize.className ControlSize.Medium }
 
     let cyan =
         { paletteClass = "fve-theme-cyan"
           radiusClass = "fve-radius-large"
-          densityClass = "fve-density-comfortable" }
+          densityClass = "fve-density-comfortable"
+          controlSizeClass = ControlSize.className ControlSize.Medium }
 
     let neutral =
         { paletteClass = "fve-theme-neutral"
           radiusClass = "fve-radius-large"
-          densityClass = "fve-density-comfortable" }
+          densityClass = "fve-density-comfortable"
+          controlSizeClass = ControlSize.className ControlSize.Medium }
 
     let custom paletteClass =
         if String.IsNullOrWhiteSpace paletteClass || Regex.IsMatch(paletteClass, "\\s") then
             invalidArg (nameof paletteClass) "A custom theme requires one non-empty CSS class."
         { paletteClass = paletteClass
           radiusClass = "fve-radius-large"
-          densityClass = "fve-density-comfortable" }
+          densityClass = "fve-density-comfortable"
+          controlSizeClass = ControlSize.className ControlSize.Medium }
 
     let withRadius radius theme =
         let radiusClass =
@@ -91,8 +106,11 @@ module ComponentsTheme =
             | Density.Comfortable -> "fve-density-comfortable"
         { theme with densityClass = densityClass }
 
+    let withControlSize size theme =
+        { theme with controlSizeClass = ControlSize.className size }
+
     let className theme =
-        [ "fve-components"; theme.paletteClass; theme.radiusClass; theme.densityClass ]
+        [ "fve-components"; theme.paletteClass; theme.radiusClass; theme.densityClass; theme.controlSizeClass ]
         |> String.concat " "
 
     let attributes theme =
@@ -131,15 +149,13 @@ module internal ComponentHtml =
         | Tone.Critical -> "bg-[var(--fve-critical-subtle)] text-[var(--fve-critical-text)] ring-[var(--fve-critical-ring)]"
         | Tone.Informative -> "bg-[var(--fve-info-subtle)] text-[var(--fve-info-text)] ring-[var(--fve-info-ring)]"
 
-    let sizeClasses = function
-        | ControlSize.Small -> "min-h-[calc(var(--fve-control-min-height)-0.25rem)] px-2.5 py-[var(--fve-control-padding-block)] text-xs"
-        | ControlSize.Medium -> "min-h-[var(--fve-control-min-height)] px-2 py-[var(--fve-control-padding-block)] text-sm"
-        | ControlSize.Large -> "min-h-[calc(var(--fve-control-min-height)+0.5rem)] px-4 py-[var(--fve-control-padding-block)] text-base"
+    let controlSizeClass size = size |> Option.map ControlSize.className |> Option.defaultValue ""
 
-    let iconButtonSizeClasses = function
-        | ControlSize.Small -> "size-[calc(var(--fve-control-min-height)-0.25rem)] p-0"
-        | ControlSize.Medium -> "size-[var(--fve-control-min-height)] p-0"
-        | ControlSize.Large -> "size-[calc(var(--fve-control-min-height)+0.5rem)] p-0"
+    let sizeClasses size =
+        classes [ controlSizeClass size; "min-h-[var(--fve-control-min-height)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)]" ]
+
+    let iconButtonSizeClasses size =
+        classes [ controlSizeClass size; "size-[var(--fve-control-min-height)] p-0" ]
 
     let loadingGlyph size =
         let sizeClass =

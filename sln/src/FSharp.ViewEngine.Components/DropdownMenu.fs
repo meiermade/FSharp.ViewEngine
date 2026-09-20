@@ -202,7 +202,7 @@ module DropdownMenu =
               | None -> () ]
         let itemClasses tone unavailable =
             ComponentHtml.classes [
-                "fve-popup-item flex w-full items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm"
+                "fve-popup-item flex w-full items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal"
                 match tone with
                 | MenuTone.Default -> "text-[var(--fve-text)]"
                 | MenuTone.Destructive -> "text-[var(--fve-critical-text)]"
@@ -299,7 +299,7 @@ module DropdownMenu =
                 _dataOn ("keydown", triggerKeydown)
                 _class (
                     match config.triggerPresentation with
-                    | MenuTriggerPresentation.Button -> "fve-popup-control inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]"
+                    | MenuTriggerPresentation.Button -> "fve-popup-control inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]"
                     | MenuTriggerPresentation.Overflow
                     | MenuTriggerPresentation.Icon -> "fve-popup-control inline-flex size-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] p-0 text-[var(--fve-muted-text)] outline-none hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]")
                 match config.triggerPresentation with

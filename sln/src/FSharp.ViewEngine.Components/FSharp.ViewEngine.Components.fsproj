@@ -46,6 +46,7 @@
     <Compile Include="Identity.fs" />
     <Compile Include="Select.fs" />
     <Compile Include="Notice.fs" />
+    <Compile Include="Notification.fs" />
     <Compile Include="Checkbox.fs" />
     <Compile Include="Switch.fs" />
     <Compile Include="ToggleButton.fs" />
@@ -54,6 +55,7 @@
     <Compile Include="DropdownMenu.fs" />
     <Compile Include="Actions.fs" />
     <Compile Include="Dialog.fs" />
+    <Compile Include="FloatingPanel.fs" />
     <Compile Include="Breadcrumbs.fs" />
     <Compile Include="SideNav.fs" />
     <Compile Include="BottomNavigation.fs" />

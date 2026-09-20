@@ -87,6 +87,18 @@ module Showcase =
             p { description }
             Example.previewFirst $"docs-{id}-example" label "fsharp" (sourceFor id) preview ]
 
+    let private buildingBlockLinks label (items:(string * string) list) =
+        div {
+            _class "flex flex-wrap items-baseline gap-x-4 gap-y-2"
+            h2 { _class "text-base font-normal"; "Built with" }
+            nav {
+                _ariaLabel label
+                _class "flex flex-wrap gap-x-4 gap-y-2"
+                for path, itemLabel in items do
+                    a { _href path; _class "spec-content-link"; text itemLabel }
+            }
+        }
+
     let private catalogLink (href:string) (eyebrow:string) (title:string) (description:string) =
         a {
             _href href
@@ -158,32 +170,92 @@ module Showcase =
 
     let private previewDocuments = System.Collections.Generic.Dictionary<string, string>()
 
-    let private isolatedDocument (title:string) (canonicalUrl:string) (html:string) =
+    let private previewToken (title:string) =
+        title.ToLowerInvariant()
+        |> Seq.map (fun character -> if System.Char.IsLetterOrDigit character then character else '-')
+        |> Seq.toArray
+        |> System.String
+
+    let private registerPreviewDocument previewPath (html:string) =
         if not (html.TrimStart().StartsWith("<!DOCTYPE html>", System.StringComparison.OrdinalIgnoreCase)) then
             invalidArg (nameof html) "Isolated previews must be complete HTML documents. Render component fragments directly in the host preview."
+        if not (previewDocuments.ContainsKey previewPath) then
+            previewDocuments.Add(previewPath, html)
 
-        let token =
-            title.ToLowerInvariant()
-            |> Seq.map (fun character -> if System.Char.IsLetterOrDigit character then character else '-')
-            |> Seq.toArray
-            |> System.String
-        let previewPath = $"/docs/previews/{token}"
-        previewDocuments[previewPath] <- html
-        previewSurface (
+    let private browserFrame appMode token title canonicalUrl previewPath =
+        let browser =
             Browser.create (
                 iframe {
                     _class "docs-isolated-document"
                     _title title
+                    if appMode then _src previewPath
                     _data("docs-preview-src", previewPath)
                 })
             |> Browser.withAddress canonicalUrl
-            |> Browser.render)
+        let browser =
+            if appMode then Browser.withAppMode token title browser
+            else browser
+        Browser.render browser
 
-    let private isolatedPage title canonicalUrl page =
-        Document.create exampleSite page
+    let private isolatedDocumentFrame appMode (title:string) (canonicalUrl:string) (html:string) =
+        let token = previewToken title
+        let previewPath = $"/docs/previews/{token}"
+        registerPreviewDocument previewPath html
+        let preview = browserFrame appMode token title canonicalUrl previewPath
+        if appMode then
+            div {
+                _data("fve-full-bleed-example", "true")
+                preview
+            }
+        else previewSurface preview
+
+    let private reviewStateTabs (label:string) (current:string) (states:(string * string * string) list) =
+        nav {
+            _ariaLabel label
+            _attr("data-page-example-state-tabs", "true")
+            _class "mb-5 border-b border-[var(--fve-border)]"
+            ul {
+                _class "-mb-px flex list-none gap-5 overflow-x-auto p-0"
+                for state, stateLabel, href in states do
+                    li {
+                        a {
+                            _href href
+                            if state = current then _ariaCurrent "page"
+                            _class (if state = current then "inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-[var(--fve-brand-solid)] font-semibold text-[var(--fve-brand-text)]" else "inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent font-medium text-[var(--fve-muted-text)] hover:border-[var(--fve-border)] hover:text-[var(--fve-text)]")
+                            stateLabel
+                        }
+                    }
+            }
+        }
+
+    let private statefulDocumentFrame token title canonicalUrl previewPath stateLabel current (states:(string * string * string) list) =
+        let frame = browserFrame true token title canonicalUrl previewPath
+        div {
+            _attr("data-fve-full-bleed-example", "true")
+            _attr("data-page-example-preview", "true")
+            reviewStateTabs stateLabel current states
+            Fixture.create token frame
+            |> Fixture.withStates [
+                for state, stateLabelText, href in states ->
+                    FixtureState.create stateLabelText href
+                    |> fun item -> if state = current then FixtureState.current item else item ]
+            |> Fixture.render
+        }
+
+    let private isolatedDocument = isolatedDocumentFrame false
+    let private isolatedDocumentWithAppMode = isolatedDocumentFrame true
+
+    let private renderDocument site page =
+        Document.create site page
         |> Document.render
         |> Render.toHtmlDocString
+
+    let private renderIsolatedPage isolatedDocument title canonicalUrl page =
+        renderDocument exampleSite page
         |> isolatedDocument title canonicalUrl
+
+    let private isolatedPage = renderIsolatedPage isolatedDocument
+    let private isolatedPageWithAppMode = renderIsolatedPage isolatedDocumentWithAppMode
 
     let private productView (instanceId:string) (state:string) =
         let hasValidation = state = "validation"
@@ -243,8 +315,7 @@ module Showcase =
                 p { "The package owns documentation mechanics and composition while each product retains its content, information architecture, routes, models, workflows, and product UI." } ]
             DocumentationSection.create "installation" "Installation" [
                 CodeBlock.create "shell" "dotnet add package FSharp.ViewEngine.Components" |> CodeBlock.render
-                CodeBlock.create "fsharp" "open FSharp.ViewEngine.Components.Documentation" |> CodeBlock.render
-                p { "This local candidate consolidates the former Docs package. The replacement release and deprecation are pending verification; existing pinned Docs versions are unchanged." } ]
+                CodeBlock.create "fsharp" "open FSharp.ViewEngine.Components.Documentation" |> CodeBlock.render ]
             DocumentationSection.create "browse" "Browse the toolkit" [
                 div {
                     _class "docs-catalog-grid"
@@ -573,47 +644,182 @@ module Showcase =
             componentExample "c4" "C4" "Use Mermaid C4 syntax for a proportionate system context, container, component, dynamic, or deployment view." (isolatedPage "C4 diagram" "https://docs.example.test/diagrams/c4" c4Page)
             componentExample "sequence-diagram" "Sequence diagram" "Construct participants and calls with the validated sequence DSL before rendering Mermaid." (isolatedPage "Sequence diagram" "https://docs.example.test/diagrams/sequence" sequencePage) ]
 
-    let documentationSitePage =
+    let private documentationOverviewPreviewPath = "/docs/previews/documentation-site-overview"
+    let private documentationGettingStartedPreviewPath = "/docs/previews/documentation-site-getting-started"
+
+    let documentationSitePageFor stateValue =
+        let current = if stateValue = "overview" then "overview" else "getting-started"
+
         // docs-example:start documentation-site-page
-        let documentationPage =
-            DocumentationPage.create "guide" "Getting started" |> DocumentationPage.withDescription "Build your first integration." |> DocumentationPage.withSections [
+        let overviewPage =
+            DocumentationPage.create "overview" "Acme Docs"
+            |> DocumentationPage.withDescription "Build and ship a reliable integration."
+            |> DocumentationPage.withSections [
+                DocumentationSection.create "start" "Start building" [
+                    p { "Install the package, render your first view, and follow the focused guides." }
+                    CodeBlock.create "shell" "dotnet add package Acme" |> CodeBlock.render ] ]
+
+        let gettingStartedPage =
+            DocumentationPage.create "guide" "Getting started"
+            |> DocumentationPage.withDescription "Build your first integration."
+            |> DocumentationPage.withSections [
                 DocumentationSection.create "install" "Install" [ CodeBlock.create "shell" "dotnet add package Acme" |> CodeBlock.render ] ]
             |> DocumentationPage.withPager (DocsPager.create (Some(DocsPageLink.create "Overview" "/")) None)
-
-        let documentationHtml =
-            Document.create exampleSite documentationPage
-            |> Document.render
-            |> Render.toHtmlDocString
         // docs-example:end documentation-site-page
 
-        DocumentationPage.create documentationSiteRegistration.id documentationSiteRegistration.title |> DocumentationPage.withDescription "A complete guide composition using the shared shell, navigation, content, examples, and pager." |> DocumentationPage.withSections [
-            componentExample "documentation-site-page" "Guide with navigation" "This preview executes the same complete documentation page definition shown under Code." (isolatedDocument "Documentation site page example" "https://docs.example.test/guide" documentationHtml) ]
+        let fixtureSite =
+            { exampleSite with
+                navigation =
+                    [ Nav.group "guides" "Guides" true [
+                        Nav.page "overview" "Overview" documentationOverviewPreviewPath documentationOverviewPreviewPath
+                        Nav.page "guide" "Getting started" documentationGettingStartedPreviewPath documentationGettingStartedPreviewPath ] ] }
+        let fixtureGettingStartedPage =
+            gettingStartedPage
+            |> DocumentationPage.withPager (DocsPager.create (Some(DocsPageLink.create "Overview" documentationOverviewPreviewPath)) None)
+        registerPreviewDocument documentationOverviewPreviewPath (renderDocument fixtureSite overviewPage)
+        registerPreviewDocument documentationGettingStartedPreviewPath (renderDocument fixtureSite fixtureGettingStartedPage)
 
-    let apiPageExample =
+        let states =
+            [ "overview", "Overview", documentationSiteRegistration.path + "?fixtureState=overview"
+              "getting-started", "Getting started", documentationSiteRegistration.path + "?fixtureState=getting-started" ]
+        let previewPath, canonicalUrl =
+            if current = "overview" then documentationOverviewPreviewPath, "https://docs.example.test"
+            else documentationGettingStartedPreviewPath, "https://docs.example.test/guide"
+        let preview =
+            statefulDocumentFrame "documentation-site-page-example" "Documentation site page example" canonicalUrl previewPath "Documentation site review state" current states
+
+        DocumentationPage.create documentationSiteRegistration.id documentationSiteRegistration.title
+        |> DocumentationPage.withDescription "A complete guide composition using the shared shell, navigation, content, examples, and pager."
+        |> DocumentationPage.withLayout Gallery
+        |> DocumentationPage.withRightRail NoRail
+        |> DocumentationPage.withSections [
+            DocumentationSection.create "documentation-site-page" "Guide with navigation" [
+                Example.gallery "docs-documentation-site-page-example" "Guide with navigation" "fsharp" (sourceFor "documentation-site-page") preview ]
+            DocumentationSection.create "building-blocks" "Built with" [
+                buildingBlockLinks "Documentation site building blocks" [
+                    layoutsRegistration.path, "Layouts"
+                    contentRegistration.path, "Content"
+                    navigationRegistration.path, "Navigation" ] ] ]
+
+    let documentationSitePage = documentationSitePageFor "getting-started"
+
+    let private apiOverviewPreviewPath = "/docs/previews/api-reference-overview"
+    let private apiRenderPreviewPath = "/docs/previews/api-reference-render-view"
+
+    let apiPageExampleFor stateValue =
+        let current = if stateValue = "overview" then "overview" else "render-view"
+
         // docs-example:start api-reference-page
-        let endpoint =
-            Endpoint.create POST "/v1/render"
-            |> Endpoint.withDescription "Renders an HTML element."
-            |> Endpoint.render
-        let parameters = ApiReference.parameters [ ApiReference.parameter "view" "string" true "Typed view source." ]
-        let rail =
+        let viewParameter =
+            Parameter.create "view" "string" Body
+            |> Parameter.required
+            |> Parameter.withDescription "Typed view source to encode and render."
+            |> Parameter.withExample "main { h1 { \"Hello\" } }"
+        let contentTypeParameter =
+            Parameter.create "content_type" "string" Body
+            |> Parameter.withDescription "Response media type."
+            |> Parameter.withDefaultValue "text/html"
+            |> Parameter.withEnumValues [ "text/html"; "application/xhtml+xml" ]
+        let prettyParameter =
+            Parameter.create "pretty" "boolean" Query
+            |> Parameter.withDescription "Indent the returned markup for inspection."
+            |> Parameter.withDefaultValue "false"
+        let successResponse =
+            Response.create "200"
+            |> Response.withDescription "Rendered HTML and response media type."
+        let operation =
+            Operation.create POST "/v1/render"
+            |> Operation.withDescription "Renders typed view source into encoded HTML."
+            |> Operation.withAuthentication "Send a bearer token in the Authorization header."
+            |> Operation.withApiVersion "2026-09-01"
+            |> Operation.withIdempotency "Repeated requests with the same key return the original result."
+            |> Operation.withParameters [ viewParameter; contentTypeParameter; prettyParameter ]
+            |> Operation.withResponses [ successResponse ]
+            |> Operation.withErrors [
+                Error.create "invalid_view" "The supplied view could not be parsed."
+                Error.create "unsupported_content_type" "The requested response type is unavailable." ]
+        let requestExample = """curl https://api.example.test/v1/render \
+  -H "Authorization: Bearer $ACME_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"view":"main { h1 { \"Hello\" } }"}'"""
+        let responseExample = """{
+  "html": "<main><h1>Hello</h1></main>",
+  "content_type": "text/html"
+}"""
+        let operationRail =
             div {
-                ApiReference.codeExample "Render a view" "fsharp" "Render.toString view"
-                ApiReference.responseExample "200" "html" "<main>Rendered view</main>" }
+                ApiReference.codeExample "Request" "curl" requestExample
+                ApiReference.responseExample "200" "json" responseExample }
         let apiPage =
             DocumentationPage.create "render" "Render a view"
-            |> DocumentationPage.withDescription "Rendering reference."
+            |> DocumentationPage.withDescription "Render typed HTML safely at the service boundary."
             |> DocumentationPage.withLayout Reference
-            |> DocumentationPage.withRightRail (CustomRail rail)
+            |> DocumentationPage.withRightRail (CustomRail operationRail)
             |> DocumentationPage.withSections [
-                DocumentationSection.create "endpoint" "Endpoint" [ endpoint ]
-                DocumentationSection.create "parameters" "Parameters" [ parameters ] ]
+                DocumentationSection.create "request" "Request" [ Operation.render operation ] ]
+
+        let overviewRail =
+            ApiReference.codeExample "View object" "json" responseExample
+        let apiOverviewPage =
+            DocumentationPage.create "api-overview" "Rendering API"
+            |> DocumentationPage.withDescription "Convert typed view source into deterministic HTML."
+            |> DocumentationPage.withLayout Reference
+            |> DocumentationPage.withRightRail (CustomRail overviewRail)
+            |> DocumentationPage.withSections [
+                DocumentationSection.create "operations" "Operations" [
+                    nav {
+                        _ariaLabel "Rendering operations"
+                        _class "docs-api-operation-links"
+                        a {
+                            _href apiRenderPreviewPath
+                            strong { "Render a view" }
+                            span { _class "docs-api-operation-link-path"; span { _class "docs-http-method docs-method-post"; "POST" }; code { "/v1/render" } }
+                        }
+                    } ]
+                DocumentationSection.create "view-object" "View object" [
+                    ApiReference.parameters [
+                        ApiReference.parameter "html" "string" true "Encoded HTML returned by the renderer."
+                        ApiReference.parameter "content_type" "string" true "Media type of the rendered response." ] ] ]
         // docs-example:end api-reference-page
 
-        DocumentationPage.create apiPageExampleRegistration.id apiPageExampleRegistration.title |> DocumentationPage.withDescription "A complete reference composition with endpoint documentation and a dedicated request-response rail." |> DocumentationPage.withSections [
-            DocumentationSection.create "about" "About this page example" [
-                p { "FSharp.ViewEngine does not expose an HTTP /v1/render endpoint. The fictional operation keeps the example focused on DocumentationPage.withLayout Reference and the reusable API components." }
-                Example.previewFirst "docs-api-reference-page-example" "Render endpoint reference" "fsharp" (sourceFor "api-reference-page") (isolatedPage "API reference page example" "https://docs.example.test/render" apiPage) ] ]
+        let apiSite =
+            { exampleSite with
+                name = "Acme API"
+                homeId = "api-overview"
+                navigation =
+                    [ Nav.group "api-reference" "API reference" true [
+                        Nav.page "api-overview" "Overview" apiOverviewPreviewPath apiOverviewPreviewPath
+                        Nav.group "rendering" "Rendering" true [
+                            Nav.page "render" "Render a view" apiRenderPreviewPath apiRenderPreviewPath ] ] ] }
+        registerPreviewDocument apiOverviewPreviewPath (renderDocument apiSite apiOverviewPage)
+        registerPreviewDocument apiRenderPreviewPath (renderDocument apiSite apiPage)
+
+        let states =
+            [ "overview", "Overview", apiPageExampleRegistration.path + "?fixtureState=overview"
+              "render-view", "Render a view", apiPageExampleRegistration.path + "?fixtureState=render-view" ]
+        let previewPath, canonicalUrl =
+            if current = "overview" then apiOverviewPreviewPath, "https://api.example.test"
+            else apiRenderPreviewPath, "https://api.example.test/v1/render"
+        let preview =
+            statefulDocumentFrame "api-reference-page-example" "API reference page example" canonicalUrl previewPath "API reference review state" current states
+
+        DocumentationPage.create apiPageExampleRegistration.id apiPageExampleRegistration.title
+        |> DocumentationPage.withDescription "A resource overview and operation reference with request and response examples."
+        |> DocumentationPage.withLayout Gallery
+        |> DocumentationPage.withRightRail NoRail
+        |> DocumentationPage.withSections [
+            DocumentationSection.create "api-reference-page" "Rendering API reference" [
+                Example.gallery "docs-api-reference-page-example" "Rendering API reference" "fsharp" (sourceFor "api-reference-page") preview
+                p { _class "spec-paragraph"; "FSharp.ViewEngine does not expose an HTTP /v1/render endpoint. This fictional operation keeps the example focused on the reference layout and reusable API components." } ]
+            DocumentationSection.create "building-blocks" "Built with" [
+                buildingBlockLinks "API reference building blocks" [
+                    layoutsRegistration.path, "Layouts"
+                    apiComponentsRegistration.path, "API reference" ] ] ]
+
+    let apiPageExample = apiPageExampleFor "render-view"
+
+    let private specificationOverviewPreviewPath = "/docs/previews/executable-specification-overview"
+    let private specificationRenderPreviewPath = "/docs/previews/executable-specification-render-view"
 
     let specificationPageExample =
         // docs-example:start executable-specification-page
@@ -636,8 +842,41 @@ module Showcase =
                     } ] ]
         // docs-example:end executable-specification-page
 
-        DocumentationPage.create specificationPageExampleRegistration.id specificationPageExampleRegistration.title |> DocumentationPage.withDescription "A complete workflow review composition using a canvas, browser frames, tabs, diagrams, and rules." |> DocumentationPage.withSections [
-            componentExample "executable-specification-page" "Render workflow" "The preview executes the same complete specification page definition shown under Code; consumers own the actual workflow, rules, and product UI." (isolatedPage "Executable specification page example" "https://docs.example.test/render-workflow" specificationPage) ]
+        let overviewPage =
+            DocumentationPage.create "specification-overview" "View rendering"
+            |> DocumentationPage.withDescription "Review rendering behavior before opening the complete workflow."
+            |> DocumentationPage.withLayout Canvas
+            |> DocumentationPage.withRightRail NoRail
+            |> DocumentationPage.withSections [
+                DocumentationSection.create "workflow" "Workflow" [
+                    p { "Inspect the wireframe, sequence, and acceptance rules for rendering a typed view." }
+                    a { _href specificationRenderPreviewPath; _class "spec-content-link"; "Render a view" } ] ]
+        let specificationSite =
+            { exampleSite with
+                homeId = "specification-overview"
+                navigation =
+                    [ Nav.group "specification" "Specification" true [
+                        Nav.page "specification-overview" "Overview" specificationOverviewPreviewPath specificationOverviewPreviewPath
+                        Nav.page "render-workflow" "Render a view" specificationRenderPreviewPath specificationRenderPreviewPath ] ] }
+        registerPreviewDocument specificationOverviewPreviewPath (renderDocument specificationSite overviewPage)
+        registerPreviewDocument specificationRenderPreviewPath (renderDocument specificationSite specificationPage)
+        let preview =
+            browserFrame true "executable-specification-page-example" "Executable specification page example" "https://docs.example.test/render-workflow" specificationRenderPreviewPath
+            |> fun frame -> div { _data("fve-full-bleed-example", "true"); frame }
+
+        DocumentationPage.create specificationPageExampleRegistration.id specificationPageExampleRegistration.title
+        |> DocumentationPage.withDescription "A complete workflow review composition using a canvas, browser frames, tabs, diagrams, and rules."
+        |> DocumentationPage.withLayout Gallery
+        |> DocumentationPage.withRightRail NoRail
+        |> DocumentationPage.withSections [
+            DocumentationSection.create "executable-specification-page" "Render workflow" [
+                Example.gallery "docs-executable-specification-page-example" "Render workflow" "fsharp" (sourceFor "executable-specification-page") preview ]
+            DocumentationSection.create "building-blocks" "Built with" [
+                buildingBlockLinks "Executable specification building blocks" [
+                    layoutsRegistration.path, "Layouts"
+                    "/components/browser", "Browser"
+                    "/components/tabs", "Tabs"
+                    diagramsRegistration.path, "Diagrams" ] ] ]
 
     let private pages =
         [ overviewRegistration.path, overviewPage

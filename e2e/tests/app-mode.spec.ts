@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test('App mode expands the connected Ledger workflow without Docs chrome and preserves review navigation @cross-browser', async ({ page }) => {
-  await page.goto('/components/app-shell?destination=ledger-accounts')
+  await page.goto('/components/page-examples/account-management?destination=ledger-accounts')
   const documentRequests: string[] = []
   page.on('request', request => {
     if (request.resourceType() === 'document') documentRequests.push(request.url())

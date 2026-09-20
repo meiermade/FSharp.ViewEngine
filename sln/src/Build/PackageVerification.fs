@@ -293,6 +293,10 @@ let packageDialog =
     |> Dialog.withInitialFocus "package-dialog-close"
     |> Dialog.dismissOnBackdrop
 
+let packageFloatingPanel =
+    FloatingPanel.create "package-guide" "Package guide" (p { "Helpful package guidance." })
+    |> FloatingPanel.minimized
+
 let packageConfirmation =
     ConfirmationDialog.create "package-confirmation" "Delete value?" "This cannot be undone." "Keep value" "Delete value" "@post('/values/delete')"
     |> ConfirmationDialog.withValidation "The value is still referenced."
@@ -300,6 +304,7 @@ let packageConfirmation =
 let packageDrawer =
     Drawer.create "package-drawer" "Value settings" (nav { _ariaLabel "Value settings"; a { _href "/values"; "Values" } })
     |> Drawer.withSide DrawerSide.Start
+    |> Drawer.withWidth DrawerWidth.Wide
 
 type PackageDestination = Home | Values | Value of int | Reports
 let destinationUrl = function Home -> "/" | Values -> "/values" | Value id -> $"/values/{id}" | Reports -> "/reports"
@@ -450,6 +455,11 @@ let view =
         |> Notice.withTone Tone.Positive
         |> Notice.withAnnouncement NoticeAnnouncement.Polite
         |> Notice.render
+        Notification.create "package-notification" "Package ready" (p { "The package compiled successfully." })
+        |> Notification.withTone Tone.Positive
+        |> Notification.withAnnouncement NoticeAnnouncement.Polite
+        |> fun notification -> NotificationRegion.create "package-notifications" "Package notifications" [ notification ]
+        |> NotificationRegion.render
         FileSelection.create "package-files" "files" "Files"
         |> FileSelection.withAccept ".csv"
         |> FileSelection.multiple
@@ -461,8 +471,8 @@ let view =
         |> Progress.render
         Steps.create "Import steps" [ Step.create "Upload" StepState.Complete |> Step.withDestination "/upload"; Step.create "Review" StepState.Current ]
         |> Steps.render id
-        Calendar.create "Package schedule" CalendarView.Week "September 21–27" [ CalendarEvent.create "package-event" "Review package" "September 24" "/events/1" ]
-        |> Calendar.withViewDestinations [ CalendarView.Week, "/schedule?view=week" ]
+        Calendar.create "Package schedule" CalendarView.Week (System.DateOnly(2026, 9, 21)) [ CalendarEvent.create "package-event" "Review package" (System.DateOnly(2026, 9, 24)) "/events/1" ]
+        |> Calendar.withViewDestinations [ CalendarView.Week, "/schedule?view=week"; CalendarView.Year, "/schedule?view=year" ]
         |> Calendar.withError "Package schedule failed."
         |> Calendar.withStateAction (a { _href "/schedule/retry"; "Retry schedule" })
         |> Calendar.render id
@@ -518,6 +528,7 @@ let view =
         packageConfirmation |> ConfirmationDialog.render
         packageDrawer |> Drawer.trigger "Open settings"
         packageDrawer |> Drawer.render
+        packageFloatingPanel |> FloatingPanel.render
         packageShell
     }
 
@@ -538,7 +549,7 @@ if not (actual.Contains "fve-components fve-theme-sky")
    || not (actual.Contains "package_tags_values")
    || not (actual.Contains "<progress")
    || not (actual.Contains "aria-current=\"step\"")
-   || not (actual.Contains "aria-label=\"Calendar view\"")
+   || not (actual.Contains "aria-label=\"Package schedule calendar view\"")
    || not (actual.Contains "Package schedule failed.")
    || not (actual.Contains "Retry schedule")
    || not (actual.Contains "data-fve-media-library=\"true\"")

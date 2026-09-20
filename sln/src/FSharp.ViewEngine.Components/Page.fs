@@ -21,7 +21,7 @@ module PageTopBar =
     let render config =
         header {
             _attr ("data-fve-page-top-bar", "true")
-            _class "shrink-0 border-b border-[var(--fve-border)] bg-[var(--fve-surface)]"
+            _class "fve-control-small shrink-0 border-b border-[var(--fve-border)] bg-[var(--fve-surface)]"
             for attribute in ComponentHtml.safeAttributes [ "class"; "data-fve-page-top-bar" ] config.attributes do attribute
             div {
                 _class "min-h-[var(--fve-shell-bar-min-height)] w-full"
@@ -41,7 +41,7 @@ module internal PageHeaderView =
     let render resolve (config:PageHeaderConfig<'destination>) =
         header {
             _attr ("data-fve-page-header", "true")
-            _class "@container flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8"
+            _class "fve-control-small @container flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8"
             for attribute in ComponentHtml.safeAttributes [ "class"; "data-fve-page-header" ] config.attributes do attribute
             div {
                 _class "min-w-0 flex-1"

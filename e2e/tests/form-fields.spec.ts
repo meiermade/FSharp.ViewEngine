@@ -102,25 +102,29 @@ test('Docs document history still fetches changed pages @cross-browser', async (
   await expect(page.getByRole('textbox', { name: 'Payment instructions' })).toBeVisible()
 })
 
-test('query-only search clears through native input events and retains focus @cross-browser', async ({ page }) => {
-  await page.goto('/components/form-layouts')
-  const query = page.getByRole('searchbox', { name: 'Search accounts' })
-  const clear = page.getByRole('button', { name: 'Clear Search accounts', includeHidden: true })
-  await expect(query).toBeVisible()
-  await expect(clear).toBeDisabled()
-  await query.fill('Savings')
-  const results = page.getByRole('list', { name: 'Matching accounts' })
-  await expect(results.getByRole('listitem').filter({ visible: true })).toHaveCount(1)
-  await expect(results.getByText('Savings', { exact: true })).toBeVisible()
-  await expect(page.getByRole('status').filter({ hasText: '1 matching accounts' })).toBeVisible()
-  await expect(clear).toBeEnabled()
+test('account-result search belongs to the collection workflow and clears without submitting @cross-browser', async ({ page }) => {
+  await page.goto('/components/page-examples/account-management')
+  const root = page.locator('#ledger-app-shell')
+  const query = root.getByRole('searchbox', { name: 'Search accounts', exact: true })
+  const clear = root.getByRole('button', { name: 'Clear Search accounts', includeHidden: true })
+  const rows = root.getByRole('table').locator('tbody tr')
+  const initialCount = await rows.count()
+  expect(initialCount).toBeGreaterThan(1)
+  await expect(clear).toBeHidden()
+  await query.fill('Assets')
+  await root.getByRole('button', { name: 'Apply filters', exact: true }).click()
+  await expect(rows).toHaveCount(1)
+  await expect(rows).toContainText('Assets')
+  const filteredUrl = page.url()
   await clear.focus()
   await page.keyboard.press('Enter')
   await expect(query).toHaveValue('')
   await expect(query).toBeFocused()
-  await expect(results.getByRole('listitem').filter({ visible: true })).toHaveCount(3)
-  await expect(clear).toBeDisabled()
-  await expect(page.getByRole('form', { name: 'Contact details', exact: true }).getByRole('textbox', { name: 'Contact name' })).toHaveValue('')
+  await expect(clear).toBeHidden()
+  await expect(page).toHaveURL(filteredUrl)
+  await expect(rows).toHaveCount(1) // Clearing edits the query; applying filters owns the result update.
+  await root.getByRole('button', { name: 'Apply filters', exact: true }).click()
+  await expect(rows).toHaveCount(initialCount)
   expect(await query.getAttribute('aria-haspopup')).toBeNull()
 })
 
@@ -130,7 +134,8 @@ test('native textarea editing states preserve successful values only @cross-brow
   await expect(editable).toBeEditable()
   await expect(editable).toHaveAttribute('maxlength', '400')
   await editable.fill('Invoice INV-2048\nSecond line')
-  await expect(page.getByRole('textbox', { name: 'Accepted notes' })).not.toBeEditable()
+  await expect(page.getByRole('heading', { name: 'Read-only', exact: true })).toHaveCount(0)
+  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(5)
   await expect(page.getByRole('textbox', { name: 'Checking notes' })).not.toBeEditable()
   await expect(page.getByRole('textbox', { name: 'Checking notes' })).toHaveAttribute('aria-busy', 'true')
   await expect(page.getByRole('textbox', { name: 'Unavailable notes' })).toBeDisabled()
@@ -139,7 +144,7 @@ test('native textarea editing states preserve successful values only @cross-brow
     for (const field of element.querySelectorAll('textarea')) form.append(field.cloneNode(true))
     return Object.fromEntries(new FormData(form))
   })
-  expect(values).toEqual({ message: '', invalidMessage: '', instructions: 'Invoice INV-2048\nSecond line', acceptedNotes: 'Approved for the current period.', pendingNotes: 'Please quote invoice INV-2048.' })
+  expect(values).toEqual({ message: '', invalidMessage: '', instructions: 'Invoice INV-2048\nSecond line', pendingNotes: 'Please quote invoice INV-2048.' })
 })
 
 for (const component of ['input', 'textarea', 'error-summary', 'notice', 'form-layouts']) {
@@ -153,6 +158,12 @@ for (const component of ['input', 'textarea', 'error-summary', 'notice', 'form-l
     for (const theme of ['Light', 'Dark']) {
       await page.getByRole('button', { name: 'Choose color theme' }).click()
       await page.getByRole('menuitemradio', { name: theme, exact: true }).click()
+      // Theme transitions interpolate both foreground and background; audit the settled theme.
+      await page.waitForFunction(() => !document.getAnimations().some(animation => {
+        const target = (animation.effect as KeyframeEffect | null)?.target
+        return animation.playState === 'running' && Number.isFinite(animation.effect?.getComputedTiming().endTime)
+          && target instanceof Element && target.checkVisibility() && target.closest('.docs-gallery-layout')
+      }))
       expect((await new AxeBuilder({ page }).include('.docs-gallery-layout').analyze()).violations).toEqual([])
       await preview.screenshot({ path: testInfo.outputPath(`${component}-${theme.toLowerCase()}-390.png`) })
     }

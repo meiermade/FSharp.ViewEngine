@@ -48,6 +48,13 @@
   padding: 0;
 }
 
+/* Page-example review tabs sit above the product frame rather than inside another frame. */
+.spec-example:has([data-page-example-preview="true"]) > .spec-example-preview {
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+}
+
 /* The Docs application supplies its own consumer theme around package examples. */
 .docs-components-preview .fve-components.fve-components {
   --fve-page: var(--spec-bg);

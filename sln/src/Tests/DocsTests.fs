@@ -284,6 +284,8 @@ let tests =
             Expect.stringContains rendered "aria-haspopup=\"menu\"" "color mode uses the shared DropdownMenu"
             Expect.stringContains rendered "role=\"menuitemradio\"" "color mode options use radio menu semantics"
             Expect.stringContains rendered "window.fsharpDocsColorMode" "color mode is applied before paint and persisted"
+            Expect.stringContains rendered "window.fsharpDocsPreviewColorMode" "isolated documentation previews inherit the resolved host color mode"
+            Expect.stringContains rendered "iframe[data-docs-preview-src]" "color-mode synchronization is bounded to documentation preview frames"
             Expect.stringContains manifest "--docs-code-bg: #f6f8fa" "light mode uses a light code surface"
             Expect.stringContains manifest "--docs-code-bg: #0d1117" "dark mode uses a dark code surface"
             Expect.stringContains manifest ".spec-document .token.atrule" "Prism tokens follow the active color mode"
@@ -440,6 +442,12 @@ let tests =
             Expect.stringContains document "data-docs-copy-source" "standard source relationship"
             Expect.stringContains api "aria-label=\"Copy Request\"" "API code copy button"
             Expect.stringContains document "window.fsharpDocsCopy" "document copy lifecycle"
+            let example = Example.codeFirst "copy-example" "Example" "fsharp" "let value = 42" (div { "42" }) |> Render.toString
+            for html in [ document; api; example ] do
+                for state in [ "copy"; "success"; "error" ] do
+                    Expect.stringContains html ($"data-docs-copy-icon=\"{state}\"") "all code surfaces share icon states"
+                Expect.stringContains html "class=\"sr-only\" role=\"status\"" "copy feedback is announced without visible button text"
+                Expect.isFalse (html.Contains(">Copy</span>")) "copy controls are icon-only"
             Expect.throws (fun () -> CodeBlock.create "fsharp" "" |> ignore) "code source is required"
         }
 

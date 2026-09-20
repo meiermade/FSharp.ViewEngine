@@ -65,7 +65,7 @@ module TagInput =
             |> String.concat " "
         div {
             _dataSignals ("{" + valuesSignal + ": " + JsonSerializer.Serialize(config.values) + ", " + messageSignal + ": ''}")
-            _class "grid gap-2"
+            _class "grid min-w-0 content-start gap-2"
             label {
                 _for inputId
                 _class "text-sm font-medium text-[var(--fve-text)]"
@@ -86,7 +86,7 @@ module TagInput =
                     if describedBy <> "" then _ariaDescribedby describedBy
                     _ariaInvalid config.validation.IsSome
                     _autocomplete "off"
-                    _class "min-h-[var(--fve-control-min-height)] min-w-0 basis-40 flex-1 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 text-base text-[var(--fve-text)] ring-1 ring-[var(--fve-border)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                    _class "min-h-[var(--fve-control-min-height)] min-w-0 basis-40 flex-1 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] text-[var(--fve-text)] ring-1 ring-[var(--fve-border)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
                     _dataOn ("keydown", "(evt.key == 'Enter' || evt.key == ',') && (evt.preventDefault(), " + add + ")")
                     _dataOn ("paste", paste)
                 }

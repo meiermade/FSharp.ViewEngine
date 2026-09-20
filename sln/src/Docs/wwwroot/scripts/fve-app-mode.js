@@ -56,7 +56,7 @@
     const authored = frame.closest("[data-fve-fixture]")?.querySelector(":scope > [data-fve-app-mode-navigation]") ?? frame.querySelector(":scope > [data-fve-app-mode-navigation]");
     const controls = document.createElement("nav");
     controls.id = "fve-app-mode-controls";
-    controls.className = "fve-components fve-theme-sky fve-density-compact";
+    controls.className = "fve-components fve-theme-sky fve-density-compact fve-control-small";
     controls.setAttribute("data-fve-app-mode-controls", "true");
     controls.setAttribute("aria-label", "App mode controls");
     controls.dataset.fveAppDock = new URL(window.location.href).searchParams.get(parameter.dock) === "top" ? "top" : "bottom";
@@ -212,12 +212,37 @@
     const href = link.getAttribute("href");
     const target = new URL(href, window.location.origin);
     if (target.origin !== window.location.origin || !target.protocol.startsWith("http")) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
     const destination = appUrl(href, document.getElementById("fve-app-mode-root")?.dataset.fveAppModeFrame);
-    if (window.fsharpDocsNavigation) window.fsharpDocsNavigation.navigate(event, destination);
-    else window.location.assign(destination);
+    if (window.fsharpDocsNavigation) {
+      // The navigation adapter must inspect the original event before it is cancelled.
+      if (window.fsharpDocsNavigation.navigate(event, destination)) event.stopImmediatePropagation();
+    } else if (!event.defaultPrevented && (!link.target || link.target === "_self") && !link.hasAttribute("download")) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.location.assign(destination);
+    }
   }, true);
+
+  // Native GET filters replace the action's query string. Preserve only the
+  // viewer envelope in submitted data, leaving validation and navigation native.
+  document.addEventListener("submit", (event) => {
+    const form = event.target;
+    if (!appMode() || event.defaultPrevented || !(form instanceof HTMLFormElement) || !form.closest("#fve-app-mode-root")) return;
+    const submitter = event.submitter;
+    const method = submitter?.hasAttribute("formmethod") ? submitter.formMethod : form.method;
+    const target = submitter?.hasAttribute("formtarget") ? submitter.formTarget : form.target;
+    const action = new URL(submitter?.hasAttribute("formaction") ? submitter.formAction : form.action);
+    if (method.toLowerCase() !== "get" || (target && target !== "_self") || action.origin !== location.origin || !action.protocol.startsWith("http")) return;
+    const envelope = new URL(appUrl(action.href, document.getElementById("fve-app-mode-root").dataset.fveAppModeFrame), location.origin);
+    const preserve = ({ formData }) => {
+      for (const key of Object.values(parameter)) {
+        if (envelope.searchParams.has(key)) formData.set(key, envelope.searchParams.get(key));
+      }
+    };
+    form.addEventListener("formdata", preserve, { once: true });
+    // An application may cancel submission later in this same event dispatch.
+    setTimeout(() => form.removeEventListener("formdata", preserve), 0);
+  });
 
   document.addEventListener("datastar-fetch", (event) => {
     if (event.detail?.el !== document.body || event.detail.type !== "finished") return;

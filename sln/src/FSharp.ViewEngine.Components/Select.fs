@@ -42,6 +42,7 @@ type SelectConfig<'value, 'mode when 'value:equality> =
           isRequired:bool
           isDisabled:bool
           isPending:bool
+          size:ControlSize option
           attributes:HtmlAttribute list }
 
 type SelectConfig<'value when 'value:equality> = SelectConfig<'value, SingleSelection>
@@ -80,6 +81,7 @@ module Select =
           isRequired = false
           isDisabled = false
           isPending = false
+          size = None
           attributes = [] }
 
     let withSelected selected (config:SelectConfig<'value>) = { config with selected = Some selected }
@@ -106,6 +108,7 @@ module Select =
           isRequired = config.isRequired
           isDisabled = config.isDisabled
           isPending = config.isPending
+          size = config.size
           attributes = config.attributes }
     let withSelectedMany selected (config:SelectConfig<'value, MultipleSelection>) =
         let choices =
@@ -116,6 +119,7 @@ module Select =
     let withId id (config:SelectConfig<'value, 'mode>) =
         if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable component ID is required."
         { config with id = Some id }
+    let withSize size (config:SelectConfig<'value, 'mode>) = { config with size = Some size }
     let withVisuallyHiddenLabel (config:SelectConfig<'value, 'mode>) = { config with labelVisuallyHidden = true }
     let withDescription description (config:SelectConfig<'value, 'mode>) = { config with description = Some description }
     let withPlaceholder placeholder (config:SelectConfig<'value, 'mode>) = { config with placeholder = Some placeholder }
@@ -238,10 +242,10 @@ module Select =
             |> String.concat " "
         let triggerClasses =
             ComponentHtml.classes [
-                "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] ring-1 ring-inset outline-none hover:bg-[var(--fve-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] ring-1 ring-inset outline-none hover:bg-[var(--fve-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                 if config.validation.IsSome then "ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)]" ]
         div {
-            _class "relative grid min-w-0 grid-cols-1 content-start gap-1.5"
+            _class (ComponentHtml.classes [ ComponentHtml.controlSizeClass config.size; "relative grid min-w-0 grid-cols-1 content-start gap-1.5" ])
             let initialSignals = $"{{{openSignal}: false, {valueSignal}: {ComponentHtml.javascriptString selectedValue}, {labelSignal}: {ComponentHtml.javascriptString selectedLabel}, {activeSignal}: '', {typeaheadSignal}: '', {typeaheadTimeSignal}: 0}}"
             if not config.isMultiple then _dataSignals initialSignals
             if config.isMultiple then
@@ -260,9 +264,6 @@ module Select =
                         " *"
                     }
             }
-            match config.description with
-            | Some description -> p { _id descriptionId; _class "text-sm text-[var(--fve-muted-text)]"; description }
-            | None -> ()
             if config.isMultiple then
                 ChoiceSelection.render config.name selectionSignal initialSelection unavailable
             else
@@ -366,7 +367,7 @@ module Select =
                                     _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; {ChoiceSelection.toggle selectionSignal encodedValue choice.label}; ${typeaheadSignal} = ''; {listboxElement}.focus()")
                                 else
                                     _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; ${valueSignal} = {ComponentHtml.javascriptString encodedValue}; ${labelSignal} = {ComponentHtml.javascriptString choice.label}; ${typeaheadSignal} = ''; ${openSignal} = false; document.getElementById('{triggerId}').focus()")
-                            _class "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                            _class "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
                             span { _class "min-w-0 [overflow-wrap:anywhere]"; choice.label }
                             span {
                                 _ariaHidden "true"
@@ -378,6 +379,9 @@ module Select =
                         }
                 }
             }
+            match config.description with
+            | Some description -> p { _id descriptionId; _class "text-sm text-[var(--fve-muted-text)]"; description }
+            | None -> ()
             if config.isMultiple then
                 ChoiceSelection.announcement selectionSignal initialSelection
             match config.validation with
@@ -562,7 +566,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                                     _dataOn ("click", $"if ({ready}) {{ ${activeSignal} = {ComponentHtml.javascriptString choiceId}; {ChoiceSelection.toggle selectionSignal encodedValue choice.label}; document.getElementById('{searchId}').focus(); }}")
                                 else
                                     _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; ${valueSignal} = {ComponentHtml.javascriptString encodedValue}; ${labelSignal} = {ComponentHtml.javascriptString choice.label}; ${querySignal} = ''; ${openSignal} = false; document.getElementById('{searchId}').focus()")
-                            _class "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                            _class "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
                             span { _class "min-w-0 [overflow-wrap:anywhere]"; choice.label }
                             span {
                                 _ariaHidden "true"
@@ -597,7 +601,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                             _type "button"
                             if not config.isMultiple then _dataIndicator requestPendingSignal
                             _dataOn ("click", $"{searchableRequest endpoint instanceId config.isMultiple}.then(() => document.getElementById('{searchId}')?.focus())")
-                            _class "fve-popup-control inline-flex min-h-8 items-center justify-center rounded-[var(--fve-radius-control)] px-3 py-1.5 text-sm font-semibold text-[var(--fve-brand-text)] ring-1 ring-inset ring-[var(--fve-brand-ring)] hover:bg-[var(--fve-brand-subtle)]"
+                            _class "fve-popup-control inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-brand-text)] ring-1 ring-inset ring-[var(--fve-brand-ring)] hover:bg-[var(--fve-brand-subtle)]"
                             "Retry"
                         }
                     | _ -> ()
@@ -663,10 +667,10 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
             |> String.concat " "
         let triggerClasses =
             ComponentHtml.classes [
-                "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-sm text-[var(--fve-text)] ring-1 ring-inset outline-none hover:bg-[var(--fve-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
+                "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] ring-1 ring-inset outline-none hover:bg-[var(--fve-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                 if config.validation.IsSome then "ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)]" ]
         div {
-            _class "relative grid min-w-0 grid-cols-1 content-start gap-1.5"
+            _class (ComponentHtml.classes [ ComponentHtml.controlSizeClass config.size; "relative grid min-w-0 grid-cols-1 content-start gap-1.5" ])
             if config.isMultiple then _id (fieldId + "-field")
             let initialSignals = $"{{{openSignal}: false, {querySignal}: '', {valueSignal}: {ComponentHtml.javascriptString selectedValue}, {labelSignal}: {ComponentHtml.javascriptString selectedLabel}, {activeSignal}: '', {requestPendingSignal}: false}}"
             if config.isMultiple then
@@ -684,9 +688,6 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                         " *"
                     }
             }
-            match config.description with
-            | Some description -> p { _id descriptionId; _class "text-sm text-[var(--fve-muted-text)]"; description }
-            | None -> ()
             button {
                 _id fieldId
                 _type "button"
@@ -730,6 +731,9 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                     _dataBind valueSignal
                 }
             renderOptions config
+            match config.description with
+            | Some description -> p { _id descriptionId; _class "text-sm text-[var(--fve-muted-text)]"; description }
+            | None -> ()
             match config.validation with
             | Some message ->
                 p {

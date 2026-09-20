@@ -125,7 +125,7 @@ module internal SideNavView =
                         if current then _ariaCurrent "page"
                         _class (
                             ComponentHtml.classes [
-                                "flex min-h-[var(--fve-control-min-height)] items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]"
+                                "flex min-h-[var(--fve-navigation-min-height)] items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-navigation-padding-block)] text-sm font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]"
                                 if current then
                                     "bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)]"
                                 else
@@ -139,7 +139,7 @@ module internal SideNavView =
                 | None ->
                     span {
                         _ariaDisabled true
-                        _class "flex min-h-[var(--fve-control-min-height)] cursor-not-allowed items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-muted-text)] opacity-50"
+                        _class "flex min-h-[var(--fve-navigation-min-height)] cursor-not-allowed items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-navigation-padding-block)] text-sm font-semibold text-[var(--fve-muted-text)] opacity-50"
                         for attribute in ComponentHtml.safeAttributes [ "aria-disabled"; "class"; "href" ] item.attributes do attribute
                         match item.leading with
                         | Some leading -> span { _ariaHidden true; _class "flex size-5 shrink-0 items-center justify-center"; leading }

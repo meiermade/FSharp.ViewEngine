@@ -84,7 +84,7 @@ for (const node of existing.values()) node.remove();"""
             _disabled unavailable
             _dataAttr ("disabled", $"{disabled} || !({eligibleChoices}).some(option => !${signal}.some(choice => choice.value === option.value))")
             _dataOn ("click", $"const additions = ({eligibleChoices}).filter(option => !${signal}.some(choice => choice.value === option.value)); ${signal} = ${signal}.concat(additions); document.getElementById({ComponentHtml.javascriptString focusId})?.focus()")
-            _class "fve-popup-control inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-2 text-sm text-[var(--fve-muted-text)] hover:text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
+            _class "fve-popup-control inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-2 text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-muted-text)] hover:text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
             text actionLabel
         }
 
@@ -97,7 +97,7 @@ for (const node of existing.values()) node.remove();"""
             _disabled (unavailable || List.isEmpty initial)
             _dataAttr ("disabled", $"{disabled} || !${signal}.length")
             _dataOn ("click", $"${signal} = []; document.getElementById({ComponentHtml.javascriptString focusId})?.focus()")
-            _class "fve-popup-control ml-auto inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-2 text-sm text-[var(--fve-muted-text)] hover:text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
+            _class "fve-popup-control ml-auto inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-2 text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-muted-text)] hover:text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
             "Clear selection"
         }
 

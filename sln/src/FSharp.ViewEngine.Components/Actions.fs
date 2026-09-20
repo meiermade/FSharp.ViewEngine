@@ -102,7 +102,7 @@ module ActionCluster =
         let classes =
             ComponentHtml.classes [
                 ButtonStyles.baseClasses
-                if action.iconOnly then ComponentHtml.iconButtonSizeClasses ControlSize.Medium else ComponentHtml.sizeClasses ControlSize.Medium
+                if action.iconOnly then ComponentHtml.iconButtonSizeClasses None else ComponentHtml.sizeClasses None
                 ButtonStyles.variantClasses action.variant ]
         let content =
             fragment {

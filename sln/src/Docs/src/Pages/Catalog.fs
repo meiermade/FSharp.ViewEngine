@@ -31,22 +31,22 @@ module Catalog =
         [ { overview = overview "Primitives" "primitives"
             description = "Shared controls, feedback, data display and layout foundations for every kind of interface."
             sections =
-                [ section "Actions and feedback" Components.actionRegistrations
+                [ section "Actions" Components.actionRegistrations
+                  section "Feedback" Components.feedbackRegistrations
                   section "Data display" Components.dataDisplayRegistrations
                   section "Form controls" Components.formControlRegistrations
                   section "Navigation" Components.navigationRegistrations
-                  section "Menus and overlays" Components.menuOverlayRegistrations
+                  section "Overlays" Components.overlayRegistrations
                   section "Layout foundations" [ Components.sectionRegistration; Components.browserRegistration; Components.phoneRegistration ] ]
             planned = [] }
           { overview = overview "Application" "application"
             description = "Compose application shells, pages, collections and matching record details from shared primitives."
             sections =
                 [ section "Shells and pages" [ Components.appShellRegistration; Components.bottomNavigationRegistration; Components.pageRegistration; Components.pageTopBarRegistration; Components.pageHeaderRegistration ]
-                  section "Collections and details" [ Components.collectionRegistration; Components.detailRegistration; Components.bulkActionsRegistration ]
+                  section "Collections and details" [ Components.collectionRegistration; Components.detailRegistration; Components.bulkActionsRegistration; Components.mediaLibraryRegistration ]
                   section "Forms" [ Components.formLayoutsRegistration; Components.uploadRegistration ]
                   section "Workflows" [ Components.stepsRegistration; Components.firstStepsRegistration ]
-                  section "Resources" [ Components.calendarRegistration; Components.mediaLibraryRegistration ]
-                  section "Integration examples" Components.integrationExampleRegistrations ]
+                  section "Page examples" Components.pageExampleRegistrations ]
             planned = [] }
           { overview = Showcase.overviewRegistration
             description = "Documentation sites, API references, galleries and executable specifications using the same Components package."
@@ -132,7 +132,7 @@ module Catalog =
                     DocumentationSection.create "composition-ownership" "Composition ownership" [
                         p { "AppShell owns the responsive frame and one main landmark. Page owns route-local width, navigation, gutters and scrolling; PageHeader supplies the visible page heading. Collection and Detail compose the body without another shell." } ]
                     DocumentationSection.create "connected-experience" "Connected Application experience" [
-                        p { "The App shell example connects the financial workspace, collections, matching record details, forms, actions, reports and settings through consumer-owned destinations. Browser and Phone can present that same application with optional App mode; Application does not own the Documentation viewer." } ] ]
+                        p { "The Account management page example connects the financial workspace, collections, matching record details, forms, actions, reports and settings through consumer-owned destinations. App shell demonstrates layout only. Browser and Phone can present the complete application with optional App mode; Application does not own the Documentation viewer." } ] ]
 
     let private pages =
         [ yield Components.overviewRegistration.path, overviewPage

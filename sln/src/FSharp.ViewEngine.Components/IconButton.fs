@@ -10,7 +10,7 @@ type IconButtonConfig =
         { label:string
           icon:HtmlElement
           variant:ButtonVariant
-          size:ControlSize
+          size:ControlSize option
           buttonType:ButtonType
           disabled:bool
           pending:bool
@@ -24,7 +24,7 @@ module IconButton =
         { label = label
           icon = icon
           variant = ButtonVariant.Secondary
-          size = ControlSize.Medium
+          size = None
           buttonType = ButtonType.Button
           disabled = false
           pending = false
@@ -32,7 +32,7 @@ module IconButton =
           attributes = [] }
 
     let withVariant variant (config:IconButtonConfig) = { config with variant = variant }
-    let withSize size (config:IconButtonConfig) = { config with size = size }
+    let withSize size (config:IconButtonConfig) = { config with size = Some size }
     let asSubmit (config:IconButtonConfig) = { config with buttonType = ButtonType.Submit }
     let disabled (config:IconButtonConfig) = { config with disabled = true }
     let pending (config:IconButtonConfig) = { config with pending = true }
@@ -54,7 +54,7 @@ module IconButton =
                     config.className |> Option.defaultValue "" ])
             for attribute in ComponentHtml.safeAttributes [ "type"; "aria-label"; "disabled"; "aria-busy"; "class" ] config.attributes do attribute
             if config.pending then
-                ComponentHtml.loadingGlyph config.size
+                ComponentHtml.loadingGlyph (config.size |> Option.defaultValue ControlSize.Medium)
             else
                 span { _ariaHidden "true"; config.icon }
         }

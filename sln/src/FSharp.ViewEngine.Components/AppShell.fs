@@ -167,7 +167,8 @@ module AppShell =
                 _dataAttr ("inert", $"${openSignal} ? true : null")
                 _dataAttr ("aria-hidden", $"${openSignal} ? 'true' : null")
                 _class "flex min-w-0 flex-1 flex-col"
-                header {
+                // This is a navigation control row, not a document-level banner (previews may live in a main landmark).
+                div {
                     _class (ComponentHtml.classes [ "flex min-h-[var(--fve-shell-bar-min-height)] shrink-0 items-center gap-3 border-b border-[var(--fve-border)] bg-[var(--fve-surface)] px-4"; mobileOnly ])
                     IconButton.create "Open navigation" menuIcon
                     |> IconButton.withVariant ButtonVariant.Ghost

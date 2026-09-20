@@ -46,7 +46,7 @@ dotnet add package FSharp.ViewEngine.Components
 
 Documentation sites, API references, and executable specifications use the same Components package through `FSharp.ViewEngine.Components.Documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Import its optional `Documentation/Documentation.tailwind.css` only for Documentation surfaces. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
 
-The unified catalog currently targets **Primitives, Application, and Documentation**. The current candidate is in progress: [four-product coverage](./docs/component-coverage.md) records implemented APIs and outstanding connected examples. It is not yet a published replacement release. Historical `FSharp.ViewEngine.Docs` versions remain available; deprecation with Components as the alternative follows verified replacement delivery.
+The unified catalog currently targets **Primitives, Application, and Documentation**. The current candidate is in progress: [four-product coverage](./docs/component-coverage.md) records implemented APIs, connected examples, local evidence, and remaining package/publication gates. It is not yet a published replacement release. Historical `FSharp.ViewEngine.Docs` versions remain available; deprecation with Components as the alternative follows verified replacement delivery.
 
 ## Local catalog development
 
@@ -62,14 +62,19 @@ The watcher serves F# changes and compiles CSS from the common `sln/src` source 
 - `/components` — shared installation/guides and the staged Primitives, Application, and Documentation directory.
 - `/components/primitives` — shared controls and layout foundations.
 - `/components/select#components-select-multiple`, `components/select#components-select-search-multiple` — typed multiple selection, native repeated form values, validation and unavailable states. The remote searchable Select example also demonstrates error/retry and whole-field refresh.
-- `/components/application` — the delivered shell/page, collection/detail, forms, workflows, resources, and Integration examples directory.
-- `/components/calendar` — linked List/Day/Week/Month scheduling with empty, loading, error/retry, and unavailable states.
+- `/components/application` — the delivered shell/page, collection/detail, forms, workflows, and Page examples directory.
+- `/components/app-shell` — minimal shell layouts with constrained/full-width content and optional mobile bottom navigation.
+- `/components/page-examples/account-management` — connected dashboard, accounts, matching details, create-account form, reports, settings, and transaction pages.
+- `/components/calendar` — Primitives → Data display: focused Month, Week, Day and twelve-month Year views, with responsive agenda reflow for detailed views; typed dates/times, Today/selected-date navigation and empty/loading/error/unavailable recovery.
 - `/components/media-library` — native media selection, shared bulk actions, alt text, primary-state presentation, editing, replacement, and recovery.
-- `/components/integrations/graph-and-trace`, `/components/integrations/financial-chart`, `/components/integrations/messaging` — bounded specialist recipes with accessible alternatives.
-- `/components/form-layouts` — stacked, two-column and sectioned server-validation forms, plus query/result search. These complete workflows remain separate from the focused Input gallery; the validation endpoint and default field IDs are unchanged.
+- `/components/page-examples/dependency-graph`, `/components/page-examples/execution-detail` — connected dependency selection, execution metadata, timed spans and logs; the former graph-and-trace URL redirects to the graph.
+- `/components/page-examples/financial-reporting`, `/components/page-examples/messaging` — labelled actual/plan balances and a session-backed conversation workspace.
+- `/components/page-examples/operations-dashboard`, `/components/page-examples/scheduling`, `/components/page-examples/media-management` — linked operational records, calendar navigation, repository-owned color-background media, retained selection, editing, replacement and drawer-based uploads.
+- See [Page-example compositions and host boundaries](docs/page-examples.md) for source references, data limits, asset provenance, and verification.
+- `/components/form-layouts` — stacked, two-column and sectioned server-validation forms. Fields retain aligned labels and control heights when adjacent help/error text differs. Search controls belong in the Input gallery; result filtering is demonstrated by Account management. The validation endpoint and default field IDs are unchanged.
 - `/docs` — Documentation components and assembled examples, including the shared App mode.
 
-Every consumer-facing reusable component has a dedicated route and navigation entry; composition pages are connected demonstrations rather than the only documentation location for nested components. Use a fresh browser/test context to reset current browser-local example state, and do not run real customer/payment operations.
+Every consumer-facing reusable component has a dedicated route and navigation entry; composition pages are connected demonstrations rather than the only documentation location for nested components. Use a fresh browser/test context to reset examples. Page-example messages, accounts, settings and uploaded media use bounded, cookie-isolated server memory that expires after 30 minutes or a Docs restart; do not enter private data or run real customer/payment operations.
 
 In another terminal at the checkout root, run focused catalog checks:
 

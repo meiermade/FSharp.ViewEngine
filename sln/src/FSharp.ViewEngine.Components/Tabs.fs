@@ -78,10 +78,10 @@ module Tabs =
             match config.variant with
             | TabsVariant.Segmented ->
                 "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-1",
-                "min-h-[var(--fve-control-min-height)] shrink-0 rounded-[var(--fve-radius-control)] border-0 bg-transparent px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-muted-text)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)] aria-selected:bg-[var(--fve-surface)] aria-selected:text-[var(--fve-brand-text)] aria-selected:shadow-sm"
+                "min-h-[var(--fve-control-min-height)] shrink-0 rounded-[var(--fve-radius-control)] border-0 bg-transparent px-3 py-[calc(var(--fve-control-padding-block)+0.125rem)] text-sm font-semibold text-[var(--fve-muted-text)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)] aria-selected:bg-[var(--fve-surface)] aria-selected:text-[var(--fve-brand-text)] aria-selected:shadow-sm"
             | TabsVariant.Underlined ->
                 "flex max-w-full items-center gap-4 overflow-x-auto border-b border-[var(--fve-border)]",
-                "min-h-[var(--fve-control-min-height)] shrink-0 border-0 border-b-2 border-transparent bg-transparent px-2 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-muted-text)] outline-none transition-colors hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)] aria-selected:border-[var(--fve-brand-solid)] aria-selected:text-[var(--fve-brand-text)]"
+                "min-h-[var(--fve-control-min-height)] shrink-0 border-0 border-b-2 border-transparent bg-transparent px-2 py-[calc(var(--fve-control-padding-block)+0.125rem)] text-sm font-semibold text-[var(--fve-muted-text)] outline-none transition-colors hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)] aria-selected:border-[var(--fve-brand-solid)] aria-selected:text-[var(--fve-brand-text)]"
 
         div {
             _id config.id

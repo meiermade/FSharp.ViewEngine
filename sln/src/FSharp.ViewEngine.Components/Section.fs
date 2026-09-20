@@ -36,7 +36,7 @@ module SectionHeader =
     let render resolve config =
         header {
             _attr ("data-fve-section-header", "true")
-            _class (ComponentHtml.classes [ "@container flex flex-wrap items-start justify-between gap-4"; if config.divider then "border-b border-[var(--fve-border)] pb-2" ])
+            _class (ComponentHtml.classes [ "fve-control-small @container flex flex-wrap items-start justify-between gap-4"; if config.divider then "border-b border-[var(--fve-border)] pb-2" ])
             div {
                 _class "min-w-0"
                 match config.level with

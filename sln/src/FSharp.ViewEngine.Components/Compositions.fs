@@ -31,7 +31,7 @@ module Collection =
         section {
             _class "grid min-w-0 grid-cols-1 gap-4"
             header {
-                _class (if config.titleVisible || config.actions.IsSome then "@container flex flex-wrap items-start justify-between gap-4" else "sr-only")
+                _class (if config.titleVisible || config.actions.IsSome then "fve-control-small @container flex flex-wrap items-start justify-between gap-4" else "sr-only")
                 div {
                     _class "min-w-0"
                     h2 { _class (if config.titleVisible then "text-xl font-semibold tracking-tight text-[var(--fve-text)]" else "sr-only"); config.title }
@@ -43,7 +43,9 @@ module Collection =
                 | Some actions -> ActionCluster.render resolve actions
                 | None -> ()
             }
-            config.toolbar |> Option.defaultValue empty
+            match config.toolbar with
+            | Some toolbar -> div { _class "fve-control-small"; toolbar }
+            | None -> ()
             config.content
         }
 
@@ -70,7 +72,7 @@ module Detail =
         article {
             _class "grid min-w-0 grid-cols-1 gap-6"
             header {
-                _class (if config.titleVisible || config.metadata.IsSome || config.actions.IsSome then "@container flex flex-wrap items-start justify-between gap-4" else "sr-only")
+                _class (if config.titleVisible || config.metadata.IsSome || config.actions.IsSome then "fve-control-small @container flex flex-wrap items-start justify-between gap-4" else "sr-only")
                 div {
                     _class "min-w-0"
                     h2 { _class (if config.titleVisible then "text-xl font-semibold tracking-tight text-[var(--fve-text)]" else "sr-only"); config.title }

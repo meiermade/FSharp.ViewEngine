@@ -84,6 +84,7 @@ let private expectedPaths =
         "/components/textarea"
         "/components/error-summary"
         "/components/notice"
+        "/components/notification"
         "/components/select"
         "/components/checkbox"
         "/components/switch"
@@ -97,6 +98,7 @@ let private expectedPaths =
         "/components/dialog"
         "/components/confirmation-dialog"
         "/components/drawer"
+        "/components/floating-panel"
         "/components/page-top-bar"
         "/components/page-header"
         "/components/section"
@@ -106,6 +108,7 @@ let private expectedPaths =
         "/components/collection"
         "/components/detail"
         "/components/app-shell"
+        "/components/page-examples/account-management"
         "/components/bottom-navigation"
         "/components/bulk-actions"
         "/components/upload"
@@ -113,9 +116,13 @@ let private expectedPaths =
         "/components/first-steps"
         "/components/calendar"
         "/components/media-library"
-        "/components/integrations/graph-and-trace"
-        "/components/integrations/financial-chart"
-        "/components/integrations/messaging"
+        "/components/page-examples/dependency-graph"
+        "/components/page-examples/execution-detail"
+        "/components/page-examples/financial-reporting"
+        "/components/page-examples/messaging"
+        "/components/page-examples/operations-dashboard"
+        "/components/page-examples/scheduling"
+        "/components/page-examples/media-management"
         "/components/interaction-and-server-state"
         "/components/accessibility"
         "/components/theming"
@@ -129,6 +136,49 @@ let private expectedPaths =
 [<Tests>]
 let tests =
     testList "Direct F# documentation" [
+        testCase "page-example messages validate and retain conversation identity" <| fun _ ->
+            let initial = PageExampleSession.get (Microsoft.AspNetCore.Http.DefaultHttpContext())
+            let unchanged, empty = PageExampleSession.send "beach" "  " initial
+            Expect.isError empty "Whitespace is not a message."
+            Expect.equal unchanged.messages initial.messages "Rejected input must not mutate the fixture."
+            let updated, sent = PageExampleSession.send "beach" "  Meet at the east entrance.  " initial
+            Expect.isOk sent "A valid message is accepted."
+            Expect.equal updated.messages.Length (initial.messages.Length + 1) "Exactly one message is added."
+            Expect.equal (List.last updated.messages).conversation "beach" "Conversation ownership is retained."
+            for message in updated.messages |> List.filter _.outgoing do
+                Expect.equal message.author "Andy Meier" "Seeded and newly sent messages use the logged-in example user."
+            Expect.equal (List.last updated.messages).body "Meet at the east entrance." "Submitted text is trimmed."
+            Expect.isError (PageExampleSession.send "unknown" "Hello" initial |> snd) "Unknown conversations are rejected."
+            Expect.isError (PageExampleSession.send "beach" (String('x', 2001)) initial |> snd) "Message length is bounded."
+
+        testCase "page-example image quotas permit replacement without accumulating old bytes" <| fun _ ->
+            let initial = PageExampleSession.get (Microsoft.AspNetCore.Http.DefaultHttpContext())
+            Expect.isNone (PageExampleSession.imageFromBytes (Text.Encoding.UTF8.GetBytes "<svg/>")) "Active image formats are rejected."
+            Expect.isNone (PageExampleSession.imageFromBytes (Array.zeroCreate 2_000_001)) "Uploads are size-bounded."
+            let bytes = Array.zeroCreate<byte> 2_000_000
+            Array.blit [|137uy;80uy;78uy;71uy;13uy;10uy;26uy;10uy|] 0 bytes 0 8
+            let image = PageExampleSession.imageFromBytes bytes
+            let full =
+                [1..4] |> List.fold (fun session index ->
+                    let updated, saved = PageExampleSession.savePhoto "new" $"Photo {index}" "Fixture image" image session
+                    Expect.isSome saved "Four uploads fit the bounded fixture."
+                    updated) initial
+            Expect.isNone (PageExampleSession.savePhoto "new" "Extra" "Fixture" image full |> snd) "A fifth upload is rejected."
+            let selected = List.last full.photos
+            let replaced, saved = PageExampleSession.savePhoto selected.id "Replacement" "Updated fixture" image full
+            Expect.isSome saved "Replacement reclaims the previous image's bytes."
+            Expect.equal replaced.images.Count 4 "Replacement does not retain the old blob."
+            Expect.equal (replaced.photos |> List.find (fun photo -> photo.id = selected.id) |> _.name) "Replacement" "Replacement updates the selected photo."
+
+        testCase "page-example accounts reject duplicate seeded and created names" <| fun _ ->
+            let initial = PageExampleSession.get (Microsoft.AspNetCore.Http.DefaultHttpContext())
+            Expect.isNone (PageExampleSession.createAccount "Operating checking" "Asset" initial |> snd) "Seeded account names are reserved."
+            let updated, created = PageExampleSession.createAccount "Equipment reserve" "Asset" initial
+            Expect.isSome created "New account is created."
+            Expect.isNone (PageExampleSession.createAccount "equipment reserve" "Asset" updated |> snd) "Names are unique ignoring case."
+            Expect.isNone (PageExampleSession.createAccount "Other" "invalid" updated |> snd) "Unknown account types are rejected."
+            Expect.isFalse (PageExampleSession.saveSettings " " true updated |> snd) "Blank workspace names are rejected."
+
         test "Operational components retain native form and accessible state contracts" {
             let files =
                 FileSelection.create "statements" "statements" "Statements"
@@ -190,18 +240,17 @@ let tests =
             Expect.stringContains tags "clipboardData" "pasted comma- or line-delimited values are handled explicitly"
             Expect.isFalse (tags.Contains("Backspace")) "Backspace does not remove tags implicitly"
 
-            let calendar = Components.calendarExample CalendarView.Week 0 |> Render.toString
-            Expect.stringContains calendar "aria-label=\"Calendar view\"" "calendar view navigation is a labelled native nav"
-            Expect.stringContains calendar "aria-current=\"page\"" "calendar identifies the current linked view"
-            Expect.stringContains calendar ">Week</a>" "calendar preserves the selected view label"
-            Expect.stringContains calendar "Overlaps Northwind by one hour" "calendar retains consumer-authored overlap context"
-            let loadingCalendar = Calendar.create "Schedule" CalendarView.List "September" [] |> Calendar.loading |> Calendar.render id |> Render.toString
+            let calendar = Components.calendarExample CalendarView.Week |> Render.toString
+            Expect.stringContains calendar "data-view=\"week\"" "calendar renders one focused view"
+            Expect.isFalse (calendar.Contains("calendar view")) "component examples do not embed connected view navigation"
+            Expect.stringContains calendar "Overlaps the trail lesson by one hour" "calendar retains consumer-authored overlap context"
+            let loadingCalendar = Calendar.create "Schedule" CalendarView.Month (DateOnly(2026, 9, 17)) [] |> Calendar.loading |> Calendar.render id |> Render.toString
             Expect.stringContains loadingCalendar "role=\"status\"" "loading calendar announces its state"
             Expect.stringContains loadingCalendar "Loading calendar…" "loading calendar remains readable"
-            let errorCalendar = Calendar.create "Schedule" CalendarView.List "September" [] |> Calendar.withError "Schedule failed." |> Calendar.render id |> Render.toString
+            let errorCalendar = Calendar.create "Schedule" CalendarView.Month (DateOnly(2026, 9, 17)) [] |> Calendar.withError "Schedule failed." |> Calendar.render id |> Render.toString
             Expect.stringContains errorCalendar "role=\"alert\"" "calendar errors are urgent feedback"
             Expect.stringContains errorCalendar "Schedule failed." "calendar errors preserve consumer-authored messages"
-            let unavailableCalendar = Calendar.create "Schedule" CalendarView.List "September" [] |> Calendar.withUnavailable "Schedule unavailable." |> Calendar.render id |> Render.toString
+            let unavailableCalendar = Calendar.create "Schedule" CalendarView.Month (DateOnly(2026, 9, 17)) [] |> Calendar.withUnavailable "Schedule unavailable." |> Calendar.render id |> Render.toString
             Expect.stringContains unavailableCalendar "Schedule unavailable." "unavailable calendar state is explicit"
 
             let media = Components.mediaLibraryExample |> Render.toString
@@ -210,6 +259,54 @@ let tests =
             Expect.stringContains media "fve-selection-change" "media selection publishes stable identities to shared bulk actions"
             Expect.stringContains media "No media assets. Upload an image to begin." "media example includes its empty state"
             Expect.stringContains media "Media could not be loaded." "media example includes its recoverable error state"
+        }
+
+        test "Calendar dates, overlap lanes and unavailable states are derived from typed input" {
+            let day = DateOnly(2024, 2, 29)
+            let event id start finish = CalendarEvent.create id id day ("/events/" + id) |> CalendarEvent.withTime start finish
+            let events =
+                [ event "first" (TimeOnly(9, 0)) (TimeOnly(10, 0))
+                  event "overlap" (TimeOnly(9, 30)) (TimeOnly(11, 0))
+                  event "connected" (TimeOnly(10, 0)) (TimeOnly(12, 0))
+                  event "adjacent" (TimeOnly(12, 0)) (TimeOnly(12, 30))
+                  CalendarEvent.create "all-day" "All-day event" day "/events/all-day"
+                  CalendarEvent.create "outside" "Outside range" (day.AddMonths 2) "/events/outside" ]
+            let config = Calendar.create "Calendar" CalendarView.Month day events |> Calendar.withToday day "/today" |> Calendar.withSelectedDate day
+            let month = config |> Calendar.render id |> Render.toString
+            Expect.stringContains month "data-date=\"2024-01-29\"" "month starts on the preceding Monday"
+            Expect.stringContains month "data-date=\"2024-03-03\"" "month ends on the trailing Sunday"
+            Expect.equal (System.Text.RegularExpressions.Regex.Matches(month, "data-date=").Count) 35 "February leap month has complete weeks"
+            Expect.stringContains month "data-date=\"2024-02-29\"" "leap day is an actual date"
+            Expect.stringContains month "aria-current=\"date\"" "today is semantic, not inferred from server clock"
+            Expect.isFalse (month.Contains("Outside range")) "events outside visible dates are excluded"
+            Expect.stringContains month "--fve-calendar-lane:2;--fve-calendar-lanes:2" "overlap has a separate lane"
+            Expect.stringContains month "--fve-calendar-start:121;--fve-calendar-duration:120;--fve-calendar-lane:1;--fve-calendar-lanes:2" "connected overlap reuses the ended first lane"
+            Expect.stringContains month "--fve-calendar-start:241;--fve-calendar-duration:30;--fve-calendar-lane:1;--fve-calendar-lanes:1" "adjacent non-overlap regains full width"
+            let december = Calendar.create "Year end" CalendarView.Month (DateOnly(2026, 12, 1)) [] |> Calendar.render id |> Render.toString
+            Expect.stringContains december "data-date=\"2027-01-03\"" "month geometry crosses the year boundary"
+            let nextDay = Calendar.create "Next day" CalendarView.Day (day.AddDays 1) events |> Calendar.render id |> Render.toString
+            Expect.isFalse (nextDay.Contains("data-event=")) "day filters events by actual date"
+            Expect.stringContains nextDay "No events in this range." "filtered empty state is truthful"
+            for unavailable in [ Calendar.loading; Calendar.withError "Failed"; Calendar.withUnavailable "Unavailable" ] do
+                let html = config |> unavailable |> Calendar.render id |> Render.toString
+                Expect.isFalse (html.Contains("data-event=")) "unavailable calendars never expose stale event actions"
+            Expect.throws (fun () -> event "bad" (TimeOnly(12, 0)) (TimeOnly(11, 0)) |> ignore) "overnight/reversed intervals need consumer splitting"
+            Expect.throws (fun () -> Calendar.create "Duplicates" CalendarView.Day day [events.Head; events.Head] |> ignore) "duplicate event IDs are rejected"
+        }
+
+        test "Calendar exposes focused day, week, month and year views" {
+            let day = Components.calendarDayExample |> Render.toString
+            let week = Components.calendarWeekExample |> Render.toString
+            let month = Components.calendarMonthExample |> Render.toString
+            let year = Components.calendarYearExample |> Render.toString
+            Expect.stringContains day "data-view=\"day\"" "day is a dedicated view"
+            Expect.stringContains week "data-view=\"week\"" "week is a dedicated view"
+            Expect.stringContains month "data-view=\"month\"" "month is a dedicated view"
+            Expect.stringContains year "data-view=\"year\"" "year is a dedicated view"
+            Expect.equal (System.Text.RegularExpressions.Regex.Matches(year, "fve-calendar-year-month").Count) 12 "year renders twelve compact months"
+            Expect.stringContains year "aria-label=\"September 2026 dates\"" "year months retain labelled date grids"
+            Expect.stringContains year "2 events: Coastal trail lesson, Beginner riding camp" "year date destinations summarize matching events"
+            Expect.equal Components.calendarRegistration.category "Primitives" "Calendar is shared data display"
         }
 
         test "Native fields preserve encoded values and protect their semantic attributes" {
@@ -340,28 +437,22 @@ let tests =
                 [ "Layouts"; "Content"; "Navigation"; "Fixture"; "API reference"; "Diagrams" ]
                 "component categories follow the catalog order"
             Expect.sequenceEqual
-                (section "Page examples")
+                (components.sections |> List.find (fun area -> area.label = "Documentation") |> _.sections |> List.find (fun group -> group.label = "Page examples") |> _.pages |> List.map _.navLabel)
                 [ "Documentation site"; "API reference"; "Executable specification" ]
                 "page examples are grouped separately"
             Expect.sequenceEqual (section "FSharp.ViewEngine.Components") [ "Overview"; "Installation" ] "Components starts with overview and installation"
-            Expect.sequenceEqual
-                (section "Actions and feedback")
-                [ "Button"; "Icon button"; "Action cluster"; "Row actions"; "Badge"; "Status"; "Notice"; "Loading indicator"; "Progress"; "Empty state" ]
-                "action and feedback foundations"
-            Expect.sequenceEqual
-                (section "Data display")
-                [ "Table"; "Description list"; "Metric"; "Pagination"; "Avatar"; "Copy and reveal" ]
-                "data-display components"
+            Expect.sequenceEqual (section "Actions") [ "Button"; "Icon button"; "Action cluster"; "Row actions"; "Dropdown menu" ] "action foundations"
+            Expect.sequenceEqual (section "Feedback") [ "Badge"; "Status"; "Notice"; "Notification"; "Loading indicator"; "Progress"; "Empty state" ] "feedback foundations"
+            Expect.sequenceEqual (section "Data display") [ "Table"; "Description list"; "Metric"; "Avatar"; "Copy and reveal"; "Calendar" ] "data-display components"
             Expect.sequenceEqual (section "Form controls") [ "Input"; "Textarea"; "File selection"; "Tag input"; "Error summary"; "Select"; "Checkbox"; "Switch"; "Toggle button"; "Radio group"; "Choice cards" ] "form controls"
-            Expect.sequenceEqual (section "Navigation") [ "Breadcrumbs"; "Side nav"; "Tabs" ] "navigation components"
-            Expect.sequenceEqual (section "Menus and overlays") [ "Dropdown menu"; "Dialog"; "Confirmation dialog"; "Drawer" ] "menu and overlay components"
+            Expect.sequenceEqual (section "Navigation") [ "Breadcrumbs"; "Side nav"; "Tabs"; "Pagination" ] "navigation components"
+            Expect.sequenceEqual (section "Overlays") [ "Dialog"; "Confirmation dialog"; "Drawer"; "Floating panel" ] "overlay components"
             Expect.sequenceEqual (section "Layout foundations") [ "Section"; "Browser"; "Phone" ] "shared framing primitives are catalogued with Section"
             Expect.sequenceEqual (section "Shells and pages") [ "App shell"; "Bottom navigation"; "Page"; "Page top bar"; "Page header" ] "Application shell and page compositions"
-            Expect.sequenceEqual (section "Collections and details") [ "Collection"; "Detail"; "Bulk actions" ] "Application record compositions"
+            Expect.sequenceEqual (section "Collections and details") [ "Collection"; "Detail"; "Bulk actions"; "Media library" ] "Application record compositions"
             Expect.sequenceEqual (section "Forms") [ "Form layouts"; "Upload" ] "Application form compositions"
             Expect.sequenceEqual (section "Workflows") [ "Steps"; "First steps" ] "Application workflow compositions"
-            Expect.sequenceEqual (section "Resources") [ "Calendar"; "Media library" ] "Application resource compositions"
-            Expect.sequenceEqual (section "Integration examples") [ "Graph and trace"; "Financial chart"; "Messaging" ] "bounded recipes are discoverable without claiming universal component ownership"
+            Expect.sequenceEqual (section "Page examples") [ "Account management"; "Dependency graph"; "Execution detail"; "Financial reporting"; "Messaging"; "Operations dashboard"; "Scheduling"; "Media management" ] "bounded recipes are discoverable without claiming universal component ownership"
             for area in [ "Primitives"; "Application" ] do
                 Expect.sequenceEqual (section area) [ "Overview" ] $"{area} has a real index destination"
             Expect.sequenceEqual (section "Guides") [ "Interaction and server state"; "Accessibility"; "Theming and density"; "Tailwind CSS"; "Customization"; "Versioning" ] "shared Components guides"
@@ -640,7 +731,7 @@ let tests =
                 Expect.stringStarts document "<!DOCTYPE html>" $"{path} is a complete HTML document"
                 Expect.isFalse (document.Contains("<style")) $"{path} does not embed the Docs component styles"
                 Expect.stringContains document "rel=\"stylesheet\" href=\"/css/output.css\"" $"{path} links the compiled consumer stylesheet"
-                Expect.stringContains document "class=\"spec-document\"" $"{path} initializes the Docs document body"
+                Expect.stringContains document "class=\"spec-document fve-components fve-theme-sky fve-density-compact\"" $"{path} initializes the Docs document and shared component theme"
         }
 
         test "Showcase source regions preserve the exact compiled example" {
@@ -687,17 +778,43 @@ after"""
 
         test "Input galleries teach individual fields and Application owns complete forms" {
             let examples = Components.examplesFor "input"
-            Expect.equal (examples |> List.map _.title) [ "With label"; "With help text"; "Required"; "Optional"; "With validation error"; "With leading icon"; "With prefix"; "With suffix"; "Search with clear action"; "Read-only"; "Disabled"; "Pending" ] "basic before variations and states"
-            for example in examples do
+            Expect.equal (examples |> List.map _.title) [ "With label"; "Consistent control sizes"; "With help text"; "Required"; "Optional"; "With validation error"; "With leading icon"; "With prefix"; "With suffix"; "Search with clear action"; "Disabled"; "Pending" ] "basic before variations and states"
+            let sizing = examples |> List.find (fun example -> example.title = "Consistent control sizes")
+            Expect.equal (Regex.Matches(Render.toString sizing.preview, "type=\"search\"").Count) 4 "three inherited sizes and one explicit override"
+            for example in examples |> List.filter (fun example -> example.title <> "Consistent control sizes") do
                 Expect.equal (Regex.Matches(Render.toString example.preview, "<input ").Count) 1 "one native input per example"
                 Expect.isLessThan (example.source.Split('\n').Length) 35 "short independently copyable input code"
                 for forbidden in [ "ContactDetails"; "contactFormRegion"; "accountOptions"; "@post" ] do
                     Expect.isFalse (example.source.Contains forbidden) "input examples exclude complete workflows"
             for slug in [ "textarea"; "select"; "checkbox"; "switch"; "radio-group" ] do
                 Expect.equal (Components.examplesFor slug |> List.head).title "With label" "other form galleries also start with the basic control"
+            Expect.equal (Components.examplesFor "textarea" |> List.map _.title) [ "With label"; "With instructions"; "With validation error"; "Pending"; "Disabled" ] "textarea exposes editable, pending and disabled states only"
             Expect.equal (Components.examplesFor "tag-input" |> List.map _.title) [ "Free-form tags"; "Validation"; "Pending"; "Disabled" ] "Tag input owns its focused states"
             Expect.equal Components.formLayoutsRegistration.category "Application" "forms are Application composition"
-            Expect.equal (Components.examplesFor "form-layouts" |> List.length) 4 "three complete forms and the retained result-search example"
+            Expect.equal (Components.examplesFor "form-layouts" |> List.map _.title) [ "Stacked with server validation"; "Two-column form"; "Sectioned form" ] "form layouts teach forms, not result-search workflows"
+        }
+
+        test "Field wrappers top-align content and keep Select help below the control" {
+            for field in [
+                Input.create "aligned-input" "Name" |> Input.render
+                Textarea.create "aligned-textarea" "Notes" |> Textarea.render
+                FileSelection.create "aligned-file" "files" "Files" |> FileSelection.render
+                TagInput.create "aligned-tags" "tags" "Tags" [] |> TagInput.render ] do
+                Expect.stringContains (Render.toString field) "content-start" "a taller sibling must not stretch label and control rows"
+            let config =
+                Select.create "aligned-select" "Choice" id [ Select.option "a" "A" ]
+                |> Select.withDescription "Choose an option."
+                |> Select.withValidation "Check this choice."
+            for field in [
+                config |> Select.render
+                config |> Select.multiple |> Select.render
+                config |> Select.withSearch SelectSearch.Static |> Select.render
+                config |> Select.multiple |> Select.withSearch SelectSearch.Static |> Select.render ] do
+                let html = Render.toString field
+                Expect.stringContains html "content-start" "all Select variants top-align their contents"
+                let help = html.IndexOf("<p id=", StringComparison.Ordinal)
+                Expect.isGreaterThan help (html.IndexOf("</button>", StringComparison.Ordinal)) "help text follows the trigger, matching Input and Textarea"
+                Expect.stringContains html "-description" "help remains associated with the field"
         }
 
         test "Input adornments keep native values and accessible context without extra controls" {
@@ -721,6 +838,38 @@ after"""
             Expect.stringContains suffixOnly "aria-describedby=\"suffix-only-suffix\"" "suffix association does not depend on a prefix"
             Expect.throws (fun () -> Input.create "x" "X" |> Input.withPrefix " " |> ignore) "blank prefix is rejected"
             Expect.throws (fun () -> Input.create "x" "X" |> Input.withSuffix " " |> ignore) "blank suffix is rejected"
+        }
+
+        test "Control sizes are explicit overrides independent of density" {
+            for size, className in [ ControlSize.Small, "fve-control-small"; ControlSize.Medium, "fve-control-medium"; ControlSize.Large, "fve-control-large" ] do
+                let theme = ComponentsTheme.sky |> ComponentsTheme.withControlSize size |> ComponentsTheme.withDensity Density.Compact
+                Expect.stringContains (ComponentsTheme.className theme) className "density preserves the requested control size"
+                for html in [
+                    Input.create "sized" "Sized" |> Input.withSize size |> Input.render |> Render.toString
+                    Input.create "search-sized" "Search" |> Input.withType InputType.Search |> Input.withSize size |> Input.render |> Render.toString
+                    Button.create "Sized" |> Button.withSize size |> Button.render |> Render.toString
+                    Select.create "sized-select" "Sized" id [ Select.option "a" "A" ] |> Select.withSize size |> Select.render |> Render.toString
+                    Select.create "sized-multiple" "Sized" id [ Select.option "a" "A" ] |> Select.withSize size |> Select.multiple |> Select.withSearch SelectSearch.Static |> Select.render |> Render.toString ] do
+                    Expect.stringContains html className "all control families share the same override"
+                    Expect.stringContains html "text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)]" "control typography follows the selected size tokens"
+            let action = Button.create "Action" |> Button.render |> Render.toString
+            Expect.stringContains action "font-medium" "actions use medium rather than semibold weight"
+        }
+
+        test "Search presentation owns its icon, accessible label and native clear events" {
+            let search = Input.create "find" "Find records" |> Input.withType InputType.Search |> Input.withVisuallyHiddenLabel
+            let html = search |> Input.render |> Render.toString
+            Expect.stringContains html "fve-search" "native-value clear visibility scope"
+            Expect.stringContains html "<svg" "search has a built-in magnifying glass"
+            Expect.stringContains html "aria-hidden=\"true\"" "icon does not replace the accessible name"
+            Expect.stringContains html "sr-only" "optional hidden label remains accessible"
+            Expect.stringContains html "aria-label=\"Clear Find records\"" "clear is named"
+            Expect.stringContains (System.Net.WebUtility.HtmlDecode html) "new Event('input'" "clearing updates bound queries"
+            Expect.stringContains (System.Net.WebUtility.HtmlDecode html) "new Event('change'" "clearing notifies form consumers"
+            Expect.isFalse (html.Contains "data-on:input=") "clear visibility does not depend on a second event-maintained value"
+            for unavailable in [ Input.disabled; Input.pending ] do
+                let output = search |> Input.withValue "saved" |> unavailable |> Input.render |> Render.toString
+                Expect.stringContains (Regex.Match(output, "<button[^>]*>").Value) "disabled" "unavailable fields cannot be cleared"
         }
 
         test "Multiple choices preserve typed identities, labels, and native repeated values" {
@@ -828,7 +977,7 @@ after"""
                     child.WaitForExit()
                     failtest "Standalone Components examples did not compile within 60 seconds."
                 Expect.equal child.ExitCode 0 (output.Result + errors.Result)
-                Expect.equal examples.Length 151 "all focused variants from fifty-four galleries compile against the public packages"
+                Expect.equal examples.Length 165 "all focused variants from sixty-one galleries compile against the public packages"
             finally
                 System.IO.Directory.Delete(directory, true)
         }
@@ -852,12 +1001,22 @@ after"""
             Expect.stringContains overview "Browse components" "component catalog link"
             Expect.stringContains overview "Browse page examples" "page-example catalog link"
             Expect.isFalse (overview.Contains("Example content")) "overview omits the old fixture callout"
-            Expect.stringContains overview "rel=\"prev\" href=\"/components/integrations/messaging\"" "Documentation follows the Application catalog in the family order"
+            Expect.stringContains overview "rel=\"prev\" href=\"/components/page-examples/media-management\"" "Documentation follows the Application catalog in the family order"
             Expect.stringContains overview "rel=\"next\" href=\"/docs/components/layouts\"" "overview continues to layouts"
+
+            for registration in Showcase.componentRegistrations do
+                let html = render registration
+                Expect.stringContains html "docs-article-layout" $"{registration.path} uses the readable component-catalog layout"
+
+            for registration in Showcase.pageExampleRegistrations do
+                let html = render registration
+                Expect.stringContains html "docs-gallery-layout" $"{registration.path} uses the wide page-example layout"
+                Expect.isFalse (html.Contains("class=\"spec-toc\"")) $"{registration.path} does not reserve a desktop table-of-contents rail"
+                Expect.stringContains html "data-fve-full-bleed-example=\"true\"" $"{registration.path} renders its complete Browser fixture full bleed"
+                Expect.stringContains html "building blocks\"" $"{registration.path} identifies its page-specific building blocks"
 
             for registration in Showcase.componentRegistrations @ Showcase.pageExampleRegistrations do
                 let html = render registration
-                Expect.stringContains html "docs-article-layout" $"{registration.path} uses the catalog layout"
                 Expect.stringContains html "data-docs-example=\"true\"" $"{registration.path} includes examples"
                 Expect.stringContains html "Example: &#39;preview&#39;" $"{registration.path} shows previews by default"
                 Expect.stringContains html ">Code</button>" $"{registration.path} code toggle"
@@ -865,10 +1024,16 @@ after"""
 
             let api = render Showcase.apiPageExampleRegistration
             Expect.stringContains api "does not expose an HTTP /v1/render endpoint" "fictional API is labeled near its example"
-            Expect.stringContains api "Endpoint.create POST &quot;/v1/render&quot;" "API page uses the compiled endpoint builder"
-            Expect.stringContains api "Endpoint.withDescription &quot;Renders an HTML element.&quot;" "API page uses named endpoint configuration"
-            Expect.stringContains api "data-docs-preview-src=\"/docs/previews/api-reference-page-example\"" "API preview lazily uses an isolated route"
-            Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/api-reference-page-example") "isolated API preview is registered"
+            Expect.stringContains api "Operation.create POST &quot;/v1/render&quot;" "API page uses the compiled operation builder"
+            Expect.stringContains api "Operation.withParameters [ viewParameter; contentTypeParameter; prettyParameter ]" "API page documents typed operation parameters"
+            Expect.stringContains api "Response.create &quot;200&quot;" "API page uses the typed response model"
+            Expect.stringContains api "Operation.withResponses [ successResponse ]" "API page documents typed operation responses"
+            Expect.stringContains api "Operation.withErrors" "API page documents operation failures"
+            Expect.stringContains api "data-docs-preview-src=\"/docs/previews/api-reference-render-view\"" "API preview starts from its contained operation route"
+            Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/api-reference-overview") "isolated API overview is registered"
+            Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/api-reference-render-view") "isolated API operation is registered"
+            Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/documentation-site-overview") "isolated documentation overview is registered"
+            Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/documentation-site-getting-started") "isolated getting-started page is registered"
 
             let fixture = render Showcase.fixtureRegistration
             Expect.stringContains fixture "Tabs.create &quot;component-workflow-states&quot; &quot;Workflow states&quot;" "tabs code uses the preview's actual identifier"
@@ -880,6 +1045,13 @@ after"""
             let specification = render Showcase.specificationPageExampleRegistration
             Expect.stringContains specification "role=\"tablist\"" "specification preview uses state tabs"
             Expect.stringContains specification "spec-browser-frame" "specification preview uses a browser frame"
+            Expect.stringContains specification "data-docs-preview-src=\"/docs/previews/executable-specification-render-view\"" "specification preview starts from its contained workflow route"
+            Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/executable-specification-overview") "isolated specification overview is registered"
+            Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/executable-specification-render-view") "isolated specification workflow is registered"
+            let specificationDocument = Showcase.previewRoutes["/docs/previews/executable-specification-render-view"]
+            Expect.stringContains specificationDocument "href=\"/docs/previews/executable-specification-overview\"" "specification navigation remains inside its fixture"
+            Expect.isFalse (specificationDocument.Contains("href=\"/\"")) "specification navigation cannot escape to the host documentation root"
+            Expect.isFalse (specificationDocument.Contains("href=\"/guide\"")) "specification navigation cannot escape to a host guide"
         }
 
         test "Repository guidance preserves one documentation page per public component" {
@@ -888,7 +1060,7 @@ after"""
                 |> File.ReadAllText
             Expect.stringContains guidance "every consumer-facing reusable component a dedicated documentation route and navigation entry" "repository agents retain the catalog ownership rule"
             Expect.stringContains guidance "must never be the only documentation location for a component" "composition examples cannot hide component documentation"
-            Expect.stringContains guidance "Integration examples" "bounded recipes retain separate catalog ownership"
+            Expect.stringContains guidance "Page examples" "bounded recipes retain separate catalog ownership"
         }
 
         test "Components publishes a first-class page for every public component and focused shared guides" {
@@ -897,21 +1069,22 @@ after"""
             let installation = render Components.installationRegistration
             let componentRegistrations =
                 Components.actionRegistrations
+                @ Components.feedbackRegistrations
                 @ Components.dataDisplayRegistrations
                 @ Components.formControlRegistrations
                 @ Components.navigationRegistrations
-                @ Components.menuOverlayRegistrations
+                @ Components.overlayRegistrations
                 @ Components.compositionRegistrations
                 @ Components.frameRegistrations
                 @ Components.applicationNavigationRegistrations
                 @ Components.applicationWorkflowRegistrations
                 @ Components.applicationResourceRegistrations
-                @ Components.integrationExampleRegistrations
+                @ Components.pageExampleRegistrations
             let renderedComponents = componentRegistrations |> List.map render
             let renderedGuides = Components.guideRegistrations |> List.map render
             let allHtml = String.concat Environment.NewLine (overview :: installation :: renderedComponents @ renderedGuides)
 
-            Expect.equal Components.allRegistrations.Length 62 "overview, installation, fifty-four galleries, and six guides"
+            Expect.equal Components.allRegistrations.Length 69 "overview, installation, sixty-one galleries, and six guides"
             Expect.isFalse (allHtml.Contains("href=\"/components/chart\"")) "removed Chart is absent from the catalog and navigation"
             Expect.isFalse (allHtml.Contains("href=\"/components/layouts\"")) "redundant layout guide is absent from navigation and search"
             Expect.stringContains overview "Accessible, server-rendered Tailwind components" "consumer-facing introduction"
@@ -921,11 +1094,20 @@ after"""
             Expect.stringContains (index "/components/primitives") "href=\"/components/browser\"" "Primitives index deep-links Browser"
             Expect.stringContains (index "/components/primitives") "href=\"/components/phone\"" "Primitives index deep-links Phone"
             Expect.stringContains (index "/components/application") "href=\"/components/app-shell\"" "Application index deep-links App shell"
-            Expect.stringContains (index "/components/application") "href=\"/components/calendar\"" "Application index deep-links Calendar"
+            Expect.stringContains (index "/components/primitives") "href=\"/components/calendar\"" "Primitives Data display owns Calendar"
             Expect.stringContains (index "/components/application") "href=\"/components/media-library\"" "Application index deep-links Media library"
-            Expect.stringContains (index "/components/application") "href=\"/components/integrations/graph-and-trace\"" "Application index deep-links bounded integration recipes"
+            Expect.stringContains (index "/components/application") "href=\"/components/page-examples/dependency-graph\"" "Application index deep-links bounded integration recipes"
             Expect.stringContains (index "/components/application") "connects the financial workspace, collections, matching record details, forms, actions, reports and settings" "Application index describes the delivered connected journey"
-            Expect.sequenceEqual (Components.examplesFor "app-shell" |> List.map _.title) [ "Sidebar application" ] "App shell owns only shell examples"
+            Expect.sequenceEqual (Components.examplesFor "app-shell" |> List.map _.title) [ "Sidebar with constrained content"; "Full-width content with mobile bottom navigation" ] "App shell teaches layout rather than a populated application"
+            let shellHtml = render Components.appShellRegistration
+            Expect.stringContains shellHtml "Page content" "layout examples identify the content slot"
+            for forbidden in [ "Search accounts"; "Simulate filter error"; "Chart of accounts"; "ledger-app-shell" ] do
+                Expect.isFalse (shellHtml.Contains forbidden) $"App shell excludes detailed workflow content: {forbidden}"
+            let workflowHtml = render Components.accountManagementRegistration
+            Expect.stringContains workflowHtml "Search accounts" "populated collection remains in Page examples"
+            Expect.stringContains workflowHtml "ledger-app-shell" "page example uses the real shared shell"
+            Expect.stringContains (index "/components/application") "Page examples" "Application separates page examples from components"
+            Expect.isFalse ((index "/components/application").Contains "Integration examples") "no separate integration category remains"
             Expect.stringContains overview "Required inputs stay visible" "required input policy"
             Expect.stringContains overview "Optional behavior is piped" "configuration policy"
             Expect.stringContains overview "Custom content stays HTML" "slot policy"
@@ -1010,8 +1192,9 @@ after"""
                 "ConfirmationDialog.create"
                 "ConfirmationDialog.renderContent"
                 "ConfirmationDialog.pending"
-                "Drawer.create &quot;account-settings-drawer&quot; &quot;Account settings&quot;"
+                "Drawer.create &quot;account-settings-drawer&quot; &quot;Account details&quot;"
                 "Drawer.withSide DrawerSide.Start"
+                "Drawer.withWidth DrawerWidth.Wide"
                 "Collection.create &quot;Accounts&quot; table"
                 "Detail.create &quot;Operating checking&quot;"
                 "AppShell.create &quot;ledger-app-shell&quot;"
@@ -1041,7 +1224,7 @@ after"""
             Expect.stringContains allHtml "role=\"alertdialog\"" "ConfirmationDialog preserves urgent confirmation semantics"
             Expect.stringContains allHtml "data-indicator:_delete_account_confirmation_pending" "ConfirmationDialog owns immediate duplicate-submit protection"
             Expect.stringContains allHtml "id=\"account-settings-drawer\"" "Drawer renders a stable native dialog"
-            Expect.stringContains allHtml "aria-label=\"Account settings\"" "Drawer preserves consumer-owned navigation landmarks"
+            Expect.stringContains allHtml "Account details refreshed from the server." "Drawer preserves server-patched detail content"
             Expect.stringContains allHtml "/components/dialogs/confirm" "ConfirmationDialog uses a real Docs-owned endpoint"
             Expect.stringContains allHtml "/components/drawers/account" "Drawer uses a real Docs-owned patch endpoint"
             Expect.stringContains allHtml "/components/tabs/review" "Tabs uses a real Docs-owned patch endpoint"
@@ -1053,7 +1236,7 @@ after"""
             Expect.stringContains allHtml "let treasuryShellExample" "Treasury shell construction is visible"
             Expect.stringContains (index "/components/application") "one main landmark" "Application index explains AppShell ownership"
             Expect.stringContains allHtml "id=\"components-app-shell-fixture\"" "AppShell example exposes one stable destination morph region"
-            Expect.stringContains allHtml "/components/app-shell/fixture?" "AppShell destination links request only the stable fixture region"
+            Expect.stringContains allHtml "/components/page-examples/account-management/fixture?" "AppShell destination links request only the stable fixture region"
             Expect.stringContains allHtml "window.fsharpDocsNavigation.navigate(evt" "standalone composition fixtures use Docs-owned Datastar document navigation"
             Expect.stringContains allHtml "--fve-brand-solid" "consumer theme overrides are documented"
             Expect.stringContains overview "rel=\"prev\" href=\"/extensions/tailwind-elements\"" "Components follows integrations"
@@ -1413,6 +1596,8 @@ after"""
             Expect.stringContains endDrawerHtml "evt.target == evt.currentTarget" "Drawer backdrop dismisses explicitly"
             let startDrawerHtml = endDrawer |> Drawer.withSide DrawerSide.Start |> Drawer.render |> Render.toString
             Expect.stringContains startDrawerHtml "left-0 ml-0 mr-auto border-r" "Drawer supports the typed start edge"
+            let wideDrawerHtml = endDrawer |> Drawer.withWidth DrawerWidth.Wide |> Drawer.render |> Render.toString
+            Expect.stringContains wideDrawerHtml "w-[min(42rem,calc(100%-3rem))]" "Drawer supports a typed wide editing surface"
         }
 
         test "Components foundations preserve accessible names, honest states, and protected structure" {

@@ -54,7 +54,7 @@ module Breadcrumbs =
             _class "@container min-w-0 w-full"
             ol {
                 _role "list"
-                _class "flex min-w-0 flex-wrap items-center gap-1 text-sm text-[var(--fve-muted-text)]"
+                _class "-ml-1 flex min-w-0 flex-wrap items-center gap-1 text-sm text-[var(--fve-muted-text)]"
                 if hiddenItems.IsEmpty |> not then
                     li {
                         _class "flex shrink-0 sm:hidden"
@@ -78,7 +78,7 @@ module Breadcrumbs =
                         if current then
                             span {
                                 _ariaCurrent "page"
-                                _class "block min-w-0 break-words font-semibold text-[var(--fve-text)] sm:truncate"
+                                _class "block min-w-0 break-words px-1 py-1 font-semibold text-[var(--fve-text)] sm:truncate"
                                 item.label
                             }
                         else

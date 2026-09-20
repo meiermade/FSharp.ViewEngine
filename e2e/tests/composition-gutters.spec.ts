@@ -6,8 +6,8 @@ test('detail statuses belong to fields beneath a Detail section heading @cross-b
     await page.setViewportSize({ width, height: 1000 })
     for (const [route, status] of [
       ['/components/detail', 'Active'],
-      ['/components/app-shell?destination=ledger-account-2048', 'Active'],
-      ['/components/app-shell?destination=ledger-transaction-201', 'Verified'],
+      ['/components/page-examples/account-management?destination=ledger-account-2048', 'Active'],
+      ['/components/page-examples/account-management?destination=ledger-transaction-201', 'Verified'],
     ]) {
       await page.goto(route)
       const preview = page.locator('.docs-components-preview .fve-components').first()
@@ -91,7 +91,7 @@ test('collection and detail share inset content boundaries without a sidebar @cr
       expect((await new AxeBuilder({ page }).include('.docs-components-preview').analyze()).violations).toEqual([])
     }
     for (const destination of ['ledger-accounts', 'ledger-account-2048']) {
-      await page.goto(`/components/app-shell?destination=${destination}`)
+      await page.goto(`/components/page-examples/account-management?destination=${destination}`)
       const shell = page.locator('#ledger-app-shell')
       const heading = await shell.getByRole('heading', { level: 1 }).boundingBox()
       const table = await shell.locator('[data-fve-table]').getByRole('region', { name: destination === 'ledger-accounts' ? 'Accounts' : 'Transactions', exact: true }).boundingBox()
@@ -124,7 +124,7 @@ test('record menus copy, download, and navigate to matching fixtures @cross-brow
     await expect(trigger).toBeFocused()
     await trigger.click()
     await menu.getByRole('menuitem', { name: `Copy ${kind} link`, exact: true }).click()
-    await expect.poll(() => page.evaluate(() => (window as any).copiedValue)).toBe(`${new URL(page.url()).origin}/components/app-shell?destination=ledger-${kind}-${id}`)
+    await expect.poll(() => page.evaluate(() => (window as any).copiedValue)).toBe(`${new URL(page.url()).origin}/components/page-examples/account-management?destination=ledger-${kind}-${id}`)
     await trigger.click()
     const downloaded = page.waitForEvent('download')
     await menu.getByRole('menuitem', { name: `Download ${kind}`, exact: true }).click()

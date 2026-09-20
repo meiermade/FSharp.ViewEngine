@@ -93,16 +93,27 @@ type DocsApiOperation =
           deprecated:bool }
 
 module internal CopyableCode =
+    let renderButton (label:string) =
+        button {
+            _type "button"
+            _ariaLabel label
+            _title label
+            _class "docs-copy-code"
+            _data("on:click", "window.fsharpDocsCopy(evt.currentTarget)")
+            raw """<svg data-docs-copy-icon="copy" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.5 2.75A2.75 2.75 0 0 0 2.75 5.5v7A2.75 2.75 0 0 0 5.5 15.25h1.75a.75.75 0 0 0 0-1.5H5.5c-.69 0-1.25-.56-1.25-1.25v-7c0-.69.56-1.25 1.25-1.25h5c.69 0 1.25.56 1.25 1.25v1.75a.75.75 0 0 0 1.5 0V5.5a2.75 2.75 0 0 0-2.75-2.75h-5Z"/><path d="M9.5 8.25A2.75 2.75 0 0 0 6.75 11v4.5a2.75 2.75 0 0 0 2.75 2.75h5A2.75 2.75 0 0 0 17.25 15.5V11a2.75 2.75 0 0 0-2.75-2.75h-5Zm-1.25 2.75c0-.69.56-1.25 1.25-1.25h5c.69 0 1.25.56 1.25 1.25v4.5c0 .69-.56 1.25-1.25 1.25h-5c-.69 0-1.25-.56-1.25-1.25V11Z"/></svg>"""
+            raw """<svg data-docs-copy-icon="success" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.051l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.479-9.816a.75.75 0 0 1 1.051-.143Z" clip-rule="evenodd"/></svg>"""
+            raw """<svg data-docs-copy-icon="error" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm0-12.75a.75.75 0 0 1 .75.75v4a.75.75 0 0 1-1.5 0V6a.75.75 0 0 1 .75-.75ZM10 14a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z" clip-rule="evenodd"/></svg>"""
+            span {
+                _data("docs-copy-label", "true")
+                _class "sr-only"
+                _role "status"
+            }
+        }
+
     let render (className:string) (codeClass:string) (label:string) (source:string) =
         div {
             _class "docs-copyable-code"
-            button {
-                _type "button"
-                _ariaLabel $"Copy {label}"
-                _class "docs-copy-code"
-                _data("on:click", "window.fsharpDocsCopy(evt.currentTarget)")
-                span { _data("docs-copy-label", "true"); "Copy" }
-            }
+            renderButton $"Copy {label}"
             pre { _class className; _tabindex 0; code { _class codeClass; _data("docs-copy-source", "true"); source } }
         }
 

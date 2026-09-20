@@ -24,7 +24,7 @@ type ButtonConfig =
     private
         { label:string
           variant:ButtonVariant
-          size:ControlSize
+          size:ControlSize option
           buttonType:ButtonType
           leading:HtmlElement option
           trailing:HtmlElement option
@@ -46,7 +46,7 @@ module internal ButtonStyles =
         | ButtonType.Reset -> "reset"
 
     let baseClasses =
-        "inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-semibold shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        "inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium shadow-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
 
 [<RequireQualifiedAccess>]
 module Button =
@@ -54,7 +54,7 @@ module Button =
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A button label is required."
         { label = label
           variant = ButtonVariant.Secondary
-          size = ControlSize.Medium
+          size = None
           buttonType = ButtonType.Button
           leading = None
           trailing = None
@@ -64,7 +64,7 @@ module Button =
           attributes = [] }
 
     let withVariant variant config = { config with variant = variant }
-    let withSize size config = { config with size = size }
+    let withSize size config = { config with size = Some size }
     let asSubmit config = { config with buttonType = ButtonType.Submit }
     let withLeading leading config = { config with leading = Some leading }
     let withTrailing trailing config = { config with trailing = Some trailing }
@@ -87,7 +87,7 @@ module Button =
                     config.className |> Option.defaultValue "" ])
             for attribute in ComponentHtml.safeAttributes [ "type"; "disabled"; "aria-busy"; "class" ] config.attributes do attribute
             if config.pending then
-                ComponentHtml.loadingGlyph config.size
+                ComponentHtml.loadingGlyph (config.size |> Option.defaultValue ControlSize.Medium)
             else
                 config.leading |> Option.defaultValue empty
             config.label

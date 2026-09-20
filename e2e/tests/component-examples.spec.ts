@@ -8,16 +8,20 @@ const components = [
   ['table', 'Table.create'], ['description-list', 'DescriptionList.create'], ['metric', 'Metric.text'],
   ['pagination', 'Pagination.create'], ['avatar', 'Avatar.create'], ['copy-reveal', 'CopyReveal.create'],
   ['input', 'Input.create'], ['file-selection', 'FileSelection.create'], ['tag-input', 'TagInput.create'], ['textarea', 'Textarea.create'], ['form-layouts', 'Input.create'],
-  ['error-summary', 'ErrorSummary.create'], ['notice', 'Notice.create'], ['select', 'Select.create'],
+  ['error-summary', 'ErrorSummary.create'], ['notice', 'Notice.create'], ['notification', 'Notification.create'], ['select', 'Select.create'],
   ['checkbox', 'Checkbox.create'], ['switch', 'Switch.create'],
   ['toggle-button', 'ToggleButton.create'], ['tabs', 'Tabs.create'], ['radio-group', 'RadioGroup.create'], ['choice-cards', 'ChoiceCards.single'],
   ['dropdown-menu', 'DropdownMenu.create'], ['dialog', 'Dialog.create'], ['confirmation-dialog', 'ConfirmationDialog.create'],
-  ['drawer', 'Drawer.create'], ['breadcrumbs', 'Breadcrumbs.create'], ['side-nav', 'SideNav.create'],
+  ['drawer', 'Drawer.create'], ['floating-panel', 'FloatingPanel.create'], ['breadcrumbs', 'Breadcrumbs.create'], ['side-nav', 'SideNav.create'],
   ['page-top-bar', 'PageTopBar.create'], ['page-header', 'PageHeader.create'], ['section', 'Section.create'],
   ['page', 'Page.create'], ['collection', 'Collection.create'], ['detail', 'Detail.create'], ['app-shell', 'AppShell.create'],
   ['bottom-navigation', 'BottomNavigation.create'], ['bulk-actions', 'BulkActions.create'], ['upload', 'UploadList.create'],
   ['steps', 'Steps.create'], ['first-steps', 'FirstSteps.create'], ['calendar', 'Calendar.create'], ['media-library', 'MediaLibrary.create'],
-  ['integrations/graph-and-trace', 'svg'], ['integrations/financial-chart', 'polyline'], ['integrations/messaging', 'Textarea.create'],
+  ['page-examples/account-management', 'AppShell.create'],
+  ['page-examples/dependency-graph', 'svg'], ['page-examples/execution-detail', 'traceSpans'],
+  ['page-examples/financial-reporting', 'polyline'], ['page-examples/messaging', 'Textarea.create'],
+  ['page-examples/operations-dashboard', 'FirstSteps.create'], ['page-examples/scheduling', 'Calendar.create'],
+  ['page-examples/media-management', 'MediaLibrary.create'],
 ]
 
 test.describe('component gallery code', () => {
@@ -171,30 +175,15 @@ test('Free-form tags add, reject, remove, and submit repeated native values @cro
   await expect(entry).toBeFocused()
 })
 
-test('Calendar view navigation is linked, stateful, and preserves event alternatives @cross-browser', async ({ page }) => {
-  await page.goto('/components/calendar?calendarView=list')
-  const calendar = page.locator('#components-calendar-schedule-panel-preview')
-  await expect(calendar.getByRole('link', { name: 'List', exact: true })).toHaveAttribute('aria-current', 'page')
-  await calendar.getByRole('link', { name: 'Week', exact: true }).click()
-  await expect(page).toHaveURL(/calendarView=week/)
-  await expect(page.locator('#components-calendar-schedule-panel-preview').getByRole('link', { name: 'Week', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(page.locator('#components-calendar-schedule-panel-preview').getByText('Overlaps Northwind by one hour')).toBeVisible()
-  await page.locator('#components-calendar-schedule-panel-preview').getByRole('link', { name: 'Next', exact: true }).click()
-  await expect(page).toHaveURL(/calendarDate=1/)
-  await expect(page.locator('#components-calendar-schedule-panel-preview').getByText('September 28–October 4, 2026')).toBeVisible()
-  await expect(page.locator('#components-calendar-schedule-panel-preview').getByText('Autumn orientation')).toBeVisible()
-
-  const calendarPreview = page.locator('#components-calendar-schedule-panel-preview')
-  await calendarPreview.getByRole('navigation', { name: 'Calendar example states', exact: true }).getByRole('link', { name: 'Empty', exact: true }).click()
-  await expect(calendarPreview.getByText('No bookings in this range.', { exact: true })).toBeVisible()
-  await calendarPreview.getByRole('navigation', { name: 'Calendar example states', exact: true }).getByRole('link', { name: 'Loading', exact: true }).click()
-  await expect(calendarPreview.getByRole('status').filter({ hasText: 'Loading calendar' })).toBeVisible()
-  await calendarPreview.getByRole('navigation', { name: 'Calendar example states', exact: true }).getByRole('link', { name: 'Error', exact: true }).click()
-  await expect(calendarPreview.getByRole('alert')).toContainText('Bookings could not be loaded.')
-  await calendarPreview.getByRole('link', { name: 'Retry calendar', exact: true }).click()
-  await expect(calendarPreview.getByText('Autumn orientation', { exact: true })).toBeVisible()
-  await calendarPreview.getByRole('navigation', { name: 'Calendar example states', exact: true }).getByRole('link', { name: 'Unavailable', exact: true }).click()
-  await expect(calendarPreview.getByText('This schedule is unavailable for your current workspace.', { exact: true })).toBeVisible()
+test('Calendar gallery keeps day, week, month and year views independent @cross-browser', async ({ page }) => {
+  await page.goto('/components/calendar')
+  await expect(page.getByRole('heading', { name: 'Month view', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Week view', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Day view', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Year view', exact: true })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Calendar example states', exact: true })).toHaveCount(0)
+  await expect(page.locator('#components-calendar-week-panel-preview').getByText('Overlaps the trail lesson by one hour')).toBeVisible()
+  await expect(page.locator('#components-calendar-year-panel-preview .fve-calendar-year-month')).toHaveCount(12)
 })
 
 test('Media library shares stable selection with page-level bulk actions @cross-browser', async ({ page }) => {
@@ -230,33 +219,14 @@ test('Media library shares stable selection with page-level bulk actions @cross-
   await expect(example.getByRole('region', { name: 'Selected media actions', exact: true })).toBeVisible()
 })
 
-test('Bounded trace, financial chart, and messaging integrations retain accessible alternatives @cross-browser', async ({ page }) => {
-  await page.goto('/components/integrations/graph-and-trace')
-  const trace = page.locator('#components-trace-viewer-panel-preview')
-  await expect(trace.getByRole('img', { name: 'Request trace from browser through API and database' })).toBeVisible()
-  await expect(trace.getByRole('listitem')).toHaveCount(3)
-  await trace.getByRole('button', { name: 'Simulate trace error', exact: true }).click()
-  await expect(trace.getByRole('alert')).toContainText('Trace data could not be loaded.')
-  await trace.getByRole('button', { name: 'Retry trace', exact: true }).click()
-  await trace.getByRole('button', { name: 'Show empty trace', exact: true }).click()
-  await expect(trace.getByText('No spans matched this trace query.')).toBeVisible()
-  await trace.getByRole('button', { name: 'Load trace', exact: true }).click()
-  await expect(trace.getByRole('status')).toHaveText('Loading trace…')
-  await trace.getByRole('button', { name: 'Show trace', exact: true }).click()
-
-  await page.goto('/components/integrations/financial-chart')
-  const chart = page.locator('#components-financial-chart-panel-preview')
-  await chart.getByRole('button', { name: '90 days', exact: true }).click()
-  await expect(chart.getByRole('button', { name: '90 days', exact: true })).toHaveAttribute('aria-pressed', 'true')
-  await expect(chart.getByRole('img', { name: 'Ninety-day balance: $24,820' })).toBeVisible()
-  await expect(chart.getByRole('table', { name: 'Balance data' }).getByText('90 days')).toBeVisible()
-
-  await page.goto('/components/integrations/messaging')
-  const messaging = page.locator('#components-messaging-panel-preview')
-  await messaging.getByRole('button', { name: /Contoso/ }).click()
-  await expect(messaging.getByRole('heading', { name: 'Contoso', exact: true })).toBeVisible()
-  await messaging.getByRole('button', { name: 'Send message', exact: true }).click()
-  await expect(messaging.getByRole('status')).toHaveText('Message queued in this resettable demo.')
+test('Former graph-and-trace links reach the complete dependency workspace @cross-browser', async ({ page }) => {
+  await page.goto('/components/page-examples/graph-and-trace')
+  await expect(page).toHaveURL('/components/page-examples/dependency-graph')
+  const workspace = page.locator('[data-fve-fixture-id="page-workspace"]')
+  await expect(workspace.getByRole('searchbox', { name: 'Search dependencies' })).toBeVisible()
+  await expect(workspace.getByRole('button', { name: /Simulate/ })).toHaveCount(0)
+  await expect(page.locator('#page-content')).toContainText('dependency')
+  // Working graph/span, financial, message, and review-state journeys live in workspace-pages.spec.ts.
 })
 
 test('Rich choice cards retain native selection and disabled semantics @cross-browser', async ({ page }) => {
@@ -289,9 +259,9 @@ test('Hierarchical tables disclose only their matching descendants @cross-browse
 test('Operational application examples preserve native input and recoverable actions @cross-browser', async ({ page }) => {
   await page.goto('/components/first-steps')
   const firstSteps = page.locator('#components-first-steps-panel-preview')
-  await firstSteps.getByRole('button', { name: 'Minimize first steps', exact: true }).click()
+  await firstSteps.getByRole('button', { name: 'Minimize First steps', exact: true }).click()
   await expect(firstSteps.getByRole('region', { name: 'First steps', exact: true })).toBeHidden()
-  await firstSteps.getByRole('button', { name: 'Restore first steps', exact: true }).click()
+  await firstSteps.getByRole('button', { name: 'Open First steps', exact: true }).click()
   await expect(firstSteps.getByRole('region', { name: 'First steps', exact: true })).toBeVisible()
 
   await page.goto('/components/file-selection')
@@ -342,7 +312,7 @@ test('Operational application examples preserve native input and recoverable act
 
 test('AppShell mobile bottom navigation remains visible link navigation above page scroll @cross-browser', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/components/app-shell')
+  await page.goto('/components/page-examples/account-management')
 
   const navigation = page.locator('#ledger-bottom-navigation')
   await navigation.evaluate(element => element.scrollIntoView({ block: 'end' }))

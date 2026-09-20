@@ -114,7 +114,7 @@ test('selectable tables recompose one accessible tree into mobile records @cross
 })
 
 test('table selection reports keys and survives a real fixture morph @cross-browser', async ({ page }) => {
-  await page.goto('/components/app-shell?destination=ledger-accounts')
+  await page.goto('/components/page-examples/account-management?destination=ledger-accounts')
   const shell = page.locator('#ledger-app-shell')
   await page.evaluate(() => {
     (window as any).selectedKeys = []
@@ -135,7 +135,7 @@ test('table selection reports keys and survives a real fixture morph @cross-brow
   const accountsLink = shell.getByRole('navigation', { name: 'Ledger primary navigation' }).getByRole('link', { name: 'Accounts', exact: true })
   await expect(accountsLink).toHaveAttribute('aria-current', 'page')
   const [response] = await Promise.all([
-    page.waitForResponse(response => response.url().includes('/components/app-shell/fixture?destination=ledger-accounts')),
+    page.waitForResponse(response => response.url().includes('/components/page-examples/account-management/fixture?destination=ledger-accounts')),
     accountsLink.dispatchEvent('click'),
   ])
   expect(response.status()).toBe(200)

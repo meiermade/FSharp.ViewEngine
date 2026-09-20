@@ -46,6 +46,20 @@ module Components =
           balance:decimal
           totalBalance:decimal }
 
+    type AccountWorkspace =
+        { createdAccounts:AccountRow list
+          workspaceName:string
+          currency:string
+          emailUpdates:bool
+          draftName:string
+          draftType:string
+          feedback:string
+          searchQuery:string
+          filterType:string }
+
+    let defaultAccountWorkspace =
+        { createdAccounts=[]; workspaceName="Meier Made"; currency="USD"; emailUpdates=true; draftName=""; draftType="Asset"; feedback=""; searchQuery=""; filterType="all" }
+
     type HierarchyAccount =
         { key:string
           ancestors:string list
@@ -117,10 +131,10 @@ module Components =
         | _ -> None
 
     let shellDestinationUrl destination =
-        $"/components/app-shell?destination={shellDestinationKey destination}"
+        $"/components/page-examples/account-management?destination={shellDestinationKey destination}"
 
     let private shellDestinationLink =
-        "evt.target.closest('a[href^=\"/components/app-shell?destination=\"]')"
+        "evt.target.closest('a[href^=\"/components/page-examples/account-management?destination=\"]')"
 
     let private shellDocumentNavigationAttributes =
         let link = shellDestinationLink
@@ -128,7 +142,7 @@ module Components =
 
     let private shellFixtureNavigationAttributes =
         let link = shellDestinationLink
-        [ _dataOn ("click", $"if ({link} && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) {{ evt.preventDefault(); window.history.pushState(null, '', {link}.getAttribute('href')); @get({link}.getAttribute('href').replace('/components/app-shell?', '/components/app-shell/fixture?')) }}") ]
+        [ _dataOn ("click", $"if ({link} && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) {{ evt.preventDefault(); window.history.pushState(null, '', {link}.getAttribute('href')); @get({link}.getAttribute('href').replace('/components/page-examples/account-management?', '/components/page-examples/account-management/fixture?')) }}") ]
 
     let private sourceText =
         lazy (SourceRegion.readEmbedded typeof<DocPage>.Assembly "Docs.Pages.Components.fs")
@@ -233,7 +247,7 @@ module Components =
         |> EmptyState.withIcon plusIcon
         |> EmptyState.withActions (
             ActionCluster.create "empty-account-actions" [
-                ApplicationAction.link "/components/app-shell?destination=ledger-create-account" "Create account"
+                ApplicationAction.link "/components/page-examples/account-management?destination=ledger-create-account" "Create account"
                 |> ApplicationAction.withVariant ButtonVariant.Primary ]
             |> ActionCluster.render id)
         |> EmptyState.render
@@ -247,6 +261,10 @@ module Components =
 
     let private operatingAccount : AccountRow =
         { id = 2048; name = "Operating checking"; accountType = "Asset"; commodity = "USD"; balance = 38442.11M; totalBalance = 38442.11M }
+
+    let accountNameExists (workspace:AccountWorkspace) name =
+        (operatingAccount :: rows) @ workspace.createdAccounts
+        |> List.exists (fun row -> String.Equals(row.name, name, StringComparison.OrdinalIgnoreCase))
 
     let private money amount =
         if amount < 0M then $"−${-amount:N2}" else $"${amount:N2}"
@@ -282,7 +300,7 @@ module Components =
           MenuItem.separator
           MenuItem.action download $"Download {kind}" ]
 
-    let private accountTableConfig destinationFor resolve rowAttributes =
+    let private accountTableConfigFor accountRows destinationFor resolve rowAttributes =
         Table.create "Accounts" [
             Table.column "Account" (fun (row:AccountRow) ->
                 a { _href (resolve (destinationFor row.id)); _class "font-medium text-[var(--fve-brand-text)]"; row.name })
@@ -298,7 +316,7 @@ module Components =
                 RowActions.create $"account-{row.id}-actions" row.name
                     (recordMenuItems "account" row.id (destinationFor row.id) resolve (System.Text.Json.JsonSerializer.Serialize row))
                 |> RowActions.render resolve)
-        ] rows
+        ] accountRows
         |> Table.withDensity Density.Compact
         |> Table.withMobileLayout TableMobileLayout.Records
         |> Table.withRowAttributes rowAttributes
@@ -306,6 +324,8 @@ module Components =
             TableSelection.create "accounts-selection" (fun (row:AccountRow) -> string row.id) (fun row -> row.name)
             |> TableSelection.withDisabledRows (fun row -> row.accountType = "Placeholder")
             |> TableSelection.withFormName "accountIds")
+
+    let private accountTableConfig destinationFor resolve rowAttributes = accountTableConfigFor rows destinationFor resolve rowAttributes
 
     let accountTable = accountTableConfig LedgerAccount shellDestinationUrl (fun _ -> []) |> Table.render |> recordActionFeedback "account"
 
@@ -728,11 +748,6 @@ module Components =
         |> Input.withSuffix "USD"
         |> Input.withAttributes [ _inputmode "decimal"; _placeholder "0.00" ]
         |> Input.render
-    let readonlyInput =
-        Input.create "memberId" "Member ID"
-        |> Input.withValue "MEM-2048"
-        |> Input.readOnly
-        |> Input.render
     let disabledInput =
         Input.create "disabledEmail" "Email"
         |> Input.withValue "alex@example.com"
@@ -749,6 +764,40 @@ module Components =
         |> Input.withType InputType.Search
         |> Input.withAttributes [ _placeholder "Search…"; _autocomplete "off" ]
         |> Input.render
+    let inputSizeExamples =
+        div {
+            _class "grid min-w-0 gap-6"
+            for size, name in [ ControlSize.Small, "Compact"; ControlSize.Medium, "Standard"; ControlSize.Large, "Large" ] do
+                div {
+                    _class (ControlSize.className size + " flex flex-wrap items-end gap-3")
+                    Input.create ("sizing-" + name) (name + " search")
+                    |> Input.withType InputType.Search
+                    |> Input.render
+                    Select.create ("sizing-type-" + name) (name + " type") id [ Select.option "all" "All types" ]
+                    |> Select.withSelected "all"
+                    |> Select.render
+                    div {
+                        _class "flex flex-wrap items-center gap-3"
+                        Button.create (name + " action") |> Button.render
+                        IconButton.create (name + " refresh") refreshIcon |> IconButton.render
+                    }
+                }
+            div {
+                _class (ControlSize.className ControlSize.Small + " flex flex-wrap items-end gap-3")
+                Input.create "override-search" "Larger search in a compact region"
+                |> Input.withType InputType.Search
+                |> Input.withSize ControlSize.Large
+                |> Input.render
+                Select.create "override-type" "Larger type" id [ Select.option "all" "All types" ]
+                |> Select.withSelected "all" |> Select.withSize ControlSize.Large |> Select.render
+                div {
+                    _class "flex flex-wrap items-center gap-3"
+                    Button.create "Larger action" |> Button.withSize ControlSize.Large |> Button.render
+                    IconButton.create "Larger refresh" refreshIcon |> IconButton.withSize ControlSize.Large |> IconButton.render
+                }
+            }
+        }
+
     let tagInputExample =
         TagInput.create "ledger-tags" "tags" "Tags" [ "reviewed"; "quarter-end" ]
         |> TagInput.withDescription "Type any tag and press Enter or Add tag. Duplicate and empty values are rejected explicitly."
@@ -781,11 +830,6 @@ module Components =
         |> Textarea.withValue "Include the invoice number with your payment."
         |> Textarea.withDescription "Maximum 400 characters."
         |> Textarea.withAttributes [ _maxlength 400 ]
-        |> Textarea.render
-    let acceptedNotes =
-        Textarea.create "acceptedNotes" "Accepted notes"
-        |> Textarea.withValue "Approved for the current period."
-        |> Textarea.readOnly
         |> Textarea.render
     let pendingNotes =
         Textarea.create "pendingNotes" "Checking notes"
@@ -836,27 +880,6 @@ module Components =
         |> Notice.withTone Tone.Critical
         |> Notice.withActions (a { _href "/components/error-summary"; _class "underline underline-offset-2"; "Review highlighted fields" })
         |> Notice.render
-
-    let accountSearchExample =
-        div {
-            _class "grid min-w-0 max-w-xl gap-3 p-4"
-            _dataSignals "{fieldsearch: ''}"
-            Input.create "query" "Search accounts"
-            |> Input.withId "field-search"
-            |> Input.withType InputType.Search
-            |> Input.withAttributes [ _dataBind "fieldsearch"; _autocomplete "off" ]
-            |> Input.render
-            ul {
-                _ariaLabel "Matching accounts"
-                for name in [ "Operating"; "Savings"; "Tax reserve" ] do
-                    li { _dataShow ($"'{name.ToLowerInvariant()}'.includes($fieldsearch.toLowerCase())"); _class "text-sm"; name }
-            }
-            output {
-                _role "status"
-                _class "text-sm text-[var(--fve-muted-text)]"
-                _dataText "['Operating', 'Savings', 'Tax reserve'].filter(name => name.toLowerCase().includes($fieldsearch.toLowerCase())).length + ' matching accounts'"
-            }
-        }
 
     let memberOptions =
         [ Select.option "alex" "Alex Morgan"
@@ -1456,24 +1479,87 @@ module Components =
     let accountDrawerContent refreshed =
         div {
             _id "account-drawer-content"
-            nav {
-                _ariaLabel "Account settings"
-                _class "grid gap-2"
-                a { _id "account-drawer-profile"; _href "/components/drawer#profile"; _class "rounded-[var(--fve-radius-control)] px-3 py-2 font-medium text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"; "Profile" }
-                a { _href "/components/drawer#notifications"; _class "rounded-[var(--fve-radius-control)] px-3 py-2 font-medium text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"; "Notifications" }
-            }
-            Button.create "Refresh panel"
-            |> Button.withClass "mt-5"
+            _class "grid gap-5"
+            DescriptionList.create [
+                DetailField.text "Account name" "Operating checking"
+                DetailField.text "Type" "Asset"
+                DetailField.text "Currency" "USD"
+                DetailField.status "Status" (Status.positive "Active")
+            ]
+            |> DescriptionList.render
+            p { _class "text-sm text-[var(--fve-muted-text)]"; "Last reconciled September 15, 2026 by Andy Meier." }
+            Button.create "Refresh details"
             |> Button.withAttributes [ _id "account-drawer-refresh"; _dataOn ("click", "@get('/components/drawers/account').then(() => document.getElementById('account-drawer-refresh')?.focus())") ]
             |> Button.render
             if refreshed then
-                p { _role "status"; _class "mt-4 text-sm text-[var(--fve-positive-text)]"; "Panel content refreshed from the server." }
+                p { _role "status"; _class "text-sm text-[var(--fve-positive-text)]"; "Account details refreshed from the server." }
         }
 
     let accountDrawerConfig =
-        Drawer.create "account-settings-drawer" "Account settings" (accountDrawerContent false)
-        |> Drawer.withDescription "Manage account preferences without leaving the current page."
-        |> Drawer.withInitialFocus "account-drawer-profile"
+        Drawer.create "account-settings-drawer" "Account details" (accountDrawerContent false)
+        |> Drawer.withDescription "Review the selected account without leaving the current page."
+        |> Drawer.withInitialFocus "account-drawer-refresh"
+
+    let accountEditorBody =
+        form {
+            _id "account-editor-form"
+            _class "grid gap-6"
+            section {
+                _ariaLabelledby "account-editor-basics"
+                _class "grid gap-4"
+                h3 { _id "account-editor-basics"; _class "text-base font-semibold"; "Account basics" }
+                Input.create "accountName" "Account name"
+                |> Input.withId "account-editor-name"
+                |> Input.withValue "Operating checking"
+                |> Input.withDescription "Use the name shown throughout reporting and reconciliation."
+                |> Input.render
+                Select.create "accountType" "Account type" id [
+                    Select.option "asset" "Asset"
+                    Select.option "liability" "Liability"
+                    Select.option "equity" "Equity"
+                    Select.option "revenue" "Revenue"
+                    Select.option "expense" "Expense"
+                ]
+                |> Select.withId "account-editor-type"
+                |> Select.withSelected "asset"
+                |> Select.render
+                Input.create "accountNumber" "Account number"
+                |> Input.withValue "1040"
+                |> Input.render
+            }
+            section {
+                _ariaLabelledby "account-editor-reporting"
+                _class "grid gap-4 border-t border-[var(--fve-border)] pt-6"
+                h3 { _id "account-editor-reporting"; _class "text-base font-semibold"; "Reporting" }
+                Input.create "reportingGroup" "Reporting group"
+                |> Input.withValue "Cash and cash equivalents"
+                |> Input.render
+                Textarea.create "accountNotes" "Internal notes"
+                |> Textarea.withRows 5
+                |> Textarea.withValue "Primary operating account for Northwind Outdoor."
+                |> Textarea.withDescription "Only workspace members can read these notes."
+                |> Textarea.render
+            }
+        }
+
+    let accountEditorFooter =
+        div {
+            _class "flex flex-wrap justify-end gap-3"
+            Button.create "Cancel"
+            |> Button.withAttributes [ _dataOn ("click", "document.getElementById('account-editor-drawer')?.close()") ]
+            |> Button.render
+            Button.create "Save changes"
+            |> Button.asSubmit
+            |> Button.withAttributes [ _attr ("form", "account-editor-form") ]
+            |> Button.render
+        }
+
+    let accountEditorDrawerConfig =
+        Drawer.create "account-editor-drawer" "Edit account" accountEditorBody
+        |> Drawer.withDescription "Update the account fields used by reporting and reconciliation."
+        |> Drawer.withFooter accountEditorFooter
+        |> Drawer.withInitialFocus "account-editor-name"
+        |> Drawer.withWidth DrawerWidth.Wide
 
     let filterDrawerConfig =
         Drawer.create "account-filters-drawer" "Account filters" (
@@ -1505,14 +1591,13 @@ module Components =
             _ariaLabel "Collection controls"
             div {
                 _class "flex flex-col gap-2 sm:flex-row sm:items-center"
-                input {
-                    _type "search"
-                    _name "query"
-                    _ariaLabel "Search accounts"
-                    _placeholder "Search accounts"
-                    _dataBind "collectionquery"
-                    _dataAttr ("disabled", "$collectionstate != 'ready'")
-                    _class "min-h-[var(--fve-control-min-height)] min-w-40 flex-1 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 text-sm ring-1 ring-[var(--fve-border)] outline-none focus:ring-2 focus:ring-[var(--fve-brand-ring)]"
+                div {
+                    _class "min-w-40 flex-1"
+                    Input.create "query" "Search accounts"
+                    |> Input.withType InputType.Search
+                    |> Input.withVisuallyHiddenLabel
+                    |> Input.withAttributes [ _placeholder "Search accounts"; _dataBind "collectionquery"; _dataAttr ("disabled", "$collectionstate != 'ready'") ]
+                    |> Input.render
                 }
                 label {
                     _class "flex min-h-[var(--fve-control-min-height)] items-stretch overflow-hidden whitespace-nowrap rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] text-xs ring-1 ring-[var(--fve-border)]"
@@ -1766,7 +1851,7 @@ module Components =
                 _href (shellDestinationUrl LedgerSettings)
                 _class "flex min-h-[var(--fve-control-min-height)] items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-sm font-semibold text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
                 span { _ariaHidden true; _class "flex size-8 items-center justify-center rounded-full bg-[var(--fve-brand-subtle)] text-xs text-[var(--fve-brand-text)]"; "AM" }
-                span { _class "min-w-0"; span { _class "block truncate"; "Andrew Meier" }; span { _class "block truncate text-xs font-normal text-[var(--fve-muted-text)]"; "Account settings" } }
+                span { _class "min-w-0 truncate"; "Andy Meier" }
             })
 
     let groupedLedgerNavigation = ledgerNavigation LedgerAccounts
@@ -1843,6 +1928,11 @@ module Components =
             | TreasuryPeriod _ -> TreasuryTransactions
             | TreasuryHome | TreasuryTransactions | TreasuryPayees | TreasuryAccounts -> current
             | _ -> TreasuryHome
+        let workspace =
+            div {
+                p { _class "text-xs font-semibold uppercase tracking-wide text-[var(--fve-muted-text)]"; "Workspace" }
+                p { _class "mt-1 truncate text-sm font-semibold"; "Meier Made" }
+            }
         let navigationHeader =
             SideNavHeader.create "Treasury"
             |> SideNavHeader.withContent (
@@ -1859,12 +1949,13 @@ module Components =
                 shellItem TreasuryAccounts "Accounts" ] ]
         |> SideNav.withCurrent navigationCurrent
         |> SideNav.withWidth SideNavWidth.Narrow
+        |> SideNav.withContext workspace
+        |> SideNav.withMobileContext workspace
         |> SideNav.withFooter (
-            a {
-                _href (shellDestinationUrl TreasuryHome)
-                _class "block rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
-                "Meier Made"
-                span { _class "mt-1 block text-xs font-normal text-[var(--fve-muted-text)]"; "Cash management" }
+            div {
+                _class "flex min-w-0 items-center gap-3 px-3 py-2"
+                span { _ariaHidden true; _class "flex size-8 items-center justify-center rounded-full bg-[var(--fve-brand-subtle)] text-xs text-[var(--fve-brand-text)]"; "AM" }
+                span { _class "min-w-0 truncate text-sm font-semibold"; "Andy Meier" }
             })
 
     let private upcomingPayments =
@@ -1940,9 +2031,9 @@ module Components =
 
     let treasuryTransactionsPage = transactionsPage (pageTopBar (treasuryBreadcrumbs TreasuryTransactions)) transactionTabs
 
-    let private ledgerPage current =
+    let private ledgerPage workspace current =
         let page actions subtitle content =
-            PageHeader.create (ledgerTitle current)
+            PageHeader.create (match current with LedgerAccount id when id>=9001 -> workspace.createdAccounts |> List.tryFind (fun account -> account.id=id) |> Option.map _.name |> Option.defaultValue (ledgerTitle current) | _ -> ledgerTitle current)
             |> PageHeader.withSubtitle subtitle
             |> PageHeader.withActions actions
             |> fun header -> Page.create header content
@@ -1957,18 +2048,29 @@ module Components =
                     ApplicationAction.link LedgerCreateAccount "Create"
                     |> ApplicationAction.withVariant ButtonVariant.Primary ]
                 |> ActionCluster.withOverflow [ MenuItem.link LedgerSettings "Account settings" ]
+            let filtered = rows @ workspace.createdAccounts |> List.filter (fun row -> row.name.Contains(workspace.searchQuery,StringComparison.OrdinalIgnoreCase) && (workspace.filterType="all" || row.accountType.Equals(workspace.filterType,StringComparison.OrdinalIgnoreCase)))
+            let controls =
+                form {
+                    _method "get"; _action "/components/page-examples/account-management"
+                    _class "flex flex-wrap items-end gap-3"
+                    input { _type "hidden"; _name "destination"; _value "ledger-accounts" }
+                    Input.create "query" "Search accounts" |> Input.withType InputType.Search |> Input.withValue workspace.searchQuery |> Input.render
+                    Select.create "accountType" "Filter by account type" id [ for value,label in ["all","All types";"asset","Asset";"liability","Liability";"equity","Equity";"revenue","Revenue";"expense","Expense"] -> Select.option value label ] |> Select.withSelected workspace.filterType |> Select.render
+                    Button.create "Apply filters" |> Button.asSubmit |> Button.render
+                    a { _href (shellDestinationUrl LedgerAccounts); _class "px-3 py-2 text-sm font-medium text-[var(--fve-brand-text)]"; "Clear filters" }
+                }
             let content =
-                accountTableConfig LedgerAccount shellDestinationUrl (fun _ -> [])
-                |> Table.render
+                (if filtered.IsEmpty then EmptyState.create "No matching accounts" "Change the search or clear your filters." |> EmptyState.render
+                 else accountTableConfigFor filtered LedgerAccount shellDestinationUrl (fun _ -> []) |> Table.render)
                 |> recordActionFeedback "account"
                 |> Collection.create "Accounts"
                 |> Collection.withVisuallyHiddenTitle
-                |> Collection.withToolbar toolbar
+                |> Collection.withToolbar controls
                 |> Collection.render shellDestinationUrl
             page actions "Chart of accounts · Current valuation" content
 
         | LedgerAccount accountId ->
-            let account = rows |> List.tryFind (fun row -> row.id = accountId) |> Option.defaultValue operatingAccount
+            let account = rows @ workspace.createdAccounts |> List.tryFind (fun row -> row.id = accountId) |> Option.defaultValue operatingAccount
             let actions =
                 ActionCluster.create $"ledger-account-{accountId}-page-actions" [
                     refreshBalancesAction
@@ -1990,7 +2092,7 @@ module Components =
                     |> Section.render shellDestinationUrl
                     SectionHeader.create "Transactions"
                     |> SectionHeader.withDescription "Current assets · All accounts"
-                    |> fun header -> Section.create header (transactionTableFor LedgerTransaction shellDestinationUrl)
+                    |> fun header -> Section.create header (if accountId>=9001 then EmptyState.create "No transactions yet" "This new account has no posted entries." |> EmptyState.render else transactionTableFor LedgerTransaction shellDestinationUrl)
                     |> Section.withLabel "Account transactions"
                     |> Section.render shellDestinationUrl
                 ]
@@ -2017,14 +2119,19 @@ module Components =
         | LedgerCreateAccount ->
             let actions =
                 ActionCluster.create "ledger-create-account-page-actions" [
-                    ApplicationAction.link LedgerAccounts "Cancel"
-                    ApplicationAction.command "$ledgerCreates++" "Save"
-                    |> ApplicationAction.withVariant ButtonVariant.Primary ]
+                    ApplicationAction.link LedgerAccounts "Cancel" ]
             let content =
-                section {
-                    _class "border-y border-[var(--fve-border)] px-4 py-5 sm:px-6 lg:px-8"
-                    h2 { _class "text-base font-semibold"; "Account details" }
-                    p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; "Choose a name, type, commodity, and optional parent account." }
+                form {
+                    _method "post"
+                    _action "/components/page-examples/account-management/create"
+                    _class "grid max-w-xl gap-5"
+                    Input.create "name" "Account name" |> Input.withValue workspace.draftName |> Input.withAttributes [ _required true; _maxlength 80 ] |> Input.render
+                    Select.create "accountType" "Account type" id [ for kind in ["Asset";"Liability";"Equity";"Revenue";"Expense"] -> Select.option kind kind ] |> Select.withSelected workspace.draftType |> Select.render
+                    DescriptionList.create [ DetailField.text "Commodity" "USD" ]
+                    |> DescriptionList.withColumns DescriptionListColumns.One
+                    |> DescriptionList.render
+                    p { _role "status"; _class "text-sm text-[var(--fve-muted-text)]"; workspace.feedback }
+                    Button.create "Create account" |> Button.asSubmit |> Button.withVariant ButtonVariant.Primary |> Button.render
                 }
             page actions "Add an account to the chart of accounts." content
 
@@ -2043,20 +2150,31 @@ module Components =
                             Metric.text label value |> Metric.withDescription description |> Metric.render
                         }
                 }
-            page actions "Meier Made · Production" content
+            page actions (workspace.workspaceName + " · Production") (div { _class "grid gap-8"; content; PageExamples.balanceChart PageExamples.defaultQuery; upcomingPayments })
 
-        | LedgerReports | LedgerSettings ->
+        | LedgerReports ->
+            page (ActionCluster.create "ledger-report-actions" [ApplicationAction.link LedgerAccounts "View accounts"]) "Operating checking · USD" (div { _class "grid gap-6"; PageExamples.balanceChart PageExamples.defaultQuery; transactionTableFor LedgerTransaction shellDestinationUrl })
+
+        | LedgerSettings ->
             let actions =
                 ActionCluster.create $"{shellDestinationKey current}-page-actions" [
                     ApplicationAction.link LedgerAccounts "View accounts"
                     |> ApplicationAction.withVariant ButtonVariant.Primary ]
             let content =
-                section {
-                    _class "border-y border-[var(--fve-border)] px-4 py-6 sm:px-6 lg:px-8"
-                    h2 { _class "text-base font-semibold"; ledgerTitle current }
-                    p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; "Financial workflows share a constrained page; graphs can opt into a full-width canvas." }
+                form {
+                    _method "post"; _action "/components/page-examples/account-management/settings"
+                    _class "grid max-w-xl gap-5"
+                    Input.create "workspaceName" "Workspace name" |> Input.withValue workspace.workspaceName |> Input.withAttributes [_required true; _maxlength 80] |> Input.render
+                    DescriptionList.create [
+                        DetailField.text "Reporting currency" workspace.currency
+                        |> DetailField.withDescription "The example ledger is denominated in USD." ]
+                    |> DescriptionList.withColumns DescriptionListColumns.One
+                    |> DescriptionList.render
+                    (Checkbox.create "emailUpdates" "Receive weekly summaries" |> fun config -> if workspace.emailUpdates then Checkbox.withChecked config else config) |> Checkbox.render
+                    p { _role "status"; _class "text-sm text-[var(--fve-muted-text)]"; workspace.feedback }
+                    Button.create "Save settings" |> Button.asSubmit |> Button.withVariant ButtonVariant.Primary |> Button.render
                 }
-            page actions "Meier Made · Production" content
+            page actions (workspace.workspaceName + " · Production") content
 
         | _ -> failwith "Ledger pages require a Ledger destination."
 
@@ -2075,8 +2193,11 @@ module Components =
             Page.create pageHeader (
                 section {
                     _class "border-y border-[var(--fve-border)] px-4 py-6 sm:px-6 lg:px-8"
-                    h2 { _class "text-base font-semibold"; pageTitle }
-                    p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; "Choose another financial destination from the product navigation." }
+                    match current with
+                    | TreasuryAccounts -> accountTable
+                    | TreasuryPayees ->
+                        Table.create "Payees" [ Table.column "Payee" (fun (name,_,_) -> text name) |> Table.asRowHeader |> Table.asMobilePrimary; Table.column "Latest transaction" (fun (_,label,id) -> a { _href (shellDestinationUrl (LedgerTransaction id)); _class "text-[var(--fve-brand-text)]"; text label }) ] ["Northwind","Northwind payment",201;"Cloud hosting","Cloud hosting",202;"Office supplier","Office supplies",204] |> Table.withMobileLayout TableMobileLayout.Records |> Table.render
+                    | _ -> div { _class "grid gap-8"; Metric.text "Operating balance" "$38,442.11" |> Metric.withDescription "USD · Available cash" |> Metric.render; upcomingPayments; completedPayments }
                 })
             |> Page.withTopBar (pageTopBar (treasuryBreadcrumbs current))
             |> Page.withWidth PageWidth.Full
@@ -2090,7 +2211,8 @@ module Components =
         |> AppShell.withTheme (
             ComponentsTheme.sky
             |> ComponentsTheme.withRadius Radius.Large
-            |> ComponentsTheme.withDensity Density.Compact)
+            |> ComponentsTheme.withDensity Density.Compact
+            |> ComponentsTheme.withControlSize ControlSize.Small)
         |> AppShell.withBoundary AppShellBoundary.Container
         |> AppShell.withMobileBottomNavigation "ledger-bottom-navigation" "Ledger quick navigation" [
             BottomNavigationItem.create LedgerHome "Dashboard"
@@ -2105,7 +2227,8 @@ module Components =
         |> AppShell.withTheme (
             ComponentsTheme.emerald
             |> ComponentsTheme.withRadius Radius.Medium
-            |> ComponentsTheme.withDensity Density.Compact)
+            |> ComponentsTheme.withDensity Density.Compact
+            |> ComponentsTheme.withControlSize ControlSize.Small)
         |> AppShell.withBoundary AppShellBoundary.Container
         |> AppShell.withMobileBottomNavigation "treasury-bottom-navigation" "Treasury quick navigation" [
             BottomNavigationItem.create TreasuryHome "Overview"
@@ -2115,21 +2238,23 @@ module Components =
         |> AppShell.asPreview "Treasury application preview"
         |> AppShell.render resolve
 
-    let ledgerShell current =
+    let ledgerShellWith workspace current =
         let page =
             div {
                 _dataSignals "{ledgerRefreshes: 0, ledgerCreates: 0}"
-                ledgerPage current |> Page.render shellDestinationUrl
+                ledgerPage workspace current |> Page.render shellDestinationUrl
                 output { _class "sr-only"; _role "status"; _dataText "'Balance refreshes: ' + $ledgerRefreshes"; "Balance refreshes: 0" }
             }
         ledgerShellExample shellDestinationUrl (ledgerNavigation current) page
 
+    let ledgerShell current = ledgerShellWith defaultAccountWorkspace current
+
     let treasuryShell current =
         treasuryShellExample shellDestinationUrl (treasuryNavigation current) (treasuryPage current |> Page.render shellDestinationUrl)
 
-    let private shellPreviewFor current =
+    let private shellPreviewWith workspace current =
         match current with
-        | LedgerHome | LedgerAccounts | LedgerAccount _ | LedgerTransaction _ | LedgerCreateAccount | LedgerReports | LedgerSettings -> ledgerShell current
+        | LedgerHome | LedgerAccounts | LedgerAccount _ | LedgerTransaction _ | LedgerCreateAccount | LedgerReports | LedgerSettings -> ledgerShellWith workspace current
         | TreasuryHome | TreasuryPeriod _ | TreasuryTransactions | TreasuryPayees | TreasuryAccounts -> treasuryShell current
         |> fun shell ->
             div {
@@ -2155,8 +2280,8 @@ module Components =
         | LedgerHome | LedgerReports | LedgerSettings -> Some(FixtureLink.create "Accounts" (shellDestinationUrl LedgerAccounts))
         | _ -> None
 
-    let shellFixtureFor current =
-        let frame = Browser.create (shellPreviewFor current) |> Browser.withAddress "https://ledger.example.test/accounts" |> Browser.withAppMode "ledger-workflow" "Ledger account workflow" |> Browser.render
+    let shellFixtureWith workspace current =
+        let frame = Browser.create (shellPreviewWith workspace current) |> Browser.withAddress "https://ledger.example.test/accounts" |> Browser.withAppMode "ledger-workflow" "Ledger account workflow" |> Browser.render
         let fixture = Fixture.create "ledger-workflow" frame
         let fixture = appModePrevious current |> Option.map (fun previous -> Fixture.withPrevious previous fixture) |> Option.defaultValue fixture
         let fixture = appModeNext current |> Option.map (fun next -> Fixture.withNext next fixture) |> Option.defaultValue fixture
@@ -2165,6 +2290,8 @@ module Components =
             for attribute in shellFixtureNavigationAttributes do attribute
             fixture |> Fixture.render
         }
+
+    let shellFixtureFor current = shellFixtureWith defaultAccountWorkspace current
 
     let private registration id path navLabel title : DocPage =
         { id = id
@@ -2210,6 +2337,7 @@ module Components =
     let textareaRegistration = registration "components-textarea" "/components/textarea" "Textarea" "Textarea"
     let errorSummaryRegistration = registration "components-error-summary" "/components/error-summary" "Error summary" "Error summary"
     let noticeRegistration = registration "components-notice" "/components/notice" "Notice" "Notice"
+    let notificationRegistration = registration "components-notification" "/components/notification" "Notification" "Notification"
     let selectRegistration = registration "components-select" "/components/select" "Select" "Select"
     let checkboxRegistration = registration "components-checkbox" "/components/checkbox" "Checkbox" "Checkbox"
     let switchRegistration = registration "components-switch" "/components/switch" "Switch" "Switch"
@@ -2223,6 +2351,7 @@ module Components =
     let dialogRegistration = registration "components-dialog" "/components/dialog" "Dialog" "Dialog"
     let confirmationDialogRegistration = registration "components-confirmation-dialog" "/components/confirmation-dialog" "Confirmation dialog" "Confirmation dialog"
     let drawerRegistration = registration "components-drawer" "/components/drawer" "Drawer" "Drawer"
+    let floatingPanelRegistration = registration "components-floating-panel" "/components/floating-panel" "Floating panel" "Floating panel"
     let pageTopBarRegistration = applicationRegistration "components-page-top-bar" "/components/page-top-bar" "Page top bar" "Page top bar"
     let pageHeaderRegistration = applicationRegistration "components-page-header" "/components/page-header" "Page header" "Page header"
     let sectionRegistration = registration "components-section" "/components/section" "Section" "Section"
@@ -2237,11 +2366,9 @@ module Components =
     let uploadRegistration = applicationRegistration "components-upload" "/components/upload" "Upload" "Upload"
     let stepsRegistration = applicationRegistration "components-steps" "/components/steps" "Steps" "Steps"
     let firstStepsRegistration = applicationRegistration "components-first-steps" "/components/first-steps" "First steps" "First steps"
-    let calendarRegistration = applicationRegistration "components-calendar" "/components/calendar" "Calendar" "Calendar"
+    let calendarRegistration = registration "components-calendar" "/components/calendar" "Calendar" "Calendar"
     let mediaLibraryRegistration = applicationRegistration "components-media-library" "/components/media-library" "Media library" "Media library"
-    let graphTraceIntegrationRegistration = applicationRegistration "components-integration-graph-trace" "/components/integrations/graph-and-trace" "Graph and trace" "Graph and trace integration"
-    let financialChartIntegrationRegistration = applicationRegistration "components-integration-financial-chart" "/components/integrations/financial-chart" "Financial chart" "Financial chart integration"
-    let messagingIntegrationRegistration = applicationRegistration "components-integration-messaging" "/components/integrations/messaging" "Messaging" "Messaging integration"
+    let accountManagementRegistration = applicationRegistration "components-account-management" "/components/page-examples/account-management" "Account management" "Account management"
     let interactionRegistration = packageRegistration "components-interaction" "/components/interaction-and-server-state" "Interaction and server state" "Interaction and server state"
     let accessibilityRegistration = packageRegistration "components-accessibility" "/components/accessibility" "Accessibility" "Accessibility"
     let themingRegistration = packageRegistration "components-theming" "/components/theming" "Theming and density" "Theming and density"
@@ -2249,18 +2376,9 @@ module Components =
     let customizationRegistration = packageRegistration "components-customization" "/components/customization" "Customization" "Customization"
     let versioningRegistration = packageRegistration "components-versioning" "/components/versioning" "Versioning" "Versioning"
 
-    let actionRegistrations =
-        [ buttonRegistration
-          iconButtonRegistration
-          actionClusterRegistration
-          rowActionsRegistration
-          badgeRegistration
-          statusRegistration
-          noticeRegistration
-          loadingIndicatorRegistration
-          progressRegistration
-          emptyStateRegistration ]
-    let dataDisplayRegistrations = [ tableRegistration; descriptionListRegistration; metricRegistration; paginationRegistration; avatarRegistration; copyRevealRegistration ]
+    let actionRegistrations = [ buttonRegistration; iconButtonRegistration; actionClusterRegistration; rowActionsRegistration; dropdownMenuRegistration ]
+    let feedbackRegistrations = [ badgeRegistration; statusRegistration; noticeRegistration; notificationRegistration; loadingIndicatorRegistration; progressRegistration; emptyStateRegistration ]
+    let dataDisplayRegistrations = [ tableRegistration; descriptionListRegistration; metricRegistration; avatarRegistration; copyRevealRegistration; calendarRegistration ]
     let formControlRegistrations =
         [ inputRegistration
           textareaRegistration
@@ -2273,14 +2391,14 @@ module Components =
           toggleButtonRegistration
           radioGroupRegistration
           choiceCardsRegistration ]
-    let navigationRegistrations = [ breadcrumbsRegistration; sideNavRegistration; tabsRegistration ]
-    let menuOverlayRegistrations = [ dropdownMenuRegistration; dialogRegistration; confirmationDialogRegistration; drawerRegistration ]
+    let navigationRegistrations = [ breadcrumbsRegistration; sideNavRegistration; tabsRegistration; paginationRegistration ]
+    let overlayRegistrations = [ dialogRegistration; confirmationDialogRegistration; drawerRegistration; floatingPanelRegistration ]
     let compositionRegistrations = [ pageTopBarRegistration; pageHeaderRegistration; sectionRegistration; pageRegistration; collectionRegistration; detailRegistration; appShellRegistration; formLayoutsRegistration ]
     let frameRegistrations = [ browserRegistration; phoneRegistration ]
     let applicationNavigationRegistrations = [ bottomNavigationRegistration ]
     let applicationWorkflowRegistrations = [ bulkActionsRegistration; uploadRegistration; stepsRegistration; firstStepsRegistration ]
-    let applicationResourceRegistrations = [ calendarRegistration; mediaLibraryRegistration ]
-    let integrationExampleRegistrations = [ graphTraceIntegrationRegistration; financialChartIntegrationRegistration; messagingIntegrationRegistration ]
+    let applicationResourceRegistrations = [ mediaLibraryRegistration ]
+    let pageExampleRegistrations = accountManagementRegistration :: (PageExamples.pages |> List.map PageExamples.registration)
     let guideRegistrations =
         [ interactionRegistration
           accessibilityRegistration
@@ -2292,16 +2410,17 @@ module Components =
     let allRegistrations =
         [ overviewRegistration; installationRegistration ]
         @ actionRegistrations
+        @ feedbackRegistrations
         @ dataDisplayRegistrations
         @ formControlRegistrations
         @ navigationRegistrations
-        @ menuOverlayRegistrations
+        @ overlayRegistrations
         @ compositionRegistrations
         @ frameRegistrations
         @ applicationNavigationRegistrations
         @ applicationWorkflowRegistrations
         @ applicationResourceRegistrations
-        @ integrationExampleRegistrations
+        @ pageExampleRegistrations
         @ guideRegistrations
 
     let page = overviewRegistration
@@ -2309,7 +2428,8 @@ module Components =
     let private themeExample = """let theme =
     ComponentsTheme.emerald
     |> ComponentsTheme.withRadius Radius.Large
-    |> ComponentsTheme.withDensity Density.Comfortable
+    |> ComponentsTheme.withDensity Density.Compact
+    |> ComponentsTheme.withControlSize ControlSize.Medium
 
 AppShell.create "product-shell" sideNav pageContent
 |> AppShell.withTheme theme
@@ -2373,8 +2493,13 @@ AppShell.create "product-shell" sideNav pageContent
         }
     let accountDrawerExample =
         div {
-            accountDrawerConfig |> Drawer.trigger "Open account panel"
+            accountDrawerConfig |> Drawer.trigger "Open account details"
             accountDrawerConfig |> Drawer.render
+        }
+    let accountEditorDrawerExample =
+        div {
+            accountEditorDrawerConfig |> Drawer.trigger "Edit account"
+            accountEditorDrawerConfig |> Drawer.render
         }
     let filterDrawerExample =
         div {
@@ -2397,7 +2522,7 @@ AppShell.create "product-shell" sideNav pageContent
             _dataSignals "{actionMessage: 'No action requested.'}"
             _class "grid gap-3"
             ActionCluster.create "account-actions-example" [
-                ApplicationAction.link "/components/app-shell?destination=create-account" "New account"
+                ApplicationAction.link "/components/page-examples/account-management?destination=ledger-create-account" "New account"
                 |> ApplicationAction.withVariant ButtonVariant.Primary
                 ApplicationAction.link "/components/collection" "View accounts" ]
             |> ActionCluster.withOverflow [
@@ -2424,7 +2549,7 @@ AppShell.create "product-shell" sideNav pageContent
             _dataSignals "{rowActionMessage: 'No row action requested.'}"
             _class "grid gap-3"
             RowActions.create "operating-row-actions" "Operating checking" [
-                MenuItem.link "/components/app-shell?destination=account-2048" "View account"
+                MenuItem.link "/components/page-examples/account-management?destination=ledger-account-2048" "View account"
                 MenuItem.link "/components/detail" "View detail"
                 MenuItem.destructiveAction "$rowActionMessage = 'Archive requested for Operating checking.'" "Archive account" ]
             |> RowActions.render id
@@ -2537,6 +2662,9 @@ AppShell.create "product-shell" sideNav pageContent
     let private detailsSurface (content:HtmlElement) =
         gallerySurface (div { _class "p-4 sm:p-6"; content })
 
+    let private overlaySurface (content:HtmlElement) =
+        gallerySurface (div { _class "relative min-h-[32rem] overflow-hidden bg-[var(--fve-surface-subtle)] p-4"; content })
+
     let private prose content =
         p {
             _class "spec-paragraph"
@@ -2552,21 +2680,101 @@ AppShell.create "product-shell" sideNav pageContent
             for item in items do li { text item }
         }
 
+    let private buildingBlockLinks label (items:(string * string) list) =
+        div {
+            _class "flex flex-wrap items-baseline gap-x-4 gap-y-2"
+            h2 { _class "text-base font-normal"; "Built with" }
+            nav {
+                _ariaLabel label
+                _class "flex flex-wrap gap-x-4 gap-y-2"
+                for path, itemLabel in items do
+                    a { _href path; _class "spec-content-link"; text itemLabel }
+            }
+        }
+
     let private gallery (registration:DocPage) examples =
         DocumentationPage.create registration.id registration.title |> DocumentationPage.withLayout Gallery |> DocumentationPage.withRightRail NoRail |> DocumentationPage.withSections [
             for item in examples do
                 DocumentationSection.create item.id item.title (
                     [ Example.gallery item.id item.title "fsharp" item.source item.preview ]
-                    @ (item.note |> Option.map prose |> Option.toList)) ]
+                    @ (item.note |> Option.map prose |> Option.toList))
+            if registration.id = appShellRegistration.id then
+                DocumentationSection.create "complete-pages" "Complete page examples" [
+                    p {
+                        "For populated pages and a connected workflow, explore "
+                        a { _href accountManagementRegistration.path; _class "spec-content-link"; "Account management" }
+                        ". These shell examples intentionally show only the layout."
+                    } ]
+            if registration.id = accountManagementRegistration.id then
+                DocumentationSection.create "building-blocks" "Built with" [
+                    buildingBlockLinks "Account management building blocks" [
+                        "/components/app-shell", "App shell"
+                        "/components/page", "Page"
+                        "/components/collection", "Collection"
+                        "/components/detail", "Detail"
+                        "/components/form-layouts", "Form layouts" ] ] ]
+
+    let setupSteps =
+        [ FirstStep.create "connect-bank" "Connect a bank account"
+          |> FirstStep.withDescription "Import accounts and reconcile current balances."
+          |> FirstStep.withAction (a { _href "/components/collection"; _class "text-sm font-semibold text-[var(--fve-brand-text)] underline-offset-2 hover:underline"; "Connect account" })
+          FirstStep.create "review-accounts" "Review imported accounts"
+          |> FirstStep.complete ]
 
     let firstStepsExample =
-        FirstSteps.create "ledger-first-steps" "First steps"
-            [ FirstStep.create "connect-bank" "Connect a bank account"
-              |> FirstStep.withDescription "Import accounts and reconcile current balances."
-              |> FirstStep.withAction (a { _href "/components/collection"; _class "text-sm font-semibold text-[var(--fve-brand-text)] underline-offset-2 hover:underline"; "Connect account" })
-              FirstStep.create "review-accounts" "Review imported accounts"
-              |> FirstStep.complete ]
+        FirstSteps.create "ledger-first-steps" "First steps" setupSteps
+        |> FirstSteps.withinContainer
         |> FirstSteps.render
+
+    let minimizedFirstStepsExample =
+        FirstSteps.create "minimized-first-steps" "First steps" setupSteps
+        |> FirstSteps.withinContainer
+        |> FirstSteps.minimized
+        |> FirstSteps.render
+
+    let dismissedFirstStepsExample =
+        FirstSteps.create "dismissed-first-steps" "First steps" setupSteps
+        |> FirstSteps.withinContainer
+        |> FirstSteps.dismissed
+        |> FirstSteps.render
+
+    let floatingPanelContent =
+        div {
+            _class "grid gap-3 text-sm"
+            p { "Use this space for contextual guidance that should not block the primary task." }
+            a { _href "/components/page-examples/operations-dashboard"; _class "font-semibold text-[var(--fve-brand-text)] underline-offset-2 hover:underline"; "Open operations" }
+        }
+
+    let floatingPanelExample =
+        FloatingPanel.create "workspace-guide" "Workspace guide" floatingPanelContent
+        |> FloatingPanel.withDescription "Helpful context remains available beside the application."
+        |> FloatingPanel.withinContainer
+        |> FloatingPanel.render
+
+    let minimizedFloatingPanelExample =
+        FloatingPanel.create "minimized-workspace-guide" "Workspace guide" floatingPanelContent
+        |> FloatingPanel.withinContainer
+        |> FloatingPanel.minimized
+        |> FloatingPanel.render
+
+    let simpleNotificationExample =
+        Notification.create "saved-notification" "Changes saved" (p { "The workspace settings are up to date." })
+        |> Notification.withTone Tone.Positive
+        |> fun notification -> NotificationRegion.create "save-notifications" "Workspace notifications" [ notification ]
+        |> NotificationRegion.withinContainer
+        |> NotificationRegion.render
+
+    let notificationWithActionsExample =
+        Notification.create "invitation-notification" "Invitation received" (p { "Jordan invited you to Northwind Outdoor." })
+        |> Notification.withActions (
+            div {
+                _class "flex flex-wrap gap-2"
+                a { _href "/components/page-examples/operations-dashboard"; _class "font-semibold text-[var(--fve-brand-text)] underline-offset-2 hover:underline"; "Review workspace" }
+                button { _type "button"; _class "font-semibold text-[var(--fve-muted-text)] underline-offset-2 hover:underline"; "Decline" }
+            })
+        |> fun notification -> NotificationRegion.create "invitation-notifications" "Invitation notifications" [ notification ]
+        |> NotificationRegion.withinContainer
+        |> NotificationRegion.render
 
     let operationalProgressExample =
         Progress.create "Statement import" 68 100
@@ -2705,92 +2913,43 @@ AppShell.create "product-shell" sideNav pageContent
         |> CopyReveal.revealed
         |> CopyReveal.render
 
-    type CalendarDemoState = Schedule | Empty | Loading | Error | Unavailable
+    let private calendarDemoDate = DateOnly(2026, 9, 17)
 
-    let calendarViewFromQuery = function
-        | "day" -> CalendarView.Day
-        | "week" -> CalendarView.Week
-        | "month" -> CalendarView.Month
-        | _ -> CalendarView.List
+    let private calendarEventDestination id =
+        "/components/page-examples/scheduling?item=" + id
 
-    let calendarDateFromQuery (value:string) =
-        match Int32.TryParse value with
-        | true, offset when offset >= -1 && offset <= 1 -> offset
-        | _ -> 0
+    let calendarDemoEvents =
+        [ CalendarEvent.create "lesson-201" "Coastal trail lesson" calendarDemoDate (calendarEventDestination "lesson-201")
+          |> CalendarEvent.withTime (TimeOnly(10, 0)) (TimeOnly(11, 30))
+          |> CalendarEvent.withDetail "Maya and Sam · Andy Meier"
+          CalendarEvent.create "camp-017" "Beginner riding camp" calendarDemoDate (calendarEventDestination "camp-017")
+          |> CalendarEvent.withTime (TimeOnly(10, 30)) (TimeOnly(12, 0))
+          |> CalendarEvent.withDetail "Overlaps the trail lesson by one hour"
+          CalendarEvent.create "lesson-202" "Cornering fundamentals" (calendarDemoDate.AddDays 1) (calendarEventDestination "lesson-202")
+          |> CalendarEvent.withTime (TimeOnly(9, 0)) (TimeOnly(10, 0))
+          CalendarEvent.create "ride-019" "Open track practice" (calendarDemoDate.AddDays 2) (calendarEventDestination "ride-019")
+          |> CalendarEvent.withTime (TimeOnly(13, 0)) (TimeOnly(15, 0))
+          CalendarEvent.create "return-020" "Equipment return" (calendarDemoDate.AddDays 7) (calendarEventDestination "return-020")
+          |> CalendarEvent.withTime (TimeOnly(16, 0)) (TimeOnly(16, 30)) ]
 
-    let calendarStateFromQuery = function
-        | "empty" -> CalendarDemoState.Empty
-        | "loading" -> CalendarDemoState.Loading
-        | "error" -> CalendarDemoState.Error
-        | "unavailable" -> CalendarDemoState.Unavailable
-        | _ -> CalendarDemoState.Schedule
+    let calendarExample view =
+        let label =
+            match view with
+            | CalendarView.Month -> "Team calendar"
+            | CalendarView.Week -> "Training week"
+            | CalendarView.Day -> "Thursday sessions"
+            | CalendarView.Year -> "Team year"
+        Calendar.create label view calendarDemoDate calendarDemoEvents
+        |> Calendar.withToday calendarDemoDate "/components/page-examples/scheduling?view=day&range=0"
+        |> Calendar.withSelectedDate calendarDemoDate
+        |> Calendar.withDateDestination (fun date ->
+            "/components/page-examples/scheduling?view=day&range=" + string (date.DayNumber - calendarDemoDate.DayNumber))
+        |> Calendar.render id
 
-    let private calendarStateValue = function
-        | CalendarDemoState.Schedule -> "schedule"
-        | CalendarDemoState.Empty -> "empty"
-        | CalendarDemoState.Loading -> "loading"
-        | CalendarDemoState.Error -> "error"
-        | CalendarDemoState.Unavailable -> "unavailable"
-
-    let private calendarViewUrl state view offset =
-        let value = match view with CalendarView.List -> "list" | CalendarView.Day -> "day" | CalendarView.Week -> "week" | CalendarView.Month -> "month"
-        $"/components/calendar?calendarState={calendarStateValue state}&calendarView={value}&calendarDate={offset}"
-
-    let calendarStateExample state view offset =
-        let rangeLabel, scheduledEvents =
-            match offset with
-            | -1 ->
-                "September 14–20, 2026",
-                [ CalendarEvent.create "booking-100" "Trail inspection" "Thursday, September 17" (shellDestinationUrl LedgerAccounts)
-                  |> CalendarEvent.withTime "2:00–3:00 PM" ]
-            | 1 ->
-                "September 28–October 4, 2026",
-                [ CalendarEvent.create "booking-104" "Autumn orientation" "Tuesday, September 29" (shellDestinationUrl LedgerAccounts)
-                  |> CalendarEvent.withTime "11:00 AM–12:30 PM" ]
-            | _ ->
-                "September 21–27, 2026",
-                [ CalendarEvent.create "booking-101" "Northwind group rental" "Monday, September 21" (shellDestinationUrl (LedgerAccount 101))
-                  |> CalendarEvent.withTime "9:00–11:30 AM"
-                  |> CalendarEvent.withDetail "12 participants · Trail equipment"
-                  CalendarEvent.create "booking-102" "Contoso skills session" "Monday, September 21" (shellDestinationUrl (LedgerAccount 102))
-                  |> CalendarEvent.withTime "10:30 AM–1:00 PM"
-                  |> CalendarEvent.withDetail "Overlaps Northwind by one hour"
-                  CalendarEvent.create "booking-103" "Equipment return" "Wednesday, September 23" (shellDestinationUrl LedgerAccounts)
-                  |> CalendarEvent.withTime "4:00–4:30 PM" ]
-        let events = if state = CalendarDemoState.Schedule then scheduledEvents else []
-        let calendar =
-            Calendar.create "Booking schedule" view rangeLabel events
-            |> Calendar.withPrevious (calendarViewUrl state view (max -1 (offset - 1)))
-            |> Calendar.withNext (calendarViewUrl state view (min 1 (offset + 1)))
-            |> Calendar.withViewDestinations [ for target in [ CalendarView.List; CalendarView.Day; CalendarView.Week; CalendarView.Month ] -> target, calendarViewUrl state target offset ]
-            |> (match state with
-                | CalendarDemoState.Schedule -> id
-                | CalendarDemoState.Empty -> Calendar.withEmptyState (p { _class "rounded-[var(--fve-radius-panel)] bg-[var(--fve-neutral-subtle)] p-4 text-sm text-[var(--fve-muted-text)]"; "No bookings in this range." })
-                | CalendarDemoState.Loading -> Calendar.loading
-                | CalendarDemoState.Error ->
-                    Calendar.withError "Bookings could not be loaded."
-                    >> Calendar.withStateAction (a { _href (calendarViewUrl CalendarDemoState.Schedule view offset); _class "rounded-[var(--fve-radius-control)] px-3 py-2 font-semibold ring-1 ring-[var(--fve-critical-ring)]"; "Retry calendar" })
-                | CalendarDemoState.Unavailable ->
-                    Calendar.withUnavailable "This schedule is unavailable for your current workspace."
-                    >> Calendar.withStateAction (a { _href "/components/application"; _class "font-semibold text-[var(--fve-brand-text)] underline underline-offset-2"; "Return to Application" }))
-            |> Calendar.render id
-        div {
-            _class "grid gap-4"
-            nav {
-                _ariaLabel "Calendar example states"
-                _class "grid gap-2 sm:grid-cols-5"
-                for target, label in [ CalendarDemoState.Schedule, "Schedule"; CalendarDemoState.Empty, "Empty"; CalendarDemoState.Loading, "Loading"; CalendarDemoState.Error, "Error"; CalendarDemoState.Unavailable, "Unavailable" ] do
-                    a {
-                        _href (calendarViewUrl target view offset)
-                        if target = state then _ariaCurrent "page"
-                        _class (if target = state then "rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] px-3 py-2 text-center text-sm font-semibold text-[var(--fve-brand-text)]" else "rounded-[var(--fve-radius-control)] px-3 py-2 text-center text-sm font-semibold text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)]")
-                        label
-                    }
-            }
-            calendar
-        }
-
-    let calendarExample view offset = calendarStateExample CalendarDemoState.Schedule view offset
+    let calendarMonthExample = calendarExample CalendarView.Month
+    let calendarWeekExample = calendarExample CalendarView.Week
+    let calendarDayExample = calendarExample CalendarView.Day
+    let calendarYearExample = calendarExample CalendarView.Year
 
     let mediaLibraryExample =
         let library =
@@ -3026,11 +3185,83 @@ AppShell.create "product-shell" sideNav pageContent
     let paginationExamples requestedPage =
         [ sample "pagination" "Page navigation" [ "PaginationDestination"; "paginationDestinationUrl"; "paginationPreview" ] (centered (paginationPreviewRegion requestedPage)) ]
 
-    let appShellExamples current =
-        [ sample "app-shell" "Sidebar application" (shellSource @ [ "ledgerShellExample"; "treasuryShellExample" ]) (shellFixtureFor current) ]
+    type ShellLayoutDestination = Dashboard | Projects | Preferences
 
-    let calendarExamples state view offset =
-        [ sample "calendar-schedule" "Schedule and states" (shellSource @ [ "CalendarDemoState"; "calendarViewFromQuery"; "calendarDateFromQuery"; "calendarStateFromQuery"; "calendarStateValue"; "calendarViewUrl"; "calendarStateExample" ]) (detailsSurface (calendarStateExample state view offset)) ]
+    let shellLayoutLabel = function
+        | Dashboard -> "Dashboard"
+        | Projects -> "Projects"
+        | Preferences -> "Settings"
+
+    let shellLayoutUrl = function
+        | Dashboard -> "/components/app-shell"
+        | Projects -> "/components/app-shell?section=projects"
+        | Preferences -> "/components/app-shell?section=settings"
+
+    let shellLayoutExample id width bottomNavigation current =
+        let layoutLabel = if bottomNavigation then "Full-width workspace" else "Constrained workspace"
+        let navigation =
+            SideNav.create (id + "-navigation") (layoutLabel + " navigation") (SideNavHeader.create "Workspace") [
+                SideNavSection.ungrouped [
+                    SideNavItem.create Dashboard "Dashboard"
+                    SideNavItem.create Projects "Projects"
+                    SideNavItem.create Preferences "Settings" ] ]
+            |> SideNav.withCurrent current
+            |> SideNav.withFooter (a { _href (shellLayoutUrl Preferences); _class "block px-3 py-2 text-sm font-semibold"; "Andy Meier" })
+        let content =
+            Page.create (PageHeader.create (shellLayoutLabel current)) (
+                div {
+                    _class "grid min-h-80 place-items-center rounded-lg border border-dashed border-[var(--fve-border)] bg-[var(--fve-surface-subtle)] p-6 text-center text-sm text-[var(--fve-muted-text)]"
+                    "Page content"
+                })
+            |> Page.withWidth width
+            |> Page.withTopBar (
+                PageTopBar.create ()
+                |> PageTopBar.withContent (div {
+                    _class "flex min-h-[var(--fve-shell-bar-min-height)] items-center px-4 sm:px-6 lg:px-8"
+                    Breadcrumbs.create (id + "-breadcrumbs") (layoutLabel + " breadcrumb") [
+                        if current <> Dashboard then BreadcrumbItem.create Dashboard "Dashboard"
+                        BreadcrumbItem.create current (shellLayoutLabel current) ]
+                    |> Breadcrumbs.render shellLayoutUrl
+                }))
+            |> Page.render shellLayoutUrl
+        let shell =
+            AppShell.create id navigation content
+            |> AppShell.withBoundary AppShellBoundary.Container
+            |> AppShell.asPreview (layoutLabel + " layout preview")
+        let shell =
+            if bottomNavigation then
+                shell |> AppShell.withMobileBottomNavigation (id + "-bottom") "Workspace quick navigation" [
+                    BottomNavigationItem.create Dashboard "Dashboard"
+                    BottomNavigationItem.create Projects "Projects"
+                    BottomNavigationItem.create Preferences "Settings" ]
+            else shell
+        div {
+            _class "h-[36rem]"
+            shell |> AppShell.render shellLayoutUrl
+        }
+
+    let appShellExamples current =
+        let source = [ "ShellLayoutDestination"; "shellLayoutLabel"; "shellLayoutUrl"; "shellLayoutExample" ]
+        let preview (content:HtmlElement) =
+            themedPreview (div {
+                _dataOn ("click", "const link = evt.target.closest('a[href^=\"/components/app-shell\"]'); if (link) window.fsharpDocsNavigation.navigate(evt, link.getAttribute('href'))")
+                content
+            })
+        let withUsage usage (example:ComponentExample) = { example with source = example.source + "\n\n" + usage }
+        [ sample "app-shell" "Sidebar with constrained content" source (preview (shellLayoutExample "layout-sidebar" PageWidth.Reading false current))
+          |> withUsage "shellLayoutExample \"layout-sidebar\" PageWidth.Reading false Dashboard"
+          sample "app-shell-bottom" "Full-width content with mobile bottom navigation" source (preview (shellLayoutExample "layout-bottom" PageWidth.Full true current))
+          |> withUsage "shellLayoutExample \"layout-bottom\" PageWidth.Full true Dashboard" ]
+
+    let accountManagementExamples current =
+        [ sample "account-management" "Connected account workflow" (shellSource @ [ "ledgerShellExample"; "treasuryShellExample" ]) (shellFixtureFor current) ]
+
+    let calendarExamples =
+        let source example = [ "calendarDemoDate"; "calendarEventDestination"; "calendarDemoEvents"; "calendarExample"; example ]
+        [ sample "calendar-month" "Month view" (source "calendarMonthExample") (detailsSurface calendarMonthExample)
+          sample "calendar-week" "Week view" (source "calendarWeekExample") (detailsSurface calendarWeekExample)
+          sample "calendar-day" "Day view" (source "calendarDayExample") (detailsSurface calendarDayExample)
+          sample "calendar-year" "Year view" (source "calendarYearExample") (detailsSurface calendarYearExample) ]
 
     let private tableExamples current =
         [ sample "table" "Simple" [ "TeamMember"; "teamMembers"; "teamColumns"; "simpleTeamTable" ] (detailsSurface simpleTeamTable)
@@ -3090,6 +3321,8 @@ AppShell.create "product-shell" sideNav pageContent
             sample "copy-reveal-revealed" "Initially revealed" [ "revealedCopyRevealExample" ] (fieldSurface revealedCopyRevealExample) ]
         | "input" -> [
             sample "input" "With label" [ "labelledInput" ] (fieldSurface labelledInput)
+            sample "input-sizes" "Consistent control sizes" [ "refreshIcon"; "inputSizeExamples" ] (detailsSurface inputSizeExamples)
+            |> note "Small, Medium and Large use 32, 40 and 48px baselines. Small uses compact 14px/20px application text; Medium and Large use 16px/24px text. Values use regular weight, actions medium, and field labels remain 14px. Set a region with ControlSize.className, or set an application theme with ComponentsTheme.withControlSize. Explicit withSize overrides inherit neither the region size nor layout density."
             sample "input-help" "With help text" [ "inputWithHelp" ] (fieldSurface inputWithHelp)
             sample "input-required" "Required" [ "requiredInput" ] (fieldSurface requiredInput)
             sample "input-optional" "Optional" [ "optionalInput" ] (fieldSurface optionalInput)
@@ -3098,15 +3331,13 @@ AppShell.create "product-shell" sideNav pageContent
             sample "input-prefix" "With prefix" [ "inputWithPrefix" ] (fieldSurface inputWithPrefix)
             sample "input-suffix" "With suffix" [ "inputWithSuffix" ] (fieldSurface inputWithSuffix)
             sample "search-input" "Search with clear action" [ "searchInputExample" ] (fieldSurface searchInputExample)
-            sample "input-readonly" "Read-only" [ "readonlyInput" ] (fieldSurface readonlyInput)
             sample "input-disabled" "Disabled" [ "disabledInput" ] (fieldSurface disabledInput)
             sample "input-pending" "Pending" [ "pendingInput" ] (fieldSurface pendingInput) ]
         | "form-layouts" -> [
             sample "form-layouts" "Stacked with server validation" [ "choiceSubmitButton"; "ContactDetails"; "ContactFormLayout"; "contactFormRegion"; "emptyContact"; "contactFormExample" ] (fullBleedThemedSurface contactFormExample)
             |> note "Submit to see validation errors. This example does not save contact details. The validation form previously shown on Input now lives here."
             sample "form-layouts-grid" "Two-column form" [ "choiceSubmitButton"; "ContactDetails"; "ContactFormLayout"; "contactFormRegion"; "emptyContact"; "twoColumnFormExample" ] (fullBleedThemedSurface twoColumnFormExample)
-            sample "form-layouts-sections" "Sectioned form" [ "choiceSubmitButton"; "ContactDetails"; "ContactFormLayout"; "contactFormRegion"; "emptyContact"; "sectionedFormExample" ] (fullBleedThemedSurface sectionedFormExample)
-            sample "form-layouts-search" "Search with results" [ "accountSearchExample" ] (fullBleedThemedSurface accountSearchExample) ]
+            sample "form-layouts-sections" "Sectioned form" [ "choiceSubmitButton"; "ContactDetails"; "ContactFormLayout"; "contactFormRegion"; "emptyContact"; "sectionedFormExample" ] (fullBleedThemedSurface sectionedFormExample) ]
         | "file-selection" -> [
             sample "file-selection" "Multiple files" [ "fileSelectionExample" ] (fieldSurface fileSelectionExample)
             sample "file-selection-validation" "Validation" [ "invalidFileSelectionExample" ] (fieldSurface invalidFileSelectionExample)
@@ -3120,7 +3351,6 @@ AppShell.create "product-shell" sideNav pageContent
             sample "textarea" "With label" [ "labelledTextarea" ] (fieldSurface labelledTextarea)
             sample "textarea-help" "With instructions" [ "editableInstructions" ] (fieldSurface editableInstructions)
             sample "textarea-validation" "With validation error" [ "invalidTextarea" ] (fieldSurface invalidTextarea)
-            sample "textarea-readonly" "Read-only" [ "acceptedNotes" ] (fieldSurface acceptedNotes)
             sample "textarea-pending" "Pending" [ "pendingNotes" ] (fieldSurface pendingNotes)
             sample "textarea-disabled" "Disabled" [ "unavailableNotes" ] (fieldSurface unavailableNotes) ]
         | "error-summary" -> [
@@ -3131,6 +3361,9 @@ AppShell.create "product-shell" sideNav pageContent
             sample "notice-success" "Success with download" [ "successNotice" ] (fieldSurface successNotice)
             sample "notice-warning" "Warning" [ "warningNotice" ] (fieldSurface warningNotice)
             sample "notice-critical" "Error with recovery link" [ "criticalNotice" ] (fieldSurface criticalNotice) ]
+        | "notification" -> [
+            sample "notification" "Dismissible feedback" [ "simpleNotificationExample" ] (overlaySurface simpleNotificationExample)
+            sample "notification-actions" "With meaningful actions" [ "notificationWithActionsExample" ] (overlaySurface notificationWithActionsExample) ]
         | "select" -> [
             sample "select" "With label" [ "basicSelect" ] (fieldSurface basicSelect)
             sample "select-help" "With help text" [ "selectWithHelp" ] (fieldSurface selectWithHelp)
@@ -3197,8 +3430,12 @@ AppShell.create "product-shell" sideNav pageContent
             |> note "The demo server rejects deletion so you can inspect its validation state."
             sample "confirmation-dialog-pending" "Pending confirmation" [ "pendingConfirmationConfig"; "pendingConfirmationExample" ] (centered pendingConfirmationExample) ]
         | "drawer" -> [
-            sample "drawer" "End-side drawer" [ "accountDrawerContent"; "accountDrawerConfig"; "accountDrawerExample" ] (centered accountDrawerExample)
-            sample "drawer-start" "Start-side drawer" [ "filterDrawerConfig"; "filterDrawerExample" ] (centered filterDrawerExample) ]
+            sample "drawer" "Standard detail drawer" [ "accountDrawerContent"; "accountDrawerConfig"; "accountDrawerExample" ] (centered accountDrawerExample)
+            sample "drawer-wide" "Wide editing form" [ "accountEditorBody"; "accountEditorFooter"; "accountEditorDrawerConfig"; "accountEditorDrawerExample" ] (centered accountEditorDrawerExample)
+            sample "drawer-start" "Start-side filters" [ "filterDrawerConfig"; "filterDrawerExample" ] (centered filterDrawerExample) ]
+        | "floating-panel" -> [
+            sample "floating-panel" "Open non-modal panel" [ "floatingPanelContent"; "floatingPanelExample" ] (overlaySurface floatingPanelExample)
+            sample "floating-panel-minimized" "Minimized with restore" [ "floatingPanelContent"; "minimizedFloatingPanelExample" ] (overlaySurface minimizedFloatingPanelExample) ]
         | "breadcrumbs" -> [ sample "breadcrumbs" "Linked ancestors" [ "breadcrumbsExample" ] breadcrumbsPreview ]
         | "side-nav" -> [ sample "side-nav" "Grouped navigation" sideNavSource sideNavigationPreview ]
         | "page-top-bar" -> [ sample "page-top-bar" "With breadcrumbs" [ "pageTopBarExample"; "renderPageTopBar" ] pageTopBarPreview ]
@@ -3217,7 +3454,8 @@ AppShell.create "product-shell" sideNav pageContent
             sample "page-canvas" "Remaining-height canvas" [ "canvasPage" ] canvasPagePreview ]
         | "collection" -> [ sample "collection" "Collection with record actions" [ "collectionExample" ] collectionPreview ]
         | "detail" -> [ sample "detail" "Detail with related records" [ "detailExample" ] detailPreview ]
-        | "app-shell" -> appShellExamples LedgerAccounts
+        | "app-shell" -> appShellExamples Dashboard
+        | "page-examples/account-management" -> accountManagementExamples LedgerAccounts
         | "bottom-navigation" -> [
             sample "bottom-navigation" "Four destinations" [ "bottomNavigationExample" ] (detailsSurface bottomNavigationExample)
             sample "bottom-navigation-compact" "Three destinations" [ "compactBottomNavigationExample" ] (detailsSurface compactBottomNavigationExample) ]
@@ -3226,19 +3464,75 @@ AppShell.create "product-shell" sideNav pageContent
             sample "upload" "Queue and recovery" [ "uploadQueueExample" ] (detailsSurface uploadQueueExample)
             sample "upload-empty" "Empty queue" [ "emptyUploadQueueExample" ] (detailsSurface emptyUploadQueueExample) ]
         | "steps" -> [ sample "steps" "Period-close steps" [ "periodCloseStepsExample" ] (detailsSurface periodCloseStepsExample) ]
-        | "first-steps" -> [ sample "first-steps" "Recoverable setup guidance" [ "firstStepsExample" ] (detailsSurface firstStepsExample) ]
-        | "calendar" -> calendarExamples CalendarDemoState.Schedule CalendarView.List 0
+        | "first-steps" -> [
+            sample "first-steps" "Open setup guidance" [ "setupSteps"; "firstStepsExample" ] (overlaySurface firstStepsExample)
+            sample "first-steps-minimized" "Minimized guidance" [ "setupSteps"; "minimizedFirstStepsExample" ] (overlaySurface minimizedFirstStepsExample)
+            sample "first-steps-dismissed" "Dismissed with restore" [ "setupSteps"; "dismissedFirstStepsExample" ] (overlaySurface dismissedFirstStepsExample) ]
+        | "calendar" -> calendarExamples
         | "media-library" -> [ sample "media-library" "Library and editor" (shellSource @ [ "mediaLibraryExample" ]) (detailsSurface mediaLibraryExample) ]
-        | "integrations/graph-and-trace" -> [
-            sample "trace-viewer" "Graph and trace workspace" [ "traceViewerIntegrationExample" ] (detailsSurface traceViewerIntegrationExample)
-            |> note "This package-only recipe has no graph-runtime dependency. If an application replaces the contained SVG, it owns the selected library, its license, and the visible ordered alternative." ]
-        | "integrations/financial-chart" -> [
-            sample "financial-chart" "Financial chart with data alternative" [ "financialChartIntegrationExample" ] (detailsSurface financialChartIntegrationExample)
-            |> note "This package-only recipe has no chart-runtime dependency. Applications own any chart library and license they introduce, while retaining a visible table alternative." ]
-        | "integrations/messaging" -> [
-            sample "messaging" "Messaging workspace" [ "messagingIntegrationExample" ] (detailsSurface messagingIntegrationExample)
-            |> note "This package-only recipe has no messaging-provider dependency. Applications own transport, persistence, authorization, provider SDKs, and their licenses." ]
+        | value when value.StartsWith("page-examples/", StringComparison.Ordinal) ->
+            let page = PageExamples.pages |> List.find (fun page -> value = "page-examples/" + PageExamples.slug page)
+            [ { id = "components-" + PageExamples.slug page; title = PageExamples.title page + " workspace"; source = PageExamples.source page
+                preview = gallerySurface (PageExamples.preview page PageExamples.defaultQuery PageExamples.initialMessages PageExamples.initialPhotos); note = None } ]
         | id -> invalidArg (nameof id) $"No component examples registered for '{id}'."
+
+    let private pageExampleBuildingBlocks = function
+        | PageExamples.DependencyGraph ->
+            [ "app-shell", "App shell"
+              "page", "Page"
+              "input", "Input"
+              "description-list", "Description list"
+              "status", "Status" ]
+        | PageExamples.ExecutionDetail ->
+            [ "app-shell", "App shell"
+              "page", "Page"
+              "table", "Table"
+              "description-list", "Description list"
+              "notice", "Notice" ]
+        | PageExamples.FinancialReporting ->
+            [ "app-shell", "App shell"
+              "page", "Page"
+              "metric", "Metric"
+              "table", "Table" ]
+        | PageExamples.Messaging ->
+            [ "app-shell", "App shell"
+              "page", "Page"
+              "side-nav", "Side nav"
+              "textarea", "Textarea" ]
+        | PageExamples.Operations ->
+            [ "app-shell", "App shell"
+              "page", "Page"
+              "metric", "Metric"
+              "table", "Table"
+              "first-steps", "First steps" ]
+        | PageExamples.Scheduling ->
+            [ "app-shell", "App shell"
+              "page", "Page"
+              "calendar", "Calendar"
+              "description-list", "Description list" ]
+        | PageExamples.MediaManagement ->
+            [ "app-shell", "App shell"
+              "page", "Page"
+              "media-library", "Media library"
+              "input", "Input"
+              "textarea", "Textarea"
+              "file-selection", "File selection" ]
+
+    let pageExamplePageFor page query messages photos =
+        let example =
+            { id = "components-" + PageExamples.slug page
+              title = PageExamples.title page + " workspace"
+              source = PageExamples.source page
+              preview = gallerySurface (PageExamples.preview page query messages photos)
+              note = None }
+        gallery (PageExamples.registration page) [ example ]
+        |> DocumentationPage.withSections [
+            DocumentationSection.create example.id example.title [
+                Example.gallery example.id example.title "fsharp" example.source example.preview ]
+            DocumentationSection.create "building-blocks" "Built with" [
+                pageExampleBuildingBlocks page
+                |> List.map (fun (path, label) -> "/components/" + path, label)
+                |> buildingBlockLinks ((PageExamples.title page) + " building blocks") ] ]
 
     let allExamples () =
         allRegistrations
@@ -3280,6 +3574,7 @@ AppShell.create "product-shell" sideNav pageContent
     let textareaPage = gallery textareaRegistration (examplesFor "textarea")
     let errorSummaryPage = gallery errorSummaryRegistration (examplesFor "error-summary")
     let noticePage = gallery noticeRegistration (examplesFor "notice")
+    let notificationPage = gallery notificationRegistration (examplesFor "notification")
     let selectPage = gallery selectRegistration (examplesFor "select")
     let checkboxPage = gallery checkboxRegistration (examplesFor "checkbox")
     let switchPage = gallery switchRegistration (examplesFor "switch")
@@ -3293,6 +3588,7 @@ AppShell.create "product-shell" sideNav pageContent
     let dialogPage = gallery dialogRegistration (examplesFor "dialog")
     let confirmationDialogPage = gallery confirmationDialogRegistration (examplesFor "confirmation-dialog")
     let drawerPage = gallery drawerRegistration (examplesFor "drawer")
+    let floatingPanelPage = gallery floatingPanelRegistration (examplesFor "floating-panel")
     let pageTopBarPage = gallery pageTopBarRegistration (examplesFor "page-top-bar")
     let pageHeaderPage = gallery pageHeaderRegistration (examplesFor "page-header")
     let sectionPage = gallery sectionRegistration (examplesFor "section")
@@ -3305,19 +3601,19 @@ AppShell.create "product-shell" sideNav pageContent
     let paginationPageFor requestedPage = gallery paginationRegistration (paginationExamples requestedPage)
     let paginationPage = paginationPageFor 2
     let appShellPageFor current = gallery appShellRegistration (appShellExamples current)
-    let appShellPage = appShellPageFor LedgerAccounts
+    let appShellPage = appShellPageFor Dashboard
+    let accountManagementPageWith workspace current =
+        let examples = accountManagementExamples current |> List.map (fun example -> {example with preview=shellFixtureWith workspace current})
+        gallery accountManagementRegistration examples
+    let accountManagementPageFor current = accountManagementPageWith defaultAccountWorkspace current
+    let accountManagementPage = accountManagementPageFor LedgerAccounts
     let bottomNavigationPage = gallery bottomNavigationRegistration (examplesFor "bottom-navigation")
     let bulkActionsPage = gallery bulkActionsRegistration (examplesFor "bulk-actions")
     let uploadPage = gallery uploadRegistration (examplesFor "upload")
     let stepsPage = gallery stepsRegistration (examplesFor "steps")
     let firstStepsPage = gallery firstStepsRegistration (examplesFor "first-steps")
-    let calendarPageForState state view offset = gallery calendarRegistration (calendarExamples state view offset)
-    let calendarPage = calendarPageForState CalendarDemoState.Schedule CalendarView.List 0
+    let calendarPage = gallery calendarRegistration calendarExamples
     let mediaLibraryPage = gallery mediaLibraryRegistration (examplesFor "media-library")
-    let graphTraceIntegrationPage = gallery graphTraceIntegrationRegistration (examplesFor "integrations/graph-and-trace")
-    let financialChartIntegrationPage = gallery financialChartIntegrationRegistration (examplesFor "integrations/financial-chart")
-    let messagingIntegrationPage = gallery messagingIntegrationRegistration (examplesFor "integrations/messaging")
-
     let interactionPage =
         DocumentationPage.create interactionRegistration.id interactionRegistration.title |> DocumentationPage.withDescription "Keep ephemeral interaction local while applications retain authoritative, durable, and security-sensitive state." |> DocumentationPage.withSections [
             DocumentationSection.create "datastar" "Datastar interaction" [
@@ -3337,8 +3633,8 @@ AppShell.create "product-shell" sideNav pageContent
     let themingPage =
         DocumentationPage.create themingRegistration.id themingRegistration.title |> DocumentationPage.withDescription "Apply semantic color, radius, density, and shell geometry consistently across a Components subtree or AppShell." |> DocumentationPage.withSections [
             DocumentationSection.create "theme" "Apply a theme" [ prose "Components consume semantic variables for page, surface, text, border, navigation, brand, positive, warning, critical, and informative roles. Variants such as Primary and Positive select roles rather than palette shades."; code "fsharp" themeExample ]
-            DocumentationSection.create "modes" "Light and dark modes" [ prose "Built-in sky, emerald, amber, cyan, and neutral themes coordinate default, selected, hover, focus, and navigation colors in light and dark modes. Radius and density settings apply consistently across controls and navigation." ]
-            DocumentationSection.create "shell" "Shell policy" [ prose "SideNav width, mobile breakpoint, and viewport or embedded container boundary are typed application choices. PageTopBar and SideNavHeader share a semantic minimum-height token; compact density keeps medium controls approximately 32 pixels high." ]
+            DocumentationSection.create "modes" "Light and dark modes" [ prose "Built-in sky, emerald, amber, cyan, and neutral themes coordinate default, selected, hover, focus, and navigation colors in light and dark modes. Radius applies across controls and navigation. Control size is independent of navigation and shell density: use ComponentsTheme.withControlSize for an application or ControlSize.className for a region. Small, Medium and Large have 32, 40 and 48px baselines; Small uses compact 14px/20px text, and Medium is the 16px/24px default. Button, IconButton, Input and Select also support explicit withSize overrides." ]
+            DocumentationSection.create "shell" "Shell policy" [ prose "SideNav width, mobile breakpoint, and viewport or embedded container boundary are typed application choices. PageTopBar and SideNavHeader share a semantic minimum-height token. Compact density retains the 48px shell bar and compact navigation independently of control size. Select Small explicitly for 32px controls, or retain Medium for aligned 40px actions and fields." ]
             DocumentationSection.create "brand" "Product branding" [ prose "Override documented semantic variables in an application theme when product branding requires it. Keep component APIs semantic rather than passing raw palette strings." ] ]
 
     let tailwindPage =
@@ -3381,6 +3677,7 @@ AppShell.create "product-shell" sideNav pageContent
           textareaRegistration.path, textareaPage
           errorSummaryRegistration.path, errorSummaryPage
           noticeRegistration.path, noticePage
+          notificationRegistration.path, notificationPage
           selectRegistration.path, selectPage
           checkboxRegistration.path, checkboxPage
           switchRegistration.path, switchPage
@@ -3394,6 +3691,7 @@ AppShell.create "product-shell" sideNav pageContent
           dialogRegistration.path, dialogPage
           confirmationDialogRegistration.path, confirmationDialogPage
           drawerRegistration.path, drawerPage
+          floatingPanelRegistration.path, floatingPanelPage
           pageTopBarRegistration.path, pageTopBarPage
           pageHeaderRegistration.path, pageHeaderPage
           sectionRegistration.path, sectionPage
@@ -3403,6 +3701,7 @@ AppShell.create "product-shell" sideNav pageContent
           collectionRegistration.path, collectionPageDocumentation
           detailRegistration.path, detailPageDocumentation
           appShellRegistration.path, appShellPage
+          accountManagementRegistration.path, accountManagementPage
           bottomNavigationRegistration.path, bottomNavigationPage
           bulkActionsRegistration.path, bulkActionsPage
           uploadRegistration.path, uploadPage
@@ -3410,15 +3709,13 @@ AppShell.create "product-shell" sideNav pageContent
           firstStepsRegistration.path, firstStepsPage
           calendarRegistration.path, calendarPage
           mediaLibraryRegistration.path, mediaLibraryPage
-          graphTraceIntegrationRegistration.path, graphTraceIntegrationPage
-          financialChartIntegrationRegistration.path, financialChartIntegrationPage
-          messagingIntegrationRegistration.path, messagingIntegrationPage
           interactionRegistration.path, interactionPage
           accessibilityRegistration.path, accessibilityPage
           themingRegistration.path, themingPage
           tailwindRegistration.path, tailwindPage
           customizationRegistration.path, customizationPage
           versioningRegistration.path, versioningPage ]
+        @ [ for page in PageExamples.pages -> PageExamples.url page, pageExamplePageFor page PageExamples.defaultQuery PageExamples.initialMessages PageExamples.initialPhotos ]
         |> Map.ofList
 
     let tryPage path = Map.tryFind path pages

@@ -91,20 +91,21 @@ module View =
         |> String
 
     let private navigation (sections:NavSection list) =
-        let rec group (section:NavSection) =
+        let rec group parentId (section:NavSection) =
+            let id = if String.IsNullOrEmpty parentId then slug section.label else parentId + "-" + slug section.label
             let pages =
                 section.pages
                 |> List.map (fun page -> Nav.page page.id page.navLabel page.path page.path)
 
-            let groups = section.sections |> List.map group
+            let groups = section.sections |> List.map (group id)
 
             Nav.group
-                (slug section.label)
+                id
                 section.label
                 (section.label = "Getting started")
                 (pages @ groups)
 
-        sections |> List.map group
+        sections |> List.map (group "")
 
     let private assets =
         { DocsAssets.defaults with
