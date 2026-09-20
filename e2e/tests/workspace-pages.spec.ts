@@ -103,8 +103,10 @@ test('schedule records and photographs retain matching destinations cross-browse
   await expect(frame(page).getByRole('textbox', { name: 'Photo name' })).toHaveValue('Before the lesson');
   await page.goto(root + 'scheduling');
   await frame(page).getByRole('link', { name: 'Day', exact: true }).click();
+  await expect(page).toHaveURL(/view=day/);
   await expect(frame(page).getByRole('link', { name: /Coastal trail lesson/ })).toBeVisible();
   await frame(page).getByRole('link', { name: 'Next', exact: true }).click();
+  await expect(page).toHaveURL(/view=day.*range=1|range=1.*view=day/);
   await expect(frame(page)).toContainText('Cornering fundamentals');
   await expect(frame(page)).not.toContainText('Coastal trail lesson');
 });
