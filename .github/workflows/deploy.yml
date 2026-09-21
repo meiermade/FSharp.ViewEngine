@@ -46,6 +46,15 @@ jobs:
           organization: meiermade
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:meiermade
+      - name: Setup Pulumi CLI
+        uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
+        with:
+          pulumi-version: 3.261.0
+      - name: Refresh deployment state
+        working-directory: ./pulumi
+        env:
+          RELEASE_COMMIT: ${{ steps.source.outputs.commit }}
+        run: pulumi refresh --run-program --yes --skip-preview --stack meiermade/fsharp-view-engine/prod
       - name: Deploy
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         env:
@@ -54,7 +63,6 @@ jobs:
           work-dir: ./pulumi
           command: up
           stack-name: meiermade/fsharp-view-engine/prod
-          refresh: true
 
   e2e:
     name: Production smoke test

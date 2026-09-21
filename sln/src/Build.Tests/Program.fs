@@ -319,6 +319,12 @@ let tests =
                 Expect.stringContains workflow "install_components: gke-gcloud-auth-plugin" $"{name} installs GKE authentication"
         }
 
+        test "Production refresh runs the current Kubernetes provider program" {
+            let deploy = workflow "deploy.yml"
+            Expect.stringContains deploy "pulumi refresh --run-program" "refresh uses the current provider configuration"
+            Expect.isFalse (deploy.Contains("refresh: true")) "the update does not refresh against stale provider state"
+        }
+
         test "Versioned changelog entries follow verified package releases" {
             let build = repositoryFile "sln/src/Build/Program.fs"
             let readme = repositoryFile "README.md"
