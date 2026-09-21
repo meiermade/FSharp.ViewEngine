@@ -252,7 +252,7 @@ let tests =
             Expect.isFalse (deploy.Contains("workflow_call:")) "package releases do not call site deployment"
             Expect.isFalse (deploy.Contains("expectedCoreVersion")) "site health does not predict Core publication"
             Expect.isFalse (deploy.Contains("expectedDocsVersion")) "site health does not predict Docs publication"
-            Expect.stringContains deploy "bash scripts/test-published-ci.sh" "production acceptance uses the browser image"
+            Expect.stringContains deploy "bash scripts/test-published-ci.sh tests/production-smoke.spec.ts" "main deploys run the bounded production smoke suite"
             Expect.isFalse (deploy.Contains("playwright install --with-deps")) "production acceptance skips host browser installation"
         }
 

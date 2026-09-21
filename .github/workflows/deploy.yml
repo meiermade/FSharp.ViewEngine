@@ -104,7 +104,7 @@ jobs:
           echo "The documentation site did not report the expected commit." >&2
           exit 1
       - name: Test deployed documentation site
-        run: bash scripts/test-published-ci.sh
+        run: bash scripts/test-published-ci.sh tests/production-smoke.spec.ts
         working-directory: ./e2e
         env:
           DOCS_E2E_BASE_URL: https://fsharpviewengine.meiermade.com

@@ -1,6 +1,7 @@
 open Docs.Common
 open Giraffe
 open Microsoft.AspNetCore.Builder
+open Microsoft.AspNetCore.HttpOverrides
 open Microsoft.Extensions.DependencyInjection
 open Microsoft.Extensions.Hosting
 open Serilog
@@ -38,6 +39,7 @@ let configureLogger (config:Config) =
 
 let configureApp (config:Config) (app:IApplicationBuilder) =
     app
+        .UseForwardedHeaders()
         .UseSerilogRequestLogging(fun options ->
             options.GetLevel <- fun context _ _ ->
                 if context.Request.Path.Value = "/health" then LogEventLevel.Verbose
@@ -47,6 +49,10 @@ let configureApp (config:Config) (app:IApplicationBuilder) =
     app.UseGiraffe(webApp config)
 
 let configureServices (services:IServiceCollection) =
+    services.Configure<ForwardedHeadersOptions>(fun (options:ForwardedHeadersOptions) ->
+        options.ForwardedHeaders <- ForwardedHeaders.XForwardedProto)
+    |> ignore
+
     services
         .AddSerilog()
         .AddGiraffe()

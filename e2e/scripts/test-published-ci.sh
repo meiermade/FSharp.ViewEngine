@@ -33,4 +33,4 @@ docker run --rm --init \
   --volume "$e2e_dir:/work" \
   --workdir /work \
   "$playwright_image" \
-  npx playwright test "${project_args[@]}" "${retry_args[@]}"
+  npx playwright test "$@" "${project_args[@]}" "${retry_args[@]}"
