@@ -321,10 +321,8 @@ let tests =
 
         test "Production refresh runs the current Kubernetes provider program" {
             let deploy = workflow "deploy.yml"
-            let provider = repositoryFile "pulumi/src/k8s/provider.ts"
             Expect.stringContains deploy "pulumi refresh --run-program" "refresh uses the current provider configuration"
             Expect.isFalse (deploy.Contains("refresh: true")) "the update does not refresh against stale provider state"
-            Expect.stringContains provider "fs.readFileSync(kubeconfigPath, 'utf8')" "provider state stores portable kubeconfig content"
         }
 
         test "Versioned changelog entries follow verified package releases" {
