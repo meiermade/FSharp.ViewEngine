@@ -54,6 +54,7 @@ jobs:
           work-dir: ./pulumi
           command: up
           stack-name: meiermade/fsharp-view-engine/prod
+          refresh: true
 
   e2e:
     name: Production smoke test
