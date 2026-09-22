@@ -9,7 +9,7 @@ open FSharp.ViewEngine
 open Giraffe
 
 module Handler =
-    let private productionOrigin = "https://fsharpviewengine.meiermade.com"
+    let private productionOrigin = "https://fve.meiermade.com"
 
     let sitemap =
         let urls =

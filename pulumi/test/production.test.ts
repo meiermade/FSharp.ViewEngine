@@ -9,8 +9,12 @@ interface RegisteredResource {
 }
 
 const resources: RegisteredResource[] = []
-const imageRef = `us-east1-docker.pkg.dev/meiermade/fsharpviewengine/fsharpviewengine:local@sha256:${'b'.repeat(64)}`
+const releaseCommit = 'fedcba9876543210fedcba9876543210fedcba98'
+const imageRef = `us-east1-docker.pkg.dev/meiermade/fsharpviewengine/fsharpviewengine:${releaseCommit}@sha256:${'b'.repeat(64)}`
 
+process.env.RELEASE_COMMIT = releaseCommit
+process.env.CORE_PACKAGE_VERSION = '2026.8.2'
+process.env.COMPONENTS_PACKAGE_VERSION = '2026.9.0'
 process.env.PULUMI_CONFIG = JSON.stringify({
     'docker:registryUri': 'us-east1-docker.pkg.dev/meiermade/fsharpviewengine',
     'docker:registryAccessToken': 'registry-token',
@@ -66,16 +70,45 @@ test('retains the established production identities and public hostname', () => 
         'app.kubernetes.io/name': 'fsharpviewengine',
     })
 
-    const record = resource('cloudflare:index/dnsRecord:DnsRecord', 'fsharpviewengine')
-    assert.equal(record.inputs.name, 'fsharpviewengine')
+    const record = resource('cloudflare:index/dnsRecord:DnsRecord', 'fsharpviewengine-canonical')
+    assert.equal(record.inputs.name, 'fve')
     assert.equal(record.inputs.zoneId, 'production-zone-id')
+
+    const legacyRecord = resource('cloudflare:index/dnsRecord:DnsRecord', 'fsharpviewengine')
+    assert.equal(legacyRecord.inputs.name, 'fsharpviewengine')
+    assert.equal(legacyRecord.inputs.proxied, true)
 
     const tunnelConfig = resource(
         'cloudflare:index/zeroTrustTunnelCloudflaredConfig:ZeroTrustTunnelCloudflaredConfig',
         'fsharpviewengine',
     )
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].hostname, 'fsharpviewengine.meiermade.com')
+    assert.equal(tunnelConfig.inputs.config.ingresses[0].hostname, 'fve.meiermade.com')
     assert.equal(tunnelConfig.inputs.config.ingresses[0].originRequest, undefined)
+    assert.deepEqual(tunnelConfig.inputs.config.ingresses[1], { service: 'http_status:404' })
+})
+
+test('promotes exact release metadata and redirects the legacy hostname at the edge', () => {
+    const deployment = resource('kubernetes:apps/v1:Deployment', 'fsharpviewengine')
+    const env = deployment.inputs.spec.template.spec.containers[0].env
+    const value = (name: string) => env.find((item: any) => item.name === name)?.value
+    assert.equal(deployment.inputs.spec.template.spec.containers[0].image, imageRef)
+    assert.equal(value('DOCS_PUBLIC_ORIGIN'), 'https://fve.meiermade.com')
+    assert.equal(value('RELEASE_COMMIT'), releaseCommit)
+    assert.equal(value('CORE_PACKAGE_VERSION'), '2026.8.2')
+    assert.equal(value('COMPONENTS_PACKAGE_VERSION'), '2026.9.0')
+    assert.equal(value('CORE_PACKAGE_TAG'), 'v2026.8.2')
+    assert.equal(value('COMPONENTS_PACKAGE_TAG'), 'components/v2026.9.0')
+
+    const redirectScript = resource('cloudflare:index/workersScript:WorkersScript', 'fsharpviewengine-legacy-redirect')
+    assert.equal(redirectScript.inputs.scriptName, 'fsharpviewengine-legacy-redirect')
+    assert.match(redirectScript.inputs.content, /target\.protocol = 'https:'/)
+    assert.match(redirectScript.inputs.content, /target\.hostname = 'fve\.meiermade\.com'/)
+    assert.match(redirectScript.inputs.content, /Response\.redirect\(target\.toString\(\), 301\)/)
+
+    const redirectRoute = resource('cloudflare:index/workersRoute:WorkersRoute', 'fsharpviewengine-legacy-redirect-route')
+    assert.equal(redirectRoute.inputs.zoneId, 'production-zone-id')
+    assert.equal(redirectRoute.inputs.pattern, 'fsharpviewengine.meiermade.com/*')
+    assert.equal(redirectRoute.inputs.script, 'fsharpviewengine-legacy-redirect')
 })
 
 test('does not add staging Access resources to production', () => {

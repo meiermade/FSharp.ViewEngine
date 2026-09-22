@@ -118,7 +118,7 @@ module View =
 
     let private site (sections:NavSection list) search : DocsSite<string> =
         { name = "FSharp.ViewEngine"
-          baseUrl = Some "https://fsharpviewengine.meiermade.com"
+          baseUrl = Some "https://fve.meiermade.com"
           description = Some "Documentation, API reference, and executable specifications for FSharp.ViewEngine."
           repository = Some(DocsRepository.github "https://github.com/meiermade/FSharp.ViewEngine")
           brandMark = img { _src "/logo.svg"; _alt "" }
@@ -150,7 +150,7 @@ module View =
             |> DocumentationPage.withMetadata {
                 DocsPageMetadata.defaults with
                     browserTitle = Some page.browserTitle
-                    socialImage = Some "https://fsharpviewengine.meiermade.com/social-card.png" }
+                    socialImage = Some "https://fve.meiermade.com/social-card.png" }
         if page.id = "home" then
             rendered
             |> DocumentationPage.withHeadingAdornment (
@@ -192,7 +192,7 @@ module View =
             docsPage
             |> DocumentationPage.withMetadata {
                 docsPage.metadata with
-                    socialImage = Some "https://fsharpviewengine.meiermade.com/social-card.png" }
+                    socialImage = Some "https://fve.meiermade.com/social-card.png" }
         let docsPage = pager sections registration.id |> Option.map (fun value -> DocumentationPage.withPager value docsPage) |> Option.defaultValue docsPage
         let site = site sections search
         let sideNavItems = navigation sections

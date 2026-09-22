@@ -22,7 +22,7 @@ FSharp.ViewEngine combines ideas from several F# view engines into a clean, unif
 
 The result is a DSL that is as minimal and fast as possible while remaining expressive and type-safe.
 
-Documentation site built using FSharp.ViewEngine available at [https://fsharpviewengine.meiermade.com](https://fsharpviewengine.meiermade.com).
+Documentation site built using FSharp.ViewEngine available at [https://fve.meiermade.com](https://fve.meiermade.com).
 > See [sln/src/Docs](./sln/src/Docs) for the source code.
 
 ## Installation
@@ -42,7 +42,7 @@ For accessible, server-rendered Tailwind components with Datastar interactions, 
 dotnet add package FSharp.ViewEngine.Components
 ```
 
-`FSharp.ViewEngine.Components` provides typed themes, actions, feedback, tables and hierarchy, branded form controls, files/uploads, tags, choice cards, progress/steps, calendar/media compositions, menus, overlays, collection/detail compositions, and destination-generic Breadcrumbs, SideNav, PageTopBar, visible PageHeader, Section, Page, and sidebar-oriented AppShell primitives. See its [package documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fsharpviewengine.meiermade.com/components).
+`FSharp.ViewEngine.Components` provides typed themes, actions, feedback, tables and hierarchy, branded form controls, files/uploads, tags, choice cards, progress/steps, calendar/media compositions, menus, overlays, collection/detail compositions, and destination-generic Breadcrumbs, SideNav, PageTopBar, visible PageHeader, Section, Page, and sidebar-oriented AppShell primitives. See its [package documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fve.meiermade.com/components).
 
 Documentation sites, API references, and executable specifications use the same Components package through `FSharp.ViewEngine.Components.Documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Import its optional `Documentation/Documentation.tailwind.css` only for Documentation surfaces. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
 
@@ -92,13 +92,15 @@ Two NuGet packages have independent release trains managed through the **Publish
 
 - `FSharp.ViewEngine` uses tags such as `v2026.8.1`.
 - `FSharp.ViewEngine.Components` uses tags such as `components/v2026.8.0`.
-- A dispatch selects `core`, `components`, or `both` (engine plus Components). The former Docs-only and Components-plus-Docs choices are retired.
+- A dispatch selects `core`, `components`, `both` (engine plus Components), or `docs`. A Docs-only release is accepted only when package-contract coherence checks prove the selected public Core and Components versions already contain every contract change.
 
 Components-only releases declare their minimum compatible published engine version. A `both` release uses the selected engine version as that minimum, verifies both packages before publication, then publishes the engine before Components. Versions need not match. Engine releases become the repository-wide GitHub “Latest” release; Components releases do not. Direct packing requires explicit package and engine-dependency MSBuild version properties. Documentation smoke consumers and its optional CSS are verified inside the Components package, not through a separate release.
 
+When a published package is permanently replaced, deprecate it only after its replacement and canonical production documentation are verified. In NuGet.org **Manage Packages → Deprecation**, select every version, choose **Legacy**, name the replacement package, and leave the versions listed/downloadable. Verify the resulting public metadata and pinned downloads with `node e2e/scripts/verify-docs-retirement.mjs`; the check covers every version returned by NuGet.org rather than a hard-coded list.
+
 Versioned changelog entries are added in a follow-up pull request after the package is published and verified and its GitHub release has been reconciled. Feature pull requests and pre-publication workflow steps must not claim a package version or release date that does not yet exist.
 
-Every successful push to `main` deploys one immutable candidate to the Cloudflare Access-protected staging site at `https://fve.meiermade.net` and runs a bounded, credential-scoped smoke test. The public documentation site remains on its last released package-coherent image until an explicit release promotes that exact staging-accepted digest; ordinary merges do not update production.
+Every successful push to `main` deploys one immutable candidate to the Cloudflare Access-protected staging site at `https://fve.meiermade.net` and runs a bounded, credential-scoped smoke test. The public documentation site at `https://fve.meiermade.com` remains on its last released package-coherent image until an explicit release promotes that exact staging-accepted digest; ordinary merges do not update production. The legacy `https://fsharpviewengine.meiermade.com` hostname permanently redirects to the canonical origin while preserving paths and query strings.
 
 ## Core rendering helpers
 

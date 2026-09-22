@@ -77,9 +77,8 @@ let optionalEnvironment name =
 let releaseSelection () =
     PackagePublishing.validateSelection
         (Environment.environVarOrFail "PACKAGE_SELECTION")
-        (optionalEnvironment "CORE_PACKAGE_VERSION")
-        (optionalEnvironment "COMPONENTS_PACKAGE_VERSION")
-        (optionalEnvironment "COMPONENTS_MINIMUM_CORE_VERSION")
+        (Environment.environVarOrFail "CORE_PACKAGE_VERSION")
+        (Environment.environVarOrFail "COMPONENTS_PACKAGE_VERSION")
 
 let selectedPackage () =
     match Environment.environVarOrFail "PACKAGE_ID" with
@@ -94,12 +93,24 @@ let getVersion () =
 
 Target.create "ValidateReleaseSelection" <| fun _ ->
     let selection = releaseSelection ()
+    let coreChanged =
+        PackagePublishing.hasChangesSinceLatestTag
+            releaseRepository
+            "v[0-9]*"
+            [ "sln/src/FSharp.ViewEngine" ]
+    let componentsChanged =
+        PackagePublishing.hasChangesSinceLatestTag
+            releaseRepository
+            "components/v[0-9]*"
+            [ "sln/src/FSharp.ViewEngine.Components" ]
+    PackagePublishing.validateCoherence selection coreChanged componentsChanged
+
     let selected =
         [ selection.core; selection.components ]
         |> List.choose id
         |> List.map (fun inputs -> $"{inputs.package.Id} {inputs.version}")
-        |> String.concat ", "
-    Trace.trace $"Validated package selection: {selected}"
+        |> function | [] -> "Docs only" | values -> String.concat ", " values
+    Trace.trace $"Validated release coherence: {selected}; Core {selection.coreVersion}; Components {selection.componentsVersion}"
 
 Target.create "PrepareRelease" <| fun _ ->
     let inputs = releaseInputs ()
@@ -163,6 +174,27 @@ Target.create "PublishPackageRelease" <| fun _ ->
         metadata.previousTag
         inputs.markLatest
         assets
+
+Target.create "VerifyPublishedPackageRelease" <| fun _ ->
+    let inputs = releaseInputs ()
+    let packageDirectory = Environment.environVarOrFail "PACKAGE_DIRECTORY" |> Path.getFullName
+    let expectedPackage = packageDirectory </> $"{inputs.package.Id}.{inputs.version}.nupkg"
+    let publishedDirectory =
+        Environment.environVarOrDefault
+            "PUBLISHED_PACKAGE_DIRECTORY"
+            (Environment.environVarOrDefault "RUNNER_TEMP" (System.IO.Path.GetTempPath()) </> $"published-{inputs.package.Id}-{inputs.version}")
+        |> Path.getFullName
+    let publishedPackage =
+        PackagePublishing.downloadPublishedArtifacts
+            inputs.package.Id
+            inputs.version
+            publishedDirectory
+            60
+            (System.TimeSpan.FromSeconds 10.)
+    PackagePublishing.verifyPublishedPackage expectedPackage publishedPackage
+    PackageVerification.verify
+        (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)
+        publishedPackage
 
 Target.create "CleanNugets" <| fun _ -> Shell.cleanDir nugetsDir
 

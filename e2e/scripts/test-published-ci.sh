@@ -16,7 +16,7 @@ case "$cross_browser_mode" in
     ;;
   full)
     project_args=(--project=chromium --project=firefox --project=webkit)
-    retry_args=(--retries=1)
+    retry_args=(--retries=0)
     ;;
   *)
     echo "Unsupported E2E_CROSS_BROWSER_MODE: $cross_browser_mode" >&2
@@ -32,11 +32,15 @@ docker_env=(
   --env DOCS_EXPECTED_COMMIT
 )
 
-for optional_name in DOCS_EXPECTED_ENVIRONMENT DOCS_EXPECTED_IMAGE CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+for optional_name in DOCS_EXPECTED_ENVIRONMENT DOCS_EXPECTED_IMAGE CORE_PACKAGE_VERSION COMPONENTS_PACKAGE_VERSION CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
   if [[ -n "${!optional_name:-}" ]]; then
     docker_env+=(--env "$optional_name")
   fi
 done
+
+auth_state="$e2e_dir/.auth/access.json"
+trap 'rm -f "$auth_state"' EXIT
+rm -f "$auth_state"
 
 docker run --rm --init \
   "${docker_env[@]}" \

@@ -63,8 +63,10 @@ export const deployment = new k8s.apps.v1.Deployment(config.identifier, {
             metadata: {
                 labels,
                 annotations: {
-                    'fsharpviewengine.meiermade.com/release-commit': config.releaseCommit,
-                    'fsharpviewengine.meiermade.com/release-image': image.imageRef,
+                    'fve.meiermade.com/release-commit': config.releaseCommit,
+                    'fve.meiermade.com/release-image': image.imageRef,
+                    'fve.meiermade.com/core-version': config.releaseMetadata.coreVersion,
+                    'fve.meiermade.com/components-version': config.releaseMetadata.componentsVersion,
                 },
             },
             spec: {
@@ -79,10 +81,15 @@ export const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                         imagePullPolicy: 'IfNotPresent',
                         env: [
                             { name: 'DOCS_SERVER_URL', value: 'http://0.0.0.0:5000' },
+                            { name: 'DOCS_PUBLIC_ORIGIN', value: config.appConfig.origin },
                             { name: 'OTEL_EXPORTER_OTLP_ENDPOINT', value: config.openTelemetryConfig.endpoint },
                             { name: 'DEPLOYMENT_ENVIRONMENT', value: config.deploymentEnvironment },
                             { name: 'RELEASE_COMMIT', value: config.releaseCommit },
                             { name: 'RELEASE_IMAGE', value: image.imageRef },
+                            { name: 'CORE_PACKAGE_VERSION', value: config.releaseMetadata.coreVersion },
+                            { name: 'CORE_PACKAGE_TAG', value: config.releaseMetadata.coreTag },
+                            { name: 'COMPONENTS_PACKAGE_VERSION', value: config.releaseMetadata.componentsVersion },
+                            { name: 'COMPONENTS_PACKAGE_TAG', value: config.releaseMetadata.componentsTag },
                         ],
                         resources: {
                             requests: { cpu: '25m', memory: '64Mi' },

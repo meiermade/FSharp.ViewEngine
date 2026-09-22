@@ -14,8 +14,13 @@ let webApp (config:Config) =
             route "/health" >=> json {|
                 status = "ok"
                 environment = config.deploymentEnvironment
+                origin = config.publicOrigin
                 commit = config.commit
                 image = config.image
+                packages = {|
+                    core = config.corePackage
+                    components = config.componentsPackage
+                |}
             |}
             Handler.routes
         ]
@@ -76,11 +81,13 @@ let main args =
 
             configureApp config app
             Log.Information(
-                "Starting {AppName} in {DeploymentEnvironment} at commit {ReleaseCommit} from {ReleaseImage}",
+                "Starting {AppName} in {DeploymentEnvironment} at commit {ReleaseCommit} from {ReleaseImage}; Core {CoreVersion}, Components {ComponentsVersion}",
                 config.appName,
                 config.deploymentEnvironment,
                 config.commit,
-                config.image)
+                config.image,
+                config.corePackage.version,
+                config.componentsPackage.version)
 
             app.Run(config.serverUrl)
             0

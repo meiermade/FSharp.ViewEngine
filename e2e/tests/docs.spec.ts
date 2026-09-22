@@ -1,7 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type Locator, type Page } from '@playwright/test'
 
-const productionOrigin = 'https://fsharpviewengine.meiermade.com'
+const productionOrigin = 'https://fve.meiermade.com'
 const crossBrowser = { tag: '@cross-browser' }
 
 async function openComponentGallery(page: Page, path: string, heading: string) {

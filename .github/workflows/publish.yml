@@ -1,49 +1,157 @@
-name: Publish packages
+name: Release packages and production Docs
 on:
   workflow_dispatch:
     inputs:
       packages:
-        description: Packages to publish
+        description: Changed package contracts to publish
         required: true
-        default: core
+        default: components
         type: choice
         options:
           - core
           - components
           - both
+          - docs
+      candidateCommit:
+        description: Exact accepted staging source commit
+        required: true
+        type: string
+      candidateImage:
+        description: Exact accepted staging image reference including sha256 digest
+        required: true
+        type: string
       coreVersion:
-        description: FSharp.ViewEngine version; required for core or both
-        required: false
+        description: Core version represented by this public Docs snapshot
+        required: true
         type: string
       componentsVersion:
-        description: FSharp.ViewEngine.Components version; required for components or both
-        required: false
-        type: string
-      componentsMinimumCoreVersion:
-        description: Minimum published Core version; required only for components (both uses coreVersion)
-        required: false
+        description: Components version represented by this public Docs snapshot
+        required: true
         type: string
 
 permissions:
-  contents: write
-  id-token: write
+  contents: read
 
 concurrency:
-  group: fsharp-viewengine-package-release
+  group: fsharp-viewengine-release
+  queue: max
   cancel-in-progress: false
 
 jobs:
-  package:
-    name: Build and verify release bundle
+  candidate:
+    name: Validate accepted staging candidate
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 12
     permissions:
       contents: read
+      id-token: write
     outputs:
-      commit: ${{ steps.source.outputs.commit }}
+      commit: ${{ steps.validate.outputs.commit }}
+      image: ${{ steps.validate.outputs.image }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ inputs.candidateCommit }}
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Validate selected main commit and immutable image
+        id: validate
+        env:
+          CANDIDATE_COMMIT: ${{ inputs.candidateCommit }}
+          CANDIDATE_IMAGE: ${{ inputs.candidateImage }}
+        run: |
+          [[ "$CANDIDATE_COMMIT" =~ ^[a-f0-9]{40}$ ]]
+          [[ "$CANDIDATE_IMAGE" =~ @sha256:[a-f0-9]{64}$ ]]
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_COMMIT"
+          git fetch origin main --no-tags
+          git merge-base --is-ancestor "$CANDIDATE_COMMIT" origin/main
+          echo "commit=$CANDIDATE_COMMIT" >> "$GITHUB_OUTPUT"
+          echo "image=$CANDIDATE_IMAGE" >> "$GITHUB_OUTPUT"
+      - name: Authenticate Pulumi
+        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        with:
+          organization: meiermade
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:meiermade
+      - name: Setup Pulumi CLI
+        uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
+        with:
+          pulumi-version: 3.261.0
+      - name: Prove protected staging runs the selected candidate
+        working-directory: ./pulumi
+        env:
+          CANDIDATE_COMMIT: ${{ steps.validate.outputs.commit }}
+          CANDIDATE_IMAGE: ${{ steps.validate.outputs.image }}
+        run: |
+          test "$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/dev)" = "$CANDIDATE_COMMIT"
+          test "$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/dev)" = "$CANDIDATE_IMAGE"
+          test "$(pulumi stack output origin --stack meiermade/fsharp-view-engine/dev)" = 'https://fve.meiermade.net'
+          test "$(pulumi stack output e2eReady --stack meiermade/fsharp-view-engine/dev)" = 'true'
+
+  acceptance:
+    name: Retry-free staging release acceptance
+    needs: candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.candidate.outputs.commit }}
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Install E2E packages
+        run: npm ci
+        working-directory: ./e2e
+      - name: Authenticate Pulumi
+        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        with:
+          organization: meiermade
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:meiermade
+      - name: Setup Pulumi CLI
+        uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
+        with:
+          pulumi-version: 3.261.0
+      - name: Run complete Chromium, Firefox, and WebKit acceptance without retries
+        working-directory: ./e2e
+        env:
+          EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
+          EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
+        run: >-
+          pulumi env run meiermade/fsharpviewengine/e2e-dev --
+          bash scripts/test-release-candidate.sh
+      - name: Upload credential-free release acceptance diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fsharp-viewengine-release-acceptance
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          if-no-files-found: ignore
+
+  package:
+    name: Build and verify release bundle
+    needs:
+      - candidate
+      - acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    permissions:
+      contents: read
+    outputs:
+      commit: ${{ needs.candidate.outputs.commit }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.candidate.outputs.commit }}
           fetch-depth: 0
           fetch-tags: true
       - name: Setup dotnet
@@ -59,17 +167,13 @@ jobs:
           dotnet paket install
           dotnet restore FSharp.ViewEngine.slnx
         working-directory: ./sln
-      - name: Validate selected package versions
+      - name: Validate changed-package selection and public snapshot versions
         env:
           PACKAGE_SELECTION: ${{ inputs.packages }}
           CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
           COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.componentsMinimumCoreVersion }}
         run: ./fake.sh ValidateReleaseSelection --single-target
         working-directory: ./sln
-      - name: Record release source
-        id: source
-        run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Test release source
         run: ./fake.sh Test --single-target
         working-directory: ./sln
@@ -109,6 +213,7 @@ jobs:
       - name: Record Core checksums
         if: inputs.packages == 'core' || inputs.packages == 'both'
         env:
+          PACKAGE_VERSION: ${{ inputs.coreVersion }}
           PACKAGE_ID: FSharp.ViewEngine
           PACKAGE_DIRECTORY: ${{ github.workspace }}/release/core
         run: ./fake.sh RecordPackageChecksums --single-target
@@ -119,7 +224,7 @@ jobs:
         env:
           PACKAGE_ID: FSharp.ViewEngine.Components
           PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
           LOCAL_DEPENDENCY_PACKAGE_PATH: ${{ inputs.packages == 'both' && format('{0}/nugets/FSharp.ViewEngine.{1}.nupkg', github.workspace, inputs.coreVersion) || '' }}
           MARK_LATEST: false
           RELEASE_METADATA_PATH: ${{ runner.temp }}/components-release-metadata.json
@@ -130,14 +235,14 @@ jobs:
         env:
           PACKAGE_ID: FSharp.ViewEngine.Components
           PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
         run: ./fake.sh Pack --single-target
         working-directory: ./sln
       - name: Verify Components package
         if: inputs.packages == 'components' || inputs.packages == 'both'
         env:
           PACKAGE_ID: FSharp.ViewEngine.Components
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
       - name: Stage verified Components release
@@ -153,11 +258,29 @@ jobs:
       - name: Record Components checksums
         if: inputs.packages == 'components' || inputs.packages == 'both'
         env:
+          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
           PACKAGE_ID: FSharp.ViewEngine.Components
           PACKAGE_DIRECTORY: ${{ github.workspace }}/release/components
         run: ./fake.sh RecordPackageChecksums --single-target
         working-directory: ./sln
 
+      - name: Record release transaction
+        env:
+          CANDIDATE_COMMIT: ${{ needs.candidate.outputs.commit }}
+          CANDIDATE_IMAGE: ${{ needs.candidate.outputs.image }}
+          PACKAGE_SELECTION: ${{ inputs.packages }}
+          CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
+          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+        run: |
+          mkdir -p release
+          jq -n \
+            --arg commit "$CANDIDATE_COMMIT" \
+            --arg image "$CANDIDATE_IMAGE" \
+            --arg packages "$PACKAGE_SELECTION" \
+            --arg coreVersion "$CORE_PACKAGE_VERSION" \
+            --arg componentsVersion "$COMPONENTS_PACKAGE_VERSION" \
+            '{commit:$commit,image:$image,packages:$packages,coreVersion:$coreVersion,componentsVersion:$componentsVersion}' \
+            > release/transaction.json
       - name: Upload verified release bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -166,10 +289,12 @@ jobs:
           if-no-files-found: error
 
   publish:
-    name: Publish selected packages
-    needs: package
+    name: Publish and verify selected packages
+    needs:
+      - candidate
+      - package
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     environment: release
     permissions:
       contents: write
@@ -177,25 +302,37 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ needs.package.outputs.commit }}
+          ref: ${{ needs.candidate.outputs.commit }}
           fetch-depth: 0
           fetch-tags: true
       - name: Setup dotnet
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
       - name: Download verified release bundle
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: package-release-${{ github.run_id }}
           path: ${{ runner.temp }}/release
+      - name: Verify release transaction identity
+        env:
+          CANDIDATE_COMMIT: ${{ needs.candidate.outputs.commit }}
+          CANDIDATE_IMAGE: ${{ needs.candidate.outputs.image }}
+        run: |
+          test "$(jq -r .commit '${{ runner.temp }}/release/transaction.json')" = "$CANDIDATE_COMMIT"
+          test "$(jq -r .image '${{ runner.temp }}/release/transaction.json')" = "$CANDIDATE_IMAGE"
       - name: Restore release tooling
+        if: inputs.packages != 'docs'
         run: |
           dotnet tool restore
           dotnet paket install
           dotnet restore src/Build/Build.fsproj
         working-directory: ./sln
       - name: Authenticate to NuGet with GitHub OIDC
+        if: inputs.packages != 'docs'
         id: nuget-login
         uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
         with:
@@ -213,6 +350,15 @@ jobs:
           RELEASE_METADATA_PATH: ${{ runner.temp }}/release/core/release-metadata.json
         run: ./fake.sh PublishPackageRelease --single-target
         working-directory: ./sln
+      - name: Verify published FSharp.ViewEngine from NuGet.org
+        if: inputs.packages == 'core' || inputs.packages == 'both'
+        env:
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/core
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: ${{ inputs.coreVersion }}
+          MARK_LATEST: true
+        run: ./fake.sh VerifyPublishedPackageRelease --single-target
+        working-directory: ./sln
       - name: Publish FSharp.ViewEngine.Components
         if: inputs.packages == 'components' || inputs.packages == 'both'
         env:
@@ -222,8 +368,212 @@ jobs:
           PACKAGE_DIRECTORY: ${{ runner.temp }}/release/components
           PACKAGE_ID: FSharp.ViewEngine.Components
           PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
           MARK_LATEST: false
           RELEASE_METADATA_PATH: ${{ runner.temp }}/release/components/release-metadata.json
         run: ./fake.sh PublishPackageRelease --single-target
         working-directory: ./sln
+      - name: Verify published FSharp.ViewEngine.Components from NuGet.org
+        if: inputs.packages == 'components' || inputs.packages == 'both'
+        env:
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/components
+          PACKAGE_ID: FSharp.ViewEngine.Components
+          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
+          MARK_LATEST: false
+        run: ./fake.sh VerifyPublishedPackageRelease --single-target
+        working-directory: ./sln
+
+  production:
+    name: Promote accepted digest to production
+    needs:
+      - candidate
+      - publish
+    if: ${{ always() && needs.candidate.result == 'success' && needs.publish.result == 'success' }}
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://fve.meiermade.com
+    permissions:
+      contents: read
+      id-token: write
+    # Bound individual operations so failure and cancellation recovery can still run.
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        timeout-minutes: 5
+        with:
+          ref: ${{ needs.candidate.outputs.commit }}
+      - name: Setup Node
+        timeout-minutes: 5
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            pulumi/package-lock.json
+            e2e/package-lock.json
+      - name: Install GKE auth plugin
+        timeout-minutes: 10
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+      - name: Install Pulumi packages
+        timeout-minutes: 5
+        run: npm ci
+        working-directory: ./pulumi
+      - name: Install E2E packages
+        timeout-minutes: 5
+        run: npm ci
+        working-directory: ./e2e
+      - name: Authenticate Pulumi
+        timeout-minutes: 5
+        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        with:
+          organization: meiermade
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:meiermade
+      - name: Setup Pulumi CLI
+        timeout-minutes: 5
+        uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
+        with:
+          pulumi-version: 3.261.0
+      - name: Record previous healthy production release
+        id: previous
+        timeout-minutes: 3
+        working-directory: ./pulumi
+        env:
+          FALLBACK_CORE_VERSION: ${{ inputs.coreVersion }}
+          FALLBACK_COMPONENTS_VERSION: ${{ inputs.componentsVersion }}
+        run: |
+          pulumi stack export --stack meiermade/fsharp-view-engine/prod > "$RUNNER_TEMP/production-state.json"
+          image="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].image][0] // empty' "$RUNNER_TEMP/production-state.json")"
+          commit="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].env[] | select(.name == "RELEASE_COMMIT") | .value][0] // empty' "$RUNNER_TEMP/production-state.json")"
+          core="$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
+          components="$(pulumi stack output componentsVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
+          redirect="$(pulumi stack output legacyRedirectEnabled --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
+          {
+            echo "image=$image"
+            echo "commit=$commit"
+            echo "core=${core:-$FALLBACK_CORE_VERSION}"
+            echo "components=${components:-$FALLBACK_COMPONENTS_VERSION}"
+            echo "redirect=${redirect:-false}"
+          } >> "$GITHUB_OUTPUT"
+      - name: Promote exact accepted image without enabling the first redirect
+        id: deploy
+        timeout-minutes: 20
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        env:
+          DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}
+          RELEASE_COMMIT: ${{ needs.candidate.outputs.commit }}
+          CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
+          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          DISABLE_LEGACY_REDIRECT: ${{ steps.previous.outputs.redirect != 'true' && 'true' || 'false' }}
+        with:
+          work-dir: ./pulumi
+          command: up
+          stack-name: meiermade/fsharp-view-engine/prod
+      - name: Verify production stack outputs
+        timeout-minutes: 2
+        env:
+          EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
+          EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
+          EXPECTED_CORE_VERSION: ${{ inputs.coreVersion }}
+          EXPECTED_COMPONENTS_VERSION: ${{ inputs.componentsVersion }}
+          DEPLOYED_COMMIT: ${{ steps.deploy.outputs.releaseCommit }}
+          DEPLOYED_IMAGE: ${{ steps.deploy.outputs.imageDigest }}
+          DEPLOYED_ORIGIN: ${{ steps.deploy.outputs.origin }}
+          DEPLOYED_CORE_VERSION: ${{ steps.deploy.outputs.coreVersion }}
+          DEPLOYED_COMPONENTS_VERSION: ${{ steps.deploy.outputs.componentsVersion }}
+        run: |
+          test "$DEPLOYED_COMMIT" = "$EXPECTED_COMMIT"
+          test "$DEPLOYED_IMAGE" = "$EXPECTED_IMAGE"
+          test "$DEPLOYED_ORIGIN" = 'https://fve.meiermade.com'
+          test "$DEPLOYED_CORE_VERSION" = "$EXPECTED_CORE_VERSION"
+          test "$DEPLOYED_COMPONENTS_VERSION" = "$EXPECTED_COMPONENTS_VERSION"
+      - name: Test canonical public production release
+        id: smoke
+        timeout-minutes: 10
+        working-directory: ./e2e
+        env:
+          DOCS_E2E_BASE_URL: https://fve.meiermade.com
+          DOCS_EXPECTED_ENVIRONMENT: production
+          DOCS_EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
+          DOCS_EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
+          CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
+          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          E2E_CROSS_BROWSER_MODE: focused
+        run: bash scripts/test-published-ci.sh tests/production-smoke.spec.ts
+      - name: Enable permanent legacy redirect after canonical acceptance
+        id: redirect
+        if: ${{ steps.previous.outputs.redirect != 'true' }}
+        timeout-minutes: 15
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        env:
+          DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}
+          RELEASE_COMMIT: ${{ needs.candidate.outputs.commit }}
+          CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
+          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+        with:
+          work-dir: ./pulumi
+          command: up
+          stack-name: meiermade/fsharp-view-engine/prod
+      - name: Verify permanent path-and-query-preserving edge redirect
+        timeout-minutes: 3
+        run: |
+          node --input-type=module <<'NODE'
+          const legacy = 'https://fsharpviewengine.meiermade.com/components/button?view=code&theme=dark'
+          const expected = 'https://fve.meiermade.com/components/button?view=code&theme=dark'
+          const response = await fetch(legacy, { redirect: 'manual' })
+          if (response.status !== 301) throw new Error(`Expected 301, found ${response.status}`)
+          if (response.headers.get('location') !== expected) {
+            throw new Error(`Expected ${expected}, found ${response.headers.get('location')}`)
+          }
+          NODE
+      - name: Record retired Docs package follow-up
+        if: ${{ (inputs.packages == 'components' || inputs.packages == 'both') && success() }}
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
+          ## Retire FSharp.ViewEngine.Docs
+
+          Canonical production and its permanent legacy-host redirect are verified. In NuGet.org **Manage Packages → Deprecation**, select every `FSharp.ViewEngine.Docs` version, choose **Legacy**, set `FSharp.ViewEngine.Components` as the replacement, and keep every pinned version available. Then run:
+
+          ```sh
+          node e2e/scripts/verify-docs-retirement.mjs
+          ```
+          SUMMARY
+      - name: Upload production E2E diagnostics
+        if: ${{ failure() || cancelled() }}
+        timeout-minutes: 5
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fsharp-viewengine-production-e2e
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          if-no-files-found: ignore
+      - name: Restore previous production release after unsuccessful acceptance
+        id: restore
+        if: ${{ (failure() || cancelled()) && steps.deploy.outcome != 'skipped' && steps.smoke.outcome != 'success' && steps.previous.outputs.image != '' && steps.previous.outputs.commit != '' }}
+        timeout-minutes: 20
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        env:
+          DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}
+          RELEASE_COMMIT: ${{ steps.previous.outputs.commit }}
+          CORE_PACKAGE_VERSION: ${{ steps.previous.outputs.core }}
+          COMPONENTS_PACKAGE_VERSION: ${{ steps.previous.outputs.components }}
+          DISABLE_LEGACY_REDIRECT: ${{ steps.previous.outputs.redirect != 'true' && 'true' || 'false' }}
+        with:
+          work-dir: ./pulumi
+          command: up
+          stack-name: meiermade/fsharp-view-engine/prod
+      - name: Confirm restored production release is healthy
+        if: ${{ (failure() || cancelled()) && steps.restore.outcome == 'success' }}
+        timeout-minutes: 5
+        working-directory: ./pulumi
+        env:
+          EXPECTED_IMAGE: ${{ steps.previous.outputs.image }}
+          EXPECTED_COMMIT: ${{ steps.previous.outputs.commit }}
+        run: |
+          test "$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_IMAGE"
+          test "$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_COMMIT"
+          curl --fail --silent --show-error --max-time 30 https://fsharpviewengine.meiermade.com/health >/dev/null

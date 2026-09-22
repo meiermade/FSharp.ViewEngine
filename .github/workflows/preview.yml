@@ -175,6 +175,8 @@ jobs:
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         env:
           RELEASE_COMMIT: ${{ github.event.pull_request.head.sha }}
+          CORE_PACKAGE_VERSION: 2099.1.0
+          COMPONENTS_PACKAGE_VERSION: 2099.1.0
         with:
           work-dir: ./pulumi
           command: preview

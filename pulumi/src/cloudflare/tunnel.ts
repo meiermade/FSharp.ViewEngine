@@ -23,22 +23,25 @@ const accessOriginRequest = access.application
     }
     : undefined
 
+const applicationIngress = (hostname: string) => ({
+    hostname,
+    service: 'http://localhost:5000',
+    ...(accessOriginRequest ? { originRequest: accessOriginRequest } : {}),
+})
+
+const ingresses = [
+    applicationIngress(config.appConfig.hostname),
+    ...(!config.isStaging && !config.legacyRedirectEnabled
+        ? [applicationIngress(config.legacyProductionHostname)]
+        : []),
+    { service: 'http_status:404' },
+]
+
 export const tunnelConfig = new cloudflare.ZeroTrustTunnelCloudflaredConfig(config.identifier, {
     accountId: config.cloudflareConfig.accountId,
     tunnelId: tunnel.id,
     source: 'cloudflare',
-    config: {
-        ingresses: [
-            {
-                hostname: config.appConfig.hostname,
-                service: 'http://localhost:5000',
-                ...(accessOriginRequest ? { originRequest: accessOriginRequest } : {}),
-            },
-            {
-                service: 'http_status:404',
-            },
-        ],
-    },
+    config: { ingresses },
 }, { provider })
 
 export const tunnelHostname = tunnel.id.apply(id => `${id}.cfargotunnel.com`)
