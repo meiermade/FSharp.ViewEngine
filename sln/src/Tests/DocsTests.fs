@@ -421,6 +421,7 @@ let tests =
             Expect.stringContains rendered "suppressErrorRendering: true" "Mermaid error SVGs are suppressed in favor of package-owned failure content"
             Expect.stringContains rendered "window.mermaid.render(id, node.dataset.mermaidSource" "Mermaid renders from encoded source without restoring visible raw text"
             Expect.stringContains rendered "mermaidRenderQueue" "Mermaid renders are serialized"
+            Expect.stringContains rendered "window.renderMermaid?.(content, true)" "initial document readiness does not rely solely on per-element Datastar initialization"
             Expect.stringContains rendered "setMermaidFailed" "asset and render failures use the shared deterministic failure state"
             Expect.stringContains rendered "name=\"robots\"" "additional head content"
         }

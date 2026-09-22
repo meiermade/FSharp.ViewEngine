@@ -736,9 +736,10 @@ const wireMermaidLinks = node => {
     link.setAttribute('data-on:click', `window.fsharpDocsNavigation.navigate(evt, ${encodedHref})`);
   }
 };
-window.renderMermaid = (el) => {
+window.renderMermaid = (el, pendingOnly = false) => {
   const render = async () => {
-    const nodes = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
+    const candidates = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
+    const nodes = pendingOnly ? candidates.filter(node => node.dataset.mermaidState === 'pending') : candidates;
     if (nodes.length === 0) return;
     for (const node of nodes) setMermaidPending(node);
     try {
@@ -1137,7 +1138,7 @@ document.addEventListener('datastar-fetch', event => {
                 _data("on:popstate__window", "window.fsharpDocsNavigation.restore()")
                 _data("on:keydown__window", "evt.key == 'Escape' ? ($sideNavOpen = false, $breadcrumbMenuOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)")
                 pageWithNavigation site breadcrumbs sideNavItems docPage
-                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content'); await window.renderCode?.(content); await window.renderInitialDocsPreviews?.(content); window.fsharpDocsNavigation.initializeToc(); });" }
+                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content'); await Promise.all([window.renderCode?.(content), window.renderMermaid?.(content, true), window.renderInitialDocsPreviews?.(content)]); window.fsharpDocsNavigation.initializeToc(); });" }
             }
         }
 

@@ -2393,6 +2393,27 @@ const expectNoRawMermaid = async (diagram: Locator) => {
   await expect(diagram.locator('.error-icon, .error-text')).toHaveCount(0)
 }
 
+test('initial document readiness renders pending diagrams independently of data-init timing', crossBrowser, async ({ page }) => {
+  await page.addInitScript(() => {
+    let renderMermaid: ((element: Element, pendingOnly?: boolean) => Promise<void>) | undefined
+    Object.defineProperty(window, 'renderMermaid', {
+      configurable: true,
+      get: () => renderMermaid,
+      set: value => {
+        renderMermaid = (element, pendingOnly) =>
+          element.matches('.mermaid') ? Promise.resolve() : value(element, pendingOnly)
+      },
+    })
+  })
+
+  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+
+  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
+  await expect(diagram.locator('svg')).toBeVisible()
+  await expectNoRawMermaid(diagram)
+})
+
 test('diagrams render directly without exposing Mermaid source', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
