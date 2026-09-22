@@ -169,9 +169,34 @@ let private verifyDependency dependentPackageId expectedDependencyId expectedVer
             fail $"Expected {dependentPackageId} {expectedDependencyId} dependency {expectedVersion}, found {actualVersion}"
     | dependencies -> fail $"Expected exactly one {dependentPackageId} {expectedDependencyId} dependency, found {dependencies.Length}"
 
+let private verifyCommonPackageMetadata packageId (archive:ZipArchive) =
+    let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
+    for required in [ "LICENSE"; "README.md" ] do
+        if not (entries.Contains required) then fail $"{packageId} package is missing {required}"
+
+    let nuspecEntry =
+        archive.Entries
+        |> Seq.filter (fun entry -> entry.FullName.EndsWith(".nuspec", StringComparison.OrdinalIgnoreCase))
+        |> exactlyOne "NuSpec entry"
+    let document = nuspecEntry |> entryText |> XDocument.Parse
+    let metadataValue name =
+        document.Descendants()
+        |> Seq.filter (fun element -> element.Name.LocalName = name)
+        |> exactlyOne $"{name} element"
+        |> _.Value
+    if metadataValue "id" <> packageId then fail $"{packageId} package ID is incorrect"
+    if metadataValue "readme" <> "README.md" then fail $"{packageId} package README metadata is incorrect"
+    let license =
+        document.Descendants()
+        |> Seq.filter (fun element -> element.Name.LocalName = "license")
+        |> exactlyOne "license element"
+    let licenseType = license.Attribute(XName.Get "type")
+    if isNull licenseType || licenseType.Value <> "file" || license.Value <> "LICENSE" then
+        fail $"{packageId} package license metadata is incorrect"
+
 let private verifyComponentsContents (archive:ZipArchive) =
     let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
-    for required in [ "LICENSE"; "README.md"; "contentFiles/any/any/FSharp.ViewEngine.Components.tailwind.css"; "contentFiles/any/any/AppMode.tailwind.css"; "contentFiles/any/any/app-mode.js"; "contentFiles/any/any/Documentation/Documentation.tailwind.css" ] do
+    for required in [ "contentFiles/any/any/FSharp.ViewEngine.Components.tailwind.css"; "contentFiles/any/any/AppMode.tailwind.css"; "contentFiles/any/any/app-mode.js"; "contentFiles/any/any/Documentation/Documentation.tailwind.css" ] do
         if not (entries.Contains required) then fail $"Components package is missing {required}"
 
     let nuspecEntry =
@@ -697,6 +722,7 @@ let verify runDotnet packagePath =
 
     use packageArchive = ZipFile.OpenRead packagePath
     verifyPackageContents definition.assemblyName packageArchive
+    verifyCommonPackageMetadata definition.packageId packageArchive
 
     match definition.packageId with
     | "FSharp.ViewEngine.Components" ->

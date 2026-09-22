@@ -26,7 +26,7 @@ const rawAppConfig = new pulumi.Config('fsharpviewengine')
 const configuredOrigin = rawAppConfig.get('origin')
 const origin = isStaging
     ? requireStagingValue(configuredOrigin, 'fsharpviewengine:origin')
-    : configuredOrigin ?? 'https://fsharpviewengine.meiermade.com'
+    : configuredOrigin ?? 'https://fve.meiermade.com'
 
 const parsedOrigin = new URL(origin)
 if (parsedOrigin.protocol !== 'https:' || parsedOrigin.pathname !== '/' || parsedOrigin.search || parsedOrigin.hash) {
@@ -35,16 +35,40 @@ if (parsedOrigin.protocol !== 'https:' || parsedOrigin.pathname !== '/' || parse
 
 const expectedOrigin = isStaging
     ? 'https://fve.meiermade.net'
-    : 'https://fsharpviewengine.meiermade.com'
+    : 'https://fve.meiermade.com'
 if (origin !== expectedOrigin) {
     throw new Error(`${stack} must use ${expectedOrigin}`)
 }
 
+export const legacyProductionHostname = 'fsharpviewengine.meiermade.com'
 export const appConfig = {
     origin,
     hostname: parsedOrigin.hostname,
     dnsName: parsedOrigin.hostname.split('.')[0],
 }
+
+const stableVersionPattern = /^\d{4}\.\d{1,2}\.\d+$/
+const allowUnreleasedPackageSnapshot = process.env.ALLOW_UNRELEASED_PACKAGE_SNAPSHOT === 'true'
+const releaseVersion = (key: string): string => {
+    const value = process.env[key]
+    if (isStaging) return value || 'unreleased'
+    if (allowUnreleasedPackageSnapshot && value === 'unreleased') return value
+    if (!value || !stableVersionPattern.test(value)) {
+        throw new Error(`${key} must use YYYY.M.MINOR form for production`)
+    }
+    return value
+}
+
+const coreVersion = releaseVersion('CORE_PACKAGE_VERSION')
+const componentsVersion = releaseVersion('COMPONENTS_PACKAGE_VERSION')
+export const releaseMetadata = {
+    coreVersion,
+    coreTag: coreVersion === 'unreleased' ? 'unreleased' : `v${coreVersion}`,
+    componentsVersion,
+    componentsTag: componentsVersion === 'unreleased' ? 'unreleased' : `components/v${componentsVersion}`,
+}
+
+export const legacyRedirectEnabled = !isStaging && process.env.DISABLE_LEGACY_REDIRECT !== 'true'
 
 const rawDockerConfig = new pulumi.Config('docker')
 export const dockerConfig = {

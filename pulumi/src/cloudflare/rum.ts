@@ -7,7 +7,8 @@ export const rumRuleset = config.isStaging
     ? undefined
     : new cloudflare.Ruleset(`${config.identifier}-rum`, {
         zoneId,
-        name: `Disable Web Analytics RUM for ${config.appConfig.hostname}`,
+        // Preserve the existing Cloudflare entry-point ruleset identity; its name is immutable.
+        name: 'Disable Web Analytics RUM for fsharpviewengine.meiermade.com',
         kind: 'zone',
         phase: 'http_config_settings',
         rules: [{

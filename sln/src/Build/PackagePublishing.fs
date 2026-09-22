@@ -35,8 +35,15 @@ type Inputs =
       markLatest:bool }
 
 type SelectionInputs =
-    { core:Inputs option
+    { name:string
+      coreVersion:string
+      componentsVersion:string
+      core:Inputs option
       components:Inputs option }
+
+type PackageState =
+    { latestVersion:string option
+      changedSinceLatest:bool }
 
 let private stableVersionPattern = Regex("^[0-9]{4}\\.[0-9]{1,2}\\.[0-9]+$")
 
@@ -75,29 +82,47 @@ let validateInputs packageId version minimumDependencyVersion markLatest =
         invalidArg (nameof packageId) "The Docs release train is retired. Publish FSharp.ViewEngine.Components instead."
     | package, _ -> invalidArg (nameof packageId) $"Unsupported package: {package}"
 
-let validateSelection selection coreVersion componentsVersion componentsMinimumCoreVersion =
-    let optionalValue = Option.filter (String.IsNullOrWhiteSpace >> not)
-    let coreVersion = optionalValue coreVersion
-    let componentsVersion = optionalValue componentsVersion
-    let componentsMinimumCoreVersion = optionalValue componentsMinimumCoreVersion
+let validateSelection selection coreVersion componentsVersion =
+    let coreVersion = requireStableVersion "Core version" coreVersion
+    let componentsVersion = requireStableVersion "Components version" componentsVersion
+    let create core components =
+        { name = selection
+          coreVersion = coreVersion
+          componentsVersion = componentsVersion
+          core = core
+          components = components }
 
-    match selection, coreVersion, componentsVersion, componentsMinimumCoreVersion with
-    | "core", Some version, None, None ->
-        { core = Some(validateInputs "FSharp.ViewEngine" version None true)
-          components = None }
-    | "components", None, Some version, Some coreVersion ->
-        { core = None
-          components = Some(validateInputs "FSharp.ViewEngine.Components" version (Some coreVersion) false) }
-    | "both", Some coreVersion, Some componentsVersion, None ->
-        { core = Some(validateInputs "FSharp.ViewEngine" coreVersion None true)
-          components = Some(validateInputs "FSharp.ViewEngine.Components" componentsVersion (Some coreVersion) false) }
-    | "core", _, _, _ ->
-        invalidArg (nameof selection) "Core selection requires only a Core version."
-    | "components", _, _, _ ->
-        invalidArg (nameof selection) "Components selection requires only a Components package version and minimum Core version."
-    | "both", _, _, _ ->
-        invalidArg (nameof selection) "Both selection requires Core and Components versions; minimum Core is the selected Core version."
-    | value, _, _, _ -> invalidArg (nameof selection) $"Unsupported package selection: {value}"
+    match selection with
+    | "core" -> create (Some(validateInputs "FSharp.ViewEngine" coreVersion None true)) None
+    | "components" -> create None (Some(validateInputs "FSharp.ViewEngine.Components" componentsVersion (Some coreVersion) false))
+    | "both" ->
+        create
+            (Some(validateInputs "FSharp.ViewEngine" coreVersion None true))
+            (Some(validateInputs "FSharp.ViewEngine.Components" componentsVersion (Some coreVersion) false))
+    | "docs" -> create None None
+    | value -> invalidArg (nameof selection) $"Unsupported package selection: {value}"
+
+let validateCoherence (selection:SelectionInputs) coreState componentsState =
+    let validate package advertisedVersion (state:PackageState) selected =
+        match state.changedSinceLatest, selected with
+        | true, false -> invalidOp $"{package} changed since its latest package tag and must be selected."
+        | false, true -> invalidOp $"{package} has not changed since its latest package tag and must not be republished."
+        | _ -> ()
+
+        match selected, state.latestVersion with
+        | false, Some latestVersion when advertisedVersion <> latestVersion ->
+            invalidOp $"{package} must advertise its latest tagged version {latestVersion}, found {advertisedVersion}."
+        | false, None ->
+            invalidOp $"{package} has no published package tag and must be selected before it can be advertised."
+        | true, Some latestVersion when Version(advertisedVersion) <= Version(latestVersion) ->
+            invalidOp $"{package} selected version {advertisedVersion} must be newer than {latestVersion}."
+        | _ -> ()
+
+    validate "FSharp.ViewEngine" selection.coreVersion coreState selection.core.IsSome
+    validate "FSharp.ViewEngine.Components" selection.componentsVersion componentsState selection.components.IsSome
+
+    if selection.name = "docs" && (coreState.changedSinceLatest || componentsState.changedSinceLatest) then
+        invalidOp "A Docs-only release cannot advertise unpublished package contract changes."
 
 let validateLocalPackage (package:Package) version (packagePath:string) =
     let version = requireStableVersion "Minimum dependency version" version
@@ -203,6 +228,31 @@ let private packageUrl (packageId:string) (version:string) =
     let slug = packageId.ToLowerInvariant()
     $"https://api.nuget.org/v3-flatcontainer/{slug}/{version}/{slug}.{version}.nupkg"
 
+let private symbolsUrl (packageId:string) (version:string) =
+    let fileName = $"{packageId.ToLowerInvariant()}.{version}.snupkg"
+    $"https://globalcdn.nuget.org/symbol-packages/{fileName}"
+
+let packageStateSinceLatestTag repository tagPattern tagPrefix paths =
+    let tags =
+        runProcess true "git" [ "-C"; repository; "tag"; "--list"; tagPattern; "--sort=-version:refname" ]
+        |> fun value -> value.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
+
+    match tags |> Array.tryHead with
+    | None ->
+        { latestVersion = None
+          changedSinceLatest = true }
+    | Some tag ->
+        if not (tag.StartsWith(tagPrefix, StringComparison.Ordinal)) then
+            invalidOp $"Latest tag {tag} does not start with {tagPrefix}."
+        let version = tag.Substring(tagPrefix.Length) |> requireStableVersion "Tagged package version"
+        let changed =
+            match processExitCode "git" ([ "-C"; repository; "diff"; "--quiet"; tag; "--" ] @ paths) with
+            | 0 -> false
+            | 1 -> true
+            | code -> invalidOp $"git diff for {tagPattern} failed with exit code {code}."
+        { latestVersion = Some version
+          changedSinceLatest = changed }
+
 let private tryDownload (client:HttpClient) (url:string) (outputPath:string) =
     use response = client.GetAsync(url).GetAwaiter().GetResult()
     if response.StatusCode = HttpStatusCode.NotFound then false
@@ -217,6 +267,23 @@ let confirmPublished packageId version =
     use client = new HttpClient()
     use response = client.GetAsync(packageUrl packageId version).GetAwaiter().GetResult()
     response.IsSuccessStatusCode
+
+let downloadPublishedArtifacts packageId version outputDirectory attempts (delay:TimeSpan) =
+    Directory.CreateDirectory outputDirectory |> ignore
+    let packagePath = Path.Combine(outputDirectory, $"{packageId}.{version}.nupkg")
+    let symbolsPath = Path.Combine(outputDirectory, $"{packageId}.{version}.snupkg")
+    use client = new HttpClient()
+
+    let rec loop remaining =
+        let packageReady = tryDownload client (packageUrl packageId version) packagePath
+        let symbolsReady = tryDownload client (symbolsUrl packageId version) symbolsPath
+        if packageReady && symbolsReady then packagePath
+        elif remaining <= 1 then invalidOp $"{packageId} {version} package and symbols were not available from NuGet in time."
+        else
+            Threading.Thread.Sleep delay
+            loop (remaining - 1)
+
+    loop attempts
 
 let publishOrVerify packagePath packageId version apiKey temporaryDirectory =
     Directory.CreateDirectory temporaryDirectory |> ignore
@@ -271,7 +338,7 @@ let reconcileGitHubRelease repository packageId version tag previousTag markLate
         let notes =
             match previousTag with
             | Some previous -> [ "--generate-notes"; "--notes-start-tag"; previous ]
-            | None -> [ "--notes"; $"Initial {packageId} package release. See https://fsharpviewengine.meiermade.com/changelog for release details." ]
+            | None -> [ "--notes"; $"Initial {packageId} package release. See https://fve.meiermade.com/changelog for release details." ]
 
         runProcess false "gh" (
             [ "release"; "create"; tag ]

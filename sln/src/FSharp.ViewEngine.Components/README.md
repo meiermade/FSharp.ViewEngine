@@ -146,7 +146,7 @@ Input types are Text, Email, Telephone, Password, Number, Search, Url, Date, Tim
 
 `Input.withLeadingIcon` accepts a decorative, non-interactive HTML icon; the visible label remains the accessible name. `Input.withPrefix` and `Input.withSuffix` add encoded, non-editable context such as `https://` or `USD`. Prefix/suffix text is associated through `aria-describedby`, independently of help/errors, and is **not** included in the input's submitted value. Adorned controls retain native input behavior and an outer focus-visible outline; consumers still own parsing and validation.
 
-The catalog starts with focused [Input examples](https://fsharpviewengine.meiermade.com/components/input) and meaningful field states. Complete stacked, responsive two-column and sectioned forms are under **Application → Forms → Form layouts** (`/components/form-layouts`), rather than embedded in the Input primitive. The contact-validation endpoint and default field IDs remain supported there. Search with clear behavior stays in the Input gallery; result filtering is demonstrated in **Page examples → Account management**, not Form layouts. Choice controls retain focused submission/validation demonstrations after their basic examples.
+The catalog starts with focused [Input examples](https://fve.meiermade.com/components/input) and meaningful field states. Complete stacked, responsive two-column and sectioned forms are under **Application → Forms → Form layouts** (`/components/form-layouts`), rather than embedded in the Input primitive. The contact-validation endpoint and default field IDs remain supported there. Search with clear behavior stays in the Input gallery; result filtering is demonstrated in **Page examples → Account management**, not Form layouts. Choice controls retain focused submission/validation demonstrations after their basic examples.
 
 `withValue` encodes input attributes or textarea content. `withValidation` associates corrective text through `aria-describedby`; it does not make every field an alert. `required` retains native constraints for editable controls. Disabled fields are omitted from FormData; **pending Input/Textarea values remain submitted**, unlike disabled choice controls. Pending fields prevent editing and are visibly busy. Input and Textarea have no standalone read-only state; use `DescriptionList` / `DetailField` for non-editable information. Applications own validation, submission, state, and whether to disable native constraint checking.
 
@@ -374,4 +374,4 @@ Standalone Navbar, stacked/top-navigation shells, generic non-navigation sidebar
 
 The complete component gallery, typed examples, theming guidance, and application-boundary guidance are published at:
 
-https://fsharpviewengine.meiermade.com/components
+https://fve.meiermade.com/components

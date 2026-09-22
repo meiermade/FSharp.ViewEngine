@@ -3,3 +3,6 @@ paths:
     # GitHub added concurrency.queue in May 2026; actionlint 1.7.12 has not added it yet.
     ignore:
       - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/publish.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'

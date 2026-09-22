@@ -3,6 +3,7 @@ module Build.Tests.Program
 open System
 open System.IO
 open System.IO.Compression
+open System.Diagnostics
 open Expecto
 
 let private writePackage path (entries:(string * string) list) =
@@ -17,9 +18,20 @@ let private workflowPath name =
 
 let private workflow name = workflowPath name |> File.ReadAllText
 
-let private repositoryFile path =
+let private repositoryPath path =
     Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", path))
-    |> File.ReadAllText
+
+let private repositoryFile path = repositoryPath path |> File.ReadAllText
+
+let private runProcessWithEnvironment workingDirectory command arguments environment =
+    let startInfo = ProcessStartInfo(command)
+    startInfo.WorkingDirectory <- workingDirectory
+    startInfo.UseShellExecute <- false
+    for argument in arguments do startInfo.ArgumentList.Add argument
+    for key, value in environment do startInfo.Environment[key] <- value
+    use child = Process.Start startInfo
+    child.WaitForExit()
+    child.ExitCode
 
 let tests =
     testList "Package publishing" [
@@ -73,37 +85,69 @@ let tests =
             ]
             for invalid in invalidCases do Expect.throws invalid "invalid release input"
 
-        test "Release selection validates conditional package versions" {
-            let core = PackagePublishing.validateSelection "core" (Some "2026.8.3") None None
+        test "Release selection carries one coherent public package snapshot" {
+            let core = PackagePublishing.validateSelection "core" "2026.8.3" "2026.8.1"
             Expect.isSome core.core "Core selected"
             Expect.isNone core.components "Components package not selected"
+            Expect.equal core.componentsVersion "2026.8.1" "existing Components remains traceable"
 
-            let components = PackagePublishing.validateSelection "components" None (Some "2026.8.1") (Some "2026.8.3")
+            let components = PackagePublishing.validateSelection "components" "2026.8.3" "2026.9.0"
             Expect.isNone components.core "Core not selected"
             Expect.isSome components.components "Components selected"
 
-            let both = PackagePublishing.validateSelection "both" (Some "2026.8.3") (Some "2026.8.1") None
+            let both = PackagePublishing.validateSelection "both" "2026.8.3" "2026.9.0"
             Expect.isSome both.core "Core package selected together"
             Expect.isSome both.components "Components package selected together"
             Expect.equal
                 both.components.Value.minimumDependency
                 (Some { package = PackagePublishing.Package.ViewEngine; minimumVersion = "2026.8.3" })
                 "Components uses the selected Core version"
+
+            let docs = PackagePublishing.validateSelection "docs" "2026.8.3" "2026.9.0"
+            Expect.isNone docs.core "Docs-only does not republish Core"
+            Expect.isNone docs.components "Docs-only does not republish Components"
         }
 
-        testCase "Invalid conditional package versions fail" <| fun _ ->
+        testCase "Invalid package selections or versions fail" <| fun _ ->
             let invalidCases = [
-                fun () -> PackagePublishing.validateSelection "core" None None None |> ignore
-                fun () -> PackagePublishing.validateSelection "core" (Some "2026.8.3") (Some "2026.8.2") None |> ignore
-                fun () -> PackagePublishing.validateSelection "components" None (Some "2026.8.1") None |> ignore
-                fun () -> PackagePublishing.validateSelection "components" (Some "2026.8.3") (Some "2026.8.1") (Some "2026.8.3") |> ignore
-                fun () -> PackagePublishing.validateSelection "docs" None (Some "2026.8.2") (Some "2026.8.1") |> ignore
-                fun () -> PackagePublishing.validateSelection "both" (Some "2026.8.3") None None |> ignore
-                fun () -> PackagePublishing.validateSelection "both" None (Some "2026.8.1") None |> ignore
-                fun () -> PackagePublishing.validateSelection "both" (Some "2026.8.3") (Some "2026.8.1") (Some "2026.8.2") |> ignore
-                fun () -> PackagePublishing.validateSelection "other" None None None |> ignore
+                fun () -> PackagePublishing.validateSelection "core" "preview" "2026.8.1" |> ignore
+                fun () -> PackagePublishing.validateSelection "components" "2026.8.3" "preview" |> ignore
+                fun () -> PackagePublishing.validateSelection "other" "2026.8.3" "2026.9.0" |> ignore
             ]
             for invalid in invalidCases do Expect.throws invalid "invalid package selection"
+
+        test "Release coherence publishes exactly changed contracts and pins unselected public versions" {
+            let state latestVersion changedSinceLatest : PackagePublishing.PackageState =
+                { latestVersion = latestVersion
+                  changedSinceLatest = changedSinceLatest }
+            let coreUnchanged = state (Some "2026.8.2") false
+            let componentsUnpublished = state None true
+            let components = PackagePublishing.validateSelection "components" "2026.8.2" "2026.9.0"
+            PackagePublishing.validateCoherence components coreUnchanged componentsUnpublished
+            Expect.throws
+                (fun () -> PackagePublishing.validateCoherence components (state (Some "2026.8.2") true) componentsUnpublished)
+                "changed Core cannot remain unpublished"
+            Expect.throws
+                (fun () -> PackagePublishing.validateCoherence components coreUnchanged (state (Some "2026.8.4") false))
+                "unchanged Components cannot be republished"
+            Expect.throws
+                (fun () ->
+                    PackagePublishing.validateSelection "components" "2026.8.1" "2026.9.0"
+                    |> fun selection -> PackagePublishing.validateCoherence selection coreUnchanged componentsUnpublished)
+                "Components cannot advertise an older Core snapshot"
+
+            let docs = PackagePublishing.validateSelection "docs" "2026.8.2" "2026.8.4"
+            let componentsUnchanged = state (Some "2026.8.4") false
+            PackagePublishing.validateCoherence docs coreUnchanged componentsUnchanged
+            Expect.throws
+                (fun () ->
+                    PackagePublishing.validateSelection "docs" "2099.1.0" "2026.8.4"
+                    |> fun selection -> PackagePublishing.validateCoherence selection coreUnchanged componentsUnchanged)
+                "Docs-only cannot advertise an arbitrary Core version"
+            Expect.throws
+                (fun () -> PackagePublishing.validateCoherence docs coreUnchanged (state (Some "2026.8.4") true))
+                "Docs-only cannot carry unpublished Components changes"
+        }
 
         test "An unpublished selected dependency package can satisfy release preflight" {
             let directory = Path.Combine(Path.GetTempPath(), $"fve-local-dependency.{Guid.NewGuid():N}")
@@ -119,20 +163,22 @@ let tests =
                 Directory.Delete(directory, true)
         }
 
-        test "One public workflow selects independent package releases" {
+        test "One public workflow selects a coherent package and Docs release" {
             let publish = workflow "publish.yml"
             Expect.stringContains publish "type: choice" "package selection is a choice"
-            for selection in [ "core"; "components"; "both" ] do
+            for selection in [ "core"; "components"; "both"; "docs" ] do
                 Expect.stringContains publish $"- {selection}" $"{selection} selection"
-            Expect.stringContains publish "coreVersion:" "independent Core version"
-            Expect.stringContains publish "componentsVersion:" "independent Components package version"
-            Expect.stringContains publish "componentsMinimumCoreVersion:" "Components minimum Core version"
-            Expect.isFalse (publish.Contains("docsVersion:")) "no new Docs versions"
-            Expect.isFalse (publish.Contains("FSharp.ViewEngine.Docs")) "no Docs publication path"
+            Expect.stringContains publish "candidateCommit:" "release authorization selects an exact commit"
+            Expect.stringContains publish "candidateImage:" "release authorization selects an exact digest"
+            Expect.stringContains publish "coreVersion:" "the public Core version is explicit"
+            Expect.stringContains publish "componentsVersion:" "the public Components version is explicit"
+            Expect.isFalse (publish.Contains("componentsMinimumCoreVersion:")) "the selected public Core version is the Components bound"
+            Expect.isFalse (publish.Contains("docsVersion:")) "no new Docs package versions"
+            Expect.isFalse (publish.Contains("Publish FSharp.ViewEngine.Docs")) "no Docs publication path"
             Expect.stringContains publish "inputs.packages == 'components' || inputs.packages == 'both'" "both selects Components"
             Expect.stringContains publish "inputs.packages == 'core' || inputs.packages == 'both'" "both selects Core"
             Expect.stringContains publish "LOCAL_DEPENDENCY_PACKAGE_PATH:" "a selected Core package can satisfy Components preflight"
-            Expect.stringContains publish "inputs.packages == 'both' && inputs.coreVersion || inputs.componentsMinimumCoreVersion" "bundled dependency matches the selected Core"
+            Expect.stringContains publish "COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}" "Components uses the selected public Core version"
             Expect.isFalse (File.Exists(workflowPath "publish-docs.yml")) "there is no second package-publishing entry point"
             Expect.isFalse (File.Exists(workflowPath "_publish-package.yml")) "single-use reusable workflow is removed"
             Expect.isFalse (File.Exists(workflowPath "verify-nuget-auth.yml")) "publication owns its OIDC authentication"
@@ -217,31 +263,71 @@ let tests =
             let publish = workflow "publish.yml"
             let packageStart = publish.IndexOf("\n  package:", StringComparison.Ordinal)
             let publishStart = publish.IndexOf("\n  publish:", StringComparison.Ordinal)
-            Expect.isTrue (packageStart > 0 && publishStart > packageStart) "package job precedes publish job"
+            let productionStart = publish.IndexOf("\n  production:", StringComparison.Ordinal)
+            Expect.isTrue (packageStart > 0 && publishStart > packageStart && productionStart > publishStart) "package, publication, and promotion are ordered"
+            let packageBlock = publish.Substring(packageStart, publishStart - packageStart)
+            let publishBlock = publish.Substring(publishStart, productionStart - publishStart)
             Expect.equal
-                (publish.Split("actions/upload-artifact@", StringSplitOptions.None).Length - 1)
+                (packageBlock.Split("actions/upload-artifact@", StringSplitOptions.None).Length - 1)
                 1
                 "selected packages share one verified release bundle"
             Expect.equal
-                (publish.Split("actions/download-artifact@", StringSplitOptions.None).Length - 1)
+                (publishBlock.Split("actions/download-artifact@", StringSplitOptions.None).Length - 1)
                 1
                 "publication downloads the release bundle once"
-            Expect.isFalse (publish.Contains("uses: ./.github/workflows/deploy.yml")) "package publication does not deploy the site"
+            Expect.isFalse (publish.Contains("uses: ./.github/workflows/deploy.yml")) "release promotion remains explicit"
             Expect.isFalse (publish.Contains("secrets: inherit")) "publication does not inherit unrelated secrets"
 
-            let packageBlock = publish.Substring(packageStart, publishStart - packageStart)
             Expect.stringContains packageBlock "./fake.sh Test --single-target" "release source is tested once"
+            Expect.stringContains packageBlock "ValidateReleaseSelection" "changed package contracts are checked"
             Expect.stringContains packageBlock "Verify Core package" "Core package is verified"
             Expect.stringContains packageBlock "Verify Components package" "Components package is verified"
             Expect.isFalse (packageBlock.Contains("Verify Docs package")) "Documentation is verified within Components"
 
-            let publishBlock = publish.Substring(publishStart)
             let publishCore = publishBlock.IndexOf("Publish FSharp.ViewEngine", StringComparison.Ordinal)
             let publishComponents = publishBlock.IndexOf("Publish FSharp.ViewEngine.Components", StringComparison.Ordinal)
             Expect.isTrue (publishCore > 0 && publishComponents > publishCore) "Core publication precedes Components"
+            Expect.stringContains publishBlock "VerifyPublishedPackageRelease" "NuGet.org artifacts receive post-publication verification"
+            Expect.stringContains packageBlock "VerifyPublicPackageSnapshot" "unselected advertised packages are verified from NuGet.org"
             Expect.isFalse (publishBlock.Contains("Publish FSharp.ViewEngine.Docs")) "retired Docs publication is absent"
             Expect.stringContains publishBlock "environment: release" "publication uses the protected environment"
             Expect.stringContains publishBlock "NuGet/login@8d196754b4036150537f80ac539e15c2f1028841" "publication uses trusted publishing"
+        }
+
+        test "Explicit releases gate publication and promote the accepted digest safely" {
+            let publish = workflow "publish.yml"
+            let config = repositoryFile "pulumi/src/config.ts"
+            let redirect = repositoryFile "pulumi/src/cloudflare/redirect.ts"
+            let releaseRunner = repositoryFile "e2e/scripts/test-release-candidate.sh"
+            let retirementCheck = repositoryFile "e2e/scripts/verify-docs-retirement.mjs"
+            Expect.stringContains publish "queue: max" "explicit releases retain their serialized queue position"
+            Expect.stringContains publish "cancel-in-progress: false" "an active release is never preempted"
+            Expect.stringContains publish "Prove protected staging runs the selected candidate" "staging identity is proven first"
+            Expect.stringContains releaseRunner "E2E_CROSS_BROWSER_MODE=full" "release acceptance runs the complete browser suite"
+            Expect.stringContains releaseRunner "production-smoke.spec.ts" "release acceptance identifies the production-only suite"
+            Expect.stringContains releaseRunner "!=" "staging release acceptance excludes the production-only suite"
+            Expect.stringContains publish "Retry-free staging release acceptance" "the release gate names its retry policy"
+            Expect.stringContains publish "DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}" "production receives the accepted digest"
+            Expect.stringContains publish "environment: release" "publication uses its protected environment"
+            Expect.stringContains publish "name: production" "promotion uses its protected environment"
+            Expect.isFalse (publish.Contains("steps.smoke.outcome != 'success'")) "recovery remains active after canonical smoke"
+            Expect.stringContains publish "(failure() || cancelled()) && steps.deploy.outcome != 'skipped'" "any unsuccessful post-mutation path restores production"
+            Expect.stringContains publish "steps.previous.outputs.image" "recovery preserves the previous immutable image"
+            Expect.stringContains publish "LEGACY_PRODUCTION_COMPONENTS_VERSION: unreleased" "initial recovery records the actual pre-Components snapshot"
+            Expect.isFalse (publish.Contains("FALLBACK_CORE_VERSION: ${{ inputs.coreVersion }}")) "recovery never substitutes candidate package metadata"
+            Expect.stringContains publish "Enable permanent legacy redirect after canonical acceptance" "redirect waits for canonical smoke"
+            Expect.stringContains config "https://fve.meiermade.com" "production has one canonical origin"
+            Expect.stringContains config "ALLOW_UNRELEASED_PACKAGE_SNAPSHOT" "rollback can represent the actual pre-Components snapshot explicitly"
+            Expect.stringContains redirect "Response.redirect(target.toString(), 301)" "the legacy redirect is permanent"
+            Expect.stringContains redirect "new URL(event.request.url)" "paths and queries start from the original URL"
+            Expect.stringContains redirect "target.protocol = 'https:'" "the redirect forces HTTPS"
+            Expect.stringContains redirect "target.hostname = '${config.appConfig.hostname}'" "only the canonical host changes"
+            Expect.stringContains redirect "WorkersRoute" "the redirect owns an isolated edge route"
+            Expect.isFalse (redirect.Contains("http_request_dynamic_redirect")) "the app does not contend for a shared zone entry-point ruleset"
+            Expect.stringContains retirementCheck "availableVersions" "retirement evidence covers every published Docs version"
+            Expect.stringContains retirementCheck "includes('Legacy')" "retirement evidence requires the Legacy reason"
+            Expect.stringContains retirementCheck "replacementPackage" "retirement evidence requires the Components replacement"
+            Expect.stringContains retirementCheck "entry.packageContent" "retirement evidence preserves pinned downloads"
         }
 
         test "Main deploys only a protected immutable staging candidate" {
@@ -267,6 +353,35 @@ let tests =
             Expect.isFalse (deploy.Contains("workflow_call:")) "package releases do not call staging deployment"
             Expect.isFalse (deploy.Contains("secrets: inherit")) "staging does not inherit unrelated secrets"
             Expect.isFalse (deploy.Contains("playwright install --with-deps")) "staging acceptance uses the pinned browser image"
+        }
+
+        test "Published E2E runner removes Access state and preserves the browser result" {
+            let repository = repositoryPath "."
+            let e2eDirectory = repositoryPath "e2e"
+            let authState = Path.Combine(e2eDirectory, ".auth", "access.json")
+            let fakeDirectory = Path.Combine(Path.GetTempPath(), $"fve-fake-docker.{Guid.NewGuid():N}")
+            Directory.CreateDirectory fakeDirectory |> ignore
+            let fakeDocker = Path.Combine(fakeDirectory, "docker")
+            File.WriteAllText(fakeDocker, "#!/usr/bin/env bash\nset -eu\nprintf cookie > \"$FAKE_AUTH_STATE\"\nexit \"${FAKE_DOCKER_EXIT:-0}\"\n")
+            File.SetUnixFileMode(fakeDocker, UnixFileMode.UserRead ||| UnixFileMode.UserWrite ||| UnixFileMode.UserExecute)
+            let currentPath = Environment.GetEnvironmentVariable "PATH"
+            let baseEnvironment exitCode =
+                [ "PATH", $"{fakeDirectory}{Path.PathSeparator}{currentPath}"
+                  "FAKE_AUTH_STATE", authState
+                  "FAKE_DOCKER_EXIT", string exitCode
+                  "DOCS_E2E_BASE_URL", "https://fve.meiermade.net"
+                  "DOCS_EXPECTED_COMMIT", String.replicate 40 "a" ]
+            try
+                let success = runProcessWithEnvironment repository "bash" [ "e2e/scripts/test-published-ci.sh" ] (baseEnvironment 0)
+                Expect.equal success 0 "successful browser result is preserved"
+                Expect.isFalse (File.Exists authState) "Access state is removed after success"
+
+                let failure = runProcessWithEnvironment repository "bash" [ "e2e/scripts/test-published-ci.sh" ] (baseEnvironment 23)
+                Expect.equal failure 23 "failed browser result is preserved"
+                Expect.isFalse (File.Exists authState) "Access state is removed after failure"
+            finally
+                if File.Exists authState then File.Delete authState
+                Directory.Delete(fakeDirectory, true)
         }
 
         test "E2E workflows share the pinned Playwright image and stage browser coverage" {
@@ -326,7 +441,7 @@ let tests =
 
         test "Pulumi workflows install the GKE credential plugin" {
             let expectedAction = "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1"
-            for name in [ "deploy.yml"; "preview.yml" ] do
+            for name in [ "deploy.yml"; "preview.yml"; "publish.yml" ] do
                 let workflow = workflow name
                 Expect.stringContains workflow expectedAction $"{name} pins setup-gcloud"
                 Expect.stringContains workflow "install_components: gke-gcloud-auth-plugin" $"{name} installs GKE authentication"
@@ -342,7 +457,7 @@ let tests =
             let deployment = repositoryFile "pulumi/src/k8s/deployment.ts"
             let stack = repositoryFile "pulumi/index.ts"
             let playwright = repositoryFile "e2e/playwright.config.ts"
-            let smoke = repositoryFile "e2e/tests/staging-smoke.spec.ts"
+            let accessSetup = repositoryFile "e2e/access-setup.ts"
             Expect.stringContains deploy "pulumi refresh --run-program" "refresh uses the current provider configuration"
             Expect.isFalse (deploy.Contains("refresh: true")) "the update does not refresh against stale provider state"
             Expect.stringContains preview "stack-name: meiermade/fsharp-view-engine/dev" "pull requests preview the isolated staging stack"
@@ -362,7 +477,8 @@ let tests =
             Expect.stringContains stack "export const imageDigest" "the stack publishes the immutable image"
             Expect.stringContains stack "export const e2eReady" "the downstream E2E environment has an explicit bootstrap guard"
             Expect.stringContains playwright "hasAccessClientSecret ? 'off'" "credential-bearing runs do not retain network traces"
-            Expect.stringContains smoke "new URL(request.url()).origin !== stagingOrigin" "Access headers are limited to the staging origin"
+            Expect.stringContains accessSetup "new URL(baseURL).origin !== stagingOrigin" "Access credentials are limited to the staging origin"
+            Expect.stringContains accessSetup "storageState" "a domain-scoped Access cookie replaces credential-bearing browser requests"
         }
 
         test "Versioned changelog entries follow verified package releases" {

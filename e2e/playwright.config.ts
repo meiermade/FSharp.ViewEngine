@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const startLocal = process.env.E2E_START_LOCAL !== '0'
 const port = process.env.E2E_SERVER_PORT ?? '5054'
-const baseURL = process.env.DOCS_E2E_BASE_URL ?? (startLocal ? `http://127.0.0.1:${port}` : 'https://fsharpviewengine.meiermade.com')
+const baseURL = process.env.DOCS_E2E_BASE_URL ?? (startLocal ? `http://127.0.0.1:${port}` : 'https://fve.meiermade.com')
 const crossBrowserMode = process.env.E2E_CROSS_BROWSER_MODE ?? 'focused'
 const hasAccessClientId = Boolean(process.env.CF_ACCESS_CLIENT_ID)
 const hasAccessClientSecret = Boolean(process.env.CF_ACCESS_CLIENT_SECRET)
@@ -34,8 +34,10 @@ export default defineConfig({
   workers: 1,
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
+  globalSetup: hasAccessClientSecret ? './access-setup.ts' : undefined,
   use: {
     baseURL,
+    storageState: hasAccessClientSecret ? './.auth/access.json' : undefined,
     trace: hasAccessClientSecret ? 'off' : 'retain-on-failure',
     video: 'retain-on-failure',
     screenshot: 'only-on-failure',

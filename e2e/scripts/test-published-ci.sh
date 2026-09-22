@@ -16,7 +16,7 @@ case "$cross_browser_mode" in
     ;;
   full)
     project_args=(--project=chromium --project=firefox --project=webkit)
-    retry_args=(--retries=1)
+    retry_args=(--retries=0)
     ;;
   *)
     echo "Unsupported E2E_CROSS_BROWSER_MODE: $cross_browser_mode" >&2
@@ -32,11 +32,28 @@ docker_env=(
   --env DOCS_EXPECTED_COMMIT
 )
 
-for optional_name in DOCS_EXPECTED_ENVIRONMENT DOCS_EXPECTED_IMAGE CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+for optional_name in DOCS_EXPECTED_ENVIRONMENT DOCS_EXPECTED_IMAGE CORE_PACKAGE_VERSION COMPONENTS_PACKAGE_VERSION CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
   if [[ -n "${!optional_name:-}" ]]; then
     docker_env+=(--env "$optional_name")
   fi
 done
+
+auth_directory="$e2e_dir/.auth"
+auth_state="$auth_directory/access.json"
+mkdir -p "$auth_directory"
+chmod u+rwx "$auth_directory"
+rm -f "$auth_state"
+
+cleanup_auth_state() {
+  local test_status=$?
+  trap - EXIT
+  if ! rm -f "$auth_state"; then
+    echo "Unable to remove Playwright Access state: $auth_state" >&2
+    if [[ $test_status -eq 0 ]]; then test_status=1; fi
+  fi
+  exit "$test_status"
+}
+trap cleanup_auth_state EXIT
 
 docker run --rm --init \
   "${docker_env[@]}" \

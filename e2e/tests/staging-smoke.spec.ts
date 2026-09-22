@@ -1,4 +1,4 @@
-import { expect, test, type BrowserContext } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 
 const stagingOrigin = 'https://fve.meiermade.net'
 const configuredOrigin = new URL(process.env.DOCS_E2E_BASE_URL ?? 'http://127.0.0.1:5054').origin
@@ -15,36 +15,19 @@ if (hasAccessCredentials && configuredOrigin !== stagingOrigin) {
   throw new Error(`Staging smoke credentials may only target ${stagingOrigin}`)
 }
 
-const addOriginScopedAccess = async (context: BrowserContext) => {
-  await context.route('**/*', async route => {
-    const request = route.request()
-    if (new URL(request.url()).origin !== stagingOrigin) {
-      await route.continue()
-      return
-    }
-
-    await route.continue({
-      headers: {
-        ...request.headers(),
-        'CF-Access-Client-Id': accessClientId,
-        'CF-Access-Client-Secret': accessClientSecret,
-      },
-    })
-  })
-}
-
 test.describe('protected staging smoke', () => {
   test.skip(!stagingConfigured, 'requires the deployed staging release and scoped Access credentials')
 
-  test.beforeEach(async ({ context }) => {
-    await addOriginScopedAccess(context)
-  })
-
-  test('anonymous requests are rejected by Cloudflare Access', async ({ request }) => {
-    const response = await request.get(stagingOrigin, { maxRedirects: 0 })
-    expect([302, 403]).toContain(response.status())
-    if (response.status() === 302) {
-      expect(response.headers().location).toContain('/cdn-cgi/access/login')
+  test('anonymous requests are rejected by Cloudflare Access', async ({ playwright }) => {
+    const anonymous = await playwright.request.newContext()
+    try {
+      const response = await anonymous.get(stagingOrigin, { maxRedirects: 0 })
+      expect([302, 403]).toContain(response.status())
+      if (response.status() === 302) {
+        expect(response.headers().location).toContain('/cdn-cgi/access/login')
+      }
+    } finally {
+      await anonymous.dispose()
     }
   })
 
@@ -55,8 +38,13 @@ test.describe('protected staging smoke', () => {
     await expect(response.json()).resolves.toEqual({
       status: 'ok',
       environment: 'staging',
+      origin: stagingOrigin,
       commit: expectedCommit,
       image: expectedImage,
+      packages: {
+        core: { id: 'FSharp.ViewEngine', version: 'unreleased', tag: 'unreleased' },
+        components: { id: 'FSharp.ViewEngine.Components', version: 'unreleased', tag: 'unreleased' },
+      },
     })
   })
 

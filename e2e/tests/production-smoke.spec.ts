@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test'
 const expectedCommit = process.env.DOCS_EXPECTED_COMMIT ?? 'local'
 const expectedImage = process.env.DOCS_EXPECTED_IMAGE ?? 'local'
 const expectedEnvironment = process.env.DOCS_EXPECTED_ENVIRONMENT ?? (expectedCommit === 'local' ? 'local' : 'production')
-const canonicalOrigin = 'https://fsharpviewengine.meiermade.com'
+const expectedCoreVersion = process.env.CORE_PACKAGE_VERSION ?? 'unreleased'
+const expectedComponentsVersion = process.env.COMPONENTS_PACKAGE_VERSION ?? 'unreleased'
+const canonicalOrigin = 'https://fve.meiermade.com'
 
 test('health reports the deployed release identity', async ({ request }) => {
   const response = await request.get('/health')
@@ -11,8 +13,21 @@ test('health reports the deployed release identity', async ({ request }) => {
   await expect(response.json()).resolves.toEqual({
     status: 'ok',
     environment: expectedEnvironment,
+    origin: expectedEnvironment === 'local' ? 'http://127.0.0.1:5054' : canonicalOrigin,
     commit: expectedCommit,
     image: expectedImage,
+    packages: {
+      core: {
+        id: 'FSharp.ViewEngine',
+        version: expectedCoreVersion,
+        tag: expectedCoreVersion === 'unreleased' ? 'unreleased' : `v${expectedCoreVersion}`,
+      },
+      components: {
+        id: 'FSharp.ViewEngine.Components',
+        version: expectedComponentsVersion,
+        tag: expectedComponentsVersion === 'unreleased' ? 'unreleased' : `components/v${expectedComponentsVersion}`,
+      },
+    },
   })
 })
 

@@ -521,19 +521,19 @@ let tests =
             let robots = Handler.robots
 
             for page in Registry.all do
-                Expect.stringContains sitemap $"<loc>https://fsharpviewengine.meiermade.com{page.path}</loc>" page.path
+                Expect.stringContains sitemap $"<loc>https://fve.meiermade.com{page.path}</loc>" page.path
 
             Expect.equal (sitemap.Split("<url>").Length - 1) Registry.all.Length "one sitemap entry per canonical page"
             Expect.isFalse (sitemap.Contains("/docs/components</loc>")) "aliases are excluded"
             Expect.isFalse (sitemap.Contains("/docs/previews/")) "previews are excluded"
             Expect.stringContains robots "Allow: /" "public pages are crawlable"
-            Expect.stringContains robots "Sitemap: https://fsharpviewengine.meiermade.com/sitemap.xml" "robots advertises sitemap"
+            Expect.stringContains robots "Sitemap: https://fve.meiermade.com/sitemap.xml" "robots advertises sitemap"
         }
 
         test "Pages publish the application-owned social image" {
             for page in Registry.all do
                 let html = page |> View.document Registry.navigation |> Render.toHtmlDocString
-                Expect.stringContains html "property=\"og:image\" content=\"https://fsharpviewengine.meiermade.com/social-card.png\"" page.path
+                Expect.stringContains html "property=\"og:image\" content=\"https://fve.meiermade.com/social-card.png\"" page.path
                 Expect.stringContains html "name=\"twitter:card\" content=\"summary_large_image\"" page.path
         }
 
