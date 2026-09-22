@@ -66,7 +66,7 @@ if (zoneName !== (isStaging ? 'meiermade.net' : 'meiermade.com')) {
 export const cloudflareConfig = {
     accountId: rawCloudflareConfig.require('accountId'),
     apiToken: rawCloudflareConfig.requireSecret('apiToken'),
-    zoneId: optionalStagingValue('zoneId'),
+    zoneId: rawCloudflareConfig.require('zoneId'),
     zoneName,
     teamName: optionalStagingValue('teamName'),
     googleAccessIdentityProviderId: optionalStagingValue('googleAccessIdentityProviderId'),

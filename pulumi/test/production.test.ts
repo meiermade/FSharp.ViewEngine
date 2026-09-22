@@ -17,6 +17,7 @@ process.env.PULUMI_CONFIG = JSON.stringify({
     'k8s:namespace': 'fsharpviewengine',
     'cloudflare:accountId': 'account-id',
     'cloudflare:apiToken': 'api-token',
+    'cloudflare:zoneId': 'production-zone-id',
     'cloudflare:zoneName': 'meiermade.com',
     'openTelemetry:endpoint': 'http://otel-collector:4318',
 })
@@ -35,9 +36,6 @@ pulumi.runtime.setMocks({
     call: (args: pulumi.runtime.MockCallArgs) => {
         if (args.token.includes('getZeroTrustTunnelCloudflaredToken')) {
             return { token: 'mock-tunnel-token' }
-        }
-        if (args.token.includes('getZone')) {
-            return { zoneId: 'production-zone-id', id: 'production-zone-id' }
         }
         return args.inputs
     },
