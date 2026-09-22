@@ -18,16 +18,11 @@ if (hasAccessCredentials && configuredOrigin !== stagingOrigin) {
 test.describe('protected staging smoke', () => {
   test.skip(!stagingConfigured, 'requires the deployed staging release and scoped Access credentials')
 
-  test('anonymous requests are rejected by Cloudflare Access', async ({ playwright }) => {
-    const anonymous = await playwright.request.newContext()
-    try {
-      const response = await anonymous.get(stagingOrigin, { maxRedirects: 0 })
-      expect([302, 403]).toContain(response.status())
-      if (response.status() === 302) {
-        expect(response.headers().location).toContain('/cdn-cgi/access/login')
-      }
-    } finally {
-      await anonymous.dispose()
+  test('anonymous requests are rejected by Cloudflare Access', async () => {
+    const response = await fetch(stagingOrigin, { redirect: 'manual' })
+    expect([302, 403]).toContain(response.status)
+    if (response.status === 302) {
+      expect(response.headers.get('location')).toContain('/cdn-cgi/access/login')
     }
   })
 
