@@ -38,9 +38,22 @@ for optional_name in DOCS_EXPECTED_ENVIRONMENT DOCS_EXPECTED_IMAGE CORE_PACKAGE_
   fi
 done
 
-auth_state="$e2e_dir/.auth/access.json"
-trap 'rm -f "$auth_state"' EXIT
+auth_directory="$e2e_dir/.auth"
+auth_state="$auth_directory/access.json"
+mkdir -p "$auth_directory"
+chmod u+rwx "$auth_directory"
 rm -f "$auth_state"
+
+cleanup_auth_state() {
+  local test_status=$?
+  trap - EXIT
+  if ! rm -f "$auth_state"; then
+    echo "Unable to remove Playwright Access state: $auth_state" >&2
+    if [[ $test_status -eq 0 ]]; then test_status=1; fi
+  fi
+  exit "$test_status"
+}
+trap cleanup_auth_state EXIT
 
 docker run --rm --init \
   "${docker_env[@]}" \

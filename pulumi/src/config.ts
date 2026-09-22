@@ -48,9 +48,11 @@ export const appConfig = {
 }
 
 const stableVersionPattern = /^\d{4}\.\d{1,2}\.\d+$/
+const allowUnreleasedPackageSnapshot = process.env.ALLOW_UNRELEASED_PACKAGE_SNAPSHOT === 'true'
 const releaseVersion = (key: string): string => {
     const value = process.env[key]
     if (isStaging) return value || 'unreleased'
+    if (allowUnreleasedPackageSnapshot && value === 'unreleased') return value
     if (!value || !stableVersionPattern.test(value)) {
         throw new Error(`${key} must use YYYY.M.MINOR form for production`)
     }

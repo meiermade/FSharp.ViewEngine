@@ -41,6 +41,10 @@ type SelectionInputs =
       core:Inputs option
       components:Inputs option }
 
+type PackageState =
+    { latestVersion:string option
+      changedSinceLatest:bool }
+
 let private stableVersionPattern = Regex("^[0-9]{4}\\.[0-9]{1,2}\\.[0-9]+$")
 
 let private requireStableVersion (description:string) (value:string) =
@@ -98,17 +102,26 @@ let validateSelection selection coreVersion componentsVersion =
     | "docs" -> create None None
     | value -> invalidArg (nameof selection) $"Unsupported package selection: {value}"
 
-let validateCoherence (selection:SelectionInputs) coreChanged componentsChanged =
-    let validate package changed selected =
-        match changed, selected with
+let validateCoherence (selection:SelectionInputs) coreState componentsState =
+    let validate package advertisedVersion (state:PackageState) selected =
+        match state.changedSinceLatest, selected with
         | true, false -> invalidOp $"{package} changed since its latest package tag and must be selected."
         | false, true -> invalidOp $"{package} has not changed since its latest package tag and must not be republished."
         | _ -> ()
 
-    validate "FSharp.ViewEngine" coreChanged selection.core.IsSome
-    validate "FSharp.ViewEngine.Components" componentsChanged selection.components.IsSome
+        match selected, state.latestVersion with
+        | false, Some latestVersion when advertisedVersion <> latestVersion ->
+            invalidOp $"{package} must advertise its latest tagged version {latestVersion}, found {advertisedVersion}."
+        | false, None ->
+            invalidOp $"{package} has no published package tag and must be selected before it can be advertised."
+        | true, Some latestVersion when Version(advertisedVersion) <= Version(latestVersion) ->
+            invalidOp $"{package} selected version {advertisedVersion} must be newer than {latestVersion}."
+        | _ -> ()
 
-    if selection.name = "docs" && (coreChanged || componentsChanged) then
+    validate "FSharp.ViewEngine" selection.coreVersion coreState selection.core.IsSome
+    validate "FSharp.ViewEngine.Components" selection.componentsVersion componentsState selection.components.IsSome
+
+    if selection.name = "docs" && (coreState.changedSinceLatest || componentsState.changedSinceLatest) then
         invalidOp "A Docs-only release cannot advertise unpublished package contract changes."
 
 let validateLocalPackage (package:Package) version (packagePath:string) =
@@ -219,18 +232,26 @@ let private symbolsUrl (packageId:string) (version:string) =
     let fileName = $"{packageId.ToLowerInvariant()}.{version}.snupkg"
     $"https://globalcdn.nuget.org/symbol-packages/{fileName}"
 
-let hasChangesSinceLatestTag repository tagPattern paths =
+let packageStateSinceLatestTag repository tagPattern tagPrefix paths =
     let tags =
         runProcess true "git" [ "-C"; repository; "tag"; "--list"; tagPattern; "--sort=-version:refname" ]
         |> fun value -> value.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)
 
     match tags |> Array.tryHead with
-    | None -> true
+    | None ->
+        { latestVersion = None
+          changedSinceLatest = true }
     | Some tag ->
-        match processExitCode "git" ([ "-C"; repository; "diff"; "--quiet"; tag; "--" ] @ paths) with
-        | 0 -> false
-        | 1 -> true
-        | code -> invalidOp $"git diff for {tagPattern} failed with exit code {code}."
+        if not (tag.StartsWith(tagPrefix, StringComparison.Ordinal)) then
+            invalidOp $"Latest tag {tag} does not start with {tagPrefix}."
+        let version = tag.Substring(tagPrefix.Length) |> requireStableVersion "Tagged package version"
+        let changed =
+            match processExitCode "git" ([ "-C"; repository; "diff"; "--quiet"; tag; "--" ] @ paths) with
+            | 0 -> false
+            | 1 -> true
+            | code -> invalidOp $"git diff for {tagPattern} failed with exit code {code}."
+        { latestVersion = Some version
+          changedSinceLatest = changed }
 
 let private tryDownload (client:HttpClient) (url:string) (outputPath:string) =
     use response = client.GetAsync(url).GetAwaiter().GetResult()

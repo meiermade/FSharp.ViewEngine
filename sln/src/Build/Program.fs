@@ -93,17 +93,19 @@ let getVersion () =
 
 Target.create "ValidateReleaseSelection" <| fun _ ->
     let selection = releaseSelection ()
-    let coreChanged =
-        PackagePublishing.hasChangesSinceLatestTag
+    let coreState =
+        PackagePublishing.packageStateSinceLatestTag
             releaseRepository
             "v[0-9]*"
+            "v"
             [ "sln/src/FSharp.ViewEngine" ]
-    let componentsChanged =
-        PackagePublishing.hasChangesSinceLatestTag
+    let componentsState =
+        PackagePublishing.packageStateSinceLatestTag
             releaseRepository
             "components/v[0-9]*"
+            "components/v"
             [ "sln/src/FSharp.ViewEngine.Components" ]
-    PackagePublishing.validateCoherence selection coreChanged componentsChanged
+    PackagePublishing.validateCoherence selection coreState componentsState
 
     let selected =
         [ selection.core; selection.components ]
@@ -174,6 +176,25 @@ Target.create "PublishPackageRelease" <| fun _ ->
         metadata.previousTag
         inputs.markLatest
         assets
+
+Target.create "VerifyPublicPackageSnapshot" <| fun _ ->
+    let package = selectedPackage ()
+    let version = getVersion ()
+    let publishedDirectory =
+        Environment.environVarOrDefault
+            "PUBLISHED_PACKAGE_DIRECTORY"
+            (Environment.environVarOrDefault "RUNNER_TEMP" (System.IO.Path.GetTempPath()) </> $"public-{package.Id}-{version}")
+        |> Path.getFullName
+    let publishedPackage =
+        PackagePublishing.downloadPublishedArtifacts
+            package.Id
+            version
+            publishedDirectory
+            60
+            (System.TimeSpan.FromSeconds 10.)
+    PackageVerification.verify
+        (fun workDir args -> dotnet workDir args |> Async.RunSynchronously)
+        publishedPackage
 
 Target.create "VerifyPublishedPackageRelease" <| fun _ ->
     let inputs = releaseInputs ()

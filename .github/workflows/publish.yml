@@ -174,6 +174,21 @@ jobs:
           COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
         run: ./fake.sh ValidateReleaseSelection --single-target
         working-directory: ./sln
+      - name: Verify unselected public Core snapshot
+        if: inputs.packages == 'components' || inputs.packages == 'docs'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: ${{ inputs.coreVersion }}
+        run: ./fake.sh VerifyPublicPackageSnapshot --single-target
+        working-directory: ./sln
+      - name: Verify unselected public Components snapshot
+        if: inputs.packages == 'core' || inputs.packages == 'docs'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Components
+          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
+        run: ./fake.sh VerifyPublicPackageSnapshot --single-target
+        working-directory: ./sln
       - name: Test release source
         run: ./fake.sh Test --single-target
         working-directory: ./sln
@@ -442,8 +457,9 @@ jobs:
         timeout-minutes: 3
         working-directory: ./pulumi
         env:
-          FALLBACK_CORE_VERSION: ${{ inputs.coreVersion }}
-          FALLBACK_COMPONENTS_VERSION: ${{ inputs.componentsVersion }}
+          LEGACY_PRODUCTION_COMMIT: d78cdbdee50bb6940b4e40b18350714e40151fea
+          LEGACY_PRODUCTION_CORE_VERSION: 2026.8.2
+          LEGACY_PRODUCTION_COMPONENTS_VERSION: unreleased
         run: |
           pulumi stack export --stack meiermade/fsharp-view-engine/prod > "$RUNNER_TEMP/production-state.json"
           image="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].image][0] // empty' "$RUNNER_TEMP/production-state.json")"
@@ -451,12 +467,23 @@ jobs:
           core="$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
           components="$(pulumi stack output componentsVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
           redirect="$(pulumi stack output legacyRedirectEnabled --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
+          test -n "$image"
+          test -n "$commit"
+          if [[ -z "$core" || -z "$components" || -z "$redirect" ]]; then
+            test "$commit" = "$LEGACY_PRODUCTION_COMMIT"
+            core="${core:-$LEGACY_PRODUCTION_CORE_VERSION}"
+            components="${components:-$LEGACY_PRODUCTION_COMPONENTS_VERSION}"
+            redirect="${redirect:-false}"
+          fi
+          test -n "$core"
+          test -n "$components"
+          test -n "$redirect"
           {
             echo "image=$image"
             echo "commit=$commit"
-            echo "core=${core:-$FALLBACK_CORE_VERSION}"
-            echo "components=${components:-$FALLBACK_COMPONENTS_VERSION}"
-            echo "redirect=${redirect:-false}"
+            echo "core=$core"
+            echo "components=$components"
+            echo "redirect=$redirect"
           } >> "$GITHUB_OUTPUT"
       - name: Promote exact accepted image without enabling the first redirect
         id: deploy
@@ -553,7 +580,7 @@ jobs:
           if-no-files-found: ignore
       - name: Restore previous production release after unsuccessful acceptance
         id: restore
-        if: ${{ (failure() || cancelled()) && steps.deploy.outcome != 'skipped' && steps.smoke.outcome != 'success' && steps.previous.outputs.image != '' && steps.previous.outputs.commit != '' }}
+        if: ${{ (failure() || cancelled()) && steps.deploy.outcome != 'skipped' && steps.previous.outputs.image != '' && steps.previous.outputs.commit != '' }}
         timeout-minutes: 20
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         env:
@@ -561,6 +588,7 @@ jobs:
           RELEASE_COMMIT: ${{ steps.previous.outputs.commit }}
           CORE_PACKAGE_VERSION: ${{ steps.previous.outputs.core }}
           COMPONENTS_PACKAGE_VERSION: ${{ steps.previous.outputs.components }}
+          ALLOW_UNRELEASED_PACKAGE_SNAPSHOT: ${{ steps.previous.outputs.core == 'unreleased' || steps.previous.outputs.components == 'unreleased' }}
           DISABLE_LEGACY_REDIRECT: ${{ steps.previous.outputs.redirect != 'true' && 'true' || 'false' }}
         with:
           work-dir: ./pulumi
@@ -573,7 +601,18 @@ jobs:
         env:
           EXPECTED_IMAGE: ${{ steps.previous.outputs.image }}
           EXPECTED_COMMIT: ${{ steps.previous.outputs.commit }}
+          EXPECTED_CORE_VERSION: ${{ steps.previous.outputs.core }}
+          EXPECTED_COMPONENTS_VERSION: ${{ steps.previous.outputs.components }}
+          EXPECTED_REDIRECT: ${{ steps.previous.outputs.redirect }}
         run: |
           test "$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_IMAGE"
           test "$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_COMMIT"
-          curl --fail --silent --show-error --max-time 30 https://fsharpviewengine.meiermade.com/health >/dev/null
+          test "$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_CORE_VERSION"
+          test "$(pulumi stack output componentsVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_COMPONENTS_VERSION"
+          test "$(pulumi stack output legacyRedirectEnabled --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_REDIRECT"
+          if [[ "$EXPECTED_REDIRECT" == 'true' ]]; then
+            health_origin='https://fve.meiermade.com'
+          else
+            health_origin='https://fsharpviewengine.meiermade.com'
+          fi
+          curl --fail --silent --show-error --max-time 30 "$health_origin/health" >/dev/null
