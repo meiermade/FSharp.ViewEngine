@@ -720,6 +720,7 @@ const mermaidStatus = (role, message) => {
 };
 const setMermaidPending = node => {
   node.dataset.mermaidState = 'pending';
+  delete node.dataset.mermaidRenderedSource;
   node.setAttribute('aria-busy', 'true');
   node.replaceChildren(mermaidStatus('status', 'Rendering diagram…'));
 };
@@ -739,7 +740,7 @@ const wireMermaidLinks = node => {
 window.renderMermaid = (el, pendingOnly = false) => {
   const render = async () => {
     const candidates = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
-    const nodes = pendingOnly ? candidates.filter(node => node.dataset.mermaidState === 'pending') : candidates;
+    const nodes = candidates.filter(node => !pendingOnly || node.dataset.mermaidState !== 'rendered' || node.dataset.mermaidRenderedSource !== (node.dataset.mermaidSource ?? '') || !node.querySelector('svg'));
     if (nodes.length === 0) return;
     for (const node of nodes) setMermaidPending(node);
     try {
@@ -752,17 +753,25 @@ window.renderMermaid = (el, pendingOnly = false) => {
     }
     for (const node of nodes) {
       if (!node.isConnected) continue;
+      const source = node.dataset.mermaidSource ?? '';
       try {
         const id = `fsharp-docs-mermaid-${++mermaidRenderId}`;
-        const { svg, bindFunctions } = await window.mermaid.render(id, node.dataset.mermaidSource ?? '');
+        const { svg, bindFunctions } = await window.mermaid.render(id, source);
         if (!node.isConnected) continue;
+        if ((node.dataset.mermaidSource ?? '') !== source) {
+          setMermaidPending(node);
+          continue;
+        }
         node.innerHTML = svg;
         bindFunctions?.(node);
         node.dataset.mermaidState = 'rendered';
+        node.dataset.mermaidRenderedSource = source;
         node.removeAttribute('aria-busy');
         wireMermaidLinks(node);
       } catch {
-        if (node.isConnected) setMermaidFailed(node);
+        if (!node.isConnected) continue;
+        if ((node.dataset.mermaidSource ?? '') !== source) setMermaidPending(node);
+        else setMermaidFailed(node);
       }
     }
   };
@@ -868,16 +877,16 @@ window.fsharpDocsPreviewColorMode = window.fsharpDocsPreviewColorMode ?? {
   }
 };
 window.addEventListener('fsharpdocs:colormode', () => window.fsharpDocsPreviewColorMode.sync(document));
-window.renderDocsPreview = (el) => {
+window.renderDocsPreview = (el, pendingOnly = false) => {
   for (const frame of el?.querySelectorAll?.('iframe[data-docs-preview-src]') ?? []) {
     window.fsharpDocsPreviewColorMode.wire(frame);
     if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.docsPreviewSrc);
   }
-  return window.renderMermaid?.(el);
+  return window.renderMermaid?.(el, pendingOnly);
 };
 window.renderInitialDocsPreviews = (el) => Promise.all(
   Array.from(el?.querySelectorAll?.('[data-docs-preview-initial="true"]') ?? [])
-    .map(preview => window.renderDocsPreview(preview))
+    .map(preview => window.renderDocsPreview(preview, true))
 );
 window.fsharpDocsCopy = async button => {
   const source = button.closest('.docs-copyable-code')?.querySelector('[data-docs-copy-source]')?.textContent ?? '';
@@ -992,16 +1001,22 @@ window.fsharpDocsNavigation = {
     document.fonts?.ready.then(() => { if (this.scrollRoot === root) update(); });
     update();
   },
-  navigateToFragment(event, href) {
-    if (!href?.startsWith('#') || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+  showFragment(href) {
+    if (!href?.startsWith('#')) return false;
     const target = document.getElementById(decodeURIComponent(href.slice(1)));
-    if (!target) return;
-    event.preventDefault();
-    window.history.pushState(null, '', href);
+    if (!target) return false;
     target.scrollIntoView({ block: 'start' });
     target.focus({ preventScroll: true });
-    event.currentTarget.closest('details')?.removeAttribute('open');
     this.setCurrentFragment(target.id);
+    return true;
+  },
+  navigateToFragment(event, href) {
+    if (!href?.startsWith('#') || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
+    if (!document.getElementById(decodeURIComponent(href.slice(1)))) return;
+    event.preventDefault();
+    window.history.pushState(null, '', href);
+    this.showFragment(href);
+    event.currentTarget.closest('details')?.removeAttribute('open');
   },
   async complete() {
     window.fsharpDocsColorMode?.apply(window.fsharpDocsColorMode.current());
@@ -1017,9 +1032,16 @@ window.fsharpDocsNavigation = {
     }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     const content = document.getElementById('page-content');
-    await window.renderCode?.(content);
-    await window.renderInitialDocsPreviews?.(content);
+    // Datastar may preserve a Mermaid host whose data-init expression has
+    // already run. Complete independent enhancement lifecycles together.
+    const [codeResult] = await Promise.allSettled([
+      window.renderCode?.(content),
+      window.renderMermaid?.(content, true),
+      window.renderInitialDocsPreviews?.(content)
+    ]);
     this.initializeToc();
+    this.showFragment(window.location.hash);
+    if (codeResult.status === 'rejected') throw codeResult.reason;
   },
   fail() {
     if (!this.pending) return;
