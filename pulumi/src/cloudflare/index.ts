@@ -1,5 +1,6 @@
 import './provider'
 import './zone'
+import './access'
 import './tunnel'
 import './record'
 import './rum'

@@ -1,5 +1,5 @@
 [![Publish Packages](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/publish.yml)
-[![Deploy](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml)
+[![Deploy staging](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml/badge.svg)](https://github.com/meiermade/FSharp.ViewEngine/actions/workflows/deploy.yml)
 [![NuGet Core](https://img.shields.io/nuget/v/FSharp.ViewEngine)](https://www.nuget.org/packages/FSharp.ViewEngine)
 [![NuGet Components](https://img.shields.io/nuget/v/FSharp.ViewEngine.Components)](https://www.nuget.org/packages/FSharp.ViewEngine.Components)
 
@@ -98,7 +98,7 @@ Components-only releases declare their minimum compatible published engine versi
 
 Versioned changelog entries are added in a follow-up pull request after the package is published and verified and its GitHub release has been reconciled. Feature pull requests and pre-publication workflow steps must not claim a package version or release date that does not yet exist.
 
-The documentation site represents the latest source on `main`, independently of package versions. Every push to `main` deploys the site through the **Deploy documentation site** workflow and runs a production smoke test; the workflow also remains manually dispatchable for a `main` redeployment.
+Every successful push to `main` deploys one immutable candidate to the Cloudflare Access-protected staging site at `https://fve.meiermade.net` and runs a bounded, credential-scoped smoke test. The public documentation site remains on its last released package-coherent image until an explicit release promotes that exact staging-accepted digest; ordinary merges do not update production.
 
 ## Core rendering helpers
 

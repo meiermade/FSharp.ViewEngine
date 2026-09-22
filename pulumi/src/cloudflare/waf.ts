@@ -1,7 +1,7 @@
 import * as cloudflare from '@pulumi/cloudflare'
 import { provider } from './provider'
 import * as config from '../config'
-import { zone } from './zone'
+import { zoneId } from './zone'
 
 // Use lower(url_decode()) to normalize both case and percent-encoding.
 // Scanners use mixed case (e.g. /ReAcT/.EnV) and URL encoding (e.g. %2F)
@@ -58,16 +58,18 @@ const expression = [
     `(${p} contains ".env.")`,
 ].join(' or ')
 
-new cloudflare.Ruleset(`${config.identifier}-waf`, {
-    zoneId: zone.zoneId,
-    name: 'Block vulnerability scanners',
-    kind: 'zone',
-    phase: 'http_request_firewall_custom',
-    rules: [{
-        ref: 'block_scan_probes',
-        description: 'Block common vulnerability scanner paths and file extensions',
-        enabled: true,
-        expression,
-        action: 'block',
-    }]
-}, { provider })
+export const wafRuleset = config.isStaging
+    ? undefined
+    : new cloudflare.Ruleset(`${config.identifier}-waf`, {
+        zoneId,
+        name: 'Block vulnerability scanners',
+        kind: 'zone',
+        phase: 'http_request_firewall_custom',
+        rules: [{
+            ref: 'block_scan_probes',
+            description: 'Block common vulnerability scanner paths and file extensions',
+            enabled: true,
+            expression,
+            action: 'block',
+        }],
+    }, { provider })

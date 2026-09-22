@@ -1,0 +1,4 @@
+environment:
+  - fsharpviewengine/dev
+config:
+  pulumi:disable-default-providers: ['*']

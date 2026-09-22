@@ -25,7 +25,9 @@ type Config =
     { debug:bool
       appName:string
       serverUrl:string
+      deploymentEnvironment:string
       commit:string
+      image:string
       openTelemetry:OpenTelemetryConfig }
 
 module Config =
@@ -33,5 +35,7 @@ module Config =
         { debug = Env.variableOrDefault "DEBUG" "false" |> Boolean.Parse
           appName = "fsharp-viewengine-docs"
           serverUrl = Env.variableOrDefault "DOCS_SERVER_URL" "http://127.0.0.1:5054"
+          deploymentEnvironment = Env.variableOrDefault "DEPLOYMENT_ENVIRONMENT" "local"
           commit = Env.variableOrDefault "RELEASE_COMMIT" "local"
+          image = Env.variableOrDefault "RELEASE_IMAGE" "local"
           openTelemetry = OpenTelemetryConfig.load () }

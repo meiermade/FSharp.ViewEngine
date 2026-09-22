@@ -1,4 +1,4 @@
-name: Deploy documentation site
+name: Deploy documentation candidate
 on:
   push:
     branches:
@@ -6,22 +6,20 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: fsharp-viewengine-production
+  group: fsharp-viewengine-staging
   cancel-in-progress: false
 
 jobs:
   deploy:
-    name: Deploy documentation site
+    name: Deploy protected staging candidate
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     environment:
-      name: production
-      url: https://fsharpviewengine.meiermade.com
+      name: staging
+      url: https://fve.meiermade.net
     permissions:
       contents: read
       id-token: write
-    outputs:
-      commit: ${{ steps.source.outputs.commit }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Resolve deployment source
@@ -31,15 +29,22 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            pulumi/package-lock.json
+            e2e/package-lock.json
       # Pulumi ESC supplies CLOUDSDK_AUTH_ACCESS_TOKEN to the Pulumi process.
       # setup-gcloud cannot detect token overrides: https://github.com/google-github-actions/setup-gcloud/issues/731
       - name: Install GKE auth plugin
         uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
         with:
           install_components: gke-gcloud-auth-plugin
-      - name: Install Packages
+      - name: Install Pulumi packages
         run: npm ci
         working-directory: ./pulumi
+      - name: Install E2E packages
+        run: npm ci
+        working-directory: ./e2e
       - name: Authenticate Pulumi
         uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
         with:
@@ -50,71 +55,70 @@ jobs:
         uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
         with:
           pulumi-version: 3.261.0
-      - name: Refresh deployment state
+      - name: Select isolated staging stack
+        working-directory: ./pulumi
+        run: pulumi stack select meiermade/fsharp-view-engine/dev --create
+      - name: Record previous healthy staging release
+        id: previous
+        working-directory: ./pulumi
+        run: |
+          image="$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/dev 2>/dev/null || true)"
+          commit="$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/dev 2>/dev/null || true)"
+          echo "image=$image" >> "$GITHUB_OUTPUT"
+          echo "commit=$commit" >> "$GITHUB_OUTPUT"
+      - name: Refresh staging deployment state
         working-directory: ./pulumi
         env:
           RELEASE_COMMIT: ${{ steps.source.outputs.commit }}
-        run: pulumi refresh --run-program --yes --skip-preview --stack meiermade/fsharp-view-engine/prod
-      - name: Deploy
+        run: pulumi refresh --run-program --yes --skip-preview --stack meiermade/fsharp-view-engine/dev
+      - name: Deploy immutable staging candidate
+        id: deploy
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         env:
           RELEASE_COMMIT: ${{ steps.source.outputs.commit }}
         with:
           work-dir: ./pulumi
           command: up
-          stack-name: meiermade/fsharp-view-engine/prod
-
-  e2e:
-    name: Production smoke test
-    needs: deploy
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    permissions:
-      contents: read
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ needs.deploy.outputs.commit }}
-      - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: e2e/package-lock.json
-      - name: Install E2E packages
-        run: npm ci
-        working-directory: ./e2e
-      - name: Wait for deployed documentation site
+          stack-name: meiermade/fsharp-view-engine/dev
+          upsert: true
+      - name: Verify staging stack outputs
         env:
-          EXPECTED_COMMIT: ${{ needs.deploy.outputs.commit }}
+          EXPECTED_COMMIT: ${{ steps.source.outputs.commit }}
+          DEPLOYED_COMMIT: ${{ steps.deploy.outputs.releaseCommit }}
+          DEPLOYED_IMAGE: ${{ steps.deploy.outputs.imageDigest }}
+          DEPLOYED_ORIGIN: ${{ steps.deploy.outputs.origin }}
+          E2E_READY: ${{ steps.deploy.outputs.e2eReady }}
         run: |
-          for _ in $(seq 1 60); do
-            health="$(curl --fail --silent --show-error https://fsharpviewengine.meiermade.com/health || true)"
-            status="$(jq -r '.status // empty' <<< "$health" 2>/dev/null || true)"
-            commit="$(jq -r '.commit // empty' <<< "$health" 2>/dev/null || true)"
-
-            if [[ "$status" == "ok" && "$commit" == "$EXPECTED_COMMIT" ]]; then
-              exit 0
-            fi
-
-            echo "Waiting for documentation site at $EXPECTED_COMMIT; found commit=${commit:-unknown}."
-            sleep 5
-          done
-
-          echo "The documentation site did not report the expected commit." >&2
-          exit 1
-      - name: Test deployed documentation site
-        run: bash scripts/test-published-ci.sh tests/production-smoke.spec.ts
+          test "$DEPLOYED_COMMIT" = "$EXPECTED_COMMIT"
+          test "$DEPLOYED_ORIGIN" = 'https://fve.meiermade.net'
+          test "$E2E_READY" = 'true'
+          [[ "$DEPLOYED_IMAGE" =~ @sha256:[a-f0-9]{64}$ ]]
+      - name: Wait for Access-aware staging readiness
         working-directory: ./e2e
-        env:
-          DOCS_E2E_BASE_URL: https://fsharpviewengine.meiermade.com
-          DOCS_EXPECTED_COMMIT: ${{ needs.deploy.outputs.commit }}
-      - name: Upload E2E diagnostics
+        run: >-
+          pulumi env run meiermade/fsharpviewengine/e2e-dev --
+          bash scripts/wait-for-staging.sh
+      - name: Test protected staging candidate
+        working-directory: ./e2e
+        run: >-
+          pulumi env run meiermade/fsharpviewengine/e2e-dev --
+          bash scripts/test-published-ci.sh tests/staging-smoke.spec.ts
+      - name: Upload credential-free E2E diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: fsharp-viewengine-deploy-e2e
+          name: fsharp-viewengine-staging-e2e
           path: |
             e2e/playwright-report
             e2e/test-results
           if-no-files-found: ignore
+      - name: Restore previous staging release after failure
+        if: failure() && (steps.deploy.outcome == 'success' || steps.deploy.outcome == 'failure') && steps.previous.outputs.image != '' && steps.previous.outputs.commit != ''
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        env:
+          DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}
+          RELEASE_COMMIT: ${{ steps.previous.outputs.commit }}
+        with:
+          work-dir: ./pulumi
+          command: up
+          stack-name: meiermade/fsharp-view-engine/dev

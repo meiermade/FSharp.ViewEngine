@@ -114,8 +114,10 @@ jobs:
       - name: Install Packages
         run: npm ci
         working-directory: ./pulumi
-      - name: Typecheck
-        run: npx tsc --noEmit
+      - name: Check and test Pulumi
+        run: |
+          npm run check
+          npm test
         working-directory: ./pulumi
 
   preview:
@@ -130,7 +132,7 @@ jobs:
       needs.pulumi.result == 'success' &&
       github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     permissions:
       contents: read
       id-token: write
@@ -158,7 +160,18 @@ jobs:
           organization: meiermade
           requested-token-type: urn:pulumi:token-type:access_token:personal
           scope: user:meiermade
-      - name: Preview
+      - name: Preview isolated staging stack
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        env:
+          RELEASE_COMMIT: ${{ github.event.pull_request.head.sha }}
+        with:
+          work-dir: ./pulumi
+          command: preview
+          stack-name: meiermade/fsharp-view-engine/dev
+          upsert: true
+          diff: true
+          comment-on-pr: true
+      - name: Preview retained production boundary
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         env:
           RELEASE_COMMIT: ${{ github.event.pull_request.head.sha }}

@@ -1,12 +1,19 @@
 import { expect, test } from '@playwright/test'
 
 const expectedCommit = process.env.DOCS_EXPECTED_COMMIT ?? 'local'
+const expectedImage = process.env.DOCS_EXPECTED_IMAGE ?? 'local'
+const expectedEnvironment = process.env.DOCS_EXPECTED_ENVIRONMENT ?? (expectedCommit === 'local' ? 'local' : 'production')
 const canonicalOrigin = 'https://fsharpviewengine.meiermade.com'
 
-test('health reports the deployed commit', async ({ request }) => {
+test('health reports the deployed release identity', async ({ request }) => {
   const response = await request.get('/health')
   expect(response.status()).toBe(200)
-  await expect(response.json()).resolves.toEqual({ status: 'ok', commit: expectedCommit })
+  await expect(response.json()).resolves.toEqual({
+    status: 'ok',
+    environment: expectedEnvironment,
+    commit: expectedCommit,
+    image: expectedImage,
+  })
 })
 
 test('canonical discovery endpoints remain public', async ({ request }) => {
