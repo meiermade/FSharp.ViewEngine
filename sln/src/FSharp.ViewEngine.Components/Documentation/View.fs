@@ -753,18 +753,25 @@ window.renderMermaid = (el, pendingOnly = false) => {
     }
     for (const node of nodes) {
       if (!node.isConnected) continue;
+      const source = node.dataset.mermaidSource ?? '';
       try {
         const id = `fsharp-docs-mermaid-${++mermaidRenderId}`;
-        const { svg, bindFunctions } = await window.mermaid.render(id, node.dataset.mermaidSource ?? '');
+        const { svg, bindFunctions } = await window.mermaid.render(id, source);
         if (!node.isConnected) continue;
+        if ((node.dataset.mermaidSource ?? '') !== source) {
+          setMermaidPending(node);
+          continue;
+        }
         node.innerHTML = svg;
         bindFunctions?.(node);
         node.dataset.mermaidState = 'rendered';
-        node.dataset.mermaidRenderedSource = node.dataset.mermaidSource ?? '';
+        node.dataset.mermaidRenderedSource = source;
         node.removeAttribute('aria-busy');
         wireMermaidLinks(node);
       } catch {
-        if (node.isConnected) setMermaidFailed(node);
+        if (!node.isConnected) continue;
+        if ((node.dataset.mermaidSource ?? '') !== source) setMermaidPending(node);
+        else setMermaidFailed(node);
       }
     }
   };
