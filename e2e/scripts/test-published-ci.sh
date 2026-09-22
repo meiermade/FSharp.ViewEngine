@@ -24,12 +24,22 @@ case "$cross_browser_mode" in
     ;;
 esac
 
+docker_env=(
+  --env CI=true
+  --env E2E_START_LOCAL=0
+  --env E2E_CROSS_BROWSER_MODE="$cross_browser_mode"
+  --env DOCS_E2E_BASE_URL
+  --env DOCS_EXPECTED_COMMIT
+)
+
+for optional_name in DOCS_EXPECTED_ENVIRONMENT DOCS_EXPECTED_IMAGE CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET; do
+  if [[ -n "${!optional_name:-}" ]]; then
+    docker_env+=(--env "$optional_name")
+  fi
+done
+
 docker run --rm --init \
-  --env CI=true \
-  --env E2E_START_LOCAL=0 \
-  --env E2E_CROSS_BROWSER_MODE="$cross_browser_mode" \
-  --env DOCS_E2E_BASE_URL \
-  --env DOCS_EXPECTED_COMMIT \
+  "${docker_env[@]}" \
   --volume "$e2e_dir:/work" \
   --workdir /work \
   "$playwright_image" \

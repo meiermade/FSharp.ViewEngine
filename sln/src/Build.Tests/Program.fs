@@ -244,16 +244,29 @@ let tests =
             Expect.stringContains publishBlock "NuGet/login@8d196754b4036150537f80ac539e15c2f1028841" "publication uses trusted publishing"
         }
 
-        test "Documentation deploy tracks main independently from package releases" {
+        test "Main deploys only a protected immutable staging candidate" {
             let deploy = workflow "deploy.yml"
             Expect.stringContains deploy "push:" "main changes deploy automatically"
             Expect.stringContains deploy "- main" "only main deploys automatically"
-            Expect.stringContains deploy "workflow_dispatch:" "site remains manually redeployable"
-            Expect.isFalse (deploy.Contains("workflow_call:")) "package releases do not call site deployment"
-            Expect.isFalse (deploy.Contains("expectedCoreVersion")) "site health does not predict Core publication"
-            Expect.isFalse (deploy.Contains("expectedDocsVersion")) "site health does not predict Docs publication"
-            Expect.stringContains deploy "bash scripts/test-published-ci.sh tests/production-smoke.spec.ts" "main deploys run the bounded production smoke suite"
-            Expect.isFalse (deploy.Contains("playwright install --with-deps")) "production acceptance skips host browser installation"
+            Expect.stringContains deploy "workflow_dispatch:" "staging remains manually redeployable"
+            Expect.stringContains deploy "name: staging" "deployment uses the staging GitHub environment"
+            Expect.stringContains deploy "url: https://fve.meiermade.net" "deployment names the protected staging origin"
+            Expect.stringContains deploy "stack-name: meiermade/fsharp-view-engine/dev" "main updates only the isolated dev stack"
+            Expect.isFalse (deploy.Contains("stack-name: meiermade/fsharp-view-engine/prod")) "main never updates production"
+            Expect.stringContains deploy "pulumi env run meiermade/fsharpviewengine/e2e-dev" "acceptance loads scoped credentials in the consuming command"
+            Expect.stringContains deploy "bash scripts/test-published-ci.sh tests/staging-smoke.spec.ts" "main runs the bounded staging smoke suite"
+            Expect.stringContains deploy "DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}" "unsuccessful acceptance restores the previous immutable image"
+            Expect.stringContains deploy "queue: max" "every successful merge retains its place in the staging queue"
+            Expect.stringContains deploy "cancel-in-progress: false" "a newer merge does not interrupt an active rollout"
+            Expect.stringContains deploy "if: ${{ always() }}" "workflow cancellation leaves the deployment job available for recovery"
+            Expect.stringContains deploy "failure() || cancelled()" "failure and cancellation both enter recovery"
+            Expect.stringContains deploy "steps.deploy.outcome != 'skipped'" "recovery runs whenever deployment may have mutated staging"
+            Expect.stringContains deploy "steps.restore.outcome == 'success'" "a restored release must pass readiness"
+            Expect.stringContains deploy "Confirm restored staging release is healthy" "recovery proves the previous release is serving"
+            Expect.isFalse (deploy.Contains("\n    timeout-minutes:")) "a job timeout cannot preempt bounded recovery steps"
+            Expect.isFalse (deploy.Contains("workflow_call:")) "package releases do not call staging deployment"
+            Expect.isFalse (deploy.Contains("secrets: inherit")) "staging does not inherit unrelated secrets"
+            Expect.isFalse (deploy.Contains("playwright install --with-deps")) "staging acceptance uses the pinned browser image"
         }
 
         test "E2E workflows share the pinned Playwright image and stage browser coverage" {
@@ -299,16 +312,16 @@ let tests =
             Expect.stringContains terminal "needs.preview.result == 'skipped'" "forks may skip privileged preview"
         }
 
-        test "Docs Cloudflare configuration disables unreliable RUM only for its hostname" {
+        test "Docs Cloudflare configuration retains production-only RUM protection" {
             let cloudflareIndex = repositoryFile "pulumi/src/cloudflare/index.ts"
             let rum = repositoryFile "pulumi/src/cloudflare/rum.ts"
             Expect.stringContains cloudflareIndex "import './rum'" "Cloudflare composition owns the RUM rule"
-            Expect.stringContains rum "phase: 'http_config_settings'" "configuration rule uses the Cloudflare settings phase"
+            Expect.stringContains rum "config.isStaging" "staging does not contend for the shared zone configuration phase"
+            Expect.stringContains rum "phase: 'http_config_settings'" "production configuration rule uses the Cloudflare settings phase"
             Expect.stringContains rum "action: 'set_config'" "configuration rule changes only matched request settings"
             Expect.stringContains rum "disableRum: true" "automatic browser RUM is deliberately disabled"
             Expect.stringContains rum "http.host eq" "rule is hostname scoped"
-            Expect.stringContains rum "config.identifier" "hostname uses the product identifier"
-            Expect.stringContains rum "config.cloudflareConfig.zoneName" "hostname uses the configured zone"
+            Expect.stringContains rum "config.appConfig.hostname" "the production rule uses the validated application hostname"
         }
 
         test "Pulumi workflows install the GKE credential plugin" {
@@ -319,10 +332,37 @@ let tests =
                 Expect.stringContains workflow "install_components: gke-gcloud-auth-plugin" $"{name} installs GKE authentication"
         }
 
-        test "Production refresh runs the current Kubernetes provider program" {
+        test "Staging delivery uses current provider state and safe rollout boundaries" {
             let deploy = workflow "deploy.yml"
+            let preview = workflow "preview.yml"
+            let appConfig = repositoryFile "pulumi/src/config.ts"
+            let pulumiDev = repositoryFile "pulumi/Pulumi.dev.yaml"
+            let access = repositoryFile "pulumi/src/cloudflare/access.ts"
+            let zone = repositoryFile "pulumi/src/cloudflare/zone.ts"
+            let deployment = repositoryFile "pulumi/src/k8s/deployment.ts"
+            let stack = repositoryFile "pulumi/index.ts"
+            let playwright = repositoryFile "e2e/playwright.config.ts"
+            let smoke = repositoryFile "e2e/tests/staging-smoke.spec.ts"
             Expect.stringContains deploy "pulumi refresh --run-program" "refresh uses the current provider configuration"
             Expect.isFalse (deploy.Contains("refresh: true")) "the update does not refresh against stale provider state"
+            Expect.stringContains preview "stack-name: meiermade/fsharp-view-engine/dev" "pull requests preview the isolated staging stack"
+            Expect.stringContains preview "stack-name: meiermade/fsharp-view-engine/prod" "pull requests expose any production-boundary drift without updating it"
+            Expect.stringContains pulumiDev "fsharpviewengine/dev" "the dev stack composes only the development ESC environment"
+            Expect.stringContains appConfig "https://fve.meiermade.net" "the staging origin is exact"
+            Expect.stringContains appConfig "zoneId: rawCloudflareConfig.require('zoneId')" "both stacks require their ESC-projected zone ID"
+            Expect.isFalse (zone.Contains("getZoneOutput")) "application stacks do not rediscover configured Cloudflare zones"
+            Expect.stringContains appConfig "DEPLOY_IMAGE must be an immutable sha256 image reference" "rollback and promotion reject mutable images"
+            Expect.stringContains access "allowAdminsAccessPolicyId" "administrators retain normal Access authentication"
+            Expect.stringContains access "ZeroTrustAccessServiceToken" "CI receives a staging-only service token"
+            Expect.stringContains access "additionalSecretOutputs: ['clientSecret']" "the Access client secret remains secret"
+            Expect.stringContains deployment "maxUnavailable: 0" "rollout retains the previous healthy replica"
+            Expect.stringContains deployment "maxSurge: 1" "rollout creates the candidate before retirement"
+            Expect.stringContains deployment "protect: config.isStaging" "staging workload resources resist accidental deletion"
+            Expect.stringContains deployment "name: 'RELEASE_IMAGE'" "the workload exposes its exact image identity"
+            Expect.stringContains stack "export const imageDigest" "the stack publishes the immutable image"
+            Expect.stringContains stack "export const e2eReady" "the downstream E2E environment has an explicit bootstrap guard"
+            Expect.stringContains playwright "hasAccessClientSecret ? 'off'" "credential-bearing runs do not retain network traces"
+            Expect.stringContains smoke "new URL(request.url()).origin !== stagingOrigin" "Access headers are limited to the staging origin"
         }
 
         test "Versioned changelog entries follow verified package releases" {

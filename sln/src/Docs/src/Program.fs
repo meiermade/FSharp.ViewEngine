@@ -13,7 +13,9 @@ let webApp (config:Config) =
         GET >=> choose [
             route "/health" >=> json {|
                 status = "ok"
+                environment = config.deploymentEnvironment
                 commit = config.commit
+                image = config.image
             |}
             Handler.routes
         ]
@@ -73,7 +75,12 @@ let main args =
                 app.UseDeveloperExceptionPage() |> ignore
 
             configureApp config app
-            Log.Information("Starting {AppName} at commit {ReleaseCommit}", config.appName, config.commit)
+            Log.Information(
+                "Starting {AppName} in {DeploymentEnvironment} at commit {ReleaseCommit} from {ReleaseImage}",
+                config.appName,
+                config.deploymentEnvironment,
+                config.commit,
+                config.image)
 
             app.Run(config.serverUrl)
             0
