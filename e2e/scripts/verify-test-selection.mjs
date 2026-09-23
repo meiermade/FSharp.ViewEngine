@@ -58,7 +58,7 @@ const firefox = selected.get('firefox')
 const webkit = selected.get('webkit')
 
 for (const [browser, tests, expected] of [
-  ['chromium', chromium, 242],
+  ['chromium', chromium, 241],
   ['firefox', firefox, 89],
   ['webkit', webkit, 89],
 ]) {

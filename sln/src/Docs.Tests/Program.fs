@@ -50,6 +50,27 @@ let private shellTestUrl = function
 
 let private expectedPaths = Registry.all |> List.map _.path |> set
 
+let private routeStatus (reference:string) =
+    let uri = Uri(Uri "https://fve.meiermade.com", reference)
+    let context = DefaultHttpContext()
+    context.Request.Method <- HttpMethods.Get
+    context.Request.Scheme <- uri.Scheme
+    context.Request.Host <- HostString uri.Host
+    context.Request.Path <- PathString uri.AbsolutePath
+    context.Request.QueryString <- QueryString uri.Query
+    context.Response.Body <- new MemoryStream()
+    let next : HttpFunc = fun current -> task { return Some current }
+    let result = Handler.routes next context |> Async.AwaitTask |> Async.RunSynchronously
+    if result.IsSome then context.Response.StatusCode else 404
+
+let private referenceStatus (reference:string) =
+    let uri = Uri(Uri "https://fve.meiermade.com", reference)
+    let webRoot = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "wwwroot"))
+    let relativePath = Uri.UnescapeDataString(uri.AbsolutePath.TrimStart('/')).Replace('/', Path.DirectorySeparatorChar)
+    let filePath = Path.GetFullPath(Path.Combine(webRoot, relativePath))
+    if filePath.StartsWith(webRoot, StringComparison.Ordinal) && File.Exists filePath then 200
+    else routeStatus uri.PathAndQuery
+
 [<Tests>]
 let tests =
     testList "Direct F# documentation" [
@@ -315,6 +336,34 @@ let tests =
             Expect.equal aliases["/docs-components"] "/docs/components/layouts" "old component lab route"
             Expect.equal aliases["/docs/examples/api-reference"] "/docs/page-examples/api-reference" "old API example route"
             Expect.equal aliases["/docs/examples/executable-specification"] "/docs/page-examples/executable-specification" "old specification route"
+        }
+
+        test "Registered pages render complete canonical documents with resolvable local references" {
+            let references = Collections.Generic.HashSet<string>(StringComparer.Ordinal)
+
+            for page in Registry.all do
+                let html = page |> View.document Registry.navigation |> Render.toHtmlDocString
+                let canonical = "https://fve.meiermade.com" + (if page.path = "/" then "/" else page.path)
+                Expect.equal (routeStatus page.path) 200 $"{page.path} canonical route"
+                Expect.stringStarts html "<!DOCTYPE html>" $"{page.path} complete document"
+                Expect.stringContains html "<main" $"{page.path} semantic main"
+                Expect.stringContains html $"rel=\"canonical\" href=\"{canonical}\"" $"{page.path} canonical"
+
+                for matched in Regex.Matches(html, @"\b(?:href|src|data-docs-preview-src)=""([^""]+)""") do
+                    let reference = WebUtility.HtmlDecode(matched.Groups[1].Value)
+                    if not (String.IsNullOrWhiteSpace reference)
+                       && not (reference.StartsWith('#'))
+                       && not (reference.StartsWith("mailto:"))
+                       && not (reference.StartsWith("tel:")) then
+                        let uri = Uri(Uri("https://fve.meiermade.com" + page.path), reference)
+                        if uri.GetLeftPart(UriPartial.Authority) = "https://fve.meiermade.com" then
+                            references.Add uri.PathAndQuery |> ignore
+
+            for reference in references do
+                Expect.isLessThan (referenceStatus reference) 400 $"{reference} resolves"
+
+            Expect.isGreaterThan references.Count expectedPaths.Count "rendered pages expose additional local assets and destinations"
+            Expect.equal (referenceStatus "/not-a-documentation-route") 404 "unknown references remain unresolved"
         }
 
         test "Navigation exposes the core learning path before integrations and project pages" {
