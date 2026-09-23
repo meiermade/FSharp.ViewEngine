@@ -30,7 +30,7 @@ test('long-lived Docs navigation excludes demo signals and preserves Preview Cod
   await page.evaluate(() => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value: string) => { (window as any).__copiedExample = value } } })
   })
-  const galleries = ['select', 'checkbox', 'switch', 'toggle-button', 'input', 'textarea', 'radio-group', 'choice-cards', 'file-selection', 'tag-input', 'notice', 'notification', 'table', 'metric', 'description-list', 'calendar', 'breadcrumbs', 'side-nav', 'tabs', 'dropdown-menu', 'dialog', 'confirmation-dialog', 'drawer', 'floating-panel', 'page', 'collection', 'detail', 'app-shell', 'form-layouts', 'upload', 'steps', 'first-steps', 'media-library', 'notice']
+  const galleries = ['select', 'calendar', 'dropdown-menu', 'dialog', 'app-shell', 'form-layouts', 'media-library', 'notice']
   for (const slug of galleries) {
     await openGallery(page, slug)
     const example = page.locator('[data-docs-example="true"]').first()

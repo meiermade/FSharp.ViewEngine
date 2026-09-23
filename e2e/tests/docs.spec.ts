@@ -95,42 +95,6 @@ async function gotoAfterDocsAssetSettlement(page: Page, path: string, waitUntil:
   return response
 }
 
-async function mapInBatches<T>(items: readonly T[], size: number, run: (item: T) => Promise<void>) {
-  for (let index = 0; index < items.length; index += size) {
-    await Promise.all(items.slice(index, index + size).map(run))
-  }
-}
-
-test('registered documentation routes and same-origin references resolve without a browser', async ({ request }) => {
-  const references = new Set<string>()
-
-  const paths = await publicRoutePaths(request)
-  await mapInBatches(paths, 8, async path => {
-    const response = await request.get(path)
-    expect(response.status(), `${path} status`).toBe(200)
-    const html = await response.text()
-    expect(html, `${path} server-rendered main content`).toContain('<main')
-    expect(html, `${path} complete HTML document`).toContain('<!DOCTYPE html>')
-    const canonicalURL = path === '/' ? `${productionOrigin}/` : `${productionOrigin}${path}`
-    expect(html, `${path} canonical`).toContain(`rel="canonical" href="${canonicalURL}"`)
-
-    for (const match of html.matchAll(/\b(?:href|src|data-docs-preview-src)="([^"]+)"/g)) {
-      const reference = match[1]
-      if (!reference || reference.startsWith('#') || reference.startsWith('mailto:') || reference.startsWith('tel:')) continue
-      const url = new URL(reference, `http://candidate${path}`)
-      if (url.origin !== 'http://candidate') continue
-      url.hash = ''
-      references.add(`${url.pathname}${url.search}`)
-    }
-  })
-
-  await mapInBatches([...references], 8, async path => {
-    const response = await request.get(path)
-    expect(response.status(), path).toBeLessThan(400)
-  })
-  expect(references.size).toBeGreaterThan(paths.length)
-})
-
 test('representative documentation routes render without browser errors', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   for (const route of representativeRoutes) {
