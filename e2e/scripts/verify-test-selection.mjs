@@ -70,9 +70,9 @@ if (JSON.stringify(firefox) !== JSON.stringify(webkit)) {
   fail('Firefox and WebKit focused selections differ')
 }
 for (const [browser, shardCount, completeSelection] of [
-  ['chromium', 5, chromium],
-  ['firefox', 2, firefox],
-  ['webkit', 2, webkit],
+  ['chromium', 6, chromium],
+  ['firefox', 3, firefox],
+  ['webkit', 3, webkit],
 ]) {
   const shards = Array.from({ length: shardCount }, (_, index) =>
     listSelected([`--project=${browser}`, `--shard=${index + 1}/${shardCount}`]).get(browser),
