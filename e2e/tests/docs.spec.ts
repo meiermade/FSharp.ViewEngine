@@ -801,7 +801,9 @@ test.describe('Components route accessibility', () => {
       const browserErrors = captureBrowserErrors(page)
 
       for (const path of group.paths) {
-        await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
+        const response = await page.goto(path, { waitUntil: 'domcontentloaded' })
+        expect(response?.status(), `${path} status`).toBe(200)
+        await expect(page.locator('main.spec-main')).toBeVisible()
         const results = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
           .analyze()
