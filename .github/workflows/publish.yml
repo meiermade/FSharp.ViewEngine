@@ -92,7 +92,7 @@ jobs:
     name: Retry-free staging release acceptance (${{ matrix.label }})
     needs: candidate
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:

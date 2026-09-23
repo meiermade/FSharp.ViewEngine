@@ -63,7 +63,7 @@ jobs:
   e2e:
     name: E2E (${{ matrix.label }})
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 5
     strategy:
       fail-fast: false
       matrix:
@@ -109,6 +109,9 @@ jobs:
       - name: Verify intentional browser selection
         run: npm run test:selection
         working-directory: ./e2e
+        env:
+          CF_ACCESS_CLIENT_ID: selection-must-not-inherit-client
+          CF_ACCESS_CLIENT_SECRET: selection-must-not-inherit-secret
       - name: Test production Docs image
         run: bash scripts/test-ci.sh
         working-directory: ./e2e
