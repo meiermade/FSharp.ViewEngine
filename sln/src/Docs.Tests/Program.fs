@@ -344,6 +344,7 @@ let tests =
             for page in Registry.all do
                 let html = page |> View.document Registry.navigation |> Render.toHtmlDocString
                 let canonical = "https://fve.meiermade.com" + (if page.path = "/" then "/" else page.path)
+                Expect.equal (routeStatus page.path) 200 $"{page.path} canonical route"
                 Expect.stringStarts html "<!DOCTYPE html>" $"{page.path} complete document"
                 Expect.stringContains html "<main" $"{page.path} semantic main"
                 Expect.stringContains html $"rel=\"canonical\" href=\"{canonical}\"" $"{page.path} canonical"
