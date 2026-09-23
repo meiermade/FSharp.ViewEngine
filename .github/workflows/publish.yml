@@ -122,6 +122,7 @@ jobs:
     timeout-minutes: 5
     strategy:
       fail-fast: false
+      max-parallel: 2
       matrix:
         include:
           - label: chromium 1/6
