@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-test('mobile record checkboxes align with field labels without shrinking click targets @cross-browser', async ({ page }) => {
+test('mobile record checkboxes align with field labels without shrinking click targets', async ({ page }) => {
   for (const width of [390, 640]) {
     await page.setViewportSize({ width, height: 1200 })
     for (const route of ['collection', 'detail']) {
@@ -48,7 +48,7 @@ test('mobile record checkboxes align with field labels without shrinking click t
   }
 })
 
-test('selectable tables recompose one accessible tree into mobile records @cross-browser', async ({ page }) => {
+test('selectable tables recompose one accessible tree into mobile records', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.setViewportSize({ width: 1600, height: 1000 })
@@ -143,7 +143,7 @@ test('table selection reports keys and survives a real fixture morph @cross-brow
   await expect(shell.getByRole('checkbox', { name: 'Select all rows on this page' })).toBeChecked({ indeterminate: true })
 })
 
-test('canvas pages own scrolling and working zoom without constraining the workspace @cross-browser', async ({ page }) => {
+test('canvas pages own scrolling and working zoom without constraining the workspace', async ({ page }) => {
   await page.goto('/components/page')
   const canvas = page.locator('[data-fve-page-canvas]')
   await expect(canvas).toBeVisible()

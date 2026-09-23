@@ -5,21 +5,24 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 e2e_dir="$(cd "$script_dir/.." && pwd)"
 playwright_image="$(< "$e2e_dir/playwright-image.txt")"
 cross_browser_mode="${E2E_CROSS_BROWSER_MODE:-focused}"
+browser="${E2E_BROWSER:-all}"
 
 : "${DOCS_E2E_BASE_URL:?DOCS_E2E_BASE_URL is required}"
 : "${DOCS_EXPECTED_COMMIT:?DOCS_EXPECTED_COMMIT is required}"
 
 case "$cross_browser_mode" in
-  focused)
-    project_args=(--project=chromium)
-    retry_args=(--retries=0)
-    ;;
-  full)
-    project_args=(--project=chromium --project=firefox --project=webkit)
-    retry_args=(--retries=0)
-    ;;
+  focused|full) retry_args=(--retries=0) ;;
   *)
     echo "Unsupported E2E_CROSS_BROWSER_MODE: $cross_browser_mode" >&2
+    exit 2
+    ;;
+esac
+
+case "$browser" in
+  all) project_args=(--project=chromium --project=firefox --project=webkit) ;;
+  chromium|firefox|webkit) project_args=("--project=$browser") ;;
+  *)
+    echo "Unsupported E2E_BROWSER: $browser" >&2
     exit 2
     ;;
 esac
@@ -28,6 +31,7 @@ docker_env=(
   --env CI=true
   --env E2E_START_LOCAL=0
   --env E2E_CROSS_BROWSER_MODE="$cross_browser_mode"
+  --env E2E_BROWSER="$browser"
   --env DOCS_E2E_BASE_URL
   --env DOCS_EXPECTED_COMMIT
 )
@@ -55,9 +59,14 @@ cleanup_auth_state() {
 }
 trap cleanup_auth_state EXIT
 
+test_args=("$@" "${project_args[@]}" "${retry_args[@]}")
+if [[ -n "${E2E_SHARD:-}" ]]; then
+  test_args+=("--shard=$E2E_SHARD")
+fi
+
 docker run --rm --init \
   "${docker_env[@]}" \
   --volume "$e2e_dir:/work" \
   --workdir /work \
   "$playwright_image" \
-  npx playwright test "$@" "${project_args[@]}" "${retry_args[@]}"
+  npx playwright test "${test_args[@]}"

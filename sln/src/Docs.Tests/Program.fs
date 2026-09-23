@@ -4,6 +4,8 @@ open System
 open System.IO
 open System.Net
 open System.Text.RegularExpressions
+open Giraffe
+open Microsoft.AspNetCore.Http
 open Expecto
 open FSharp.ViewEngine
 open FSharp.ViewEngine.Components.Primitives
@@ -24,6 +26,21 @@ type private ShellTestDestination =
     | Reports
     | Settings
 
+let private mutationStatus (origin:string) (contentType:string) contentLength =
+    let context = DefaultHttpContext()
+    context.Request.Method <- HttpMethods.Post
+    context.Request.Scheme <- "https"
+    context.Request.Host <- HostString "fve.meiermade.com"
+    context.Request.Path <- PathString "/components/page-examples/messaging/send"
+    context.Request.QueryString <- QueryString "?item=beach"
+    context.Request.Headers.Origin <- origin
+    context.Request.ContentType <- contentType
+    context.Request.ContentLength <- Nullable contentLength
+    context.Response.Body <- new MemoryStream()
+    let next : HttpFunc = fun current -> task { return Some current }
+    Handler.postRoutes next context |> Async.AwaitTask |> Async.RunSynchronously |> ignore
+    context.Response.StatusCode
+
 let private shellTestUrl = function
     | Home -> "/"
     | Accounts -> "/accounts"
@@ -31,111 +48,16 @@ let private shellTestUrl = function
     | Reports -> "/reports"
     | Settings -> "/settings"
 
-let private expectedPaths =
-    set [
-        "/"
-        "/installation"
-        "/getting-started/first-view"
-        "/guides/elements-and-attributes"
-        "/guides/composition-and-control-flow"
-        "/guides/rendering"
-        "/guides/encoding-and-trusted-content"
-        "/guides/accessibility"
-        "/custom"
-        "/usage"
-        "/extensions/alpine"
-        "/extensions/datastar"
-        "/extensions/htmx"
-        "/extensions/svg"
-        "/extensions/tailwind-elements"
-        "/docs"
-        "/docs/components/layouts"
-        "/docs/components/content"
-        "/docs/components/navigation"
-        "/docs/components/fixture"
-        "/docs/components/api-reference"
-        "/docs/components/diagrams"
-        "/docs/page-examples/documentation-site"
-        "/docs/page-examples/api-reference"
-        "/docs/page-examples/executable-specification"
-        "/components"
-        "/components/primitives"
-        "/components/application"
-        "/components/installation"
-        "/components/button"
-        "/components/icon-button"
-        "/components/badge"
-        "/components/status"
-        "/components/loading-indicator"
-        "/components/progress"
-        "/components/empty-state"
-        "/components/action-cluster"
-        "/components/row-actions"
-        "/components/table"
-        "/components/description-list"
-        "/components/metric"
-        "/components/pagination"
-        "/components/avatar"
-        "/components/copy-reveal"
-        "/components/input"
-        "/components/file-selection"
-        "/components/tag-input"
-        "/components/form-layouts"
-        "/components/textarea"
-        "/components/error-summary"
-        "/components/notice"
-        "/components/notification"
-        "/components/select"
-        "/components/checkbox"
-        "/components/switch"
-        "/components/toggle-button"
-        "/components/breadcrumbs"
-        "/components/side-nav"
-        "/components/tabs"
-        "/components/radio-group"
-        "/components/choice-cards"
-        "/components/dropdown-menu"
-        "/components/dialog"
-        "/components/confirmation-dialog"
-        "/components/drawer"
-        "/components/floating-panel"
-        "/components/page-top-bar"
-        "/components/page-header"
-        "/components/section"
-        "/components/browser"
-        "/components/phone"
-        "/components/page"
-        "/components/collection"
-        "/components/detail"
-        "/components/app-shell"
-        "/components/page-examples/account-management"
-        "/components/bottom-navigation"
-        "/components/bulk-actions"
-        "/components/upload"
-        "/components/steps"
-        "/components/first-steps"
-        "/components/calendar"
-        "/components/media-library"
-        "/components/page-examples/dependency-graph"
-        "/components/page-examples/execution-detail"
-        "/components/page-examples/financial-reporting"
-        "/components/page-examples/messaging"
-        "/components/page-examples/operations-dashboard"
-        "/components/page-examples/scheduling"
-        "/components/page-examples/media-management"
-        "/components/interaction-and-server-state"
-        "/components/accessibility"
-        "/components/theming"
-        "/components/tailwind-css"
-        "/components/customization"
-        "/components/versioning"
-        "/benchmarks"
-        "/changelog"
-    ]
+let private expectedPaths = Registry.all |> List.map _.path |> set
 
 [<Tests>]
 let tests =
     testList "Direct F# documentation" [
+        testCase "page-example mutation boundaries reject foreign origins, unsupported forms, and oversized bodies" <| fun _ ->
+            Expect.equal (mutationStatus "https://foreign.example" "application/x-www-form-urlencoded" 10L) 403 "foreign origin"
+            Expect.equal (mutationStatus "https://fve.meiermade.com" "application/json" 10L) 415 "unsupported content type"
+            Expect.equal (mutationStatus "https://fve.meiermade.com" "application/x-www-form-urlencoded" 3_000_001L) 413 "request limit"
+
         testCase "page-example messages validate and retain conversation identity" <| fun _ ->
             let initial = PageExampleSession.get (Microsoft.AspNetCore.Http.DefaultHttpContext())
             let unchanged, empty = PageExampleSession.send "beach" "  " initial

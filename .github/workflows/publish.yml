@@ -88,11 +88,78 @@ jobs:
           test "$(pulumi stack output origin --stack meiermade/fsharp-view-engine/dev)" = 'https://fve.meiermade.net'
           test "$(pulumi stack output e2eReady --stack meiermade/fsharp-view-engine/dev)" = 'true'
 
-  acceptance:
-    name: Retry-free staging release acceptance
+  selection:
+    name: Browser selection
     needs: candidate
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.candidate.outputs.commit }}
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Install E2E packages
+        run: npm ci
+        working-directory: ./e2e
+      - name: Verify intentional browser selection
+        run: npm run test:selection
+        working-directory: ./e2e
+        env:
+          CF_ACCESS_CLIENT_ID: selection-must-not-inherit-client
+          CF_ACCESS_CLIENT_SECRET: selection-must-not-inherit-secret
+
+  acceptance:
+    name: Retry-free staging release acceptance (${{ matrix.label }})
+    needs:
+      - candidate
+      - selection
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: chromium 1/6
+            browser: chromium
+            shard: 1/6
+          - label: chromium 2/6
+            browser: chromium
+            shard: 2/6
+          - label: chromium 3/6
+            browser: chromium
+            shard: 3/6
+          - label: chromium 4/6
+            browser: chromium
+            shard: 4/6
+          - label: chromium 5/6
+            browser: chromium
+            shard: 5/6
+          - label: chromium 6/6
+            browser: chromium
+            shard: 6/6
+          - label: firefox 1/3
+            browser: firefox
+            shard: 1/3
+          - label: firefox 2/3
+            browser: firefox
+            shard: 2/3
+          - label: firefox 3/3
+            browser: firefox
+            shard: 3/3
+          - label: webkit 1/3
+            browser: webkit
+            shard: 1/3
+          - label: webkit 2/3
+            browser: webkit
+            shard: 2/3
+          - label: webkit 3/3
+            browser: webkit
+            shard: 3/3
     permissions:
       contents: read
       id-token: write
@@ -119,9 +186,11 @@ jobs:
         uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
         with:
           pulumi-version: 3.261.0
-      - name: Run complete Chromium, Firefox, and WebKit acceptance without retries
+      - name: Run right-sized ${{ matrix.browser }} acceptance without retries
         working-directory: ./e2e
         env:
+          E2E_BROWSER: ${{ matrix.browser }}
+          E2E_SHARD: ${{ matrix.shard }}
           EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
           EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
         run: >-
@@ -131,7 +200,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: fsharp-viewengine-release-acceptance
+          name: fsharp-viewengine-release-acceptance-${{ matrix.browser }}-${{ strategy.job-index }}
           path: |
             e2e/playwright-report
             e2e/test-results

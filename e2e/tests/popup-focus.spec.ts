@@ -165,7 +165,7 @@ test('popup focus retains system-color boundaries and active-target outlines in 
 
 for (const dark of [false, true]) {
   for (const viewport of [{ width: 1440, height: 1000, scale: 1 }, { width: 320, height: 900, scale: 2 }]) {
-    test(`popup focus uses distinct fills ${dark ? 'dark' : 'light'} ${viewport.width}px ${viewport.scale}x`, { tag: '@cross-browser' }, async ({ page }, testInfo) => {
+    test(`popup focus uses distinct fills ${dark ? 'dark' : 'light'} ${viewport.width}px ${viewport.scale}x`, async ({ page }, testInfo) => {
       const errors: string[] = []
       page.on('pageerror', error => errors.push(error.message))
       await page.setViewportSize(viewport)

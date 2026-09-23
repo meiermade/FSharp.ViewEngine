@@ -319,7 +319,7 @@ test('remote requests cancel on same-document navigation without resurrecting re
 })
 
 for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
-  test(`multiple Select modes remain accessible without overflow at ${width}px ${scale}x`, crossBrowser, async ({ page }, testInfo) => {
+  test(`multiple Select modes remain accessible without overflow at ${width}px ${scale}x`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto('/components/select')
     for (const [id, label] of [['components-select-multiple', 'Team members'], ['components-select-search-multiple', 'Search members']] as const) {

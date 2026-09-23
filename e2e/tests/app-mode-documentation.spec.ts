@@ -88,7 +88,7 @@ test('Documentation App mode fixtures expand browser and phone surfaces with ind
   })).toBeLessThan(0.5)
 })
 
-test('Documentation page examples use wide fixtures, relevant building blocks, and App mode @cross-browser', async ({ page }) => {
+test('Documentation page examples use wide fixtures, relevant building blocks, and App mode', async ({ page }) => {
   for (const item of [
     {
       path: '/docs/page-examples/documentation-site',
@@ -156,7 +156,7 @@ test('Documentation page examples use wide fixtures, relevant building blocks, a
   }
 })
 
-test('Documentation page examples inherit the resolved host color mode in previews and App mode @cross-browser', async ({ page }) => {
+test('Documentation page examples inherit the resolved host color mode in previews and App mode', async ({ page }) => {
   for (const [path, label] of [
     ['/docs/page-examples/documentation-site', 'Documentation site page example'],
     ['/docs/page-examples/api-reference', 'API reference page example'],
@@ -256,7 +256,7 @@ test('Fixture keeps its exact compiled source beside preview and copy controls',
   await expect.poll(() => page.evaluate(() => (window as typeof window & { copiedFixtureSource?: string }).copiedFixtureSource)).toContain('Fixture.create "checkout-shipping"')
 })
 
-test('Browser and Phone primitives render independently while Fixture adds review context @cross-browser', async ({ page }) => {
+test('Browser and Phone primitives render independently while Fixture adds review context', async ({ page }) => {
   const root = page.locator('[data-fve-app-mode-root="true"]')
 
   await page.goto('/components/browser')

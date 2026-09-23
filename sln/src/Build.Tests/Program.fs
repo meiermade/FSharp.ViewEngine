@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.IO.Compression
 open System.Diagnostics
+open System.Text.RegularExpressions
 open Expecto
 
 let private writePackage path (entries:(string * string) list) =
@@ -32,6 +33,20 @@ let private runProcessWithEnvironment workingDirectory command arguments environ
     use child = Process.Start startInfo
     child.WaitForExit()
     child.ExitCode
+
+type private BrowserShard =
+    { browser:string
+      index:int
+      total:int }
+
+let private browserShards workflow =
+    Regex.Matches(workflow, @"(?m)^\s+- label: (chromium|firefox|webkit) (\d+)/(\d+)\s*$")
+    |> Seq.cast<Match>
+    |> Seq.map (fun matched ->
+        { browser = matched.Groups[1].Value
+          index = int matched.Groups[2].Value
+          total = int matched.Groups[3].Value })
+    |> Seq.toList
 
 let tests =
     testList "Package publishing" [
@@ -298,15 +313,11 @@ let tests =
             let publish = workflow "publish.yml"
             let config = repositoryFile "pulumi/src/config.ts"
             let redirect = repositoryFile "pulumi/src/cloudflare/redirect.ts"
-            let releaseRunner = repositoryFile "e2e/scripts/test-release-candidate.sh"
             let retirementCheck = repositoryFile "e2e/scripts/verify-docs-retirement.mjs"
             Expect.stringContains publish "queue: max" "explicit releases retain their serialized queue position"
             Expect.stringContains publish "cancel-in-progress: false" "an active release is never preempted"
             Expect.stringContains publish "Prove protected staging runs the selected candidate" "staging identity is proven first"
-            Expect.stringContains releaseRunner "E2E_CROSS_BROWSER_MODE=full" "release acceptance runs the complete browser suite"
-            Expect.stringContains releaseRunner "production-smoke.spec.ts" "release acceptance identifies the production-only suite"
-            Expect.stringContains releaseRunner "!=" "staging release acceptance excludes the production-only suite"
-            Expect.stringContains publish "Retry-free staging release acceptance" "the release gate names its retry policy"
+            Expect.stringContains publish "- acceptance" "package preparation waits for the aggregate acceptance result"
             Expect.stringContains publish "DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}" "production receives the accepted digest"
             Expect.stringContains publish "environment: release" "publication uses its protected environment"
             Expect.stringContains publish "name: production" "promotion uses its protected environment"
@@ -360,21 +371,30 @@ let tests =
             let e2eDirectory = repositoryPath "e2e"
             let authState = Path.Combine(e2eDirectory, ".auth", "access.json")
             let fakeDirectory = Path.Combine(Path.GetTempPath(), $"fve-fake-docker.{Guid.NewGuid():N}")
+            let fakeArguments = Path.Combine(fakeDirectory, "arguments.txt")
             Directory.CreateDirectory fakeDirectory |> ignore
             let fakeDocker = Path.Combine(fakeDirectory, "docker")
-            File.WriteAllText(fakeDocker, "#!/usr/bin/env bash\nset -eu\nprintf cookie > \"$FAKE_AUTH_STATE\"\nexit \"${FAKE_DOCKER_EXIT:-0}\"\n")
+            File.WriteAllText(fakeDocker, "#!/usr/bin/env bash\nset -eu\nprintf cookie > \"$FAKE_AUTH_STATE\"\nprintf '%s\\n' \"$*\" > \"$FAKE_DOCKER_ARGS\"\nexit \"${FAKE_DOCKER_EXIT:-0}\"\n")
             File.SetUnixFileMode(fakeDocker, UnixFileMode.UserRead ||| UnixFileMode.UserWrite ||| UnixFileMode.UserExecute)
             let currentPath = Environment.GetEnvironmentVariable "PATH"
             let baseEnvironment exitCode =
                 [ "PATH", $"{fakeDirectory}{Path.PathSeparator}{currentPath}"
                   "FAKE_AUTH_STATE", authState
+                  "FAKE_DOCKER_ARGS", fakeArguments
                   "FAKE_DOCKER_EXIT", string exitCode
+                  "E2E_BROWSER", "webkit"
+                  "E2E_SHARD", "2/2"
                   "DOCS_E2E_BASE_URL", "https://fve.meiermade.net"
                   "DOCS_EXPECTED_COMMIT", String.replicate 40 "a" ]
             try
                 let success = runProcessWithEnvironment repository "bash" [ "e2e/scripts/test-published-ci.sh" ] (baseEnvironment 0)
                 Expect.equal success 0 "successful browser result is preserved"
                 Expect.isFalse (File.Exists authState) "Access state is removed after success"
+                let arguments = File.ReadAllText fakeArguments
+                Expect.stringContains arguments "--project=webkit" "selected browser reaches Playwright"
+                Expect.stringContains arguments "--shard=2/2" "selected shard reaches Playwright"
+                Expect.stringContains arguments "--retries=0" "published acceptance is retry-free"
+                Expect.isFalse (arguments.Contains("--project=chromium")) "unselected browsers are excluded"
 
                 let failure = runProcessWithEnvironment repository "bash" [ "e2e/scripts/test-published-ci.sh" ] (baseEnvironment 23)
                 Expect.equal failure 23 "failed browser result is preserved"
@@ -384,31 +404,21 @@ let tests =
                 Directory.Delete(fakeDirectory, true)
         }
 
-        test "E2E workflows share the pinned Playwright image and stage browser coverage" {
-            let preview = workflow "preview.yml"
-            let package = repositoryFile "e2e/package.json"
-            let pullRequestRunner = repositoryFile "e2e/scripts/test-ci.sh"
-            let productionRunner = repositoryFile "e2e/scripts/test-published-ci.sh"
-            let image = repositoryFile "e2e/playwright-image.txt"
-            Expect.stringContains preview "bash scripts/test-ci.sh" "workflow delegates container orchestration"
-            Expect.stringContains preview "name: E2E (${{ matrix.browser }})" "browser engines use isolated matrix jobs"
-            Expect.stringContains preview "fail-fast: false" "every browser reports its result"
-            Expect.stringContains preview "E2E_CROSS_BROWSER_MODE: focused" "pull requests use focused cross-browser coverage"
-            Expect.isFalse (preview.Contains("schedule:")) "the complete suite is not scheduled nightly"
-            Expect.isFalse (preview.Contains("playwright install --with-deps")) "host browser installation is skipped"
-            Expect.stringContains
-                image
-                "mcr.microsoft.com/playwright:v1.62.1-noble@sha256:"
-                "browser image matches and pins the project dependency"
-            for runner in [ pullRequestRunner; productionRunner ] do
-                Expect.stringContains runner "playwright-image.txt" "runner uses the shared image reference"
-                Expect.stringContains runner "E2E_CROSS_BROWSER_MODE" "runner selects an explicit delivery-stage mode"
-            Expect.stringContains pullRequestRunner "--network host" "browser container reaches the local Docs image"
+        test "PR and release browser matrices select the same complete shards" {
+            let previewShards = workflow "preview.yml" |> browserShards
+            let releaseShards = workflow "publish.yml" |> browserShards
+            let canonical shards = shards |> List.sortBy (fun shard -> shard.browser, shard.index)
+            Expect.isNonEmpty previewShards "PR acceptance selects browser shards"
+            Expect.equal (canonical previewShards) (canonical releaseShards) "PR and release acceptance use one browser contract"
+
             for browser in [ "chromium"; "firefox"; "webkit" ] do
-                Expect.stringContains pullRequestRunner $"--project={browser}" $"pull requests retain {browser} coverage"
-                Expect.stringContains productionRunner $"--project={browser}" $"release acceptance retains complete {browser} coverage"
-            Expect.stringContains package "test:pr" "the focused pull-request mode is directly runnable"
-            Expect.stringContains package "test:release" "the complete release mode is directly runnable"
+                let shards = previewShards |> List.filter (fun shard -> shard.browser = browser)
+                Expect.isNonEmpty shards $"{browser} retains intentional coverage"
+                let totals = shards |> List.map _.total |> List.distinct
+                Expect.equal totals.Length 1 $"{browser} uses one shard total"
+                let total = totals.Head
+                let indexes = shards |> List.map _.index |> List.sort
+                Expect.equal indexes [ 1 .. total ] $"{browser} shards are complete and unique"
         }
 
         test "Privileged Pulumi preview excludes fork pull requests" {

@@ -5,7 +5,7 @@ for (const [path, text, marker] of [
   ['/components/interaction-and-server-state', 'Keep product routes', 'disc'],
   ['/docs/previews/sections--prose--and-lists', 'Add the package', 'decimal'],
 ]) {
-  test(`Docs ${marker} markers survive Preflight in light, dark, narrow and resized layouts @cross-browser`, async ({ page }, testInfo) => {
+  test(`Docs ${marker} markers survive Preflight in light, dark, narrow and resized layouts`, async ({ page }, testInfo) => {
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
     await page.goto(path)

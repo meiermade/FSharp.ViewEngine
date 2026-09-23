@@ -3,7 +3,7 @@ import { expect, test, type Locator } from '@playwright/test'
 const app = '/components/page-examples/'
 
 for (const width of [1440, 390]) {
-  test(`size inheritance and explicit overrides align controls at ${width}px @cross-browser`, async ({ page }, testInfo) => {
+  test(`size inheritance and explicit overrides align controls at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.emulateMedia({ colorScheme: width === 390 ? 'dark' : 'light' })
     await page.goto('/components/input', { waitUntil: 'domcontentloaded' })
@@ -34,7 +34,7 @@ for (const width of [1440, 390]) {
 }
 
 
-test('page examples use one compact size for actions, filters, and data-entry controls @cross-browser', async ({ page }) => {
+test('page examples use one compact size for actions, filters, and data-entry controls', async ({ page }) => {
   await page.goto(app + 'account-management?fveAppMode=app&fveAppFrame=ledger-workflow', { waitUntil: 'domcontentloaded' })
   const root = page.locator('[data-fve-app-mode-root=true]')
   const search = root.getByRole('searchbox', { name: 'Search accounts' })
@@ -60,7 +60,7 @@ test('page examples use one compact size for actions, filters, and data-entry co
   }
 })
 
-test('other page examples keep controls compact and chart labels at application text sizes @cross-browser', async ({ page }) => {
+test('other page examples keep controls compact and chart labels at application text sizes', async ({ page }) => {
   const compact = async (control: Locator) => {
     const actual = await control.evaluate(element => ({
       height: element.matches('input') ? element.closest('.fve-input-frame')?.getBoundingClientRect().height ?? element.getBoundingClientRect().height : element.getBoundingClientRect().height,
