@@ -68,15 +68,21 @@ if (webkit.some(test => test.startsWith('production-smoke.spec.ts') || test.star
   fail('Focused WebKit includes an environment smoke test')
 }
 
-const chromiumShards = [1, 2].map(index =>
-  listSelected(['--project=chromium', `--shard=${index}/2`]).get('chromium'),
-)
-const shardedChromium = chromiumShards.flat()
-if (new Set(shardedChromium).size !== shardedChromium.length) {
-  fail('Chromium workflow shards overlap')
-}
-if (JSON.stringify([...shardedChromium].sort()) !== JSON.stringify([...chromium].sort())) {
-  fail('Chromium workflow shards do not cover the complete primary selection')
+for (const [browser, shardCount, completeSelection] of [
+  ['chromium', 4, chromium],
+  ['firefox', 2, firefox],
+  ['webkit', 2, webkit],
+]) {
+  const shards = Array.from({ length: shardCount }, (_, index) =>
+    listSelected([`--project=${browser}`, `--shard=${index + 1}/${shardCount}`]).get(browser),
+  )
+  const shardedSelection = shards.flat()
+  if (new Set(shardedSelection).size !== shardedSelection.length) {
+    fail(`${browser} workflow shards overlap`)
+  }
+  if (JSON.stringify([...shardedSelection].sort()) !== JSON.stringify([...completeSelection].sort())) {
+    fail(`${browser} workflow shards do not cover the complete selection`)
+  }
 }
 
 for (const required of [

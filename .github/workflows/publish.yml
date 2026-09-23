@@ -97,18 +97,30 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: chromium 1/2
+          - label: chromium 1/4
             browser: chromium
-            shard: 1/2
-          - label: chromium 2/2
+            shard: 1/4
+          - label: chromium 2/4
             browser: chromium
-            shard: 2/2
-          - label: firefox
+            shard: 2/4
+          - label: chromium 3/4
+            browser: chromium
+            shard: 3/4
+          - label: chromium 4/4
+            browser: chromium
+            shard: 4/4
+          - label: firefox 1/2
             browser: firefox
-            shard: 1/1
-          - label: webkit
+            shard: 1/2
+          - label: firefox 2/2
+            browser: firefox
+            shard: 2/2
+          - label: webkit 1/2
             browser: webkit
-            shard: 1/1
+            shard: 1/2
+          - label: webkit 2/2
+            browser: webkit
+            shard: 2/2
     permissions:
       contents: read
       id-token: write
