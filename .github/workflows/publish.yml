@@ -97,18 +97,21 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - label: chromium 1/4
+          - label: chromium 1/5
             browser: chromium
-            shard: 1/4
-          - label: chromium 2/4
+            shard: 1/5
+          - label: chromium 2/5
             browser: chromium
-            shard: 2/4
-          - label: chromium 3/4
+            shard: 2/5
+          - label: chromium 3/5
             browser: chromium
-            shard: 3/4
-          - label: chromium 4/4
+            shard: 3/5
+          - label: chromium 4/5
             browser: chromium
-            shard: 4/4
+            shard: 4/5
+          - label: chromium 5/5
+            browser: chromium
+            shard: 5/5
           - label: firefox 1/2
             browser: firefox
             shard: 1/2

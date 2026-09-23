@@ -310,7 +310,7 @@ let tests =
             Expect.stringContains publish "Retry-free staging release acceptance (${{ matrix.label }})" "the release gate names its retry policy and isolated browser job"
             Expect.stringContains publish "E2E_BROWSER: ${{ matrix.browser }}" "each release job selects exactly one browser"
             Expect.stringContains publish "fail-fast: false" "every release browser reports its result"
-            Expect.equal (Regex.Matches(publish, "browser: chromium").Count) 4 "Chromium is split into four isolated workflow shards"
+            Expect.equal (Regex.Matches(publish, "browser: chromium").Count) 5 "Chromium is split into five isolated workflow shards"
             Expect.equal (Regex.Matches(publish, "browser: firefox").Count) 2 "Firefox is split into two isolated workflow shards"
             Expect.equal (Regex.Matches(publish, "browser: webkit").Count) 2 "WebKit is split into two isolated workflow shards"
             Expect.stringContains publish "E2E_SHARD: ${{ matrix.shard }}" "release jobs select one non-overlapping shard"

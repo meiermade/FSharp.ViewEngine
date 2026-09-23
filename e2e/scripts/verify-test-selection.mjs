@@ -69,7 +69,7 @@ if (webkit.some(test => test.startsWith('production-smoke.spec.ts') || test.star
 }
 
 for (const [browser, shardCount, completeSelection] of [
-  ['chromium', 4, chromium],
+  ['chromium', 5, chromium],
   ['firefox', 2, firefox],
   ['webkit', 2, webkit],
 ]) {
