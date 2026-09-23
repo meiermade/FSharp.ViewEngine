@@ -62,6 +62,11 @@ if [[ "$ready" != true ]]; then
   exit 1
 fi
 
+test_args=("${project_args[@]}")
+if [[ -n "${E2E_SHARD:-}" ]]; then
+  test_args+=("--shard=$E2E_SHARD")
+fi
+
 docker run --rm --init --network host \
   --env CI=true \
   --env E2E_START_LOCAL=0 \
@@ -70,4 +75,4 @@ docker run --rm --init --network host \
   --volume "$e2e_dir:/work" \
   --workdir /work \
   "$playwright_image" \
-  npx playwright test "${project_args[@]}"
+  npx playwright test "${test_args[@]}"

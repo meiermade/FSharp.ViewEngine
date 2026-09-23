@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
-  test(`Floating panel minimizes, dismisses, restores and remains bounded at ${width}px ${scale}x text @cross-browser`, async ({ page }, testInfo) => {
+  test(`Floating panel minimizes, dismisses, restores and remains bounded at ${width}px ${scale}x text`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })
     await page.goto('/components/floating-panel')
     await page.evaluate(scale => { document.documentElement.style.fontSize = `${100 * scale}%` }, scale)

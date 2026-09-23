@@ -12,7 +12,7 @@ const examples = [
   ['components-table-empty', 'Empty state'],
 ] as const
 
-test('table examples isolate features and expose short independent source @cross-browser', async ({ page }) => {
+test('table examples isolate features and expose short independent source', async ({ page }) => {
   await page.goto('/components/table')
   await expect(page.locator('[data-docs-example="true"]')).toHaveCount(8)
   for (const [id, title] of examples) {
@@ -94,7 +94,7 @@ test('table selection is native page-scoped and independent of the other example
   await expect(page.locator('#components-table-mobile').getByRole('checkbox')).toHaveCount(0)
 })
 
-test('table examples preserve scrolling and one-tree mobile records across themes and text sizes @cross-browser', async ({ page }, testInfo) => {
+test('table examples preserve scrolling and one-tree mobile records across themes and text sizes', async ({ page }, testInfo) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/components/table')
   const mobile = page.locator('#components-table-mobile .docs-components-preview')

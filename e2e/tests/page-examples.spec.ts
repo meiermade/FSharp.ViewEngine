@@ -1,9 +1,7 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
-const crossBrowser = { tag: '@cross-browser' }
-
-test('App shell teaches layout while populated workflows live in Page examples', crossBrowser, async ({ page }) => {
+test('App shell teaches layout while populated workflows live in Page examples', async ({ page }) => {
   await page.goto('/components/app-shell', { waitUntil: 'domcontentloaded' })
   const sidebar = page.locator('#layout-sidebar')
   await expect(sidebar.getByText('Page content', { exact: true })).toBeVisible()
@@ -27,7 +25,7 @@ test('App shell teaches layout while populated workflows live in Page examples',
   await expect(workflow.getByRole('heading', { name: 'Create account', exact: true })).toBeVisible()
 })
 
-test('Application and Documentation Page examples navigation groups have independent identities', crossBrowser, async ({ page }) => {
+test('Application and Documentation Page examples navigation groups have independent identities', async ({ page }) => {
   await page.goto('/components/page-examples/account-management')
   const application = page.locator('#nav-fsharp-viewengine-components-application-page-examples')
   const documentation = page.locator('#nav-fsharp-viewengine-components-documentation-page-examples')
@@ -40,7 +38,7 @@ test('Application and Documentation Page examples navigation groups have indepen
   expect(await page.locator('#side-nav').getByRole('button', { name: 'Toggle Integration examples section', exact: true }).count()).toBe(0)
 })
 
-test('Page examples keep supporting documentation focused on their building blocks', crossBrowser, async ({ page }) => {
+test('Page examples keep supporting documentation focused on their building blocks', async ({ page }) => {
   await page.goto('/components/page-examples/account-management')
   await expect(page.getByRole('heading', { name: 'Explore the pages', exact: true })).toHaveCount(0)
   await expect(page.getByText('Explore the dashboard, accounts, matching details', { exact: false })).toHaveCount(0)
@@ -73,7 +71,7 @@ test('Page examples keep supporting documentation focused on their building bloc
 })
 
 for (const [width, scale, dark] of [[1440, 1, false], [390, 1, true], [320, 2, true]] as const) {
-  test(`minimal shell layouts reflow at ${width}px ${scale}x`, crossBrowser, async ({ page }, testInfo) => {
+  test(`minimal shell layouts reflow at ${width}px ${scale}x`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 })
     // These native layouts do not depend on the optional asynchronously loaded Tailwind Plus CDN.
     await page.goto('/components/app-shell', { waitUntil: 'domcontentloaded' })

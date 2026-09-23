@@ -84,7 +84,9 @@ E2E_START_LOCAL=0 E2E_CROSS_BROWSER_MODE=full DOCS_E2E_BASE_URL=http://127.0.0.1
 
 For multiple-choice behavior, run the same command with `tests/multiple-choice.spec.ts`. It covers keyboard selection/removal, native POST values, result/whole-field morphs, request cancellation and removal, and light/dark/390px/320px/200% layouts. The examples do not save data; clear selection or use a fresh browser context to reset them. `tests/popup-focus.spec.ts` checks Select/searchable Select keyboard field outlines, solid active rows, selected-versus-active contrast, borderless floating panels, forced-colors fallbacks and sticky-table DropdownMenu integration.
 
-These checks do not replace the full release suite or genuine .NET 8/9/10 packaged consumers.
+Run `npm run test:selection` to inspect the protected browser contract. PR and release workflows execute complete Chromium coverage in two isolated shards, plus focused Firefox and WebKit compatibility journeys. Each shard uses one browser worker, no retries, and failure-only diagnostics; route/link/asset and request-boundary contracts run through direct HTTP or F# tests instead of being repeated in every engine.
+
+These checks do not replace the right-sized release acceptance contract or genuine .NET 8/9/10 packaged consumers.
 
 ## Releases
 

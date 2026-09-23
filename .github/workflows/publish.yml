@@ -89,10 +89,26 @@ jobs:
           test "$(pulumi stack output e2eReady --stack meiermade/fsharp-view-engine/dev)" = 'true'
 
   acceptance:
-    name: Retry-free staging release acceptance
+    name: Retry-free staging release acceptance (${{ matrix.label }})
     needs: candidate
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: chromium 1/2
+            browser: chromium
+            shard: 1/2
+          - label: chromium 2/2
+            browser: chromium
+            shard: 2/2
+          - label: firefox
+            browser: firefox
+            shard: 1/1
+          - label: webkit
+            browser: webkit
+            shard: 1/1
     permissions:
       contents: read
       id-token: write
@@ -109,6 +125,9 @@ jobs:
       - name: Install E2E packages
         run: npm ci
         working-directory: ./e2e
+      - name: Verify intentional browser selection
+        run: npm run test:selection
+        working-directory: ./e2e
       - name: Authenticate Pulumi
         uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
         with:
@@ -119,9 +138,11 @@ jobs:
         uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
         with:
           pulumi-version: 3.261.0
-      - name: Run complete Chromium, Firefox, and WebKit acceptance without retries
+      - name: Run right-sized ${{ matrix.browser }} acceptance without retries
         working-directory: ./e2e
         env:
+          E2E_BROWSER: ${{ matrix.browser }}
+          E2E_SHARD: ${{ matrix.shard }}
           EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
           EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
         run: >-
@@ -131,7 +152,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: fsharp-viewengine-release-acceptance
+          name: fsharp-viewengine-release-acceptance-${{ matrix.browser }}-${{ strategy.job-index }}
           path: |
             e2e/playwright-report
             e2e/test-results

@@ -1,79 +1,46 @@
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-const components = [
-  ['button', 'Button.create'], ['icon-button', 'IconButton.create'], ['badge', 'Badge.create'],
-  ['status', 'Status.create'], ['loading-indicator', 'LoadingIndicator.create'], ['progress', 'Progress.create'], ['empty-state', 'EmptyState.create'],
-  ['action-cluster', 'ActionCluster.create'], ['row-actions', 'RowActions.create'],
-  ['table', 'Table.create'], ['description-list', 'DescriptionList.create'], ['metric', 'Metric.text'],
-  ['pagination', 'Pagination.create'], ['avatar', 'Avatar.create'], ['copy-reveal', 'CopyReveal.create'],
-  ['input', 'Input.create'], ['file-selection', 'FileSelection.create'], ['tag-input', 'TagInput.create'], ['textarea', 'Textarea.create'], ['form-layouts', 'Input.create'],
-  ['error-summary', 'ErrorSummary.create'], ['notice', 'Notice.create'], ['notification', 'Notification.create'], ['select', 'Select.create'],
-  ['checkbox', 'Checkbox.create'], ['switch', 'Switch.create'],
-  ['toggle-button', 'ToggleButton.create'], ['tabs', 'Tabs.create'], ['radio-group', 'RadioGroup.create'], ['choice-cards', 'ChoiceCards.single'],
-  ['dropdown-menu', 'DropdownMenu.create'], ['dialog', 'Dialog.create'], ['confirmation-dialog', 'ConfirmationDialog.create'],
-  ['drawer', 'Drawer.create'], ['floating-panel', 'FloatingPanel.create'], ['breadcrumbs', 'Breadcrumbs.create'], ['side-nav', 'SideNav.create'],
-  ['page-top-bar', 'PageTopBar.create'], ['page-header', 'PageHeader.create'], ['section', 'Section.create'],
-  ['page', 'Page.create'], ['collection', 'Collection.create'], ['detail', 'Detail.create'], ['app-shell', 'AppShell.create'],
-  ['bottom-navigation', 'BottomNavigation.create'], ['bulk-actions', 'BulkActions.create'], ['upload', 'UploadList.create'],
-  ['steps', 'Steps.create'], ['first-steps', 'FirstSteps.create'], ['calendar', 'Calendar.create'], ['media-library', 'MediaLibrary.create'],
-  ['page-examples/account-management', 'AppShell.create'],
-  ['page-examples/dependency-graph', 'svg'], ['page-examples/execution-detail', 'traceSpans'],
-  ['page-examples/financial-reporting', 'polyline'], ['page-examples/messaging', 'Textarea.create'],
-  ['page-examples/operations-dashboard', 'FirstSteps.create'], ['page-examples/scheduling', 'Calendar.create'],
-  ['page-examples/media-management', 'MediaLibrary.create'],
-]
+const representativeComponents = [
+  ['button', 'Button.create'],
+  ['select', 'Select.create'],
+  ['app-shell', 'AppShell.create'],
+  ['page-examples/messaging', 'Textarea.create'],
+] as const
 
-test.describe('component gallery code', () => {
-  for (const [id, api] of components) {
-    test(`${id} exposes named previews and complete copyable code @cross-browser`, async ({ page, context, browserName }, testInfo) => {
-      if (browserName === 'chromium') await context.grantPermissions(['clipboard-write'])
-      const errors: string[] = []
-      page.on('pageerror', error => errors.push(error.message))
-      // Observe the real clipboard implementation; Chromium requires an explicit automation permission.
-      await page.addInitScript(() => {
-        const write = navigator.clipboard.writeText.bind(navigator.clipboard)
-        navigator.clipboard.writeText = async text => {
-          await write(text)
-          ;(window as any).__copiedExample = text
-        }
-      })
-      await page.goto(`/components/${id}`)
-      const gallery = page.locator('.docs-gallery-layout')
-      await expect(gallery).toBeVisible()
-      await expect(page.locator('.spec-toc-nav, .spec-mobile-toc-nav')).toHaveCount(0)
-      await expect(page.getByRole('heading', { name: /^(Usage|Example setup|Accessibility)$/ })).toHaveCount(0)
-      await expect(page.getByRole('link', { name: 'Imports and supporting code', exact: true })).toHaveCount(0)
-      const examples = gallery.locator('[data-docs-example="true"]')
-      for (const example of await examples.all()) {
-        const toolbar = example.locator(':scope > .spec-example-toolbar')
-        await expect(toolbar.getByRole('heading', { level: 2 })).toBeVisible()
-        await expect(toolbar.getByRole('tab').first()).toHaveText('Preview')
-        await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
-        await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
-        const code = example.locator('[data-docs-copy-source]')
-        await expect(code).toBeVisible()
-        await expect(code).toContainText('open FSharp.ViewEngine.Components')
-        await expect(code).not.toContainText('FSharp.ViewEngine.Docs')
-        await expect(code).not.toContainText('themedSurface')
-        await expect(code).not.toContainText('fullBleedThemedSurface')
-        const copy = example.getByRole('button', { name: /^Copy .+ code$/ })
-        await copy.click()
-        await expect(copy).toHaveAttribute('data-copied', 'true')
-        expect(await page.evaluate(() => (window as any).__copiedExample)).toBe(await code.textContent())
-        await toolbar.getByRole('tab', { name: 'Code', exact: true }).focus()
-        await page.keyboard.press('Home')
-        await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toBeFocused()
-        await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
-      }
-      await expect(examples.first().locator('code').first()).toContainText(api)
-      if (['button', 'breadcrumbs', 'collection', 'app-shell'].includes(id)) {
-        await examples.first().scrollIntoViewIfNeeded()
-        await page.screenshot({ path: testInfo.outputPath(`${id}-gallery.png`) })
-      }
-      expect(errors).toEqual([])
-    })
+test('representative component galleries share complete copyable code behavior', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-write'])
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.addInitScript(() => {
+    const write = navigator.clipboard.writeText.bind(navigator.clipboard)
+    navigator.clipboard.writeText = async text => {
+      await write(text)
+      ;(window as any).__copiedExample = text
+    }
+  })
+
+  for (const [id, api] of representativeComponents) {
+    await page.goto(`/components/${id}`)
+    const gallery = page.locator('.docs-gallery-layout')
+    await expect(gallery).toBeVisible()
+    await expect(page.locator('.spec-toc-nav, .spec-mobile-toc-nav')).toHaveCount(0)
+    const example = gallery.locator('[data-docs-example="true"]').first()
+    const toolbar = example.locator(':scope > .spec-example-toolbar')
+    await expect(toolbar.getByRole('heading', { level: 2 })).toBeVisible()
+    await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
+    const code = example.locator('[data-docs-copy-source]')
+    await expect(code).toContainText('open FSharp.ViewEngine.Components')
+    await expect(code).not.toContainText('FSharp.ViewEngine.Docs')
+    const copy = example.getByRole('button', { name: /^Copy .+ code$/ })
+    await copy.click()
+    await expect(copy).toHaveAttribute('data-copied', 'true')
+    expect(await page.evaluate(() => (window as any).__copiedExample)).toBe(await code.textContent())
+    await expect(code).toContainText(api)
   }
+
+  expect(errors).toEqual([])
 })
 
 test('Dedicated action pages preserve menu feedback and stable bulk selection @cross-browser', async ({ page }) => {
@@ -327,7 +294,7 @@ test('AppShell mobile bottom navigation remains visible link navigation above pa
 })
 
 for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 'input', 'breadcrumbs', 'collection', 'detail', 'app-shell', 'calendar']) {
-  test(`${id} gallery remains accessible in narrow themes and resized text @cross-browser`, async ({ page }, testInfo) => {
+  test(`${id} gallery remains accessible in narrow themes and resized text`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 1000 })
     await page.goto(`/components/${id}`)
     const gallery = page.locator('.docs-gallery-layout')

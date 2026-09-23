@@ -55,7 +55,7 @@ for (const [surface, route, label] of [
 }
 
 for (const [width, dark] of [[1440, false], [390, true]] as const) {
-  test(`installation copy icons remain accessible at ${width}px @cross-browser`, async ({ page }, testInfo) => {
+  test(`installation copy icons remain accessible at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })
     await page.emulateMedia({ colorScheme: dark ? 'dark' : 'light' })
     await page.goto('/docs')

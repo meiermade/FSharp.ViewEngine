@@ -14,7 +14,7 @@ async function usesToken(element: Locator, property: 'backgroundColor' | 'color'
 
 for (const mode of ['light', 'dark'] as const) {
   for (const width of [390, 1440]) {
-    test(`theme dropdown inherits header and dock appearance ${mode} ${width}px @cross-browser`, async ({ page }, testInfo) => {
+    test(`theme dropdown inherits header and dock appearance ${mode} ${width}px`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width, height: 900 })
       await page.emulateMedia({ colorScheme: mode })
       await page.goto('/docs/components/fixture')

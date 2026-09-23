@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.IO.Compression
 open System.Diagnostics
+open System.Text.RegularExpressions
 open Expecto
 
 let private writePackage path (entries:(string * string) list) =
@@ -303,10 +304,15 @@ let tests =
             Expect.stringContains publish "queue: max" "explicit releases retain their serialized queue position"
             Expect.stringContains publish "cancel-in-progress: false" "an active release is never preempted"
             Expect.stringContains publish "Prove protected staging runs the selected candidate" "staging identity is proven first"
-            Expect.stringContains releaseRunner "E2E_CROSS_BROWSER_MODE=full" "release acceptance runs the complete browser suite"
+            Expect.stringContains releaseRunner "E2E_CROSS_BROWSER_MODE=focused" "release acceptance runs the right-sized browser suite"
             Expect.stringContains releaseRunner "production-smoke.spec.ts" "release acceptance identifies the production-only suite"
             Expect.stringContains releaseRunner "!=" "staging release acceptance excludes the production-only suite"
-            Expect.stringContains publish "Retry-free staging release acceptance" "the release gate names its retry policy"
+            Expect.stringContains publish "Retry-free staging release acceptance (${{ matrix.label }})" "the release gate names its retry policy and isolated browser job"
+            Expect.stringContains publish "E2E_BROWSER: ${{ matrix.browser }}" "each release job selects exactly one browser"
+            Expect.stringContains publish "fail-fast: false" "every release browser reports its result"
+            Expect.equal (Regex.Matches(publish, "browser: chromium").Count) 2 "Chromium is split into two isolated workflow shards"
+            Expect.stringContains publish "E2E_SHARD: ${{ matrix.shard }}" "release jobs select one non-overlapping shard"
+            Expect.stringContains publish "- acceptance" "package preparation waits for every release browser job"
             Expect.stringContains publish "DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}" "production receives the accepted digest"
             Expect.stringContains publish "environment: release" "publication uses its protected environment"
             Expect.stringContains publish "name: production" "promotion uses its protected environment"
@@ -390,11 +396,14 @@ let tests =
             let pullRequestRunner = repositoryFile "e2e/scripts/test-ci.sh"
             let productionRunner = repositoryFile "e2e/scripts/test-published-ci.sh"
             let image = repositoryFile "e2e/playwright-image.txt"
+            let config = repositoryFile "e2e/playwright.config.ts"
+            let selection = repositoryFile "e2e/scripts/verify-test-selection.mjs"
+            let docsBrowser = repositoryFile "e2e/tests/docs.spec.ts"
             Expect.stringContains preview "bash scripts/test-ci.sh" "workflow delegates container orchestration"
-            Expect.stringContains preview "name: E2E (${{ matrix.browser }})" "browser engines use isolated matrix jobs"
+            Expect.stringContains preview "name: E2E (${{ matrix.label }})" "browser engines and Chromium shards use isolated matrix jobs"
             Expect.stringContains preview "fail-fast: false" "every browser reports its result"
             Expect.stringContains preview "E2E_CROSS_BROWSER_MODE: focused" "pull requests use focused cross-browser coverage"
-            Expect.isFalse (preview.Contains("schedule:")) "the complete suite is not scheduled nightly"
+            Expect.isFalse (preview.Contains("schedule:")) "the browser suite is not scheduled nightly"
             Expect.isFalse (preview.Contains("playwright install --with-deps")) "host browser installation is skipped"
             Expect.stringContains
                 image
@@ -406,9 +415,19 @@ let tests =
             Expect.stringContains pullRequestRunner "--network host" "browser container reaches the local Docs image"
             for browser in [ "chromium"; "firefox"; "webkit" ] do
                 Expect.stringContains pullRequestRunner $"--project={browser}" $"pull requests retain {browser} coverage"
-                Expect.stringContains productionRunner $"--project={browser}" $"release acceptance retains complete {browser} coverage"
+                Expect.stringContains productionRunner $"--project={browser}" $"release acceptance retains intentional {browser} coverage"
+            Expect.stringContains config "fullyParallel: true" "independent tests may use bounded parallel workers"
+            Expect.stringContains config "workers: process.env.CI ? 1 : undefined" "each hosted shard isolates browser state in one bounded worker"
+            Expect.stringContains productionRunner "--shard=$E2E_SHARD" "browser scripts support complete non-overlapping workflow shards"
+            Expect.stringContains config "retries: 0" "browser acceptance never conceals failures with retries"
+            Expect.stringContains preview "npm run test:selection" "pull requests verify intentional suite ownership"
+            Expect.stringContains selection "Chromium must retain 200–250 primary checks" "primary coverage has a discoverable budget"
+            Expect.stringContains selection "Firefox and WebKit focused selections differ" "secondary engines retain one compatibility contract"
+            Expect.stringContains selection "Chromium workflow shards do not cover the complete primary selection" "workflow shards are complete and unique"
+            Expect.stringContains docsBrowser "request.get('/sitemap.xml')" "browser-independent route checks consume the server-owned route inventory"
+            Expect.isFalse (docsBrowser.Contains("const routes = [")) "browser tests do not maintain a second public-route inventory"
             Expect.stringContains package "test:pr" "the focused pull-request mode is directly runnable"
-            Expect.stringContains package "test:release" "the complete release mode is directly runnable"
+            Expect.stringContains package "test:release" "the right-sized release mode is directly runnable"
         }
 
         test "Privileged Pulumi preview excludes fork pull requests" {

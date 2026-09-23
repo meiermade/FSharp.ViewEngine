@@ -7,7 +7,7 @@ const examples = [
   ['components-description-list-supporting-text', 2, 2],
 ] as const
 
-test('description lists show full-width detail grids with shared label and value typography @cross-browser', async ({ page }) => {
+test('description lists show full-width detail grids with shared label and value typography', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/components/description-list')
   await expect(page.locator('[data-docs-example="true"]')).toHaveCount(3)
@@ -47,7 +47,7 @@ test('description lists show full-width detail grids with shared label and value
   }
 })
 
-test('description lists retain readable fields in narrow themes and resized text @cross-browser', async ({ page }, testInfo) => {
+test('description lists retain readable fields in narrow themes and resized text', async ({ page }, testInfo) => {
   for (const [width, scale] of [[1440, 1], [800, 1], [390, 1], [320, 2]]) {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto('/components/description-list')
@@ -76,7 +76,7 @@ test('description lists retain readable fields in narrow themes and resized text
   }
 })
 
-test('composed account and transaction details inherit the same field styling @cross-browser', async ({ page }) => {
+test('composed account and transaction details inherit the same field styling', async ({ page }) => {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     for (const route of ['/components/detail', '/components/page-examples/account-management?destination=ledger-account-2048', '/components/page-examples/account-management?destination=ledger-transaction-201']) {

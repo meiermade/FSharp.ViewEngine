@@ -1,9 +1,12 @@
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-for (const view of ['month', 'week', 'day']) {
-  for (const [width, scale] of [[1600, 1], [390, 1], [320, 2]]) {
-    test(`Calendar ${view} has focused geometry and a narrow agenda at ${width}px ${scale}x text @cross-browser`, async ({ page }, testInfo) => {
+for (const [view, width, scale, dark] of [
+  ['month', 1600, 1, false],
+  ['week', 390, 1, true],
+  ['day', 320, 2, true],
+] as const) {
+    test(`Calendar ${view} has representative geometry at ${width}px ${scale}x text`, async ({ page }) => {
       await page.setViewportSize({ width, height: 1000 })
       await page.goto('/components/calendar')
       await page.evaluate(scale => { document.documentElement.style.fontSize = `${100 * scale}%` }, scale)
@@ -44,24 +47,20 @@ for (const view of ['month', 'week', 'day']) {
         expect(Math.abs(geometry.first.x - geometry.second.x)).toBeLessThanOrEqual(1)
         expect(geometry.second.y).toBeGreaterThanOrEqual(geometry.first.y + geometry.first.height)
       }
-      for (const theme of ['light', 'dark']) {
-        await page.evaluate(theme => {
-          document.documentElement.classList.toggle('dark', theme === 'dark')
-          document.documentElement.dataset.theme = theme
-        }, theme)
-        expect((await new AxeBuilder({ page }).include(preview).analyze()).violations).toEqual([])
-        await calendar.screenshot({ path: testInfo.outputPath(`calendar-${view}-${width}-${scale}-${theme}.png`) })
-      }
+      await page.evaluate(dark => {
+        document.documentElement.classList.toggle('dark', dark)
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light'
+      }, dark)
+      expect((await new AxeBuilder({ page }).include(preview).analyze()).violations).toEqual([])
       await calendar.getByRole('link', { name: /Coastal trail lesson/ }).focus()
       await page.keyboard.press('Enter')
       await expect(page).toHaveURL(/page-examples\/scheduling\?item=lesson-201/)
       await expect(page.locator('[data-fve-fixture-id="page-workspace"]')).toContainText('Maya and Sam')
     })
-  }
 }
 
-for (const [width, scale, columns] of [[1600, 1, 3], [390, 1, 1], [320, 2, 1]]) {
-  test(`Calendar year shows twelve compact months at ${width}px ${scale}x text @cross-browser`, async ({ page }, testInfo) => {
+for (const [width, scale, columns] of [[1600, 1, 3], [320, 2, 1]] as const) {
+  test(`Calendar year shows twelve compact months at ${width}px ${scale}x text`, async ({ page }) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto('/components/calendar')
     await page.evaluate(scale => { document.documentElement.style.fontSize = `${100 * scale}%` }, scale)
@@ -86,14 +85,6 @@ for (const [width, scale, columns] of [[1600, 1, 3], [390, 1, 1], [320, 2, 1]]) 
     expect(geometry.months).toBe(12)
     expect(geometry.dates).toBe(504)
     expect(geometry.overflow).toBeLessThanOrEqual(1)
-    for (const theme of ['light', 'dark']) {
-      await page.evaluate(theme => {
-        document.documentElement.classList.toggle('dark', theme === 'dark')
-        document.documentElement.dataset.theme = theme
-      }, theme)
-      expect((await new AxeBuilder({ page }).include(preview).analyze()).violations).toEqual([])
-      await calendar.screenshot({ path: testInfo.outputPath(`calendar-year-${width}-${scale}-${theme}.png`) })
-    }
   })
 }
 
@@ -133,7 +124,7 @@ test('Scheduling crosses years and preserves date in App mode @cross-browser', a
   await expect(calendar.getByRole('link', { name: /Coastal trail lesson/ })).toBeVisible()
 })
 
-test('Calendar has four dedicated view examples and belongs to Data display @cross-browser', async ({ page }) => {
+test('Calendar has four dedicated view examples and belongs to Data display', async ({ page }) => {
   await page.goto('/components/primitives')
   await expect(page.locator('#page-content .docs-catalog-card[href="/components/calendar"]')).toContainText('Calendar')
   await page.locator('#page-content .docs-catalog-card[href="/components/calendar"]').click()

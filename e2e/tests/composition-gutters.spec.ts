@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-test('detail statuses belong to fields beneath a Detail section heading @cross-browser', async ({ page }) => {
+test('detail statuses belong to fields beneath a Detail section heading', async ({ page }) => {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     for (const [route, status] of [
@@ -26,7 +26,7 @@ test('detail statuses belong to fields beneath a Detail section heading @cross-b
   }
 })
 
-test('plain table surfaces match the page while row states remain distinct @cross-browser', async ({ page }) => {
+test('plain table surfaces match the page while row states remain distinct', async ({ page }) => {
   for (const theme of ['Light', 'Dark']) {
     for (const width of [1440, 390]) {
       await page.setViewportSize({ width, height: 1000 })
@@ -65,7 +65,7 @@ test('plain table surfaces match the page while row states remain distinct @cros
   }
 })
 
-test('collection and detail share inset content boundaries without a sidebar @cross-browser', async ({ page }) => {
+test('collection and detail share inset content boundaries without a sidebar', async ({ page }) => {
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 1000 })
     for (const route of ['collection', 'detail']) {

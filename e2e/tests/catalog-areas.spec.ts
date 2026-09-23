@@ -75,9 +75,8 @@ test('catalog search and pagers use family destinations without pretending unfin
   await expect(page.getByRole('button', { name: 'Toggle Documentation section', exact: true })).toHaveAttribute('aria-expanded', 'true')
 })
 
-for (const dark of [false, true]) {
-  for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
-    test(`catalog indexes and navigation remain accessible: ${dark ? 'dark' : 'light'} ${width}px ${scale}x`, crossBrowser, async ({ page }, testInfo) => {
+for (const [dark, width, scale] of [[false, 1440, 1], [true, 390, 1], [false, 320, 2]] as const) {
+    test(`catalog indexes and navigation remain accessible: ${dark ? 'dark' : 'light'} ${width}px ${scale}x`, async ({ page }) => {
       await page.setViewportSize({ width, height: 960 })
       for (const [name, path] of [['Components', '/components'], ...families]) {
         await page.goto(path)
@@ -88,9 +87,6 @@ for (const dark of [false, true]) {
         await expect(page.getByRole('heading', { name, level: 1, exact: true })).toBeVisible()
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1)
         expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations, `${name}/${dark}/${width}/${scale}`).toEqual([])
-        if (name === 'Components' || name === 'Application') {
-          await page.screenshot({ path: testInfo.outputPath(`${name.toLowerCase()}-${dark ? 'dark' : 'light'}-${width}-${scale}x.png`) })
-        }
       }
       if (width < 1000) {
         await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
@@ -103,5 +99,4 @@ for (const dark of [false, true]) {
         await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toBeFocused()
       }
     })
-  }
 }

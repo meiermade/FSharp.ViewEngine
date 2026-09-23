@@ -45,7 +45,7 @@ for (const title of ['Contact details in two columns', 'Contact details in secti
 }
 
 for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
-  test(`mixed field wrappers retain natural geometry at ${width}px ${scale}x text @cross-browser`, async ({ page, request }, testInfo) => {
+  test(`mixed field wrappers retain natural geometry at ${width}px ${scale}x text`, async ({ page, request }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 })
     await page.goto('/components/form-layouts')
     const response = await request.get('/components/select')
@@ -105,7 +105,7 @@ for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
 }
 
 for (const slug of ['file-selection', 'tag-input']) {
-  test(`${slug} does not stretch its control in a taller form row @cross-browser`, async ({ page }) => {
+  test(`${slug} does not stretch its control in a taller form row`, async ({ page }) => {
     await page.goto(`/components/${slug}`)
     const field = page.locator('[data-docs-example="true"]').first().locator('.spec-example-preview label').first().locator('..')
     const sizes = await field.evaluate(field => {

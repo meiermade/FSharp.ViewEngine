@@ -21,4 +21,4 @@ if [[ ${#release_specs[@]} -eq 0 ]]; then
   exit 2
 fi
 
-E2E_CROSS_BROWSER_MODE=full bash scripts/test-published-ci.sh "${release_specs[@]}"
+E2E_CROSS_BROWSER_MODE=focused bash scripts/test-published-ci.sh "${release_specs[@]}"

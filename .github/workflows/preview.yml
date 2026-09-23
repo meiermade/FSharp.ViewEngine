@@ -61,16 +61,25 @@ jobs:
         working-directory: ./sln
 
   e2e:
-    name: E2E (${{ matrix.browser }})
+    name: E2E (${{ matrix.label }})
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:
-        browser:
-          - chromium
-          - firefox
-          - webkit
+        include:
+          - label: chromium 1/2
+            browser: chromium
+            shard: 1/2
+          - label: chromium 2/2
+            browser: chromium
+            shard: 2/2
+          - label: firefox
+            browser: firefox
+            shard: 1/1
+          - label: webkit
+            browser: webkit
+            shard: 1/1
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node
@@ -82,17 +91,21 @@ jobs:
       - name: Install E2E packages
         run: npm ci
         working-directory: ./e2e
+      - name: Verify intentional browser selection
+        run: npm run test:selection
+        working-directory: ./e2e
       - name: Test production Docs image
         run: bash scripts/test-ci.sh
         working-directory: ./e2e
         env:
           E2E_BROWSER: ${{ matrix.browser }}
+          E2E_SHARD: ${{ matrix.shard }}
           E2E_CROSS_BROWSER_MODE: focused
       - name: Upload E2E diagnostics
         if: failure()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: fsharp-viewengine-preview-e2e-${{ matrix.browser }}
+          name: fsharp-viewengine-preview-e2e-${{ matrix.browser }}-${{ strategy.job-index }}
           path: |
             e2e/playwright-report
             e2e/test-results

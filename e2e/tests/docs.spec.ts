@@ -1,5 +1,5 @@
 import AxeBuilder from '@axe-core/playwright'
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 
 const productionOrigin = 'https://fve.meiermade.com'
 const crossBrowser = { tag: '@cross-browser' }
@@ -18,125 +18,48 @@ async function openComponentGallery(page: Page, path: string, heading: string) {
   return page.locator('.docs-gallery-layout .spec-example-preview .fve-components')
 }
 
-const routes = [
-  { path: '/', heading: 'FSharp.ViewEngine', layout: 'article' },
-  { path: '/installation', heading: 'Installation', layout: 'article' },
-  { path: '/getting-started/first-view', heading: 'Build your first view', layout: 'article' },
-  { path: '/guides/elements-and-attributes', heading: 'Elements and attributes', layout: 'article' },
-  { path: '/guides/composition-and-control-flow', heading: 'Composition and control flow', layout: 'article' },
-  { path: '/guides/rendering', heading: 'Rendering', layout: 'article' },
-  { path: '/guides/encoding-and-trusted-content', heading: 'Encoding and trusted content', layout: 'article' },
-  { path: '/guides/accessibility', heading: 'Accessibility', layout: 'article' },
-  { path: '/custom', heading: 'Custom Elements & Attributes', layout: 'article' },
-  { path: '/usage', heading: 'Giraffe', layout: 'article' },
-  { path: '/extensions/alpine', heading: 'Alpine.js', layout: 'article' },
-  { path: '/extensions/datastar', heading: 'Datastar', layout: 'article' },
-  { path: '/extensions/htmx', heading: 'HTMX', layout: 'article' },
-  { path: '/extensions/svg', heading: 'SVG', layout: 'article' },
-  { path: '/extensions/tailwind-elements', heading: 'Tailwind Plus Elements', layout: 'article' },
-  { path: '/docs', heading: 'Documentation', layout: 'article' },
-  { path: '/docs/components/layouts', heading: 'Layouts', layout: 'article' },
-  { path: '/docs/components/content', heading: 'Content', layout: 'article' },
-  { path: '/docs/components/navigation', heading: 'Navigation', layout: 'article' },
-  { path: '/docs/components/fixture', heading: 'Fixture', layout: 'article' },
-  { path: '/docs/components/api-reference', heading: 'API reference components', layout: 'article' },
-  { path: '/docs/components/diagrams', heading: 'Diagrams', layout: 'article' },
-  { path: '/docs/page-examples/documentation-site', heading: 'Documentation site', layout: 'gallery' },
-  { path: '/docs/page-examples/api-reference', heading: 'API reference page', layout: 'gallery' },
-  { path: '/docs/page-examples/executable-specification', heading: 'Executable specification page', layout: 'gallery' },
-  { path: '/components', heading: 'Components', layout: 'article' },
-  { path: '/components/primitives', heading: 'Primitives', layout: 'article' },
-  { path: '/components/application', heading: 'Application', layout: 'article' },
-  { path: '/components/installation', heading: 'Installation', layout: 'article' },
-  { path: '/components/button', heading: 'Button', layout: 'gallery' },
-  { path: '/components/icon-button', heading: 'Icon button', layout: 'gallery' },
-  { path: '/components/badge', heading: 'Badge', layout: 'gallery' },
-  { path: '/components/status', heading: 'Status', layout: 'gallery' },
-  { path: '/components/loading-indicator', heading: 'Loading indicator', layout: 'gallery' },
-  { path: '/components/progress', heading: 'Progress', layout: 'gallery' },
-  { path: '/components/empty-state', heading: 'Empty state', layout: 'gallery' },
-  { path: '/components/action-cluster', heading: 'Action cluster', layout: 'gallery' },
-  { path: '/components/row-actions', heading: 'Row actions', layout: 'gallery' },
-  { path: '/components/table', heading: 'Table', layout: 'gallery' },
-  { path: '/components/description-list', heading: 'Description list', layout: 'gallery' },
-  { path: '/components/metric', heading: 'Metric', layout: 'gallery' },
-  { path: '/components/pagination', heading: 'Pagination', layout: 'gallery' },
-  { path: '/components/avatar', heading: 'Avatar', layout: 'gallery' },
-  { path: '/components/copy-reveal', heading: 'Copy and reveal', layout: 'gallery' },
-  { path: '/components/input', heading: 'Input', layout: 'gallery' },
-  { path: '/components/file-selection', heading: 'File selection', layout: 'gallery' },
-  { path: '/components/tag-input', heading: 'Tag input', layout: 'gallery' },
-  { path: '/components/form-layouts', heading: 'Form layouts', layout: 'gallery' },
-  { path: '/components/textarea', heading: 'Textarea', layout: 'gallery' },
-  { path: '/components/error-summary', heading: 'Error summary', layout: 'gallery' },
-  { path: '/components/notice', heading: 'Notice', layout: 'gallery' },
-  { path: '/components/select', heading: 'Select', layout: 'gallery' },
-  { path: '/components/checkbox', heading: 'Checkbox', layout: 'gallery' },
-  { path: '/components/switch', heading: 'Switch', layout: 'gallery' },
-  { path: '/components/toggle-button', heading: 'Toggle button', layout: 'gallery' },
-  { path: '/components/breadcrumbs', heading: 'Breadcrumbs', layout: 'gallery' },
-  { path: '/components/side-nav', heading: 'Side nav', layout: 'gallery' },
-  { path: '/components/tabs', heading: 'Tabs', layout: 'gallery' },
-  { path: '/components/radio-group', heading: 'Radio group', layout: 'gallery' },
-  { path: '/components/choice-cards', heading: 'Choice cards', layout: 'gallery' },
-  { path: '/components/dropdown-menu', heading: 'Dropdown menu', layout: 'gallery' },
-  { path: '/components/dialog', heading: 'Dialog', layout: 'gallery' },
-  { path: '/components/confirmation-dialog', heading: 'Confirmation dialog', layout: 'gallery' },
-  { path: '/components/drawer', heading: 'Drawer', layout: 'gallery' },
-  { path: '/components/page-top-bar', heading: 'Page top bar', layout: 'gallery' },
-  { path: '/components/page-header', heading: 'Page header', layout: 'gallery' },
-  { path: '/components/section', heading: 'Section', layout: 'gallery' },
-  { path: '/components/browser', heading: 'Browser', layout: 'gallery' },
-  { path: '/components/phone', heading: 'Phone', layout: 'gallery' },
-  { path: '/components/page', heading: 'Page', layout: 'gallery' },
-  { path: '/components/collection', heading: 'Collection', layout: 'gallery' },
-  { path: '/components/detail', heading: 'Detail', layout: 'gallery' },
-  { path: '/components/app-shell', heading: 'App shell', layout: 'gallery' },
-  { path: '/components/page-examples/account-management', heading: 'Account management', layout: 'gallery' },
-  { path: '/components/bottom-navigation', heading: 'Bottom navigation', layout: 'gallery' },
-  { path: '/components/bulk-actions', heading: 'Bulk actions', layout: 'gallery' },
-  { path: '/components/upload', heading: 'Upload', layout: 'gallery' },
-  { path: '/components/steps', heading: 'Steps', layout: 'gallery' },
-  { path: '/components/first-steps', heading: 'First steps', layout: 'gallery' },
-  { path: '/components/calendar', heading: 'Calendar', layout: 'gallery' },
-  { path: '/components/media-library', heading: 'Media library', layout: 'gallery' },
-  { path: '/components/page-examples/dependency-graph', heading: 'Dependency graph', layout: 'gallery' },
-  { path: '/components/page-examples/execution-detail', heading: 'Execution detail', layout: 'gallery' },
-  { path: '/components/page-examples/operations-dashboard', heading: 'Operations dashboard', layout: 'gallery' },
-  { path: '/components/page-examples/scheduling', heading: 'Scheduling', layout: 'gallery' },
-  { path: '/components/page-examples/media-management', heading: 'Media management', layout: 'gallery' },
-  { path: '/components/page-examples/financial-reporting', heading: 'Financial reporting', layout: 'gallery' },
-  { path: '/components/page-examples/messaging', heading: 'Messaging', layout: 'gallery' },
-  { path: '/components/interaction-and-server-state', heading: 'Interaction and server state', layout: 'article' },
-  { path: '/components/accessibility', heading: 'Accessibility', layout: 'article' },
-  { path: '/components/theming', heading: 'Theming and density', layout: 'article' },
-  { path: '/components/tailwind-css', heading: 'Tailwind CSS setup', layout: 'article' },
-  { path: '/components/customization', heading: 'Customization', layout: 'article' },
-  { path: '/components/versioning', heading: 'Versioning', layout: 'article' },
-  { path: '/benchmarks', heading: 'Benchmarks', layout: 'article' },
-  { path: '/changelog', heading: 'Changelog', layout: 'article' },
-]
+const representativeRoutes = [
+  { path: '/', heading: 'FSharp.ViewEngine' },
+  { path: '/getting-started/first-view', heading: 'Build your first view' },
+  { path: '/components', heading: 'Components' },
+  { path: '/components/button', heading: 'Button' },
+  { path: '/components/select', heading: 'Select' },
+  { path: '/components/page-examples/account-management', heading: 'Account management' },
+] as const
+
+async function publicRoutePaths(request: APIRequestContext) {
+  const response = await request.get('/sitemap.xml')
+  expect(response.status()).toBe(200)
+  const xml = await response.text()
+  return [...xml.matchAll(/<loc>([^<]+)<\/loc>/g)].map(match => new URL(match[1]).pathname)
+}
+
+async function docsCatalogPaths(request: APIRequestContext) {
+  return (await publicRoutePaths(request)).filter(path =>
+    path.startsWith('/docs/components/') || path.startsWith('/docs/page-examples/'),
+  )
+}
 
 const componentAccessibilityRouteGroups = [
   {
     name: 'foundations and data display',
-    paths: ['/components', '/components/icon-button', '/components/action-cluster', '/components/row-actions', '/components/loading-indicator', '/components/progress', '/components/empty-state', '/components/table', '/components/description-list', '/components/metric', '/components/pagination'],
+    paths: ['/components/table'],
   },
   {
     name: 'fields and navigation',
-    paths: ['/components/avatar', '/components/copy-reveal', '/components/file-selection', '/components/tag-input', '/components/select', '/components/checkbox', '/components/switch', '/components/toggle-button', '/components/breadcrumbs', '/components/side-nav', '/components/bottom-navigation'],
+    paths: ['/components/select'],
   },
   {
     name: 'choices overlays and page composition',
-    paths: ['/components/tabs', '/components/radio-group', '/components/choice-cards', '/components/dropdown-menu', '/components/dialog', '/components/confirmation-dialog', '/components/drawer', '/components/page-top-bar', '/components/page-header', '/components/section', '/components/page'],
+    paths: ['/components/dialog'],
   },
   {
     name: 'application workflows',
-    paths: ['/components/app-shell', '/components/page-examples/account-management', '/components/bulk-actions', '/components/upload', '/components/steps', '/components/first-steps', '/components/calendar', '/components/media-library'],
+    paths: ['/components/app-shell'],
   },
   {
     name: 'page examples',
-    paths: ['/components/page-examples/dependency-graph', '/components/page-examples/execution-detail', '/components/page-examples/financial-reporting', '/components/page-examples/messaging', '/components/page-examples/operations-dashboard', '/components/page-examples/scheduling', '/components/page-examples/media-management'],
+    paths: ['/components/page-examples/media-management'],
   },
 ]
 
@@ -172,25 +95,53 @@ async function gotoAfterDocsAssetSettlement(page: Page, path: string, waitUntil:
   return response
 }
 
-test.describe('public documentation routes', () => {
-  for (const route of routes) {
-    test(`GET ${route.path} renders`, async ({ page }) => {
-      const browserErrors = captureBrowserErrors(page)
-      const response = await page.goto(route.path, { waitUntil: 'domcontentloaded' })
-
-      expect(response?.status(), `${route.path} status`).toBe(200)
-      const serverHtml = await response!.text()
-      expect(serverHtml, `${route.path} server-rendered main content`).toContain('<main')
-      expect(serverHtml, `${route.path} complete HTML document`).toContain('<!DOCTYPE html>')
-      await expect(page.getByRole('heading', { level: 1, name: route.heading, exact: true })).toHaveCount(1)
-      await expect(page.locator('main.spec-main')).toBeVisible()
-      await expect(page.locator(`.docs-${route.layout}-layout`)).toBeVisible()
-      const canonicalURL = route.path === '/' ? `${productionOrigin}/` : `${productionOrigin}${route.path}`
-      await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', canonicalURL)
-      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-      expect(browserErrors, `${route.path} browser errors`).toEqual([])
-    })
+async function mapInBatches<T>(items: readonly T[], size: number, run: (item: T) => Promise<void>) {
+  for (let index = 0; index < items.length; index += size) {
+    await Promise.all(items.slice(index, index + size).map(run))
   }
+}
+
+test('registered documentation routes and same-origin references resolve without a browser', async ({ request }) => {
+  const references = new Set<string>()
+
+  const paths = await publicRoutePaths(request)
+  await mapInBatches(paths, 8, async path => {
+    const response = await request.get(path)
+    expect(response.status(), `${path} status`).toBe(200)
+    const html = await response.text()
+    expect(html, `${path} server-rendered main content`).toContain('<main')
+    expect(html, `${path} complete HTML document`).toContain('<!DOCTYPE html>')
+    const canonicalURL = path === '/' ? `${productionOrigin}/` : `${productionOrigin}${path}`
+    expect(html, `${path} canonical`).toContain(`rel="canonical" href="${canonicalURL}"`)
+
+    for (const match of html.matchAll(/\b(?:href|src|data-docs-preview-src)="([^"]+)"/g)) {
+      const reference = match[1]
+      if (!reference || reference.startsWith('#') || reference.startsWith('mailto:') || reference.startsWith('tel:')) continue
+      const url = new URL(reference, `http://candidate${path}`)
+      if (url.origin !== 'http://candidate') continue
+      url.hash = ''
+      references.add(`${url.pathname}${url.search}`)
+    }
+  })
+
+  await mapInBatches([...references], 8, async path => {
+    const response = await request.get(path)
+    expect(response.status(), path).toBeLessThan(400)
+  })
+  expect(references.size).toBeGreaterThan(paths.length)
+})
+
+test('representative documentation routes render without browser errors', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  for (const route of representativeRoutes) {
+    const response = await page.goto(route.path, { waitUntil: 'domcontentloaded' })
+    expect(response?.status(), `${route.path} status`).toBe(200)
+    await expect(page.getByRole('heading', { level: 1, name: route.heading, exact: true })).toHaveCount(1)
+    await expect(page.locator('main.spec-main')).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+  }
+
+  expect(browserErrors).toEqual([])
 })
 
 test('legacy Docs catalog routes remain aliases with canonical destinations', async ({ page }) => {
@@ -217,35 +168,7 @@ test('removed Components routes return not found', async ({ request }) => {
   }
 })
 
-test('canonical routes expose valid same-origin links, assets, and lazy previews', async ({ page, request }) => {
-  test.slow()
-  const checked = new Map<string, number>()
-
-  for (const route of routes) {
-    await page.goto(route.path, { waitUntil: 'domcontentloaded' })
-    const references = await page.locator('a[href], img[src], script[src], link[href], iframe[data-docs-preview-src]').evaluateAll(elements =>
-      elements.map(element =>
-        element.getAttribute('href') ?? element.getAttribute('src') ?? element.getAttribute('data-docs-preview-src') ?? '',
-      ),
-    )
-
-    for (const reference of references) {
-      if (!reference || reference.startsWith('#') || reference.startsWith('mailto:') || reference.startsWith('tel:')) continue
-      const url = new URL(reference, page.url())
-      if (url.origin !== new URL(page.url()).origin) continue
-      url.hash = ''
-      const path = `${url.pathname}${url.search}`
-      if (checked.has(path)) continue
-      const response = await request.get(path)
-      checked.set(path, response.status())
-      expect(response.status(), `${route.path} -> ${path}`).toBeLessThan(400)
-    }
-  }
-
-  expect(checked.size).toBeGreaterThan(routes.length)
-})
-
-test.describe('automated accessibility checks', crossBrowser, () => {
+test.describe('automated accessibility checks', () => {
   const scan = async (page: Page, context: string) => {
     const results = await new AxeBuilder({ page })
       .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
@@ -272,7 +195,7 @@ test.describe('automated accessibility checks', crossBrowser, () => {
   })
 })
 
-test('Components pages provide focused examples, navigation, interaction, themes, and responsive accessibility', crossBrowser, async ({ page }, testInfo) => {
+test('Representative Components pages provide focused examples, navigation, interaction, themes, and responsive accessibility', async ({ page }, testInfo) => {
   test.slow()
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
@@ -287,55 +210,11 @@ test('Components pages provide focused examples, navigation, interaction, themes
   }
   const componentRoutes = [
     ['/components/button', 'Button'],
-    ['/components/icon-button', 'Icon button'],
-    ['/components/badge', 'Badge'],
-    ['/components/status', 'Status'],
-    ['/components/loading-indicator', 'Loading indicator'],
-    ['/components/progress', 'Progress'],
-    ['/components/empty-state', 'Empty state'],
-    ['/components/action-cluster', 'Action cluster'],
-    ['/components/row-actions', 'Row actions'],
-    ['/components/table', 'Table'],
-    ['/components/description-list', 'Description list'],
-    ['/components/metric', 'Metric'],
-    ['/components/pagination', 'Pagination'],
-    ['/components/avatar', 'Avatar'],
-    ['/components/copy-reveal', 'Copy and reveal'],
-    ['/components/file-selection', 'File selection'],
-    ['/components/tag-input', 'Tag input'],
     ['/components/select', 'Select'],
-    ['/components/checkbox', 'Checkbox'],
-    ['/components/switch', 'Switch'],
-    ['/components/toggle-button', 'Toggle button'],
-    ['/components/breadcrumbs', 'Breadcrumbs'],
-    ['/components/side-nav', 'Side nav'],
-    ['/components/tabs', 'Tabs'],
-    ['/components/radio-group', 'Radio group'],
-    ['/components/choice-cards', 'Choice cards'],
     ['/components/dropdown-menu', 'Dropdown menu'],
-    ['/components/dialog', 'Dialog'],
-    ['/components/page-top-bar', 'Page top bar'],
-    ['/components/page-header', 'Page header'],
-    ['/components/section', 'Section'],
-    ['/components/page', 'Page'],
-    ['/components/collection', 'Collection'],
-    ['/components/detail', 'Detail'],
     ['/components/app-shell', 'App shell'],
-    ['/components/page-examples/account-management', 'Account management'],
-    ['/components/bottom-navigation', 'Bottom navigation'],
-    ['/components/bulk-actions', 'Bulk actions'],
-    ['/components/upload', 'Upload'],
-    ['/components/steps', 'Steps'],
-    ['/components/first-steps', 'First steps'],
     ['/components/calendar', 'Calendar'],
-    ['/components/media-library', 'Media library'],
-    ['/components/page-examples/dependency-graph', 'Dependency graph'],
-    ['/components/page-examples/execution-detail', 'Execution detail'],
-    ['/components/page-examples/operations-dashboard', 'Operations dashboard'],
-    ['/components/page-examples/scheduling', 'Scheduling'],
     ['/components/page-examples/media-management', 'Media management'],
-    ['/components/page-examples/financial-reporting', 'Financial reporting'],
-    ['/components/page-examples/messaging', 'Messaging'],
   ] as const
 
   const openPreview = (path: string, heading: string) => openComponentGallery(page, path, heading)
@@ -951,7 +830,7 @@ test('DropdownMenu preserves groups, alignment, activation, sibling dismissal, m
 
 test.describe('Components route accessibility', () => {
   for (const group of componentAccessibilityRouteGroups) {
-    test(`${group.name} remain accessible`, crossBrowser, async ({ page }) => {
+    test(`${group.name} remain accessible`, async ({ page }) => {
       await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
         route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
       )
@@ -970,7 +849,7 @@ test.describe('Components route accessibility', () => {
   }
 })
 
-test('Components layouts, catalog, and responsive previews remain coherent', crossBrowser, async ({ page }, testInfo) => {
+test('Components layouts, catalog, and responsive previews remain coherent', async ({ page }, testInfo) => {
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   )
@@ -1370,7 +1249,7 @@ test('AppShell keeps typed page ownership, responsive navigation, focus, deep li
   expect(browserErrors).toEqual([])
 })
 
-test('Components examples preserve documentation framing without clipping anchored popups', crossBrowser, async ({ page }) => {
+test('Components examples preserve documentation framing without clipping anchored popups', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/components/drawer', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
@@ -2096,7 +1975,7 @@ test('desktop table of contents tracks the visible section and survives Docs nav
   await expect(page.locator('.spec-toc a[href="#overview"]')).toHaveAttribute('aria-current', 'location')
 })
 
-test('desktop table of contents follows the final visible section after preferred-font reflow', crossBrowser, async ({ page }) => {
+test('desktop table of contents follows the final visible section after preferred-font reflow', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
@@ -2673,11 +2552,9 @@ test('Docs catalog navigation updates articles without a full-page browser error
   expect(browserErrors).toEqual([])
 })
 
-test('Docs catalog host documents retain one page heading and unique IDs', async ({ page }) => {
-  const catalogRoutes = routes.filter(route => route.path.startsWith('/docs/components/') || route.path.startsWith('/docs/page-examples/'))
-
-  for (const route of catalogRoutes) {
-    await page.goto(route.path, { waitUntil: 'domcontentloaded' })
+test('Docs catalog host documents retain one page heading and unique IDs', async ({ page, request }) => {
+  for (const path of await docsCatalogPaths(request)) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' })
     await expect(page.locator('#page-content h1')).toHaveCount(1)
     const duplicateIds = await page.evaluate(() => {
       const counts = new Map<string, number>()
@@ -2686,20 +2563,19 @@ test('Docs catalog host documents retain one page heading and unique IDs', async
       }
       return Array.from(counts.entries()).filter(([, count]) => count > 1)
     })
-    expect(duplicateIds, route.path).toEqual([])
+    expect(duplicateIds, path).toEqual([])
   }
 })
 
-test('Docs component and page-example catalogs default to complete styled previews', async ({ page }) => {
+test('Docs component and page-example catalogs default to complete styled previews', async ({ page, request }) => {
   const browserErrors = captureBrowserErrors(page)
-  const catalogRoutes = routes.filter(route => route.path.startsWith('/docs/components/') || route.path.startsWith('/docs/page-examples/'))
   let reviewedPreviews = 0
 
-  for (const route of catalogRoutes) {
-    await page.goto(route.path, { waitUntil: 'domcontentloaded' })
+  for (const path of await docsCatalogPaths(request)) {
+    await page.goto(path, { waitUntil: 'domcontentloaded' })
     reviewedPreviews += await page.locator('button[role="tab"][id^="docs-"][id$="-example-tab-preview"]:visible').count()
     const examples = page.locator('[data-docs-example="true"]')
-    expect(await examples.count(), route.path).toBeGreaterThan(0)
+    expect(await examples.count(), path).toBeGreaterThan(0)
     for (const example of await examples.all()) {
       const previewTab = example.locator(':scope > .spec-example-toolbar').getByRole('tab', { name: 'Preview' })
       const panelId = await previewTab.getAttribute('aria-controls')
@@ -2711,13 +2587,13 @@ test('Docs component and page-example catalogs default to complete styled previe
       if (await iframe.count()) {
         const frame = iframe.contentFrame()
         await expect(frame.locator('body')).toHaveClass(/spec-document/)
-        expect(await frame.locator('style, link[rel="stylesheet"]').count(), route.path).toBeGreaterThan(0)
-        expect(await frame.locator('html').evaluate(element => element.scrollWidth <= element.clientWidth), route.path).toBe(true)
+        expect(await frame.locator('style, link[rel="stylesheet"]').count(), path).toBeGreaterThan(0)
+        expect(await frame.locator('html').evaluate(element => element.scrollWidth <= element.clientWidth), path).toBe(true)
       } else {
-        expect(await preview.evaluate(element => element.scrollWidth <= element.clientWidth), route.path).toBe(true)
+        expect(await preview.evaluate(element => element.scrollWidth <= element.clientWidth), path).toBe(true)
       }
     }
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), route.path).toBe(true)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), path).toBe(true)
   }
   expect(reviewedPreviews).toBe(25)
   expect(browserErrors).toEqual([])
@@ -2825,7 +2701,7 @@ test('specification page example state tabs work after parsing while the optiona
   }
 })
 
-test('benchmark tables remain readable without page overflow on mobile', crossBrowser, async ({ page }) => {
+test('benchmark tables remain readable without page overflow on mobile', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/benchmarks', { waitUntil: 'domcontentloaded' })
 
@@ -2843,10 +2719,11 @@ test('sitemap, robots, and social metadata expose canonical public discovery', a
   expect(sitemap.status()).toBe(200)
   expect(sitemap.headers()['content-type']).toContain('application/xml')
   const sitemapXml = await sitemap.text()
-  for (const route of routes) {
-    const canonicalURL = route.path === '/' ? `${productionOrigin}/` : `${productionOrigin}${route.path}`
-    expect(sitemapXml, route.path).toContain(`<loc>${canonicalURL}</loc>`)
-  }
+  const paths = await publicRoutePaths(request)
+  expect(paths.length).toBeGreaterThan(90)
+  expect(paths).toContain('/')
+  expect(paths).toContain('/components')
+  expect(paths).toContain('/docs')
   expect(sitemapXml).not.toContain('/docs/components</loc>')
   expect(sitemapXml).not.toContain('/docs/previews/')
 

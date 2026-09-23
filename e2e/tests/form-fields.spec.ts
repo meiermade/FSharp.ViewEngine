@@ -148,7 +148,7 @@ test('native textarea editing states preserve successful values only @cross-brow
 })
 
 for (const component of ['input', 'textarea', 'error-summary', 'notice', 'form-layouts']) {
-  test(`${component} remains accessible in narrow light/dark and resized text @cross-browser`, async ({ page }, testInfo) => {
+  test(`${component} remains accessible in narrow light/dark and resized text`, async ({ page }, testInfo) => {
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({ width: 390, height: 1000 })
