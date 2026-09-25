@@ -30,7 +30,7 @@ for (const title of ['Contact details in two columns', 'Contact details in secti
     await expect(name).toHaveAttribute('aria-invalid', 'false')
     await expectContactAlignment(form)
     await name.fill('')
-    await email.fill('andy@example.test')
+    await email.fill('andy@fve.meiermade.com')
     await form.getByRole('button', { name: 'Validate details', exact: true }).click()
     await expect(name).toHaveAttribute('aria-invalid', 'true')
     await expect(email).toHaveAttribute('aria-invalid', 'false')

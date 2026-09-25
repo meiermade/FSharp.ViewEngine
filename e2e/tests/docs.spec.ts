@@ -412,7 +412,6 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expect(accountPages.getByText('Showing 176–184 of 184 accounts')).toBeVisible()
   await expect(accountPages.getByText('8', { exact: true })).toHaveAttribute('aria-current', 'page')
   await expect(accountPages.getByText('Next', { exact: true })).toHaveAttribute('aria-disabled', 'true')
-  await expect(accountPages.locator('a[href*="ledger.example.test"]')).toHaveCount(0)
 
   const formEntries = async (form: Locator) =>
     form.evaluate(element => [...new FormData(element as HTMLFormElement).entries()].map(([name, value]) => [name, String(value)]))
@@ -2142,7 +2141,7 @@ test('inline prose links are visually identifiable and article pagers continue t
   await expect(installation).toHaveCSS('font-weight', '600')
 
   await page.goto('/docs', { waitUntil: 'domcontentloaded' })
-  await expect(page.getByText('This documentation site is built with FSharp.ViewEngine.Components.Documentation', { exact: false })).toBeVisible()
+  await expect(page.getByText('This documentation site compiles the same FSharp.ViewEngine.Components.Documentation source distributed by fve', { exact: false })).toBeVisible()
   const pager = page.getByRole('navigation', { name: 'Page navigation' })
   await expect(page.getByRole('link', { name: 'Browse components' })).toHaveAttribute('href', '/docs/components/layouts')
   await expect(page.getByRole('link', { name: 'Browse page examples' })).toHaveAttribute('href', '/docs/page-examples/documentation-site')
@@ -2490,7 +2489,7 @@ test('code-free catalog indexes settle without starting Prism', crossBrowser, as
 test('Documentation namespaces wrap within narrow and enlarged reading columns', crossBrowser, async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 844 })
   await page.goto('/docs', { waitUntil: 'domcontentloaded' })
-  const paragraph = page.getByText('This documentation site is built with FSharp.ViewEngine.Components.Documentation.', { exact: false })
+  const paragraph = page.getByText('This documentation site compiles the same FSharp.ViewEngine.Components.Documentation source distributed by fve.', { exact: false })
   for (const dark of [false, true]) {
     for (const fontSize of ['100%', '200%']) {
       await page.evaluate(({ dark, fontSize }) => {
@@ -2587,7 +2586,7 @@ test('catalog code is extracted from the same compiled definition as its preview
   await browserFrame.getByRole('tab', { name: 'Preview' }).click()
   const browserPreview = browserFrame.getByRole('tabpanel', { name: 'Preview' })
   await expect(browserPreview.locator('iframe')).toHaveCount(0)
-  await expect(browserPreview.locator('.spec-browser-frame')).toBeVisible()
+  await expect(browserPreview.locator('[data-browser-frame="true"]')).toBeVisible()
 })
 
 test('benchmark comparison remains legible in light and dark themes', async ({ page }) => {

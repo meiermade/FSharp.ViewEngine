@@ -49,7 +49,7 @@ module Catalog =
                   section "Page examples" Components.pageExampleRegistrations ]
             planned = [] }
           { overview = Showcase.overviewRegistration
-            description = "Documentation sites, API references, galleries and executable specifications using the same Components package."
+            description = "Documentation sites, API references, galleries and executable specifications using the same canonical source registry."
             sections =
                 [ section "Components" Showcase.componentRegistrations
                   section "Page examples" Showcase.pageExampleRegistrations ]
@@ -85,8 +85,8 @@ module Catalog =
                         linkCard area.overview.path area.overview.title description "Explore area"
                 } ]
             DocumentationSection.create "start" "Get started" [
-                CodeBlock.create "shell" "dotnet add package FSharp.ViewEngine.Components" |> CodeBlock.render
-                p { _class "spec-paragraph"; "The engine and Components version independently. Delivered areas share one Components package; there are no family packages." }
+                CodeBlock.create "shell" "dotnet tool install FSharp.ViewEngine.Cli\ndotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components\ndotnet fve add button text-field --config src/Acme.Components/fve.json" |> CodeBlock.render
+                p { _class "spec-paragraph"; "FSharp.ViewEngine remains the conventional Core package. fve copies selected Components source from one versioned registry for the consumer to own and commit." }
                 p {
                     _class "spec-paragraph"
                     a { _class "spec-content-link"; _href "/components/installation"; "Installation" }

@@ -31,7 +31,7 @@ test('representative component galleries share complete copyable code behavior',
     await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
     await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
     const code = example.locator('[data-docs-copy-source]')
-    await expect(code).toContainText('open FSharp.ViewEngine.Components')
+    await expect(code).toContainText('open Acme.Components')
     await expect(code).not.toContainText('FSharp.ViewEngine.Docs')
     const copy = example.getByRole('button', { name: /^Copy .+ code$/ })
     await copy.click()

@@ -21,6 +21,7 @@ let nugetsDir = rootDir </> "nugets"
 let testsDir = srcDir </> "Tests"
 let docsDir = srcDir </> "Docs"
 let docsTestsDir = srcDir </> "Docs.Tests"
+let cliTestsDir = srcDir </> "FSharp.ViewEngine.Cli.Tests"
 let buildTestsDir = srcDir </> "Build.Tests"
 let benchmarksDir = srcDir </> "Benchmarks"
 let releaseRepository = Environment.environVarOrDefault "RELEASE_REPOSITORY" rootDir
@@ -59,15 +60,10 @@ let boolEnvironment name =
     | value -> failwith $"{name} must be true or false, found: {value}"
 
 let releaseInputs () =
-    let packageId = Environment.environVarOrFail "PACKAGE_ID"
-    let minimumDependencyVersion =
-        match packageId with
-        | "FSharp.ViewEngine.Components" -> Environment.environVarOrNone "COMPONENTS_MINIMUM_CORE_VERSION"
-        | _ -> None
     PackagePublishing.validateInputs
-        packageId
+        (Environment.environVarOrFail "PACKAGE_ID")
         (Environment.environVarOrFail "PACKAGE_VERSION")
-        minimumDependencyVersion
+        None
         (boolEnvironment "MARK_LATEST")
 
 let optionalEnvironment name =
@@ -78,12 +74,12 @@ let releaseSelection () =
     PackagePublishing.validateSelection
         (Environment.environVarOrFail "PACKAGE_SELECTION")
         (Environment.environVarOrFail "CORE_PACKAGE_VERSION")
-        (Environment.environVarOrFail "COMPONENTS_PACKAGE_VERSION")
+        (Environment.environVarOrFail "CLI_PACKAGE_VERSION")
 
 let selectedPackage () =
     match Environment.environVarOrFail "PACKAGE_ID" with
     | "FSharp.ViewEngine" -> PackagePublishing.Package.ViewEngine
-    | "FSharp.ViewEngine.Components" -> PackagePublishing.Package.Components
+    | "FSharp.ViewEngine.Cli" -> PackagePublishing.Package.Cli
     | packageId -> failwith $"Unsupported package: {packageId}"
 
 let getVersion () =
@@ -99,20 +95,21 @@ Target.create "ValidateReleaseSelection" <| fun _ ->
             "v[0-9]*"
             "v"
             [ "sln/src/FSharp.ViewEngine" ]
-    let componentsState =
+    let cliState =
         PackagePublishing.packageStateSinceLatestTag
             releaseRepository
-            "components/v[0-9]*"
-            "components/v"
-            [ "sln/src/FSharp.ViewEngine.Components" ]
-    PackagePublishing.validateCoherence selection coreState componentsState
+            "cli/v[0-9]*"
+            "cli/v"
+            [ "sln/src/FSharp.ViewEngine.Cli"
+              "sln/src/FSharp.ViewEngine.Components" ]
+    PackagePublishing.validateCoherence selection coreState cliState
 
     let selected =
-        [ selection.core; selection.components ]
+        [ selection.core; selection.cli ]
         |> List.choose id
         |> List.map (fun inputs -> $"{inputs.package.Id} {inputs.version}")
         |> function | [] -> "Docs only" | values -> String.concat ", " values
-    Trace.trace $"Validated release coherence: {selected}; Core {selection.coreVersion}; Components {selection.componentsVersion}"
+    Trace.trace $"Validated release coherence: {selected}; Core {selection.coreVersion}; CLI {selection.cliVersion}"
 
 Target.create "PrepareRelease" <| fun _ ->
     let inputs = releaseInputs ()
@@ -229,6 +226,9 @@ Target.create "Test" <| fun _ ->
     dotnet docsTestsDir ["run"]
     |> Async.RunSynchronously
 
+    dotnet cliTestsDir ["run"]
+    |> Async.RunSynchronously
+
     dotnet buildTestsDir ["run"]
     |> Async.RunSynchronously
 
@@ -246,11 +246,11 @@ Target.create "Pack"  (fun _ ->
     let arguments =
         match package with
         | PackagePublishing.Package.ViewEngine -> arguments @ [ $"/p:FSharpViewEnginePackageVersion={version}" ]
-        | PackagePublishing.Package.Components ->
-            let minimumCoreVersion = Environment.environVarOrFail "COMPONENTS_MINIMUM_CORE_VERSION"
+        | PackagePublishing.Package.Cli ->
+            let coreVersion = Environment.environVarOrDefault "CORE_PACKAGE_VERSION" "2026.8.2"
             arguments @
-                [ $"/p:FSharpViewEngineComponentsPackageVersion={version}"
-                  $"/p:FSharpViewEnginePackageVersion={minimumCoreVersion}" ]
+                [ $"/p:FSharpViewEngineCliPackageVersion={version}"
+                  $"/p:FSharpViewEnginePackageVersion={coreVersion}" ]
 
     Trace.trace $"Packing {package.Id} {version}"
     dotnet rootDir arguments |> Async.RunSynchronously

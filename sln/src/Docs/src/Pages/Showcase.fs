@@ -7,6 +7,9 @@ open FSharp.ViewEngine.Components.Documentation
 open type Html
 
 module Showcase =
+    let private publicOrigin = "https://fve.meiermade.com"
+    let private publicUrl path = publicOrigin + path
+
     let private registration (id:string) (path:string) (aliases:string list) (navLabel:string) (title:string) : DocPage =
         { id = id
           path = path
@@ -146,14 +149,14 @@ module Showcase =
                     div { _style "margin-top:1rem"; ApiReference.parameters [ ApiReference.parameter "email" "string" true "Customer email address." ] }
                 }
                 div {
-                    ApiReference.codeExample "Request" "curl" "curl -X POST https://api.example.test/v1/customers"
+                    ApiReference.codeExample "Request" "curl" "curl -X POST $API_ORIGIN/v1/customers"
                     ApiReference.responseExample "201" "json" "{ \"id\": \"cus_123\" }"
                 }
             })
 
     let private exampleSite : DocsSite<string> =
         { name = "Acme Docs"
-          baseUrl = Some "https://docs.example.test"
+          baseUrl = Some publicOrigin
           description = Some "Example documentation"
           repository = None
           brandMark = span { "AC" }
@@ -161,7 +164,7 @@ module Showcase =
           navigation =
             [ Nav.group "guides" "Guides" true [
                 Nav.page "overview" "Overview" "/" "/"
-                Nav.page "guide" "Getting started" "/guide" "/guide" ] ]
+                Nav.page "guide" "Getting started" "/getting-started/first-view" "/getting-started/first-view" ] ]
           storageKey = "fsharp-view-engine-docs-example"
           defaultColorMode = DocsColorMode.System
           theme = DocsTheme.sky
@@ -182,32 +185,24 @@ module Showcase =
         if not (previewDocuments.ContainsKey previewPath) then
             previewDocuments.Add(previewPath, html)
 
-    let private browserFrame appMode token title canonicalUrl previewPath =
-        let browser =
-            Browser.create (
-                iframe {
-                    _class "docs-isolated-document"
-                    _title title
-                    if appMode then _src previewPath
-                    _data("docs-preview-src", previewPath)
-                })
-            |> Browser.withAddress canonicalUrl
-        let browser =
-            if appMode then Browser.withAppMode token title browser
-            else browser
-        Browser.render browser
+    let private browserConfig title canonicalUrl previewPath =
+        Browser.create (
+            iframe {
+                _class "docs-isolated-document"
+                _title title
+                _src previewPath
+                _data("docs-preview-src", previewPath)
+            })
+        |> Browser.withAddress canonicalUrl
 
-    let private isolatedDocumentFrame appMode (title:string) (canonicalUrl:string) (html:string) =
+    let private browserFrame title canonicalUrl previewPath =
+        browserConfig title canonicalUrl previewPath |> Browser.render
+
+    let private isolatedDocumentFrame (title:string) (canonicalUrl:string) (html:string) =
         let token = previewToken title
         let previewPath = $"/docs/previews/{token}"
         registerPreviewDocument previewPath html
-        let preview = browserFrame appMode token title canonicalUrl previewPath
-        if appMode then
-            div {
-                _data("fve-full-bleed-example", "true")
-                preview
-            }
-        else previewSurface preview
+        browserFrame title canonicalUrl previewPath |> previewSurface
 
     let private reviewStateTabs (label:string) (current:string) (states:(string * string * string) list) =
         nav {
@@ -228,22 +223,23 @@ module Showcase =
             }
         }
 
-    let private statefulDocumentFrame token title canonicalUrl previewPath stateLabel current (states:(string * string * string) list) =
-        let frame = browserFrame true token title canonicalUrl previewPath
+    let private statefulDocumentFixture token title launchHref canonicalUrl previewPath current (states:(string * string * string) list) =
+        browserConfig title canonicalUrl previewPath
+        |> Fixture.browser token title launchHref
+        |> Fixture.withStates [
+            for state, stateLabelText, href in states ->
+                FixtureState.create stateLabelText href
+                |> fun item -> if state = current then FixtureState.current item else item ]
+
+    let private statefulDocumentFrame fixture stateLabel current (states:(string * string * string) list) =
         div {
             _attr("data-fve-full-bleed-example", "true")
             _attr("data-page-example-preview", "true")
             reviewStateTabs stateLabel current states
-            Fixture.create token frame
-            |> Fixture.withStates [
-                for state, stateLabelText, href in states ->
-                    FixtureState.create stateLabelText href
-                    |> fun item -> if state = current then FixtureState.current item else item ]
-            |> Fixture.render
+            fixture |> Fixture.render
         }
 
-    let private isolatedDocument = isolatedDocumentFrame false
-    let private isolatedDocumentWithAppMode = isolatedDocumentFrame true
+    let private isolatedDocument = isolatedDocumentFrame
 
     let private renderDocument site page =
         Document.create site page
@@ -255,7 +251,6 @@ module Showcase =
         |> isolatedDocument title canonicalUrl
 
     let private isolatedPage = renderIsolatedPage isolatedDocument
-    let private isolatedPageWithAppMode = renderIsolatedPage isolatedDocumentWithAppMode
 
     let private productView (instanceId:string) (state:string) =
         let hasValidation = state = "validation"
@@ -295,7 +290,7 @@ module Showcase =
 
     let private productScreen state =
         Browser.create (productView "workflow" state)
-        |> Browser.withAddress "https://example.test/views/new"
+        |> Browser.withAddress (publicUrl $"{fixtureRegistration.path}?fixtureState={state}")
         |> Browser.render
 
     let private sequence () =
@@ -310,12 +305,12 @@ module Showcase =
 
     let overviewPage =
         DocumentationPage.create overviewRegistration.id overviewRegistration.title |> DocumentationPage.withDescription "Composable layouts and components for product documentation, API references, executable specifications, and component review." |> DocumentationPage.withSections [
-            DocumentationSection.create "purpose" "Built with the package" [
-                p { "This documentation site is built with FSharp.ViewEngine.Components.Documentation. The shell, navigation, themes, examples, API components, browser frames, and diagrams shown here use the public APIs in the unified Components package." }
-                p { "The package owns documentation mechanics and composition while each product retains its content, information architecture, routes, models, workflows, and product UI." } ]
+            DocumentationSection.create "purpose" "Built with canonical source" [
+                p { "This documentation site compiles the same FSharp.ViewEngine.Components.Documentation source distributed by fve. The shell, navigation, themes, examples, API components, browser frames, and diagrams shown here use those public APIs." }
+                p { "Documentation components own mechanics and composition while each product retains its content, information architecture, routes, models, workflows, and product UI." } ]
             DocumentationSection.create "installation" "Installation" [
-                CodeBlock.create "shell" "dotnet add package FSharp.ViewEngine.Components" |> CodeBlock.render
-                CodeBlock.create "fsharp" "open FSharp.ViewEngine.Components.Documentation" |> CodeBlock.render ]
+                CodeBlock.create "shell" "dotnet fve add documentation --config src/Acme.Components/fve.json" |> CodeBlock.render
+                CodeBlock.create "fsharp" "open Acme.Components.Documentation" |> CodeBlock.render ]
             DocumentationSection.create "browse" "Browse the toolkit" [
                 div {
                     _class "docs-catalog-grid"
@@ -379,10 +374,10 @@ module Showcase =
         // docs-example:end canvas
 
         DocumentationPage.create layoutsRegistration.id layoutsRegistration.title |> DocumentationPage.withDescription "Shells and page layouts for guides, references, and wide product review surfaces." |> DocumentationPage.withSections [
-            componentExample "document" "Document" "Render the complete branded document shell with navigation, assets, themes, metadata, and canonical URLs." (isolatedDocument "Complete documentation shell" "https://docs.example.test" documentHtml)
-            componentExample "article" "Page article" "Use the default article layout for guides and conceptual documentation with a readable content column and table of contents." (isolatedPage "Article layout" "https://docs.example.test/guide" articlePage)
-            componentExample "reference" "Page reference" "Use DocumentationPage.withLayout Reference to keep endpoint documentation beside request and response examples." (isolatedPage "Reference layout" "https://docs.example.test/customers" referencePage)
-            componentExample "canvas" "Page canvas" "Use DocumentationPage.withLayout Canvas for product frames, workflow states, and architecture diagrams; DocumentationPage.withHiddenHeading retains a semantic heading when the framed product already supplies one." (isolatedPage "Canvas layout" "https://docs.example.test/create-view" canvasPage) ]
+            componentExample "document" "Document" "Render the complete branded document shell with navigation, assets, themes, metadata, and canonical URLs." (isolatedDocument "Complete documentation shell" (publicUrl $"{layoutsRegistration.path}#document") documentHtml)
+            componentExample "article" "Page article" "Use the default article layout for guides and conceptual documentation with a readable content column and table of contents." (isolatedPage "Article layout" (publicUrl $"{layoutsRegistration.path}#article") articlePage)
+            componentExample "reference" "Page reference" "Use DocumentationPage.withLayout Reference to keep endpoint documentation beside request and response examples." (isolatedPage "Reference layout" (publicUrl $"{layoutsRegistration.path}#reference") referencePage)
+            componentExample "canvas" "Page canvas" "Use DocumentationPage.withLayout Canvas for product frames, workflow states, and architecture diagrams; DocumentationPage.withHiddenHeading retains a semantic heading when the framed product already supplies one." (isolatedPage "Canvas layout" (publicUrl $"{layoutsRegistration.path}#canvas") canvasPage) ]
 
     let contentPage =
         // docs-example:start sections-and-prose
@@ -433,10 +428,10 @@ module Showcase =
         // docs-example:end code-and-custom
 
         DocumentationPage.create contentRegistration.id contentRegistration.title |> DocumentationPage.withDescription "Typed blocks for readable prose, structured data, code, and custom composition." |> DocumentationPage.withSections [
-            componentExample "sections-and-prose" "Sections, prose, and lists" "Group content under semantic headings, then compose paragraphs and ordered or unordered lists." (isolatedPage "Sections, prose, and lists" "https://docs.example.test/content/prose" prosePage)
-            componentExample "tables" "Tables" "Present compact metadata and comparisons with responsive horizontal overflow." (isolatedPage "Tables" "https://docs.example.test/content/tables" tablePage)
-            componentExample "callouts" "Callouts" "Highlight a concise warning, note, or constraint without turning the page into a card grid." (isolatedPage "Callouts" "https://docs.example.test/content/callouts" calloutPage)
-            componentExample "code-and-custom" "Code and custom HTML" "Use CodeBlock for Prism-ready source and compose product-owned typed HTML directly when a page needs custom content." (isolatedPage "Code and custom HTML" "https://docs.example.test/content/custom" customPage) ]
+            componentExample "sections-and-prose" "Sections, prose, and lists" "Group content under semantic headings, then compose paragraphs and ordered or unordered lists." (isolatedPage "Sections, prose, and lists" (publicUrl $"{contentRegistration.path}#sections-and-prose") prosePage)
+            componentExample "tables" "Tables" "Present compact metadata and comparisons with responsive horizontal overflow." (isolatedPage "Tables" (publicUrl $"{contentRegistration.path}#tables") tablePage)
+            componentExample "callouts" "Callouts" "Highlight a concise warning, note, or constraint without turning the page into a card grid." (isolatedPage "Callouts" (publicUrl $"{contentRegistration.path}#callouts") calloutPage)
+            componentExample "code-and-custom" "Code and custom HTML" "Use CodeBlock for Prism-ready source and compose product-owned typed HTML directly when a page needs custom content." (isolatedPage "Code and custom HTML" (publicUrl $"{contentRegistration.path}#code-and-custom") customPage) ]
 
     let navigationPage =
         // docs-example:start navigation-tree
@@ -461,14 +456,14 @@ module Showcase =
             |> DocumentationPage.withPager (
                 DocsPager.create
                     (Some(DocsPageLink.create "Installation" "/installation"))
-                    (Some(DocsPageLink.create "Extensions" "/extensions")))
+                    (Some(DocsPageLink.create "Content components" "/docs/components/content")))
         // docs-example:end page-pager
 
         // docs-example:start site-actions
         let siteWithActions =
             { exampleSite with
                 defaultColorMode = DocsColorMode.System
-                repository = Some(DocsRepository.github "https://github.com/example/project") }
+                repository = Some(DocsRepository.github "https://github.com/meiermade/FSharp.ViewEngine") }
 
         let actionsHtml =
             Document.create siteWithActions pagerPage
@@ -477,13 +472,14 @@ module Showcase =
         // docs-example:end site-actions
 
         DocumentationPage.create navigationRegistration.id navigationRegistration.title |> DocumentationPage.withDescription "Discoverable navigation for the complete documentation journey." |> DocumentationPage.withSections [
-            componentExample "navigation-tree" "Navigation, breadcrumbs, and table of contents" "Use typed destinations for pages and destination-free groups; the shell derives side navigation and breadcrumbs while sections supply the local table of contents." (isolatedDocument "Navigation tree" "https://docs.example.test/installation" navigationPreview)
-            componentExample "page-pager" "Previous and next" "Add an explicit learning path when the ideal reading order differs from the complete sidebar order." (isolatedPage "Previous and next" "https://docs.example.test/usage" pagerPage)
-            componentExample "site-actions" "Theme and repository actions" "Configure System, Light, or Dark as the default and optionally expose a GitHub or custom repository destination." (isolatedDocument "Theme and repository actions" "https://docs.example.test/usage" actionsHtml) ]
+            componentExample "navigation-tree" "Navigation, breadcrumbs, and table of contents" "Use typed destinations for pages and destination-free groups; the shell derives side navigation and breadcrumbs while sections supply the local table of contents." (isolatedDocument "Navigation tree" (publicUrl $"{navigationRegistration.path}#navigation-tree") navigationPreview)
+            componentExample "page-pager" "Previous and next" "Add an explicit learning path when the ideal reading order differs from the complete sidebar order." (isolatedPage "Previous and next" (publicUrl $"{navigationRegistration.path}#page-pager") pagerPage)
+            componentExample "site-actions" "Theme and repository actions" "Configure System, Light, or Dark as the default and optionally expose a GitHub or custom repository destination." (isolatedDocument "Theme and repository actions" (publicUrl $"{navigationRegistration.path}#site-actions") actionsHtml) ]
 
     let private fixtureHref state = $"/docs/components/fixture?fixtureState={state}"
 
-    let fixturePageFor fixtureState =
+    let fixturePageFor fixtureStep fixtureState =
+        let fixtureStep = if fixtureStep = "cart" || fixtureStep = "payment" then fixtureStep else "shipping"
         let fixtureState = if fixtureState = "validation" then "validation" else "ready"
         // docs-example:start state-tabs
         let readyView = productScreen "ready"
@@ -500,7 +496,7 @@ module Showcase =
         let productUi = productView "browser-frame" "ready"
         let browserFramePreview =
             Browser.create productUi
-            |> Browser.withAddress "https://example.test/views/new"
+            |> Browser.withAddress (publicUrl (fixtureHref fixtureState))
             |> Browser.render
         // docs-example:end browser-frame
 
@@ -512,18 +508,16 @@ module Showcase =
                 if (fixtureState = "ready" && index = 0) || (fixtureState = "validation" && index = 1) then FixtureState.current state
                 else state)
 
-        let appModeFixture =
+        let appModeBrowserFixture =
             Browser.create (productView "app-mode-browser" fixtureState)
-            |> Browser.withAddress "https://example.test/views/new"
-            |> Browser.withAppMode "view-studio-browser" "Create a view"
-            |> Browser.render
-            |> Fixture.create "view-studio-browser"
+            |> Browser.withAddress (publicUrl (fixtureHref fixtureState))
+            |> Fixture.browser "view-studio-browser" "Create a view" (fixtureHref fixtureState)
             |> Fixture.withStates appModeStates
-            |> Fixture.render
+        let appModeFixture = appModeBrowserFixture |> Fixture.render
         // docs-example:end app-mode
 
         // docs-example:start app-mode-phone
-        let appModePhoneFixture =
+        let appModePhoneConfig =
             Phone.create (
                 div {
                     _class "docs-app-mode-phone-screen"
@@ -538,39 +532,58 @@ module Showcase =
                         button { _type "button"; _class "docs-product-primary"; "Create view" }
                     }
                 })
-            |> Phone.withAppMode "view-studio-phone" "Create a view on phone"
-            |> Phone.render
-            |> Fixture.create "view-studio-phone"
-            |> Fixture.render
+            |> Fixture.phone "view-studio-phone" "Create a view on phone" (fixtureHref fixtureState)
+        let appModePhoneFixture = appModePhoneConfig |> Fixture.render
         // docs-example:end app-mode-phone
 
         // docs-example:start fixture-workflow
-        let fixtureHref state = $"/docs/components/fixture?fixtureState={state}"
-        let shippingFixture =
-            Browser.create (
-                div {
-                    _class "grid min-h-64 content-center gap-3 bg-[var(--fve-surface-subtle)] p-8 text-center"
-                    strong { _class "text-lg"; "Shipping address" }
-                    p { _class "text-sm text-[var(--fve-muted-text)]"; "Enter a delivery address to continue." }
-                })
-            |> Browser.withAddress "https://shop.example.test/checkout/shipping"
-            |> Browser.withAppMode "checkout-shipping" "Shipping address"
-            |> Browser.render
-            |> Fixture.create "checkout-shipping"
-            |> Fixture.withPrevious (FixtureLink.create "Cart" "https://shop.example.test/checkout/cart")
-            |> Fixture.withNext (FixtureLink.create "Payment" "https://shop.example.test/checkout/payment")
+        let workflowHref step state = $"/docs/components/fixture?fixtureStep={step}&fixtureState={state}"
+        let workflowLabel =
+            match fixtureStep with
+            | "cart" -> "Cart"
+            | "payment" -> "Payment"
+            | _ -> "Shipping address"
+        let workflowContent =
+            let heading, readyDescription, validationDescription =
+                match fixtureStep with
+                | "cart" -> "Your cart", "One item is ready for checkout.", "Review the quantity before continuing."
+                | "payment" -> "Payment", "Choose a payment method to place the order.", "Select a payment method before continuing."
+                | _ -> "Shipping address", "Enter a delivery address to continue.", "Enter a complete delivery address."
+            div {
+                _class "grid min-h-64 content-center gap-3 bg-[var(--fve-surface-subtle)] p-8 text-center"
+                strong { _class "text-lg"; heading }
+                p { _class "text-sm text-[var(--fve-muted-text)]"; if fixtureState = "validation" then validationDescription else readyDescription }
+            }
+        let currentHref = workflowHref fixtureStep fixtureState
+        let checkoutFixtureConfig =
+            Browser.create workflowContent
+            |> Browser.withAddress ("https://fve.meiermade.com" + currentHref)
+            |> Fixture.browser "checkout-workflow" workflowLabel currentHref
+            |> fun fixture ->
+                match fixtureStep with
+                | "shipping" -> fixture |> Fixture.withPrevious (FixtureLink.create "Cart" (workflowHref "cart" "ready"))
+                | "payment" -> fixture |> Fixture.withPrevious (FixtureLink.create "Shipping address" (workflowHref "shipping" "ready"))
+                | _ -> fixture
+            |> fun fixture ->
+                match fixtureStep with
+                | "cart" -> fixture |> Fixture.withNext (FixtureLink.create "Shipping address" (workflowHref "shipping" "ready"))
+                | "shipping" -> fixture |> Fixture.withNext (FixtureLink.create "Payment" (workflowHref "payment" "ready"))
+                | _ -> fixture
             |> Fixture.withStates [
-                FixtureState.create "Ready" (fixtureHref "ready") |> FixtureState.current
-                FixtureState.create "Address error" (fixtureHref "validation") ]
-            |> Fixture.render
+                FixtureState.create "Ready" (workflowHref fixtureStep "ready") |> fun state -> if fixtureState = "ready" then FixtureState.current state else state
+                FixtureState.create "Validation" (workflowHref fixtureStep "validation") |> fun state -> if fixtureState = "validation" then FixtureState.current state else state ]
+        let checkoutFixture = checkoutFixtureConfig |> Fixture.render
         // docs-example:end fixture-workflow
 
-        DocumentationPage.create fixtureRegistration.id fixtureRegistration.title |> DocumentationPage.withDescription "Compose Browser or Phone review fixtures with source, preview, and copyable code without giving Documentation ownership of product routes or state." |> DocumentationPage.withSections [
+        DocumentationPage.create fixtureRegistration.id fixtureRegistration.title
+        |> DocumentationPage.withDescription "Compose Browser or Phone review fixtures with source, preview, and copyable code without giving Documentation ownership of product routes or state."
+        |> DocumentationPage.withFixtures [ appModeBrowserFixture; appModePhoneConfig; checkoutFixtureConfig ]
+        |> DocumentationPage.withSections [
             componentExample "state-tabs" "Review states" "Use state tabs for static comparison, or Fixture review states when the viewer needs a navigable alternate product state." (previewSurface states)
             componentExample "browser-frame" "Browser frame" "Place product UI in a browser-like frame with an explicit canonical URL before optionally enabling App mode." (previewSurface browserFramePreview)
             componentExample "app-mode" "Browser fixture" "Expand a named Browser fixture to a focused executable preview. Fixture supplies independent review states while the product owns their meaning." (previewSurface appModeFixture)
             componentExample "app-mode-phone" "Phone fixture" "Use the same viewer contract for a Phone fixture; the viewer controls the surface while the product owns screen content." (previewSurface appModePhoneFixture)
-            componentExample "fixture-workflow" "Workflow fixture" "Fixture supplies authored previous and next destinations independently from review states. Its source, preview, and copy action stay together." (previewSurface shippingFixture) ]
+            componentExample "fixture-workflow" "Workflow fixture" "Fixture supplies authored previous and next destinations independently from review states. Each destination renders a real server-owned workflow step on this route." (previewSurface checkoutFixture) ]
 
     let apiComponentsPage =
         // docs-example:start api-endpoint
@@ -588,7 +601,7 @@ module Showcase =
         // docs-example:end api-parameters
 
         // docs-example:start api-examples
-        let requestSource = "curl -X POST https://api.example.test/v1/customers"
+        let requestSource = "curl -X POST $API_ORIGIN/v1/customers"
         let responseSource = "{ \"id\": \"cus_123\" }"
         let requestResponse =
             div {
@@ -640,9 +653,9 @@ module Showcase =
             DocumentationSection.create "live-diagram" "Live diagram" [
                 p { "Diagram components own loading, rendering, theme changes, and an accessible unavailable state while product documentation supplies the trusted source." }
                 Mermaid.create flowchart |> Mermaid.render ]
-            componentExample "mermaid" "Mermaid" "Render a trusted Mermaid source string in the standard responsive diagram surface." (isolatedPage "Mermaid diagram" "https://docs.example.test/diagrams/mermaid" mermaidPage)
-            componentExample "c4" "C4" "Use Mermaid C4 syntax for a proportionate system context, container, component, dynamic, or deployment view." (isolatedPage "C4 diagram" "https://docs.example.test/diagrams/c4" c4Page)
-            componentExample "sequence-diagram" "Sequence diagram" "Construct participants and calls with the validated sequence DSL before rendering Mermaid." (isolatedPage "Sequence diagram" "https://docs.example.test/diagrams/sequence" sequencePage) ]
+            componentExample "mermaid" "Mermaid" "Render a trusted Mermaid source string in the standard responsive diagram surface." (isolatedPage "Mermaid diagram" (publicUrl $"{diagramsRegistration.path}#mermaid") mermaidPage)
+            componentExample "c4" "C4" "Use Mermaid C4 syntax for a proportionate system context, container, component, dynamic, or deployment view." (isolatedPage "C4 diagram" (publicUrl $"{diagramsRegistration.path}#c4") c4Page)
+            componentExample "sequence-diagram" "Sequence diagram" "Construct participants and calls with the validated sequence DSL before rendering Mermaid." (isolatedPage "Sequence diagram" (publicUrl $"{diagramsRegistration.path}#sequence-diagram") sequencePage) ]
 
     let private documentationOverviewPreviewPath = "/docs/previews/documentation-site-overview"
     let private documentationGettingStartedPreviewPath = "/docs/previews/documentation-site-getting-started"
@@ -682,16 +695,19 @@ module Showcase =
         let states =
             [ "overview", "Overview", documentationSiteRegistration.path + "?fixtureState=overview"
               "getting-started", "Getting started", documentationSiteRegistration.path + "?fixtureState=getting-started" ]
-        let previewPath, canonicalUrl =
-            if current = "overview" then documentationOverviewPreviewPath, "https://docs.example.test"
-            else documentationGettingStartedPreviewPath, "https://docs.example.test/guide"
-        let preview =
-            statefulDocumentFrame "documentation-site-page-example" "Documentation site page example" canonicalUrl previewPath "Documentation site review state" current states
+        let previewPath =
+            if current = "overview" then documentationOverviewPreviewPath
+            else documentationGettingStartedPreviewPath
+        let canonicalUrl = publicUrl previewPath
+        let fixture =
+            statefulDocumentFixture "documentation-site-page-example" "Documentation site page example" (documentationSiteRegistration.path + "?fixtureState=" + current) canonicalUrl previewPath current states
+        let preview = statefulDocumentFrame fixture "Documentation site review state" current states
 
         DocumentationPage.create documentationSiteRegistration.id documentationSiteRegistration.title
         |> DocumentationPage.withDescription "A complete guide composition using the shared shell, navigation, content, examples, and pager."
         |> DocumentationPage.withLayout Gallery
         |> DocumentationPage.withRightRail NoRail
+        |> DocumentationPage.withFixtures [ fixture ]
         |> DocumentationPage.withSections [
             DocumentationSection.create "documentation-site-page" "Guide with navigation" [
                 Example.gallery "docs-documentation-site-page-example" "Guide with navigation" "fsharp" (sourceFor "documentation-site-page") preview ]
@@ -738,7 +754,7 @@ module Showcase =
             |> Operation.withErrors [
                 Error.create "invalid_view" "The supplied view could not be parsed."
                 Error.create "unsupported_content_type" "The requested response type is unavailable." ]
-        let requestExample = """curl https://api.example.test/v1/render \
+        let requestExample = """curl $API_ORIGIN/v1/render \
   -H "Authorization: Bearer $ACME_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"view":"main { h1 { \"Hello\" } }"}'"""
@@ -797,16 +813,19 @@ module Showcase =
         let states =
             [ "overview", "Overview", apiPageExampleRegistration.path + "?fixtureState=overview"
               "render-view", "Render a view", apiPageExampleRegistration.path + "?fixtureState=render-view" ]
-        let previewPath, canonicalUrl =
-            if current = "overview" then apiOverviewPreviewPath, "https://api.example.test"
-            else apiRenderPreviewPath, "https://api.example.test/v1/render"
-        let preview =
-            statefulDocumentFrame "api-reference-page-example" "API reference page example" canonicalUrl previewPath "API reference review state" current states
+        let previewPath =
+            if current = "overview" then apiOverviewPreviewPath
+            else apiRenderPreviewPath
+        let canonicalUrl = publicUrl previewPath
+        let fixture =
+            statefulDocumentFixture "api-reference-page-example" "API reference page example" (apiPageExampleRegistration.path + "?fixtureState=" + current) canonicalUrl previewPath current states
+        let preview = statefulDocumentFrame fixture "API reference review state" current states
 
         DocumentationPage.create apiPageExampleRegistration.id apiPageExampleRegistration.title
         |> DocumentationPage.withDescription "A resource overview and operation reference with request and response examples."
         |> DocumentationPage.withLayout Gallery
         |> DocumentationPage.withRightRail NoRail
+        |> DocumentationPage.withFixtures [ fixture ]
         |> DocumentationPage.withSections [
             DocumentationSection.create "api-reference-page" "Rendering API reference" [
                 Example.gallery "docs-api-reference-page-example" "Rendering API reference" "fsharp" (sourceFor "api-reference-page") preview
@@ -860,14 +879,16 @@ module Showcase =
                         Nav.page "render-workflow" "Render a view" specificationRenderPreviewPath specificationRenderPreviewPath ] ] }
         registerPreviewDocument specificationOverviewPreviewPath (renderDocument specificationSite overviewPage)
         registerPreviewDocument specificationRenderPreviewPath (renderDocument specificationSite specificationPage)
-        let preview =
-            browserFrame true "executable-specification-page-example" "Executable specification page example" "https://docs.example.test/render-workflow" specificationRenderPreviewPath
-            |> fun frame -> div { _data("fve-full-bleed-example", "true"); frame }
+        let fixture =
+            browserConfig "Executable specification page example" (publicUrl specificationRenderPreviewPath) specificationRenderPreviewPath
+            |> Fixture.browser "executable-specification-page-example" "Executable specification page example" specificationPageExampleRegistration.path
+        let preview = div { _data("fve-full-bleed-example", "true"); fixture |> Fixture.render }
 
         DocumentationPage.create specificationPageExampleRegistration.id specificationPageExampleRegistration.title
         |> DocumentationPage.withDescription "A complete workflow review composition using a canvas, browser frames, tabs, diagrams, and rules."
         |> DocumentationPage.withLayout Gallery
         |> DocumentationPage.withRightRail NoRail
+        |> DocumentationPage.withFixtures [ fixture ]
         |> DocumentationPage.withSections [
             DocumentationSection.create "executable-specification-page" "Render workflow" [
                 Example.gallery "docs-executable-specification-page-example" "Render workflow" "fsharp" (sourceFor "executable-specification-page") preview ]
@@ -883,7 +904,7 @@ module Showcase =
           layoutsRegistration.path, layoutsPage
           contentRegistration.path, contentPage
           navigationRegistration.path, navigationPage
-          fixtureRegistration.path, fixturePageFor "ready"
+          fixtureRegistration.path, fixturePageFor "shipping" "ready"
           apiComponentsRegistration.path, apiComponentsPage
           diagramsRegistration.path, diagramsPage
           documentationSiteRegistration.path, documentationSitePage

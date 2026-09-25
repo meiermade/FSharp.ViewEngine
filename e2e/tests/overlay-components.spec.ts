@@ -113,7 +113,7 @@ test('viewport First steps clears the App-mode dock and does not trap applicatio
   const dock = page.locator('[data-fve-app-mode-controls="true"]')
   await expect(panel).toBeVisible()
   await expect(dock).toBeVisible()
-  await expect(dock.getByRole('combobox', { name: 'Review state' })).toContainText('Setup')
+  await expect(dock.getByRole('button', { name: 'Review state' })).toContainText('Setup')
   const [panelBox, dockBox] = await Promise.all([panel.boundingBox(), dock.boundingBox()])
   expect(panelBox).not.toBeNull()
   expect(dockBox).not.toBeNull()

@@ -1,4 +1,5 @@
 open Docs.Common
+open Docs.Web
 open Giraffe
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.HttpOverrides
@@ -19,7 +20,7 @@ let webApp (config:Config) =
                 image = config.image
                 packages = {|
                     core = config.corePackage
-                    components = config.componentsPackage
+                    cli = config.cliPackage
                 |}
             |}
             Handler.routes
@@ -81,13 +82,13 @@ let main args =
 
             configureApp config app
             Log.Information(
-                "Starting {AppName} in {DeploymentEnvironment} at commit {ReleaseCommit} from {ReleaseImage}; Core {CoreVersion}, Components {ComponentsVersion}",
+                "Starting {AppName} in {DeploymentEnvironment} at commit {ReleaseCommit} from {ReleaseImage}; Core {CoreVersion}, CLI {CliVersion}",
                 config.appName,
                 config.deploymentEnvironment,
                 config.commit,
                 config.image,
                 config.corePackage.version,
-                config.componentsPackage.version)
+                config.cliPackage.version)
 
             app.Run(config.serverUrl)
             0

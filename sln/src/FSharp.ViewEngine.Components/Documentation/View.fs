@@ -4,6 +4,7 @@ open FSharp.ViewEngine
 open System
 open System.Text.Json
 open type Html
+open type Datastar
 
 /// Runtime and head assets used by the documentation document shell.
 [<NoEquality; NoComparison>]
@@ -598,7 +599,98 @@ module DocsView =
     let page (site:DocsSite<'destination>) (docPage:DocsPage) =
         pageWithNavigation site (defaultBreadcrumbs site docPage) site.navigation docPage
 
-    let documentWithNavigation (site:DocsSite<'destination>) (breadcrumbs:Breadcrumb list) (sideNavItems:NavNode<'destination> list) (docPage:DocsPage) =
+    let private previousIcon =
+        raw """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
+
+    let private nextIcon =
+        raw """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
+
+    let private dockIcons =
+        fragment {
+            span {
+                _dataShow "!$appModeDockTop"
+                raw """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10.53 4.47a.75.75 0 0 0-1.06 0l-4.25 4.25a.75.75 0 0 0 1.06 1.06L9.25 6.81V15a.75.75 0 0 0 1.5 0V6.81l2.97 2.97a.75.75 0 1 0 1.06-1.06l-4.25-4.25Z" clip-rule="evenodd"/></svg>"""
+            }
+            span {
+                _dataShow "$appModeDockTop"
+                _style "display:none"
+                raw """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9.47 15.53a.75.75 0 0 0 1.06 0l4.25-4.25a.75.75 0 1 0-1.06-1.06l-2.97 2.97V5a.75.75 0 0 0-1.5 0v8.19l-2.97-2.97a.75.75 0 1 0-1.06 1.06l4.25 4.25Z" clip-rule="evenodd"/></svg>"""
+            }
+        }
+
+    let private appModeDirection (frameId:string) (label:string) (icon:HtmlElement) (link:FixtureLink option) =
+        match link with
+        | Some value ->
+            let accessibleLabel = $"{label}: {FixtureLink.label value}"
+            a {
+                _href (Fixture.appModeHref frameId (FixtureLink.href value))
+                _ariaLabel accessibleLabel
+                _title accessibleLabel
+                icon
+            }
+        | None ->
+            span {
+                _ariaDisabled true
+                _ariaLabel $"No {label.ToLowerInvariant()} workflow step"
+                icon
+            }
+
+    let private appModeView (site:DocsSite<'destination>) (request:AppMode) (fixture:FixtureConfig) =
+        let frameId = Fixture.id fixture
+        let states = Fixture.states fixture
+        let currentState = states |> List.tryFind FixtureState.isCurrent
+        fragment {
+            div {
+                _id "fve-app-mode-root"
+                _attr ("data-fve-app-mode-root", "true")
+                _attr ("data-fve-app-mode-surface", Fixture.surface fixture)
+                _attr ("data-fve-app-mode-frame", frameId)
+                _ariaLabel (Fixture.label fixture)
+                Fixture.fullscreenContent fixture
+            }
+            nav {
+                _id "fve-app-mode-controls"
+                _class "fve-components fve-theme-sky fve-density-compact fve-app-mode-controls fve-control-small"
+                _attr ("data-fve-app-mode-controls", "true")
+                _dataAttr ("data-fve-app-dock", "$appModeDockTop ? 'top' : 'bottom'")
+                _dataAttr ("data-fve-color-mode", "($colorMode == 'dark' || ($colorMode == 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) ? 'light' : 'dark'")
+                _data("on:fsharpdocs:colormode__window", "document.getElementById('fve-app-mode-controls')?.setAttribute('data-fve-color-mode', document.documentElement.classList.contains('dark') ? 'light' : 'dark')")
+                _ariaLabel "App mode controls"
+                let hasWorkflow = Fixture.previous fixture |> Option.isSome || Fixture.next fixture |> Option.isSome
+                if hasWorkflow then
+                    appModeDirection frameId "Previous" previousIcon (Fixture.previous fixture)
+                if not states.IsEmpty then
+                    div {
+                        _attr ("data-fve-app-mode-state-select", "true")
+                        states
+                        |> List.map (fun state -> FSharp.ViewEngine.Components.Primitives.MenuItem.link (Fixture.appModeHref frameId (FixtureState.href state)) (FixtureState.label state))
+                        |> FSharp.ViewEngine.Components.Primitives.DropdownMenu.create $"fve-app-mode-{frameId}-state" "Review state"
+                        |> FSharp.ViewEngine.Components.Primitives.DropdownMenu.withAlignment FSharp.ViewEngine.Components.Primitives.MenuAlignment.End
+                        |> FSharp.ViewEngine.Components.Primitives.DropdownMenu.withTriggerContent (span { currentState |> Option.map FixtureState.label |> Option.defaultValue "Review state" })
+                        |> FSharp.ViewEngine.Components.Primitives.DropdownMenu.render id
+                    }
+                if hasWorkflow then
+                    appModeDirection frameId "Next" nextIcon (Fixture.next fixture)
+                    span { _attr ("data-fve-app-mode-divider", "true"); _ariaHidden true }
+                ColorModeView.render site.defaultColorMode
+                button {
+                    _type "button"
+                    _dataAttr ("aria-label", "$appModeDockTop ? 'Move App mode controls to bottom' : 'Move App mode controls to top'")
+                    _dataAttr ("title", "$appModeDockTop ? 'Move App mode controls to bottom' : 'Move App mode controls to top'")
+                    _dataOn ("click", "$appModeDockTop = !$appModeDockTop")
+                    dockIcons
+                }
+                a {
+                    _href (Fixture.returnFocusHref frameId (AppMode.exitHref request))
+                    _attr ("data-fve-app-mode-exit", "true")
+                    _ariaLabel "Exit App mode"
+                    _title "Exit App mode"
+                    "×"
+                }
+            }
+        }
+
+    let documentWithNavigation (site:DocsSite<'destination>) (breadcrumbs:Breadcrumb list) (sideNavItems:NavNode<'destination> list) (renderMode:FixtureRenderMode) (docPage:DocsPage) =
         let pageHref =
             site.navigation
             |> NavNode.collectPages
@@ -622,7 +714,14 @@ module DocsView =
                 let containsActive = NavNode.containsActive docPage.activeId node
                 $"{signal}: window.fsharpDocsNav.initial({jsString (NavNode.id node)}, {shouldOpen.ToString().ToLowerInvariant()}, {containsActive.ToString().ToLowerInvariant()})")
 
-        let signals = "{ sideNavOpen: false, breadcrumbMenuOpen: false, colorMode: window.fsharpDocsColorMode.current()" + (if navSignals.IsEmpty then "" else ", " + String.concat ", " navSignals) + " }"
+        let signals = "{ sideNavOpen: false, breadcrumbMenuOpen: false, appModeDockTop: false, colorMode: window.fsharpDocsColorMode.current()" + (if navSignals.IsEmpty then "" else ", " + String.concat ", " navSignals) + " }"
+        let activeAppMode =
+            match renderMode with
+            | Embedded -> None
+            | Fullscreen request ->
+                docPage.fixtures
+                |> List.tryFind (fun fixture -> Fixture.id fixture = AppMode.frameId request)
+                |> Option.map (fun fixture -> request, fixture)
         let navState =
             navGroups
             |> List.map (fun node -> $"{jsString (NavNode.id node)}: ${signalName (NavNode.id node)}")
@@ -937,11 +1036,22 @@ window.fsharpDocsNavigation = {
   currentUrl() {
     return window.location.pathname + window.location.search;
   },
+  committedHref(href) {
+    const target = new URL(href, window.location.origin);
+    target.searchParams.delete('fveAppReturn');
+    target.searchParams.delete('fveAppTransition');
+    return `${target.pathname}${target.search}${target.hash}`;
+  },
   eligible(event, href) {
     const link = event?.target?.closest?.('a[href]');
     if (event?.defaultPrevented || event?.button !== 0 || event?.metaKey || event?.ctrlKey || event?.shiftKey || event?.altKey || !link || link.target && link.target !== '_self' || link.hasAttribute('download')) return null;
     const target = new URL(href ?? link.href, window.location.origin);
     if (target.origin !== window.location.origin || !target.protocol.startsWith('http') || target.hash || target.pathname === '/logout' || target.pathname === '/login') return null;
+    const frame = document.body.dataset.fveAppModeFrame;
+    if (frame && !link.hasAttribute('data-fve-app-mode-exit')) {
+      target.searchParams.set('fveAppMode', 'app');
+      target.searchParams.set('fveAppFrame', frame);
+    }
     return `${target.pathname}${target.search}`;
   },
   request(href, intent) {
@@ -1025,13 +1135,15 @@ window.fsharpDocsNavigation = {
     this.pending = null;
     this.controller = null;
     delete document.documentElement.dataset.fsharpDocsNavigationPending;
-    if (pending.intent === 'push' && this.currentUrl() !== pending.href) window.history.pushState(null, '', pending.href);
-    this.documentUrl = pending.href;
+    const committedHref = this.committedHref(pending.href);
+    const returnFrame = new URL(pending.href, window.location.origin).searchParams.get('fveAppReturn');
+    if (pending.intent === 'push' && this.currentUrl() !== committedHref) window.history.pushState(null, '', committedHref);
+    this.documentUrl = committedHref;
     for (const element of document.querySelectorAll('.spec-main, .spec-page-viewport, .spec-page-layout, .docs-custom-rail')) {
       element.scrollTo({ top: 0, left: 0, behavior: 'instant' });
     }
     window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
-    const content = document.getElementById('page-content');
+    const content = document.getElementById('page-content') ?? document.getElementById('fve-app-mode-root');
     // Datastar may preserve a Mermaid host whose data-init expression has
     // already run. Complete independent enhancement lifecycles together.
     const [codeResult] = await Promise.allSettled([
@@ -1041,6 +1153,7 @@ window.fsharpDocsNavigation = {
     ]);
     this.initializeToc();
     this.showFragment(window.location.hash);
+    if (returnFrame) document.getElementById(`fve-fixture-${returnFrame}-launcher`)?.focus();
     if (codeResult.status === 'rejected') throw codeResult.reason;
   },
   fail() {
@@ -1052,6 +1165,26 @@ window.fsharpDocsNavigation = {
     if (pending.intent === 'restore') window.location.assign(this.documentUrl);
   }
 };
+document.addEventListener('submit', event => {
+  const frame = document.body.dataset.fveAppModeFrame;
+  const form = event.target;
+  if (!frame || event.defaultPrevented || !(form instanceof HTMLFormElement)) return;
+  const submitter = event.submitter;
+  const method = submitter?.hasAttribute('formmethod') ? submitter.formMethod : form.method;
+  const target = submitter?.hasAttribute('formtarget') ? submitter.formTarget : form.target;
+  const action = new URL(submitter?.hasAttribute('formaction') ? submitter.formAction : form.action);
+  if (method.toLowerCase() !== 'get' || target && target !== '_self' || action.origin !== window.location.origin) return;
+  for (const [name, value] of [['fveAppMode', 'app'], ['fveAppFrame', frame]]) {
+    let input = form.querySelector(`input[type=hidden][name=${name}]`);
+    if (!input) {
+      input = document.createElement('input');
+      input.type = 'hidden';
+      input.name = name;
+      form.append(input);
+    }
+    input.value = value;
+  }
+}, true);
 window.fsharpDocsMobileNav = {
   opener: null,
   focusable() {
@@ -1086,7 +1219,7 @@ window.fsharpDocsMobileNav = {
   }
 };
 document.addEventListener('datastar-fetch', event => {
-  if (event.detail?.el !== document.body) return;
+  if (event.detail?.el?.tagName !== 'BODY') return;
   if (event.detail.type === 'finished') window.fsharpDocsNavigation.complete();
   if (event.detail.type === 'error' || event.detail.type === 'retries-failed') window.fsharpDocsNavigation.fail();
 });
@@ -1158,14 +1291,21 @@ document.addEventListener('datastar-fetch', event => {
                 _data("on:click", "window.fsharpDocsNavigation.navigate(evt)")
                 _data("on:fsharpdocs:navigate", "@get(evt.detail.href, { filterSignals: { exclude: /.*/ }, requestCancellation: evt.detail.controller, retry: 'never', retryMaxCount: 0 })")
                 _data("on:popstate__window", "window.fsharpDocsNavigation.restore()")
-                _data("on:keydown__window", "evt.key == 'Escape' ? ($sideNavOpen = false, $breadcrumbMenuOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)")
-                pageWithNavigation site breadcrumbs sideNavItems docPage
-                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content'); await Promise.all([window.renderCode?.(content), window.renderMermaid?.(content, true), window.renderInitialDocsPreviews?.(content)]); window.fsharpDocsNavigation.initializeToc(); });" }
+                match activeAppMode with
+                | Some (request, _) ->
+                    _attr ("data-fve-app-mode-frame", AppMode.frameId request)
+                    _data("on:keydown__window", "evt.key == 'Escape' && !evt.defaultPrevented && !document.querySelector(':popover-open, [data-fve-app-mode-root] button[aria-controls][aria-expanded=true], [data-fve-app-mode-root] dialog[open]') ? window.fsharpDocsNavigation.request(document.querySelector('[data-fve-app-mode-exit]')?.getAttribute('href'), 'push') : null")
+                | None ->
+                    _data("on:keydown__window", "evt.key == 'Escape' ? ($sideNavOpen = false, $breadcrumbMenuOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)")
+                match activeAppMode with
+                | Some (request, fixture) -> appModeView site request fixture
+                | None -> pageWithNavigation site breadcrumbs sideNavItems docPage
+                script { nonceAttribute (); raw "document.addEventListener('DOMContentLoaded', async () => { const content = document.getElementById('page-content') ?? document.getElementById('fve-app-mode-root'); await Promise.all([window.renderCode?.(content), window.renderMermaid?.(content, true), window.renderInitialDocsPreviews?.(content)]); window.fsharpDocsNavigation.initializeToc(); });" }
             }
         }
 
     let document (site:DocsSite<'destination>) (docPage:DocsPage) =
-        documentWithNavigation site (defaultBreadcrumbs site docPage) site.navigation docPage
+        documentWithNavigation site (defaultBreadcrumbs site docPage) site.navigation Embedded docPage
 
 /// Immutable builders for article, reference, canvas, and gallery documentation pages.
 [<RequireQualifiedAccess>]
@@ -1180,6 +1320,7 @@ module DocumentationPage =
     let withHiddenHeading (page:DocsPage) = { page with heading = VisuallyHidden }
     let withHeadingAdornment adornment (page:DocsPage) = { page with headingAdornment = Some adornment }
     let withPager pager (page:DocsPage) = { page with pager = Some pager }
+    let withFixtures fixtures (page:DocsPage) = { page with fixtures = fixtures }
     let withMetadata metadata (page:DocsPage) = { page with metadata = metadata }
     let render (page:DocsPage) = DocsView.content page
 
@@ -1190,7 +1331,8 @@ type DocsDocument<'destination> =
         { page:DocsPage
           site:DocsSite<'destination>
           breadcrumbs:Breadcrumb list option
-          sideNavItems:NavNode<'destination> list option }
+          sideNavItems:NavNode<'destination> list option
+          renderMode:FixtureRenderMode }
 
 /// Public immutable builders for a complete documentation document.
 [<RequireQualifiedAccess>]
@@ -1199,7 +1341,8 @@ module Document =
         { page = page
           site = site
           breadcrumbs = None
-          sideNavItems = None }
+          sideNavItems = None
+          renderMode = Embedded }
 
     let withBreadcrumbs breadcrumbs (document:DocsDocument<'destination>) =
         if List.isEmpty breadcrumbs then invalidArg (nameof breadcrumbs) "At least one breadcrumb is required."
@@ -1209,10 +1352,16 @@ module Document =
         if List.isEmpty items then invalidArg (nameof items) "At least one side-navigation item is required."
         { document with sideNavItems = Some items }
 
+    let withRenderMode renderMode (document:DocsDocument<'destination>) =
+        { document with renderMode = renderMode }
+
+    let withAppMode appMode (document:DocsDocument<'destination>) =
+        document |> withRenderMode (Fullscreen appMode)
+
     let render (document:DocsDocument<'destination>) =
         let site = document.site
         let breadcrumbs =
             document.breadcrumbs
             |> Option.defaultWith (fun () -> Navigation.breadcrumbs site.navigation site.homeId document.page.activeId)
         let sideNavItems = document.sideNavItems |> Option.defaultValue site.navigation
-        DocsView.documentWithNavigation site breadcrumbs sideNavItems document.page
+        DocsView.documentWithNavigation site breadcrumbs sideNavItems document.renderMode document.page

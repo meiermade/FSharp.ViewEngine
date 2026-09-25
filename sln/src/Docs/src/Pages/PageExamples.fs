@@ -1073,10 +1073,24 @@ module PageExamples =
             time = "Yesterday"
             outgoing = false } ]
 
+    let private sentMessage =
+        { id = "message-sent"
+          conversation = "beach"
+          author = "Andy Meier"
+          body = "Meet at the east entrance 15 minutes before we leave."
+          time = "Just now"
+          outgoing = true }
+
     let currentConversation query =
         conversations
         |> List.tryFind (fun item -> item.id = query.item)
         |> Option.defaultValue conversations.Head
+
+    let messagesFor query =
+        if query.view = "sent" then
+            initialMessages @ [ { sentMessage with conversation = (currentConversation query).id } ]
+        else
+            initialMessages
 
     let messageHistory conversation messages =
         div {
@@ -1151,16 +1165,6 @@ module PageExamples =
             form {
                 _method "post"
                 _action (url Messaging + "/send?item=" + conversation.id)
-
-                _dataOn (
-                    "submit",
-                    "@post('"
-                    + url Messaging
-                    + "/send?item="
-                    + conversation.id
-                    + "', {contentType:'form'})"
-                )
-
                 _class "grid shrink-0 gap-3 border-t border-[var(--fve-border)] bg-[var(--fve-surface)] p-4"
 
                 let field =
@@ -1183,8 +1187,8 @@ module PageExamples =
                         _role "status"
                         _class "text-xs text-[var(--fve-muted-text)]"
 
-                        if messages.Length > initialMessages.Length then
-                            "Message saved in this demo session."
+                        if query.view = "sent" then
+                            "Message accepted. This deterministic example does not retain submitted text."
                         else
                             "Only participants in this conversation can see your reply."
                     }
@@ -1197,8 +1201,14 @@ module PageExamples =
             }
         }
 
-    let messaging query messages =
+    let messaging query =
         let current = currentConversation query
+        let messages = messagesFor query
+        let error =
+            match query.view with
+            | "message-empty" -> Some "Enter a message before sending."
+            | "message-too-long" -> Some "Keep your message under 2,000 characters."
+            | _ -> None
 
         let destination id =
             queryUrl Messaging { defaultQuery with item = id }
@@ -1231,7 +1241,7 @@ module PageExamples =
             Html.section {
                 _ariaLabel "Current conversation"
                 _class "h-full min-h-0"
-                conversationPanel query messages "" None
+                conversationPanel query messages "" error
             }
 
         let page =
@@ -1536,6 +1546,19 @@ module PageExamples =
             alt = "Solid violet background"
             eventId = "lesson-201" } ]
 
+    let uploadedPhoto =
+        { id = "photo-uploaded"
+          name = "Uploaded fixture preview"
+          source = "/images/page-examples/violet.png"
+          alt = "Solid violet background used for the upload success fixture"
+          eventId = "" }
+
+    let photosFor query =
+        if query.item = uploadedPhoto.id || query.view = "uploaded" then
+            initialPhotos @ [ uploadedPhoto ]
+        else
+            initialPhotos
+
     let mediaEditor (photo: WorkspacePhoto) (feedback: string) =
         div {
             _id "media-editor"
@@ -1558,7 +1581,6 @@ module PageExamples =
             form {
                 _method "post"
                 _action (url MediaManagement + "/save?item=" + photo.id)
-                _attr ("enctype", "multipart/form-data")
                 _class "grid content-start gap-5"
 
                 Input.create "name" "Photo name"
@@ -1574,12 +1596,6 @@ module PageExamples =
                 |> Textarea.required
                 |> Textarea.withAttributes [ _maxlength 500 ]
                 |> Textarea.render
-
-                FileSelection.create "photo-replacement" "image" "Replace photograph"
-                |> FileSelection.withAccept "image/jpeg,image/png,image/webp"
-                |> FileSelection.withDescription
-                    "JPEG, PNG or WebP, up to 2 MB. Stored only in this temporary demo session."
-                |> FileSelection.render
 
                 div {
                     _role "status"
@@ -1604,48 +1620,52 @@ module PageExamples =
             }
         }
 
-    let mediaManagement query photos =
+    let mediaManagement query =
+        let photos = photosFor query
         let selected =
             photos |> List.tryFind (fun (photo: WorkspacePhoto) -> photo.id = query.item)
 
-        let uploadForm =
-            form {
-                _id "media-upload-form"
-                _method "post"
-                _action (url MediaManagement + "/upload")
-                _attr ("enctype", "multipart/form-data")
+        let uploadBody =
+            div {
                 _class "grid gap-5"
 
-                Input.create "name" "Photo name"
-                |> Input.withId "media-upload-name"
-                |> Input.required
-                |> Input.withAttributes [ _maxlength 120 ]
-                |> Input.render
+                form {
+                    _id "media-upload-form"
+                    _method "post"
+                    _action (url MediaManagement + "/upload")
+                    _class "grid gap-5"
 
-                Textarea.create "alt" "Image description"
-                |> Textarea.withId "media-upload-description"
-                |> Textarea.withRows 3
-                |> Textarea.required
-                |> Textarea.withAttributes [ _maxlength 500 ]
-                |> Textarea.render
+                    Input.create "name" "Photo name"
+                    |> Input.withId "media-upload-name"
+                    |> Input.required
+                    |> Input.withAttributes [ _maxlength 120 ]
+                    |> Input.render
+
+                    Textarea.create "alt" "Image description"
+                    |> Textarea.withId "media-upload-description"
+                    |> Textarea.withRows 3
+                    |> Textarea.required
+                    |> Textarea.withAttributes [ _maxlength 500 ]
+                    |> Textarea.render
+
+                    if query.view = "upload-error" then
+                        p {
+                            _role "alert"
+                            _class "text-sm text-[var(--fve-critical-text)]"
+                            "Provide a name and image description."
+                        }
+                }
 
                 FileSelection.create "media-upload-image" "image" "Photograph"
                 |> FileSelection.withAccept "image/jpeg,image/png,image/webp"
                 |> FileSelection.withDescription
-                    "Up to 2 MB. A maximum of four uploads per temporary demo session."
+                    "Selected files stay in your browser. This documentation fixture never submits or stores their contents."
                 |> FileSelection.render
-
-                if query.view = "upload-error" then
-                    p {
-                        _role "alert"
-                        _class "text-sm text-[var(--fve-critical-text)]"
-                        "Provide a name, description and a valid image within the upload limits."
-                    }
             }
 
         let uploadDrawer =
-            Drawer.create "media-upload-drawer" "Upload photograph" uploadForm
-            |> Drawer.withDescription "Add an image to this temporary session library."
+            Drawer.create "media-upload-drawer" "Upload photograph" uploadBody
+            |> Drawer.withDescription "Review a safe upload workflow using a repository-owned success fixture."
             |> Drawer.withInitialFocus "media-upload-name"
             |> Drawer.withFooter (
                 fragment {
@@ -1677,10 +1697,12 @@ module PageExamples =
             | Some photo ->
                 mediaEditor
                     photo
-                    (if query.view = "saved" then
-                         "Changes saved to this demo session."
+                    (if query.view = "uploaded" then
+                         "Demo image added. The selected local file was not submitted."
+                     elif query.view = "saved" then
+                         "Changes validated. This resettable example continues to use seeded metadata."
                      elif query.view = "invalid" then
-                         "Check the name and description. Images must be JPEG, PNG or WebP and no larger than 2 MB."
+                         "Check the name and description. Submitted values are not retained."
                      else
                          ""),
                 photo.name
@@ -1723,27 +1745,32 @@ module PageExamples =
             actions
             (stateContent MediaManagement query content)
 
-    let product page query messages photos =
+    let product page query =
         match page with
         | DependencyGraph -> dependencyGraph query
         | ExecutionDetail -> executionDetail query
         | FinancialReporting -> financialReporting query
-        | Messaging -> messaging query messages
+        | Messaging -> messaging query
         | Operations -> operations query
         | Scheduling -> scheduling query
-        | MediaManagement -> mediaManagement query photos
+        | MediaManagement -> mediaManagement query
 
-    let preview page query messages photos =
-        let frame =
-            div {
-                _class "h-[44rem]"
-                product page query messages photos
-            }
-            |> Browser.create
-            |> Browser.withAddress ("https://workspace.example.test/" + slug page)
-            |> Browser.withAppMode "page-workspace" (title page)
-            |> Browser.render
+    let fixture page query =
+        div {
+            _class "h-[44rem]"
+            product page query
+        }
+        |> Browser.create
+        |> Browser.withAddress ("https://fve.meiermade.com" + queryUrl page query)
+        |> Fixture.browser "page-workspace" (title page) (queryUrl page query)
+        |> Fixture.withStates
+            [ for state, label in reviewStates page ->
+                  FixtureState.create label (queryUrl page { query with state = state })
+                  |> fun item ->
+                      if state = query.state then FixtureState.current item
+                      else item ]
 
+    let preview page query =
         div {
             _attr ("data-page-example-preview", "true")
             // URL-backed review tabs remain outside the product and preserve shareable state.
@@ -1765,16 +1792,7 @@ module PageExamples =
                 }
             }
 
-            Fixture.create "page-workspace" frame
-            |> Fixture.withStates
-                [ for state, label in reviewStates page ->
-                      FixtureState.create label (queryUrl page { query with state = state })
-                      |> fun item ->
-                          if state = query.state then
-                              FixtureState.current item
-                          else
-                              item ]
-            |> Fixture.render
+            fixture page query |> Fixture.render
         }
 
     let source page =
@@ -1825,11 +1843,13 @@ module PageExamples =
                   "Message"
                   "conversations"
                   "initialMessages"
+                  "sentMessage"
                   "currentConversation"
+                  "messagesFor"
                   "messageHistory"
                   "conversationPanel"
                   "messaging" ],
-                "messaging defaultQuery initialMessages"
+                "messaging defaultQuery"
             | Operations ->
                 [ "ScheduledEvent"; "scheduledEvents"; "eventUrl"; "eventTable"; "operations" ],
                 "operations defaultQuery"
@@ -1840,15 +1860,21 @@ module PageExamples =
                   "eventUrl"
                   "WorkspacePhoto"
                   "initialPhotos"
+                  "uploadedPhoto"
+                  "photosFor"
                   "mediaEditor"
                   "mediaManagement" ],
-                "mediaManagement defaultQuery initialPhotos"
+                "mediaManagement defaultQuery"
 
         let text =
             SourceRegion.readEmbedded (typeof<DocPage>.Assembly) "Docs.Pages.PageExamples.fs"
 
-        "open System\nopen FSharp.ViewEngine\nopen FSharp.ViewEngine.Components.Primitives\nopen FSharp.ViewEngine.Components.Application\nopen type Html\nopen type Svg\nopen type Datastar\n\n"
+        "open System\nopen FSharp.ViewEngine\nopen Acme.Components.Primitives\nopen Acme.Components.Application\nopen Acme.Components.Documentation\nopen type Html\nopen type Svg\nopen type Datastar\n\n"
         + SourceRegion.declarations (common @ declarations) text
         + "\n\ndiv { _class \"h-[44rem]\"; "
         + usage
-        + " }\n|> Browser.create\n|> Browser.withAddress \"https://workspace.example.test\"\n|> Browser.withAppMode \"page-workspace\" \"Workspace\"\n|> Browser.render"
+        + " }\n|> Browser.create\n|> Browser.withAddress \"https://fve.meiermade.com"
+        + queryUrl page defaultQuery
+        + "\"\n|> Fixture.browser \"page-workspace\" \"Workspace\" \""
+        + queryUrl page defaultQuery
+        + "\"\n|> Fixture.render"

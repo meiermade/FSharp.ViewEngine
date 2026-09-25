@@ -2,22 +2,27 @@
 
 Accessible, server-rendered Tailwind components for [FSharp.ViewEngine](https://www.nuget.org/packages/FSharp.ViewEngine), with Datastar as the interaction model.
 
-## Install
+## Install consumer-owned source
+
+Pin the CLI in a repository-local tool manifest, initialize a Components project, and add selected components:
 
 ```shell
-dotnet add package FSharp.ViewEngine.Components
+dotnet new tool-manifest
+dotnet tool install FSharp.ViewEngine.Cli
+dotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components
+dotnet fve add button text-field --config src/Acme.Components/fve.json
 ```
 
-The package declares its minimum compatible `FSharp.ViewEngine` version. Components and the engine are versioned independently. Documentation now lives in this assembly; no new `FSharp.ViewEngine.Docs` package is produced.
+Global tool installation remains supported. The generated project references `FSharp.ViewEngine` normally; selected component source and transitive dependencies are copied in deterministic F# compile order and owned by the consumer. `fve diff` compares local files with the pinned tool registry without silently replacing edits.
 
-The unified library currently supplies **Primitives**, **Application**, and **Documentation**. Primitives supplies shared controls, themes, actions and sections; Application supplies pages, shells and collection/detail compositions; [Documentation](Documentation/README.md) supplies authoring, navigation and preview mechanics. Marketing and Ecommerce will be added when their reusable components and connected examples are implemented.
+This repository still compiles the same canonical source as `FSharp.ViewEngine.Components` so Docs and tests exercise the exact implementation distributed by `fve`. The source supplies **Primitives**, **Application**, and **Documentation**. Primitives supplies shared controls, themes, actions and sections; Application supplies pages, shells and collection/detail compositions; [Documentation](Documentation/README.md) supplies authoring, navigation and preview mechanics.
 
 ## Render a component
 
 ```fsharp
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Components.Primitives
-open FSharp.ViewEngine.Components.Application
+open Acme.Components.Primitives
+open Acme.Components.Application
 
 let createButton =
     Button.create "Create account"
@@ -42,16 +47,18 @@ div {
 
 ## Tailwind CSS 4
 
-The NuGet package includes `FSharp.ViewEngine.Components.tailwind.css` under `contentFiles/any/any`. Copy that manifest into the application’s CSS source tree and import it after Tailwind:
+Tailwind scans the copied F# project directly. Import the generated structural/token CSS and point source detection at the owned files:
 
 ```css
-@import "tailwindcss";
-@import "./FSharp.ViewEngine.Components.tailwind.css";
+@import "tailwindcss" source(none);
+@import "./src/Acme.Components/Components/FSharp.ViewEngine.Components.css";
+@source "./src/Acme.Components/Components/**/*.fs";
+@source "./src/Acme.Web/**/*.fs";
 ```
 
-Documentation consumers additionally import `Documentation/Documentation.tailwind.css` from the same package. Hosts using `Browser.withAppMode` or `Phone.withAppMode` additionally import `AppMode.tailwind.css`; the base manifest retains static Browser and Phone styling but excludes the optional viewer. Product pages do not import optional Documentation or App-mode assets unless they use those capabilities. See [Documentation installation and migration](Documentation/README.md).
+Consumers that add `documentation` also import the copied `Components/Documentation/Documentation.tailwind.css`. That stylesheet owns the server-rendered Fixture App-mode presentation; there is no separate App-mode stylesheet or runtime. The base stylesheet retains only semantic token defaults and structural behavior that utilities cannot express clearly. See [Documentation installation and migration](Documentation/README.md).
 
-The manifest contains the renderer-owned utility inventory and semantic CSS variables. Applications may override semantic variables in their own theme class without replacing component markup:
+Applications may override supported semantic variables in their own theme class without replacing component markup:
 
 ```css
 .acme-theme {
@@ -88,19 +95,23 @@ div {
 
 ## Product frames
 
-`Browser` and `Phone` are Primitives for rendering consumer-owned product HTML in browser and device treatments. `Browser.withAppMode` and `Phone.withAppMode` opt a named frame into the optional expanded viewer; they do not add Documentation dependencies or product behavior. Compose `Documentation.Fixture` only when a documentation or Spec host needs review workflow destinations and alternate states.
+`Browser` and `Phone` are static Primitives for rendering consumer-owned product HTML in browser and device treatments. Compose `Documentation.Fixture` when a documentation or Spec host needs a URL-backed fullscreen presentation, workflow destinations, or alternate review states.
 
 ```fsharp
-open FSharp.ViewEngine.Components.Primitives
+open Acme.Components.Primitives
+open Acme.Components.Documentation
 
-let browser =
+let shippingPath = "/docs/components/fixture?fixtureStep=shipping&fixtureState=ready"
+
+let checkout =
     Browser.create checkoutScreen
-    |> Browser.withAddress "https://shop.example.test/checkout/shipping"
-    |> Browser.withAppMode "checkout-shipping" "Shipping address"
-    |> Browser.render
+    |> Browser.withAddress ("https://fve.meiermade.com" + shippingPath)
+    |> Fixture.browser "checkout-shipping" "Shipping address" shippingPath
+
+let embedded = Fixture.render checkout
 ```
 
-Hosts that opt into App mode import the packaged `AppMode.tailwind.css` after the base manifest and serve the packaged `app-mode.js` once with `Browser.script`; see the [Browser, Phone, and Fixture guide](Documentation/README.md#browser-phone-and-fixture-app-mode) for the optional CSS/runtime and Fixture composition contract.
+The host registers `checkout` with `DocumentationPage.withFixtures` and selects `Fullscreen appMode` with `Document.withRenderMode` from request query state. Datastar then patches between the complete documentation body and the server-rendered fullscreen fixture; see the [Browser, Phone, and Fixture guide](Documentation/README.md#browser-phone-and-fixture-app-mode).
 
 ## Foundations
 
@@ -292,7 +303,7 @@ Applications own authorization, durable workflow state, validation, and the trus
 
 `Primitives.Calendar` renders four focused views: a Monday-first Month grid, minute-positioned Day and Week timelines with separate lanes for overlapping events, and a Year overview of twelve compact months. Day, Week, and Month reflow to a date-grouped agenda below a 48rem container width; Year stacks its compact months. `Calendar.create label view date events` takes a `DateOnly` anchor, not a display string; ranges are derived from that date. `CalendarEvent.create id title date destination` creates an all-day event; `CalendarEvent.withTime start finish` takes positive same-day `TimeOnly` intervals in whole minutes. Consumers split overnight/multi-day events and resolve time zones before rendering. Calendar does not infer today's date from the server clock: `withToday date destination`, `withSelectedDate` and `withDateDestination` provide explicit consumer-owned date navigation. Previous/next/view destinations remain real links. In Year, only dates containing events become date-destination links, keeping the overview’s keyboard focus order bounded; Day, Week, and Month retain direct event-detail links. Empty, loading, error/retry and unavailable presentation suppress stale event actions. Applications own time zones, recurrence, collision policy, fetching, and route state. Labels currently use invariant English and weeks start on Monday; this bounded renderer is not a localization or scheduling engine. `MediaLibrary` renders native repeated selection values, descriptive images, and stable selection events compatible with `BulkActions`; applications own storage, transformations, save operations, and media authorization.
 
-Each consumer-facing component has a dedicated catalog page for its focused variants and copyable code. App shell teaches layout with minimal content. Reference-backed account management, dependency graph, execution detail, financial reporting, messaging, operations, scheduling and media workflows live under **Page examples**. They compose shared components with contained SVG and visible list/table alternatives rather than introducing universal graph, chart, or messaging engines. Docs-only handlers provide bounded, cookie-isolated temporary state; applications own their actual persistence, authorization, transport and image licensing.
+Each consumer-facing component has a dedicated catalog page for its focused variants and copyable code. App shell teaches layout with minimal content. Reference-backed account management, dependency graph, execution detail, financial reporting, messaging, operations, scheduling and media workflows live under **Page examples**. They compose shared components with contained SVG and visible list/table alternatives rather than introducing universal graph, chart, or messaging engines. The Docs host uses seeded, URL-backed fixture states and deterministic form responses rather than cookies or temporary persistence. Selected files remain browser-local and are never parsed, stored, or served by the Docs application; applications own their actual persistence, authorization, transport, upload security, and image licensing.
 
 ## Navigation and page composition
 

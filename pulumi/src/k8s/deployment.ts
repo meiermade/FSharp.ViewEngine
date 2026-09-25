@@ -66,7 +66,7 @@ export const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                     'fve.meiermade.com/release-commit': config.releaseCommit,
                     'fve.meiermade.com/release-image': image.imageRef,
                     'fve.meiermade.com/core-version': config.releaseMetadata.coreVersion,
-                    'fve.meiermade.com/components-version': config.releaseMetadata.componentsVersion,
+                    'fve.meiermade.com/cli-version': config.releaseMetadata.cliVersion,
                 },
             },
             spec: {
@@ -88,8 +88,8 @@ export const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                             { name: 'RELEASE_IMAGE', value: image.imageRef },
                             { name: 'CORE_PACKAGE_VERSION', value: config.releaseMetadata.coreVersion },
                             { name: 'CORE_PACKAGE_TAG', value: config.releaseMetadata.coreTag },
-                            { name: 'COMPONENTS_PACKAGE_VERSION', value: config.releaseMetadata.componentsVersion },
-                            { name: 'COMPONENTS_PACKAGE_TAG', value: config.releaseMetadata.componentsTag },
+                            { name: 'CLI_PACKAGE_VERSION', value: config.releaseMetadata.cliVersion },
+                            { name: 'CLI_PACKAGE_TAG', value: config.releaseMetadata.cliTag },
                         ],
                         resources: {
                             requests: { cpu: '25m', memory: '64Mi' },

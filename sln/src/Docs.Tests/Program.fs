@@ -14,6 +14,7 @@ open type Html
 open type Datastar
 open Docs.Common
 open Docs.Pages
+open Docs.Web
 
 let private docsTailwindManifest () =
     Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components", "Documentation", "Documentation.tailwind.css"))
@@ -26,12 +27,12 @@ type private ShellTestDestination =
     | Reports
     | Settings
 
-let private mutationStatus (origin:string) (contentType:string) contentLength =
+let private mutationStatus path (origin:string) (contentType:string) contentLength =
     let context = DefaultHttpContext()
     context.Request.Method <- HttpMethods.Post
     context.Request.Scheme <- "https"
     context.Request.Host <- HostString "fve.meiermade.com"
-    context.Request.Path <- PathString "/components/page-examples/messaging/send"
+    context.Request.Path <- PathString path
     context.Request.QueryString <- QueryString "?item=beach"
     context.Request.Headers.Origin <- origin
     context.Request.ContentType <- contentType
@@ -40,6 +41,31 @@ let private mutationStatus (origin:string) (contentType:string) contentLength =
     let next : HttpFunc = fun current -> task { return Some current }
     Handler.postRoutes next context |> Async.AwaitTask |> Async.RunSynchronously |> ignore
     context.Response.StatusCode
+
+let private postForm (reference:string) (fields:(string * string) list) =
+    let uri = Uri(Uri "https://fve.meiermade.com", reference)
+    let body =
+        fields
+        |> List.map (fun (key, value) -> Uri.EscapeDataString key + "=" + Uri.EscapeDataString value)
+        |> String.concat "&"
+        |> Text.Encoding.UTF8.GetBytes
+    let context = DefaultHttpContext()
+    context.Request.Method <- HttpMethods.Post
+    context.Request.Scheme <- uri.Scheme
+    context.Request.Host <- HostString uri.Host
+    context.Request.Path <- PathString uri.AbsolutePath
+    context.Request.QueryString <- QueryString uri.Query
+    context.Request.Headers.Origin <- "https://fve.meiermade.com"
+    context.Request.Headers.Referer <- Microsoft.Extensions.Primitives.StringValues("https://fve.meiermade.com" + uri.PathAndQuery)
+    context.Request.ContentType <- "application/x-www-form-urlencoded"
+    context.Request.ContentLength <- Nullable(int64 body.Length)
+    context.Request.Body <- new MemoryStream(body)
+    context.Response.Body <- new MemoryStream()
+    let next : HttpFunc = fun current -> task { return Some current }
+    Handler.postRoutes next context |> Async.AwaitTask |> Async.RunSynchronously |> ignore
+    context.Response.Body.Position <- 0L
+    use reader = new StreamReader(context.Response.Body)
+    context.Response.StatusCode, context.Response.Headers.Location.ToString(), context.Response.Headers.SetCookie.ToString(), reader.ReadToEnd()
 
 let private shellTestUrl = function
     | Home -> "/"
@@ -50,7 +76,7 @@ let private shellTestUrl = function
 
 let private expectedPaths = Registry.all |> List.map _.path |> set
 
-let private routeStatus (reference:string) =
+let private routeResponse (reference:string) =
     let uri = Uri(Uri "https://fve.meiermade.com", reference)
     let context = DefaultHttpContext()
     context.Request.Method <- HttpMethods.Get
@@ -61,7 +87,12 @@ let private routeStatus (reference:string) =
     context.Response.Body <- new MemoryStream()
     let next : HttpFunc = fun current -> task { return Some current }
     let result = Handler.routes next context |> Async.AwaitTask |> Async.RunSynchronously
-    if result.IsSome then context.Response.StatusCode else 404
+    context.Response.Body.Position <- 0L
+    use reader = new StreamReader(context.Response.Body)
+    let body = reader.ReadToEnd()
+    (if result.IsSome then context.Response.StatusCode else 404), body
+
+let private routeStatus reference = routeResponse reference |> fst
 
 let private referenceStatus (reference:string) =
     let uri = Uri(Uri "https://fve.meiermade.com", reference)
@@ -75,52 +106,58 @@ let private referenceStatus (reference:string) =
 let tests =
     testList "Direct F# documentation" [
         testCase "page-example mutation boundaries reject foreign origins, unsupported forms, and oversized bodies" <| fun _ ->
-            Expect.equal (mutationStatus "https://foreign.example" "application/x-www-form-urlencoded" 10L) 403 "foreign origin"
-            Expect.equal (mutationStatus "https://fve.meiermade.com" "application/json" 10L) 415 "unsupported content type"
-            Expect.equal (mutationStatus "https://fve.meiermade.com" "application/x-www-form-urlencoded" 3_000_001L) 413 "request limit"
+            let path = "/components/page-examples/messaging/send"
+            Expect.equal (mutationStatus path "https://foreign.example" "application/x-www-form-urlencoded" 10L) 403 "foreign origin"
+            Expect.equal (mutationStatus path "https://fve.meiermade.com" "application/json" 10L) 415 "unsupported content type"
+            Expect.equal (mutationStatus path "https://fve.meiermade.com" "application/x-www-form-urlencoded" 3_000_001L) 413 "request limit"
 
-        testCase "page-example messages validate and retain conversation identity" <| fun _ ->
-            let initial = PageExampleSession.get (Microsoft.AspNetCore.Http.DefaultHttpContext())
-            let unchanged, empty = PageExampleSession.send "beach" "  " initial
-            Expect.isError empty "Whitespace is not a message."
-            Expect.equal unchanged.messages initial.messages "Rejected input must not mutate the fixture."
-            let updated, sent = PageExampleSession.send "beach" "  Meet at the east entrance.  " initial
-            Expect.isOk sent "A valid message is accepted."
-            Expect.equal updated.messages.Length (initial.messages.Length + 1) "Exactly one message is added."
-            Expect.equal (List.last updated.messages).conversation "beach" "Conversation ownership is retained."
-            for message in updated.messages |> List.filter _.outgoing do
-                Expect.equal message.author "Andy Meier" "Seeded and newly sent messages use the logged-in example user."
-            Expect.equal (List.last updated.messages).body "Meet at the east entrance." "Submitted text is trimmed."
-            Expect.isError (PageExampleSession.send "unknown" "Hello" initial |> snd) "Unknown conversations are rejected."
-            Expect.isError (PageExampleSession.send "beach" (String('x', 2001)) initial |> snd) "Message length is bounded."
+        testCase "page-example messages use finite URL-backed outcomes without retaining submitted text" <| fun _ ->
+            let emptyStatus, emptyLocation, emptyCookie, _ = postForm "/components/page-examples/messaging/send?item=beach" [ "message", "  " ]
+            Expect.equal emptyStatus 302 "Whitespace submissions redirect to a finite validation state."
+            Expect.stringContains emptyLocation "view=message-empty" "The validation state is URL-backed."
+            Expect.equal emptyCookie "" "The example does not create a session cookie."
 
-        testCase "page-example image quotas permit replacement without accumulating old bytes" <| fun _ ->
-            let initial = PageExampleSession.get (Microsoft.AspNetCore.Http.DefaultHttpContext())
-            Expect.isNone (PageExampleSession.imageFromBytes (Text.Encoding.UTF8.GetBytes "<svg/>")) "Active image formats are rejected."
-            Expect.isNone (PageExampleSession.imageFromBytes (Array.zeroCreate 2_000_001)) "Uploads are size-bounded."
-            let bytes = Array.zeroCreate<byte> 2_000_000
-            Array.blit [|137uy;80uy;78uy;71uy;13uy;10uy;26uy;10uy|] 0 bytes 0 8
-            let image = PageExampleSession.imageFromBytes bytes
-            let full =
-                [1..4] |> List.fold (fun session index ->
-                    let updated, saved = PageExampleSession.savePhoto "new" $"Photo {index}" "Fixture image" image session
-                    Expect.isSome saved "Four uploads fit the bounded fixture."
-                    updated) initial
-            Expect.isNone (PageExampleSession.savePhoto "new" "Extra" "Fixture" image full |> snd) "A fifth upload is rejected."
-            let selected = List.last full.photos
-            let replaced, saved = PageExampleSession.savePhoto selected.id "Replacement" "Updated fixture" image full
-            Expect.isSome saved "Replacement reclaims the previous image's bytes."
-            Expect.equal replaced.images.Count 4 "Replacement does not retain the old blob."
-            Expect.equal (replaced.photos |> List.find (fun photo -> photo.id = selected.id) |> _.name) "Replacement" "Replacement updates the selected photo."
+            let marker = "private-message-should-not-be-retained"
+            let sentStatus, sentLocation, sentCookie, _ = postForm "/components/page-examples/messaging/send?item=beach" [ "message", marker ]
+            Expect.equal sentStatus 302 "Valid submissions redirect to the deterministic sent state."
+            Expect.stringContains sentLocation "view=sent" "The sent state is URL-backed."
+            Expect.equal sentCookie "" "The example does not create a session cookie."
+            let status, html = routeResponse sentLocation
+            Expect.equal status 200 "The deterministic state is directly renderable."
+            Expect.stringContains html "Meet at the east entrance 15 minutes before we leave." "The authored sent fixture is rendered."
+            Expect.isFalse (html.Contains marker) "Submitted message text is not retained or reflected."
 
-        testCase "page-example accounts reject duplicate seeded and created names" <| fun _ ->
-            let initial = PageExampleSession.get (Microsoft.AspNetCore.Http.DefaultHttpContext())
-            Expect.isNone (PageExampleSession.createAccount "Operating checking" "Asset" initial |> snd) "Seeded account names are reserved."
-            let updated, created = PageExampleSession.createAccount "Equipment reserve" "Asset" initial
-            Expect.isSome created "New account is created."
-            Expect.isNone (PageExampleSession.createAccount "equipment reserve" "Asset" updated |> snd) "Names are unique ignoring case."
-            Expect.isNone (PageExampleSession.createAccount "Other" "invalid" updated |> snd) "Unknown account types are rejected."
-            Expect.isFalse (PageExampleSession.saveSettings " " true updated |> snd) "Blank workspace names are rejected."
+        testCase "page-example media never accepts file bodies and uses a repository fixture" <| fun _ ->
+            Expect.equal (mutationStatus "/components/page-examples/media-management/upload" "https://fve.meiermade.com" "multipart/form-data; boundary=fixture" 128L) 415 "Multipart bodies are rejected before form parsing."
+            let marker = "private-upload-name.png"
+            let status, location, cookie, _ = postForm "/components/page-examples/media-management/upload" [ "name", marker; "alt", "Private upload description" ]
+            Expect.equal status 302 "Metadata-only submission reaches the deterministic success state."
+            Expect.stringContains location "item=photo-uploaded" "The repository fixture has a stable authored identity."
+            Expect.stringContains location "view=uploaded" "The success state is URL-backed."
+            Expect.equal cookie "" "The example does not create a session cookie."
+            let renderedStatus, html = routeResponse location
+            Expect.equal renderedStatus 200 "The success fixture is directly renderable."
+            Expect.stringContains html "/images/page-examples/violet.png" "The result uses a repository-owned asset."
+            Expect.isFalse (html.Contains marker) "Submitted metadata is not retained or reflected."
+            Expect.equal (routeStatus "/components/page-examples/images/untrusted") 404 "There is no temporary image-serving route."
+
+        testCase "page-example accounts and settings return deterministic validation states" <| fun _ ->
+            let marker = "Private account value"
+            let accountStatus, accountLocation, accountCookie, _ = postForm "/components/page-examples/account-management/create" [ "name", marker; "accountType", "Asset" ]
+            Expect.equal accountStatus 302 "A valid account form redirects."
+            Expect.stringContains accountLocation "view=account-created" "Account success is a finite URL state."
+            Expect.equal accountCookie "" "Account submission does not create a session cookie."
+            let _, accountHtml = routeResponse accountLocation
+            Expect.stringContains accountHtml "does not create or retain records" "The resettable result is explicit."
+            Expect.isFalse (accountHtml.Contains marker) "Submitted account values are not retained or reflected."
+
+            let settingsStatus, settingsLocation, settingsCookie, _ = postForm "/components/page-examples/account-management/settings" [ "workspaceName", "Private workspace value" ]
+            Expect.equal settingsStatus 302 "A valid settings form redirects."
+            Expect.stringContains settingsLocation "view=settings-saved" "Settings success is a finite URL state."
+            Expect.equal settingsCookie "" "Settings submission does not create a session cookie."
+            let _, settingsHtml = routeResponse settingsLocation
+            Expect.stringContains settingsHtml "does not retain submitted values" "The resettable result is explicit."
+            Expect.isFalse (settingsHtml.Contains "Private workspace value") "Submitted settings are not retained or reflected."
 
         test "Operational components retain native form and accessible state contracts" {
             let files =
@@ -257,14 +294,14 @@ let tests =
                 Input.create "email" "Email address"
                 |> Input.withId "customer-email"
                 |> Input.withType InputType.Email
-                |> Input.withValue "<customer@example.test>"
+                |> Input.withValue "<customer@fve.meiermade.com>"
                 |> Input.withDescription "For correspondence."
                 |> Input.withValidation "Enter a valid address."
                 |> Input.required
                 |> Input.withAttributes [ _id "wrong"; _type "hidden"; _name "wrong"; _value "wrong"; _autocomplete "email"; _ariaInvalid false; _role "wrong"; _ariaLabel "wrong"; _ariaLabelledby "wrong" ]
             let html = config |> Input.render |> Render.toString
             Expect.equal (Input.id config) "customer-email" "explicit ID is the actual focus target"
-            for expected in [ "type=\"email\""; "name=\"email\""; "value=\"&lt;customer@example.test&gt;\""; "for=\"customer-email\""; "aria-invalid=\"true\""; "autocomplete=\"email\""; "aria-describedby=\"customer-email-description customer-email-validation\"" ] do
+            for expected in [ "type=\"email\""; "name=\"email\""; "value=\"&lt;customer@fve.meiermade.com&gt;\""; "for=\"customer-email\""; "aria-invalid=\"true\""; "autocomplete=\"email\""; "aria-describedby=\"customer-email-description customer-email-validation\"" ] do
                 Expect.stringContains html expected "native field contract"
             Expect.isFalse (html.Contains("wrong")) "reserved overrides are removed"
             Expect.isFalse (html.Contains("role=\"alert\"")) "inline descriptions do not duplicate summary announcements"
@@ -293,14 +330,14 @@ let tests =
 
         test "Error summaries use exact focus targets and encode corrective text" {
             let html =
-                ErrorSummary.create "validation-errors" "Check details" [ FieldError.create "contact:email" "Email" "Use <name@example.test>." ]
+                ErrorSummary.create "validation-errors" "Check details" [ FieldError.create "contact:email" "Email" "Use <name@fve.meiermade.com>." ]
                 |> ErrorSummary.focusOnMount
                 |> ErrorSummary.render
                 |> Render.toString
             Expect.stringContains html "role=\"alert\"" "one summary announcement"
             Expect.stringContains html "href=\"#contact%3Aemail\"" "fragment safely encodes the exact control ID"
             Expect.stringContains html "data-init=\"el.focus()\"" "focus is explicitly opt-in at insertion"
-            Expect.stringContains html "Email: Use &lt;name@example.test&gt;." "corrective content is encoded"
+            Expect.stringContains html "Email: Use &lt;name@fve.meiermade.com&gt;." "corrective content is encoded"
             Expect.throws (fun () -> ErrorSummary.create "errors" "Errors" [] |> ignore) "empty summaries are rejected"
         }
 
@@ -366,16 +403,33 @@ let tests =
             Expect.equal (referenceStatus "/not-a-documentation-route") 404 "unknown references remain unresolved"
         }
 
+        test "Fixture workflow destinations render distinct URL-backed states" {
+            for step, state, expected, previous, next in [
+                "cart", "ready", "One item is ready for checkout.", None, Some "Shipping address"
+                "shipping", "validation", "Enter a complete delivery address.", Some "Cart", Some "Payment"
+                "payment", "ready", "Choose a payment method to place the order.", Some "Shipping address", None ] do
+                let status, html = routeResponse $"/docs/components/fixture?fixtureStep={step}&fixtureState={state}&fveAppMode=app&fveAppFrame=checkout-workflow"
+                Expect.equal status 200 $"{step} fixture status"
+                Expect.stringContains html expected $"{step} fixture content"
+                Expect.stringContains html $"fixtureStep={step}&amp;fixtureState={state}" $"{step} address and review state"
+                match previous with
+                | Some label -> Expect.stringContains html $"aria-label=\"Previous: {label}\"" $"{step} previous destination"
+                | None -> Expect.isFalse (html.Contains("aria-label=\"Previous:")) $"{step} has no previous destination"
+                match next with
+                | Some label -> Expect.stringContains html $"aria-label=\"Next: {label}\"" $"{step} next destination"
+                | None -> Expect.isFalse (html.Contains("aria-label=\"Next:")) $"{step} has no next destination"
+        }
+
         test "Navigation exposes the core learning path before integrations and project pages" {
             Expect.sequenceEqual
                 (Registry.navigation |> List.map _.label)
                 [ "Getting started"; "Core concepts"; "Integrations"; "FSharp.ViewEngine.Components"; "Project" ]
-                "package catalog is nested while Project remains top-level"
+                "component catalog is nested while Project remains top-level"
             let components = Registry.navigation |> List.find (fun section -> section.label = "FSharp.ViewEngine.Components")
             Expect.sequenceEqual
                 (components.sections |> List.map _.label)
                 [ "Guides"; "Primitives"; "Application"; "Documentation" ]
-                "delivered catalog areas belong to the Components package"
+                "delivered catalog areas belong to Components"
 
             let rec findSection label sections =
                 sections
@@ -748,7 +802,7 @@ after"""
                 "collection", "Collection.create"; "detail", "Detail.create"; "app-shell", "AppShell.create" ] do
                 let example = Components.allExamples () |> List.find (fun example -> example.id = "components-" + id)
                 Expect.stringContains example.source api $"{id} shows its component construction"
-                Expect.stringContains example.source "open FSharp.ViewEngine.Components" $"{id} includes imports in its own code"
+                Expect.stringContains example.source "open Acme.Components" $"{id} includes the configured consumer namespace in its own code"
             for example in Components.allExamples () do
                 for forbidden in [ "themedSurface"; "fullBleedThemedSurface"; "themedPreview"; "FSharp.ViewEngine.Docs"; "shellDocumentNavigationAttributes" ] do
                     Expect.isFalse (example.source.Contains forbidden) $"{example.id} excludes Docs-only helper {forbidden}"
@@ -935,7 +989,8 @@ after"""
                 let examples = Components.allExamples ()
                 let samples =
                     examples |> List.mapi (fun index example ->
-                        $"# 1 \"{example.id}.fsx\"\nmodule Example{index} =\n" + (example.source.Split('\n') |> Array.map (fun line -> "    " + line) |> String.concat "\n"))
+                        let repositorySource = example.source.Replace("Acme.Components", "FSharp.ViewEngine.Components", StringComparison.Ordinal)
+                        $"# 1 \"{example.id}.fsx\"\nmodule Example{index} =\n" + (repositorySource.Split('\n') |> Array.map (fun line -> "    " + line) |> String.concat "\n"))
                 let reference (path:string) = "#r @\"" + path.Replace("\"", "\"\"") + "\"\n"
                 let source =
                     reference typeof<Html>.Assembly.Location + reference typeof<Tone>.Assembly.Location
@@ -978,7 +1033,7 @@ after"""
             Expect.equal Showcase.componentRegistrations.Length 6 "six component categories"
             Expect.equal Showcase.pageExampleRegistrations.Length 3 "three page-example categories"
             Expect.stringContains overview "FSharp.ViewEngine.Components.Documentation" "unified namespace overview"
-            Expect.stringContains overview "This documentation site is built with FSharp.ViewEngine.Components.Documentation" "site dogfoods the package"
+            Expect.stringContains overview "compiles the same FSharp.ViewEngine.Components.Documentation source distributed by fve" "site dogfoods canonical source"
             Expect.stringContains overview "Browse components" "component catalog link"
             Expect.stringContains overview "Browse page examples" "page-example catalog link"
             Expect.isFalse (overview.Contains("Example content")) "overview omits the old fixture callout"
@@ -1025,7 +1080,7 @@ after"""
 
             let specification = render Showcase.specificationPageExampleRegistration
             Expect.stringContains specification "role=\"tablist\"" "specification preview uses state tabs"
-            Expect.stringContains specification "spec-browser-frame" "specification preview uses a browser frame"
+            Expect.stringContains specification "data-browser-frame=\"true\"" "specification preview uses a browser frame"
             Expect.stringContains specification "data-docs-preview-src=\"/docs/previews/executable-specification-render-view\"" "specification preview starts from its contained workflow route"
             Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/executable-specification-overview") "isolated specification overview is registered"
             Expect.isTrue (Showcase.previewRoutes.ContainsKey "/docs/previews/executable-specification-render-view") "isolated specification workflow is registered"
@@ -1093,8 +1148,9 @@ after"""
             Expect.stringContains overview "Optional behavior is piped" "configuration policy"
             Expect.stringContains overview "Custom content stays HTML" "slot policy"
             Expect.stringContains overview "Closed choices are typed" "typed variant policy"
-            Expect.stringContains installation "dotnet add package FSharp.ViewEngine.Components" "package installation"
-            Expect.stringContains installation "contentFiles/any/any" "packaged Tailwind manifest location"
+            Expect.stringContains installation "dotnet tool install FSharp.ViewEngine.Cli" "local tool installation"
+            Expect.stringContains installation "dotnet fve init" "consumer-owned project initialization"
+            Expect.stringContains installation "@source &quot;./src/Acme.Components/Components/**/*.fs&quot;" "direct Tailwind source detection"
 
             for registration, html in List.zip componentRegistrations renderedComponents do
                 Expect.stringContains html "docs-gallery-layout" $"{registration.path} uses the gallery layout"
@@ -1120,9 +1176,9 @@ after"""
             Expect.stringContains allHtml "Theming and density" "theme guide"
             Expect.stringContains allHtml "Tailwind CSS setup" "Tailwind setup guide"
             Expect.stringContains allHtml "Application boundaries" "application boundary guidance"
-            Expect.stringContains allHtml "explicit Tailwind v4 source manifest" "Tailwind source manifest"
-            Expect.stringContains allHtml "versions independently" "version policy"
-            Expect.stringContains allHtml "minimum compatible FSharp.ViewEngine" "Core compatibility policy"
+            Expect.stringContains allHtml "Tailwind reads the copied source directly" "Tailwind direct source detection"
+            Expect.stringContains allHtml "repository-local tool manifest pins FSharp.ViewEngine.Cli" "version policy"
+            Expect.stringContains allHtml "conventional Core package dependency" "Core compatibility policy"
             Expect.isFalse (allHtml.Contains("Pre-release contract")) "release-process framing is absent"
             Expect.isFalse (allHtml.Contains("Compiled Call Sites")) "examples are not framed as implementation evidence"
             Expect.isFalse (allHtml.Contains("package-spine task")) "internal task language is absent"
@@ -1878,7 +1934,6 @@ after"""
             Expect.stringContains paginationPage3Html "Showing 51–75 of 184 accounts" "Docs pagination derives its summary from local query state"
             Expect.stringContains paginationPage3Html "aria-current=\"page\" aria-label=\"Page 3, current page\"" "Docs pagination renders the requested current page"
             Expect.stringContains paginationPage3Html "href=\"/components/pagination/page?page=4\"" "Docs pagination links to a targeted local next page"
-            Expect.isFalse (paginationPage3Html.Contains("ledger.example.test")) "Docs pagination does not expose externally fake destinations"
 
             let paginationPage8Html =
                 Components.paginationPageFor 99
@@ -2005,7 +2060,6 @@ after"""
 
             let docsMenuHtml = Components.dropdownMenuRegion false |> Render.toString
             Expect.stringContains docsMenuHtml "href=\"/components/dropdown-menu#components-dropdown-menu\"" "Docs menu uses a real local typed destination"
-            Expect.isFalse (docsMenuHtml.Contains("ledger.example.test")) "Docs menu exposes no fake external destination"
 
             let patchedHtml = Components.patchedDropdownMenuRegion |> Render.toString
             Expect.stringContains patchedHtml "id=\"components-dropdown-menu-region\"" "Docs patch preserves the stable menu region"
@@ -2378,9 +2432,8 @@ after"""
         test "Components Tailwind contract is isolated and CI-proven" {
             let packageDirectory = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components"))
             let manifest = File.ReadAllText(Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.tailwind.css"))
-            let appModeManifest = File.ReadAllText(Path.Combine(packageDirectory, "AppMode.tailwind.css"))
+            let documentationManifest = File.ReadAllText(Path.Combine(packageDirectory, "Documentation", "Documentation.tailwind.css"))
             let consumer = File.ReadAllText(Path.Combine(packageDirectory, "consumer.css"))
-            let appModeConsumer = File.ReadAllText(Path.Combine(packageDirectory, "app-mode.consumer.css"))
             let verification = File.ReadAllText(Path.Combine(packageDirectory, "verify-tailwind.sh"))
             let renderer =
                 Directory.EnumerateFiles(packageDirectory, "*.fs")
@@ -2392,26 +2445,23 @@ after"""
             let docsStyles = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "input.css"))
             let dockerfile = File.ReadAllText(Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "Dockerfile")))
 
-            Expect.stringContains manifest "@source inline(" "package classes use an explicit source manifest"
-            Expect.stringContains manifest "bg-[var(--fve-brand-solid)]" "semantic brand utility is forced"
+            Expect.isFalse (manifest.Contains("@source inline(")) "the base stylesheet has no generated utility safelist"
+            Expect.isFalse (manifest.Contains("bg-[var(--fve-brand-solid)]")) "renderer utilities are discovered from owned F# source"
             Expect.stringContains manifest ".fve-components" "semantic defaults ship with the manifest"
             Expect.stringContains manifest ".dark .fve-components" "dark defaults ship with the manifest"
             Expect.stringContains manifest ".dark .fve-theme-sky" "Sky ships theme-specific dark brand roles"
             Expect.stringContains manifest ".dark .fve-theme-emerald" "Emerald ships theme-specific dark brand roles"
             Expect.stringContains manifest ".dark .fve-theme-cyan" "Cyan ships theme-specific dark brand roles"
             Expect.stringContains manifest ".dark .fve-theme-neutral" "Neutral ships theme-specific dark brand roles"
-            Expect.stringContains manifest ".spec-browser-frame" "static Browser presentation remains in the base manifest"
-            Expect.stringContains manifest ".fve-phone" "static Phone presentation remains in the base manifest"
-            Expect.isFalse (manifest.Contains("AppMode.tailwind.css")) "the base manifest does not import optional App mode"
-            Expect.isFalse (manifest.Contains("data-fve-app-mode-root")) "the base manifest excludes App-mode viewer selectors"
-            Expect.stringContains appModeManifest ".fve-app-mode-launch" "the optional manifest styles the App-mode launcher"
-            Expect.stringContains appModeManifest "data-fve-app-mode-root" "the optional manifest owns viewer selectors"
-            Expect.isFalse (appModeManifest.Contains(".spec-browser-frame")) "static Browser presentation is not coupled to App mode"
-            Expect.isFalse (appModeManifest.Contains(".fve-phone { position: relative")) "static Phone presentation is not coupled to App mode"
+            Expect.isFalse (manifest.Contains(".spec-browser-frame")) "Browser presentation uses static utility classes"
+            Expect.isFalse (manifest.Contains(".fve-phone")) "Phone presentation uses static utility classes"
+            Expect.isFalse (manifest.Contains("data-fve-app-mode-root")) "the base manifest excludes Documentation App-mode selectors"
+            Expect.stringContains documentationManifest ".fve-app-mode-launch" "Documentation styles the Fixture App-mode launcher"
+            Expect.stringContains documentationManifest "data-fve-app-mode-root" "Documentation owns fullscreen Fixture presentation"
             Expect.stringContains manifest "--fve-shell-bar-min-height" "shell bars share one semantic height token"
             Expect.stringContains manifest "input[type=\"search\"]::-webkit-search-cancel-button" "branded Combobox clear action replaces duplicate WebKit search chrome"
-            Expect.stringContains manifest "aria-selected:bg-[var(--fve-surface)]" "segmented Tabs selected surface is forced"
-            Expect.stringContains manifest "aria-selected:border-[var(--fve-brand-solid)]" "underlined Tabs selected border is forced"
+            Expect.stringContains renderer "aria-selected:bg-[var(--fve-surface)]" "segmented Tabs selected surface is static renderer source"
+            Expect.stringContains renderer "aria-selected:border-[var(--fve-brand-solid)]" "underlined Tabs selected border is static renderer source"
             Expect.stringContains renderer "py-[var(--fve-control-padding-block)]" "renderers consume the semantic density token"
             for role in [ "subtle"; "solid"; "hover"; "active"; "text"; "ring" ] do
                 Expect.isGreaterThanOrEqual
@@ -2420,9 +2470,8 @@ after"""
                     $"light and dark theme definitions include brand {role}"
             Expect.stringContains consumer "@import \"tailwindcss\" source(none)" "fixture disables automatic source scanning"
             Expect.stringContains consumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "clean consumer imports only the base contract"
-            Expect.isFalse (consumer.Contains("AppMode.tailwind.css")) "ordinary consumers do not opt into App mode"
-            Expect.stringContains appModeConsumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "App-mode consumer imports the base contract"
-            Expect.stringContains appModeConsumer "@import \"./AppMode.tailwind.css\"" "App-mode consumer explicitly imports the optional contract"
+            Expect.stringContains consumer "@source \"./*.fs\"" "clean consumer scans owned component source"
+            Expect.isFalse (consumer.Contains("Documentation.tailwind.css")) "ordinary component consumers do not opt into Documentation App mode"
             Expect.stringContains consumer ".acme-theme" "consumer override is independent"
             Expect.stringContains consumer "--fve-brand-active" "consumer override includes pressed feedback"
             Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
@@ -2439,10 +2488,9 @@ after"""
             Expect.stringContains verification ".lg\\:grid-cols-3" "verification checks responsive detail columns"
             Expect.stringContains verification ".size-9" "verification checks pagination sizing"
             Expect.stringContains verification ".peer-focus-visible\\:ring-\\[var\\(--fve-critical-ring\\)\\]" "verification checks invalid native-control focus treatment"
-            Expect.stringContains verification "assert_base_excludes '.fve-app-mode-launch'" "verification proves the base output excludes App mode"
-            Expect.stringContains verification "assert_app_mode_output '.fve-app-mode-launch'" "verification proves opted-in output includes App mode"
+            Expect.stringContains verification "assert_base_excludes '.fve-app-mode-launch'" "verification proves base Components exclude Documentation App mode"
             Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
-            Expect.stringContains docsStyles "FSharp.ViewEngine.Components/AppMode.tailwind.css" "repository host explicitly opts into App mode"
+            Expect.isFalse (docsStyles.Contains("AppMode.tailwind.css")) "repository host needs no separate App-mode stylesheet"
             Expect.stringContains docsStyles ".docs-components-preview .fve-components" "Docs owns the example theme adapter"
             Expect.stringContains docsStyles "--fve-page: var(--spec-bg)" "component examples inherit the Docs page surface"
             Expect.stringContains docsStyles "--fve-brand-solid: var(--spec-accent-700)" "component examples use a contrast-safe Docs sky accent"
@@ -2453,25 +2501,8 @@ after"""
             Expect.stringContains docsProject "..\\FSharp.ViewEngine.Components\\FSharp.ViewEngine.Components.fsproj" "Docs consumes Components as a project"
             Expect.isFalse (docsProject.Contains("ComponentsContract.fs")) "Docs does not compile an internal Components implementation"
 
-            let manifestClasses =
-                Regex.Matches(manifest, "@source inline\\(\\\"([^\\\"]*)\\\"\\)")
-                |> Seq.collect (fun matched -> matched.Groups[1].Value.Split(' '))
-                |> Set.ofSeq
-            let ignoredTokens = set [ "No"; "records"; "button"; "submit"; "reset"; "menuitem"; "separator" ]
-            let rendererClasses =
-                renderer.Replace("\r\n", "\n").Split('\n')
-                |> Array.filter (fun line ->
-                    [ "_class"; "Variant."; "Tone."; "ControlSize."; "headerClass"; "cellClass"; "className config.theme" ]
-                    |> List.exists line.Contains)
-                |> Array.collect (fun line ->
-                    Regex.Matches(line, "\"([^\"]*)\"")
-                    |> Seq.collect (fun matched -> matched.Groups[1].Value.Split(' '))
-                    |> Seq.toArray)
-                |> Array.filter (fun token ->
-                    token <> "" && not (token.StartsWith("fve-")) && not (token.StartsWith("spec-")) && not (ignoredTokens.Contains token))
-                |> Set.ofArray
-            let missingClasses = Set.difference rendererClasses manifestClasses
-            Expect.isEmpty missingClasses $"every renderer-owned utility is present in the Tailwind source manifest; missing: {missingClasses}"
+            Expect.stringContains renderer "bg-[var(--fve-brand-solid)]" "renderer keeps complete static semantic utilities"
+            Expect.stringContains renderer "active:bg-[var(--fve-brand-active)]" "renderer keeps complete static state utilities"
         }
 
         test "Datastar docs cover every stable helper and modifier shapes" {

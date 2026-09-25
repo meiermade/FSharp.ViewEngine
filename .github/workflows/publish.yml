@@ -5,11 +5,11 @@ on:
       packages:
         description: Changed package contracts to publish
         required: true
-        default: components
+        default: cli
         type: choice
         options:
           - core
-          - components
+          - cli
           - both
           - docs
       candidateCommit:
@@ -24,8 +24,8 @@ on:
         description: Core version represented by this public Docs snapshot
         required: true
         type: string
-      componentsVersion:
-        description: Components version represented by this public Docs snapshot
+      cliVersion:
+        description: CLI version represented by this public Docs snapshot
         required: true
         type: string
 
@@ -241,22 +241,21 @@ jobs:
         env:
           PACKAGE_SELECTION: ${{ inputs.packages }}
           CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
-          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          CLI_PACKAGE_VERSION: ${{ inputs.cliVersion }}
         run: ./fake.sh ValidateReleaseSelection --single-target
         working-directory: ./sln
       - name: Verify unselected public Core snapshot
-        if: inputs.packages == 'components' || inputs.packages == 'docs'
+        if: inputs.packages == 'cli' || inputs.packages == 'docs'
         env:
           PACKAGE_ID: FSharp.ViewEngine
           PACKAGE_VERSION: ${{ inputs.coreVersion }}
         run: ./fake.sh VerifyPublicPackageSnapshot --single-target
         working-directory: ./sln
-      - name: Verify unselected public Components snapshot
+      - name: Verify unselected public CLI snapshot
         if: inputs.packages == 'core' || inputs.packages == 'docs'
         env:
-          PACKAGE_ID: FSharp.ViewEngine.Components
-          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ inputs.cliVersion }}
         run: ./fake.sh VerifyPublicPackageSnapshot --single-target
         working-directory: ./sln
       - name: Test release source
@@ -304,48 +303,44 @@ jobs:
         run: ./fake.sh RecordPackageChecksums --single-target
         working-directory: ./sln
 
-      - name: Prepare Components package release
-        if: inputs.packages == 'components' || inputs.packages == 'both'
+      - name: Prepare CLI package release
+        if: inputs.packages == 'cli' || inputs.packages == 'both'
         env:
-          PACKAGE_ID: FSharp.ViewEngine.Components
-          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
-          LOCAL_DEPENDENCY_PACKAGE_PATH: ${{ inputs.packages == 'both' && format('{0}/nugets/FSharp.ViewEngine.{1}.nupkg', github.workspace, inputs.coreVersion) || '' }}
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ inputs.cliVersion }}
           MARK_LATEST: false
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/components-release-metadata.json
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/cli-release-metadata.json
         run: ./fake.sh PrepareRelease --single-target
         working-directory: ./sln
-      - name: Pack Components package
-        if: inputs.packages == 'components' || inputs.packages == 'both'
+      - name: Pack CLI package
+        if: inputs.packages == 'cli' || inputs.packages == 'both'
         env:
-          PACKAGE_ID: FSharp.ViewEngine.Components
-          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ inputs.cliVersion }}
+          CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
         run: ./fake.sh Pack --single-target
         working-directory: ./sln
-      - name: Verify Components package
-        if: inputs.packages == 'components' || inputs.packages == 'both'
+      - name: Verify CLI package compatibility
+        if: inputs.packages == 'cli' || inputs.packages == 'both'
         env:
-          PACKAGE_ID: FSharp.ViewEngine.Components
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
+          PACKAGE_ID: FSharp.ViewEngine.Cli
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
-      - name: Stage verified Components release
-        if: inputs.packages == 'components' || inputs.packages == 'both'
+      - name: Stage verified CLI release
+        if: inputs.packages == 'cli' || inputs.packages == 'both'
         env:
-          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/components-release-metadata.json
+          PACKAGE_VERSION: ${{ inputs.cliVersion }}
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/cli-release-metadata.json
         run: |
-          mkdir -p release/components
-          cp "nugets/FSharp.ViewEngine.Components.${PACKAGE_VERSION}.nupkg" release/components/
-          cp "nugets/FSharp.ViewEngine.Components.${PACKAGE_VERSION}.snupkg" release/components/
-          cp "$RELEASE_METADATA_PATH" release/components/release-metadata.json
-      - name: Record Components checksums
-        if: inputs.packages == 'components' || inputs.packages == 'both'
+          mkdir -p release/cli
+          cp "nugets/FSharp.ViewEngine.Cli.${PACKAGE_VERSION}.nupkg" release/cli/
+          cp "$RELEASE_METADATA_PATH" release/cli/release-metadata.json
+      - name: Record CLI checksums
+        if: inputs.packages == 'cli' || inputs.packages == 'both'
         env:
-          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          PACKAGE_ID: FSharp.ViewEngine.Components
-          PACKAGE_DIRECTORY: ${{ github.workspace }}/release/components
+          PACKAGE_VERSION: ${{ inputs.cliVersion }}
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_DIRECTORY: ${{ github.workspace }}/release/cli
         run: ./fake.sh RecordPackageChecksums --single-target
         working-directory: ./sln
 
@@ -355,7 +350,7 @@ jobs:
           CANDIDATE_IMAGE: ${{ needs.candidate.outputs.image }}
           PACKAGE_SELECTION: ${{ inputs.packages }}
           CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
-          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          CLI_PACKAGE_VERSION: ${{ inputs.cliVersion }}
         run: |
           mkdir -p release
           jq -n \
@@ -363,8 +358,8 @@ jobs:
             --arg image "$CANDIDATE_IMAGE" \
             --arg packages "$PACKAGE_SELECTION" \
             --arg coreVersion "$CORE_PACKAGE_VERSION" \
-            --arg componentsVersion "$COMPONENTS_PACKAGE_VERSION" \
-            '{commit:$commit,image:$image,packages:$packages,coreVersion:$coreVersion,componentsVersion:$componentsVersion}' \
+            --arg cliVersion "$CLI_PACKAGE_VERSION" \
+            '{commit:$commit,image:$image,packages:$packages,coreVersion:$coreVersion,cliVersion:$cliVersion}' \
             > release/transaction.json
       - name: Upload verified release bundle
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -444,27 +439,25 @@ jobs:
           MARK_LATEST: true
         run: ./fake.sh VerifyPublishedPackageRelease --single-target
         working-directory: ./sln
-      - name: Publish FSharp.ViewEngine.Components
-        if: inputs.packages == 'components' || inputs.packages == 'both'
+      - name: Publish FSharp.ViewEngine.Cli
+        if: inputs.packages == 'cli' || inputs.packages == 'both'
         env:
           GH_TOKEN: ${{ github.token }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
-          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/components
-          PACKAGE_ID: FSharp.ViewEngine.Components
-          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/cli
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ inputs.cliVersion }}
           MARK_LATEST: false
-          RELEASE_METADATA_PATH: ${{ runner.temp }}/release/components/release-metadata.json
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release/cli/release-metadata.json
         run: ./fake.sh PublishPackageRelease --single-target
         working-directory: ./sln
-      - name: Verify published FSharp.ViewEngine.Components from NuGet.org
-        if: inputs.packages == 'components' || inputs.packages == 'both'
+      - name: Verify published FSharp.ViewEngine.Cli from NuGet.org
+        if: inputs.packages == 'cli' || inputs.packages == 'both'
         env:
-          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/components
-          PACKAGE_ID: FSharp.ViewEngine.Components
-          PACKAGE_VERSION: ${{ inputs.componentsVersion }}
-          COMPONENTS_MINIMUM_CORE_VERSION: ${{ inputs.coreVersion }}
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/cli
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ inputs.cliVersion }}
           MARK_LATEST: false
         run: ./fake.sh VerifyPublishedPackageRelease --single-target
         working-directory: ./sln
@@ -529,30 +522,30 @@ jobs:
         env:
           LEGACY_PRODUCTION_COMMIT: d78cdbdee50bb6940b4e40b18350714e40151fea
           LEGACY_PRODUCTION_CORE_VERSION: 2026.8.2
-          LEGACY_PRODUCTION_COMPONENTS_VERSION: unreleased
+          LEGACY_PRODUCTION_CLI_VERSION: unreleased
         run: |
           pulumi stack export --stack meiermade/fsharp-view-engine/prod > "$RUNNER_TEMP/production-state.json"
           image="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].image][0] // empty' "$RUNNER_TEMP/production-state.json")"
           commit="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].env[] | select(.name == "RELEASE_COMMIT") | .value][0] // empty' "$RUNNER_TEMP/production-state.json")"
           core="$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
-          components="$(pulumi stack output componentsVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
+          cli="$(pulumi stack output cliVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
           redirect="$(pulumi stack output legacyRedirectEnabled --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
           test -n "$image"
           test -n "$commit"
-          if [[ -z "$core" || -z "$components" || -z "$redirect" ]]; then
+          cli="${cli:-$LEGACY_PRODUCTION_CLI_VERSION}"
+          if [[ -z "$core" || -z "$redirect" ]]; then
             test "$commit" = "$LEGACY_PRODUCTION_COMMIT"
             core="${core:-$LEGACY_PRODUCTION_CORE_VERSION}"
-            components="${components:-$LEGACY_PRODUCTION_COMPONENTS_VERSION}"
             redirect="${redirect:-false}"
           fi
           test -n "$core"
-          test -n "$components"
+          test -n "$cli"
           test -n "$redirect"
           {
             echo "image=$image"
             echo "commit=$commit"
             echo "core=$core"
-            echo "components=$components"
+            echo "cli=$cli"
             echo "redirect=$redirect"
           } >> "$GITHUB_OUTPUT"
       - name: Promote exact accepted image without enabling the first redirect
@@ -563,7 +556,7 @@ jobs:
           DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}
           RELEASE_COMMIT: ${{ needs.candidate.outputs.commit }}
           CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
-          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          CLI_PACKAGE_VERSION: ${{ inputs.cliVersion }}
           DISABLE_LEGACY_REDIRECT: ${{ steps.previous.outputs.redirect != 'true' && 'true' || 'false' }}
         with:
           work-dir: ./pulumi
@@ -575,18 +568,18 @@ jobs:
           EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
           EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
           EXPECTED_CORE_VERSION: ${{ inputs.coreVersion }}
-          EXPECTED_COMPONENTS_VERSION: ${{ inputs.componentsVersion }}
+          EXPECTED_CLI_VERSION: ${{ inputs.cliVersion }}
           DEPLOYED_COMMIT: ${{ steps.deploy.outputs.releaseCommit }}
           DEPLOYED_IMAGE: ${{ steps.deploy.outputs.imageDigest }}
           DEPLOYED_ORIGIN: ${{ steps.deploy.outputs.origin }}
           DEPLOYED_CORE_VERSION: ${{ steps.deploy.outputs.coreVersion }}
-          DEPLOYED_COMPONENTS_VERSION: ${{ steps.deploy.outputs.componentsVersion }}
+          DEPLOYED_CLI_VERSION: ${{ steps.deploy.outputs.cliVersion }}
         run: |
           test "$DEPLOYED_COMMIT" = "$EXPECTED_COMMIT"
           test "$DEPLOYED_IMAGE" = "$EXPECTED_IMAGE"
           test "$DEPLOYED_ORIGIN" = 'https://fve.meiermade.com'
           test "$DEPLOYED_CORE_VERSION" = "$EXPECTED_CORE_VERSION"
-          test "$DEPLOYED_COMPONENTS_VERSION" = "$EXPECTED_COMPONENTS_VERSION"
+          test "$DEPLOYED_CLI_VERSION" = "$EXPECTED_CLI_VERSION"
       - name: Test canonical public production release
         id: smoke
         timeout-minutes: 10
@@ -597,7 +590,7 @@ jobs:
           DOCS_EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
           DOCS_EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
           CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
-          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          CLI_PACKAGE_VERSION: ${{ inputs.cliVersion }}
           E2E_CROSS_BROWSER_MODE: focused
         run: bash scripts/test-published-ci.sh tests/production-smoke.spec.ts
       - name: Enable permanent legacy redirect after canonical acceptance
@@ -609,7 +602,7 @@ jobs:
           DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}
           RELEASE_COMMIT: ${{ needs.candidate.outputs.commit }}
           CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
-          COMPONENTS_PACKAGE_VERSION: ${{ inputs.componentsVersion }}
+          CLI_PACKAGE_VERSION: ${{ inputs.cliVersion }}
         with:
           work-dir: ./pulumi
           command: up
@@ -626,16 +619,16 @@ jobs:
             throw new Error(`Expected ${expected}, found ${response.headers.get('location')}`)
           }
           NODE
-      - name: Record retired Docs package follow-up
-        if: ${{ (inputs.packages == 'components' || inputs.packages == 'both') && success() }}
+      - name: Record retired package follow-up
+        if: ${{ (inputs.packages == 'cli' || inputs.packages == 'both') && success() }}
         run: |
           cat >> "$GITHUB_STEP_SUMMARY" <<'SUMMARY'
-          ## Retire FSharp.ViewEngine.Docs
+          ## Retire package-based component distribution
 
-          Canonical production and its permanent legacy-host redirect are verified. In NuGet.org **Manage Packages → Deprecation**, select every `FSharp.ViewEngine.Docs` version, choose **Legacy**, set `FSharp.ViewEngine.Components` as the replacement, and keep every pinned version available. Then run:
+          Canonical production is verified. In NuGet.org **Manage Packages → Deprecation**, select every `FSharp.ViewEngine.Components` and `FSharp.ViewEngine.Docs` version, choose **Legacy**, set `FSharp.ViewEngine.Cli` as the replacement, and keep every pinned version available. Then run:
 
           ```sh
-          node e2e/scripts/verify-docs-retirement.mjs
+          node e2e/scripts/verify-package-retirement.mjs
           ```
           SUMMARY
       - name: Upload production E2E diagnostics
@@ -657,8 +650,8 @@ jobs:
           DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}
           RELEASE_COMMIT: ${{ steps.previous.outputs.commit }}
           CORE_PACKAGE_VERSION: ${{ steps.previous.outputs.core }}
-          COMPONENTS_PACKAGE_VERSION: ${{ steps.previous.outputs.components }}
-          ALLOW_UNRELEASED_PACKAGE_SNAPSHOT: ${{ steps.previous.outputs.core == 'unreleased' || steps.previous.outputs.components == 'unreleased' }}
+          CLI_PACKAGE_VERSION: ${{ steps.previous.outputs.cli }}
+          ALLOW_UNRELEASED_PACKAGE_SNAPSHOT: ${{ steps.previous.outputs.core == 'unreleased' || steps.previous.outputs.cli == 'unreleased' }}
           DISABLE_LEGACY_REDIRECT: ${{ steps.previous.outputs.redirect != 'true' && 'true' || 'false' }}
         with:
           work-dir: ./pulumi
@@ -672,13 +665,13 @@ jobs:
           EXPECTED_IMAGE: ${{ steps.previous.outputs.image }}
           EXPECTED_COMMIT: ${{ steps.previous.outputs.commit }}
           EXPECTED_CORE_VERSION: ${{ steps.previous.outputs.core }}
-          EXPECTED_COMPONENTS_VERSION: ${{ steps.previous.outputs.components }}
+          EXPECTED_CLI_VERSION: ${{ steps.previous.outputs.cli }}
           EXPECTED_REDIRECT: ${{ steps.previous.outputs.redirect }}
         run: |
           test "$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_IMAGE"
           test "$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_COMMIT"
           test "$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_CORE_VERSION"
-          test "$(pulumi stack output componentsVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_COMPONENTS_VERSION"
+          test "$(pulumi stack output cliVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_CLI_VERSION"
           test "$(pulumi stack output legacyRedirectEnabled --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_REDIRECT"
           if [[ "$EXPECTED_REDIRECT" == 'true' ]]; then
             health_origin='https://fve.meiermade.com'

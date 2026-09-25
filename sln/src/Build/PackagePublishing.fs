@@ -12,17 +12,17 @@ open System.Text.RegularExpressions
 [<RequireQualifiedAccess>]
 type Package =
     | ViewEngine
-    | Components
+    | Cli
 
     member this.Id =
         match this with
         | Package.ViewEngine -> "FSharp.ViewEngine"
-        | Package.Components -> "FSharp.ViewEngine.Components"
+        | Package.Cli -> "FSharp.ViewEngine.Cli"
 
     member this.TagPrefix =
         match this with
         | Package.ViewEngine -> "v"
-        | Package.Components -> "components/v"
+        | Package.Cli -> "cli/v"
 
 type PackageDependency =
     { package:Package
@@ -37,9 +37,9 @@ type Inputs =
 type SelectionInputs =
     { name:string
       coreVersion:string
-      componentsVersion:string
+      cliVersion:string
       core:Inputs option
-      components:Inputs option }
+      cli:Inputs option }
 
 type PackageState =
     { latestVersion:string option
@@ -65,44 +65,42 @@ let validateInputs packageId version minimumDependencyVersion markLatest =
         invalidArg (nameof minimumDependencyVersion) "Core releases must not specify a minimum dependency version."
     | "FSharp.ViewEngine", None ->
         invalidArg (nameof markLatest) "Core releases must be the repository-wide Latest release."
-    | "FSharp.ViewEngine.Components", Some coreVersion when not markLatest ->
-        { package = Package.Components
+    | "FSharp.ViewEngine.Cli", None when not markLatest ->
+        { package = Package.Cli
           version = version
-          minimumDependency =
-            Some {
-                package = Package.ViewEngine
-                minimumVersion = requireStableVersion "Minimum Core version" coreVersion
-            }
+          minimumDependency = None
           markLatest = false }
-    | "FSharp.ViewEngine.Components", None ->
-        invalidArg (nameof minimumDependencyVersion) "Components releases require a minimum Core version."
-    | "FSharp.ViewEngine.Components", Some _ ->
-        invalidArg (nameof markLatest) "Components releases must not become the repository-wide Latest release."
+    | "FSharp.ViewEngine.Cli", Some _ ->
+        invalidArg (nameof minimumDependencyVersion) "CLI releases must not specify a package dependency version."
+    | "FSharp.ViewEngine.Cli", None ->
+        invalidArg (nameof markLatest) "CLI releases must not become the repository-wide Latest release."
+    | "FSharp.ViewEngine.Components", _ ->
+        invalidArg (nameof packageId) "The Components package release train is retired. Publish FSharp.ViewEngine.Cli instead."
     | "FSharp.ViewEngine.Docs", _ ->
-        invalidArg (nameof packageId) "The Docs release train is retired. Publish FSharp.ViewEngine.Components instead."
+        invalidArg (nameof packageId) "The Docs release train is retired. Publish FSharp.ViewEngine.Cli instead."
     | package, _ -> invalidArg (nameof packageId) $"Unsupported package: {package}"
 
-let validateSelection selection coreVersion componentsVersion =
+let validateSelection selection coreVersion cliVersion =
     let coreVersion = requireStableVersion "Core version" coreVersion
-    let componentsVersion = requireStableVersion "Components version" componentsVersion
-    let create core components =
+    let cliVersion = requireStableVersion "CLI version" cliVersion
+    let create core cli =
         { name = selection
           coreVersion = coreVersion
-          componentsVersion = componentsVersion
+          cliVersion = cliVersion
           core = core
-          components = components }
+          cli = cli }
 
     match selection with
     | "core" -> create (Some(validateInputs "FSharp.ViewEngine" coreVersion None true)) None
-    | "components" -> create None (Some(validateInputs "FSharp.ViewEngine.Components" componentsVersion (Some coreVersion) false))
+    | "cli" -> create None (Some(validateInputs "FSharp.ViewEngine.Cli" cliVersion None false))
     | "both" ->
         create
             (Some(validateInputs "FSharp.ViewEngine" coreVersion None true))
-            (Some(validateInputs "FSharp.ViewEngine.Components" componentsVersion (Some coreVersion) false))
+            (Some(validateInputs "FSharp.ViewEngine.Cli" cliVersion None false))
     | "docs" -> create None None
     | value -> invalidArg (nameof selection) $"Unsupported package selection: {value}"
 
-let validateCoherence (selection:SelectionInputs) coreState componentsState =
+let validateCoherence (selection:SelectionInputs) coreState cliState =
     let validate package advertisedVersion (state:PackageState) selected =
         match state.changedSinceLatest, selected with
         | true, false -> invalidOp $"{package} changed since its latest package tag and must be selected."
@@ -119,9 +117,9 @@ let validateCoherence (selection:SelectionInputs) coreState componentsState =
         | _ -> ()
 
     validate "FSharp.ViewEngine" selection.coreVersion coreState selection.core.IsSome
-    validate "FSharp.ViewEngine.Components" selection.componentsVersion componentsState selection.components.IsSome
+    validate "FSharp.ViewEngine.Cli" selection.cliVersion cliState selection.cli.IsSome
 
-    if selection.name = "docs" && (coreState.changedSinceLatest || componentsState.changedSinceLatest) then
+    if selection.name = "docs" && (coreState.changedSinceLatest || cliState.changedSinceLatest) then
         invalidOp "A Docs-only release cannot advertise unpublished package contract changes."
 
 let validateLocalPackage (package:Package) version (packagePath:string) =
@@ -139,7 +137,7 @@ let belongsToPackage (packageId:string) (path:string) =
 
 let expectedAssetNames packageId version =
     [ $"{packageId}.{version}.nupkg"
-      $"{packageId}.{version}.snupkg"
+      if packageId <> "FSharp.ViewEngine.Cli" then $"{packageId}.{version}.snupkg"
       "SHA256SUMS" ]
 
 let validateReleaseAssets expected actual =
@@ -276,9 +274,11 @@ let downloadPublishedArtifacts packageId version outputDirectory attempts (delay
 
     let rec loop remaining =
         let packageReady = tryDownload client (packageUrl packageId version) packagePath
-        let symbolsReady = tryDownload client (symbolsUrl packageId version) symbolsPath
+        let symbolsReady =
+            packageId = "FSharp.ViewEngine.Cli"
+            || tryDownload client (symbolsUrl packageId version) symbolsPath
         if packageReady && symbolsReady then packagePath
-        elif remaining <= 1 then invalidOp $"{packageId} {version} package and symbols were not available from NuGet in time."
+        elif remaining <= 1 then invalidOp $"{packageId} {version} package artifacts were not available from NuGet in time."
         else
             Threading.Thread.Sleep delay
             loop (remaining - 1)

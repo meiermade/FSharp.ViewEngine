@@ -14,7 +14,7 @@ const imageRef = `us-east1-docker.pkg.dev/meiermade/fsharpviewengine/fsharpviewe
 
 process.env.RELEASE_COMMIT = releaseCommit
 process.env.CORE_PACKAGE_VERSION = '2026.8.2'
-process.env.COMPONENTS_PACKAGE_VERSION = '2026.9.0'
+process.env.CLI_PACKAGE_VERSION = '2026.9.0'
 process.env.PULUMI_CONFIG = JSON.stringify({
     'docker:registryUri': 'us-east1-docker.pkg.dev/meiermade/fsharpviewengine',
     'docker:registryAccessToken': 'registry-token',
@@ -95,9 +95,9 @@ test('promotes exact release metadata and redirects the legacy hostname at the e
     assert.equal(value('DOCS_PUBLIC_ORIGIN'), 'https://fve.meiermade.com')
     assert.equal(value('RELEASE_COMMIT'), releaseCommit)
     assert.equal(value('CORE_PACKAGE_VERSION'), '2026.8.2')
-    assert.equal(value('COMPONENTS_PACKAGE_VERSION'), '2026.9.0')
+    assert.equal(value('CLI_PACKAGE_VERSION'), '2026.9.0')
     assert.equal(value('CORE_PACKAGE_TAG'), 'v2026.8.2')
-    assert.equal(value('COMPONENTS_PACKAGE_TAG'), 'components/v2026.9.0')
+    assert.equal(value('CLI_PACKAGE_TAG'), 'cli/v2026.9.0')
 
     const redirectScript = resource('cloudflare:index/workersScript:WorkersScript', 'fsharpviewengine-legacy-redirect')
     assert.equal(redirectScript.inputs.scriptName, 'fsharpviewengine-legacy-redirect')

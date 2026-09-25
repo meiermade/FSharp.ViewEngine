@@ -1,8 +1,8 @@
 @import "tailwindcss";
 @import "../FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.tailwind.css";
-@import "../FSharp.ViewEngine.Components/AppMode.tailwind.css";
 @import "../FSharp.ViewEngine.Components/Documentation/Documentation.tailwind.css";
 @source "./src/**/*.fs";
+@source "../FSharp.ViewEngine.Components/**/*.fs";
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -1196,7 +1196,7 @@
 }
 
 /* Documentation's phone fixture supplies product content inside the shared Phone primitive. */
-.fve-phone-screen:has(.docs-app-mode-phone-screen) { --fve-surface: var(--spec-bg); --fve-text: var(--spec-text); }
+[data-fve-phone-screen="true"]:has(.docs-app-mode-phone-screen) { --fve-surface: var(--spec-bg); --fve-text: var(--spec-text); }
 .docs-app-mode-phone-screen { display: flex; min-height: 100%; flex-direction: column; background: var(--spec-bg); color: var(--spec-text); }
 .docs-app-mode-phone-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--spec-border); padding: 1rem 1.25rem; }
 .docs-app-mode-phone-header > span { display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border-radius: 50%; background: var(--spec-accent-100); color: var(--spec-accent-900); font-size: var(--docs-text-ancillary); font-weight: 700; }

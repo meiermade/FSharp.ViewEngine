@@ -3,17 +3,11 @@ set -euo pipefail
 
 contract_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 base_output="$(mktemp)"
-app_mode_output="$(mktemp)"
-trap 'rm -f "$base_output" "$app_mode_output"' EXIT
+trap 'rm -f "$base_output"' EXIT
 
 tailwindcss \
   --input "$contract_dir/consumer.css" \
   --output "$base_output" \
-  --minify
-
-tailwindcss \
-  --input "$contract_dir/app-mode.consumer.css" \
-  --output "$app_mode_output" \
   --minify
 
 assert_output() {
@@ -28,14 +22,6 @@ assert_base_excludes() {
   local unexpected="$1"
   if grep -Fq -- "$unexpected" "$base_output"; then
     echo "Base Components Tailwind contract unexpectedly emitted: $unexpected" >&2
-    exit 1
-  fi
-}
-
-assert_app_mode_output() {
-  local expected="$1"
-  if ! grep -Fq -- "$expected" "$app_mode_output"; then
-    echo "App-mode Tailwind contract did not emit: $expected" >&2
     exit 1
   fi
 }
@@ -66,7 +52,7 @@ assert_output '.fve-control-medium'
 assert_output '.fve-control-large'
 assert_output '--fve-control-min-height:2.5rem'
 assert_output '--fve-navigation-min-height:2rem'
-assert_output 'padding-block:max(0px, calc((var(--fve-control-min-height) - 1.5rem - 2px) / 2))'
+assert_output 'padding-block:max(0px, calc((var(--fve-control-min-height) - var(--fve-control-line-height) - 2px) / 2))'
 assert_output '.-ml-1'
 assert_output '.overflow-x-auto'
 assert_output '.fve-table-checkbox:indeterminate'
@@ -97,13 +83,10 @@ assert_output '.backdrop\:bg-\[var\(--fve-overlay-backdrop\)\]'
 assert_output '.w-\[min\(24rem\,calc\(100\%-3rem\)\)\]'
 assert_output '.sm\:w-96'
 assert_output '.sm\:hidden'
-assert_output '.sm\:flex-wrap'
-assert_output '.sm\:grid-cols-5'
-assert_output '.sm\:w-auto'
+assert_output '.sm\:flex'
 assert_output '.sm\:truncate'
 assert_output '.\@container'
 assert_output '@container (min-width:280px)'
-assert_output '.gap-y-3'
 assert_output '.md\:visible'
 assert_output '.md\:w-60'
 assert_output '.lg\:visible'
@@ -128,15 +111,10 @@ assert_output '.acme-theme'
 assert_output '--fve-shell-bar-min-height:'
 assert_output '--fve-brand-solid:oklch(58% .18 264)'
 assert_output '--fve-brand-active:oklch(44% .18 264)'
-assert_output '.spec-browser-frame'
-assert_output '.fve-phone'
+assert_output '.bg-red-400'
+assert_output '.h-\[40rem\]'
+assert_base_excludes '.spec-browser-frame'
 assert_base_excludes '.fve-app-mode-launch'
 assert_base_excludes 'data-fve-app-mode-root'
 assert_base_excludes 'data-fve-app-mode-controls'
-assert_app_mode_output '.spec-browser-frame'
-assert_app_mode_output '.fve-phone'
-assert_app_mode_output '.fve-app-mode-launch'
-assert_app_mode_output 'data-fve-app-mode-root'
-assert_app_mode_output 'data-fve-app-mode-controls'
-
-echo "Components base and optional App-mode Tailwind clean-consumer contracts passed."
+echo "Components base Tailwind clean-consumer contract passed."

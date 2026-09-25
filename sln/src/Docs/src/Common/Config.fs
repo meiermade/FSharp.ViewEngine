@@ -35,13 +35,13 @@ type Config =
       commit:string
       image:string
       corePackage:PackageRelease
-      componentsPackage:PackageRelease
+      cliPackage:PackageRelease
       openTelemetry:OpenTelemetryConfig }
 
 module Config =
     let load () =
         let coreVersion = Env.variableOrDefault "CORE_PACKAGE_VERSION" "unreleased"
-        let componentsVersion = Env.variableOrDefault "COMPONENTS_PACKAGE_VERSION" "unreleased"
+        let cliVersion = Env.variableOrDefault "CLI_PACKAGE_VERSION" "unreleased"
 
         { debug = Env.variableOrDefault "DEBUG" "false" |> Boolean.Parse
           appName = "fsharp-viewengine-docs"
@@ -54,8 +54,8 @@ module Config =
             { id = "FSharp.ViewEngine"
               version = coreVersion
               tag = Env.variableOrDefault "CORE_PACKAGE_TAG" "unreleased" }
-          componentsPackage =
-            { id = "FSharp.ViewEngine.Components"
-              version = componentsVersion
-              tag = Env.variableOrDefault "COMPONENTS_PACKAGE_TAG" "unreleased" }
+          cliPackage =
+            { id = "FSharp.ViewEngine.Cli"
+              version = cliVersion
+              tag = Env.variableOrDefault "CLI_PACKAGE_TAG" "unreleased" }
           openTelemetry = OpenTelemetryConfig.load () }

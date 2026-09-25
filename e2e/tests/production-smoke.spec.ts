@@ -4,7 +4,7 @@ const expectedCommit = process.env.DOCS_EXPECTED_COMMIT ?? 'local'
 const expectedImage = process.env.DOCS_EXPECTED_IMAGE ?? 'local'
 const expectedEnvironment = process.env.DOCS_EXPECTED_ENVIRONMENT ?? (expectedCommit === 'local' ? 'local' : 'production')
 const expectedCoreVersion = process.env.CORE_PACKAGE_VERSION ?? 'unreleased'
-const expectedComponentsVersion = process.env.COMPONENTS_PACKAGE_VERSION ?? 'unreleased'
+const expectedCliVersion = process.env.CLI_PACKAGE_VERSION ?? 'unreleased'
 const canonicalOrigin = 'https://fve.meiermade.com'
 
 test('health reports the deployed release identity', async ({ request }) => {
@@ -22,10 +22,10 @@ test('health reports the deployed release identity', async ({ request }) => {
         version: expectedCoreVersion,
         tag: expectedCoreVersion === 'unreleased' ? 'unreleased' : `v${expectedCoreVersion}`,
       },
-      components: {
-        id: 'FSharp.ViewEngine.Components',
-        version: expectedComponentsVersion,
-        tag: expectedComponentsVersion === 'unreleased' ? 'unreleased' : `components/v${expectedComponentsVersion}`,
+      cli: {
+        id: 'FSharp.ViewEngine.Cli',
+        version: expectedCliVersion,
+        tag: expectedCliVersion === 'unreleased' ? 'unreleased' : `cli/v${expectedCliVersion}`,
       },
     },
   })
@@ -55,9 +55,10 @@ test('representative documentation surfaces render without browser errors', asyn
   expect(pageErrors).toEqual([])
 })
 
-test('session-isolated fixture forms accept the public HTTPS origin', async ({ page }) => {
+test('stateless fixture forms accept the public HTTPS origin', async ({ page }) => {
   await page.goto('/components/page-examples/account-management?destination=ledger-settings')
   await page.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('Production smoke workspace')
   await page.getByRole('button', { name: 'Save settings', exact: true }).click()
-  await expect(page.locator('#ledger-app-shell')).toContainText('Settings saved')
+  await expect(page.locator('#ledger-app-shell')).toContainText('Settings submission validated. This resettable example does not retain submitted values.')
+  await expect(page.getByRole('textbox', { name: 'Workspace name', exact: true })).toHaveValue('Meier Made')
 })

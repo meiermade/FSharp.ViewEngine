@@ -8,35 +8,29 @@ open type Html
 type BrowserConfig =
     private
         { content:HtmlElement
-          address:string option
-          appMode:(string * string) option }
+          address:string option }
 
 [<RequireQualifiedAccess>]
 module Browser =
-    let create content = { content = content; address = None; appMode = None }
+    let create content = { content = content; address = None }
 
     let withAddress address value =
         if String.IsNullOrWhiteSpace address then invalidArg (nameof address) "A browser address is required."
         { value with address = Some address }
 
-    let withAppMode id label value = { value with appMode = Some (id, label) }
-
-    /// Adds the package App-mode runtime. Hosts serve the packaged app-mode.js file themselves.
-    let script source =
-        if String.IsNullOrWhiteSpace source then invalidArg (nameof source) "An App-mode script URL is required."
-        Html.script { _src source; _defer true }
-
     let private toolbar (address:string) =
         div {
-            _class "spec-browser-toolbar"
+            _class "flex items-center gap-3 border-b border-[var(--fve-border)] bg-[var(--fve-surface-subtle)] px-3 py-2"
+            _data("fve-browser-toolbar", "true")
             div {
-                _class "spec-browser-dots"
-                span { _class "spec-browser-dot spec-browser-dot-red" }
-                span { _class "spec-browser-dot spec-browser-dot-amber" }
-                span { _class "spec-browser-dot spec-browser-dot-green" }
+                _class "flex shrink-0 gap-1.5"
+                span { _class "size-2.5 rounded-full bg-red-400" }
+                span { _class "size-2.5 rounded-full bg-amber-400" }
+                span { _class "size-2.5 rounded-full bg-emerald-400" }
             }
             div {
-                _class "spec-browser-address"
+                _class "flex min-w-0 flex-1 items-center gap-2 rounded-md border border-[var(--fve-border)] bg-[var(--fve-surface)] px-3 py-1.5 text-xs font-medium text-[var(--fve-muted-text)] shadow-sm [&_span]:truncate [&_svg]:size-3 [&_svg]:shrink-0"
+                _data("fve-browser-address", "true")
                 if address.StartsWith("https://", StringComparison.OrdinalIgnoreCase) then
                     raw """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.75 8V6a4.25 4.25 0 0 1 8.5 0v2h.25A1.5 1.5 0 0 1 16 9.5v6a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 4 15.5v-6A1.5 1.5 0 0 1 5.5 8h.25Zm7 0V6a2.75 2.75 0 1 0-5.5 0v2h5.5Z" clip-rule="evenodd" /></svg>"""
                 span { address }
@@ -44,22 +38,15 @@ module Browser =
         }
 
     let render (value:BrowserConfig) =
-        let frame =
+        div {
+            _class "w-full min-w-0 overflow-hidden rounded-xl border border-[var(--fve-border)] bg-[var(--fve-surface)] shadow-sm"
+            _data("browser-frame", "true")
             match value.address with
             | Some address ->
-                div {
-                    _class "spec-browser-frame"
-                    _data("browser-frame", "true")
-                    _data("browser-url", address)
-                    toolbar address
-                    value.content
-                }
-            | None ->
-                div {
-                    _class "spec-browser-frame"
-                    _data("browser-frame", "true")
-                    value.content
-                }
-        match value.appMode with
-        | Some (id, label) -> PreviewFrame.create "browser" id label frame |> PreviewFrame.render
-        | None -> frame
+                _data("browser-url", address)
+                toolbar address
+            | None -> ()
+            value.content
+        }
+
+    let internal fullscreenContent (value:BrowserConfig) = value.content

@@ -54,7 +54,7 @@ module ViewEngineApi =
                         _id "signup"
                         _class "form"
                         label { _for "email"; "Email" }
-                        input { _id "email"; _name "email"; _type "email"; _placeholder "name@example.com" }
+                        input { _id "email"; _name "email"; _type "email"; _placeholder "name@fve.meiermade.com" }
                         label { _for "plan"; "Plan" }
                         select {
                             _id "plan"
@@ -143,7 +143,7 @@ module OxpeckerApi =
                             .attr("id", "email")
                             .attr("name", "email")
                             .attr("type", "email")
-                            .attr("placeholder", "name@example.com")
+                            .attr("placeholder", "name@fve.meiermade.com")
                         label().attr("for", "plan") { "Plan" }
                         select().attr("id", "plan").attr("name", "plan") {
                             option().attr("value", "free") { "Free" }
@@ -225,7 +225,7 @@ module GiraffeApi =
                     ]
                     form [ _id "signup"; _class "form" ] [
                         label [ _for "email" ] [ str "Email" ]
-                        input [ _id "email"; _name "email"; _type "email"; _placeholder "name@example.com" ]
+                        input [ _id "email"; _name "email"; _type "email"; _placeholder "name@fve.meiermade.com" ]
                         label [ _for "plan" ] [ str "Plan" ]
                         select [ _id "plan"; _name "plan" ] [
                             option [ _value "free" ] [ str "Free" ]
@@ -337,7 +337,7 @@ module FelizApi =
                                             prop.id "email"
                                             prop.name "email"
                                             prop.type' "email"
-                                            prop.placeholder "name@example.com"
+                                            prop.placeholder "name@fve.meiermade.com"
                                         ]
                                         Html.label [ prop.htmlFor "plan"; prop.children [ Html.text "Plan" ] ]
                                         Html.select [

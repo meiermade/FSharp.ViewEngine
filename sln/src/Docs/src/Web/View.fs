@@ -1,6 +1,7 @@
-namespace Docs.Common
+namespace Docs.Web
 
 open System
+open Docs.Common
 open Docs.Pages
 open FSharp.ViewEngine
 open FSharp.ViewEngine.Components.Documentation
@@ -113,8 +114,7 @@ module View =
             additionalHead =
                 [ link { _rel "icon"; _href "/favicon.svg"; _type "image/svg+xml" }
                   link { _rel "manifest"; _href "/site.webmanifest" }
-                  script { _src "/scripts/tailwind-elements-loader.1.0.22.js"; _type "module" }
-                  FSharp.ViewEngine.Components.Primitives.Browser.script "/scripts/fve-app-mode.js" ] }
+                  script { _src "/scripts/tailwind-elements-loader.1.0.22.js"; _type "module" } ] }
 
     let private site (sections:NavSection list) search : DocsSite<string> =
         { name = "FSharp.ViewEngine"
@@ -182,7 +182,7 @@ module View =
         |> Option.orElseWith (fun () -> Showcase.tryPage page.path)
         |> Option.defaultWith (fun () -> legacyPage page)
 
-    let private renderResolvedPage (sections:NavSection list) (registration:DocPage) (docsPage:DocsPage) =
+    let private renderResolvedPage (appMode:AppMode option) (sections:NavSection list) (registration:DocPage) (docsPage:DocsPage) =
         let search =
             registeredPages sections
             |> List.map (fun (page:DocPage) ->
@@ -196,13 +196,19 @@ module View =
         let docsPage = pager sections registration.id |> Option.map (fun value -> DocumentationPage.withPager value docsPage) |> Option.defaultValue docsPage
         let site = site sections search
         let sideNavItems = navigation sections
-        Document.create site docsPage
-        |> Document.withBreadcrumbs (Navigation.breadcrumbs sideNavItems site.homeId docsPage.activeId)
-        |> Document.withSideNavItems sideNavItems
+        let document =
+            Document.create site docsPage
+            |> Document.withBreadcrumbs (Navigation.breadcrumbs sideNavItems site.homeId docsPage.activeId)
+            |> Document.withSideNavItems sideNavItems
+        appMode
+        |> Option.map (fun mode -> Document.withAppMode mode document)
+        |> Option.defaultValue document
         |> Document.render
 
     let renderPage sections registration =
-        renderResolvedPage sections registration (resolvePage registration)
+        renderResolvedPage None sections registration (resolvePage registration)
 
     let document sections page = renderPage sections page
-    let documentWithPage sections registration docsPage = renderResolvedPage sections registration docsPage
+    let documentFor appMode sections page = renderResolvedPage appMode sections page (resolvePage page)
+    let documentWithPage sections registration docsPage = renderResolvedPage None sections registration docsPage
+    let documentWithPageFor appMode sections registration docsPage = renderResolvedPage appMode sections registration docsPage

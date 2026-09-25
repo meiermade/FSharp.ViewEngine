@@ -10,3 +10,4 @@ nuget Serilog 4.4.0
 nuget Serilog.AspNetCore
 nuget Serilog.Sinks.Console
 nuget Serilog.Sinks.OpenTelemetry
+nuget System.CommandLine 2.0.0

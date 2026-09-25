@@ -27,7 +27,7 @@ for (const mode of ['light', 'dark'] as const) {
 
       for (const context of ['header', 'dock']) {
         if (context === 'dock') {
-          await page.getByRole('button', { name: 'Open Create a view in App mode' }).click()
+          await page.getByRole('link', { name: 'Open Create a view in App mode' }).click()
           const dock = page.getByRole('navigation', { name: 'App mode controls' })
           await expect(dock).toHaveClass(/fve-theme-sky/)
           await expect(dock).toHaveAttribute('data-fve-color-mode', mode === 'dark' ? 'light' : 'dark')

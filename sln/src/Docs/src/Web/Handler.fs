@@ -1,11 +1,13 @@
-namespace Docs.Common
+namespace Docs.Web
 
 open System
+open Docs.Common
 open System.Net
 open System.IO
 open System.Text.Json
 open Docs.Pages
 open FSharp.ViewEngine
+open FSharp.ViewEngine.Components.Documentation
 open Giraffe
 
 module Handler =
@@ -22,9 +24,33 @@ module Handler =
 
     let robots = $"User-agent: *{Environment.NewLine}Allow: /{Environment.NewLine}Sitemap: {productionOrigin}/sitemap.xml{Environment.NewLine}"
 
+    let private appMode (context:Microsoft.AspNetCore.Http.HttpContext) =
+        let query key = context.Request.Query[key].ToString()
+        if query "fveAppMode" <> "app" || String.IsNullOrWhiteSpace(query "fveAppFrame") then None
+        else
+            let remainingQuery =
+                context.Request.Query
+                |> Seq.filter (fun entry -> not (List.contains entry.Key [ "fveAppMode"; "fveAppFrame"; "fveAppDock"; "fveAppReturn"; "fveAppTransition"; "datastar" ]))
+                |> Seq.collect (fun entry -> entry.Value |> Seq.map (fun value -> System.Collections.Generic.KeyValuePair(entry.Key, string value)))
+            let exitHref = context.Request.PathBase.ToString() + context.Request.Path.ToString() + Microsoft.AspNetCore.Http.QueryString.Create(remainingQuery).ToString()
+            Some(AppMode.create (query "fveAppFrame") exitHref)
+
+    let private renderDocument (context:Microsoft.AspNetCore.Http.HttpContext) document =
+        let html = document |> Render.toHtmlDocString
+        match context.Request.Headers["datastar-request"].ToString(), context.Request.Query["fveAppTransition"].ToString() with
+        | "true", ("enter" | "exit") ->
+            let bodyStart = html.IndexOf("<body", StringComparison.Ordinal)
+            let bodyEnd = html.IndexOf("</body>", bodyStart, StringComparison.Ordinal)
+            if bodyStart < 0 || bodyEnd < 0 then invalidOp "The Documentation renderer did not emit a body element."
+            context.Response.Headers["datastar-selector"] <- "body"
+            context.Response.Headers["datastar-mode"] <- "replace"
+            html.Substring(bodyStart, bodyEnd + "</body>".Length - bodyStart)
+        | _ -> html
+
     let render page : HttpHandler =
-        let html = page |> View.document Registry.navigation |> Render.toHtmlDocString
-        htmlString html
+        fun next context ->
+            let html = page |> View.documentFor (appMode context) Registry.navigation |> renderDocument context
+            htmlString html next context
 
     let private pageRoutes =
         Registry.all
@@ -53,11 +79,12 @@ module Handler =
 
     let private fixture : HttpHandler =
         fun next context ->
+            let fixtureStep = context.Request.Query["fixtureStep"].ToString()
             let fixtureState = context.Request.Query["fixtureState"].ToString()
             let html =
-                Showcase.fixturePageFor fixtureState
-                |> View.documentWithPage Registry.navigation Showcase.fixtureRegistration
-                |> Render.toHtmlDocString
+                Showcase.fixturePageFor fixtureStep fixtureState
+                |> View.documentWithPageFor (appMode context) Registry.navigation Showcase.fixtureRegistration
+                |> renderDocument context
             htmlString html next context
 
     let private documentationSiteExample : HttpHandler =
@@ -65,8 +92,8 @@ module Handler =
             let state = context.Request.Query["fixtureState"].ToString()
             let html =
                 Showcase.documentationSitePageFor state
-                |> View.documentWithPage Registry.navigation Showcase.documentationSiteRegistration
-                |> Render.toHtmlDocString
+                |> View.documentWithPageFor (appMode context) Registry.navigation Showcase.documentationSiteRegistration
+                |> renderDocument context
             htmlString html next context
 
     let private apiReferenceExample : HttpHandler =
@@ -74,8 +101,8 @@ module Handler =
             let state = context.Request.Query["fixtureState"].ToString()
             let html =
                 Showcase.apiPageExampleFor state
-                |> View.documentWithPage Registry.navigation Showcase.apiPageExampleRegistration
-                |> Render.toHtmlDocString
+                |> View.documentWithPageFor (appMode context) Registry.navigation Showcase.apiPageExampleRegistration
+                |> renderDocument context
             htmlString html next context
 
     let private componentAppShell : HttpHandler =
@@ -87,12 +114,26 @@ module Handler =
                 | _ -> Components.Dashboard
             let html =
                 Components.appShellPageFor destination
-                |> View.documentWithPage Registry.navigation Components.appShellRegistration
-                |> Render.toHtmlDocString
+                |> View.documentWithPageFor (appMode context) Registry.navigation Components.appShellRegistration
+                |> renderDocument context
             htmlString html next context
 
     let private accountWorkspace (context:Microsoft.AspNetCore.Http.HttpContext) =
-        let workspace = (PageExampleSession.get context).accounts
+        let workspace =
+            match context.Request.Query["view"].ToString() with
+            | "account-created" ->
+                { Components.defaultAccountWorkspace with
+                    feedback = "Account submission validated. This resettable example does not create or retain records." }
+            | "account-invalid" ->
+                { Components.defaultAccountWorkspace with
+                    feedback = "Enter a unique account name and a valid account type." }
+            | "settings-saved" ->
+                { Components.defaultAccountWorkspace with
+                    feedback = "Settings submission validated. This resettable example does not retain submitted values." }
+            | "settings-invalid" ->
+                { Components.defaultAccountWorkspace with
+                    feedback = "Enter a workspace name of 1–80 characters." }
+            | _ -> Components.defaultAccountWorkspace
         { workspace with searchQuery=context.Request.Query["query"].ToString(); filterType=(let value=context.Request.Query["accountType"].ToString() in if value="" then "all" else value) }
 
     let private accountManagement : HttpHandler =
@@ -103,8 +144,8 @@ module Handler =
                 |> Option.defaultValue Components.LedgerAccounts
             let html =
                 Components.accountManagementPageWith (accountWorkspace context) destination
-                |> View.documentWithPage Registry.navigation Components.accountManagementRegistration
-                |> Render.toHtmlDocString
+                |> View.documentWithPageFor (appMode context) Registry.navigation Components.accountManagementRegistration
+                |> renderDocument context
             (setHttpHeader "Cache-Control" "private, no-store" >=> htmlString html) next context
 
     let private exampleQuery (context:Microsoft.AspNetCore.Http.HttpContext) =
@@ -113,9 +154,8 @@ module Handler =
 
     let private pageExample page : HttpHandler =
         fun next context ->
-            let session = PageExampleSession.get context
-            let html = Components.pageExamplePageFor page (exampleQuery context) session.messages session.photos |> View.documentWithPage Registry.navigation (PageExamples.registration page) |> Render.toHtmlDocString
-            (setHttpHeader "Cache-Control" "private, no-store" >=> htmlString html) next context
+            let html = Components.pageExamplePageFor page (exampleQuery context) |> View.documentWithPageFor (appMode context) Registry.navigation (PageExamples.registration page) |> renderDocument context
+            htmlString html next context
 
     let private exampleMutation action : HttpHandler =
         fun next context ->
@@ -125,12 +165,13 @@ module Handler =
                 if origin <> "" && origin <> expected then return! (setStatusCode 403 >=> text "Cross-origin fixture changes are not allowed.") next context
                 elif context.Request.ContentLength.GetValueOrDefault() > 3_000_000L then
                     return! (setStatusCode 413 >=> text "The demo form exceeds its 3 MB request limit.") next context
-                elif not context.Request.HasFormContentType then return! (setStatusCode 415 >=> text "Submit form data.") next context
+                elif isNull context.Request.ContentType || not (context.Request.ContentType.StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)) then
+                    return! (setStatusCode 415 >=> text "Submit URL-encoded form data. Multipart and file bodies are not accepted by documentation fixtures.") next context
                 else
                     let size = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>()
                     if not (isNull size) && not size.IsReadOnly then size.MaxRequestBodySize <- Nullable 3_000_000L
                     try
-                        let! form = context.Request.ReadFormAsync()
+                        let! form = context.Request.ReadFormAsync(context.RequestAborted)
                         context.Response.Headers.CacheControl <- "private, no-store"
                         return! action form next context
                     with
@@ -157,58 +198,50 @@ module Handler =
             redirectTo false destination next context
 
     let private sendExampleMessage =
-        exampleMutation (fun form next context -> task {
+        exampleMutation (fun form next context ->
             let query = exampleQuery context
-            let body = form["message"].ToString()
-            let conversation = PageExamples.currentConversation query
-            let result = PageExampleSession.change context (PageExampleSession.send conversation.id body)
-            if context.Request.Headers.ContainsKey "Datastar-Request" then
-                let messages,draft,error = match result with Ok messages -> messages,"",None | Error error -> (PageExampleSession.get context).messages,body,Some error
-                let html = PageExamples.conversationPanel query messages draft error |> Render.toString
-                return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
-            else
-                match result with
-                | Ok _ -> return! redirectExample (PageExamples.queryUrl PageExamples.Messaging query) next context
-                | Error error -> return! (setStatusCode 400 >=> text error) next context
-        })
+            let body = form["message"].ToString().Trim()
+            let view =
+                if String.IsNullOrWhiteSpace body then "message-empty"
+                elif body.Length > 2000 then "message-too-long"
+                else "sent"
+            redirectExample (PageExamples.queryUrl PageExamples.Messaging { query with view=view }) next context)
 
     let private saveExamplePhoto upload =
-        exampleMutation (fun form next context -> task {
-            let file = form.Files.GetFile "image"
-            let! image = task {
-                if isNull file || file.Length=0L || file.Length>2_000_000L then return None
-                else
-                    use stream = new MemoryStream()
-                    do! file.CopyToAsync stream
-                    return PageExampleSession.imageFromBytes (stream.ToArray())
-            }
-            let invalidFile = not (isNull file) && file.Length > 0L && image.IsNone
-            let result =
-                if invalidFile then None
-                else PageExampleSession.change context (PageExampleSession.savePhoto (if upload then "new" else context.Request.Query["item"].ToString()) (form["name"].ToString()) (form["alt"].ToString()) image)
+        exampleMutation (fun form next context ->
+            let name = form["name"].ToString().Trim()
+            let alt = form["alt"].ToString().Trim()
+            let valid = name.Length > 0 && name.Length <= 120 && alt.Length > 0 && alt.Length <= 500
             let query =
-                match result with
-                | Some id -> { PageExamples.defaultQuery with item=id; view="saved" }
-                | None -> { PageExamples.defaultQuery with item=(if upload then "" else context.Request.Query["item"].ToString()); view=(if upload then "upload-error" else "invalid") }
-            return! redirectExample (PageExamples.queryUrl PageExamples.MediaManagement query) next context
-        })
+                if upload then
+                    { PageExamples.defaultQuery with
+                        item = if valid then PageExamples.uploadedPhoto.id else ""
+                        view = if valid then "uploaded" else "upload-error" }
+                else
+                    { PageExamples.defaultQuery with
+                        item = context.Request.Query["item"].ToString()
+                        view = if valid then "saved" else "invalid" }
+            redirectExample (PageExamples.queryUrl PageExamples.MediaManagement query) next context)
+
+    let private accountDestination destination view =
+        Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(Components.shellDestinationUrl destination, "view", view)
 
     let private createExampleAccount =
         exampleMutation (fun form next context ->
-            let created = PageExampleSession.change context (PageExampleSession.createAccount (form["name"].ToString()) (form["accountType"].ToString()))
-            let destination = created |> Option.map Components.LedgerAccount |> Option.defaultValue Components.LedgerCreateAccount
-            redirectExample (Components.shellDestinationUrl destination) next context)
+            let name = form["name"].ToString().Trim()
+            let accountType = form["accountType"].ToString()
+            let valid =
+                name.Length > 0
+                && name.Length <= 80
+                && List.contains accountType [ "Asset"; "Liability"; "Equity"; "Revenue"; "Expense" ]
+                && not (Components.accountNameExists name)
+            redirectExample (accountDestination Components.LedgerCreateAccount (if valid then "account-created" else "account-invalid")) next context)
 
     let private saveExampleSettings =
         exampleMutation (fun form next context ->
-            PageExampleSession.change context (PageExampleSession.saveSettings (form["workspaceName"].ToString()) (form.ContainsKey "emailUpdates")) |> ignore
-            redirectExample (Components.shellDestinationUrl Components.LedgerSettings) next context)
-
-    let private exampleImage imageId : HttpHandler =
-        fun next context ->
-            match (PageExampleSession.get context).images |> Map.tryFind imageId with
-            | Some image -> (setHttpHeader "Cache-Control" "private, no-store" >=> setHttpHeader "X-Content-Type-Options" "nosniff" >=> setHttpHeader "Content-Type" image.contentType >=> setBody image.bytes) next context
-            | None -> (setStatusCode 404 >=> text "Image not found in this demo session.") next context
+            let name = form["workspaceName"].ToString().Trim()
+            let valid = name.Length > 0 && name.Length <= 80
+            redirectExample (accountDestination Components.LedgerSettings (if valid then "settings-saved" else "settings-invalid")) next context)
 
     let private componentAppShellFixture : HttpHandler =
         fun next context ->
@@ -217,7 +250,7 @@ module Handler =
                 |> Components.tryShellDestination
                 |> Option.defaultValue Components.LedgerAccounts
             let html = Components.shellFixtureWith (accountWorkspace context) destination |> Render.toString
-            (setHttpHeader "Cache-Control" "private, no-store" >=> setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+            (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
 
     let private componentDropdownMenuPatch : HttpHandler =
         let html = Components.patchedDropdownMenuRegion |> Render.toString
@@ -418,7 +451,6 @@ module Handler =
             route "/components/members/search" >=> componentMemberSearch false
             route "/components/members/field" >=> componentMemberSearch true
             GET >=> route "/components/page-examples/graph-and-trace" >=> redirectTo true "/components/page-examples/dependency-graph"
-            GET >=> routef "/components/page-examples/images/%s" exampleImage
             GET >=> choose [ for page in PageExamples.pages -> route (PageExamples.url page) >=> pageExample page ]
             route "/components/page-examples/account-management/fixture" >=> componentAppShellFixture
             route "/components/page-examples/account-management" >=> accountManagement

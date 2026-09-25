@@ -15,7 +15,7 @@ const imageRef = `us-east1-docker.pkg.dev/meiermade/fsharpviewengine/fsharpviewe
 process.env.RELEASE_COMMIT = releaseCommit
 process.env.DEPLOY_IMAGE = imageRef
 process.env.CORE_PACKAGE_VERSION = '2026.8.2'
-process.env.COMPONENTS_PACKAGE_VERSION = 'unreleased'
+process.env.CLI_PACKAGE_VERSION = 'unreleased'
 process.env.ALLOW_UNRELEASED_PACKAGE_SNAPSHOT = 'true'
 process.env.DISABLE_LEGACY_REDIRECT = 'true'
 process.env.PULUMI_CONFIG = JSON.stringify({
@@ -65,11 +65,11 @@ test('keeps the legacy hostname serving while canonical production is accepted',
     )
 })
 
-test('represents the explicit pre-Components recovery snapshot without candidate metadata', () => {
+test('represents the explicit pre-CLI recovery snapshot without candidate metadata', () => {
     const deployment = resource('kubernetes:apps/v1:Deployment', 'fsharpviewengine')
     const env = deployment.inputs.spec.template.spec.containers[0].env
     const value = (name: string) => env.find((item: any) => item.name === name)?.value
     assert.equal(value('CORE_PACKAGE_VERSION'), '2026.8.2')
-    assert.equal(value('COMPONENTS_PACKAGE_VERSION'), 'unreleased')
-    assert.equal(value('COMPONENTS_PACKAGE_TAG'), 'unreleased')
+    assert.equal(value('CLI_PACKAGE_VERSION'), 'unreleased')
+    assert.equal(value('CLI_PACKAGE_TAG'), 'unreleased')
 })

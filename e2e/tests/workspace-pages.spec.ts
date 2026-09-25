@@ -16,16 +16,6 @@ const productNavigation: Record<string, string> = {
   'media-management': 'Fieldwork navigation',
 };
 const frame = (page: import('@playwright/test').Page) => page.locator('[data-fve-fixture-id="page-workspace"]');
-const uploadFixture = async (
-  page: import('@playwright/test').Page,
-  input: import('@playwright/test').Locator,
-  color: 'blue' | 'teal',
-) => {
-  const response = await page.request.get(new URL(`/images/page-examples/${color}.png`, page.url()).href);
-  expect(response.ok()).toBeTruthy();
-  await input.setInputFiles({ name: `${color}.png`, mimeType: 'image/png', buffer: await response.body() });
-};
-
 test('dependency selection opens the matching execution and span cross-browser', crossBrowser, async ({ page }) => {
   await page.goto(root + 'dependency-graph');
   await page.evaluate(() => (window as any).__workspaceDocument = 'retained');
@@ -71,28 +61,25 @@ test('financial periods have matching axes and accessible values cross-browser',
   await expect(page.locator('#ledger-app-shell')).toContainText('Northwind payment');
 });
 
-test('messages persist in their conversation without leaking into another session cross-browser', async ({ page, browser }) => {
+test('messages use deterministic URL-backed outcomes without retaining submitted text cross-browser', async ({ page }) => {
   await page.goto(root + 'messaging');
   await frame(page).getByRole('textbox', { name: 'Message', exact: true }).fill('   ');
   await frame(page).getByRole('button', { name: 'Send message', exact: true }).click();
+  await expect(page).toHaveURL(/view=message-empty/);
   await expect(frame(page)).toContainText('Enter a message before sending.');
-  const message = 'The meeting point is the east entrance.';
-  await frame(page).getByRole('textbox', { name: 'Message', exact: true }).fill(message);
+
+  const submitted = 'Private submitted message';
+  await frame(page).getByRole('textbox', { name: 'Message', exact: true }).fill(submitted);
   await frame(page).getByRole('button', { name: 'Send message', exact: true }).click();
-  await expect(frame(page).getByRole('log').getByText(message, { exact: true })).toBeInViewport();
-  await expect(frame(page).getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('');
-  await frame(page).getByRole('link', { name: /Studio team/ }).click();
-  await expect(frame(page).getByRole('log')).not.toContainText(message);
-  await frame(page).getByRole('link', { name: /Beach weekend/ }).click();
-  await expect(frame(page).getByRole('log')).toContainText(message);
+  await expect(page).toHaveURL(/view=sent/);
+  const deterministic = 'Meet at the east entrance 15 minutes before we leave.';
+  await expect(frame(page).getByRole('log').getByText(deterministic, { exact: true })).toBeVisible();
+  await expect(frame(page).getByRole('log')).not.toContainText(submitted);
   await page.reload();
-  await expect(frame(page).getByRole('log')).toContainText(message);
-  const isolated = await browser.newContext();
-  try {
-    const other = await isolated.newPage();
-    await other.goto(new URL(root + 'messaging', page.url()).href);
-    await expect(frame(other).getByRole('log')).not.toContainText(message);
-  } finally { await isolated.close(); }
+  await expect(frame(page).getByRole('log')).toContainText(deterministic);
+  await frame(page).getByRole('link', { name: /Studio team/ }).click();
+  await expect(page).not.toHaveURL(/view=sent/);
+  await expect(frame(page).getByRole('log')).not.toContainText(deterministic);
 });
 
 test('schedule records and photographs retain matching destinations cross-browser', async ({ page }) => {
@@ -113,19 +100,21 @@ test('schedule records and photographs retain matching destinations cross-browse
   await expect(frame(page)).not.toContainText('Coastal trail lesson');
 });
 
-test('media edits, selection and drawer upload affect the selected asset cross-browser', crossBrowser, async ({ page }) => {
+test('media selection and drawer use deterministic fixtures without transmitting files cross-browser', crossBrowser, async ({ page }) => {
   await page.goto(root + 'media-management');
   const library = frame(page).locator('#fieldwork-photos');
   await library.getByRole('checkbox', { name: 'Select Before the lesson', exact: true }).check();
   await expect(library.getByRole('status')).toHaveText('1 selected');
   await expect(frame(page).getByRole('button', { name: 'Use selected as cover' })).toHaveCount(0);
   await frame(page).getByRole('link', { name: 'Before the lesson', exact: true }).click();
-  await frame(page).getByRole('textbox', { name: 'Image description' }).fill('A new description for the lesson photograph.');
-  await uploadFixture(page, frame(page).locator('input[type=file]'), 'teal');
+  await frame(page).getByRole('textbox', { name: 'Image description' }).fill('A private submitted description.');
   await frame(page).getByRole('button', { name: 'Save changes' }).click();
-  await expect(frame(page).getByRole('img', { name: 'A new description for the lesson photograph.' })).toHaveAttribute('src', /page-examples\/images\//);
-  await expect(frame(page)).toContainText('Changes saved');
+  await expect(page).toHaveURL(/view=saved/);
+  await expect(frame(page).getByRole('img', { name: 'Solid amber background' })).toHaveAttribute('src', '/images/page-examples/amber.png');
+  await expect(frame(page)).toContainText('continues to use seeded metadata');
+  await expect(frame(page)).not.toContainText('A private submitted description.');
   await frame(page).getByRole('link', { name: 'Back to photos' }).click();
+
   const uploadAction = frame(page).locator('#media-management-actions').getByRole('button', { name: 'Upload', exact: true });
   await uploadAction.click();
   const drawer = frame(page).getByRole('dialog', { name: 'Upload photograph' });
@@ -135,25 +124,32 @@ test('media edits, selection and drawer upload affect the selected asset cross-b
   await expect(drawer).toBeHidden();
   await expect(uploadAction).toBeFocused();
   await uploadAction.click();
-  await expect(drawer.getByRole('textbox', { name: 'Photo name' })).toBeFocused();
-  await drawer.getByRole('textbox', { name: 'Photo name' }).fill('Trail review');
-  await drawer.getByRole('textbox', { name: 'Image description' }).fill('Riders reviewing the trail.');
-  await uploadFixture(page, drawer.locator('input[type=file]'), 'blue');
+  await drawer.getByRole('textbox', { name: 'Photo name' }).fill('Private upload name');
+  await drawer.getByRole('textbox', { name: 'Image description' }).fill('Private upload description');
+  const fileMarker = Buffer.from('private-file-contents-must-not-leave-the-browser');
+  await drawer.locator('input[type=file]').setInputFiles({ name: 'private-marker.png', mimeType: 'image/png', buffer: fileMarker });
+  const requestPromise = page.waitForRequest(request => request.url().includes('/media-management/upload'));
   await drawer.getByRole('button', { name: 'Upload', exact: true }).click();
-  await expect(frame(page).getByRole('heading', { name: 'Trail review', exact: true })).toBeVisible();
-  await frame(page).getByRole('link', { name: 'Back to photos' }).click();
-  await expect(frame(page).getByRole('link', { name: 'Trail review', exact: true })).toBeVisible();
+  const request = await requestPromise;
+  expect(await request.headerValue('content-type')).toContain('application/x-www-form-urlencoded');
+  expect(request.postData() ?? '').not.toContain('private-marker.png');
+  expect(request.postDataBuffer()?.includes(fileMarker) ?? false).toBe(false);
+  await expect(page).toHaveURL(/item=photo-uploaded.*view=uploaded|view=uploaded.*item=photo-uploaded/);
+  await expect(frame(page).getByRole('heading', { name: 'Uploaded fixture preview', exact: true })).toBeVisible();
+  await expect(frame(page).getByRole('img', { name: 'Solid violet background used for the upload success fixture' })).toHaveAttribute('src', '/images/page-examples/violet.png');
+  await expect(frame(page)).toContainText('selected local file was not submitted');
+  await expect(frame(page)).not.toContainText('Private upload name');
 });
 
-test('demo form boundary rejects malformed multipart data over direct HTTP', async ({ request }) => {
-  const malformed = await request.post(root + 'messaging/send?item=beach', {
+test('demo form boundary rejects multipart data over direct HTTP', async ({ request }) => {
+  const response = await request.post(root + 'messaging/send?item=beach', {
     headers: { 'Content-Type': 'multipart/form-data' },
     data: 'missing boundary',
   })
-  expect(malformed.status()).toBe(400)
+  expect(response.status()).toBe(415)
 })
 
-test('account create, filters and settings form a working journey cross-browser', crossBrowser, async ({ page }) => {
+test('account create, filters and settings use deterministic stateless outcomes cross-browser', crossBrowser, async ({ page }) => {
   await page.goto(root + 'account-management?destination=ledger-create-account');
   const navigation = page.locator('#ledger-side-navigation');
   await expect(navigation.getByText('Workspace', { exact: true })).toBeVisible();
@@ -163,23 +159,30 @@ test('account create, filters and settings form a working journey cross-browser'
   const commodity = page.locator('#ledger-app-shell dl').filter({ has: page.getByText('Commodity', { exact: true }) });
   await expect(commodity.getByRole('definition')).toHaveText('USD');
   await expect(page.locator('#ledger-app-shell [name="commodity"]')).toHaveCount(0);
-  await page.getByRole('textbox', { name: 'Account name', exact: true }).fill('Equipment reserve');
+  await page.getByRole('textbox', { name: 'Account name', exact: true }).fill('Private account value');
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
-  await expect(page.locator('#ledger-app-shell').getByRole('heading', { name: 'Equipment reserve', exact: true })).toBeVisible();
+  await expect(page).toHaveURL(/view=account-created/);
+  await expect(page.locator('#ledger-app-shell')).toContainText('does not create or retain records');
+  await expect(page.locator('#ledger-app-shell')).not.toContainText('Private account value');
+
   await page.goto(root + 'account-management');
-  await page.getByRole('searchbox', { name: 'Search accounts', exact: true }).fill('Equipment');
+  await page.getByRole('searchbox', { name: 'Search accounts', exact: true }).fill('Assets');
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
   await expect(page.locator('#ledger-app-shell').getByRole('table').locator('tbody tr')).toHaveCount(1);
-  await expect(page.locator('#ledger-app-shell')).toContainText('Equipment reserve');
+  await expect(page.locator('#ledger-app-shell')).toContainText('Assets');
+
   await page.goto(root + 'account-management?destination=ledger-settings');
   const currency = page.locator('#ledger-app-shell dl').filter({ has: page.getByText('Reporting currency', { exact: true }) });
   await expect(currency.getByRole('definition')).toContainText('USD');
   await expect(page.locator('#ledger-app-shell [name="currency"]')).toHaveCount(0);
-  await page.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('Northwind Finance');
+  await page.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('Private workspace value');
   await page.getByRole('button', { name: 'Save settings', exact: true }).click();
-  await expect(page.locator('#ledger-app-shell')).toContainText('Settings saved');
+  await expect(page).toHaveURL(/view=settings-saved/);
+  await expect(page.locator('#ledger-app-shell')).toContainText('does not retain submitted values');
+  await expect(page.getByRole('textbox', { name: 'Workspace name', exact: true })).toHaveValue('Meier Made');
   await page.reload();
-  await expect(page.getByRole('textbox', { name: 'Workspace name', exact: true })).toHaveValue('Northwind Finance');
+  await expect(page.locator('#ledger-app-shell')).toContainText('does not retain submitted values');
+  await expect(page.getByRole('textbox', { name: 'Workspace name', exact: true })).toHaveValue('Meier Made');
 });
 
 test('page-example sidebars put workspace context first and keep the profile concise', async ({ page }) => {
@@ -261,7 +264,9 @@ for (const slug of pages) {
       await app.getByRole('textbox', { name: 'Image description' }).fill('Helmets checked before the lesson.');
       await app.getByRole('button', { name: 'Save changes', exact: true }).click();
       await expect(page).toHaveURL(/fveAppMode=app/);
-      await expect(app.getByRole('textbox', { name: 'Image description' })).toHaveValue('Helmets checked before the lesson.');
+      await expect(page).toHaveURL(/view=saved/);
+      await expect(app).toContainText('continues to use seeded metadata');
+      await expect(app.getByRole('textbox', { name: 'Image description' })).toHaveValue('Solid amber background');
     }
   });
 

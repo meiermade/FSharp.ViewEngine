@@ -6,6 +6,8 @@
     <Project Path="src/Docs/Docs.fsproj" />
     <Project Path="src/Docs.Tests/Docs.Tests.fsproj" />
     <Project Path="src/FSharp.ViewEngine/FSharp.ViewEngine.fsproj" />
+    <Project Path="src/FSharp.ViewEngine.Cli/FSharp.ViewEngine.Cli.fsproj" />
+    <Project Path="src/FSharp.ViewEngine.Cli.Tests/FSharp.ViewEngine.Cli.Tests.fsproj" />
     <Project Path="src/FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.fsproj" />
     <Project Path="src/Tests/Tests.fsproj" />
   </Folder>
