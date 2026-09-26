@@ -52,9 +52,19 @@ fi
 
 for framework in net8.0 net9.0 net10.0; do
   consumer_dir="$output_dir/$framework"
+  sdk_major="${framework#net}"
+  sdk_major="${sdk_major%%.*}"
+  sdk_version="$(dotnet --list-sdks | awk -v prefix="$sdk_major." '$1 ~ "^" prefix { version = $1 } END { print version }')"
+  if [[ -z "$sdk_version" ]]; then
+    echo ".NET SDK $sdk_major is required to verify $framework." >&2
+    exit 1
+  fi
   mkdir -p "$consumer_dir"
+  printf '{\n  "sdk": {\n    "version": "%s",\n    "rollForward": "disable"\n  }\n}\n' "$sdk_version" > "$consumer_dir/global.json"
   (
     cd "$consumer_dir"
+    test "$(dotnet --version)" = "$sdk_version"
+    dotnet tool restore >/dev/null
     dotnet fve init Acme.Components.fsproj --namespace Acme.Components --framework "$framework"
     dotnet fve add "${components[@]}" --config fve.json
     dotnet restore Acme.Components.fsproj \
