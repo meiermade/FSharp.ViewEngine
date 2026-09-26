@@ -13,12 +13,15 @@ module ConsumerProject =
     [<Literal>]
     let ComponentsDirectory = "Components"
 
-    let CoreVersion =
+    let private packageVersion metadataKey packageName =
         Assembly.GetExecutingAssembly().GetCustomAttributes<AssemblyMetadataAttribute>()
-        |> Seq.tryFind (fun attribute -> attribute.Key = "FSharpViewEngineCoreVersion")
+        |> Seq.tryFind (fun attribute -> attribute.Key = metadataKey)
         |> Option.map _.Value
         |> Option.filter (String.IsNullOrWhiteSpace >> not)
-        |> Option.defaultWith (fun () -> invalidOp "The CLI package is missing its FSharp.ViewEngine Core version metadata.")
+        |> Option.defaultWith (fun () -> invalidOp $"The CLI package is missing its {packageName} version metadata.")
+
+    let CoreVersion = packageVersion "FSharpViewEngineCoreVersion" "FSharp.ViewEngine Core"
+    let FSharpCoreVersion = packageVersion "FSharpCorePackageVersion" "FSharp.Core"
 
     let private startMarker = "  <!-- fve:components:start -->"
     let private endMarker = "  <!-- fve:components:end -->"
@@ -99,6 +102,7 @@ module ConsumerProject =
     <TargetFramework>{framework}</TargetFramework>
     <RootNamespace>{namespaceName}</RootNamespace>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <FSharpCoreImplicitPackageVersion>{FSharpCoreVersion}</FSharpCoreImplicitPackageVersion>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="FSharp.ViewEngine" Version="{CoreVersion}" />

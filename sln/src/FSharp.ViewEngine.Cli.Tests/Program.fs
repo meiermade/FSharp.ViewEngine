@@ -85,6 +85,7 @@ let tests =
                 Expect.stringContains addOutput "Added documentation" "third selected component is reported"
                 let project = File.ReadAllText(projectPath root)
                 Expect.stringContains project $"PackageReference Include=\"FSharp.ViewEngine\" Version=\"{ConsumerProject.CoreVersion}\"" "generated projects pin the registry-compatible Core package"
+                Expect.stringContains project $"<FSharpCoreImplicitPackageVersion>{ConsumerProject.FSharpCoreVersion}</FSharpCoreImplicitPackageVersion>" "generated projects select Core's compatible FSharp.Core under every supported SDK"
                 Expect.stringContains project "<None Include=\"fve.json\" />" "the CLI configuration is visible in project-oriented IDEs"
                 Expect.isFalse (project.Contains("FSharp.ViewEngine.Components.css", StringComparison.Ordinal)) "the CLI copies no stylesheet asset"
                 Expect.isFalse (project.Contains("Documentation.tailwind.css", StringComparison.Ordinal)) "Documentation styling comes from its copied F# source"
