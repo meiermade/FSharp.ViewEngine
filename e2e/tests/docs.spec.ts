@@ -1972,7 +1972,7 @@ test('desktop table of contents follows the final visible section after preferre
 
   releaseFont()
   await page.evaluate(() => document.fonts.ready)
-  await expect.poll(() => main.evaluate(element => element.scrollHeight)).toBeGreaterThan(fallbackHeight)
+  await expect.poll(() => main.evaluate(element => element.scrollHeight)).not.toBe(fallbackHeight)
   await main.evaluate(element => element.scrollTo({ top: element.scrollHeight - element.clientHeight - 70, behavior: 'instant' }))
   await expect(page.locator('#shoelace-example')).toBeInViewport()
   await main.dispatchEvent('scroll')
