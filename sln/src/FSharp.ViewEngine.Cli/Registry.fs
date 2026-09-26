@@ -44,8 +44,7 @@ module Registry =
                 if not (Set.contains dependency names) then
                     invalidOp $"Registry component '{item.Name}' references unknown dependency '{dependency}'."
         { Version = version ()
-          Components = components
-          Styles = resource "FSharp.ViewEngine.Cli.Registry.Components.css" }
+          Components = components }
 
     let resolve (registry:ComponentRegistry) (requested:string list) =
         let byName = registry.Components |> Seq.map (fun item -> item.Name, item) |> Map.ofSeq

@@ -37,7 +37,6 @@
     <Content Include="paket.references" Pack="false" />
     <EmbeddedResource Include="@(FveComponent);@(FveAsset)" LogicalName="FSharp.ViewEngine.Cli.Registry.%(Filename)%(Extension)" />
     <EmbeddedResource Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.Registry.props" LogicalName="FSharp.ViewEngine.Cli.Registry.props" />
-    <EmbeddedResource Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.tailwind.css" LogicalName="FSharp.ViewEngine.Cli.Registry.Components.css" />
     <None Include="../../../LICENSE" Pack="True" Visible="false" PackagePath="" />
     <None Include="README.md" Pack="True" Visible="false" PackagePath="" />
     <PackageReference Update="FSharp.Core" Version="10.0.102" />

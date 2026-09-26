@@ -248,7 +248,7 @@ for (const slug of pages) {
     await page.goto(root + slug + '?fveAppMode=app&fveAppFrame=page-workspace');
     const app = page.locator('[data-fve-app-mode-root="true"]');
     await expect(app).toBeVisible();
-    await expect(page.locator('.spec-shell')).not.toBeVisible();
+    await expect(page.locator('[data-docs-shell="true"]')).not.toBeVisible();
     const open = app.getByRole('button', { name: 'Open navigation', exact: true });
     await open.click();
     await expect(app.getByRole('button', { name: 'Close navigation', exact: true })).toBeVisible();

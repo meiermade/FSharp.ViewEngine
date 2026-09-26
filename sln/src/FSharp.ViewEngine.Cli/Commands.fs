@@ -61,33 +61,23 @@ module Commands =
                         0
                     | Ok _ -> fail output $"'{configPath}' already selects a different project or namespace."
                 else
-                    let stylesPath = ConsumerProject.stylesPath root
-                    if File.Exists stylesPath && Text.checksum (File.ReadAllText stylesPath) <> Text.checksum registry.Styles then
-                        fail output $"'{stylesPath}' already exists with different content."
-                    else
-                        let projectExisted = File.Exists projectPath
-                        if not projectExisted then ConsumerProject.createProject projectPath validNamespace targetFramework
-                        match ConsumerProject.updateProject projectPath [] [] false with
-                        | Error message ->
-                            if not projectExisted && File.Exists projectPath then File.Delete projectPath
-                            fail output message
-                        | Ok () ->
-                            if not (File.Exists stylesPath) then Text.writeAtomic stylesPath registry.Styles
-                            let styles =
-                                { Component = "$styles"
-                                  Path = ConsumerProject.relativeStylesPath
-                                  RegistryVersion = registry.Version
-                                  RegistryChecksum = Text.checksum registry.Styles }
-                            { SchemaVersion = 1
-                              RegistryVersion = registry.Version
-                              Project = Path.GetFileName projectPath
-                              Namespace = validNamespace
-                              Components = [||]
-                              Files = [| styles |] }
-                            |> ConsumerProject.writeConfiguration configPath
-                            output.Out.WriteLine($"Initialized {projectPath}")
-                            output.Out.WriteLine($"Tailwind source: {ConsumerProject.ComponentsDirectory}/**/*.fs")
-                            0
+                    let projectExisted = File.Exists projectPath
+                    if not projectExisted then ConsumerProject.createProject projectPath validNamespace targetFramework
+                    match ConsumerProject.updateProject projectPath [] [] false with
+                    | Error message ->
+                        if not projectExisted && File.Exists projectPath then File.Delete projectPath
+                        fail output message
+                    | Ok () ->
+                        { SchemaVersion = 1
+                          RegistryVersion = registry.Version
+                          Project = Path.GetFileName projectPath
+                          Namespace = validNamespace
+                          Components = [||]
+                          Files = [||] }
+                        |> ConsumerProject.writeConfiguration configPath
+                        output.Out.WriteLine($"Initialized {projectPath}")
+                        output.Out.WriteLine($"Tailwind source: {ConsumerProject.ComponentsDirectory}/**/*.fs")
+                        0
 
     let add (registry:ComponentRegistry) (output:CommandOutput) (request:AddRequest) =
         let configPath = Path.GetFullPath request.Config
@@ -172,8 +162,7 @@ module Commands =
             for file in configuration.Files do
                 let path = Path.Combine(root, file.Path)
                 let expected =
-                    if file.Component = "$styles" then Some registry.Styles
-                    else Map.tryFind file.Component current |> Option.map (Registry.sourceFor configuration.Namespace)
+                    Map.tryFind file.Component current |> Option.map (Registry.sourceFor configuration.Namespace)
                 match expected, File.Exists path with
                 | None, _ ->
                     different <- true

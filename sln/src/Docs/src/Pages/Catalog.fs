@@ -86,14 +86,13 @@ module Catalog =
                 } ]
             DocumentationSection.create "start" "Get started" [
                 CodeBlock.create "shell" "dotnet tool install FSharp.ViewEngine.Cli\ndotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components\ndotnet fve add button text-field --config src/Acme.Components/fve.json" |> CodeBlock.render
-                p { _class "spec-paragraph"; "FSharp.ViewEngine remains the conventional Core package. fve copies selected Components source from one versioned registry for the consumer to own and commit." }
+                p { "FSharp.ViewEngine remains the conventional Core package. fve copies selected Components source from one versioned registry for the consumer to own and commit." }
                 p {
-                    _class "spec-paragraph"
-                    a { _class "spec-content-link"; _href "/components/installation"; "Installation" }
+                    a { _href "/components/installation"; "Installation" }
                     " · "
-                    a { _class "spec-content-link"; _href "/components/theming"; "Themes" }
+                    a { _href "/components/theming"; "Themes" }
                     " · "
-                    a { _class "spec-content-link"; _href "/components/tailwind-css"; "Tailwind CSS" }
+                    a { _href "/components/tailwind-css"; "Tailwind CSS" }
                 } ]
             DocumentationSection.create "principles" "Ordinary typed F# composition" [
                 ul {
@@ -111,9 +110,9 @@ module Catalog =
                     ul { for item in area.planned do li { item } }
                     p {
                         "Available now: "
-                        a { _class "spec-content-link"; _href "/components/primitives"; "shared primitives" }
+                        a { _href "/components/primitives"; "shared primitives" }
                         " and "
-                        a { _class "spec-content-link"; _href "/components/application"; "Application compositions" }
+                        a { _href "/components/application"; "Application compositions" }
                         "."
                     } ]
             else

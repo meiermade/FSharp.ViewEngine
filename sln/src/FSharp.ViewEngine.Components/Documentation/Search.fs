@@ -51,26 +51,26 @@ module SearchView =
             "const query = evt.currentTarget.value.trim().toLowerCase(); document.querySelectorAll('[data-docs-search-entry]').forEach(entry => entry.hidden = query !== '' && !entry.dataset.docsSearchText.includes(query)); document.getElementById('docs-search-results').hidden = false"
 
         div {
-            _class "docs-search"
+            _class "relative"
             button {
                 _id "docs-search-button"
                 _type "button"
                 _ariaLabel "Search documentation"
                 _ariaHaspopup "dialog"
-                _class "docs-search-button"
+                _class "flex h-8 cursor-pointer items-center gap-2 rounded-lg border border-[var(--fve-border)] bg-[var(--fve-surface)] px-2.5 text-sm text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] max-sm:w-8 max-sm:justify-center max-sm:p-0 max-sm:[&>kbd]:hidden max-sm:[&>span]:hidden before:max-sm:content-['⌕']"
                 _data("on:click", "document.getElementById('docs-search-dialog').showModal(); queueMicrotask(() => document.getElementById('docs-search-input').focus())")
                 span { "Search" }
-                kbd { "Ctrl+K" }
+                kbd { _class "rounded border border-[var(--fve-border)] px-1 py-px font-mono text-xs"; "Ctrl+K" }
             }
             dialog {
                 _id "docs-search-dialog"
                 _ariaLabel "Search documentation"
-                _class "docs-search-dialog"
+                _class "max-h-[min(42rem,calc(100vh-4rem))] w-[min(40rem,calc(100vw-2rem))] rounded-[0.875rem] border-0 bg-transparent p-0 text-[var(--fve-text)] shadow-[0_24px_70px_rgb(0_0_0/35%)] backdrop:bg-black/55 backdrop:backdrop-blur-[2px]"
                 _data("on:click", "evt.target === evt.currentTarget && evt.currentTarget.close()")
                 div {
-                    _class "docs-search-panel"
+                    _class "overflow-hidden rounded-[0.875rem] border border-[var(--fve-border)] bg-[var(--fve-surface)]"
                     div {
-                        _class "docs-search-field"
+                        _class "flex gap-2 border-b border-[var(--fve-border)] p-3 [&>button]:cursor-pointer [&>button]:border-0 [&>button]:bg-transparent [&>button]:text-sm [&>button]:text-[var(--fve-muted-text)] [&>input]:min-w-0 [&>input]:flex-1 [&>input]:rounded-lg [&>input]:border [&>input]:border-[var(--fve-border)] [&>input]:bg-[var(--fve-surface)] [&>input]:px-3 [&>input]:py-2.5 [&>input]:text-[var(--fve-text)]"
                         input {
                             _id "docs-search-input"
                             _type "search"
@@ -82,7 +82,7 @@ module SearchView =
                     }
                     div {
                         _id "docs-search-results"
-                        _class "docs-search-results"
+                        _class "max-h-[30rem] overflow-y-auto p-2 [&>a]:flex [&>a]:flex-col [&>a]:gap-0.5 [&>a]:rounded-lg [&>a]:px-3 [&>a]:py-2.5 [&>a]:text-[var(--fve-text)] [&>a]:no-underline [&>a:hover]:bg-[var(--fve-surface-hover)] [&>a:focus-visible]:bg-[var(--fve-surface-hover)] [&>a:focus-visible]:outline-none [&_a>span]:text-sm [&_a>span]:leading-snug [&_a>span]:text-[var(--fve-muted-text)]"
                         for result in results do
                             a {
                                 _href result.href

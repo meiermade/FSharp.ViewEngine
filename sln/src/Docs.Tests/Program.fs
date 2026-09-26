@@ -16,9 +16,10 @@ open Docs.Common
 open Docs.Pages
 open Docs.Web
 
-let private docsTailwindManifest () =
-    Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components", "Documentation", "Documentation.tailwind.css"))
-    |> File.ReadAllText
+let private documentationSources () =
+    [ "View.fs"; "ApiReference.fs"; "Example.fs" ]
+    |> List.map (fun file -> Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components", "Documentation", file)) |> File.ReadAllText)
+    |> String.concat "\n"
 
 type private ShellTestDestination =
     | Home
@@ -283,7 +284,7 @@ let tests =
             Expect.stringContains week "data-view=\"week\"" "week is a dedicated view"
             Expect.stringContains month "data-view=\"month\"" "month is a dedicated view"
             Expect.stringContains year "data-view=\"year\"" "year is a dedicated view"
-            Expect.equal (System.Text.RegularExpressions.Regex.Matches(year, "fve-calendar-year-month").Count) 12 "year renders twelve compact months"
+            Expect.equal (System.Text.RegularExpressions.Regex.Matches(year, "class=\"fve-calendar-year-month\"").Count) 12 "year renders twelve compact months"
             Expect.stringContains year "aria-label=\"September 2026 dates\"" "year months retain labelled date grids"
             Expect.stringContains year "2 events: Coastal trail lesson, Beginner riding camp" "year date destinations summarize matching events"
             Expect.equal Components.calendarRegistration.category "Primitives" "Calendar is shared data display"
@@ -571,7 +572,7 @@ let tests =
                 if Catalog.tryPage page.path |> Option.orElseWith (fun () -> Showcase.tryPage page.path) |> Option.orElseWith (fun () -> Components.tryPage page.path) |> Option.isNone then
                     let description = page.nodes |> List.tryPick (function | Paragraph content -> Some content | _ -> None)
                     Expect.isSome description $"{page.path} has a useful page summary"
-                    Expect.isFalse (html.Contains($"<p class=\"spec-page-description\">{page.category}</p>")) $"{page.path} does not repeat its category as the description"
+                    Expect.isFalse (html.Contains($">{page.category}</p>")) $"{page.path} does not repeat its category as the description"
 
                 for heading in DocPage.headings page do
                     Expect.stringContains html $"id=\"{heading.id}\"" $"{page.path} heading {heading.id}"
@@ -579,7 +580,7 @@ let tests =
                         Expect.stringContains html $"href=\"#{heading.id}\"" $"{page.path} TOC {heading.id}"
 
                 if DocPage.tableOfContents page |> List.isEmpty |> not then
-                    Expect.stringContains html "class=\"spec-mobile-toc\"" $"{page.path} mobile TOC"
+                    Expect.stringContains html "data-docs-toc=\"true\"" $"{page.path} mobile TOC"
                     Expect.stringContains html "aria-label=\"On this page\"" $"{page.path} labelled TOC"
         }
 
@@ -598,12 +599,12 @@ let tests =
             let home = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
             let installation = Installation.page |> View.document Registry.navigation |> Render.toHtmlDocString
 
-            Expect.stringContains home "href=\"/installation\" class=\"spec-content-link\"" "Installation is a styled inline link"
-            Expect.stringContains home "href=\"/getting-started/first-view\" class=\"spec-content-link\"" "first-view guide is a styled inline link"
-            Expect.stringContains installation "href=\"/getting-started/first-view\" class=\"spec-content-link\"" "next-step first-view link is styled"
-            let manifest = docsTailwindManifest ()
-            Expect.stringContains manifest ".spec-content-link {" "inline links have package styling"
-            Expect.stringContains manifest "text-decoration: underline;" "inline links have a non-color affordance"
+            Expect.stringContains home "href=\"/installation\"" "Installation link is semantic"
+            Expect.stringContains home "href=\"/getting-started/first-view\"" "first-view guide link is semantic"
+            Expect.stringContains installation "href=\"/getting-started/first-view\"" "next-step first-view link is semantic"
+            let sources = documentationSources ()
+            Expect.stringContains sources "[&_a]:underline" "section links have a source-local non-color affordance"
+            Expect.stringContains sources "[&_a]:text-[var(--fve-brand-text)]" "section links use the shared brand token"
         }
 
         test "Code examples are encoded and retain Prism language classes" {
@@ -687,25 +688,21 @@ let tests =
             let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
             Expect.stringContains html "class=\"docs-home-logo\"" "product logo is shown in the page header"
             Expect.stringContains html "src=\"/logo.svg\"" "page uses the canonical logo asset"
-            Expect.stringContains html "--spec-accent-500:#0ea5e9" "site uses Tailwind Sky 500"
-            Expect.stringContains html "--spec-accent-700:#0369a1" "site uses Tailwind Sky 700"
-            Expect.isFalse (html.Contains("--spec-accent-500:#10b981")) "emerald primary is removed"
+            Expect.stringContains html "--fve-brand-ring:#0ea5e9" "site uses Tailwind Sky 500 for focus"
+            Expect.stringContains html "--fve-brand-solid:#0369a1" "site uses Tailwind Sky 700 for solid actions"
+            Expect.isFalse (html.Contains("--spec-")) "the retired Documentation token namespace is absent"
         }
 
-        test "Docs manifest uses semantic typography roles with consumer-owned Noto preferences" {
+        test "Documentation typography is source-local with consumer-owned Noto assets" {
             let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let manifest = docsTailwindManifest ()
-            Expect.stringContains manifest "--docs-text-ancillary: 0.75rem" "ancillary text uses the 12px baseline"
-            Expect.stringContains manifest "--docs-text-ui: 0.875rem" "documentation UI uses the 14px baseline"
-            Expect.stringContains manifest "--docs-text-reading: 1rem" "reading and form text use the 16px baseline"
-            Expect.stringContains manifest "--docs-text-code: 0.875rem" "code remains compact and readable at 14px"
-            Expect.stringContains manifest "min-width: 2rem" "copy controls retain a compact minimum target"
-            Expect.stringContains manifest "white-space: nowrap" "copy labels remain intact on constrained screens"
-            Expect.stringContains manifest "--docs-font-sans: \"Noto Sans\", ui-sans-serif, system-ui, sans-serif" "Noto Sans remains preferred with system fallbacks"
-            Expect.stringContains manifest "--docs-font-mono:" "the semantic monospace variable is declared"
-            Expect.stringContains manifest "\"Noto Sans Mono\", ui-monospace" "Noto Sans Mono remains preferred with system fallbacks"
-            for forbidden in [ "font-size: 0.625rem"; "font-size: 0.6875rem"; "font-size: 0.8125rem" ] do
-                Expect.isFalse (manifest.Contains forbidden) $"package styles omit non-semantic size {forbidden}"
+            let sources = documentationSources ()
+            let consumerCss = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "input.css"))
+            for role in [ "text-xs"; "text-sm"; "text-base"; "text-xl"; "text-4xl" ] do
+                Expect.stringContains sources role $"Documentation uses the Tailwind typography role {role}"
+            Expect.stringContains sources "font-mono text-sm" "code remains compact and readable"
+            Expect.stringContains sources "size-8 min-w-8" "copy controls retain a compact target"
+            Expect.stringContains consumerCss "font-family: \"Noto Sans\"" "the consumer owns Noto Sans"
+            Expect.stringContains consumerCss "font-family: \"Noto Sans Mono\"" "the consumer owns Noto Sans Mono"
             Expect.isFalse (html.Contains("<style")) "the package does not embed its presentation"
             Expect.stringContains html "rel=\"stylesheet\" href=\"/css/output.css\"" "the repository host links its compiled stylesheet"
             Expect.isFalse (html.Contains("fonts.googleapis.com")) "the package makes no Google Fonts request"
@@ -725,9 +722,10 @@ let tests =
             let diagrams = Showcase.previewRoutes["/docs/previews/mermaid-diagram"]
             Expect.stringContains home "/scripts/prism.1.29.0.min.js" "pinned Prism script"
             Expect.isFalse (home.Contains("prism-tomorrow.1.29.0.min.css")) "dark-only Prism theme is not loaded"
-            let manifest = docsTailwindManifest ()
-            Expect.stringContains manifest "--docs-code-bg: #f6f8fa" "light code palette ships in the manifest"
-            Expect.stringContains manifest "--docs-code-bg: #0d1117" "dark code palette ships in the manifest"
+            let sources = documentationSources ()
+            Expect.stringContains sources "bg-[var(--fve-neutral-subtle)]" "code uses the shared neutral surface"
+            Expect.stringContains sources "[&_.token.keyword]:text-red-700" "light Prism token utilities are source-local"
+            Expect.stringContains sources "dark:[&_.token.keyword]:text-red-300" "dark Prism token utilities are source-local"
             Expect.stringContains home "/scripts/prism-fsharp.1.29.0.min.js" "pinned FSharp grammar"
             Expect.stringContains home "unloading: false" "Prism distinguishes active documents from documents being abandoned"
             Expect.stringContains home "if (this.unloading) resolve()" "only positively identified unloading documents suppress canceled asset errors"
@@ -766,7 +764,9 @@ let tests =
                 Expect.stringStarts document "<!DOCTYPE html>" $"{path} is a complete HTML document"
                 Expect.isFalse (document.Contains("<style")) $"{path} does not embed the Docs component styles"
                 Expect.stringContains document "rel=\"stylesheet\" href=\"/css/output.css\"" $"{path} links the compiled consumer stylesheet"
-                Expect.stringContains document "class=\"spec-document fve-components fve-theme-sky fve-density-compact\"" $"{path} initializes the Docs document and shared component theme"
+                Expect.stringContains document "data-docs-shell=\"true\"" $"{path} initializes the Documentation shell"
+                for themeClass in [ "fve-components"; "fve-theme-sky"; "fve-density-compact" ] do
+                    Expect.stringContains document themeClass $"{path} uses shared component theme class {themeClass}"
         }
 
         test "Showcase source regions preserve the exact compiled example" {
@@ -1042,12 +1042,12 @@ after"""
 
             for registration in Showcase.componentRegistrations do
                 let html = render registration
-                Expect.stringContains html "docs-article-layout" $"{registration.path} uses the readable component-catalog layout"
+                Expect.stringContains html "data-docs-layout=\"article\"" $"{registration.path} uses the readable component-catalog layout"
 
             for registration in Showcase.pageExampleRegistrations do
                 let html = render registration
-                Expect.stringContains html "docs-gallery-layout" $"{registration.path} uses the wide page-example layout"
-                Expect.isFalse (html.Contains("class=\"spec-toc\"")) $"{registration.path} does not reserve a desktop table-of-contents rail"
+                Expect.stringContains html "data-docs-layout=\"gallery\"" $"{registration.path} uses the wide page-example layout"
+                Expect.isFalse (html.Contains("data-docs-toc=\"true\"")) $"{registration.path} does not reserve a table-of-contents rail"
                 Expect.stringContains html "data-fve-full-bleed-example=\"true\"" $"{registration.path} renders its complete Browser fixture full bleed"
                 Expect.stringContains html "building blocks\"" $"{registration.path} identifies its page-specific building blocks"
 
@@ -1153,7 +1153,7 @@ after"""
             Expect.stringContains installation "@source &quot;./src/Acme.Components/Components/**/*.fs&quot;" "direct Tailwind source detection"
 
             for registration, html in List.zip componentRegistrations renderedComponents do
-                Expect.stringContains html "docs-gallery-layout" $"{registration.path} uses the gallery layout"
+                Expect.stringContains html "data-docs-layout=\"gallery\"" $"{registration.path} uses the gallery layout"
                 for rejected in [ "Example setup"; "Imports and supporting code"; "id=\"usage\""; "class=\"docs-toc" ] do
                     Expect.isFalse (html.Contains rejected) $"{registration.path} omits article-only {rejected}"
                 Expect.stringContains html "data-docs-example=\"true\"" $"{registration.path} has an executable example"
@@ -1165,7 +1165,7 @@ after"""
                 Expect.equal (List.distinct ids |> List.length) ids.Length $"{registration.path} has no duplicate example or control IDs"
 
             for registration, html in List.zip Components.guideRegistrations renderedGuides do
-                Expect.stringContains html "docs-article-layout" $"{registration.path} uses the article layout"
+                Expect.stringContains html "data-docs-layout=\"article\"" $"{registration.path} uses the article layout"
                 Expect.isFalse (html.Contains("data-docs-example=\"true\"")) $"{registration.path} is focused guidance rather than a duplicate gallery"
 
             Expect.stringContains allHtml "Interaction and server state" "interaction guide"
@@ -2429,10 +2429,9 @@ after"""
                 Expect.isFalse (ordinaryPage.Contains documentationAsset) "ordinary controls do not opt into Documentation assets"
         }
 
-        test "Components Tailwind contract is isolated and CI-proven" {
+        test "Components Tailwind source scanning contract is isolated and CI-proven" {
             let packageDirectory = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components"))
-            let manifest = File.ReadAllText(Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.tailwind.css"))
-            let documentationManifest = File.ReadAllText(Path.Combine(packageDirectory, "Documentation", "Documentation.tailwind.css"))
+            let manifestPath = Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.tailwind.css")
             let consumer = File.ReadAllText(Path.Combine(packageDirectory, "consumer.css"))
             let verification = File.ReadAllText(Path.Combine(packageDirectory, "verify-tailwind.sh"))
             let renderer =
@@ -2445,31 +2444,32 @@ after"""
             let docsStyles = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "input.css"))
             let dockerfile = File.ReadAllText(Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "Dockerfile")))
 
-            Expect.isFalse (manifest.Contains("@source inline(")) "the base stylesheet has no generated utility safelist"
-            Expect.isFalse (manifest.Contains("bg-[var(--fve-brand-solid)]")) "renderer utilities are discovered from owned F# source"
-            Expect.stringContains manifest ".fve-components" "semantic defaults ship with the manifest"
-            Expect.stringContains manifest ".dark .fve-components" "dark defaults ship with the manifest"
-            Expect.stringContains manifest ".dark .fve-theme-sky" "Sky ships theme-specific dark brand roles"
-            Expect.stringContains manifest ".dark .fve-theme-emerald" "Emerald ships theme-specific dark brand roles"
-            Expect.stringContains manifest ".dark .fve-theme-cyan" "Cyan ships theme-specific dark brand roles"
-            Expect.stringContains manifest ".dark .fve-theme-neutral" "Neutral ships theme-specific dark brand roles"
-            Expect.isFalse (manifest.Contains(".spec-browser-frame")) "Browser presentation uses static utility classes"
-            Expect.isFalse (manifest.Contains(".fve-phone")) "Phone presentation uses static utility classes"
-            Expect.isFalse (manifest.Contains("data-fve-app-mode-root")) "the base manifest excludes Documentation App-mode selectors"
-            Expect.stringContains documentationManifest ".fve-app-mode-launch" "Documentation styles the Fixture App-mode launcher"
-            Expect.stringContains documentationManifest "data-fve-app-mode-root" "Documentation owns fullscreen Fixture presentation"
-            Expect.stringContains manifest "--fve-shell-bar-min-height" "shell bars share one semantic height token"
-            Expect.stringContains manifest "input[type=\"search\"]::-webkit-search-cancel-button" "branded Combobox clear action replaces duplicate WebKit search chrome"
+            Expect.isFalse (File.Exists manifestPath) "Components has no separate stylesheet contract"
+            Expect.stringContains renderer "[--fve-page:oklch(" "semantic defaults live in Foundation source"
+            Expect.stringContains renderer "dark:not-data-[fve-color-mode=light]:[--fve-page:" "dark defaults live in Foundation source"
+            Expect.stringContains renderer "[--fve-brand-solid:oklch(50%" "Sky brand roles live in Foundation source"
+            Expect.stringContains renderer "[--fve-brand-solid:oklch(59.6%" "Emerald brand roles live in Foundation source"
+            Expect.stringContains renderer "[--fve-brand-solid:oklch(60.9%" "Cyan brand roles live in Foundation source"
+            Expect.stringContains renderer "[--fve-brand-solid:oklch(44.6%" "Neutral brand roles live in Foundation source"
+            let documentationSource =
+                Directory.EnumerateFiles(Path.Combine(packageDirectory, "Documentation"), "*.fs")
+                |> Seq.map File.ReadAllText
+                |> String.concat "\n"
+            Expect.stringContains documentationSource "data-fve-app-mode-launch" "Documentation source owns the Fixture App-mode launcher"
+            Expect.stringContains documentationSource "data-fve-app-mode-root" "Documentation source owns fullscreen Fixture presentation"
+            Expect.isFalse (documentationSource.Contains("--spec-")) "Documentation source uses only shared fve tokens"
+            Expect.stringContains renderer "--fve-shell-bar-min-height" "shell bars share one semantic height token"
+            Expect.stringContains renderer "[&::-webkit-search-cancel-button]:appearance-none" "branded Combobox clear action replaces duplicate WebKit search chrome"
             Expect.stringContains renderer "aria-selected:bg-[var(--fve-surface)]" "segmented Tabs selected surface is static renderer source"
             Expect.stringContains renderer "aria-selected:border-[var(--fve-brand-solid)]" "underlined Tabs selected border is static renderer source"
             Expect.stringContains renderer "py-[var(--fve-control-padding-block)]" "renderers consume the semantic density token"
             for role in [ "subtle"; "solid"; "hover"; "active"; "text"; "ring" ] do
                 Expect.isGreaterThanOrEqual
-                    (Regex.Matches(manifest, $"--fve-brand-{role}:").Count)
+                    (Regex.Matches(renderer, $"--fve-brand-{role}:").Count)
                     4
                     $"light and dark theme definitions include brand {role}"
             Expect.stringContains consumer "@import \"tailwindcss\" source(none)" "fixture disables automatic source scanning"
-            Expect.stringContains consumer "@import \"./FSharp.ViewEngine.Components.tailwind.css\"" "clean consumer imports only the base contract"
+            Expect.isFalse (consumer.Contains("FSharp.ViewEngine.Components.tailwind.css")) "clean consumer imports no component stylesheet"
             Expect.stringContains consumer "@source \"./*.fs\"" "clean consumer scans owned component source"
             Expect.isFalse (consumer.Contains("Documentation.tailwind.css")) "ordinary component consumers do not opt into Documentation App mode"
             Expect.stringContains consumer ".acme-theme" "consumer override is independent"
@@ -2491,10 +2491,9 @@ after"""
             Expect.stringContains verification "assert_base_excludes '.fve-app-mode-launch'" "verification proves base Components exclude Documentation App mode"
             Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
             Expect.isFalse (docsStyles.Contains("AppMode.tailwind.css")) "repository host needs no separate App-mode stylesheet"
-            Expect.stringContains docsStyles ".docs-components-preview .fve-components" "Docs owns the example theme adapter"
-            Expect.stringContains docsStyles "--fve-page: var(--spec-bg)" "component examples inherit the Docs page surface"
-            Expect.stringContains docsStyles "--fve-brand-solid: var(--spec-accent-700)" "component examples use a contrast-safe Docs sky accent"
-            Expect.stringContains docsStyles "--fve-overlay-backdrop:" "component examples inherit a Docs-owned overlay backdrop"
+            Expect.isFalse (docsStyles.Contains("Documentation.tailwind.css")) "repository host scans Documentation F# directly"
+            Expect.isFalse (docsStyles.Contains("--spec-")) "repository host has no separate Documentation token system"
+            Expect.stringContains docsStyles "--fve-" "repository examples use shared component tokens"
             Expect.stringContains dockerfile "FSharp.ViewEngine.Components/verify-tailwind.sh" "container CI executes the clean-consumer proof"
             Expect.stringContains componentsProject "..\\FSharp.ViewEngine\\FSharp.ViewEngine.fsproj" "Components depends on Core"
             Expect.isFalse (componentsProject.Contains("FSharp.ViewEngine.Docs")) "Components remains independent from Docs"

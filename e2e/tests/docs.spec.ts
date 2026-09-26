@@ -4,18 +4,30 @@ import { expect, test, type APIRequestContext, type Locator, type Page } from '@
 const productionOrigin = 'https://fve.meiermade.com'
 const crossBrowser = { tag: '@cross-browser' }
 
+async function resolvedVariableColor(root: Locator, property: 'background-color' | 'color', variable: string) {
+  return root.evaluate((element, options) => {
+    const probe = document.createElement('span')
+    if (options.property === 'background-color') probe.style.backgroundColor = `var(${options.variable})`
+    else probe.style.color = `var(${options.variable})`
+    element.appendChild(probe)
+    const value = getComputedStyle(probe).getPropertyValue(options.property)
+    probe.remove()
+    return value
+  }, { property, variable })
+}
+
 async function openComponentGallery(page: Page, path: string, heading: string) {
   await gotoAfterDocsAssetSettlement(page, path)
   await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
-  const examples = page.locator('.docs-gallery-layout [data-docs-example="true"]')
+  const examples = page.locator('[data-docs-layout="gallery"] [data-docs-example="true"]')
   expect(await examples.count()).toBeGreaterThan(0)
   for (const example of await examples.all()) {
-    const preview = example.locator(':scope > .spec-example-toolbar').getByRole('tab', { name: 'Preview', exact: true })
+    const preview = example.locator(':scope > [data-docs-example-toolbar="true"]').getByRole('tab', { name: 'Preview', exact: true })
     await expect(preview).toHaveAttribute('aria-selected', 'true')
     await expect(page.locator(`#${await preview.getAttribute('aria-controls')}`)).toBeVisible()
   }
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), path).toBe(true)
-  return page.locator('.docs-gallery-layout .spec-example-preview .fve-components')
+  return page.locator('[data-docs-layout="gallery"] [data-docs-example-preview="true"] .fve-components')
 }
 
 const representativeRoutes = [
@@ -101,7 +113,7 @@ test('representative documentation routes render without browser errors', async 
     const response = await page.goto(route.path, { waitUntil: 'domcontentloaded' })
     expect(response?.status(), `${route.path} status`).toBe(200)
     await expect(page.getByRole('heading', { level: 1, name: route.heading, exact: true })).toHaveCount(1)
-    await expect(page.locator('main.spec-main')).toBeVisible()
+    await expect(page.locator('main[data-docs-main="true"]')).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   }
 
@@ -206,20 +218,8 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expect(page.locator('#nav-fsharp-viewengine-components-primitives-form-controls')).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#nav-components-select')).toHaveAttribute('data-selected', 'true')
 
-  const resolvedBackground = (root: Locator, variable: string) => root.first().evaluate((element, cssVariable) => {
-    const probe = document.createElement('span')
-    probe.style.backgroundColor = `var(${cssVariable})`
-    element.appendChild(probe)
-    const value = getComputedStyle(probe).backgroundColor
-    const canvas = document.createElement('canvas')
-    canvas.width = canvas.height = 1
-    const context = canvas.getContext('2d')!
-    context.fillStyle = value
-    context.fillRect(0, 0, 1, 1)
-    const pixel = Array.from(context.getImageData(0, 0, 1, 1).data).join(',')
-    probe.remove()
-    return pixel
-  }, variable)
+  const resolvedBackground = (root: Locator, variable: string) =>
+    resolvedVariableColor(root.first(), 'background-color', variable)
 
   const pressedBackgrounds = async (control: Locator) => {
     const settledBackground = () => control.evaluate(async element => {
@@ -243,7 +243,7 @@ test('Representative Components pages provide focused examples, navigation, inte
 
   const observeActivations = () => page.evaluate(() => {
     ;(window as any).__nativeButtonActivations = 0
-    document.querySelector('.docs-gallery-layout')!.addEventListener('click', event => {
+    document.querySelector('[data-docs-layout="gallery"]')!.addEventListener('click', event => {
       if ((event.target as Element).closest('.fve-components button')) (window as any).__nativeButtonActivations++
     })
   })
@@ -262,20 +262,20 @@ test('Representative Components pages provide focused examples, navigation, inte
   }
 
   const buttonSurface = await openPreview('/components/button', 'Button')
-  const docsRoot = page.locator(':root')
+  const docsRoot = page.locator('body')
   const lightPage = await resolvedBackground(buttonSurface, '--fve-page')
-  const lightDocsPage = await resolvedBackground(docsRoot, '--spec-bg')
+  const lightDocsPage = await resolvedBackground(docsRoot, '--fve-page')
   const lightBrand = await resolvedBackground(buttonSurface, '--fve-brand-solid')
-  const lightDocsAccent = await resolvedBackground(docsRoot, '--spec-accent-700')
+  const lightDocsAccent = await resolvedBackground(docsRoot, '--fve-brand-solid')
   expect(lightPage).toBe(lightDocsPage)
   expect(lightBrand).toBe(lightDocsAccent)
 
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
   const darkPage = await resolvedBackground(buttonSurface, '--fve-page')
-  const darkDocsPage = await resolvedBackground(docsRoot, '--spec-bg')
+  const darkDocsPage = await resolvedBackground(docsRoot, '--fve-page')
   const darkBrand = await resolvedBackground(buttonSurface, '--fve-brand-solid')
-  const darkDocsAccent = await resolvedBackground(docsRoot, '--spec-accent-700')
+  const darkDocsAccent = await resolvedBackground(docsRoot, '--fve-brand-solid')
   expect(darkPage).toBe(darkDocsPage)
   expect(darkPage).not.toBe(lightPage)
   expect(darkBrand).toBe(darkDocsAccent)
@@ -802,7 +802,7 @@ test.describe('Components route accessibility', () => {
       for (const path of group.paths) {
         const response = await page.goto(path, { waitUntil: 'domcontentloaded' })
         expect(response?.status(), `${path} status`).toBe(200)
-        await expect(page.locator('main.spec-main')).toBeVisible()
+        await expect(page.locator('main[data-docs-main="true"]')).toBeVisible()
         const results = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
           .analyze()
@@ -974,7 +974,7 @@ test('Composition fixture destinations use Datastar navigation instead of native
   ]) {
     await gotoAfterDocsAssetSettlement(page, fixture.path, 'domcontentloaded')
     const example = page.locator('[data-docs-example="true"]').first()
-    await example.locator(':scope > .spec-example-toolbar').getByRole('tab', { name: 'Preview' }).click()
+    await example.locator(':scope > [data-docs-example-toolbar="true"]').getByRole('tab', { name: 'Preview' }).click()
     await page.evaluate(() => { (window as any).__fixtureNavigationSentinel = 'preserved' })
     destinationRequests.length = 0
 
@@ -1805,7 +1805,7 @@ test('getting started shows the product logo and Tailwind Sky accents', async ({
   await expect(logo).toBeVisible()
   await expect(logo).toHaveAttribute('src', '/logo.svg')
   await expect(page.getByRole('heading', { level: 1, name: 'FSharp.ViewEngine' })).toHaveCount(1)
-  const accent = await page.locator('html').evaluate(element => getComputedStyle(element).getPropertyValue('--spec-accent-500').trim())
+  const accent = await page.locator('html').evaluate(element => getComputedStyle(element).getPropertyValue('--fve-brand-ring').trim())
   expect(accent).toBe('#0ea5e9')
 })
 
@@ -1818,14 +1818,14 @@ test('Docs typography uses semantic ancillary, UI, reading, and code roles', asy
   await expect(repository.locator('svg')).toHaveCount(1)
   await expect(repository).not.toContainText('Repository')
   await expect(page.getByRole('button', { name: 'Search documentation' })).toHaveCSS('font-size', '14px')
-  await expect(page.locator('.spec-nav-link').first()).toHaveCSS('font-size', '14px')
+  await expect(page.locator('[data-docs-nav-link="true"]').first()).toHaveCSS('font-size', '14px')
 
-  const paragraph = page.locator('.spec-paragraph').first()
+  const paragraph = page.locator('[data-docs-section-content="true"] > p').first()
   await expect(paragraph).toBeVisible()
   await expect(paragraph).toHaveCSS('font-size', '16px')
   expect(await paragraph.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Noto Sans')
 
-  const code = page.locator('.spec-code code').first()
+  const code = page.locator('code[data-docs-copy-source="true"]').first()
   await expect(code).toBeVisible()
   await expect(code).toHaveCSS('font-size', '14px')
   expect(await code.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Noto Sans Mono')
@@ -1833,11 +1833,11 @@ test('Docs typography uses semantic ancillary, UI, reading, and code roles', asy
   await expect(page.getByRole('button', { name: 'Copy code' }).first()).toHaveCSS('font-size', '12px')
 
   await page.goto('/docs/previews/tables', { waitUntil: 'domcontentloaded' })
-  await expect(page.locator('.spec-table th').first()).toHaveCSS('font-size', '12px')
-  await expect(page.locator('.spec-table td').first()).toHaveCSS('font-size', '14px')
+  await expect(page.locator('[data-docs-section-content="true"] table th').first()).toHaveCSS('font-size', '12px')
+  await expect(page.locator('[data-docs-section-content="true"] table td').first()).toHaveCSS('font-size', '14px')
 
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
-  await expect(page.locator('.spec-toc-title')).toHaveCSS('font-size', '12px')
+  await expect(page.locator('[data-docs-toc-rail="true"] > div > div').first()).toHaveCSS('font-size', '12px')
 })
 
 test('color mode selector supports persistence, keyboard navigation, and system changes', crossBrowser, async ({ page }) => {
@@ -1847,10 +1847,12 @@ test('color mode selector supports persistence, keyboard navigation, and system 
   await page.reload({ waitUntil: 'domcontentloaded' })
 
   await page.locator('[data-docs-example]').first().getByRole('tab', { name: 'Code' }).click()
-  const codeSurface = page.locator('pre.spec-code').first()
+  const codeSurface = page.locator('pre:has(code[data-docs-copy-source="true"])').first()
   await expect(codeSurface).toBeVisible()
-  await expect(codeSurface).toHaveCSS('background-color', 'rgb(246, 248, 250)')
-  await expect(codeSurface).toHaveCSS('color', 'rgb(36, 41, 47)')
+  const lightCodeBackground = await codeSurface.evaluate(element => getComputedStyle(element).backgroundColor)
+  const lightCodeText = await codeSurface.evaluate(element => getComputedStyle(element).color)
+  expect(lightCodeBackground).toBe(await resolvedVariableColor(page.locator('body'), 'background-color', '--fve-neutral-subtle'))
+  expect(lightCodeText).toBe(await resolvedVariableColor(page.locator('body'), 'color', '--fve-text'))
 
   const trigger = page.getByRole('button', { name: 'Choose color theme' })
   await trigger.click()
@@ -1860,8 +1862,12 @@ test('color mode selector supports persistence, keyboard navigation, and system 
 
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
-  await expect(codeSurface).toHaveCSS('background-color', 'rgb(13, 17, 23)')
-  await expect(codeSurface).toHaveCSS('color', 'rgb(201, 209, 217)')
+  const darkCodeBackground = await codeSurface.evaluate(element => getComputedStyle(element).backgroundColor)
+  const darkCodeText = await codeSurface.evaluate(element => getComputedStyle(element).color)
+  expect(darkCodeBackground).toBe(await resolvedVariableColor(page.locator('body'), 'background-color', '--fve-neutral-subtle'))
+  expect(darkCodeText).toBe(await resolvedVariableColor(page.locator('body'), 'color', '--fve-text'))
+  expect(darkCodeBackground).not.toBe(lightCodeBackground)
+  expect(darkCodeText).not.toBe(lightCodeText)
   expect(await page.evaluate(() => localStorage.getItem('fsharp-viewengine-docs-navigation-color-mode'))).toBe('dark')
   await expect(trigger).toBeFocused()
 
@@ -1915,7 +1921,7 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   await expect(page.locator('#page-content')).not.toHaveAttribute('inert', '')
 
   await opener.click()
-  await page.locator('.spec-overlay').click({ position: { x: 380, y: 400 } })
+  await page.locator('[data-docs-overlay="true"]').click({ position: { x: 380, y: 400 } })
   await expect(drawer).toBeHidden()
   await expect(opener).toBeFocused()
 
@@ -1930,14 +1936,14 @@ test('desktop table of contents tracks the visible section and survives Docs nav
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
 
-  const main = page.locator('.spec-main')
+  const main = page.locator('[data-docs-main="true"]')
   const target = page.locator('#shoelace-example')
   await main.evaluate(element => element.scrollTo({ top: element.scrollHeight, behavior: 'instant' }))
-  await expect(page.locator('.spec-toc a[href="#shoelace-example"]')).toHaveAttribute('aria-current', 'location')
+  await expect(page.locator('[data-docs-toc-rail="true"] a[href="#shoelace-example"]')).toHaveAttribute('aria-current', 'location')
 
   await page.locator('#nav-accessibility').click()
   await expect(page).toHaveURL('/guides/accessibility')
-  await expect(page.locator('.spec-toc a[href="#overview"]')).toHaveAttribute('aria-current', 'location')
+  await expect(page.locator('[data-docs-toc-rail="true"] a[href="#overview"]')).toHaveAttribute('aria-current', 'location')
 })
 
 test('desktop table of contents follows the final visible section after preferred-font reflow', async ({ page }) => {
@@ -1957,9 +1963,9 @@ test('desktop table of contents follows the final visible section after preferre
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => document.fonts.status === 'loading')
 
-  const main = page.locator('.spec-main')
-  const finalSectionLink = page.locator('.spec-toc a[href="#shoelace-example"]')
-  await expect(page.locator('.spec-toc a[aria-current="location"]')).toHaveCount(1)
+  const main = page.locator('[data-docs-main="true"]')
+  const finalSectionLink = page.locator('[data-docs-toc-rail="true"] a[href="#shoelace-example"]')
+  await expect(page.locator('[data-docs-toc-rail="true"] a[aria-current="location"]')).toHaveCount(1)
   const fallbackHeight = await main.evaluate(element => element.scrollHeight)
   await main.evaluate(element => element.scrollTo({ top: element.scrollHeight, behavior: 'instant' }))
   await expect(finalSectionLink).toHaveAttribute('aria-current', 'location')
@@ -1996,9 +2002,9 @@ test('on-this-page links scroll the nested documentation viewport', async ({ pag
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
 
-  const main = page.locator('.spec-main')
+  const main = page.locator('[data-docs-main="true"]')
   const target = page.locator('#shoelace-example')
-  await page.locator('.spec-toc a[href="#shoelace-example"]').click()
+  await page.locator('[data-docs-toc-rail="true"] a[href="#shoelace-example"]').click()
 
   await expect(page).toHaveURL('/custom#shoelace-example')
   await expect.poll(() => main.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
@@ -2007,7 +2013,7 @@ test('on-this-page links scroll the nested documentation viewport', async ({ pag
 
 test('Docs navigation scrolls content to top and highlights morphed code', crossBrowser, async ({ page }) => {
   await page.goto('/extensions/svg', { waitUntil: 'domcontentloaded' })
-  const main = page.locator('.spec-main')
+  const main = page.locator('[data-docs-main="true"]')
   await main.evaluate(element => element.scrollTo({ top: element.scrollHeight }))
   expect(await main.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
 
@@ -2016,7 +2022,7 @@ test('Docs navigation scrolls content to top and highlights morphed code', cross
   await expect(page).toHaveURL('/custom')
   await expect(page.getByRole('heading', { level: 1, name: 'Custom Elements & Attributes' })).toBeVisible()
   await expect.poll(() => main.evaluate(element => element.scrollTop)).toBe(0)
-  await expect(page.locator('.spec-code .token.keyword').first()).toBeVisible()
+  await expect(page.locator('pre:has(code[data-docs-copy-source="true"]) .token.keyword').first()).toBeVisible()
 })
 
 test('Docs navigation loads Prism dependencies before highlighting a code page', crossBrowser, async ({ page }) => {
@@ -2027,9 +2033,11 @@ test('Docs navigation loads Prism dependencies before highlighting a code page',
   await page.locator('#nav-home').click()
 
   await expect(page).toHaveURL('/')
-  const keyword = page.locator('.spec-code .token.keyword').first()
+  const keyword = page.locator('pre:has(code[data-docs-copy-source="true"]) .token.keyword').first()
   await expect(keyword).toBeVisible()
-  await expect(keyword).toHaveCSS('color', 'rgb(207, 34, 46)')
+  expect(await keyword.evaluate(element => getComputedStyle(element).color)).toBe(
+    await resolvedVariableColor(page.locator('body'), 'color', '--color-red-700'),
+  )
   expect(pageErrors.filter(error => error.includes('Prism is not defined'))).toEqual([])
 })
 
@@ -2068,7 +2076,7 @@ test('rapid full-document navigation cancels old Prism loading without browser e
   await page.waitForFunction(() => Boolean((window as any).fsharpDocsCode?.loading))
   await page.evaluate(() => (window as any).fsharpDocsCode.loading)
 
-  await expect(page.locator('.spec-code .token.keyword').first()).toBeVisible()
+  await expect(page.locator('pre:has(code[data-docs-copy-source="true"]) .token.keyword').first()).toBeVisible()
   expect(browserErrors).toEqual([])
 })
 
@@ -2108,7 +2116,7 @@ test('code blocks copy their literal source', async ({ page }) => {
   await page.evaluate(() => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value: string) => { (window as any).__copiedSource = value } } })
   })
-  const block = page.locator('.docs-copyable-code').first()
+  const block = page.locator('[data-docs-copyable-code="true"]').first()
   await block.getByRole('button', { name: 'Copy code' }).click()
   await expect(block.getByRole('button', { name: 'Copy code' })).toContainText('Copied')
   expect(await page.evaluate(() => (window as any).__copiedSource)).toContain('let greeting')
@@ -2122,7 +2130,7 @@ test('code and preview examples support pointer and keyboard tabs', crossBrowser
 
   await expect(code).toHaveAttribute('aria-selected', 'true')
   expect((await code.boundingBox())!.x).toBeLessThan((await preview.boundingBox())!.x)
-  await expect(example.locator('.spec-example-toolbar .docs-copy-code')).toHaveCount(0)
+  await expect(example.locator('[data-docs-example-toolbar="true"] button[aria-label^="Copy "]')).toHaveCount(0)
   const codePanel = example.getByRole('tabpanel', { name: 'Code' })
   await expect(codePanel).toBeVisible()
   await expect(codePanel.getByRole('button', { name: /Copy .* code/ })).toBeVisible()
@@ -2170,7 +2178,9 @@ test('Tailwind Plus Elements previews render and operate the actual custom eleme
   const autocomplete = page.locator('[data-docs-example="true"]:has(#tailwind-elements-autocomplete-tab-preview)')
   const autocompleteSurface = autocomplete.locator('[data-example-surface="true"]')
   const options = autocomplete.locator('el-options')
-  await expect(autocompleteSurface).toHaveCSS('background-color', 'rgb(250, 250, 250)')
+  expect(await autocompleteSurface.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(
+    await resolvedVariableColor(page.locator('body'), 'background-color', '--fve-surface-subtle'),
+  )
   await expect(options).toBeHidden()
   await autocomplete.getByRole('button', { name: 'Show people' }).click()
   await expect(options).toBeVisible()
@@ -2213,11 +2223,17 @@ test('Tailwind Plus Elements previews render and operate the actual custom eleme
   await securityTab.click()
   await expect(tabs.getByRole('tabpanel', { name: 'Security' })).toBeVisible()
   await expect(accountTab).toHaveCSS('border-bottom-color', 'rgba(0, 0, 0, 0)')
-  await expect(securityTab).toHaveCSS('border-bottom-color', 'rgb(14, 165, 233)')
+  expect(await securityTab.evaluate(element => getComputedStyle(element).borderBottomColor)).toBe(
+    await resolvedVariableColor(page.locator('body'), 'color', '--fve-brand-ring'),
+  )
 
   await page.evaluate(() => document.documentElement.classList.add('dark'))
-  await expect(autocompleteSurface).toHaveCSS('background-color', 'rgb(17, 17, 17)')
-  await expect(autocomplete.locator('input')).toHaveCSS('background-color', 'rgb(31, 31, 31)')
+  expect(await autocompleteSurface.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(
+    await resolvedVariableColor(page.locator('body'), 'background-color', '--fve-surface-subtle'),
+  )
+  expect(await autocomplete.locator('input').evaluate(element => getComputedStyle(element).backgroundColor)).toBe(
+    await resolvedVariableColor(page.locator('body'), 'background-color', '--fve-surface'),
+  )
   expect(browserErrors).toEqual([])
 })
 
@@ -2252,7 +2268,7 @@ test('initial document readiness renders pending diagrams independently of data-
 
   await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
 
-  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
   await expect(diagram.locator('svg')).toBeVisible()
   await expectNoRawMermaid(diagram)
@@ -2262,7 +2278,7 @@ test('diagrams render directly without exposing Mermaid source', async ({ page }
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
 
-  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
   await expect(diagram.locator('svg')).toBeVisible()
   await expect(diagram).not.toHaveAttribute('aria-busy', 'true')
@@ -2283,7 +2299,7 @@ test('delayed Mermaid loading shows accessible pending content and never raw sou
 
   await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
   await expect.poll(() => intercepted).toBe(true)
-  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'pending')
   await expect(diagram).toHaveAttribute('aria-busy', 'true')
   await expect(diagram.getByRole('status')).toHaveText('Rendering diagram…')
@@ -2303,7 +2319,7 @@ test('an unavailable Mermaid asset shows the accessible deterministic failure st
   await page.route('**/scripts/mermaid.11.16.0.min.js', route => route.abort('failed'))
 
   await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
-  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'failed')
   await expect(diagram.getByRole('alert')).toHaveText('Diagram unavailable.')
   await expect(diagram).not.toHaveAttribute('aria-busy', 'true')
@@ -2316,7 +2332,7 @@ test('a Mermaid render rejection shows the accessible failure state without an e
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
   await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
-  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram.locator('svg')).toBeVisible()
 
   await diagram.evaluate(async element => {
@@ -2352,14 +2368,14 @@ test('pending diagrams render after Docs navigation without relying on repeated 
   await page.locator('#nav-docs-diagrams').click()
   await expect(page).toHaveURL('/docs/components/diagrams')
 
-  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
   await expect(diagram.locator('svg')).toBeVisible()
   await expect.poll(() => page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('page-content')
   expect(await page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('data-init')
 
   await page.evaluate(async () => {
-    const diagram = document.querySelector<HTMLElement>('main .mermaid.spec-diagram')!
+    const diagram = document.querySelector<HTMLElement>('main [data-docs-diagram="true"]')!
     diagram.dataset.mermaidState = 'rendered'
     diagram.dataset.mermaidRenderedSource = 'stale-source'
     diagram.replaceChildren()
@@ -2373,7 +2389,7 @@ test('pending diagrams render after Docs navigation without relying on repeated 
 test('queued pending rendering discards stale in-flight Mermaid results for a reused host', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
-  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram.locator('svg')).toBeVisible()
 
   const expectedSource = await diagram.evaluate(async element => {
@@ -2427,7 +2443,7 @@ test('diagrams render after Docs navigation and light-dark rerenders', crossBrow
   await page.locator('#nav-docs-diagrams').click()
   await expect(page).toHaveURL('/docs/components/diagrams')
 
-  const diagram = page.locator('main .mermaid.spec-diagram').first()
+  const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
   const lightSvg = await diagram.locator('svg').evaluate(element => element.outerHTML)
   await expectNoRawMermaid(diagram)
@@ -2513,7 +2529,7 @@ test('Docs catalog navigation updates articles without a full-page browser error
   await page.locator('#nav-docs-layouts').click()
   await expect(page).toHaveURL('/docs/components/layouts')
   await expect(page.getByRole('heading', { level: 1, name: 'Layouts' })).toBeVisible()
-  await expect(page.locator('.docs-article-layout')).toBeVisible()
+  await expect(page.locator('[data-docs-layout="article"]')).toBeVisible()
   expect(browserErrors).toEqual([])
 })
 
@@ -2542,7 +2558,7 @@ test('Docs component and page-example catalogs default to complete styled previe
     const examples = page.locator('[data-docs-example="true"]')
     expect(await examples.count(), path).toBeGreaterThan(0)
     for (const example of await examples.all()) {
-      const previewTab = example.locator(':scope > .spec-example-toolbar').getByRole('tab', { name: 'Preview' })
+      const previewTab = example.locator(':scope > [data-docs-example-toolbar="true"]').getByRole('tab', { name: 'Preview' })
       const panelId = await previewTab.getAttribute('aria-controls')
       expect(panelId).toBeTruthy()
       await expect(previewTab).toHaveAttribute('aria-selected', 'true')
@@ -2551,7 +2567,7 @@ test('Docs component and page-example catalogs default to complete styled previe
       const iframe = preview.locator('iframe')
       if (await iframe.count()) {
         const frame = iframe.contentFrame()
-        await expect(frame.locator('body')).toHaveClass(/spec-document/)
+        await expect(frame.locator('body')).toHaveClass(/fve-components/)
         expect(await frame.locator('style, link[rel="stylesheet"]').count(), path).toBeGreaterThan(0)
         expect(await frame.locator('html').evaluate(element => element.scrollWidth <= element.clientWidth), path).toBe(true)
       } else {
@@ -2613,7 +2629,7 @@ test('API reference page example renders endpoint and request-response compositi
   const preview = example.locator('iframe').contentFrame()
   await expect(preview.locator('[data-http-method="POST"]')).toBeVisible()
   await expect(preview.getByText('Rendered HTML and response media type.')).toBeVisible()
-  await expect(preview.locator('.docs-code-panel')).toHaveCount(2)
+  await expect(preview.locator('[data-docs-code-panel="true"]')).toHaveCount(2)
 
   await page.setViewportSize({ width: 390, height: 844 })
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

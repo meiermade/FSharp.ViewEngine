@@ -2439,7 +2439,6 @@ AppShell.create "product-shell" sideNav pageContent
 |> AppShell.render destinationUrl"""
 
     let private tailwindExample = """@import "tailwindcss" source(none);
-@import "./src/Acme.Components/Components/FSharp.ViewEngine.Components.css";
 @source "./src/Acme.Components/Components/**/*.fs";
 @source "./src/Acme.Web/**/*.fs";"""
 
@@ -2727,20 +2726,13 @@ AppShell.create "product-shell" sideNav pageContent
     let private overlaySurface (content:HtmlElement) =
         gallerySurface (div { _class "relative min-h-[32rem] overflow-hidden bg-[var(--fve-surface-subtle)] p-4"; content })
 
-    let private prose content =
-        p {
-            _class "spec-paragraph"
-            text content
-        }
+    let private prose content = p { text content }
 
     let private code language source =
         CodeBlock.create language source |> CodeBlock.render
 
     let private bullets items =
-        ul {
-            _class "spec-bullets list-disc"
-            for item in items do li { text item }
-        }
+        ul { for item in items do li { text item } }
 
     let private buildingBlockLinks label (items:(string * string) list) =
         div {
@@ -2750,7 +2742,7 @@ AppShell.create "product-shell" sideNav pageContent
                 _ariaLabel label
                 _class "flex flex-wrap gap-x-4 gap-y-2"
                 for path, itemLabel in items do
-                    a { _href path; _class "spec-content-link"; text itemLabel }
+                    a { _href path; text itemLabel }
             }
         }
 
@@ -2764,7 +2756,7 @@ AppShell.create "product-shell" sideNav pageContent
                 DocumentationSection.create "complete-pages" "Complete page examples" [
                     p {
                         "For populated pages and a connected workflow, explore "
-                        a { _href accountManagementRegistration.path; _class "spec-content-link"; "Account management" }
+                        a { _href accountManagementRegistration.path; "Account management" }
                         ". These shell examples intentionally show only the layout."
                     } ]
             if registration.id = accountManagementRegistration.id then
@@ -3613,7 +3605,7 @@ AppShell.create "product-shell" sideNav pageContent
             DocumentationSection.create "tailwind" "Scan the owned F# source" [
                 code "css" tailwindExample
                 prose "Import the generated structural and token CSS, then point Tailwind directly at the copied F# and application source. No NuGet-cache path or copied package source manifest is required."
-                p { _class "spec-paragraph"; "See "; a { _href "/components/tailwind-css"; "Tailwind CSS setup" }; " for the exact source-detection contract." } ]
+                p { "See "; a { _href "/components/tailwind-css"; "Tailwind CSS setup" }; " for the exact source-detection contract." } ]
             DocumentationSection.create "namespace" "Use the selected namespace" [
                 code "fsharp" "open FSharp.ViewEngine\nopen Acme.Components.Primitives\nopen Acme.Components.Application\nopen type Html"
                 prose "Components remain ordinary typed F# values and functions. Edit the copied source when product needs differ from the canonical implementation." ] ]
@@ -3705,9 +3697,9 @@ AppShell.create "product-shell" sideNav pageContent
             DocumentationSection.create "brand" "Product branding" [ prose "Override documented semantic variables in an application theme when product branding requires it. Keep component APIs semantic rather than passing raw palette strings." ] ]
 
     let tailwindPage =
-        DocumentationPage.create tailwindRegistration.id tailwindRegistration.title |> DocumentationPage.withDescription "Scan complete utility strings from the consumer-owned F# source and keep only semantic tokens and structural behavior in CSS." |> DocumentationPage.withSections [
-            DocumentationSection.create "source" "Direct source detection" [ code "css" tailwindExample; prose "Tailwind reads the copied source directly. Component renderers use complete static utility strings wherever practical, so there is no generated safelist, package manifest, or global NuGet-cache path." ]
-            DocumentationSection.create "structural" "Generated structural CSS" [ prose "fve init copies FSharp.ViewEngine.Components.css beside the F# files. It contains semantic token defaults and structural behavior that utilities cannot express clearly, including container-query calendar and table layouts. Commit it with the project and use fve diff to compare it with the selected registry." ] ]
+        DocumentationPage.create tailwindRegistration.id tailwindRegistration.title |> DocumentationPage.withDescription "Compile presentation, semantic tokens, and structural behavior directly from consumer-owned F# source." |> DocumentationPage.withSections [
+            DocumentationSection.create "source" "Direct source detection" [ code "css" tailwindExample; prose "Tailwind reads the copied source directly. Component renderers use complete static utility strings, including theme-token and container-query utilities, so there is no generated safelist, copied CSS asset, or global NuGet-cache path." ]
+            DocumentationSection.create "stylesheet" "One host-owned stylesheet" [ prose "fve copies no CSS. Import Tailwind, scan the copied F# source, and compile one application stylesheet. Commit the owned source and use fve diff to compare it with the selected registry." ] ]
 
     let customizationPage =
         DocumentationPage.create customizationRegistration.id customizationRegistration.title |> DocumentationPage.withDescription "Customize local source deliberately and override the supported semantic tokens without replacing hidden package behavior." |> DocumentationPage.withSections [

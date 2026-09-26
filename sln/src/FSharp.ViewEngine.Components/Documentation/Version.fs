@@ -16,7 +16,7 @@ module VersionView =
     let selector current versions =
         nav {
             _ariaLabel "Documentation version"
-            _class "docs-version-selector"
+            _class "flex flex-wrap gap-1.5 [&>a]:rounded-md [&>a]:border [&>a]:border-[var(--fve-border)] [&>a]:px-2 [&>a]:py-1 [&>a]:text-sm [&>a]:text-[var(--fve-muted-text)] [&>a]:no-underline [&>a[aria-current=page]]:bg-[var(--fve-brand-subtle)] [&>a[aria-current=page]]:font-bold [&>a[aria-current=page]]:text-[var(--fve-brand-text)]"
             for version in versions do
                 a {
                     _href version.href

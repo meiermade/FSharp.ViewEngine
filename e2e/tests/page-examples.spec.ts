@@ -51,7 +51,7 @@ test('Page examples keep supporting documentation focused on their building bloc
   await expect(page.getByRole('link', { name: 'Example source and host integration', exact: true })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: 'Built with', exact: true })).toBeVisible()
 
-  const previewPanel = page.locator('.spec-example-preview').filter({ has: page.locator('[data-page-example-preview="true"]') })
+  const previewPanel = page.locator('[data-docs-example-preview="true"]').filter({ has: page.locator('[data-page-example-preview="true"]') })
   await expect(previewPanel).toHaveCSS('border-top-width', '0px')
   await expect(page.getByRole('navigation', { name: 'Example review state' })).toBeVisible()
 

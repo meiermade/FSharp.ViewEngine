@@ -25,7 +25,7 @@ for (const [surface, route, label] of [
     })
     const copy = page.getByRole('button', { name: label, exact: true }).first()
     const icon = (state: string) => copy.locator(`[data-docs-copy-icon="${state}"]`)
-    const source = await copy.evaluate(button => button.closest('.docs-copyable-code')!.querySelector('[data-docs-copy-source]')!.textContent)
+    const source = await copy.evaluate(button => button.closest('[data-docs-copyable-code="true"]')!.querySelector('[data-docs-copy-source]')!.textContent)
     await expect(copy).toHaveAttribute('title', label)
     await expect(copy).toHaveText('')
     await expect(copy).toHaveCSS('width', '32px')

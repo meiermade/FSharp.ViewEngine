@@ -72,7 +72,7 @@ test('error summary sample exposes the public API and its field connection @cros
   await email.fill('alex@fve.meiermade.com')
   await expect(summary).toBeVisible() // Presentation does not run application validation.
   await expect(email).toHaveAttribute('aria-invalid', 'true')
-  const toolbar = example.locator(':scope > .spec-example-toolbar')
+  const toolbar = example.locator(':scope > [data-docs-example-toolbar="true"]')
   await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
   const code = example.locator('code').first()
   for (const api of ['Input.withId "summary-email"', 'Input.withValidation emailError', 'FieldError.create (Input.id email)', 'ErrorSummary.create', 'ErrorSummary.render', 'Input.render email']) {
@@ -139,7 +139,7 @@ test('native textarea editing states preserve successful values only @cross-brow
   await expect(page.getByRole('textbox', { name: 'Checking notes' })).not.toBeEditable()
   await expect(page.getByRole('textbox', { name: 'Checking notes' })).toHaveAttribute('aria-busy', 'true')
   await expect(page.getByRole('textbox', { name: 'Unavailable notes' })).toBeDisabled()
-  const values = await page.locator('.docs-gallery-layout').evaluate(element => {
+  const values = await page.locator('[data-docs-layout="gallery"]').evaluate(element => {
     const form = document.createElement('form')
     for (const field of element.querySelectorAll('textarea')) form.append(field.cloneNode(true))
     return Object.fromEntries(new FormData(form))
@@ -162,9 +162,9 @@ for (const component of ['input', 'textarea', 'error-summary', 'notice', 'form-l
       await page.waitForFunction(() => !document.getAnimations().some(animation => {
         const target = (animation.effect as KeyframeEffect | null)?.target
         return animation.playState === 'running' && Number.isFinite(animation.effect?.getComputedTiming().endTime)
-          && target instanceof Element && target.checkVisibility() && target.closest('.docs-gallery-layout')
+          && target instanceof Element && target.checkVisibility() && target.closest('[data-docs-layout="gallery"]')
       }))
-      expect((await new AxeBuilder({ page }).include('.docs-gallery-layout').analyze()).violations).toEqual([])
+      expect((await new AxeBuilder({ page }).include('[data-docs-layout="gallery"]').analyze()).violations).toEqual([])
       await preview.screenshot({ path: testInfo.outputPath(`${component}-${theme.toLowerCase()}-390.png`) })
     }
     await page.setViewportSize({ width: 320, height: 1000 })

@@ -7,10 +7,10 @@ test('App mode links remain complete-document fallbacks without Datastar enhance
   await page.goto('/docs/components/fixture')
   await page.getByRole('link', { name: 'Open Create a view in App mode' }).click()
   await expect(page.locator('[data-fve-app-mode-root="true"]')).toBeVisible()
-  await expect(page.locator('.spec-shell')).toHaveCount(0)
+  await expect(page.locator('[data-docs-shell="true"]')).toHaveCount(0)
 
   await page.getByRole('link', { name: 'Exit App mode' }).click()
-  await expect(page.locator('.spec-shell')).toBeVisible()
+  await expect(page.locator('[data-docs-shell="true"]')).toBeVisible()
   await expect(page.locator('[data-fve-app-mode-root="true"]')).toHaveCount(0)
   await context.close()
 })
@@ -32,7 +32,7 @@ test('App mode expands the connected Ledger workflow without Docs chrome and pre
   await expect(root).toBeVisible()
   await expect(root).toHaveAttribute('data-fve-app-mode-frame', 'ledger-workflow')
   await expect(controls).toBeVisible()
-  await expect(page.locator('.spec-shell')).not.toBeVisible()
+  await expect(page.locator('[data-docs-shell="true"]')).not.toBeVisible()
   await expect(page).toHaveURL(/fveAppMode=app.*fveAppFrame=ledger-workflow/)
   await expect.poll(() => page.evaluate(() => (window as typeof window & { appModeDocument?: string }).appModeDocument)).toBe('retained')
 
@@ -49,7 +49,7 @@ test('App mode expands the connected Ledger workflow without Docs chrome and pre
 
   await controls.getByRole('link', { name: 'Exit App mode' }).click()
   await expect(page).not.toHaveURL(/fveAppMode=/)
-  await expect(page.locator('.spec-shell')).toBeVisible()
+  await expect(page.locator('[data-docs-shell="true"]')).toBeVisible()
   await expect(page.locator('[data-fve-app-mode-root="true"]')).toHaveCount(0)
   await expect(frame.getByRole('link', { name: 'Open Ledger account workflow in App mode' })).toBeFocused()
   await expect(page).not.toHaveURL(/#fve-fixture-/)

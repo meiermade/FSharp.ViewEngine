@@ -115,6 +115,31 @@ type TableConfig<'row> =
 
 [<RequireQualifiedAccess>]
 module Table =
+    let private layoutClasses =
+        String.concat " " [
+            "@container/fve-table w-full min-w-0 max-w-full [--fve-table-background:var(--fve-page)] data-[surface=panel]:[--fve-table-background:var(--fve-surface)]"
+            "[&_.fve-table-grid]:w-full [&_.fve-table-grid]:border-collapse [&_.fve-table-grid_thead]:bg-[var(--fve-table-background)] [&_.fve-table-grid_tr]:border-b [&_.fve-table-grid_tr]:border-[var(--fve-border)]"
+            "[&_.fve-table-cell]:whitespace-nowrap [&_.fve-table-cell]:px-[var(--fve-table-padding-inline,0.75rem)] [&_.fve-table-cell]:py-[var(--fve-table-padding-block-compact,0.25rem)] data-[density=comfortable]:[&_.fve-table-cell]:py-[var(--fve-table-padding-block-comfortable,0.75rem)]"
+            "[&_.fve-table-sort-control]:inline-flex [&_.fve-table-sort-control]:items-center [&_.fve-table-sort-control]:gap-1 [&_.fve-table-sort-control]:rounded-[var(--fve-radius-control)] [&_.fve-table-sort-control]:text-inherit [&_.fve-table-sort-control]:no-underline [&_.fve-table-sort-control:hover]:text-[var(--fve-text)] [&_.fve-table-sort-control:hover]:underline [&_.fve-table-sort-control:hover]:underline-offset-[0.2em] [&_.fve-table-sort-control:focus-visible]:outline-2 [&_.fve-table-sort-control:focus-visible]:outline-offset-2 [&_.fve-table-sort-control:focus-visible]:outline-[var(--fve-brand-ring)]"
+            "[&_.fve-table-row]:[--fve-row-background:var(--fve-table-background)] [&_.fve-table-row]:bg-[var(--fve-row-background)] [&_.fve-table-row:hover]:[--fve-row-background:var(--fve-surface-hover)] [&_.fve-table-row:focus-within]:[--fve-row-background:var(--fve-surface-hover)] [&_.fve-table-row[data-selected=true]]:[--fve-row-background:var(--fve-brand-subtle)] [&_.fve-table-row[data-selected=true]_.fve-table-mobile-label]:text-[var(--fve-text)]"
+            "[&_.fve-table-actions]:bg-[var(--fve-row-background,var(--fve-table-background))] [&_.fve-table-actions_button[aria-haspopup=menu]]:size-[var(--fve-table-control-size,1.75rem)] [&_.fve-table-actions_button[aria-haspopup=menu]]:rounded-md [&_.fve-table-actions_button[aria-haspopup=menu]]:border [&_.fve-table-actions_button[aria-haspopup=menu]]:border-transparent [&_.fve-table-row:hover_.fve-table-actions_button[aria-haspopup=menu]]:border-[var(--fve-border)] [&_.fve-table-row:focus-within_.fve-table-actions_button[aria-haspopup=menu]]:border-[var(--fve-border)] [&_.fve-table-actions_button[aria-haspopup=menu]:hover]:border-[var(--fve-muted-text)]"
+            "forced-colors:[&_.fve-table-row:focus-within]:outline forced-colors:[&_.fve-table-row:focus-within]:-outline-offset-1 forced-colors:[&_.fve-table-row:focus-within]:outline-[Highlight] forced-colors:[&_.fve-table-actions_[role=menuitem]:focus]:outline-2 forced-colors:[&_.fve-table-actions_[role=menuitem]:focus]:outline-[Highlight]"
+            "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-scroll]:overflow-x-visible"
+            "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:flex @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:flex-wrap @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:items-center @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:gap-x-4 @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:gap-y-2 @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:border-b @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:p-3"
+            "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-grid]:block @max-[40rem]/fve-table:[&.fve-table-records_tbody]:block @max-[40rem]/fve-table:[&.fve-table-records_thead]:block @max-[40rem]/fve-table:[&.fve-table-records_thead_tr]:block"
+            "@max-[40rem]/fve-table:[&.fve-table-records_thead_th:not(.fve-table-selection)]:absolute @max-[40rem]/fve-table:[&.fve-table-records_thead_th:not(.fve-table-selection)]:top-0 @max-[40rem]/fve-table:[&.fve-table-records_thead_th:not(.fve-table-selection)]:left-0 @max-[40rem]/fve-table:[&.fve-table-records_thead_th:not(.fve-table-selection)]:size-px @max-[40rem]/fve-table:[&.fve-table-records_thead_th:not(.fve-table-selection)]:m-0 @max-[40rem]/fve-table:[&.fve-table-records_thead_th:not(.fve-table-selection)]:overflow-hidden @max-[40rem]/fve-table:[&.fve-table-records_thead_th:not(.fve-table-selection)]:p-0 @max-[40rem]/fve-table:[&.fve-table-records_thead_th:not(.fve-table-selection)]:[clip-path:inset(50%)] @max-[40rem]/fve-table:[&.fve-table-records_thead_th:not(.fve-table-selection)]:whitespace-nowrap"
+            "@max-[40rem]/fve-table:[&.fve-table-records_thead_.fve-table-selection]:flex @max-[40rem]/fve-table:[&.fve-table-records_thead_.fve-table-selection]:w-auto @max-[40rem]/fve-table:[&.fve-table-records_thead_.fve-table-selection]:items-center @max-[40rem]/fve-table:[&.fve-table-records_thead_.fve-table-selection]:gap-2 @max-[40rem]/fve-table:[&.fve-table-records_thead_.fve-table-selection]:px-3"
+            "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-selection-target]:shrink-0 @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-selection-target]:mx-[calc((1rem-var(--fve-table-control-size,1.75rem))/2)]"
+            "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-row]:grid @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-row]:grid-cols-[auto_minmax(0,1fr)_auto] @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-row]:gap-x-2 @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-row]:gap-y-1 @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-row]:p-3"
+            "@max-[40rem]/fve-table:[&.fve-table-records_tbody_.fve-table-cell]:min-w-0 @max-[40rem]/fve-table:[&.fve-table-records_tbody_.fve-table-cell]:p-0 @max-[40rem]/fve-table:[&.fve-table-records_tbody_.fve-table-cell]:text-left @max-[40rem]/fve-table:[&.fve-table-records_tbody_.fve-table-cell]:whitespace-normal @max-[40rem]/fve-table:[&.fve-table-records_tbody_.fve-table-cell]:[overflow-wrap:anywhere]"
+            "@max-[40rem]/fve-table:[&.fve-table-records_tbody_.fve-table-selection]:col-start-1 @max-[40rem]/fve-table:[&.fve-table-records_tbody_.fve-table-selection]:row-start-1 @max-[40rem]/fve-table:[&.fve-table-records_tbody_.fve-table-selection]:w-auto @max-[40rem]/fve-table:[&.fve-table-records_tbody_.fve-table-selection]:self-center"
+            "@max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=primary]]:col-start-2 @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=primary]]:row-start-1 @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=primary]]:self-center @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=summary]]:col-start-2 @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=summary]]:row-start-2"
+            "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-row:not(:has(.fve-table-selection))_[data-mobile-cell=primary]]:col-span-2 @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-row:not(:has(.fve-table-selection))_[data-mobile-cell=primary]]:col-start-1 @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-row:not(:has(.fve-table-selection))_[data-mobile-cell=summary]]:col-span-2 @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-row:not(:has(.fve-table-selection))_[data-mobile-cell=summary]]:col-start-1"
+            "@max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=actions]]:static @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=actions]]:col-start-3 @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=actions]]:row-start-1 @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=actions]]:w-auto @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=actions]]:bg-transparent"
+            "@max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=field]]:col-span-full @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=field]]:grid @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=field]]:grid-cols-[minmax(6rem,35%)_minmax(0,1fr)] @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=field]]:place-items-start @max-[40rem]/fve-table:[&.fve-table-records_[data-mobile-cell=field]]:gap-2"
+            "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-label]:inline @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-label]:font-normal @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-label]:text-[var(--fve-muted-text)]"
+            "@max-[16rem]/fve-table:[&.fve-table-records_[data-mobile-cell=field]]:grid-cols-1 @max-[16rem]/fve-table:[&.fve-table-records_[data-mobile-cell=field]]:gap-0.5" ]
+
     let column heading cell =
         if String.IsNullOrWhiteSpace heading then invalidArg (nameof heading) "A column heading is required."
         { heading = heading; cell = cell; rowHeader = false; headingVisible = true; stickyEnd = false; alignEnd = false; mobile = MobileCell.Field; sort = None }
@@ -188,7 +213,7 @@ module Table =
         let notify = $"el.closest('[data-fve-table]').dispatchEvent(new CustomEvent('fve-table-selection-change', {{ bubbles: true, detail: {{ keys: Array.from({selected}) }} }}))"
         let selectionControl id accessibleLabel name value checkedValue disabled effect change =
             label {
-                _class "fve-table-selection-target"
+                _class "fve-table-selection-target inline-flex size-[var(--fve-table-control-size,1.75rem)] cursor-pointer items-center justify-center align-middle"
                 input {
                     _id id
                     _type "checkbox"
@@ -198,7 +223,7 @@ module Table =
                     _value value
                     _checked checkedValue
                     _disabled disabled
-                    _class "fve-table-checkbox"
+                    _class "fve-table-checkbox m-0 size-4 cursor-[inherit] appearance-none rounded border border-[var(--fve-border)] bg-[var(--fve-surface-subtle)] bg-center bg-[length:100%] checked:border-[var(--fve-brand-solid)] checked:bg-[var(--fve-brand-solid)] checked:bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%3E%3Cpath%20d=%27m3.5%208%203%203%206-6%27%20fill=%27none%27%20stroke=%27white%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27/%3E%3C/svg%3E')] indeterminate:border-[var(--fve-brand-solid)] indeterminate:bg-[var(--fve-brand-solid)] indeterminate:bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%3E%3Cpath%20d=%27M4%208h8%27%20stroke=%27white%27%20stroke-width=%272%27%20stroke-linecap=%27round%27/%3E%3C/svg%3E')] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-50 forced-colors:appearance-auto forced-colors:bg-none"
                     _dataEffect effect
                     _dataOn ("change", $"{change}; {notify}")
                 }
@@ -240,7 +265,7 @@ module Table =
         div {
             _attr ("data-fve-table", "true")
             _attr ("data-surface", if config.surface = TableSurface.Panel then "panel" else "plain")
-            _class (ComponentHtml.classes [ "fve-table"; if config.mobileLayout = TableMobileLayout.Records then "fve-table-records" ])
+            _class (ComponentHtml.classes [ "fve-table"; layoutClasses; if config.mobileLayout = TableMobileLayout.Records then "fve-table-records" ])
             _attr ("data-density", if config.density = Density.Compact then "compact" else "comfortable")
             match config.selection with
             | Some selection ->
@@ -263,7 +288,7 @@ module Table =
                     div {
                         _role "group"
                         _ariaLabel ($"Sort {config.caption}")
-                        _class "fve-table-mobile-sort"
+                        _class "fve-table-mobile-sort hidden"
                         span { _class "text-sm font-medium text-[var(--fve-muted-text)]"; sortByLabel }
                         for column in sortableColumns do
                             sortControl "fve-table-sort-control" column
@@ -273,7 +298,7 @@ module Table =
                     table {
                         _role "table"
                         _ariaLabel config.caption
-                        _class "fve-table-grid min-w-full text-left text-sm"
+                        _class "fve-table-grid min-w-full border-collapse text-left text-sm"
                         for attribute in ComponentHtml.safeAttributes [ "class"; "role"; "aria-label"; "aria-labelledby"; "aria-describedby" ] config.attributes do attribute
                         caption {
                             _class (if config.captionVisible then "px-3 py-2 text-left text-sm font-semibold text-[var(--fve-text)]" else "sr-only")
@@ -289,13 +314,13 @@ module Table =
                                     th {
                                         _role "columnheader"
                                         _scope "col"
-                                        _class "fve-table-cell fve-table-selection"
+                                        _class "fve-table-cell fve-table-selection w-px"
                                         selectionControl $"{selection.id}-all" "Select all rows on this page" "" "all" (initial.Length = eligible.Length && eligible.Length > 0) eligible.IsEmpty
                                             $"el.checked = {allSelected}; el.indeterminate = {selected}.length > 0 && !{allSelected}"
                                             $"{selected} = el.checked ? {eligibleJson} : []"
                                         span {
                                             _ariaHidden true
-                                            _class "fve-table-mobile-label"
+                                            _class "fve-table-mobile-label hidden"
                                             "Select all"
                                         }
                                     }
@@ -343,7 +368,7 @@ module Table =
                                         let keyJson = ComponentHtml.javascriptString key
                                         td {
                                             _role "cell"
-                                            _class "fve-table-cell fve-table-selection"
+                                            _class "fve-table-cell fve-table-selection w-px"
                                             selectionControl $"{selection.id}-select-{ComponentHtml.optionToken key}" $"Select {label}" selection.formName key (List.contains key initial) disabled
                                                 $"el.checked = {selected}.includes({keyJson})"
                                                 $"{selected} = el.checked ? [...{selected}.filter(key => key != {keyJson}), {keyJson}] : {selected}.filter(key => key != {keyJson})"
@@ -357,7 +382,7 @@ module Table =
                                             if column.stickyEnd then _attr ("data-fve-sticky-cell", "true") ]
                                         let content = fragment {
                                             if column.mobile = MobileCell.Field then
-                                                span { _ariaHidden true; _class "fve-table-mobile-label"; column.heading }
+                                                span { _ariaHidden true; _class "fve-table-mobile-label hidden"; column.heading }
                                             match config.hierarchy with
                                             | Some _ when column.rowHeader ->
                                                 let key, label, _, level, hasChildren = hierarchyRows[index]

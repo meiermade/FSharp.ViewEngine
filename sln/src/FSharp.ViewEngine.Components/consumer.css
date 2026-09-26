@@ -1,5 +1,4 @@
 @import "tailwindcss" source(none);
-@import "./FSharp.ViewEngine.Components.tailwind.css";
 @source "./*.fs";
 
 .acme-theme {

@@ -76,13 +76,13 @@ module FloatingPanel =
             section {
                 _id config.id
                 _ariaLabelledby titleId
-                _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel z-40 flex max-h-[min(36rem,calc(100dvh-5rem))] flex-col overflow-hidden rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] text-[var(--fve-text)] shadow-xl ring-1 ring-[var(--fve-border)]")
+                _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex max-h-[min(36rem,calc(100dvh-5rem))] w-[min(24rem,calc(100%-2rem))] flex-col overflow-hidden [body:has([data-fve-bottom-navigation=true])_&]:bottom-[max(4rem,calc(env(safe-area-inset-bottom)+3.5rem))] max-[30rem]:right-[max(8px,env(safe-area-inset-right))] max-[30rem]:w-[min(24rem,calc(100%-16px))] rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] text-[var(--fve-text)] shadow-xl ring-1 ring-[var(--fve-border)]")
                 _dataShow (value + " == 'open'")
                 if config.state <> FloatingPanelState.Open then _style "display:none"
                 header {
-                    _class "fve-floating-panel-header flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--fve-border)] p-4"
+                    _class "fve-floating-panel-header flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--fve-border)] p-4 max-[30rem]:px-3"
                     div {
-                        _class "fve-floating-panel-heading min-w-0 flex-1"
+                        _class "fve-floating-panel-heading min-w-0 flex-1 max-[20rem]:basis-full"
                         h2 {
                             _id titleId
                             _tabindex -1
@@ -113,7 +113,7 @@ module FloatingPanel =
                     }
                 }
                 div {
-                    _class "fve-floating-panel-body min-h-0 overflow-y-auto p-4"
+                    _class "fve-floating-panel-body min-h-0 overflow-y-auto p-4 max-[30rem]:px-3"
                     config.body
                 }
                 match config.footer with
@@ -125,7 +125,7 @@ module FloatingPanel =
                 _type "button"
                 _ariaControls config.id
                 _ariaExpanded false
-                _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel-trigger z-40 inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] shadow-lg ring-1 ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]")
+                _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel-trigger right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 inline-flex min-h-[var(--fve-control-min-height)] max-w-[min(24rem,calc(100%-2rem))] items-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] [body:has([data-fve-bottom-navigation=true])_&]:bottom-[max(4rem,calc(env(safe-area-inset-bottom)+3.5rem))] max-[30rem]:right-[max(8px,env(safe-area-inset-right))] max-[30rem]:max-w-[min(24rem,calc(100%-16px))] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] shadow-lg ring-1 ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]")
                 _dataShow (value + " == 'minimized'")
                 if config.state <> FloatingPanelState.Minimized then _style "display:none"
                 _dataOn ("click", $"{value} = 'open'; {openEvent}; {restoreFocus}")
@@ -135,7 +135,7 @@ module FloatingPanel =
                 _id (config.id + "-restore")
                 _type "button"
                 _ariaControls config.id
-                _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel-trigger z-40 inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-brand-text)] underline-offset-2 hover:bg-[var(--fve-surface-hover)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]")
+                _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel-trigger right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 inline-flex min-h-[var(--fve-control-min-height)] max-w-[min(24rem,calc(100%-2rem))] items-center rounded-[var(--fve-radius-control)] px-3 [body:has([data-fve-bottom-navigation=true])_&]:bottom-[max(4rem,calc(env(safe-area-inset-bottom)+3.5rem))] max-[30rem]:right-[max(8px,env(safe-area-inset-right))] max-[30rem]:max-w-[min(24rem,calc(100%-16px))] py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-brand-text)] underline-offset-2 hover:bg-[var(--fve-surface-hover)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]")
                 _dataShow (value + " == 'dismissed'")
                 if config.state <> FloatingPanelState.Dismissed then _style "display:none"
                 _dataOn ("click", $"{value} = 'open'; {openEvent}; {restoreFocus}")

@@ -79,8 +79,16 @@ test('Documentation App mode fixtures expand browser and phone surfaces with ind
   const phoneScreen = root.locator('[data-fve-phone-screen="true"]')
   const phoneStatus = root.locator('[data-fve-phone-status="true"]')
   const phoneCamera = root.locator('[data-fve-phone-camera="true"]')
-  await expect(phoneScreen).toHaveCSS('background-color', 'rgb(23, 23, 23)')
-  await expect(phoneStatus).toHaveCSS('background-color', 'rgb(23, 23, 23)')
+  const phoneSurfaceColor = await phoneScreen.evaluate(element => {
+    const probe = document.createElement('span')
+    probe.style.backgroundColor = 'var(--fve-surface)'
+    element.appendChild(probe)
+    const color = getComputedStyle(probe).backgroundColor
+    probe.remove()
+    return color
+  })
+  expect(await phoneScreen.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(phoneSurfaceColor)
+  expect(await phoneStatus.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(phoneSurfaceColor)
   expect(await phoneCamera.evaluate((camera) => {
     const cameraBounds = camera.getBoundingClientRect()
     const statusBounds = camera.parentElement!.getBoundingClientRect()
@@ -122,10 +130,10 @@ test('Documentation page examples use wide fixtures, relevant building blocks, a
     },
   ] as const) {
     await page.goto(item.path)
-    const layout = page.locator('#page-content > .spec-page-viewport > .spec-page-layout')
-    await expect(layout).toHaveClass(/docs-gallery-layout/)
-    await expect(layout.locator(':scope > .spec-toc')).toHaveCount(0)
-    await expect(layout.locator('.spec-main-inner')).toHaveCSS('max-width', 'none')
+    const layout = page.locator('#page-content [data-docs-page-layout="true"]')
+    await expect(layout).toHaveAttribute('data-docs-layout', 'gallery')
+    await expect(layout.locator(':scope > [data-docs-toc-rail="true"]')).toHaveCount(0)
+    await expect(layout.locator('[data-docs-main-inner="true"]')).toHaveCSS('max-width', 'none')
 
     const example = page.locator('[data-docs-example="true"]').first()
     await expect(example.locator('[data-fve-full-bleed-example="true"]')).toHaveCount(1)
@@ -224,7 +232,7 @@ test('Documentation, API, and specification examples keep navigation inside thei
   await expect(preview.getByRole('complementary', { name: 'Documentation navigation' })).not.toContainText('Guides')
   await expect(preview.locator('[data-http-method="POST"]')).toContainText('/v1/render')
   await expect(preview.locator('[data-parameter-location]')).toHaveCount(3)
-  await expect(preview.locator('.docs-code-panel')).toHaveCount(2)
+  await expect(preview.locator('[data-docs-code-panel="true"]')).toHaveCount(2)
 
   await page.goto('/docs/page-examples/executable-specification')
   preview = page.locator('[data-docs-example="true"]').first().locator('iframe').contentFrame()

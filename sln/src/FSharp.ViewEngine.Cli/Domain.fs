@@ -33,8 +33,7 @@ type RegistryComponent =
 [<NoEquality; NoComparison>]
 type ComponentRegistry =
     { Version:string
-      Components:RegistryComponent list
-      Styles:string }
+      Components:RegistryComponent list }
 
 [<RequireQualifiedAccess>]
 module Text =

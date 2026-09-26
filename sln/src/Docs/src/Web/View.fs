@@ -13,7 +13,7 @@ module View =
         | Text value -> text value
         | Strong children -> strong { for child in children do renderInline child }
         | InlineContent.Code value -> code { value }
-        | Link(label, href) -> a { _href href; _class "spec-content-link"; label }
+        | Link(label, href) -> a { _href href; label }
 
     let private comparisonChart (chart:ComparisonChart) =
         figure {
@@ -49,17 +49,16 @@ module View =
 
     let private element (node:DocNode) =
         match node with
-        | DocNode.Paragraph children -> p { _class "spec-paragraph"; for child in children do renderInline child }
+        | DocNode.Paragraph children -> p { for child in children do renderInline child }
         | DocNode.UnorderedList items ->
-            ul { _class "spec-bullets list-disc"; for item in items do li { for child in item do renderInline child } }
+            ul { for item in items do li { for child in item do renderInline child } }
         | DocNode.OrderedList items ->
-            ol { _class "spec-bullets list-decimal"; for item in items do li { for child in item do renderInline child } }
+            ol { for item in items do li { for child in item do renderInline child } }
         | DocNode.BarChart chart -> comparisonChart chart
         | DocNode.DataTable(headers, rows) ->
             div {
-                _class "spec-table-wrap"
+                _class "overflow-x-auto rounded-xl border border-[var(--fve-border)]"
                 table {
-                    _class "spec-table"
                     thead { tr { for header in headers do th { header } } }
                     tbody { for row in rows do tr { for cell in row do td { cell } } }
                 }

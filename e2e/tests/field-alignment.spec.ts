@@ -107,7 +107,7 @@ for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
 for (const slug of ['file-selection', 'tag-input']) {
   test(`${slug} does not stretch its control in a taller form row`, async ({ page }) => {
     await page.goto(`/components/${slug}`)
-    const field = page.locator('[data-docs-example="true"]').first().locator('.spec-example-preview label').first().locator('..')
+    const field = page.locator('[data-docs-example="true"]').first().locator('[data-docs-example-preview="true"] label').first().locator('..')
     const sizes = await field.evaluate(field => {
       const label = field.querySelector(':scope > label')!
       const control = document.getElementById(label.getAttribute('for')!)!

@@ -98,7 +98,7 @@ module Showcase =
                 _ariaLabel label
                 _class "flex flex-wrap gap-x-4 gap-y-2"
                 for path, itemLabel in items do
-                    a { _href path; _class "spec-content-link"; text itemLabel }
+                    a { _href path; text itemLabel }
             }
         }
 
@@ -188,7 +188,7 @@ module Showcase =
     let private browserConfig title canonicalUrl previewPath =
         Browser.create (
             iframe {
-                _class "docs-isolated-document"
+                _class "docs-isolated-document block min-h-128 w-full border-0 bg-white scheme-light"
                 _title title
                 _src previewPath
                 _data("docs-preview-src", previewPath)
@@ -399,9 +399,8 @@ module Showcase =
             DocumentationPage.create "content-table" "Builder comparison" |> DocumentationPage.withDescription "Compact structured data." |> DocumentationPage.withSections [
                 DocumentationSection.create "builders" "Builders" [
                     div {
-                        _class "spec-table-wrap"
+                        _class "overflow-x-auto rounded-xl border border-[var(--fve-border)]"
                         table {
-                            _class "spec-table"
                             thead { tr { th { "Builder" }; th { "Purpose" } } }
                             tbody {
                                 tr { td { "DocumentationPage.create" }; td { "Guides" } }
@@ -829,7 +828,7 @@ module Showcase =
         |> DocumentationPage.withSections [
             DocumentationSection.create "api-reference-page" "Rendering API reference" [
                 Example.gallery "docs-api-reference-page-example" "Rendering API reference" "fsharp" (sourceFor "api-reference-page") preview
-                p { _class "spec-paragraph"; "FSharp.ViewEngine does not expose an HTTP /v1/render endpoint. This fictional operation keeps the example focused on the reference layout and reusable API components." } ]
+                p { "FSharp.ViewEngine does not expose an HTTP /v1/render endpoint. This fictional operation keeps the example focused on the reference layout and reusable API components." } ]
             DocumentationSection.create "building-blocks" "Built with" [
                 buildingBlockLinks "API reference building blocks" [
                     layoutsRegistration.path, "Layouts"
@@ -869,7 +868,7 @@ module Showcase =
             |> DocumentationPage.withSections [
                 DocumentationSection.create "workflow" "Workflow" [
                     p { "Inspect the wireframe, sequence, and acceptance rules for rendering a typed view." }
-                    a { _href specificationRenderPreviewPath; _class "spec-content-link"; "Render a view" } ] ]
+                    a { _href specificationRenderPreviewPath; "Render a view" } ] ]
         let specificationSite =
             { exampleSite with
                 homeId = "specification-overview"

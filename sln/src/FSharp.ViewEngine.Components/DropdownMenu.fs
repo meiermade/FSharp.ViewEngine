@@ -202,6 +202,7 @@ module DropdownMenu =
               | None -> () ]
         let itemClasses tone unavailable =
             ComponentHtml.classes [
+                ComponentHtml.popupItemClasses
                 "fve-popup-item flex w-full items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal"
                 match tone with
                 | MenuTone.Default -> "text-[var(--fve-text)]"
@@ -299,9 +300,9 @@ module DropdownMenu =
                 _dataOn ("keydown", triggerKeydown)
                 _class (
                     match config.triggerPresentation with
-                    | MenuTriggerPresentation.Button -> "fve-popup-control inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] outline-none hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]"
+                    | MenuTriggerPresentation.Button -> ComponentHtml.classes [ ComponentHtml.popupControlClasses; "fve-popup-control inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]" ]
                     | MenuTriggerPresentation.Overflow
-                    | MenuTriggerPresentation.Icon -> "fve-popup-control inline-flex size-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] p-0 text-[var(--fve-muted-text)] outline-none hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]")
+                    | MenuTriggerPresentation.Icon -> ComponentHtml.classes [ ComponentHtml.popupControlClasses; "fve-popup-control inline-flex size-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] p-0 text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]" ])
                 match config.triggerPresentation with
                 | MenuTriggerPresentation.Overflow -> overflowIcon
                 | MenuTriggerPresentation.Icon ->
@@ -323,7 +324,7 @@ module DropdownMenu =
                 _attr ("data-fve-position-area", positionArea)
                 _dataPreserveAttr "data-fve-pointer-x data-fve-pointer-y"
                 _style $"inset: auto; margin: 0.5rem 0; position-area: {positionArea}; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: min(16rem, calc(100vw - 2rem))"
-                _class "fve-popup fixed z-30 rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-1 shadow-lg"
+                _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-1 shadow-lg" ])
                 for index, item in config.items |> List.indexed do
                     renderEntry (string index) item
             }

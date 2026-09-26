@@ -133,7 +133,7 @@ module Fixture =
         div {
             _attr ("data-fve-fixture", "true")
             _attr ("data-fve-fixture-id", value.id)
-            _class "fve-app-mode-frame"
+            _class "relative"
             a {
                 _id launcherElementId
                 _href (value.launchHref |> appModeHref value.id |> withQueryParameter "fveAppTransition" "enter")
@@ -141,7 +141,7 @@ module Fixture =
                 _dataInit $"setTimeout(() => {{ const url = new URL(location.href); if (url.searchParams.get('fveAppReturn') === '{value.id}') {{ el.focus(); url.searchParams.delete('fveAppReturn'); url.searchParams.delete('fveAppTransition'); history.replaceState(null, '', url.pathname + url.search + url.hash) }} }}, 0)"
                 _ariaLabel $"Open {value.label} in App mode"
                 _title $"Open {value.label} in App mode"
-                _class "fve-app-mode-launch"
+                _class "absolute top-3 right-3 z-2 grid size-8 cursor-pointer place-items-center rounded-md border border-[var(--fve-border)] bg-[var(--fve-surface)] text-[var(--fve-text)] shadow-sm hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&>svg]:size-4"
                 raw """<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.25 3.75h-3.5v3.5M12.75 3.75h3.5v3.5M7.25 16.25h-3.5v-3.5M12.75 16.25h3.5v-3.5"/></svg>"""
             }
             value.embeddedContent

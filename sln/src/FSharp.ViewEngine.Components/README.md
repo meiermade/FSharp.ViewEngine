@@ -47,16 +47,15 @@ div {
 
 ## Tailwind CSS 4
 
-Tailwind scans the copied F# project directly. Import the generated structural/token CSS and point source detection at the owned files:
+Tailwind scans the copied F# project directly. Import Tailwind and point source detection at the owned files:
 
 ```css
 @import "tailwindcss" source(none);
-@import "./src/Acme.Components/Components/FSharp.ViewEngine.Components.css";
 @source "./src/Acme.Components/Components/**/*.fs";
 @source "./src/Acme.Web/**/*.fs";
 ```
 
-Consumers that add `documentation` also import the copied `Components/Documentation/Documentation.tailwind.css`. That stylesheet owns the server-rendered Fixture App-mode presentation; there is no separate App-mode stylesheet or runtime. The base stylesheet retains only semantic token defaults and structural behavior that utilities cannot express clearly. See [Documentation installation and migration](Documentation/README.md).
+Theme tokens, component presentation, Documentation, and Fixture App mode utilities all live beside their consumer-owned F# markup. `fve` copies no CSS asset. Consumers compile one host-owned stylesheet and customize the documented `--fve-*` theme tokens. See [Documentation installation and migration](Documentation/README.md).
 
 Applications may override supported semantic variables in their own theme class without replacing component markup:
 

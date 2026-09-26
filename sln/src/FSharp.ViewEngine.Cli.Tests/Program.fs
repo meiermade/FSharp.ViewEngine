@@ -86,9 +86,9 @@ let tests =
                 let project = File.ReadAllText(projectPath root)
                 Expect.stringContains project $"PackageReference Include=\"FSharp.ViewEngine\" Version=\"{ConsumerProject.CoreVersion}\"" "generated projects pin the registry-compatible Core package"
                 Expect.stringContains project "<None Include=\"fve.json\" />" "the CLI configuration is visible in project-oriented IDEs"
-                Expect.stringContains project "<None Include=\"Components/FSharp.ViewEngine.Components.css\" />" "base styles are visible in project-oriented IDEs"
-                Expect.stringContains project "<None Include=\"Components/Documentation/Documentation.tailwind.css\" />" "selected registry assets are visible in project-oriented IDEs"
-                Expect.isTrue (File.Exists(ConsumerProject.stylesPath root)) "initialization copies the structural stylesheet"
+                Expect.isFalse (project.Contains("FSharp.ViewEngine.Components.css", StringComparison.Ordinal)) "the CLI copies no stylesheet asset"
+                Expect.isFalse (project.Contains("Documentation.tailwind.css", StringComparison.Ordinal)) "Documentation styling comes from its copied F# source"
+                Expect.isFalse (Directory.EnumerateFiles(Path.Combine(root, "Components"), "*.css", SearchOption.AllDirectories) |> Seq.isEmpty |> not) "initialization copies no CSS files"
                 let foundation = project.IndexOf("Foundation.fs", StringComparison.Ordinal)
                 let badge = project.IndexOf("Badge.fs", StringComparison.Ordinal)
                 let choice = project.IndexOf("ChoiceSelection.fs", StringComparison.Ordinal)

@@ -70,7 +70,7 @@ test('description lists retain readable fields in narrow themes and resized text
         }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-      expect((await new AxeBuilder({ page }).include('.docs-gallery-layout').analyze()).violations).toEqual([])
+      expect((await new AxeBuilder({ page }).include('[data-docs-layout="gallery"]').analyze()).violations).toEqual([])
       if (width !== 800) await page.screenshot({ path: testInfo.outputPath(`description-list-${theme.toLowerCase()}-${width}-${scale}x.png`) })
     }
   }

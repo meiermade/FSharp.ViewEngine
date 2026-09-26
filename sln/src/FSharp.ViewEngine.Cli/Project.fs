@@ -13,9 +13,6 @@ module ConsumerProject =
     [<Literal>]
     let ComponentsDirectory = "Components"
 
-    [<Literal>]
-    let StylesFileName = "FSharp.ViewEngine.Components.css"
-
     let CoreVersion =
         Assembly.GetExecutingAssembly().GetCustomAttributes<AssemblyMetadataAttribute>()
         |> Seq.tryFind (fun attribute -> attribute.Key = "FSharpViewEngineCoreVersion")
@@ -49,9 +46,6 @@ module ConsumerProject =
 
     let sourcePath (root:string) (fileName:string) = Path.Combine(root, ComponentsDirectory, fileName)
     let relativeSourcePath (fileName:string) = $"{ComponentsDirectory}/{fileName}"
-    let stylesPath (root:string) = Path.Combine(root, ComponentsDirectory, StylesFileName)
-    let relativeStylesPath = $"{ComponentsDirectory}/{StylesFileName}"
-
     let projectBlock (components:RegistryComponent list) =
         let compileEntries =
             components
@@ -59,7 +53,6 @@ module ConsumerProject =
             |> List.map (fun item -> $"      <Compile Include=\"{relativeSourcePath item.FileName}\" />")
         let assetEntries =
             [ $"      <None Include=\"{ConfigFileName}\" />"
-              $"      <None Include=\"{relativeStylesPath}\" />"
               for item in components do
                   if not item.Compile then
                       $"      <None Include=\"{relativeSourcePath item.FileName}\" />" ]

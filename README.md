@@ -47,7 +47,7 @@ dotnet fve add button text-field --config src/Acme.Components/fve.json
 
 `fve` copies typed themes, actions, feedback, tables and hierarchy, branded form controls, files/uploads, tags, choice cards, progress/steps, calendar/media compositions, menus, overlays, collection/detail compositions, and application layouts from one versioned registry in deterministic F# compile order. Consumers own and commit the selected source; `fve diff` compares local changes without silently replacing them. See the [Components source documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fve.meiermade.com/components).
 
-Documentation sites, API references, and executable specifications can add the same canonical Documentation source with `dotnet fve add documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Import its copied `Documentation/Documentation.tailwind.css` only for Documentation surfaces. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
+Documentation sites, API references, and executable specifications can add the same canonical Documentation source with `dotnet fve add documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Tailwind scans those consumer-owned F# files directly; Documentation uses the same `--fve-*` token contract as the other components, with no copied stylesheet. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
 
 ## Local catalog development
 

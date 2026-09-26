@@ -25,17 +25,15 @@ Documentation comes from the same versioned source registry as Primitives and Ap
 
 ## Tailwind CSS 4
 
-Documentation presentation is consumer-compiled. `fve init` copies `Components/FSharp.ViewEngine.Components.css`; adding Documentation copies `Components/Documentation/Documentation.tailwind.css`. Import them and scan the owned F# files directly:
+Documentation presentation is consumer-compiled. Theme tokens, structural behavior, Documentation, Prism, responsive layouts, and Fixture App mode all compile from utilities in the copied F# source. Import Tailwind and scan the owned files directly:
 
 ```css
 @import "tailwindcss" source(none);
-@import "./src/Acme.Components/Components/FSharp.ViewEngine.Components.css";
-@import "./src/Acme.Components/Components/Documentation/Documentation.tailwind.css";
 @source "./src/Acme.Components/Components/**/*.fs";
 @source "./src/Acme.Web/**/*.fs";
 ```
 
-The base stylesheet supplies semantic component variables and structural behavior not expressed by utilities. The Documentation stylesheet supplies the current theme, layout, responsive, Prism, and specialized selectors.
+`fve` copies no CSS asset. Consumer themes override the same `--fve-*` contract used by Primitives and Application components.
 
 Compile that source to a host-owned stylesheet and expose it through `DocsAssets.productStylesheets`. `DocsAssets.defaults` expects `/css/compiled.css`; use the actual output path when the host chooses another name:
 
@@ -45,25 +43,26 @@ let assets =
         productStylesheets = [ "/css/docs.css" ] }
 ```
 
-The package does not inject a fallback `<style>` element. Omitting either manifest leaves its corresponding presentation unavailable rather than hiding an incomplete installation behind embedded global CSS.
+The tool does not inject a fallback `<style>` element. Omitting the Tailwind import or copied-source scan leaves presentation unavailable rather than hiding an incomplete installation behind embedded global CSS.
 
 ### Migrating from embedded Docs styles
 
 The consumer-compiled Tailwind contract intentionally replaces the former self-contained styling behavior:
 
 1. Add Tailwind CSS 4 to the consuming application build.
-2. Add Documentation through `fve` and import both copied stylesheets in the order shown above.
-3. Serve the compiled stylesheet from the path configured in `productStylesheets`.
-4. Keep consumer overrides after the source imports so semantic variables and application-specific rules remain consumer-owned.
-5. Remove CSP allowances, hashes, or nonce handling that existed only for the former package-generated `<style>` element. Continue supplying `DocsAssets.nonce` when the generated inline scripts require it.
+2. Add Documentation through `fve`, import Tailwind, and scan the copied F# source as shown above.
+3. Remove the former `Documentation.tailwind.css` import and any `--spec-*` overrides.
+4. Serve the compiled stylesheet from the path configured in `productStylesheets`.
+5. Keep `--fve-*` token overrides and application-specific rules after the Tailwind import.
+6. Remove CSP allowances, hashes, or nonce handling that existed only for the former package-generated `<style>` element. Continue supplying `DocsAssets.nonce` when the generated inline scripts require it.
 
 ## Migration from package distribution
 
-Remove `FSharp.ViewEngine.Docs` or `FSharp.ViewEngine.Components`, initialize a consumer-owned Components project, and run `fve add documentation`. Change `open FSharp.ViewEngine.Docs` or `open FSharp.ViewEngine.Components.Documentation` to the configured namespace, such as `open Acme.Components.Documentation`. Import the copied Documentation stylesheet. Use `DocsSite`, `Document`, `DocumentationPage`, `DocumentationSection`, `CodeBlock`, `Callout`, and `Mermaid`. Documentation content is typed semantic HTML; there are no legacy block, inline, or `docs*` builder APIs and no second implementation.
+Remove `FSharp.ViewEngine.Docs` or `FSharp.ViewEngine.Components`, initialize a consumer-owned Components project, and run `fve add documentation`. Change `open FSharp.ViewEngine.Docs` or `open FSharp.ViewEngine.Components.Documentation` to the configured namespace, such as `open Acme.Components.Documentation`. Import Tailwind and scan the copied F# source. Use `DocsSite`, `Document`, `DocumentationPage`, `DocumentationSection`, `CodeBlock`, `Callout`, and `Mermaid`. Documentation content is typed semantic HTML; there are no legacy block, inline, or `docs*` builder APIs and no second implementation.
 
 Pinned historical NuGet versions remain downloadable but are deprecated as Legacy after the CLI replacement is published and verified.
 
-Ordinary product pages need only the base stylesheet. Adding Documentation source does not inject navigation, Prism, Mermaid, or viewer scripts; the host opts into documentation rendering and its assets explicitly.
+Ordinary product pages use the same host-owned Tailwind output. Adding Documentation source does not inject navigation, Prism, Mermaid, or viewer scripts; the host opts into documentation rendering and its assets explicitly.
 
 ### Browser, Phone, and Fixture App mode
 
@@ -100,7 +99,7 @@ let document =
     |> Document.render
 ```
 
-The host selects `Embedded` by default and applies `Document.withRenderMode (Fullscreen appMode)` only when request query state selects a registered fixture. `Document.withAppMode` is the equivalent convenience builder. The server renders either the complete documentation body or the fullscreen fixture body, and ordinary Datastar navigation patches between them while retaining browser history. App-mode controls and presentation are emitted by Documentation and styled by `Documentation.tailwind.css`; there is no separate App-mode JavaScript or CSS asset.
+The host selects `Embedded` by default and applies `Document.withRenderMode (Fullscreen appMode)` only when request query state selects a registered fixture. `Document.withAppMode` is the equivalent convenience builder. The server renders either the complete documentation body or the fullscreen fixture body, and ordinary Datastar navigation patches between them while retaining browser history. App-mode controls and presentation are emitted by Documentation as semantic markup with source-local Tailwind utilities; there is no separate App-mode JavaScript or CSS asset.
 
 ## Builder API
 
@@ -152,8 +151,8 @@ let article =
     |> DocumentationPage.withDescription "Build your first view."
     |> DocumentationPage.withSections [
         DocumentationSection.create "create" "Create a view" [
-            p { _class "spec-paragraph"; "Compose typed elements with computation expressions." }
-            ul { _class "spec-bullets list-disc"; li { "Open FSharp.ViewEngine" }; li { "Open the HTML builders" } } ] ]
+            p { "Compose typed elements with computation expressions." }
+            ul { li { "Open FSharp.ViewEngine" }; li { "Open the HTML builders" } } ] ]
 ```
 
 Add explicit previous and next destinations when the intended reading order differs from the sidebar. The pager uses the same Docs-managed navigation lifecycle as the side navigation:
