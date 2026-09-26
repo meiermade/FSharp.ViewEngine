@@ -64,6 +64,7 @@ for framework in net8.0 net9.0 net10.0; do
   (
     cd "$consumer_dir"
     test "$(dotnet --version)" = "$sdk_version"
+    dotnet tool restore >/dev/null
     dotnet fve init Acme.Components.fsproj --namespace Acme.Components --framework "$framework"
     dotnet fve add "${components[@]}" --config fve.json
     dotnet restore Acme.Components.fsproj \
