@@ -3606,7 +3606,7 @@ AppShell.create "product-shell" sideNav pageContent
                 prose "The generated project references FSharp.ViewEngine normally. fve copies the selected canonical source plus required transitive dependencies in deterministic F# compile order; your repository owns and commits the result." ]
             DocumentationSection.create "tailwind" "Scan the owned F# source" [
                 code "css" tailwindExample
-                prose "Import the generated structural and token CSS, then point Tailwind directly at the copied F# and application source. No NuGet-cache path or copied package source manifest is required."
+                prose "Import Tailwind, then point source detection directly at the copied F# and application source. No NuGet-cache path or copied package source manifest is required."
                 p { "See "; a { _href "/components/tailwind-css"; "Tailwind CSS setup" }; " for the exact source-detection contract." } ]
             DocumentationSection.create "namespace" "Use the selected namespace" [
                 code "fsharp" "open FSharp.ViewEngine\nopen Acme.Components.Primitives\nopen Acme.Components.Application\nopen type Html"
