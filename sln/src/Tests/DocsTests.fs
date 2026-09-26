@@ -15,9 +15,10 @@ type Destination =
 
 let private issueCodes (issues:ValidationIssue list) = issues |> List.map _.code |> Set.ofList
 
-let private docsTailwindManifest () =
-    Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components", "Documentation", "Documentation.tailwind.css"))
-    |> File.ReadAllText
+let private documentationSources () =
+    [ "View.fs"; "ApiReference.fs"; "Example.fs" ]
+    |> List.map (fun file -> Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components", "Documentation", file)) |> File.ReadAllText)
+    |> String.concat "\n"
 
 let private sequenceDiagram () =
     let person = SequenceDiagram.participant "Person" "Person"
@@ -33,9 +34,9 @@ let private navigation =
 
 let private site: DocsSite<Destination> =
     { name = "Example"
-      baseUrl = Some "https://docs.example.com"
+      baseUrl = Some "https://fve.meiermade.com"
       description = Some "Example product documentation."
-      repository = Some(DocsRepository.github "https://github.com/example/docs")
+      repository = Some(DocsRepository.github "https://github.com/meiermade/FSharp.ViewEngine")
       brandMark = span { _ariaHidden "true"; "E" }
       homeId = "home"
       navigation = navigation
@@ -140,20 +141,21 @@ let tests =
             let page =
                 DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [
                     DocumentationSection.create "content" "Content" [
-                        p { _class "spec-paragraph"; "Read "; strong { "carefully" }; " and "; a { _href "/next"; _class "spec-content-link"; "continue" }; " with "; code { "DocumentationPage.create" } }
-                        ul { _class "spec-bullets list-disc"; li { "Plain list item" } }
-                        ol { _class "spec-bullets list-decimal"; li { "Ordered item" } }
-                        div { _class "spec-table-wrap"; table { _class "spec-table"; thead { tr { th { "Builder" }; th { "Purpose" } } }; tbody { tr { td { code { "DocumentationPage.create" } }; td { "Guides" } } } } }
+                        p { "Read "; strong { "carefully" }; " and "; a { _href "/next"; "continue" }; " with "; code { "DocumentationPage.create" } }
+                        ul { li { "Plain list item" } }
+                        ol { li { "Ordered item" } }
+                        div { table { thead { tr { th { "Builder" }; th { "Purpose" } } }; tbody { tr { td { code { "DocumentationPage.create" } }; td { "Guides" } } } } }
                         Callout.create "Note" [ p { "Direct typed HTML stays semantic." } ] |> Callout.render ] ]
 
             let rendered = DocumentationPage.render page |> Render.toString
             Expect.stringContains rendered "<strong>carefully</strong>" "strong inline content"
             Expect.stringContains rendered "href=\"/next\"" "inline link"
             Expect.stringContains rendered "<code>DocumentationPage.create</code>" "inline code"
-            Expect.stringContains rendered "<ul class=\"spec-bullets list-disc\"><li>Plain list item</li></ul>" "plain bullets restore markers after Preflight"
-            Expect.stringContains rendered "<ol class=\"spec-bullets list-decimal\"" "ordered list restores numbers after Preflight"
+            Expect.stringContains rendered "<ul><li>Plain list item</li></ul>" "plain semantic list"
+            Expect.stringContains rendered "<ol><li>Ordered item</li></ol>" "ordered semantic list"
             Expect.stringContains rendered "<th>Builder</th>" "semantic table header"
-            Expect.stringContains rendered "class=\"spec-callout-label\">Note" "callout label"
+            Expect.stringContains rendered "data-docs-callout=\"true\"" "callout hook"
+            Expect.stringContains rendered ">Note</div>" "callout label"
         }
 
         test "Heading adornments preserve the semantic page heading" {
@@ -167,7 +169,7 @@ let tests =
         }
 
         test "Article, reference, and canvas builders select composable layouts" {
-            let sections = [ DocumentationSection.create "usage" "Usage" [ CodeBlock.create "shell" "example run" |> CodeBlock.render; p { _class "spec-paragraph"; "Any page shape is allowed." } ] ]
+            let sections = [ DocumentationSection.create "usage" "Usage" [ CodeBlock.create "shell" "example run" |> CodeBlock.render; p { "Any page shape is allowed." } ] ]
             let article = DocumentationPage.create "guide" "CLI guide" |> DocumentationPage.withDescription "Run the CLI." |> DocumentationPage.withSections sections
             let reference = DocumentationPage.create "reference" "Create item" |> DocumentationPage.withDescription "Creates an item." |> DocumentationPage.withLayout DocsLayout.Reference |> DocumentationPage.withRightRail (CustomRail (div { "Request examples" })) |> DocumentationPage.withSections sections
             let canvas = DocumentationPage.create "detail" "Architecture" |> DocumentationPage.withDescription "Explore the system." |> DocumentationPage.withLayout Canvas |> DocumentationPage.withRightRail NoRail |> DocumentationPage.withSections sections
@@ -225,28 +227,28 @@ let tests =
                 |> DocumentationPage.withMetadata {
                     DocsPageMetadata.defaults with
                         browserTitle = Some "Guide · Example"
-                        canonicalUrl = Some "https://docs.example.com/canonical-guide"
+                        canonicalUrl = Some "https://fve.meiermade.com/docs"
                         noIndex = true
-                        socialImage = Some "https://docs.example.com/guide.png"
+                        socialImage = Some "https://fve.meiermade.com/favicon.svg"
                         version = Some "2026.8"
                         deprecated = true
                         lastUpdated = Some "2026-08-12"
-                        editUrl = Some "https://github.com/example/docs/edit/main/guide.fs" }
+                        editUrl = Some "https://github.com/meiermade/FSharp.ViewEngine/edit/main/README.md" }
 
             let rendered = Document.create site page |> Document.render |> Render.toString
             Expect.stringContains rendered "<title>Guide &#183; Example</title>" "browser title"
             Expect.stringContains rendered "name=\"description\" content=\"A focused guide description.\"" "page description"
-            Expect.stringContains rendered "rel=\"canonical\" href=\"https://docs.example.com/canonical-guide\"" "canonical override"
+            Expect.stringContains rendered "rel=\"canonical\" href=\"https://fve.meiermade.com/docs\"" "canonical override"
             Expect.stringContains rendered "name=\"robots\" content=\"noindex\"" "robots metadata"
-            Expect.stringContains rendered "property=\"og:url\" content=\"https://docs.example.com/canonical-guide\"" "Open Graph canonical URL"
+            Expect.stringContains rendered "property=\"og:url\" content=\"https://fve.meiermade.com/docs\"" "Open Graph canonical URL"
             Expect.stringContains rendered "property=\"og:type\" content=\"website\"" "Open Graph type"
             Expect.stringContains rendered "property=\"og:site_name\" content=\"Example\"" "Open Graph site name"
-            Expect.stringContains rendered "property=\"og:image\" content=\"https://docs.example.com/guide.png\"" "social image"
+            Expect.stringContains rendered "property=\"og:image\" content=\"https://fve.meiermade.com/favicon.svg\"" "social image"
             Expect.stringContains rendered "property=\"og:image:alt\" content=\"Guide\"" "social image alternative"
             Expect.stringContains rendered "data-docs-version=\"2026.8\"" "version metadata"
             Expect.stringContains rendered "data-docs-deprecated=\"true\"" "deprecation metadata"
             Expect.stringContains rendered "datetime=\"2026-08-12\"" "last-updated metadata"
-            Expect.stringContains rendered "href=\"https://github.com/example/docs/edit/main/guide.fs\"" "edit source"
+            Expect.stringContains rendered "href=\"https://github.com/meiermade/FSharp.ViewEngine/edit/main/README.md\"" "edit source"
         }
 
         test "Document builders render accessible navigation and arbitrary content" {
@@ -262,51 +264,49 @@ let tests =
                 |> Document.withSideNavItems navigation
                 |> Document.render
                 |> Render.toString
-            let manifest = docsTailwindManifest ()
+            let manifest = documentationSources ()
             Expect.throws (fun () -> Document.create site page |> Document.withBreadcrumbs [] |> ignore) "explicit breadcrumb configuration cannot be empty"
             Expect.throws (fun () -> Document.create site page |> Document.withSideNavItems [] |> ignore) "explicit side navigation cannot be empty"
             Expect.isFalse (rendered.Contains("<style")) "component presentation is consumer-compiled"
             Expect.stringContains rendered "rel=\"stylesheet\" href=\"/css/compiled.css\"" "default compiled stylesheet contract"
-            Expect.stringContains rendered "class=\"spec-heading-visually-hidden\"" "hidden semantic heading"
+            Expect.stringContains rendered "data-docs-visually-hidden-heading=\"true\"" "hidden semantic heading"
             Expect.stringContains rendered "aria-label=\"Toggle Guides section\"" "accessible disclosure"
-            Expect.stringContains rendered "class=\"spec-nav-chevron\"" "groups expose compact disclosure chevrons"
-            Expect.stringContains rendered "class=\"spec-nav-chevron-spacer\" aria-hidden=\"true\"" "pages reserve the disclosure column"
+            Expect.stringContains rendered "data-attr:data-open" "groups expose disclosure state"
+            Expect.stringContains rendered "aria-hidden=\"true\"" "pages reserve the disclosure column"
             Expect.stringContains rendered "href=\"/guides\"" "breadcrumb destination"
-            Expect.stringContains rendered "class=\"mermaid spec-diagram\"" "sequence diagram component"
+            Expect.stringContains rendered "class=\"mermaid overflow-x-auto" "sequence diagram component"
             Expect.stringContains rendered "data-init=\"window.renderMermaid?.(el)\"" "diagrams initialize when Datastar adds them to the DOM"
             Expect.stringContains rendered "data-mermaid-source=\"sequenceDiagram" "diagram source is encoded outside visible content"
             Expect.stringContains rendered "data-mermaid-state=\"pending\" aria-busy=\"true\"" "diagrams expose their initial busy state"
             Expect.stringContains rendered "data-mermaid-status=\"true\" role=\"status\">Rendering diagram…</p>" "diagrams provide accessible pending content"
             Expect.stringContains rendered "data-example=\"true\"" "custom product content"
-            Expect.stringContains rendered "https://github.com/example/docs" "optional repository link"
+            Expect.stringContains rendered "https://github.com/meiermade/FSharp.ViewEngine" "optional repository link"
             Expect.stringContains rendered "aria-label=\"View repository on GitHub\"" "GitHub repository action is icon-only and accessibly named"
-            Expect.stringContains rendered "id=\"spec-color-mode-trigger\"" "built-in color mode selector"
+            Expect.stringContains rendered "id=\"docs-color-mode-trigger\"" "built-in color mode selector"
             Expect.stringContains rendered "aria-haspopup=\"menu\"" "color mode uses the shared DropdownMenu"
             Expect.stringContains rendered "role=\"menuitemradio\"" "color mode options use radio menu semantics"
             Expect.stringContains rendered "window.fsharpDocsColorMode" "color mode is applied before paint and persisted"
             Expect.stringContains rendered "window.fsharpDocsPreviewColorMode" "isolated documentation previews inherit the resolved host color mode"
             Expect.stringContains rendered "iframe[data-docs-preview-src]" "color-mode synchronization is bounded to documentation preview frames"
-            Expect.stringContains manifest "--docs-code-bg: #f6f8fa" "light mode uses a light code surface"
-            Expect.stringContains manifest "--docs-code-bg: #0d1117" "dark mode uses a dark code surface"
-            Expect.stringContains manifest ".spec-document .token.atrule" "Prism tokens follow the active color mode"
-            Expect.stringContains manifest ".spec-document pre.spec-code code" "package code selector overrides host styles"
-            Expect.stringContains manifest "--docs-text-code: 0.875rem" "code uses the semantic 14px role"
-            Expect.stringContains manifest "font-size: var(--docs-text-code)" "code selectors use semantic compact typography"
-            Expect.stringContains rendered "rel=\"canonical\" href=\"https://docs.example.com/guides/detail\"" "canonical page URL"
+            Expect.stringContains manifest "bg-[var(--fve-neutral-subtle)]" "code uses the shared neutral surface"
+            Expect.stringContains manifest "[&_.token.keyword]:text-red-700" "Prism token utilities are source-local"
+            Expect.stringContains manifest "dark:[&_.token.keyword]:text-red-300" "Prism tokens adapt to dark mode"
+            Expect.stringContains manifest "font-mono text-sm" "code uses semantic Tailwind typography"
+            Expect.stringContains rendered "rel=\"canonical\" href=\"https://fve.meiermade.com/guides/detail\"" "canonical page URL"
             Expect.stringContains rendered "name=\"description\" content=\"A customizable page.\"" "page-specific description"
         }
 
         test "Repository links and default color modes remain consumer configurable" {
             let configuredSite =
                 { site with
-                    repository = Some(DocsRepository.link "Source repository" "https://code.example.com/project")
+                    repository = Some(DocsRepository.link "Source repository" "https://github.com/meiermade/FSharp.ViewEngine")
                     defaultColorMode = DocsColorMode.Dark }
 
             let rendered = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [] |> fun page -> Document.create configuredSite page |> Document.render |> Render.toString
-            Expect.stringContains rendered "href=\"https://code.example.com/project\"" "custom repository URL"
+            Expect.stringContains rendered "href=\"https://github.com/meiermade/FSharp.ViewEngine\"" "custom repository URL"
             Expect.stringContains rendered ">Source repository</a>" "custom repository label"
             Expect.stringContains rendered "defaultMode: \"dark\"" "consumer default is serialized before paint"
-            Expect.stringContains rendered "id=\"spec-color-mode-menu-entry-2\" type=\"button\" role=\"menuitemradio\" aria-checked=\"true\"" "the default Dark radio item is checked before hydration"
+            Expect.stringContains rendered "id=\"docs-color-mode-menu-entry-2\" type=\"button\" role=\"menuitemradio\" aria-checked=\"true\"" "the default Dark radio item is checked before hydration"
         }
 
         test "Rich API operations cover authentication, located parameters, responses, errors, and policy metadata" {
@@ -355,7 +355,7 @@ let tests =
                     ApiReference.parameter "name" "string" true "The display name."
                     ApiReference.parameter "metadata" "object" false "Additional values." ]
                 |> Render.toString
-            let request = ApiReference.codeExample "Create item" "curl" "curl --request POST https://api.example.com/v1/items" |> Render.toString
+            let request = ApiReference.codeExample "Create item" "curl" "curl --request POST $API_ORIGIN/v1/items" |> Render.toString
             let response = ApiReference.responseExample "201" "json" "{ \"id\": \"item_123\" }" |> Render.toString
 
             Expect.stringContains endpoint "data-http-method=\"POST\"" "method metadata"
@@ -378,10 +378,10 @@ let tests =
             Expect.stringContains plainHtml "window.fsharpDocsMermaid" "plain pages configure lazy Mermaid for later navigation"
             Expect.stringContains plainHtml "/scripts/mermaid.11.16.0.min.js" "plain pages retain the configured Mermaid source"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "plain pages do not eagerly load Mermaid"
-            let manifest = docsTailwindManifest ()
+            let manifest = documentationSources ()
             Expect.isFalse (plainHtml.Contains("prism-tomorrow.1.29.0.min.css")) "default Prism colors come from the consumer-compiled manifest rather than a dark-only stylesheet"
-            Expect.stringContains manifest "--docs-code-green: #116329" "light Prism palette is available before highlighting"
-            Expect.stringContains manifest "--docs-code-green: #7ee787" "dark Prism palette is available before highlighting"
+            Expect.stringContains manifest "[&_.token.string]:text-green-800" "light Prism palette is available before highlighting"
+            Expect.stringContains manifest "dark:[&_.token.string]:text-green-300" "dark Prism palette is available before highlighting"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/prism.1.29.0.min.js\"")) "plain pages omit Prism scripts"
             Expect.stringContains diagramHtml "data-init=\"window.renderMermaid?.(el)\"" "diagram elements own their Datastar initialization"
             Expect.stringContains diagramHtml "data-mermaid-source=\"flowchart LR" "diagram source is encoded as data rather than visible content"
@@ -440,7 +440,7 @@ let tests =
                 |> DocumentationPage.withDescription "Description"
                 |> DocumentationPage.withSections [ section ]
             let document = Document.create site page |> Document.render |> Render.toString
-            let api = ApiReference.codeExample "Request" "curl" "curl https://example.com" |> Render.toString
+            let api = ApiReference.codeExample "Request" "curl" "curl $API_ORIGIN" |> Render.toString
 
             Expect.stringContains document "aria-label=\"Copy code\"" "standard code copy button"
             Expect.stringContains document "data-docs-copy-source" "standard source relationship"
@@ -467,9 +467,10 @@ let tests =
                 |> Mermaid.render
                 |> Render.toString
 
-            Expect.stringContains callout "class=\"spec-callout-label\">Security" "callout label"
+            Expect.stringContains callout "data-docs-callout=\"true\"" "callout hook"
+            Expect.stringContains callout ">Security</div>" "callout label"
             Expect.stringContains callout "Render trusted content only." "semantic callout content"
-            Expect.stringContains c4 "spec-c4-diagram" "C4 diagram surface"
+            Expect.stringContains c4 "max-sm:[&amp;&gt;svg]:min-w-3xl" "C4 diagram surface"
             Expect.throws (fun () -> Mermaid.create "" |> ignore) "diagram source is required"
             Expect.throws (fun () -> Callout.create "" [] |> ignore) "callout label is required"
         }
@@ -481,11 +482,10 @@ let tests =
                         Example.gallery "primary-button" "Primary" "fsharp" "Button.primary \"Create\"" (button { _type "button"; "Create" }) ] ]
             let html = Document.create site page |> Document.render |> Render.toString
             Expect.equal page.layout Gallery "explicit gallery layout"
-            Expect.stringContains html "docs-gallery-layout" "gallery layout hook"
-            Expect.isFalse (html.Contains("class=\"spec-toc-nav")) "no article table of contents"
+            Expect.stringContains html "data-docs-layout=\"gallery\"" "gallery layout hook"
+            Expect.isFalse (html.Contains("data-docs-toc=\"true\"")) "no article table of contents"
             Expect.stringContains html "<section id=\"primary\" tabindex=\"-1\">" "stable section fragment"
-            Expect.stringContains html "<h2 class=\"spec-example-title\">Primary</h2>" "example toolbar owns its heading"
-            Expect.isFalse (html.Contains("spec-section-title-level-2")) "section does not repeat the example heading"
+            Expect.stringContains html "data-docs-example-title=\"true\">Primary</h2>" "example toolbar owns its heading"
             Expect.stringContains html "aria-label=\"Copy Primary code\"" "copy action has an example-specific name"
             Expect.stringContains html "data-docs-copy-source=\"true\"" "copy targets the literal source"
             Expect.isLessThan (html.IndexOf(">Preview</button>")) (html.IndexOf(">Code</button>")) "preview is the first tab"
@@ -500,8 +500,9 @@ let tests =
             Expect.stringContains example "role=\"tablist\" aria-label=\"Counter\"" "accessible tab list"
             Expect.stringContains example "role=\"tab\"" "tab semantics"
             Expect.stringContains example "aria-controls=\"counter-example-panel-code\"" "code panel relationship"
-            Expect.stringContains example "class=\"spec-example-preview\"" "consumer preview"
-            Expect.stringContains example "class=\"spec-example-code spec-code language-fsharp\"" "Prism-compatible code"
+            Expect.stringContains example "data-docs-example-preview=\"true\"" "consumer preview"
+            Expect.stringContains example "data-docs-example-code=\"true\"" "code panel hook"
+            Expect.stringContains example "language-fsharp" "Prism-compatible code"
             Expect.stringContains example "counter_exampleExample: &#39;code&#39;" "developer examples show source first"
             Expect.isLessThan
                 (example.IndexOf(">Code</button>", System.StringComparison.Ordinal))
@@ -534,11 +535,11 @@ let tests =
         test "Browser frames and tabs are reusable independent components" {
             let framed =
                 Browser.create (div { "Application" })
-                |> Browser.withAddress "https://example.com/items"
+                |> Browser.withAddress "https://fve.meiermade.com/components/browser"
                 |> Browser.render
                 |> Render.toString
             Expect.stringContains framed "data-browser-frame=\"true\"" "browser marker"
-            Expect.stringContains framed "data-browser-url=\"https://example.com/items\"" "canonical URL marker"
+            Expect.stringContains framed "data-browser-url=\"https://fve.meiermade.com/components/browser\"" "canonical URL marker"
 
             let tabs =
                 [ Tab.create "empty" "Empty" (div { "No items" })
@@ -553,36 +554,53 @@ let tests =
         }
 
         test "App mode keeps workflow destinations and review states explicit" {
-            let ready = FixtureState.create "Ready" "/checkout/shipping" |> FixtureState.current
-            let invalid = FixtureState.create "Address error" "/checkout/shipping?state=error"
-            let frame =
+            let shippingPath = "/docs/components/fixture?fixtureStep=shipping&fixtureState=ready"
+            let ready = FixtureState.create "Ready" shippingPath |> FixtureState.current
+            let invalid = FixtureState.create "Address error" "/docs/components/fixture?fixtureStep=shipping&fixtureState=validation"
+            let fixture =
                 Browser.create (div { "Shipping address" })
-                |> Browser.withAddress "https://shop.example.test/checkout/shipping"
-                |> Browser.withAppMode "checkout-shipping" "Shipping address"
-                |> Browser.render
-                |> Fixture.create "checkout-shipping"
-                |> Fixture.withPrevious (FixtureLink.create "Cart" "/checkout/cart")
-                |> Fixture.withNext (FixtureLink.create "Payment" "/checkout/payment")
+                |> Browser.withAddress ("https://fve.meiermade.com" + shippingPath)
+                |> Fixture.browser "checkout-shipping" "Shipping address" shippingPath
+                |> Fixture.withPrevious (FixtureLink.create "Cart" "/docs/components/fixture?fixtureStep=cart&fixtureState=ready")
+                |> Fixture.withNext (FixtureLink.create "Payment" "/docs/components/fixture?fixtureStep=payment&fixtureState=ready")
                 |> Fixture.withStates [ ready; invalid ]
+
+            let embedded = fixture |> Fixture.render |> Render.toString
+            Expect.stringContains embedded "data-fve-fixture-id=\"checkout-shipping\"" "stable fixture identity"
+            Expect.stringContains embedded "href=\"/docs/components/fixture?fixtureStep=shipping&amp;fixtureState=ready&amp;fveAppMode=app&amp;fveAppFrame=checkout-shipping&amp;fveAppTransition=enter\"" "launch is a real App-mode destination"
+
+            let unsafeId = "review'\\state"
+            let safeExpression =
+                Fixture.create unsafeId "Quoted fixture ID" "/docs/components/fixture" (div { "Fixture" })
                 |> Fixture.render
                 |> Render.toString
+                |> System.Net.WebUtility.HtmlDecode
+            Expect.stringContains safeExpression "=== \"review\\u0027\\\\state\"" "Fixture IDs are serialized as JavaScript strings"
+            Expect.isFalse (safeExpression.Contains("=== 'review'\\state'")) "Fixture IDs cannot terminate the return-focus expression"
 
-            Expect.stringContains frame "data-fve-app-mode-frame-id=\"checkout-shipping\"" "stable frame identity"
-            Expect.stringContains frame "data-fve-app-mode-previous=\"true\"" "previous workflow destination"
-            Expect.stringContains frame "data-fve-app-mode-next=\"true\"" "next workflow destination"
-            Expect.stringContains frame "data-fve-app-mode-state-select=\"true\"" "shared review-state select"
-            Expect.stringContains frame "role=\"combobox\"" "shared Select interaction"
-            Expect.stringContains frame "data-fve-app-mode-state=\"true\"" "review state destination"
-            Expect.stringContains frame "aria-current=\"page\"" "current review state"
+            let page =
+                DocumentationPage.create "home" "Checkout"
+                |> DocumentationPage.withDescription "Checkout fixture."
+                |> DocumentationPage.withFixtures [ fixture ]
+            let appDocument =
+                Document.create site page
+                |> Document.withRenderMode (Fullscreen(AppMode.create "checkout-shipping" shippingPath))
+                |> Document.render
+                |> Render.toHtmlDocString
 
-            let phone =
+            Expect.stringContains appDocument "data-fve-app-mode-root=\"true\"" "server renders the fullscreen fixture body"
+            Expect.stringContains appDocument "aria-label=\"Previous: Cart\"" "previous workflow destination"
+            Expect.stringContains appDocument "aria-label=\"Next: Payment\"" "next workflow destination"
+            Expect.stringContains appDocument "aria-label=\"Review state\"" "review-state menu"
+            Expect.stringContains appDocument "href=\"/docs/components/fixture?fixtureStep=shipping&amp;fixtureState=validation&amp;fveAppMode=app&amp;fveAppFrame=checkout-shipping\"" "review state retains App mode"
+            Expect.stringContains appDocument "data-fve-app-mode-exit=\"true\"" "exit is a real destination"
+
+            let phoneFixture =
                 Phone.create (div { "Phone content" })
-                |> Phone.withAppMode "checkout-phone" "Shipping address on phone"
-                |> Phone.render
-                |> Render.toString
-
+                |> Fixture.phone "checkout-phone" "Shipping address on phone" "/docs/components/fixture?fixtureState=ready"
+            let phone = phoneFixture |> Fixture.render |> Render.toString
             Expect.stringContains phone "data-fve-phone=\"true\"" "standalone phone primitive"
-            Expect.stringContains phone "data-fve-app-mode-frame-id=\"checkout-phone\"" "phone owns its App-mode identity"
+            Expect.stringContains phone "data-fve-fixture-id=\"checkout-phone\"" "Fixture owns the Phone App-mode identity"
         }
 
         test "Graph validation is available without prescribing architecture depth" {

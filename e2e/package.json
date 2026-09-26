@@ -5,6 +5,7 @@
   "scripts": {
     "test": "playwright test",
     "test:selection": "node scripts/verify-test-selection.mjs",
+    "test:generated-consumer": "bash scripts/test-generated-consumer.sh",
     "test:pr": "E2E_CROSS_BROWSER_MODE=focused playwright test --project=chromium --project=firefox --project=webkit",
     "test:release": "E2E_CROSS_BROWSER_MODE=focused playwright test --project=chromium --project=firefox --project=webkit --retries=0",
     "test:published": "E2E_START_LOCAL=0 playwright test --project=chromium --retries=0"

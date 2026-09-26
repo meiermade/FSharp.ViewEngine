@@ -22,16 +22,16 @@ test('representative component galleries share complete copyable code behavior',
 
   for (const [id, api] of representativeComponents) {
     await page.goto(`/components/${id}`)
-    const gallery = page.locator('.docs-gallery-layout')
+    const gallery = page.locator('[data-docs-layout="gallery"]')
     await expect(gallery).toBeVisible()
-    await expect(page.locator('.spec-toc-nav, .spec-mobile-toc-nav')).toHaveCount(0)
+    await expect(page.locator('[data-docs-toc="true"]')).toHaveCount(0)
     const example = gallery.locator('[data-docs-example="true"]').first()
-    const toolbar = example.locator(':scope > .spec-example-toolbar')
+    const toolbar = example.locator(':scope > [data-docs-example-toolbar="true"]')
     await expect(toolbar.getByRole('heading', { level: 2 })).toBeVisible()
     await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
     await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
     const code = example.locator('[data-docs-copy-source]')
-    await expect(code).toContainText('open FSharp.ViewEngine.Components')
+    await expect(code).toContainText('open Acme.Components')
     await expect(code).not.toContainText('FSharp.ViewEngine.Docs')
     const copy = example.getByRole('button', { name: /^Copy .+ code$/ })
     await copy.click()
@@ -297,12 +297,12 @@ for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 
   test(`${id} gallery remains accessible in narrow themes and resized text`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 1000 })
     await page.goto(`/components/${id}`)
-    const gallery = page.locator('.docs-gallery-layout')
+    const gallery = page.locator('[data-docs-layout="gallery"]')
     for (const theme of ['Light', 'Dark']) {
       await page.getByRole('button', { name: 'Choose color theme' }).click()
       await page.getByRole('menuitemradio', { name: theme, exact: true }).click()
       await expect.poll(() => page.evaluate(() => document.getAnimations().filter(animation => animation instanceof CSSTransition && animation.playState === 'running').length)).toBe(0)
-      expect((await new AxeBuilder({ page }).include('.docs-gallery-layout').analyze()).violations).toEqual([])
+      expect((await new AxeBuilder({ page }).include('[data-docs-layout="gallery"]').analyze()).violations).toEqual([])
       if (['button', 'select', 'bottom-navigation', 'calendar'].includes(id)) {
         await page.screenshot({ path: testInfo.outputPath(`${id}-${theme.toLowerCase()}-390.png`) })
       }
@@ -310,7 +310,7 @@ for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 
     await page.setViewportSize({ width: 320, height: 1000 })
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-    for (const toolbar of await gallery.locator('.spec-example-toolbar').all()) {
+    for (const toolbar of await gallery.locator('[data-docs-example-toolbar="true"]').all()) {
       for (const control of await toolbar.getByRole('tab').or(toolbar.getByRole('button', { name: /^Copy / })).all()) {
         const box = (await control.boundingBox())!
         expect(box.x).toBeGreaterThanOrEqual(0)
@@ -319,7 +319,7 @@ for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 
       }
     }
     if (id === 'calendar' || id === 'bottom-navigation') {
-      for (const control of await gallery.locator('.spec-example-preview a, .spec-example-preview button').all()) {
+      for (const control of await gallery.locator('[data-docs-example-preview="true"] a, [data-docs-example-preview="true"] button').all()) {
         if (!await control.isVisible()) continue
         const box = (await control.boundingBox())!
         expect(box.x, await control.textContent()).toBeGreaterThanOrEqual(0)
@@ -353,8 +353,8 @@ test('gallery code switches preserve independent edited previews @cross-browser'
   const query = page.getByRole('searchbox', { name: 'Search', exact: true })
   await name.fill('Alex Rivera')
   await query.fill('Savings')
-  const formToolbar = page.locator('#components-input .spec-example-toolbar')
-  const searchToolbar = page.locator('#components-search-input .spec-example-toolbar')
+  const formToolbar = page.locator('#components-input [data-docs-example-toolbar="true"]')
+  const searchToolbar = page.locator('#components-search-input [data-docs-example-toolbar="true"]')
   await formToolbar.getByRole('tab', { name: 'Code', exact: true }).click()
   await expect(query).toHaveValue('Savings')
   await searchToolbar.getByRole('tab', { name: 'Code', exact: true }).click()

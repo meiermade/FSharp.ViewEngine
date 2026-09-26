@@ -242,6 +242,7 @@ module Select =
             |> String.concat " "
         let triggerClasses =
             ComponentHtml.classes [
+                ComponentHtml.popupFieldClasses
                 "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] ring-1 ring-inset outline-none hover:bg-[var(--fve-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                 if config.validation.IsSome then "ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)]" ]
         div {
@@ -323,7 +324,7 @@ module Select =
                 _dataOn ("beforetoggle", $"${openSignal} = evt.newState == 'open'; evt.newState == 'closed' && (${activeSignal} = '', ${typeaheadSignal} = '')")
                 for attribute in pointerTracking do attribute
                 _style "inset: auto; margin: 0.25rem 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
-                _class "fve-popup fixed z-30 max-h-60 overflow-auto rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-0 shadow-lg"
+                _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 max-h-60 overflow-auto rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-0 shadow-lg" ])
                 if config.isMultiple then
                     div {
                         _class "flex items-center justify-between p-1"
@@ -333,6 +334,7 @@ module Select =
                 div {
                     _id listboxId
                     _role "listbox"
+                    _class "outline-none"
                     _ariaLabelledby labelId
                     if config.isMultiple then
                         _attr ("aria-multiselectable", "true")
@@ -367,7 +369,7 @@ module Select =
                                     _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; {ChoiceSelection.toggle selectionSignal encodedValue choice.label}; ${typeaheadSignal} = ''; {listboxElement}.focus()")
                                 else
                                     _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; ${valueSignal} = {ComponentHtml.javascriptString encodedValue}; ${labelSignal} = {ComponentHtml.javascriptString choice.label}; ${typeaheadSignal} = ''; ${openSignal} = false; document.getElementById('{triggerId}').focus()")
-                            _class "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                            _class (ComponentHtml.classes [ ComponentHtml.popupItemClasses; "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50" ])
                             span { _class "min-w-0 [overflow-wrap:anywhere]"; choice.label }
                             span {
                                 _ariaHidden "true"
@@ -517,7 +519,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
             _dataOn ("beforetoggle", $"${openSignal} = evt.newState == 'open'; evt.newState == 'closed' && (${activeSignal} = '', document.getElementById('{searchId}')?._fveSelectRequest?.abort())")
             for attribute in pointerTracking do attribute
             _style "inset: auto; margin: 0.25rem 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
-            _class "fve-popup fixed z-30 max-h-60 overflow-auto rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-0 shadow-lg"
+            _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 max-h-60 overflow-auto rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-0 shadow-lg" ])
             div {
                 _class "p-1"
                 searchInput
@@ -531,6 +533,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
             div {
                 _id listboxId
                 _role "listbox"
+                _class "outline-none"
                 if config.isMultiple then _attr ("aria-multiselectable", "true")
                 _ariaRequired config.isRequired
                 _ariaLabelledby labelId
@@ -566,7 +569,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                                     _dataOn ("click", $"if ({ready}) {{ ${activeSignal} = {ComponentHtml.javascriptString choiceId}; {ChoiceSelection.toggle selectionSignal encodedValue choice.label}; document.getElementById('{searchId}').focus(); }}")
                                 else
                                     _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; ${valueSignal} = {ComponentHtml.javascriptString encodedValue}; ${labelSignal} = {ComponentHtml.javascriptString choice.label}; ${querySignal} = ''; ${openSignal} = false; document.getElementById('{searchId}').focus()")
-                            _class "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"
+                            _class (ComponentHtml.classes [ ComponentHtml.popupItemClasses; "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50" ])
                             span { _class "min-w-0 [overflow-wrap:anywhere]"; choice.label }
                             span {
                                 _ariaHidden "true"
@@ -601,7 +604,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                             _type "button"
                             if not config.isMultiple then _dataIndicator requestPendingSignal
                             _dataOn ("click", $"{searchableRequest endpoint instanceId config.isMultiple}.then(() => document.getElementById('{searchId}')?.focus())")
-                            _class "fve-popup-control inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-brand-text)] ring-1 ring-inset ring-[var(--fve-brand-ring)] hover:bg-[var(--fve-brand-subtle)]"
+                            _class (ComponentHtml.classes [ ComponentHtml.popupControlClasses; "fve-popup-control inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-brand-text)] ring-1 ring-inset ring-[var(--fve-brand-ring)] hover:bg-[var(--fve-brand-subtle)]" ])
                             "Retry"
                         }
                     | _ -> ()
@@ -667,6 +670,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
             |> String.concat " "
         let triggerClasses =
             ComponentHtml.classes [
+                ComponentHtml.popupFieldClasses
                 "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] ring-1 ring-inset outline-none hover:bg-[var(--fve-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
                 if config.validation.IsSome then "ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)]" ]
         div {

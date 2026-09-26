@@ -34,7 +34,7 @@ test('long-lived Docs navigation excludes demo signals and preserves Preview Cod
   for (const slug of galleries) {
     await openGallery(page, slug)
     const example = page.locator('[data-docs-example="true"]').first()
-    const toolbar = example.locator(':scope > .spec-example-toolbar')
+    const toolbar = example.locator(':scope > [data-docs-example-toolbar="true"]')
     await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
     const panel = example.getByRole('tabpanel', { name: 'Code', exact: true })
     await expect(panel).toBeVisible()
@@ -48,7 +48,7 @@ test('long-lived Docs navigation excludes demo signals and preserves Preview Cod
   }
   // All Notice examples must still be independently operable after the accumulated session.
   for (const example of await page.locator('[data-docs-example="true"]').all()) {
-    const toolbar = example.locator(':scope > .spec-example-toolbar')
+    const toolbar = example.locator(':scope > [data-docs-example-toolbar="true"]')
     await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
     const panel = example.getByRole('tabpanel', { name: 'Code', exact: true })
     await panel.getByRole('button', { name: /^Copy / }).click()

@@ -14,7 +14,6 @@
     <Compile Include="src\Pages\PageExamples.fs" />
     <Compile Include="src\Pages\Components.fs" />
     <Compile Include="src\Pages\Catalog.fs" />
-    <Compile Include="src\Common\View.fs" />
     <Compile Include="src\Pages\Home.fs" />
     <Compile Include="src\Pages\Installation.fs" />
     <Compile Include="src\Pages\CoreGuides.fs" />
@@ -28,8 +27,8 @@
     <Compile Include="src\Pages\Benchmarks.fs" />
     <Compile Include="src\Pages\Changelog.fs" />
     <Compile Include="src\Pages\Registry.fs" />
-    <Compile Include="src\Common\PageExampleSession.fs" />
-    <Compile Include="src\Common\Handler.fs" />
+    <Compile Include="src\Web\View.fs" />
+    <Compile Include="src\Web\Handler.fs" />
     <Compile Include="src\Program.fs" />
   </ItemGroup>
 

@@ -9,3 +9,10 @@
 - Keep layout-component galleries focused on structure and behavior with minimal illustrative content, not complete application workflows.
 - Put assembled pages, connected workflows, and bounded consumer-authored recipes under **Page examples**, with links to their component documentation. Do not introduce a separate Integration examples category.
 - When adding or promoting a component, update its page registration, route, catalog group, copied-example coverage, and route/navigation contract tests in the same change.
+
+## Public documentation destinations
+
+- Every user-facing link, form action, workflow destination, and displayed Browser address must resolve to a real same-origin catalog route or a genuine external resource.
+- Connected examples must navigate between actual server-rendered states; never use invented hosts or dead placeholder endpoints as interactive destinations.
+- Use relative paths or explicit variables such as `$API_ORIGIN` in hypothetical code snippets instead of fabricated domains.
+- Reserved fake hosts are allowed only in non-rendered tests that specifically verify foreign-origin or encoding behavior.

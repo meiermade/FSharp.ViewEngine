@@ -58,9 +58,9 @@ const firefox = selected.get('firefox')
 const webkit = selected.get('webkit')
 
 for (const [browser, tests, expected] of [
-  ['chromium', chromium, 241],
-  ['firefox', firefox, 89],
-  ['webkit', webkit, 89],
+  ['chromium', chromium, 242],
+  ['firefox', firefox, 90],
+  ['webkit', webkit, 90],
 ]) {
   if (tests.length !== expected) {
     fail(`${browser} selection changed: expected ${expected}, found ${tests.length}`)

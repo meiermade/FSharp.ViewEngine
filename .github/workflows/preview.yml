@@ -46,17 +46,15 @@ jobs:
           PACKAGE_ID: FSharp.ViewEngine
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
-      - name: Pack Components with an independent version and Core dependency
+      - name: Pack CLI with an independent version
         env:
-          PACKAGE_ID: FSharp.ViewEngine.Components
+          PACKAGE_ID: FSharp.ViewEngine.Cli
           PACKAGE_VERSION: 0.0.1-preview
-          COMPONENTS_MINIMUM_CORE_VERSION: 0.0.0-preview
         run: ./fake.sh Pack --single-target
         working-directory: ./sln
-      - name: Verify Components package compatibility
+      - name: Verify CLI package compatibility
         env:
-          PACKAGE_ID: FSharp.ViewEngine.Components
-          COMPONENTS_MINIMUM_CORE_VERSION: 0.0.0-preview
+          PACKAGE_ID: FSharp.ViewEngine.Cli
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
 
@@ -81,6 +79,54 @@ jobs:
         env:
           CF_ACCESS_CLIENT_ID: selection-must-not-inherit-client
           CF_ACCESS_CLIENT_SECRET: selection-must-not-inherit-secret
+
+  generated-consumer:
+    name: Generated consumer
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Install repository dependencies
+        run: |
+          dotnet tool restore
+          dotnet paket install
+          dotnet restore FSharp.ViewEngine.slnx
+        working-directory: ./sln
+      - name: Install browser dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+        working-directory: ./e2e
+      - name: Install Tailwind CSS
+        run: |
+          curl -fsSLo "$RUNNER_TEMP/tailwindcss" https://github.com/tailwindlabs/tailwindcss/releases/download/v4.2.2/tailwindcss-linux-x64
+          chmod +x "$RUNNER_TEMP/tailwindcss"
+          echo "TAILWINDCSS_BIN=$RUNNER_TEMP/tailwindcss" >> "$GITHUB_ENV"
+      - name: Generate, build, and render an isolated consumer
+        run: npm run test:generated-consumer
+        working-directory: ./e2e
+      - name: Upload generated-consumer evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fsharp-viewengine-generated-consumer
+          path: |
+            e2e/playwright-report
+            e2e/test-results/generated-consumer
+          if-no-files-found: ignore
 
   e2e:
     name: E2E (${{ matrix.label }})
@@ -181,10 +227,12 @@ jobs:
     name: Pulumi preview
     needs:
       - unit
+      - generated-consumer
       - e2e
       - pulumi
     if: >-
       needs.unit.result == 'success' &&
+      needs.generated-consumer.result == 'success' &&
       needs.e2e.result == 'success' &&
       needs.pulumi.result == 'success' &&
       github.event.pull_request.head.repo.full_name == github.repository
@@ -233,7 +281,7 @@ jobs:
         env:
           RELEASE_COMMIT: ${{ github.event.pull_request.head.sha }}
           CORE_PACKAGE_VERSION: 2099.1.0
-          COMPONENTS_PACKAGE_VERSION: 2099.1.0
+          CLI_PACKAGE_VERSION: 2099.1.0
         with:
           work-dir: ./pulumi
           command: preview
@@ -246,6 +294,7 @@ jobs:
     name: Test
     needs:
       - unit
+      - generated-consumer
       - e2e
       - pulumi
       - preview
@@ -258,11 +307,13 @@ jobs:
       - name: Verify required checks
         env:
           UNIT_RESULT: ${{ needs.unit.result }}
+          GENERATED_CONSUMER_RESULT: ${{ needs.generated-consumer.result }}
           E2E_RESULT: ${{ needs.e2e.result }}
           PULUMI_RESULT: ${{ needs.pulumi.result }}
           PREVIEW_ACCEPTED: ${{ needs.preview.result == 'success' || needs.preview.result == 'skipped' }}
         run: |
           test "$UNIT_RESULT" = success
+          test "$GENERATED_CONSUMER_RESULT" = success
           test "$E2E_RESULT" = success
           test "$PULUMI_RESULT" = success
           test "$PREVIEW_ACCEPTED" = true

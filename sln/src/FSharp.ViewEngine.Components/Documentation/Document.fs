@@ -104,6 +104,7 @@ type DocsPage =
       sections:DocsSection list
       headingAdornment:HtmlElement option
       pager:DocsPager option
+      fixtures:FixtureConfig list
       metadata:DocsPageMetadata }
 
 module DocsPage =
@@ -117,6 +118,7 @@ module DocsPage =
           sections = sections
           headingAdornment = None
           pager = None
+          fixtures = []
           metadata = DocsPageMetadata.defaults }
 
     let validate page =
@@ -138,6 +140,12 @@ module DocsPage =
             |> List.choose (fun (id, count) ->
                 if count > 1 then Some(issue "page.duplicate-section-id" $"Duplicate section ID: {id}.") else None)
 
+        let fixtureIssues =
+            page.fixtures
+            |> List.countBy Fixture.id
+            |> List.choose (fun (id, count) ->
+                if count > 1 then Some(issue "page.duplicate-fixture-id" $"Duplicate Fixture ID: {id}.") else None)
+
         let pagerIssues =
             match page.pager with
             | None -> []
@@ -153,4 +161,5 @@ module DocsPage =
         @ required page.description "page.missing-description" $"Page '{page.activeId}' must have a description."
         @ sectionIssues
         @ duplicateSectionIssues
+        @ fixtureIssues
         @ pagerIssues

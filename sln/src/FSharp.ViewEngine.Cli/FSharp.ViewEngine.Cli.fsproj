@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RollForward>Major</RollForward>
+    <OutputType>Exe</OutputType>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>fve</ToolCommandName>
+    <PackageId>FSharp.ViewEngine.Cli</PackageId>
+    <Version Condition="'$(FSharpViewEngineCliPackageVersion)' == ''">0.0.0-local</Version>
+    <Version Condition="'$(FSharpViewEngineCliPackageVersion)' != ''">$(FSharpViewEngineCliPackageVersion)</Version>
+    <PackageVersion Condition="'$(FSharpViewEngineCliPackageVersion)' != ''">$(FSharpViewEngineCliPackageVersion)</PackageVersion>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Authors>Andrew Meier</Authors>
+    <Description>Install consumer-owned FSharp.ViewEngine component source in deterministic F# compile order.</Description>
+    <PackageTags>fsharp;html;components;tailwind;datastar;tool</PackageTags>
+    <RepositoryUrl>https://github.com/meiermade/FSharp.ViewEngine</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <DebugType>portable</DebugType>
+    <ContinuousIntegrationBuild Condition="'$(CI)' == 'true'">true</ContinuousIntegrationBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <FveCompileRegistry>false</FveCompileRegistry>
+    <FSharpViewEnginePackageVersion Condition="'$(FSharpViewEnginePackageVersion)' == ''">2026.8.2</FSharpViewEnginePackageVersion>
+  </PropertyGroup>
+  <Target Name="ValidateCliPackageVersion" BeforeTargets="GenerateNuspec">
+    <Error Condition="'$(FSharpViewEngineCliPackageVersion)' == ''" Text="Packing FSharp.ViewEngine.Cli requires /p:FSharpViewEngineCliPackageVersion=YYYY.M.MINOR. Use the package release workflow for publication." />
+  </Target>
+  <Import Project="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.Registry.props" />
+  <ItemGroup>
+    <Compile Include="Domain.fs" />
+    <Compile Include="Registry.fs" />
+    <Compile Include="Project.fs" />
+    <Compile Include="Commands.fs" />
+    <Compile Include="Program.fs" />
+    <Content Include="paket.references" Pack="false" />
+    <EmbeddedResource Include="@(FveComponent);@(FveAsset)" LogicalName="FSharp.ViewEngine.Cli.Registry.%(Filename)%(Extension)" />
+    <EmbeddedResource Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.Registry.props" LogicalName="FSharp.ViewEngine.Cli.Registry.props" />
+    <None Include="../../../LICENSE" Pack="True" Visible="false" PackagePath="" />
+    <None Include="README.md" Pack="True" Visible="false" PackagePath="" />
+    <PackageReference Update="FSharp.Core" Version="10.0.102" />
+    <AssemblyMetadata Include="FSharpViewEngineCoreVersion" Value="$(FSharpViewEnginePackageVersion)" />
+  </ItemGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

@@ -17,7 +17,7 @@ test('Input gallery teaches single fields with accessible adornments and native 
   }
   const website = page.locator('#components-input-prefix').getByRole('textbox', { name: 'Website', exact: true })
   await expect(website).toHaveAccessibleDescription('https://')
-  await website.fill('example.com')
+  await website.fill('fve.meiermade.com')
   const price = page.locator('#components-input-suffix').getByRole('textbox', { name: 'Price', exact: true })
   await expect(price).toHaveAccessibleDescription('USD')
   await expect(price).toHaveAttribute('inputmode', 'decimal')
@@ -42,14 +42,14 @@ test('Input gallery teaches single fields with accessible adornments and native 
   await expect(query).toHaveAttribute('data-native-input', 'true')
   await expect(query).toHaveAttribute('data-native-change', 'true')
   await expect(clear).toBeHidden()
-  const values = await page.locator('.docs-gallery-layout').evaluate(gallery => {
+  const values = await page.locator('[data-docs-layout="gallery"]').evaluate(gallery => {
     const form = document.createElement('form')
     for (const field of gallery.querySelectorAll('input')) form.append(field.cloneNode(true))
     return Object.fromEntries(new FormData(form))
   })
-  expect(values.website).toBe('example.com')
+  expect(values.website).toBe('fve.meiermade.com')
   expect(values.price).toBe('12.50')
-  expect(values.pendingEmail).toBe('alex@example.com')
+  expect(values.pendingEmail).toBe('alex@fve.meiermade.com')
   expect(values).not.toHaveProperty('disabledEmail')
   expect(errors).toEqual([])
 })
@@ -74,7 +74,7 @@ for (const [title, prefix, endpoint] of [
     await summary.getByRole('link', { name: 'Email address: Enter a valid email address.', exact: true }).click()
     const email = form.getByRole('textbox', { name: 'Email address', exact: true })
     await expect(email).toBeFocused()
-    await email.fill('alex@example.com')
+    await email.fill('alex@fve.meiermade.com')
     await form.getByRole('textbox', { name: 'Contact name', exact: true }).fill('Alex Morgan')
     await form.getByRole('button', { name: 'Validate details', exact: true }).click()
     await expect(page.locator(`[id="${prefix}result"]`)).toContainText('This example does not save your data.')
@@ -104,8 +104,8 @@ for (const [slug, width, scale, dark] of representativeGalleryLayouts) {
       document.documentElement.style.fontSize = `${100 * scale}%`
     }, { dark, scale })
     await expect.poll(() => page.evaluate(() => document.getAnimations().filter(a => a instanceof CSSTransition && a.playState === 'running').length)).toBe(0)
-    const gallery = page.locator('.docs-gallery-layout')
-    expect((await new AxeBuilder({ page }).include('.docs-gallery-layout').analyze()).violations, `${slug}/${dark}`).toEqual([])
+    const gallery = page.locator('[data-docs-layout="gallery"]')
+    expect((await new AxeBuilder({ page }).include('[data-docs-layout="gallery"]').analyze()).violations, `${slug}/${dark}`).toEqual([])
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1)
     for (const input of await gallery.locator('input:not([type="hidden"]), textarea').all()) {
       if (!await input.isVisible()) continue

@@ -20,14 +20,14 @@ for (const mode of ['light', 'dark'] as const) {
       await page.goto('/docs/components/fixture')
       const trigger = page.getByRole('button', { name: 'Choose color theme', exact: true })
       const menu = page.getByRole('menu', { name: 'Choose color theme', exact: true })
-      await expect(page.locator('.spec-top-actions')).toHaveClass(/fve-theme-sky/)
+      await expect(page.locator('[data-docs-top-actions="true"]')).toHaveClass(/fve-theme-sky/)
       await expect(trigger).toHaveText('')
       await expect(trigger).toHaveCSS('width', '32px')
       await expect(trigger.locator('svg:visible')).toHaveCount(1)
 
       for (const context of ['header', 'dock']) {
         if (context === 'dock') {
-          await page.getByRole('button', { name: 'Open Create a view in App mode' }).click()
+          await page.getByRole('link', { name: 'Open Create a view in App mode' }).click()
           const dock = page.getByRole('navigation', { name: 'App mode controls' })
           await expect(dock).toHaveClass(/fve-theme-sky/)
           await expect(dock).toHaveAttribute('data-fve-color-mode', mode === 'dark' ? 'light' : 'dark')
@@ -80,7 +80,7 @@ for (const mode of ['light', 'dark'] as const) {
         await expect(trigger).toBeFocused()
       }
       await page.getByRole('link', { name: 'Exit App mode', exact: true }).click()
-      await expect(page.locator('.spec-top-actions').getByRole('button', { name: 'Choose color theme' })).toBeVisible()
+      await expect(page.locator('[data-docs-top-actions="true"]').getByRole('button', { name: 'Choose color theme' })).toBeVisible()
       await expect(trigger).toHaveCount(1)
     })
   }

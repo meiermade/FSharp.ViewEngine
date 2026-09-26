@@ -114,7 +114,7 @@ module TailwindElements =
                     elPopover {
                         _id "preview-account-menu"; _popover; _anchor "bottom start"; _class "twe-floating twe-popover"
                         div { _class "twe-avatar"; "AS" }
-                        div { _class "twe-popover-copy"; strong { "Avery Stone" }; p { "avery@example.com" } }
+                        div { _class "twe-popover-copy"; strong { "Avery Stone" }; p { "avery@fve.meiermade.com" } }
                         button { _type "button"; _class "twe-popover-action"; "View profile" }
                     }
                 })

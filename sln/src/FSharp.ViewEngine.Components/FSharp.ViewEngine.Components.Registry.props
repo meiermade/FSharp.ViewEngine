@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!-- This ordered registry is shared by the repository project and the fve CLI. -->
+  <ItemGroup>
+    <FveComponent Include="$(MSBuildThisFileDirectory)Foundation.fs" FveFile="Foundation.fs" FveName="foundation" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Button.fs" FveFile="Button.fs" FveName="button" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)IconButton.fs" FveFile="IconButton.fs" FveName="icon-button" FveDependencies="foundation;button" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Badge.fs" FveFile="Badge.fs" FveName="badge" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Status.fs" FveFile="Status.fs" FveName="status" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)LoadingIndicator.fs" FveFile="LoadingIndicator.fs" FveName="loading-indicator" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Progress.fs" FveFile="Progress.fs" FveName="progress" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)EmptyState.fs" FveFile="EmptyState.fs" FveName="empty-state" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Table.fs" FveFile="Table.fs" FveName="table" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)BulkActions.fs" FveFile="BulkActions.fs" FveName="bulk-actions" FveDependencies="foundation;button" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)DescriptionList.fs" FveFile="DescriptionList.fs" FveName="description-list" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Metric.fs" FveFile="Metric.fs" FveName="metric" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Pagination.fs" FveFile="Pagination.fs" FveName="pagination" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ChoiceSelection.fs" FveFile="ChoiceSelection.fs" FveName="choice-selection" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ChoiceCards.fs" FveFile="ChoiceCards.fs" FveName="choice-cards" FveDependencies="foundation;choice-selection" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)TextField.fs" FveFile="TextField.fs" FveName="text-field" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)FileSelection.fs" FveFile="FileSelection.fs" FveName="file-selection" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Tags.fs" FveFile="Tags.fs" FveName="tags" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Identity.fs" FveFile="Identity.fs" FveName="identity" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Select.fs" FveFile="Select.fs" FveName="select" FveDependencies="foundation;choice-selection;text-field" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Notice.fs" FveFile="Notice.fs" FveName="notice" FveDependencies="foundation;text-field" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Notification.fs" FveFile="Notification.fs" FveName="notification" FveDependencies="foundation;text-field;notice" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Checkbox.fs" FveFile="Checkbox.fs" FveName="checkbox" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Switch.fs" FveFile="Switch.fs" FveName="switch" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ToggleButton.fs" FveFile="ToggleButton.fs" FveName="toggle-button" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Tabs.fs" FveFile="Tabs.fs" FveName="tabs" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)RadioGroup.fs" FveFile="RadioGroup.fs" FveName="radio-group" FveDependencies="foundation;select" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)DropdownMenu.fs" FveFile="DropdownMenu.fs" FveName="dropdown-menu" FveDependencies="foundation;button" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Actions.fs" FveFile="Actions.fs" FveName="actions" FveDependencies="foundation;dropdown-menu" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Dialog.fs" FveFile="Dialog.fs" FveName="dialog" FveDependencies="foundation;button" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)FloatingPanel.fs" FveFile="FloatingPanel.fs" FveName="floating-panel" FveDependencies="foundation;text-field" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Breadcrumbs.fs" FveFile="Breadcrumbs.fs" FveName="breadcrumbs" FveDependencies="foundation;dropdown-menu" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)SideNav.fs" FveFile="SideNav.fs" FveName="side-nav" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)BottomNavigation.fs" FveFile="BottomNavigation.fs" FveName="bottom-navigation" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Page.fs" FveFile="Page.fs" FveName="page" FveDependencies="foundation;actions" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Section.fs" FveFile="Section.fs" FveName="section" FveDependencies="foundation;actions" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Compositions.fs" FveFile="Compositions.fs" FveName="compositions" FveDependencies="actions" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Steps.fs" FveFile="Steps.fs" FveName="steps" FveDependencies="foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Upload.fs" FveFile="Upload.fs" FveName="upload" FveDependencies="progress" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Calendar.fs" FveFile="Calendar.fs" FveName="calendar" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)MediaLibrary.fs" FveFile="MediaLibrary.fs" FveName="media-library" FveDependencies="foundation;badge;select" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)FirstSteps.fs" FveFile="FirstSteps.fs" FveName="first-steps" FveDependencies="floating-panel" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)AppShell.fs" FveFile="AppShell.fs" FveName="app-shell" FveDependencies="foundation;icon-button;side-nav;bottom-navigation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Browser.fs" FveFile="Browser.fs" FveName="browser" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Phone.fs" FveFile="Phone.fs" FveName="phone" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/ValidationIssue.fs" FveFile="Documentation/ValidationIssue.fs" FveName="documentation-validation-issue" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/SequenceDiagram.fs" FveFile="Documentation/SequenceDiagram.fs" FveName="documentation-sequence-diagram" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Target.fs" FveFile="Documentation/Target.fs" FveName="documentation-target" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Navigation.fs" FveFile="Documentation/Navigation.fs" FveName="documentation-navigation" FveDependencies="documentation-validation-issue" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Fixture.fs" FveFile="Documentation/Fixture.fs" FveName="documentation-fixture" FveDependencies="browser;phone" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Document.fs" FveFile="Documentation/Document.fs" FveName="documentation-document" FveDependencies="documentation-validation-issue;documentation-fixture" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/ApiReference.fs" FveFile="Documentation/ApiReference.fs" FveName="documentation-api-reference" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Example.fs" FveFile="Documentation/Example.fs" FveName="documentation-example" FveDependencies="documentation-api-reference" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Registry.fs" FveFile="Documentation/Registry.fs" FveName="documentation-registry" FveDependencies="documentation-validation-issue;documentation-navigation;documentation-document" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Search.fs" FveFile="Documentation/Search.fs" FveName="documentation-search" FveDependencies="documentation-document" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Version.fs" FveFile="Documentation/Version.fs" FveName="documentation-version" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/View.fs" FveFile="Documentation/View.fs" FveName="documentation" FveDependencies="foundation;dropdown-menu;documentation-navigation;documentation-fixture;documentation-document;documentation-search" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/DirectedGraph.fs" FveFile="Documentation/DirectedGraph.fs" FveName="documentation-directed-graph" FveDependencies="documentation-validation-issue" />
+    <Compile Include="@(FveComponent)" Condition="'$(FveCompileRegistry)' != 'false'" />
+  </ItemGroup>
+</Project>

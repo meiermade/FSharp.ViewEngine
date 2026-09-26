@@ -47,8 +47,7 @@ module Components =
           totalBalance:decimal }
 
     type AccountWorkspace =
-        { createdAccounts:AccountRow list
-          workspaceName:string
+        { workspaceName:string
           currency:string
           emailUpdates:bool
           draftName:string
@@ -58,7 +57,7 @@ module Components =
           filterType:string }
 
     let defaultAccountWorkspace =
-        { createdAccounts=[]; workspaceName="Meier Made"; currency="USD"; emailUpdates=true; draftName=""; draftType="Asset"; feedback=""; searchQuery=""; filterType="all" }
+        { workspaceName="Meier Made"; currency="USD"; emailUpdates=true; draftName=""; draftType="Asset"; feedback=""; searchQuery=""; filterType="all" }
 
     type HierarchyAccount =
         { key:string
@@ -89,10 +88,10 @@ module Components =
         | Scheduled -> "scheduled"
 
     let private destinationUrl = function
-        | Accounts -> "https://ledger.example.test/accounts"
-        | AccountsPage page -> $"https://ledger.example.test/accounts?page={page}"
-        | Account id -> $"https://ledger.example.test/accounts/{id}"
-        | Settings -> "https://ledger.example.test/settings"
+        | Accounts -> "/components/page-examples/account-management?destination=ledger-accounts"
+        | AccountsPage page -> $"/components/page-examples/account-management?destination=ledger-accounts&page={page}"
+        | Account id -> $"/components/page-examples/account-management?destination=ledger-account-{id}"
+        | Settings -> "/components/page-examples/account-management?destination=ledger-settings"
         | DropdownMenuGuide -> "/components/dropdown-menu#components-dropdown-menu"
 
     let private shellDestinationKey = function
@@ -142,7 +141,7 @@ module Components =
 
     let private shellFixtureNavigationAttributes =
         let link = shellDestinationLink
-        [ _dataOn ("click", $"if ({link} && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) {{ evt.preventDefault(); window.history.pushState(null, '', {link}.getAttribute('href')); @get({link}.getAttribute('href').replace('/components/page-examples/account-management?', '/components/page-examples/account-management/fixture?')) }}") ]
+        [ _dataOn ("click", $"if ({link} && !{link}.hasAttribute('data-fve-app-mode-launch') && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) {{ evt.preventDefault(); window.history.pushState(null, '', {link}.getAttribute('href')); @get({link}.getAttribute('href').replace('/components/page-examples/account-management?', '/components/page-examples/account-management/fixture?')) }}") ]
 
     let private sourceText =
         lazy (SourceRegion.readEmbedded typeof<DocPage>.Assembly "Docs.Pages.Components.fs")
@@ -262,8 +261,8 @@ module Components =
     let private operatingAccount : AccountRow =
         { id = 2048; name = "Operating checking"; accountType = "Asset"; commodity = "USD"; balance = 38442.11M; totalBalance = 38442.11M }
 
-    let accountNameExists (workspace:AccountWorkspace) name =
-        (operatingAccount :: rows) @ workspace.createdAccounts
+    let accountNameExists name =
+        operatingAccount :: rows
         |> List.exists (fun row -> String.Equals(row.name, name, StringComparison.OrdinalIgnoreCase))
 
     let private money amount =
@@ -406,7 +405,7 @@ module Components =
     type TeamMember = { id:int; name:string; email:string; role:string }
 
     let teamMembers =
-        [ { id = 1; name = "Alex Morgan"; email = "alex@example.com"; role = "Owner" }; { id = 2; name = "Jamie Lee"; email = "jamie@example.com"; role = "Member" }; { id = 3; name = "Riley Chen"; email = "riley@example.com"; role = "Member" }; { id = 4; name = "Sam Rivera"; email = "sam@example.com"; role = "Guest" } ]
+        [ { id = 1; name = "Alex Morgan"; email = "alex@fve.meiermade.com"; role = "Owner" }; { id = 2; name = "Jamie Lee"; email = "jamie@fve.meiermade.com"; role = "Member" }; { id = 3; name = "Riley Chen"; email = "riley@fve.meiermade.com"; role = "Member" }; { id = 4; name = "Sam Rivera"; email = "sam@fve.meiermade.com"; role = "Guest" } ]
 
     let teamColumns =
         [ Table.column "Name" (fun (person:TeamMember) -> text person.name) |> Table.asRowHeader
@@ -428,10 +427,10 @@ module Components =
             Table.column "Email" (fun (_, email, _) -> text email)
             Table.column "Status" (fun (_, _, status) -> status)
         ] [
-            "Alex Morgan", "alex@example.com", Status.positive "Active"
-            "Jamie Lee", "jamie@example.com", Status.positive "Active"
-            "Riley Chen", "riley@example.com", Status.positive "Active"
-            "Sam Rivera", "sam@example.com", Status.warning "Invited"
+            "Alex Morgan", "alex@fve.meiermade.com", Status.positive "Active"
+            "Jamie Lee", "jamie@fve.meiermade.com", Status.positive "Active"
+            "Riley Chen", "riley@fve.meiermade.com", Status.positive "Active"
+            "Sam Rivera", "sam@fve.meiermade.com", Status.warning "Invited"
         ]
         |> Table.render
 
@@ -707,13 +706,13 @@ module Components =
     let labelledInput =
         Input.create "exampleEmail" "Email"
         |> Input.withType InputType.Email
-        |> Input.withAttributes [ _placeholder "you@example.com"; _autocomplete "email" ]
+        |> Input.withAttributes [ _placeholder "you@fve.meiermade.com"; _autocomplete "email" ]
         |> Input.render
     let inputWithHelp =
         Input.create "helpEmail" "Email"
         |> Input.withType InputType.Email
         |> Input.withDescription "We will use this address for account updates."
-        |> Input.withAttributes [ _placeholder "you@example.com"; _autocomplete "email" ]
+        |> Input.withAttributes [ _placeholder "you@fve.meiermade.com"; _autocomplete "email" ]
         |> Input.render
     let requiredInput =
         Input.create "requiredEmail" "Email"
@@ -736,12 +735,12 @@ module Components =
         Input.create "iconEmail" "Email"
         |> Input.withType InputType.Email
         |> Input.withLeadingIcon emailIcon
-        |> Input.withAttributes [ _placeholder "you@example.com" ]
+        |> Input.withAttributes [ _placeholder "you@fve.meiermade.com" ]
         |> Input.render
     let inputWithPrefix =
         Input.create "website" "Website"
         |> Input.withPrefix "https://"
-        |> Input.withAttributes [ _placeholder "example.com"; _autocomplete "off" ]
+        |> Input.withAttributes [ _placeholder "fve.meiermade.com"; _autocomplete "off" ]
         |> Input.render
     let inputWithSuffix =
         Input.create "price" "Price"
@@ -750,12 +749,12 @@ module Components =
         |> Input.render
     let disabledInput =
         Input.create "disabledEmail" "Email"
-        |> Input.withValue "alex@example.com"
+        |> Input.withValue "alex@fve.meiermade.com"
         |> Input.disabled
         |> Input.render
     let pendingInput =
         Input.create "pendingEmail" "Email"
-        |> Input.withValue "alex@example.com"
+        |> Input.withValue "alex@fve.meiermade.com"
         |> Input.pending
         |> Input.render
     let searchInputExample =
@@ -2033,7 +2032,7 @@ module Components =
 
     let private ledgerPage workspace current =
         let page actions subtitle content =
-            PageHeader.create (match current with LedgerAccount id when id>=9001 -> workspace.createdAccounts |> List.tryFind (fun account -> account.id=id) |> Option.map _.name |> Option.defaultValue (ledgerTitle current) | _ -> ledgerTitle current)
+            PageHeader.create (ledgerTitle current)
             |> PageHeader.withSubtitle subtitle
             |> PageHeader.withActions actions
             |> fun header -> Page.create header content
@@ -2048,7 +2047,7 @@ module Components =
                     ApplicationAction.link LedgerCreateAccount "Create"
                     |> ApplicationAction.withVariant ButtonVariant.Primary ]
                 |> ActionCluster.withOverflow [ MenuItem.link LedgerSettings "Account settings" ]
-            let filtered = rows @ workspace.createdAccounts |> List.filter (fun row -> row.name.Contains(workspace.searchQuery,StringComparison.OrdinalIgnoreCase) && (workspace.filterType="all" || row.accountType.Equals(workspace.filterType,StringComparison.OrdinalIgnoreCase)))
+            let filtered = rows |> List.filter (fun row -> row.name.Contains(workspace.searchQuery,StringComparison.OrdinalIgnoreCase) && (workspace.filterType="all" || row.accountType.Equals(workspace.filterType,StringComparison.OrdinalIgnoreCase)))
             let controls =
                 form {
                     _method "get"; _action "/components/page-examples/account-management"
@@ -2070,7 +2069,7 @@ module Components =
             page actions "Chart of accounts · Current valuation" content
 
         | LedgerAccount accountId ->
-            let account = rows @ workspace.createdAccounts |> List.tryFind (fun row -> row.id = accountId) |> Option.defaultValue operatingAccount
+            let account = rows |> List.tryFind (fun row -> row.id = accountId) |> Option.defaultValue operatingAccount
             let actions =
                 ActionCluster.create $"ledger-account-{accountId}-page-actions" [
                     refreshBalancesAction
@@ -2092,7 +2091,7 @@ module Components =
                     |> Section.render shellDestinationUrl
                     SectionHeader.create "Transactions"
                     |> SectionHeader.withDescription "Current assets · All accounts"
-                    |> fun header -> Section.create header (if accountId>=9001 then EmptyState.create "No transactions yet" "This new account has no posted entries." |> EmptyState.render else transactionTableFor LedgerTransaction shellDestinationUrl)
+                    |> fun header -> Section.create header (transactionTableFor LedgerTransaction shellDestinationUrl)
                     |> Section.withLabel "Account transactions"
                     |> Section.render shellDestinationUrl
                 ]
@@ -2280,15 +2279,19 @@ module Components =
         | LedgerHome | LedgerReports | LedgerSettings -> Some(FixtureLink.create "Accounts" (shellDestinationUrl LedgerAccounts))
         | _ -> None
 
-    let shellFixtureWith workspace current =
-        let frame = Browser.create (shellPreviewWith workspace current) |> Browser.withAddress "https://ledger.example.test/accounts" |> Browser.withAppMode "ledger-workflow" "Ledger account workflow" |> Browser.render
-        let fixture = Fixture.create "ledger-workflow" frame
+    let private shellFixtureConfigWith workspace current =
+        let fixture =
+            Browser.create (shellPreviewWith workspace current)
+            |> Browser.withAddress ("https://fve.meiermade.com" + shellDestinationUrl current)
+            |> Fixture.browser "ledger-workflow" "Ledger account workflow" (shellDestinationUrl current)
         let fixture = appModePrevious current |> Option.map (fun previous -> Fixture.withPrevious previous fixture) |> Option.defaultValue fixture
-        let fixture = appModeNext current |> Option.map (fun next -> Fixture.withNext next fixture) |> Option.defaultValue fixture
+        appModeNext current |> Option.map (fun next -> Fixture.withNext next fixture) |> Option.defaultValue fixture
+
+    let shellFixtureWith workspace current =
         div {
             _id "components-app-shell-fixture"
             for attribute in shellFixtureNavigationAttributes do attribute
-            fixture |> Fixture.render
+            shellFixtureConfigWith workspace current |> Fixture.render
         }
 
     let shellFixtureFor current = shellFixtureWith defaultAccountWorkspace current
@@ -2307,7 +2310,7 @@ module Components =
         { registration id path navLabel title with category = "Application" }
 
     let private packageRegistration id path navLabel title =
-        { registration id path navLabel title with category = "FSharp.ViewEngine.Components" }
+        { registration id path navLabel title with category = "Source distribution" }
 
     let overviewRegistration =
         packageRegistration "components-overview" "/components" "Overview" "Components"
@@ -2435,14 +2438,72 @@ AppShell.create "product-shell" sideNav pageContent
 |> AppShell.withTheme theme
 |> AppShell.render destinationUrl"""
 
-    let private tailwindExample = """@import "tailwindcss";
-@import "./FSharp.ViewEngine.Components.tailwind.css";
+    let private tailwindExample = """@import "tailwindcss" source(none);
+@source "./src/Acme.Components/Components/**/*.fs";
+@source "./src/Acme.Web/**/*.fs";"""
 
-.acme-theme {
-  --fve-brand-solid: oklch(58% 0.18 264);
-  --fve-brand-hover: oklch(51% 0.20 264);
-  --fve-brand-ring: oklch(68% 0.16 264);
+    let private supportedVariableDefaults = """/* Supported customization tokens and defaults. */
+.fve-components {
+  --fve-page: oklch(98.5% 0.002 247.839);
+  --fve-surface: oklch(100% 0 0);
+  --fve-surface-subtle: oklch(96.7% 0.003 264.542);
+  --fve-surface-hover: oklch(96.7% 0.003 264.542);
+  --fve-surface-active: oklch(92.8% 0.006 264.531);
+  --fve-text: oklch(21% 0.034 264.665);
+  --fve-muted-text: oklch(44.6% 0.03 256.802);
+  --fve-border: oklch(87.2% 0.01 258.338);
+  --fve-overlay-backdrop: oklch(13% 0.028 261.692 / 55%);
+  --fve-neutral-subtle: oklch(96.7% 0.003 264.542);
+  --fve-neutral-text: oklch(37.3% 0.034 259.733);
+  --fve-neutral-ring: oklch(70.7% 0.022 261.325);
+  --fve-brand-subtle: oklch(97.7% 0.013 236.62);
+  --fve-brand-solid: oklch(50% 0.134 242.749);
+  --fve-brand-hover: oklch(44.3% 0.11 240.79);
+  --fve-brand-active: oklch(39.1% 0.09 240.876);
+  --fve-brand-text: oklch(44.3% 0.11 240.79);
+  --fve-brand-ring: oklch(68.5% 0.169 237.323);
+  --fve-positive-subtle: oklch(96.2% 0.044 156.743);
+  --fve-positive-text: oklch(44.8% 0.119 151.328);
+  --fve-positive-ring: oklch(72.3% 0.219 149.579);
+  --fve-warning-subtle: oklch(97.3% 0.071 103.193);
+  --fve-warning-text: oklch(47.6% 0.114 61.907);
+  --fve-warning-ring: oklch(76.9% 0.188 70.08);
+  --fve-critical-subtle: oklch(97.1% 0.013 17.38);
+  --fve-critical-solid: oklch(57.7% 0.245 27.325);
+  --fve-critical-hover: oklch(50.5% 0.213 27.518);
+  --fve-critical-active: oklch(44.4% 0.177 26.899);
+  --fve-critical-text: oklch(44.4% 0.177 26.899);
+  --fve-critical-ring: oklch(63.7% 0.237 25.331);
+  --fve-info-subtle: oklch(97% 0.014 254.604);
+  --fve-info-text: oklch(48.8% 0.243 264.376);
+  --fve-info-ring: oklch(62.3% 0.214 259.815);
+  --fve-radius-control: 0.5rem;
+  --fve-radius-panel: 0.75rem;
+  --fve-control-min-height: 2.5rem;
+  --fve-control-padding-block: 0.5rem;
+  --fve-control-font-size: 1rem;
+  --fve-control-line-height: 1.5rem;
+  --fve-navigation-min-height: 2.25rem;
+  --fve-navigation-padding-block: 0.5rem;
+  --fve-shell-bar-min-height: 4rem;
+  --fve-popup-active-background: var(--fve-brand-solid);
+  --fve-popup-active-text: white;
+  --fve-table-control-size: 1.75rem;
+  --fve-table-padding-block-compact: 0.25rem;
+  --fve-table-padding-block-comfortable: 0.75rem;
+  --fve-table-padding-inline: 0.75rem;
 }"""
+
+    let private rendererOwnedVariables = """/* Renderer-owned implementation variables; do not customize. */
+--fve-calendar-all-day-rows
+--fve-calendar-days
+--fve-calendar-duration
+--fve-calendar-hours
+--fve-calendar-lane
+--fve-calendar-lanes
+--fve-calendar-start
+--fve-row-background
+--fve-table-background"""
 
     let primaryButtons =
         div {
@@ -2611,7 +2672,7 @@ AppShell.create "product-shell" sideNav pageContent
           preview:HtmlElement
           note:string option }
 
-    let exampleImports = "open System\nopen FSharp.ViewEngine\nopen FSharp.ViewEngine.Components.Primitives\nopen FSharp.ViewEngine.Components.Application\nopen type Html\nopen type Svg\nopen type Datastar"
+    let exampleImports = "open System\nopen FSharp.ViewEngine\nopen Acme.Components.Primitives\nopen Acme.Components.Application\nopen type Html\nopen type Svg\nopen type Datastar"
 
     let private sample id title names preview =
         { id = "components-" + id
@@ -2638,26 +2699,28 @@ AppShell.create "product-shell" sideNav pageContent
     let private fieldSurface (content:HtmlElement) =
         gallerySurface (div { _class "mx-auto grid min-h-40 min-w-0 max-w-md content-center gap-4 p-[12px] sm:p-8"; content })
 
-    let browserPrimitiveExample =
+    let browserPrimitiveFixture =
         Browser.create (
             div {
                 _class "grid min-h-64 content-center gap-3 bg-[var(--fve-surface-subtle)] p-8 text-center"
                 strong { _class "text-lg"; "Shipping address" }
                 p { _class "text-sm text-[var(--fve-muted-text)]"; "Product content stays an ordinary HtmlElement." }
             })
-        |> Browser.withAddress "https://shop.example.test/checkout/shipping"
-        |> Browser.withAppMode "browser-primitive" "Shipping address"
-        |> Browser.render
+        |> Browser.withAddress "https://fve.meiermade.com/components/browser"
+        |> FSharp.ViewEngine.Components.Documentation.Fixture.browser "browser-primitive" "Shipping address" "/components/browser"
 
-    let phonePrimitiveExample =
+    let browserPrimitiveExample = browserPrimitiveFixture |> FSharp.ViewEngine.Components.Documentation.Fixture.render
+
+    let phonePrimitiveFixture =
         Phone.create (
             div {
                 _class "grid h-full content-center gap-3 p-6 text-center"
                 strong { _class "text-lg"; "Saved offers" }
                 p { _class "text-sm text-[var(--fve-muted-text)]"; "The phone frame does not prescribe the product interface." }
             })
-        |> Phone.withAppMode "phone-primitive" "Saved offers"
-        |> Phone.render
+        |> FSharp.ViewEngine.Components.Documentation.Fixture.phone "phone-primitive" "Saved offers" "/components/phone"
+
+    let phonePrimitiveExample = phonePrimitiveFixture |> FSharp.ViewEngine.Components.Documentation.Fixture.render
 
     let private detailsSurface (content:HtmlElement) =
         gallerySurface (div { _class "p-4 sm:p-6"; content })
@@ -2665,20 +2728,13 @@ AppShell.create "product-shell" sideNav pageContent
     let private overlaySurface (content:HtmlElement) =
         gallerySurface (div { _class "relative min-h-[32rem] overflow-hidden bg-[var(--fve-surface-subtle)] p-4"; content })
 
-    let private prose content =
-        p {
-            _class "spec-paragraph"
-            text content
-        }
+    let private prose content = p { text content }
 
     let private code language source =
         CodeBlock.create language source |> CodeBlock.render
 
     let private bullets items =
-        ul {
-            _class "spec-bullets list-disc"
-            for item in items do li { text item }
-        }
+        ul { for item in items do li { text item } }
 
     let private buildingBlockLinks label (items:(string * string) list) =
         div {
@@ -2688,7 +2744,7 @@ AppShell.create "product-shell" sideNav pageContent
                 _ariaLabel label
                 _class "flex flex-wrap gap-x-4 gap-y-2"
                 for path, itemLabel in items do
-                    a { _href path; _class "spec-content-link"; text itemLabel }
+                    a { _href path; text itemLabel }
             }
         }
 
@@ -2702,7 +2758,7 @@ AppShell.create "product-shell" sideNav pageContent
                 DocumentationSection.create "complete-pages" "Complete page examples" [
                     p {
                         "For populated pages and a connected workflow, explore "
-                        a { _href accountManagementRegistration.path; _class "spec-content-link"; "Account management" }
+                        a { _href accountManagementRegistration.path; "Account management" }
                         ". These shell examples intentionally show only the layout."
                     } ]
             if registration.id = accountManagementRegistration.id then
@@ -3444,10 +3500,10 @@ AppShell.create "product-shell" sideNav pageContent
             sample "section" "With heading and actions" (shellSource @ [ "upcomingPayments" ]) (fieldSurface upcomingPayments)
             sample "section-headerless" "Without a visible heading" [ "periodNote" ] (fieldSurface periodNote) ]
         | "browser" -> [
-            sample "browser" "Address bar and optional App mode" [ "browserPrimitiveExample" ] (detailsSurface browserPrimitiveExample)
-            |> note "Serve app-mode.js at the URL passed to Browser.script once in the host document head." ]
+            sample "browser" "Address bar and Documentation App mode" [ "browserPrimitiveFixture"; "browserPrimitiveExample" ] (detailsSurface browserPrimitiveExample)
+            |> note "Fixture owns the URL-backed fullscreen review mode while Browser remains a static presentation primitive." ]
         | "phone" -> [
-            sample "phone" "Device frame and optional App mode" [ "phonePrimitiveExample" ] (centered phonePrimitiveExample)
+            sample "phone" "Device frame and Documentation App mode" [ "phonePrimitiveFixture"; "phonePrimitiveExample" ] (centered phonePrimitiveExample)
             |> note "Phone owns the device treatment; the screen remains product-owned HTML." ]
         | "page" -> [
             sample "page" "With local navigation" [ "transactionsPage"; "renderTransactionsPage" ] transactionsPagePreview
@@ -3473,7 +3529,7 @@ AppShell.create "product-shell" sideNav pageContent
         | value when value.StartsWith("page-examples/", StringComparison.Ordinal) ->
             let page = PageExamples.pages |> List.find (fun page -> value = "page-examples/" + PageExamples.slug page)
             [ { id = "components-" + PageExamples.slug page; title = PageExamples.title page + " workspace"; source = PageExamples.source page
-                preview = gallerySurface (PageExamples.preview page PageExamples.defaultQuery PageExamples.initialMessages PageExamples.initialPhotos); note = None } ]
+                preview = gallerySurface (PageExamples.preview page PageExamples.defaultQuery); note = None } ]
         | id -> invalidArg (nameof id) $"No component examples registered for '{id}'."
 
     let private pageExampleBuildingBlocks = function
@@ -3518,14 +3574,15 @@ AppShell.create "product-shell" sideNav pageContent
               "textarea", "Textarea"
               "file-selection", "File selection" ]
 
-    let pageExamplePageFor page query messages photos =
+    let pageExamplePageFor page query =
         let example =
             { id = "components-" + PageExamples.slug page
               title = PageExamples.title page + " workspace"
               source = PageExamples.source page
-              preview = gallerySurface (PageExamples.preview page query messages photos)
+              preview = gallerySurface (PageExamples.preview page query)
               note = None }
         gallery (PageExamples.registration page) [ example ]
+        |> DocumentationPage.withFixtures [ PageExamples.fixture page query ]
         |> DocumentationPage.withSections [
             DocumentationSection.create example.id example.title [
                 Example.gallery example.id example.title "fsharp" example.source example.preview ]
@@ -3540,17 +3597,20 @@ AppShell.create "product-shell" sideNav pageContent
         |> List.collect (fun page -> examplesFor (page.path.Substring("/components/".Length)))
 
     let installationPage =
-        DocumentationPage.create installationRegistration.id installationRegistration.title |> DocumentationPage.withDescription "Install the package, import its Tailwind source manifest, and open the Components namespace." |> DocumentationPage.withSections [
-            DocumentationSection.create "package" "Add the package" [
-                code "shell" "dotnet add package FSharp.ViewEngine.Components"
-                prose "Components versions independently and declares its minimum compatible FSharp.ViewEngine dependency." ]
-            DocumentationSection.create "tailwind" "Configure Tailwind CSS" [
-                prose "The NuGet package includes FSharp.ViewEngine.Components.tailwind.css under contentFiles/any/any. Copy the manifest into the application CSS source tree and import it after Tailwind CSS."
+        DocumentationPage.create installationRegistration.id installationRegistration.title |> DocumentationPage.withDescription "Pin fve, create a consumer-owned Components project, and add only the source your application uses." |> DocumentationPage.withSections [
+            DocumentationSection.create "tool" "Pin the repository-local tool" [
+                code "shell" "dotnet new tool-manifest\ndotnet tool install FSharp.ViewEngine.Cli\ndotnet tool restore"
+                prose "A local tool manifest is the reproducible default. Global installation remains available with dotnet tool install --global FSharp.ViewEngine.Cli." ]
+            DocumentationSection.create "project" "Initialize and add components" [
+                code "shell" "dotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components\ndotnet fve add button text-field --config src/Acme.Components/fve.json\ndotnet add src/Acme.Web/Acme.Web.fsproj reference src/Acme.Components/Acme.Components.fsproj"
+                prose "The generated project references FSharp.ViewEngine normally. fve copies the selected canonical source plus required transitive dependencies in deterministic F# compile order; your repository owns and commits the result." ]
+            DocumentationSection.create "tailwind" "Scan the owned F# source" [
                 code "css" tailwindExample
-                p { _class "spec-paragraph"; "See "; a { _href "/components/tailwind-css"; "Tailwind CSS setup" }; " for source detection and semantic theme details." } ]
-            DocumentationSection.create "namespace" "Open the namespace" [
-                code "fsharp" "open FSharp.ViewEngine\nopen FSharp.ViewEngine.Components.Primitives\nopen FSharp.ViewEngine.Components.Application\nopen type Html"
-                prose "Components are ordinary F# values and functions that compose with the existing HtmlElement builders." ] ]
+                prose "Import the generated structural and token CSS, then point Tailwind directly at the copied F# and application source. No NuGet-cache path or copied package source manifest is required."
+                p { "See "; a { _href "/components/tailwind-css"; "Tailwind CSS setup" }; " for the exact source-detection contract." } ]
+            DocumentationSection.create "namespace" "Use the selected namespace" [
+                code "fsharp" "open FSharp.ViewEngine\nopen Acme.Components.Primitives\nopen Acme.Components.Application\nopen type Html"
+                prose "Components remain ordinary typed F# values and functions. Edit the copied source when product needs differ from the canonical implementation." ] ]
 
     let buttonPage = gallery buttonRegistration (examplesFor "button")
     let iconButtonPage = gallery iconButtonRegistration (examplesFor "icon-button")
@@ -3592,8 +3652,8 @@ AppShell.create "product-shell" sideNav pageContent
     let pageTopBarPage = gallery pageTopBarRegistration (examplesFor "page-top-bar")
     let pageHeaderPage = gallery pageHeaderRegistration (examplesFor "page-header")
     let sectionPage = gallery sectionRegistration (examplesFor "section")
-    let browserPage = gallery browserRegistration (examplesFor "browser")
-    let phonePage = gallery phoneRegistration (examplesFor "phone")
+    let browserPage = gallery browserRegistration (examplesFor "browser") |> DocumentationPage.withFixtures [ browserPrimitiveFixture ]
+    let phonePage = gallery phoneRegistration (examplesFor "phone") |> DocumentationPage.withFixtures [ phonePrimitiveFixture ]
     let pagePage = gallery pageRegistration (examplesFor "page")
     let collectionPageDocumentation = gallery collectionRegistration (examplesFor "collection")
     let detailPageDocumentation = gallery detailRegistration (examplesFor "detail")
@@ -3605,6 +3665,7 @@ AppShell.create "product-shell" sideNav pageContent
     let accountManagementPageWith workspace current =
         let examples = accountManagementExamples current |> List.map (fun example -> {example with preview=shellFixtureWith workspace current})
         gallery accountManagementRegistration examples
+        |> DocumentationPage.withFixtures [ shellFixtureConfigWith workspace current ]
     let accountManagementPageFor current = accountManagementPageWith defaultAccountWorkspace current
     let accountManagementPage = accountManagementPageFor LedgerAccounts
     let bottomNavigationPage = gallery bottomNavigationRegistration (examplesFor "bottom-navigation")
@@ -3628,7 +3689,7 @@ AppShell.create "product-shell" sideNav pageContent
             DocumentationSection.create "semantics" "Distinct semantics" [ prose "Select, Combobox, Checkbox, Switch, ToggleButton, Tabs, RadioGroup, DropdownMenu, Dialog, and AppShell navigation retain the roles and keyboard models appropriate to each interaction rather than sharing one generic choice control." ]
             DocumentationSection.create "focus" "Focus and active options" [ prose "Select and Combobox keep DOM focus on the combobox while aria-activedescendant identifies the visually active option. Select typeahead buffers rapid characters for prefix matching and cycles options when the same character is repeated." ]
             DocumentationSection.create "labels" "Required labels" [ prose "Accessible labels are required where visible content cannot provide them. Compact layouts use typed visually hidden labels rather than omitting the accessible name." ]
-            DocumentationSection.create "protected-attributes" "Protected behavior" [ prose "Package-owned structure, form attributes, ARIA relationships, Datastar bindings, and base classes cannot be replaced through generic customization. Interactive components support pointer and keyboard operation, visible focus, disabled and pending states, multiple instances, and representative morphs." ] ]
+            DocumentationSection.create "protected-attributes" "Protected behavior" [ prose "Component-owned structure, form attributes, ARIA relationships, Datastar bindings, and base classes cannot be replaced through generic customization APIs. Because the source is local, deliberate structural changes remain visible and reviewable in the consumer repository. Interactive components support pointer and keyboard operation, visible focus, disabled and pending states, multiple instances, and representative morphs." ] ]
 
     let themingPage =
         DocumentationPage.create themingRegistration.id themingRegistration.title |> DocumentationPage.withDescription "Apply semantic color, radius, density, and shell geometry consistently across a Components subtree or AppShell." |> DocumentationPage.withSections [
@@ -3638,20 +3699,23 @@ AppShell.create "product-shell" sideNav pageContent
             DocumentationSection.create "brand" "Product branding" [ prose "Override documented semantic variables in an application theme when product branding requires it. Keep component APIs semantic rather than passing raw palette strings." ] ]
 
     let tailwindPage =
-        DocumentationPage.create tailwindRegistration.id tailwindRegistration.title |> DocumentationPage.withDescription "Generate every package-owned utility from the explicit Tailwind v4 source manifest." |> DocumentationPage.withSections [
-            DocumentationSection.create "manifest" "Package source manifest" [ prose "The NuGet package includes FSharp.ViewEngine.Components.tailwind.css under contentFiles/any/any. Copy it into the application CSS source tree and import it after Tailwind CSS."; code "css" tailwindExample ]
-            DocumentationSection.create "source-detection" "Source detection" [ prose "Utility classes inside compiled assemblies are not discovered automatically. The explicit Tailwind v4 source manifest lists complete package-owned utility names so Tailwind can emit styles without assembly scanning, consumer call-site scanning, or dynamic class construction." ] ]
+        DocumentationPage.create tailwindRegistration.id tailwindRegistration.title |> DocumentationPage.withDescription "Compile presentation, semantic tokens, and structural behavior directly from consumer-owned F# source." |> DocumentationPage.withSections [
+            DocumentationSection.create "source" "Direct source detection" [ code "css" tailwindExample; prose "Tailwind reads the copied source directly. Component renderers use complete static utility strings, including theme-token and container-query utilities, so there is no generated safelist, copied CSS asset, or global NuGet-cache path." ]
+            DocumentationSection.create "stylesheet" "One host-owned stylesheet" [ prose "fve copies no CSS. Import Tailwind, scan the copied F# source, and compile one application stylesheet. Commit the owned source and use fve diff to compare it with the selected registry." ] ]
 
     let customizationPage =
-        DocumentationPage.create customizationRegistration.id customizationRegistration.title |> DocumentationPage.withDescription "Extend presentation and application-owned slots without replacing component structure or behavior." |> DocumentationPage.withSections [
-            DocumentationSection.create "escape-hatches" "Escape hatches" [ prose "Use withAttributes, withClass, and named HtmlElement slots where a component exposes them. Renderers retain structural, form, ARIA, Datastar, and base class attributes so customization cannot duplicate or remove required behavior." ]
+        DocumentationPage.create customizationRegistration.id customizationRegistration.title |> DocumentationPage.withDescription "Customize local source deliberately and override the supported semantic tokens without replacing hidden package behavior." |> DocumentationPage.withSections [
+            DocumentationSection.create "source" "Edit owned source" [ prose "A copied component is ordinary project source. Change its complete utility strings, API, or markup in the consumer repository and review that change like application code. Re-running fve add is idempotent and does not silently replace local edits."; code "shell" "dotnet fve diff --config src/Acme.Components/fve.json" ]
+            DocumentationSection.create "tokens" "Supported customization variables" [ prose "These are the complete supported --fve-* customization variables. The values shown are the default light surface, sky theme, comfortable density, medium controls, and table fallbacks."; code "css" supportedVariableDefaults ]
+            DocumentationSection.create "renderer-owned" "Renderer-owned variables" [ prose "The following variables carry per-render values or internal surface state. Their names are observable CSS implementation details, not customization tokens."; code "text" rendererOwnedVariables ]
             DocumentationSection.create "application-inputs" "Application inputs" [ prose "Applications provide destination resolvers, form-value encoders, trusted Datastar expressions, custom cells, dialog bodies, toolbars, actions, and page content. Submitted values still require server validation." ]
             DocumentationSection.create "native-controls" "Native controls" [ prose "Render browser-native controls directly with the FSharp.ViewEngine DSL when native presentation is intentional. There is no parallel NativeSelect API or separate component markup language." ] ]
 
     let versioningPage =
-        DocumentationPage.create versioningRegistration.id versioningRegistration.title |> DocumentationPage.withDescription "Upgrade Components independently while honoring its declared minimum compatible Core version." |> DocumentationPage.withSections [
-            DocumentationSection.create "independent" "Independent releases" [ prose "FSharp.ViewEngine.Components versions independently using Components-specific calendar versions and repository tags. Each release declares its minimum compatible FSharp.ViewEngine version." ]
-            DocumentationSection.create "compatibility" "Compatibility" [ prose "Additive modifiers and union cases receive compatibility review. Breaking API changes require a new Components version and migration guidance rather than compatibility wrappers in Core or Docs." ] ]
+        DocumentationPage.create versioningRegistration.id versioningRegistration.title |> DocumentationPage.withDescription "Pin a registry version, compare it with owned source, and choose every replacement explicitly." |> DocumentationPage.withSections [
+            DocumentationSection.create "pin" "Pin the registry" [ prose "The repository-local tool manifest pins FSharp.ViewEngine.Cli. Each installed file records its registry version and checksum in fve.json."; code "shell" "dotnet tool update FSharp.ViewEngine.Cli\ndotnet fve diff --config src/Acme.Components/fve.json" ]
+            DocumentationSection.create "safety" "No silent source upgrades" [ prose "fve diff reports unchanged, modified, missing, and unavailable files against the selected tool registry. fve add preserves installed edits; --overwrite is an explicit replacement decision. The first release does not attempt a three-way merge." ]
+            DocumentationSection.create "migration" "Migrate from the compiled package" [ prose "Create the owned Components project, add the components your application uses, replace the FSharp.ViewEngine.Components package reference with a project reference, update namespace opens if you selected a custom namespace, and point Tailwind at the copied F# source. Keep FSharp.ViewEngine as the conventional Core package dependency." ] ]
 
     let private pages =
         [ installationRegistration.path, installationPage
@@ -3715,7 +3779,7 @@ AppShell.create "product-shell" sideNav pageContent
           tailwindRegistration.path, tailwindPage
           customizationRegistration.path, customizationPage
           versioningRegistration.path, versioningPage ]
-        @ [ for page in PageExamples.pages -> PageExamples.url page, pageExamplePageFor page PageExamples.defaultQuery PageExamples.initialMessages PageExamples.initialPhotos ]
+        @ [ for page in PageExamples.pages -> PageExamples.url page, pageExamplePageFor page PageExamples.defaultQuery ]
         |> Map.ofList
 
     let tryPage path = Map.tryFind path pages

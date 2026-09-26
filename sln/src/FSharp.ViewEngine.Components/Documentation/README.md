@@ -1,6 +1,6 @@
-# FSharp.ViewEngine.Components.Documentation
+# FSharp.ViewEngine Documentation source
 
-Composable documentation components for [FSharp.ViewEngine](https://www.nuget.org/packages/FSharp.ViewEngine).
+Composable documentation components distributed as consumer-owned source by the [`fve` .NET tool](https://www.nuget.org/packages/FSharp.ViewEngine.Cli).
 
 Use one toolkit to build:
 
@@ -10,32 +10,30 @@ Use one toolkit to build:
 - wide product and architecture canvases
 - component galleries and internal documentation
 
-The package supplies consistent mechanics and presentation without prescribing a consumer's information architecture, product workflows, or diagram depth.
+The source supplies consistent mechanics and presentation without prescribing a consumer's information architecture, product workflows, or diagram depth.
 
 ## Installation
 
 ```shell
-dotnet add package FSharp.ViewEngine.Components
+dotnet new tool-manifest
+dotnet tool install FSharp.ViewEngine.Cli
+dotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components
+dotnet fve add documentation --config src/Acme.Components/fve.json
 ```
 
-```shell
-dotnet paket add FSharp.ViewEngine.Components
-```
-
-Documentation is part of the single Components package, not a separate assembly or release. Components targets `net8.0` for .NET 8, .NET 9, and .NET 10 consumers and declares its minimum engine dependency: `FSharp.ViewEngine ← FSharp.ViewEngine.Components`. Compatibility still requires packaged-consumer verification for the exact release candidate.
+Documentation comes from the same versioned source registry as Primitives and Application components. `fve` copies the complete transitive closure into a normal F# project targeting .NET 8, .NET 9, or .NET 10. The generated project references the conventional `FSharp.ViewEngine` Core package.
 
 ## Tailwind CSS 4
 
-Documentation presentation is consumer-compiled. Components includes `FSharp.ViewEngine.Components.tailwind.css` and the optional `Documentation/Documentation.tailwind.css` and `AppMode.tailwind.css` manifests under `contentFiles/any/any`; copy the manifests you use into the application CSS source tree, retaining that directory structure, and import the Documentation manifests after Tailwind:
+Documentation presentation is consumer-compiled. Theme tokens, structural behavior, Documentation, Prism, responsive layouts, and Fixture App mode all compile from utilities in the copied F# source. Import Tailwind and scan the owned files directly:
 
 ```css
-@import "tailwindcss";
-@import "./FSharp.ViewEngine.Components.tailwind.css";
-@import "./Documentation/Documentation.tailwind.css";
-@source "./src/**/*.fs";
+@import "tailwindcss" source(none);
+@source "./src/Acme.Components/Components/**/*.fs";
+@source "./src/Acme.Web/**/*.fs";
 ```
 
-The Components manifest supplies shared utilities and semantic component variables. The Docs manifest supplies the current documentation theme, layout, responsive, Prism, and specialized selectors. Later renderer migrations may replace applicable selectors with renderer-owned utilities without changing this two-manifest consumer boundary.
+`fve` copies no CSS asset. Consumer themes override the same `--fve-*` contract used by Primitives and Application components.
 
 Compile that source to a host-owned stylesheet and expose it through `DocsAssets.productStylesheets`. `DocsAssets.defaults` expects `/css/compiled.css`; use the actual output path when the host chooses another name:
 
@@ -45,58 +43,63 @@ let assets =
         productStylesheets = [ "/css/docs.css" ] }
 ```
 
-The package does not inject a fallback `<style>` element. Omitting either manifest leaves its corresponding presentation unavailable rather than hiding an incomplete installation behind embedded global CSS.
+The tool does not inject a fallback `<style>` element. Omitting the Tailwind import or copied-source scan leaves presentation unavailable rather than hiding an incomplete installation behind embedded global CSS.
 
 ### Migrating from embedded Docs styles
 
 The consumer-compiled Tailwind contract intentionally replaces the former self-contained styling behavior:
 
 1. Add Tailwind CSS 4 to the consuming application build.
-2. Copy and import both package manifests in the order shown above.
-3. Serve the compiled stylesheet from the path configured in `productStylesheets`.
-4. Keep consumer overrides after the package imports so semantic variables and application-specific rules remain consumer-owned.
-5. Remove CSP allowances, hashes, or nonce handling that existed only for the former package-generated `<style>` element. Continue supplying `DocsAssets.nonce` when the generated inline scripts require it.
+2. Add Documentation through `fve`, import Tailwind, and scan the copied F# source as shown above.
+3. Remove the former `Documentation.tailwind.css` import and any `--spec-*` overrides.
+4. Serve the compiled stylesheet from the path configured in `productStylesheets`.
+5. Keep `--fve-*` token overrides and application-specific rules after the Tailwind import.
+6. Remove CSP allowances, hashes, or nonce handling that existed only for the former package-generated `<style>` element. Continue supplying `DocsAssets.nonce` when the generated inline scripts require it.
 
-## Migration from the retired Docs package
+## Migration from package distribution
 
-Replace the `FSharp.ViewEngine.Docs` package/project reference with `FSharp.ViewEngine.Components`; change `open FSharp.ViewEngine.Docs` to `open FSharp.ViewEngine.Components.Documentation`. Replace the old stylesheet import with `Documentation/Documentation.tailwind.css`. Use `DocsSite`, `Document`, `DocumentationPage`, `DocumentationSection`, `CodeBlock`, `Callout`, and `Mermaid`. Documentation content is typed semantic HTML; there are no legacy block, inline, or `docs*` builder APIs and no second implementation.
+Remove `FSharp.ViewEngine.Docs` or `FSharp.ViewEngine.Components`, initialize a consumer-owned Components project, and run `fve add documentation`. Change `open FSharp.ViewEngine.Docs` or `open FSharp.ViewEngine.Components.Documentation` to the configured namespace, such as `open Acme.Components.Documentation`. Import Tailwind and scan the copied F# source. Use `DocsSite`, `Document`, `DocumentationPage`, `DocumentationSection`, `CodeBlock`, `Callout`, and `Mermaid`. Documentation content is typed semantic HTML; there are no legacy block, inline, or `docs*` builder APIs and no second implementation.
 
-Pinned historical Docs versions remain untouched. NuGet deprecation with Components as the alternative happens only after the replacement release and migration are verified; this source migration is not a claim that deprecation has occurred.
+Pinned historical NuGet versions remain downloadable but are deprecated as Legacy after the CLI replacement is published and verified.
 
-Ordinary product pages need only the shared manifest. Referencing Components does not inject Documentation navigation, Prism, Mermaid, or viewer scripts; the host opts into documentation rendering and its assets explicitly.
+Ordinary product pages use the same host-owned Tailwind output. Adding Documentation source does not inject navigation, Prism, Mermaid, or viewer scripts; the host opts into documentation rendering and its assets explicitly.
 
 ### Browser, Phone, and Fixture App mode
 
-`Browser` and `Phone` are shared Primitives. They render independently, and `withAppMode` opts a named frame into the viewport viewer without making Documentation a dependency. `Fixture` is the Documentation composition that supplies Previous/Next workflow destinations and independent review states; Next never cycles through validation or error views. Products retain their content, routes, and state semantics.
+`Browser` and `Phone` are shared static Primitives. `Fixture` is the Documentation composition that adds a real fullscreen destination, Previous/Next workflow destinations, and independent review states. Products retain their content, routes, and state semantics.
 
 ```fsharp
-open FSharp.ViewEngine.Components.Primitives
-open FSharp.ViewEngine.Components.Documentation
+open Acme.Components.Primitives
+open Acme.Components.Documentation
+
+let fixturePath step state =
+    $"/docs/components/fixture?fixtureStep={step}&fixtureState={state}"
+
+let shippingPath = fixturePath "shipping" "ready"
 
 let checkout =
     Browser.create shippingScreen
-    |> Browser.withAddress "https://shop.example.test/checkout/shipping"
-    |> Browser.withAppMode "checkout-shipping" "Shipping address"
-    |> Browser.render
-    |> Fixture.create "checkout-shipping"
-    |> Fixture.withPrevious (FixtureLink.create "Cart" "/checkout/cart")
-    |> Fixture.withNext (FixtureLink.create "Payment" "/checkout/payment")
+    |> Browser.withAddress ("https://fve.meiermade.com" + shippingPath)
+    |> Fixture.browser "checkout-shipping" "Shipping address" shippingPath
+    |> Fixture.withPrevious (FixtureLink.create "Cart" (fixturePath "cart" "ready"))
+    |> Fixture.withNext (FixtureLink.create "Payment" (fixturePath "payment" "ready"))
     |> Fixture.withStates [
-        FixtureState.create "Ready" "/checkout/shipping" |> FixtureState.current
-        FixtureState.create "Address error" "/checkout/shipping?state=error" ]
-    |> Fixture.render
+        FixtureState.create "Ready" shippingPath |> FixtureState.current
+        FixtureState.create "Address error" (fixturePath "shipping" "validation") ]
 
-let head = Browser.script "/scripts/fve-app-mode.js"
+let page =
+    DocumentationPage.create "checkout" "Checkout"
+    |> DocumentationPage.withFixtures [ checkout ]
+    |> DocumentationPage.withSections [
+        DocumentationSection.create "shipping" "Shipping" [ Fixture.render checkout ] ]
+
+let document =
+    Document.create site page
+    |> Document.withRenderMode (Fullscreen(AppMode.create "checkout-shipping" shippingPath))
+    |> Document.render
 ```
 
-Copy `app-mode.js` from the package root to the URL supplied to `Browser.script`, include it once in the host document head, and import the optional App-mode CSS after the shared manifest:
-
-```css
-@import "./FSharp.ViewEngine.Components.tailwind.css";
-@import "./AppMode.tailwind.css";
-```
-
-The base manifest keeps static Browser and Phone frames styled without emitting viewer selectors. `AppMode.tailwind.css` and `app-mode.js` are the explicit viewer opt-in. The runtime uses normal document navigation and history; it does not use the browser Fullscreen API or replace the document body.
+The host selects `Embedded` by default and applies `Document.withRenderMode (Fullscreen appMode)` only when request query state selects a registered fixture. `Document.withAppMode` is the equivalent convenience builder. The server renders either the complete documentation body or the fullscreen fixture body, and ordinary Datastar navigation patches between them while retaining browser history. App-mode controls and presentation are emitted by Documentation as semantic markup with source-local Tailwind utilities; there is no separate App-mode JavaScript or CSS asset.
 
 ## Builder API
 
@@ -104,7 +107,7 @@ Build a site and page from immutable typed values; section content is ordinary `
 
 ```fsharp
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Components.Documentation
+open Acme.Components.Documentation
 open type Html
 
 type Destination = Home | Installation | RenderReference
@@ -148,8 +151,8 @@ let article =
     |> DocumentationPage.withDescription "Build your first view."
     |> DocumentationPage.withSections [
         DocumentationSection.create "create" "Create a view" [
-            p { _class "spec-paragraph"; "Compose typed elements with computation expressions." }
-            ul { _class "spec-bullets list-disc"; li { "Open FSharp.ViewEngine" }; li { "Open the HTML builders" } } ] ]
+            p { "Compose typed elements with computation expressions." }
+            ul { li { "Open FSharp.ViewEngine" }; li { "Open the HTML builders" } } ] ]
 ```
 
 Add explicit previous and next destinations when the intended reading order differs from the sidebar. The pager uses the same Docs-managed navigation lifecycle as the side navigation:
@@ -202,7 +205,7 @@ let canvas =
     DocumentationPage.create "workflow" "Create an item" |> DocumentationPage.withDescription "Create an item from an empty state." |> DocumentationPage.withLayout Canvas |> DocumentationPage.withRightRail NoRail |> DocumentationPage.withHiddenHeading |> DocumentationPage.withSections [
         DocumentationSection.create "wireframe" "Wireframe" [
             Browser.create productUi
-            |> Browser.withAddress "https://example.test/items/new"
+            |> Browser.withAddress "https://fve.meiermade.com/docs/components/layouts#canvas"
             |> Browser.render ] ]
 ```
 
@@ -230,7 +233,7 @@ let states =
 
 let framed =
     Browser.create states
-    |> Browser.withAddress "https://example.test/items"
+    |> Browser.withAddress "https://fve.meiermade.com/components/tabs"
     |> Browser.render
 ```
 
@@ -349,7 +352,7 @@ let href =
 
 ## Local review
 
-This repository's `sln/src/Docs` application consumes the package directly and includes article, API-reference, canvas, component-lab, and executable-specification examples:
+This repository's `sln/src/Docs` application compiles the canonical registry source directly and includes article, API-reference, canvas, component-lab, and executable-specification examples:
 
 ```shell
 cd sln

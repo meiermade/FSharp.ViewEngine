@@ -159,7 +159,7 @@ module Input =
                 let descriptionIds =
                     [ if config.prefix.IsSome then yield field.id + "-prefix"
                       if config.suffix.IsSome then yield field.id + "-suffix" ]
-                for attribute in TextField.attributes includeName classes descriptionIds field do attribute
+                for attribute in TextField.attributes includeName (ComponentHtml.classes [ classes; if search then "[&::-webkit-search-cancel-button]:appearance-none" ]) descriptionIds field do attribute
                 _type kind
                 if search && not (field.attributes |> List.exists (fun attribute -> attribute.Name = "placeholder")) then _placeholder "Search…"
                 _value field.value
@@ -201,7 +201,7 @@ module Input =
         else
             let unavailable = field.disabled || field.pending
             div {
-                _class (ComponentHtml.classes [ ComponentHtml.controlSizeClass field.size; "fve-search relative min-w-0" ])
+                _class (ComponentHtml.classes [ ComponentHtml.controlSizeClass field.size; "fve-search relative min-w-0 has-[input:placeholder-shown]:[&>button]:invisible has-[input:disabled]:[&>button]:invisible has-[input:read-only]:[&>button]:invisible" ])
                 framed
                 button {
                     _type "button"

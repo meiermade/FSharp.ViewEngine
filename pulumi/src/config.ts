@@ -60,12 +60,12 @@ const releaseVersion = (key: string): string => {
 }
 
 const coreVersion = releaseVersion('CORE_PACKAGE_VERSION')
-const componentsVersion = releaseVersion('COMPONENTS_PACKAGE_VERSION')
+const cliVersion = releaseVersion('CLI_PACKAGE_VERSION')
 export const releaseMetadata = {
     coreVersion,
     coreTag: coreVersion === 'unreleased' ? 'unreleased' : `v${coreVersion}`,
-    componentsVersion,
-    componentsTag: componentsVersion === 'unreleased' ? 'unreleased' : `components/v${componentsVersion}`,
+    cliVersion,
+    cliTag: cliVersion === 'unreleased' ? 'unreleased' : `cli/v${cliVersion}`,
 }
 
 export const legacyRedirectEnabled = !isStaging && process.env.DISABLE_LEGACY_REDIRECT !== 'true'

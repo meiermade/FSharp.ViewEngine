@@ -36,15 +36,18 @@ dotnet add package FSharp.ViewEngine
 dotnet paket add FSharp.ViewEngine
 ```
 
-For accessible, server-rendered Tailwind components with Datastar interactions, install the independently versioned Components package:
+For accessible, server-rendered Tailwind components with Datastar interactions, pin the `fve` tool and add consumer-owned source:
 
 ```shell
-dotnet add package FSharp.ViewEngine.Components
+dotnet new tool-manifest
+dotnet tool install FSharp.ViewEngine.Cli
+dotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components
+dotnet fve add button text-field --config src/Acme.Components/fve.json
 ```
 
-`FSharp.ViewEngine.Components` provides typed themes, actions, feedback, tables and hierarchy, branded form controls, files/uploads, tags, choice cards, progress/steps, calendar/media compositions, menus, overlays, collection/detail compositions, and destination-generic Breadcrumbs, SideNav, PageTopBar, visible PageHeader, Section, Page, and sidebar-oriented AppShell primitives. See its [package documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fve.meiermade.com/components).
+`fve` copies typed themes, actions, feedback, tables and hierarchy, branded form controls, files/uploads, tags, choice cards, progress/steps, calendar/media compositions, menus, overlays, collection/detail compositions, and application layouts from one versioned registry in deterministic F# compile order. Consumers own and commit the selected source; `fve diff` compares local changes without silently replacing them. See the [Components source documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fve.meiermade.com/components).
 
-Documentation sites, API references, and executable specifications use the same Components package through `FSharp.ViewEngine.Components.Documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Import its optional `Documentation/Documentation.tailwind.css` only for Documentation surfaces. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
+Documentation sites, API references, and executable specifications can add the same canonical Documentation source with `dotnet fve add documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Tailwind scans those consumer-owned F# files directly; Documentation uses the same `--fve-*` token contract as the other components, with no copied stylesheet. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
 
 ## Local catalog development
 
@@ -66,12 +69,12 @@ The watcher serves F# changes and compiles CSS from the common `sln/src` source 
 - `/components/calendar` — Primitives → Data display: focused Month, Week, Day and twelve-month Year views, with responsive agenda reflow for detailed views; typed dates/times, Today/selected-date navigation and empty/loading/error/unavailable recovery.
 - `/components/media-library` — native media selection, shared bulk actions, alt text, editing, replacement, and recovery.
 - `/components/page-examples/dependency-graph`, `/components/page-examples/execution-detail` — connected dependency selection, execution metadata, timed spans and logs; the former graph-and-trace URL redirects to the graph.
-- `/components/page-examples/financial-reporting`, `/components/page-examples/messaging` — labelled actual/plan balances and a session-backed conversation workspace.
-- `/components/page-examples/operations-dashboard`, `/components/page-examples/scheduling`, `/components/page-examples/media-management` — linked operational records, calendar navigation, repository-owned color-background media, retained selection, editing, replacement and drawer-based uploads.
+- `/components/page-examples/financial-reporting`, `/components/page-examples/messaging` — labelled actual/plan balances and a deterministic URL-backed conversation workspace.
+- `/components/page-examples/operations-dashboard`, `/components/page-examples/scheduling`, `/components/page-examples/media-management` — linked operational records, calendar navigation, repository-owned color-background media, URL-backed selection, editing, replacement and browser-local file selection.
 - `/components/form-layouts` — stacked, two-column and sectioned server-validation forms. Fields retain aligned labels and control heights when adjacent help/error text differs. Search controls belong in the Input gallery; result filtering is demonstrated by Account management. The validation endpoint and default field IDs are unchanged.
 - `/docs` — Documentation components and assembled examples, including the shared App mode.
 
-Every consumer-facing reusable component has a dedicated route and navigation entry; composition pages are connected demonstrations rather than the only documentation location for nested components. Use a fresh browser/test context to reset examples. Page-example messages, accounts, settings and uploaded media use bounded, cookie-isolated server memory that expires after 30 minutes or a Docs restart; do not enter private data or run real customer/payment operations.
+Every consumer-facing reusable component has a dedicated route and navigation entry; composition pages are connected demonstrations rather than the only documentation location for nested components. Page-example messages, accounts, settings, and media use deterministic seeded data and finite URL-backed states rather than cookies or process-local memory. File selection remains browser-local; Docs never parses, retains, reflects, displays, or serves submitted file contents. Use the provided reset links or a fresh browser/test context to return to seeded states, and do not enter private data or run real customer/payment operations.
 
 In another terminal at the checkout root, run focused catalog checks:
 
@@ -93,12 +96,12 @@ These checks do not replace the right-sized release acceptance contract or genui
 Two NuGet packages have independent release trains managed through the **Publish packages** workflow:
 
 - `FSharp.ViewEngine` uses tags such as `v2026.8.1`.
-- `FSharp.ViewEngine.Components` uses tags such as `components/v2026.8.0`.
-- A dispatch selects `core`, `components`, `both` (engine plus Components), or `docs`. A Docs-only release is accepted only when package-contract coherence checks prove the selected public Core and Components versions already contain every contract change.
+- `FSharp.ViewEngine.Cli` uses tags such as `cli/v2026.9.0`.
+- Release dispatches publish Core, CLI, both, or Docs-only snapshots. A Docs-only release is accepted only when package-contract coherence checks prove the selected public Core and CLI versions already contain every contract change.
 
-Components-only releases declare their minimum compatible published engine version. A `both` release uses the selected engine version as that minimum, verifies both packages before publication, then publishes the engine before Components. Versions need not match. Engine releases become the repository-wide GitHub “Latest” release; Components releases do not. Direct packing requires explicit package and engine-dependency MSBuild version properties. Documentation smoke consumers and its optional CSS are verified inside the Components package, not through a separate release.
+CLI releases package the exact canonical component source registry compiled by this repository. A combined release publishes Core before the CLI when both changed. Engine releases become the repository-wide GitHub “Latest” release; CLI releases do not. Direct packing requires explicit package-version properties.
 
-When a published package is permanently replaced, deprecate it only after its replacement and canonical production documentation are verified. In NuGet.org **Manage Packages → Deprecation**, select every version, choose **Legacy**, name the replacement package, and leave the versions listed/downloadable. Verify the resulting public metadata and pinned downloads with `node e2e/scripts/verify-docs-retirement.mjs`; the check covers every version returned by NuGet.org rather than a hard-coded list.
+When a published package is permanently replaced, deprecate it only after its replacement and canonical production documentation are verified. In NuGet.org **Manage Packages → Deprecation**, select every version, choose **Legacy**, name the replacement package, and leave the versions listed/downloadable. Verify the resulting public metadata and pinned downloads with `node e2e/scripts/verify-package-retirement.mjs`; the check covers every Components and Docs version returned by NuGet.org rather than a hard-coded list.
 
 Versioned changelog entries are added in a follow-up pull request after the package is published and verified and its GitHub release has been reconciled. Feature pull requests and pre-publication workflow steps must not claim a package version or release date that does not yet exist.
 

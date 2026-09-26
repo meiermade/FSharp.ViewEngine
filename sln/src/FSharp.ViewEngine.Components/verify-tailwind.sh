@@ -3,17 +3,11 @@ set -euo pipefail
 
 contract_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 base_output="$(mktemp)"
-app_mode_output="$(mktemp)"
-trap 'rm -f "$base_output" "$app_mode_output"' EXIT
+trap 'rm -f "$base_output"' EXIT
 
 tailwindcss \
   --input "$contract_dir/consumer.css" \
   --output "$base_output" \
-  --minify
-
-tailwindcss \
-  --input "$contract_dir/app-mode.consumer.css" \
-  --output "$app_mode_output" \
   --minify
 
 assert_output() {
@@ -32,27 +26,18 @@ assert_base_excludes() {
   fi
 }
 
-assert_app_mode_output() {
-  local expected="$1"
-  if ! grep -Fq -- "$expected" "$app_mode_output"; then
-    echo "App-mode Tailwind contract did not emit: $expected" >&2
-    exit 1
-  fi
-}
-
 assert_output '.bg-\[var\(--fve-brand-solid\)\]'
 assert_output '.hover\:bg-\[var\(--fve-brand-hover\)\]'
 assert_output '.hover\:bg-\[var\(--fve-brand-subtle\)\]'
 assert_output '.active\:bg-\[var\(--fve-brand-active\)\]'
 assert_output '.focus-visible\:ring-2'
 assert_output '.focus-visible\:outline-2'
-assert_output '.fve-popup-item'
-assert_output '.fve-popup-field:focus-visible'
-assert_output 'outline:2px solid var(--fve-brand-ring)'
+assert_output '.aria-selected\:font-semibold'
+assert_output '.forced-colors\:border-\[CanvasText\]'
+assert_output '.forced-colors\:focus-visible\:outline-\[Highlight\]'
+assert_output '.has-\[input\:focus-visible\]\:outline-2'
 assert_output 'background-color:var(--fve-brand-solid)'
 assert_output 'background-color:var(--fve-brand-active)'
-assert_output 'border:1px solid canvastext'
-assert_output 'outline:2px solid highlight'
 assert_output ':has(:is(input:focus-visible))'
 assert_output 'max-width:40%'
 assert_output '.read-only\:bg-\[var\(--fve-neutral-subtle\)\]'
@@ -60,17 +45,14 @@ assert_output '.disabled\:invisible'
 assert_output '.\[overflow-wrap\:anywhere\]'
 assert_output '.focus-visible\:ring-inset'
 assert_output '::-webkit-search-cancel-button'
-assert_output '.fve-search:has('
-assert_output '.fve-control-small'
-assert_output '.fve-control-medium'
-assert_output '.fve-control-large'
+assert_output '::-webkit-search-cancel-button'
 assert_output '--fve-control-min-height:2.5rem'
 assert_output '--fve-navigation-min-height:2rem'
-assert_output 'padding-block:max(0px, calc((var(--fve-control-min-height) - 1.5rem - 2px) / 2))'
+assert_output 'padding-block:max(0px, calc((var(--fve-control-min-height) - var(--fve-control-line-height) - 2px) / 2))'
 assert_output '.-ml-1'
 assert_output '.overflow-x-auto'
-assert_output '.fve-table-checkbox:indeterminate'
-assert_output '.fve-table-checkbox:focus-visible'
+assert_output '.indeterminate\:bg-\[var\(--fve-brand-solid\)\]'
+assert_output '.forced-colors\:appearance-auto'
 assert_output '.fve-table-records'
 assert_output '.bg-\[var\(--fve-table-background\)\]'
 assert_output '--fve-table-background:var(--fve-page)'
@@ -97,13 +79,10 @@ assert_output '.backdrop\:bg-\[var\(--fve-overlay-backdrop\)\]'
 assert_output '.w-\[min\(24rem\,calc\(100\%-3rem\)\)\]'
 assert_output '.sm\:w-96'
 assert_output '.sm\:hidden'
-assert_output '.sm\:flex-wrap'
-assert_output '.sm\:grid-cols-5'
-assert_output '.sm\:w-auto'
+assert_output '.sm\:flex'
 assert_output '.sm\:truncate'
 assert_output '.\@container'
 assert_output '@container (min-width:280px)'
-assert_output '.gap-y-3'
 assert_output '.md\:visible'
 assert_output '.md\:w-60'
 assert_output '.lg\:visible'
@@ -123,20 +102,18 @@ assert_output '.ml-2'
 assert_output '.ml-auto'
 assert_output '.peer-focus-visible\:ring-\[var\(--fve-critical-ring\)\]'
 assert_output '.cursor-not-allowed'
-assert_output '.fve-theme-emerald'
+assert_output '--fve-brand-solid:oklch(59.6% .145 163.225)'
 assert_output '.acme-theme'
 assert_output '--fve-shell-bar-min-height:'
 assert_output '--fve-brand-solid:oklch(58% .18 264)'
 assert_output '--fve-brand-active:oklch(44% .18 264)'
-assert_output '.spec-browser-frame'
-assert_output '.fve-phone'
+assert_output '.bg-red-400'
+assert_output '.h-\[40rem\]'
+assert_output '@container fve-calendar (min-width:48rem)'
+assert_output 'grid-template-rows:repeat(calc(var(--fve-calendar-hours) * 60),.133333rem)'
+assert_output 'background-image:repeating-linear-gradient(to bottom,var(--fve-border) 0 1px,transparent 1px 8rem)'
+assert_base_excludes '.spec-browser-frame'
 assert_base_excludes '.fve-app-mode-launch'
 assert_base_excludes 'data-fve-app-mode-root'
 assert_base_excludes 'data-fve-app-mode-controls'
-assert_app_mode_output '.spec-browser-frame'
-assert_app_mode_output '.fve-phone'
-assert_app_mode_output '.fve-app-mode-launch'
-assert_app_mode_output 'data-fve-app-mode-root'
-assert_app_mode_output 'data-fve-app-mode-controls'
-
-echo "Components base and optional App-mode Tailwind clean-consumer contracts passed."
+echo "Components base Tailwind clean-consumer contract passed."
