@@ -38,7 +38,7 @@ test.describe('protected staging smoke', () => {
       image: expectedImage,
       packages: {
         core: { id: 'FSharp.ViewEngine', version: 'unreleased', tag: 'unreleased' },
-        components: { id: 'FSharp.ViewEngine.Components', version: 'unreleased', tag: 'unreleased' },
+        cli: { id: 'FSharp.ViewEngine.Cli', version: 'unreleased', tag: 'unreleased' },
       },
     })
   })
@@ -56,10 +56,11 @@ test.describe('protected staging smoke', () => {
     expect(pageErrors).toEqual([])
   })
 
-  test('protected fixture mutation remains session isolated', async ({ page }) => {
+  test('protected stateless fixture validates and resets submitted values', async ({ page }) => {
     await page.goto('/components/page-examples/account-management?destination=ledger-settings')
     await page.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('Staging smoke workspace')
     await page.getByRole('button', { name: 'Save settings', exact: true }).click()
-    await expect(page.locator('#ledger-app-shell')).toContainText('Settings saved')
+    await expect(page.locator('#ledger-app-shell')).toContainText('Settings submission validated. This resettable example does not retain submitted values.')
+    await expect(page.getByRole('textbox', { name: 'Workspace name', exact: true })).toHaveValue('Meier Made')
   })
 })
