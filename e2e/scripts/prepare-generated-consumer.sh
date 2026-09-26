@@ -134,6 +134,25 @@ EOF
       --source https://api.nuget.org/v3/index.json
     dotnet build Acme.Documentation.fsproj --configuration Release --no-restore
   )
+
+  granular_dir="$output_dir/granular-documentation-$framework"
+  mkdir -p "$granular_dir"
+  cp "$consumer_dir/global.json" "$granular_dir/global.json"
+  (
+    cd "$granular_dir"
+    test "$(dotnet --version)" = "$sdk_version"
+    dotnet tool restore >/dev/null
+    dotnet fve init Acme.GranularDocumentation.fsproj --namespace Acme.GranularDocumentation --framework "$framework"
+    dotnet fve add documentation-registry --config fve.json
+    if grep -q '"documentation"' fve.json; then
+      echo "The granular Documentation registry selector installed the complete aggregate." >&2
+      exit 1
+    fi
+    dotnet restore Acme.GranularDocumentation.fsproj \
+      --source "$nugets_dir" \
+      --source https://api.nuget.org/v3/index.json
+    dotnet build Acme.GranularDocumentation.fsproj --configuration Release --no-restore
+  )
 done
 
 visual_dir="$output_dir/net10.0"

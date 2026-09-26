@@ -82,6 +82,14 @@ let tests =
                 let actual = resolved |> List.filter (fun item -> item.Name.StartsWith("documentation", StringComparison.Ordinal)) |> List.map _.Name
                 Expect.sequenceEqual actual expected "the aggregate includes every public Documentation registry item in compile order"
 
+        testCase "granular Documentation registry includes Fixture's structural dependency" <| fun _ ->
+            match Registry.resolve registry [ "documentation-registry" ] with
+            | Error message -> failtest message
+            | Ok resolved ->
+                let names = resolved |> List.map _.Name
+                Expect.contains names "foundation" "the granular closure compiles Fixture's ComponentHtml usage"
+                Expect.isFalse (List.contains "documentation" names) "the granular selector does not install the complete aggregate"
+
         testCase "init and multiple add arguments create deterministic owned source" <| fun _ ->
             withTemp <| fun root ->
                 let exitCode, output, error =
