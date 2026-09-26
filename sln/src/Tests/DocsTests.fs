@@ -569,6 +569,15 @@ let tests =
             Expect.stringContains embedded "data-fve-fixture-id=\"checkout-shipping\"" "stable fixture identity"
             Expect.stringContains embedded "href=\"/docs/components/fixture?fixtureStep=shipping&amp;fixtureState=ready&amp;fveAppMode=app&amp;fveAppFrame=checkout-shipping&amp;fveAppTransition=enter\"" "launch is a real App-mode destination"
 
+            let unsafeId = "review'\\state"
+            let safeExpression =
+                Fixture.create unsafeId "Quoted fixture ID" "/docs/components/fixture" (div { "Fixture" })
+                |> Fixture.render
+                |> Render.toString
+                |> System.Net.WebUtility.HtmlDecode
+            Expect.stringContains safeExpression "=== \"review\\u0027\\\\state\"" "Fixture IDs are serialized as JavaScript strings"
+            Expect.isFalse (safeExpression.Contains("=== 'review'\\state'")) "Fixture IDs cannot terminate the return-focus expression"
+
             let page =
                 DocumentationPage.create "home" "Checkout"
                 |> DocumentationPage.withDescription "Checkout fixture."

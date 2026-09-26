@@ -2486,6 +2486,8 @@ AppShell.create "product-shell" sideNav pageContent
   --fve-navigation-min-height: 2.25rem;
   --fve-navigation-padding-block: 0.5rem;
   --fve-shell-bar-min-height: 4rem;
+  --fve-popup-active-background: var(--fve-brand-solid);
+  --fve-popup-active-text: white;
   --fve-table-control-size: 1.75rem;
   --fve-table-padding-block-compact: 0.25rem;
   --fve-table-padding-block-comfortable: 0.75rem;

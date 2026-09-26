@@ -21,6 +21,12 @@ let private documentationSources () =
     |> List.map (fun file -> Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components", "Documentation", file)) |> File.ReadAllText)
     |> String.concat "\n"
 
+let private fveVariables value =
+    Regex.Matches(value, "--fve-[a-z0-9-]+")
+    |> Seq.cast<Match>
+    |> Seq.map _.Value
+    |> Set.ofSeq
+
 type private ShellTestDestination =
     | Home
     | Accounts
@@ -2463,6 +2469,19 @@ after"""
             Expect.stringContains renderer "aria-selected:bg-[var(--fve-surface)]" "segmented Tabs selected surface is static renderer source"
             Expect.stringContains renderer "aria-selected:border-[var(--fve-brand-solid)]" "underlined Tabs selected border is static renderer source"
             Expect.stringContains renderer "py-[var(--fve-control-padding-block)]" "renderers consume the semantic density token"
+
+            let componentsPageSource = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "src", "Pages", "Components.fs"))
+            let documentedVariables name =
+                let pattern = "let private " + name + " = \"\"\"(?<value>.*?)\"\"\""
+                let matched = Regex.Match(componentsPageSource, pattern, RegexOptions.Singleline)
+                Expect.isTrue matched.Success $"{name} remains an explicit documentation inventory"
+                matched.Groups["value"].Value |> fveVariables
+            let supportedVariables = documentedVariables "supportedVariableDefaults"
+            let rendererOwnedVariables = documentedVariables "rendererOwnedVariables"
+            let emittedVariables = fveVariables (renderer + "\n" + documentationSource)
+            Expect.isEmpty (Set.intersect supportedVariables rendererOwnedVariables) "each fve variable belongs to only one documentation category"
+            Expect.equal (Set.union supportedVariables rendererOwnedVariables) emittedVariables "every emitted fve variable is documented in exactly one category"
+
             for role in [ "subtle"; "solid"; "hover"; "active"; "text"; "ring" ] do
                 Expect.isGreaterThanOrEqual
                     (Regex.Matches(renderer, $"--fve-brand-{role}:").Count)
