@@ -156,6 +156,38 @@ let tests =
                 let relocated = File.ReadAllText project
                 Expect.isLessThan (relocated.IndexOf("Components/Button.fs", StringComparison.Ordinal)) (relocated.IndexOf("FinanceComponents.fs", StringComparison.Ordinal)) "a previously trailing unmodified block is relocated before consumer source"
 
+        testCase "released registry order is accepted and normalized during upgrade" <| fun _ ->
+            withTemp <| fun root ->
+                initialize root
+                let allComponents = registry.Components |> List.map _.Name
+                let installExit, _, installError = invoke ([ "add" ] @ allComponents @ [ "--config"; configPath root ])
+                Expect.equal installExit 0 installError
+                let directedGraph = registry.Components |> List.find (fun item -> item.Name = "documentation-directed-graph")
+                let releasedOrder =
+                    [ for item in registry.Components do
+                          if item.Name <> directedGraph.Name then
+                              yield item
+                              if item.Name = "documentation" then yield directedGraph ]
+                let project = projectPath root
+                match ConsumerProject.updateProject project registry.Components releasedOrder false with
+                | Error message -> failtest message
+                | Ok () -> ()
+                let configuration =
+                    match ConsumerProject.readConfiguration(configPath root) with
+                    | Error message -> failtest message
+                    | Ok value -> value
+                { configuration with
+                    RegistryVersion = "2026.9.1"
+                    Components = releasedOrder |> List.map _.Name |> List.toArray }
+                |> ConsumerProject.writeConfiguration (configPath root)
+
+                let releasedProject = File.ReadAllText project
+                Expect.isLessThan (releasedProject.IndexOf("Documentation/View.fs", StringComparison.Ordinal)) (releasedProject.IndexOf("Documentation/DirectedGraph.fs", StringComparison.Ordinal)) "the fixture uses the released 2026.9.1 order"
+                let upgradeExit, _, upgradeError = invoke [ "add"; "button"; "--config"; configPath root ]
+                Expect.equal upgradeExit 0 upgradeError
+                let upgradedProject = File.ReadAllText project
+                Expect.isLessThan (upgradedProject.IndexOf("Documentation/DirectedGraph.fs", StringComparison.Ordinal)) (upgradedProject.IndexOf("Documentation/View.fs", StringComparison.Ordinal)) "the accepted released block is normalized to current canonical order"
+
         testCase "modified managed project blocks still require explicit overwrite" <| fun _ ->
             withTemp <| fun root ->
                 initialize root
