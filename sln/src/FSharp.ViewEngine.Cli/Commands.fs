@@ -38,8 +38,8 @@ module Commands =
         | _ -> Error "--framework must be net8.0, net9.0, or net10.0."
 
     let private componentsForNames (registry:ComponentRegistry) (names:seq<string>) =
-        let selected = names |> Set.ofSeq
-        registry.Components |> List.filter (fun item -> Set.contains item.Name selected)
+        let byName = registry.Components |> Seq.map (fun item -> item.Name, item) |> Map.ofSeq
+        names |> Seq.choose (fun name -> Map.tryFind name byName) |> Seq.toList
 
     let init (registry:ComponentRegistry) (output:CommandOutput) (request:InitRequest) =
         match Validation.projectPath request.Project, framework request.Framework with

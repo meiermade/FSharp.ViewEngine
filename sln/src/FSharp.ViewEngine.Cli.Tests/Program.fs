@@ -71,6 +71,17 @@ let tests =
                 | Ok resolved ->
                     Expect.equal (resolved |> List.last |> _.Name) item.Name $"{item.Name} is last in its dependency closure"
 
+        testCase "documentation aggregate resolves the complete public family" <| fun _ ->
+            let expected =
+                registry.Components
+                |> List.filter (fun item -> item.Name.StartsWith("documentation", StringComparison.Ordinal))
+                |> List.map _.Name
+            match Registry.resolve registry [ "documentation" ] with
+            | Error message -> failtest message
+            | Ok resolved ->
+                let actual = resolved |> List.filter (fun item -> item.Name.StartsWith("documentation", StringComparison.Ordinal)) |> List.map _.Name
+                Expect.sequenceEqual actual expected "the aggregate includes every public Documentation registry item in compile order"
+
         testCase "init and multiple add arguments create deterministic owned source" <| fun _ ->
             withTemp <| fun root ->
                 let exitCode, output, error =
@@ -106,6 +117,96 @@ let tests =
                     | Error message -> failtest message
                 Expect.contains (Array.toList configuration.Components) "media-library" "first selected component is recorded"
                 Expect.contains (Array.toList configuration.Components) "phone" "second selected component is recorded"
+
+        testCase "existing F# projects compile generated source before consumer compositions" <| fun _ ->
+            withTemp <| fun root ->
+                let project = projectPath root
+                let existingProject =
+                    [ "<Project Sdk=\"Microsoft.NET.Sdk\">"
+                      "  <PropertyGroup>"
+                      "    <TargetFramework>net8.0</TargetFramework>"
+                      "  </PropertyGroup>"
+                      "  <ItemGroup>"
+                      "    <Compile Include=\"FinanceComponents.fs\" />"
+                      "  </ItemGroup>"
+                      "</Project>" ]
+                    |> String.concat "\n"
+                    |> fun value -> value + "\n"
+                File.WriteAllText(project, existingProject)
+                File.WriteAllText(Path.Combine(root, "FinanceComponents.fs"), "namespace FinanceComponents")
+                initialize root
+                let addExit, _, addError = invoke [ "add"; "button"; "--config"; configPath root ]
+                Expect.equal addExit 0 addError
+                let initialized = File.ReadAllText project
+                Expect.isLessThan (initialized.IndexOf("Components/Button.fs", StringComparison.Ordinal)) (initialized.IndexOf("FinanceComponents.fs", StringComparison.Ordinal)) "generated source precedes existing consumer source"
+
+                let startMarker = "  <!-- fve:components:start -->"
+                let endMarker = "  <!-- fve:components:end -->"
+                let startIndex = initialized.IndexOf(startMarker, StringComparison.Ordinal)
+                let markerEnd = initialized.IndexOf(endMarker, startIndex, StringComparison.Ordinal) + endMarker.Length
+                let removalEnd = if markerEnd < initialized.Length && initialized[markerEnd] = '\n' then markerEnd + 1 else markerEnd
+                let managedBlock = initialized.Substring(startIndex, markerEnd - startIndex)
+                let withoutManagedBlock = initialized.Remove(startIndex, removalEnd - startIndex)
+                let projectEnd = withoutManagedBlock.LastIndexOf("</Project>", StringComparison.Ordinal)
+                File.WriteAllText(project, withoutManagedBlock.Insert(projectEnd, managedBlock + "\n"))
+
+                let relocateExit, relocateOutput, relocateError = invoke [ "add"; "button"; "--config"; configPath root ]
+                Expect.equal relocateExit 0 relocateError
+                Expect.stringContains relocateOutput "already installed" "relocation keeps repeat add idempotent"
+                let relocated = File.ReadAllText project
+                Expect.isLessThan (relocated.IndexOf("Components/Button.fs", StringComparison.Ordinal)) (relocated.IndexOf("FinanceComponents.fs", StringComparison.Ordinal)) "a previously trailing unmodified block is relocated before consumer source"
+
+        testCase "released registry order is accepted and normalized during upgrade" <| fun _ ->
+            withTemp <| fun root ->
+                initialize root
+                let allComponents = registry.Components |> List.map _.Name
+                let installExit, _, installError = invoke ([ "add" ] @ allComponents @ [ "--config"; configPath root ])
+                Expect.equal installExit 0 installError
+                let directedGraph = registry.Components |> List.find (fun item -> item.Name = "documentation-directed-graph")
+                let releasedOrder =
+                    [ for item in registry.Components do
+                          if item.Name <> directedGraph.Name then
+                              yield item
+                              if item.Name = "documentation" then yield directedGraph ]
+                let project = projectPath root
+                match ConsumerProject.updateProject project registry.Components releasedOrder false with
+                | Error message -> failtest message
+                | Ok () -> ()
+                let configuration =
+                    match ConsumerProject.readConfiguration(configPath root) with
+                    | Error message -> failtest message
+                    | Ok value -> value
+                { configuration with
+                    RegistryVersion = "2026.9.1"
+                    Components = releasedOrder |> List.map _.Name |> List.toArray }
+                |> ConsumerProject.writeConfiguration (configPath root)
+
+                let releasedProject = File.ReadAllText project
+                Expect.isLessThan (releasedProject.IndexOf("Documentation/View.fs", StringComparison.Ordinal)) (releasedProject.IndexOf("Documentation/DirectedGraph.fs", StringComparison.Ordinal)) "the fixture uses the released 2026.9.1 order"
+                let upgradeExit, _, upgradeError = invoke [ "add"; "button"; "--config"; configPath root ]
+                Expect.equal upgradeExit 0 upgradeError
+                let upgradedProject = File.ReadAllText project
+                Expect.isLessThan (upgradedProject.IndexOf("Documentation/DirectedGraph.fs", StringComparison.Ordinal)) (upgradedProject.IndexOf("Documentation/View.fs", StringComparison.Ordinal)) "the accepted released block is normalized to current canonical order"
+
+        testCase "modified managed project blocks still require explicit overwrite" <| fun _ ->
+            withTemp <| fun root ->
+                initialize root
+                let firstExit, _, firstError = invoke [ "add"; "button"; "--config"; configPath root ]
+                Expect.equal firstExit 0 firstError
+                let project = projectPath root
+                let modified =
+                    File.ReadAllText(project).Replace(
+                        "      <Compile Include=\"Components/Button.fs\" />",
+                        "      <Compile Include=\"Components/Button.fs\" />\n      <Compile Include=\"ConsumerOwned.fs\" />",
+                        StringComparison.Ordinal)
+                File.WriteAllText(project, modified)
+                let addExit, _, addError = invoke [ "add"; "badge"; "--config"; configPath root ]
+                Expect.equal addExit 2 "a changed managed block fails closed"
+                Expect.stringContains addError "managed project block was modified" "the conflict explains the explicit overwrite boundary"
+                Expect.equal (File.ReadAllText project) modified "the conflicting project remains unchanged"
+                let overwriteExit, _, overwriteError = invoke [ "add"; "badge"; "--overwrite"; "--config"; configPath root ]
+                Expect.equal overwriteExit 0 overwriteError
+                Expect.isFalse ((File.ReadAllText project).Contains("ConsumerOwned.fs", StringComparison.Ordinal)) "explicit overwrite restores the canonical managed block"
 
         testCase "init and add are idempotent" <| fun _ ->
             withTemp <| fun root ->

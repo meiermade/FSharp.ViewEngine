@@ -10,6 +10,7 @@ fixture_dir="$e2e_dir/generated-consumer"
 output_dir="${GENERATED_CONSUMER_ROOT:-/tmp/fsharp-viewengine-generated-consumer}"
 core_version="${GENERATED_CORE_VERSION:-0.0.0-generated}"
 cli_version="${GENERATED_CLI_VERSION:-0.0.1-generated}"
+fsharp_core_version="$(grep -Eo '<FveFSharpCorePackageVersion>[^<]+' "$sln_dir/src/FSharp.ViewEngine.Cli/FSharp.ViewEngine.Cli.fsproj" | cut -d'>' -f2)"
 nugets_dir="$repo_dir/nugets"
 tailwindcss_bin="${TAILWINDCSS_BIN:-$(command -v tailwindcss || true)}"
 
@@ -61,16 +62,77 @@ for framework in net8.0 net9.0 net10.0; do
   fi
   mkdir -p "$consumer_dir"
   printf '{\n  "sdk": {\n    "version": "%s",\n    "rollForward": "disable"\n  }\n}\n' "$sdk_version" > "$consumer_dir/global.json"
+  cp "$fixture_dir/ExistingProjectConsumer.fs" "$consumer_dir/ExistingProjectConsumer.fs"
+  cat > "$consumer_dir/Acme.Components.fsproj" <<EOF
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$framework</TargetFramework>
+    <RootNamespace>Acme.Components</RootNamespace>
+    <FSharpCoreImplicitPackageVersion>$fsharp_core_version</FSharpCoreImplicitPackageVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.ViewEngine" Version="$core_version" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="ExistingProjectConsumer.fs" />
+  </ItemGroup>
+</Project>
+EOF
   (
     cd "$consumer_dir"
     test "$(dotnet --version)" = "$sdk_version"
     dotnet tool restore >/dev/null
     dotnet fve init Acme.Components.fsproj --namespace Acme.Components --framework "$framework"
     dotnet fve add "${components[@]}" --config fve.json
+    generated_line="$(grep -n 'Components/Foundation.fs' Acme.Components.fsproj | cut -d: -f1)"
+    consumer_line="$(grep -n 'ExistingProjectConsumer.fs' Acme.Components.fsproj | cut -d: -f1)"
+    if [[ -z "$generated_line" || -z "$consumer_line" || "$generated_line" -ge "$consumer_line" ]]; then
+      echo "Generated component source must compile before the existing consumer source." >&2
+      exit 1
+    fi
     dotnet restore Acme.Components.fsproj \
       --source "$nugets_dir" \
       --source https://api.nuget.org/v3/index.json
     dotnet build Acme.Components.fsproj --configuration Release --no-restore
+  )
+
+  documentation_dir="$output_dir/documentation-$framework"
+  mkdir -p "$documentation_dir"
+  cp "$fixture_dir/DocumentationConsumer.fs" "$documentation_dir/DocumentationConsumer.fs"
+  cat > "$documentation_dir/Acme.Documentation.fsproj" <<EOF
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>$framework</TargetFramework>
+    <RootNamespace>Acme.Documentation</RootNamespace>
+    <FSharpCoreImplicitPackageVersion>$fsharp_core_version</FSharpCoreImplicitPackageVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="FSharp.ViewEngine" Version="$core_version" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="DocumentationConsumer.fs" />
+  </ItemGroup>
+</Project>
+EOF
+  cp "$consumer_dir/global.json" "$documentation_dir/global.json"
+  (
+    cd "$documentation_dir"
+    test "$(dotnet --version)" = "$sdk_version"
+    dotnet tool restore >/dev/null
+    dotnet fve init Acme.Documentation.fsproj --namespace Acme.Documentation --framework "$framework"
+    dotnet fve add documentation --config fve.json
+    generated_line="$(grep -n 'Components/Foundation.fs' Acme.Documentation.fsproj | cut -d: -f1)"
+    consumer_line="$(grep -n 'DocumentationConsumer.fs' Acme.Documentation.fsproj | cut -d: -f1)"
+    if [[ -z "$generated_line" || -z "$consumer_line" || "$generated_line" -ge "$consumer_line" ]]; then
+      echo "Generated Documentation source must compile before the existing consumer source." >&2
+      exit 1
+    fi
+    dotnet restore Acme.Documentation.fsproj \
+      --source "$nugets_dir" \
+      --source https://api.nuget.org/v3/index.json
+    dotnet build Acme.Documentation.fsproj --configuration Release --no-restore
   )
 done
 

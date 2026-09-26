@@ -49,6 +49,7 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Phone.fs" FveFile="Phone.fs" FveName="phone" FveDependencies="" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/ValidationIssue.fs" FveFile="Documentation/ValidationIssue.fs" FveName="documentation-validation-issue" FveDependencies="" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/SequenceDiagram.fs" FveFile="Documentation/SequenceDiagram.fs" FveName="documentation-sequence-diagram" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/DirectedGraph.fs" FveFile="Documentation/DirectedGraph.fs" FveName="documentation-directed-graph" FveDependencies="documentation-validation-issue" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Target.fs" FveFile="Documentation/Target.fs" FveName="documentation-target" FveDependencies="" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Navigation.fs" FveFile="Documentation/Navigation.fs" FveName="documentation-navigation" FveDependencies="documentation-validation-issue" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Fixture.fs" FveFile="Documentation/Fixture.fs" FveName="documentation-fixture" FveDependencies="browser;phone" />
@@ -58,8 +59,7 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Registry.fs" FveFile="Documentation/Registry.fs" FveName="documentation-registry" FveDependencies="documentation-validation-issue;documentation-navigation;documentation-document" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Search.fs" FveFile="Documentation/Search.fs" FveName="documentation-search" FveDependencies="documentation-document" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Version.fs" FveFile="Documentation/Version.fs" FveName="documentation-version" FveDependencies="" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/View.fs" FveFile="Documentation/View.fs" FveName="documentation" FveDependencies="foundation;dropdown-menu;documentation-navigation;documentation-fixture;documentation-document;documentation-search" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/DirectedGraph.fs" FveFile="Documentation/DirectedGraph.fs" FveName="documentation-directed-graph" FveDependencies="documentation-validation-issue" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/View.fs" FveFile="Documentation/View.fs" FveName="documentation" FveDependencies="foundation;dropdown-menu;documentation-sequence-diagram;documentation-directed-graph;documentation-target;documentation-navigation;documentation-fixture;documentation-document;documentation-api-reference;documentation-example;documentation-registry;documentation-search;documentation-version" />
     <Compile Include="@(FveComponent)" Condition="'$(FveCompileRegistry)' != 'false'" />
   </ItemGroup>
 </Project>

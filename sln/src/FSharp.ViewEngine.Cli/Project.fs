@@ -69,6 +69,32 @@ module ConsumerProject =
         elif startIndex < 0 || endIndex < startIndex then Error "The project contains incomplete fve component markers."
         else Ok (Some (startIndex, endIndex + endMarker.Length))
 
+    let private insertionIndex (content:string) =
+        let projectEnd = content.LastIndexOf("</Project>", StringComparison.Ordinal)
+        if projectEnd < 0 then Error "The file is not an MSBuild project."
+        else
+            let firstItemGroup = content.IndexOf("<ItemGroup", StringComparison.Ordinal)
+            if firstItemGroup < 0 then Ok projectEnd
+            else
+                let previousNewline = content.LastIndexOf('\n', firstItemGroup)
+                let lineStart = if previousNewline < 0 then 0 else previousNewline + 1
+                let beforeItemGroup = content.Substring(lineStart, firstItemGroup - lineStart)
+                Ok (if String.IsNullOrWhiteSpace beforeItemGroup then lineStart else firstItemGroup)
+
+    let private withoutBlock (content:string) startIndex endIndex =
+        let removalEnd =
+            if endIndex < content.Length && content[endIndex] = '\n' then endIndex + 1
+            else endIndex
+        content.Remove(startIndex, removalEnd - startIndex)
+
+    let private writeProjectBlock projectPath content block =
+        match insertionIndex content with
+        | Error _ -> Error $"'{projectPath}' is not an MSBuild project."
+        | Ok index ->
+            let separator = if index > 0 && content[index - 1] <> '\n' then "\n" else ""
+            content.Insert(index, $"{separator}{block}\n") |> Text.writeAtomic projectPath
+            Ok ()
+
     let updateProject (projectPath:string) (previousComponents:RegistryComponent list) (nextComponents:RegistryComponent list) overwrite =
         let content = File.ReadAllText projectPath |> Text.normalize
         let previous = projectBlock previousComponents
@@ -80,19 +106,12 @@ module ConsumerProject =
             if current <> previous && not overwrite then
                 Error "The fve-managed project block was modified. Re-run with --overwrite to replace it explicitly."
             else
-                content.Remove(startIndex, endIndex - startIndex).Insert(startIndex, next)
-                |> Text.writeAtomic projectPath
-                Ok ()
+                writeProjectBlock projectPath (withoutBlock content startIndex endIndex) next
         | Ok None ->
             if not previousComponents.IsEmpty then
                 Error "The fve-managed project block is missing. Re-run with --overwrite to recreate it explicitly."
             else
-                let projectEnd = content.LastIndexOf("</Project>", StringComparison.Ordinal)
-                if projectEnd < 0 then Error $"'{projectPath}' is not an MSBuild project."
-                else
-                    let separator = if projectEnd > 0 && content[projectEnd - 1] = '\n' then "" else "\n"
-                    content.Insert(projectEnd, $"{separator}{next}\n") |> Text.writeAtomic projectPath
-                    Ok ()
+                writeProjectBlock projectPath content next
 
     let createProject (projectPath:string) (namespaceName:string) (framework:string) =
         let content =

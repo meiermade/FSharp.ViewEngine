@@ -1157,6 +1157,8 @@ after"""
             Expect.stringContains installation "dotnet tool install FSharp.ViewEngine.Cli" "local tool installation"
             Expect.stringContains installation "dotnet fve init" "consumer-owned project initialization"
             Expect.stringContains installation "@source &quot;./src/Acme.Components/Components/**/*.fs&quot;" "direct Tailwind source detection"
+            Expect.stringContains installation "Import Tailwind, then point source detection directly at the copied F# and application source" "installation describes the host-owned Tailwind input"
+            Expect.isFalse (installation.Contains("Import the generated structural and token CSS", StringComparison.Ordinal)) "installation does not imply that fve copies CSS"
 
             for registration, html in List.zip componentRegistrations renderedComponents do
                 Expect.stringContains html "data-docs-layout=\"gallery\"" $"{registration.path} uses the gallery layout"
