@@ -2255,13 +2255,13 @@ const expectNoRawMermaid = async (diagram: Locator) => {
 
 test('initial document readiness renders pending diagrams independently of data-init timing', crossBrowser, async ({ page }) => {
   await page.addInitScript(() => {
-    let renderMermaid: ((element: Element, pendingOnly?: boolean) => Promise<void>) | undefined
+    let renderMermaid: ((root: Document | Element, pendingOnly?: boolean) => Promise<void>) | undefined
     Object.defineProperty(window, 'renderMermaid', {
       configurable: true,
       get: () => renderMermaid,
       set: value => {
-        renderMermaid = (element, pendingOnly) =>
-          element.matches('.mermaid') ? Promise.resolve() : value(element, pendingOnly)
+        renderMermaid = (root, pendingOnly) =>
+          root instanceof Element && root.matches('.mermaid') ? Promise.resolve() : value(root, pendingOnly)
       },
     })
   })
@@ -2353,15 +2353,15 @@ test('pending diagrams render after Docs navigation without relying on repeated 
   await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => {
     const docsWindow = window as typeof window & {
-      renderMermaid?: (element: Element, pendingOnly?: boolean) => Promise<void>
+      renderMermaid?: (root: Document | Element, pendingOnly?: boolean) => Promise<void>
       mermaidRenderHosts?: string[]
     }
     const renderMermaid = docsWindow.renderMermaid
     docsWindow.mermaidRenderHosts = []
-    docsWindow.renderMermaid = (element, pendingOnly) => {
-      const fromDataInit = element.matches('.mermaid')
-      docsWindow.mermaidRenderHosts?.push(fromDataInit ? 'data-init' : element.id)
-      return fromDataInit ? Promise.resolve() : renderMermaid?.(element, pendingOnly) ?? Promise.resolve()
+    docsWindow.renderMermaid = (root, pendingOnly) => {
+      const fromDataInit = root instanceof Element && root.matches('.mermaid')
+      docsWindow.mermaidRenderHosts?.push(fromDataInit ? 'data-init' : root instanceof Element ? root.id : 'document')
+      return fromDataInit ? Promise.resolve() : renderMermaid?.(root, pendingOnly) ?? Promise.resolve()
     }
   })
 
