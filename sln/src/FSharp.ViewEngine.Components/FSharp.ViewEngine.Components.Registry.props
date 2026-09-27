@@ -52,7 +52,7 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/DirectedGraph.fs" FveFile="Documentation/DirectedGraph.fs" FveName="documentation-directed-graph" FveDependencies="documentation-validation-issue" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Target.fs" FveFile="Documentation/Target.fs" FveName="documentation-target" FveDependencies="" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Navigation.fs" FveFile="Documentation/Navigation.fs" FveName="documentation-navigation" FveDependencies="documentation-validation-issue" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Fixture.fs" FveFile="Documentation/Fixture.fs" FveName="documentation-fixture" FveDependencies="browser;phone" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Fixture.fs" FveFile="Documentation/Fixture.fs" FveName="documentation-fixture" FveDependencies="foundation;browser;phone" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Document.fs" FveFile="Documentation/Document.fs" FveName="documentation-document" FveDependencies="documentation-validation-issue;documentation-fixture" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/ApiReference.fs" FveFile="Documentation/ApiReference.fs" FveName="documentation-api-reference" FveDependencies="" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Documentation/Example.fs" FveFile="Documentation/Example.fs" FveName="documentation-example" FveDependencies="documentation-api-reference" />
