@@ -50,7 +50,7 @@ module ExampleView =
             _class "min-h-screen bg-[var(--fve-background)] text-[var(--fve-text)]"
             _style (if chrome then "--example-chrome-height:3rem" else "--example-chrome-height:0px")
             if chrome then
-                header {
+                div {
                     _attr("data-example-viewer-bar","true")
                     _class "sticky top-0 z-40 flex min-h-12 min-w-0 flex-wrap items-center justify-between gap-2 border-b border-[var(--fve-border)] bg-[var(--fve-surface)] px-4 py-1"
                     div { _class "flex min-w-0 flex-wrap items-center gap-3"; Docs.Examples.Layout.link "/examples" "← Examples"; strong { _class "text-sm font-semibold"; template.name } }
@@ -66,7 +66,7 @@ module ExampleView =
                                     label
                                 }
                         }
-                        Button.create (ButtonContent.Text "Theme") |> Button.withSize ControlSize.Small |> Button.withVariant ButtonVariant.Ghost |> Button.withAttributes [_ariaLabel "Toggle color mode"; _data("on:click","$colorMode = document.documentElement.classList.contains('dark') ? 'light' : 'dark'")] |> Button.render
+                        DocsView.colorModeControl DocsColorMode.System
                     }
                 }
             if code then codeView context file else content

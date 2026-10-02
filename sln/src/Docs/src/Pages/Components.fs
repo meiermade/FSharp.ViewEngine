@@ -2426,7 +2426,7 @@ module Components =
             _class "@container/fve-shell"
             PageTopBar.create ()
             |> PageTopBar.withBrand (strong { _class "text-base font-semibold"; "Ledger" })
-            |> PageTopBar.withContent (Breadcrumbs.create "shell-bar-breadcrumbs" "Breadcrumb" [
+            |> PageTopBar.withContent (Breadcrumbs.create "shell-bar-breadcrumbs" "Shell breadcrumb" [
                 BreadcrumbItem.create "/examples/application" "Home"
                 BreadcrumbItem.create "/examples/application/accounts" "Accounts" ] |> Breadcrumbs.render id)
             |> PageTopBar.withActions (a { _href "/examples/application/profile"; _class "whitespace-nowrap text-sm font-medium"; "View profile" })

@@ -1190,6 +1190,7 @@ after"""
                 let status,html = routeResponse path
                 Expect.equal status 200 path
                 Expect.stringContains html "data-example-viewer=" "separate template experience"
+                Expect.stringContains html $"rel=\"canonical\" href=\"https://fve.meiermade.com{path}\"" "complete template metadata"
                 Expect.stringContains html "id=\"main-content\"" "one semantic content target"
                 Expect.isFalse (html.Contains "data-docs-sidebar") "no outer library documentation shell"
                 Expect.stringContains html ">Preview</a>" "real preview destination"
@@ -1200,7 +1201,7 @@ after"""
                 Expect.isFalse (String.IsNullOrWhiteSpace source) "complete authored source"
                 Expect.isFalse (source.Contains "FSharp.ViewEngine.Components.Templates") "no framework dependency"
                 Expect.isFalse (source.Contains "data-example-viewer-bar") "catalog chrome stays out of copied templates"
-            for invalid in ["/examples/source/../Program.fs"; "/examples/source/secrets.txt"; "/examples/application/accounts/999"; "/examples/application/accounts/101?view=code&file=secrets.txt"] do
+            for invalid in ["/examples/source/../Program.fs"; "/examples/source/secrets.txt"; "/examples/application/accounts/999"; "/examples/application/accounts/101?view=code&file=secrets.txt"; "/api-reference/render-to-string"; "/specification/render-a-view"] do
                 Expect.equal (routeStatus invalid) 404 "unknown routes and source files fail closed"
             for path in ["/examples/specification/accounts/view-accounts";"/examples/specification/accounts/create-account";"/examples/specification/architecture/solution/server"] do
                 Expect.equal (routeStatus path) 200 "named workflows and project contracts are public destinations"

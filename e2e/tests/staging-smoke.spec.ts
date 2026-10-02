@@ -47,7 +47,7 @@ test.describe('protected staging smoke', () => {
     const pageErrors: Error[] = []
     page.on('pageerror', error => pageErrors.push(error))
 
-    for (const path of ['/', '/components', '/docs']) {
+    for (const path of ['/', '/components', '/examples/application', '/examples/specification', '/examples/api-documentation']) {
       const response = await page.goto(path)
       expect(response?.status(), path).toBe(200)
       await expect(page.locator('main')).toBeVisible()
@@ -56,11 +56,14 @@ test.describe('protected staging smoke', () => {
     expect(pageErrors).toEqual([])
   })
 
-  test('protected stateless fixture validates and resets submitted values', async ({ page }) => {
-    await page.goto('/components/page-examples/account-management?destination=ledger-settings')
-    await page.getByRole('textbox', { name: 'Workspace name', exact: true }).fill('Staging smoke workspace')
-    await page.getByRole('button', { name: 'Save settings', exact: true }).click()
-    await expect(page.locator('#ledger-app-shell')).toContainText('Settings submission validated. This resettable example does not retain submitted values.')
-    await expect(page.getByRole('textbox', { name: 'Workspace name', exact: true })).toHaveValue('Meier Made')
+  test('protected stateless financial form validates without retaining values', async ({ page }) => {
+    await page.goto('/examples/application/settings/organizations')
+    const form = page.getByRole('form', { name: 'Organization settings' })
+    const name = form.getByRole('textbox', { name: 'Name', exact: true })
+    const seededName = await name.inputValue()
+    await name.fill('Staging smoke workspace')
+    await form.getByRole('button', { name: 'Validate settings', exact: true }).click()
+    await expect(page.getByText('Organization values validated', { exact: true })).toBeVisible()
+    await expect(name).toHaveValue(seededName)
   })
 })

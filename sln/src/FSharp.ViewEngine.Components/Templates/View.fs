@@ -496,6 +496,9 @@ module private PagerView =
 module DocsView =
     open ViewHelpers
 
+    /// Catalog-only theme menu shared by the documentation shell and example viewer chrome.
+    let colorModeControl defaultMode = ColorModeView.render defaultMode
+
     let private tocItems (page:DocumentationPageConfig) : TocItem list =
         page.sections
         |> List.map (fun section -> { level = section.level; label = section.title; href = $"#{section.id}" })

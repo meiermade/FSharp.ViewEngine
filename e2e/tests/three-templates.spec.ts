@@ -2,7 +2,11 @@ import { test, expect } from '@playwright/test'
 
 test('catalog Preview Code and history retain the selected financial page', async ({ page }) => {
   await page.goto('/examples/application/accounts')
+  await expect(page.getByRole('banner')).toHaveCount(1)
   await page.evaluate(() => (window as any).templateDocument = 'retained')
+  await page.getByRole('button', { name: 'Choose color theme', exact: true }).click()
+  await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click()
+  await expect(page.locator('html')).toHaveClass(/dark/)
   await page.getByRole('navigation', { name: 'Example view' }).getByRole('link', { name: 'Code', exact: true }).click()
   await page.getByRole('navigation', { name: 'Template source files' }).getByRole('link', { name: 'Domain/Domain.fs', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Domain/Domain.fs', exact: true })).toBeVisible()
@@ -13,6 +17,10 @@ test('catalog Preview Code and history retain the selected financial page', asyn
   await page.goForward()
   await expect(page.getByRole('link', { name: 'Operating checking', exact: true })).toBeVisible()
   expect(await page.evaluate(() => (window as any).templateDocument)).toBe('retained')
+  await page.getByRole('button', { name: 'Choose color theme', exact: true }).press('ArrowDown')
+  await expect(page.getByRole('menuitemradio', { name: 'Dark', exact: true })).toHaveAttribute('aria-checked', 'true')
+  await page.keyboard.press('Escape')
+  await expect(page.locator('html')).toHaveClass(/dark/)
 })
 
 test('spec App mode follows an exact account through validation cancel and current-state exit @cross-browser', async ({ page }) => {

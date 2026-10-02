@@ -135,42 +135,6 @@ for (const [width, scale, columns] of [[1600, 1, 2], [320, 2, 1]] as const) {
   })
 }
 
-test('Scheduling owns date, view, today and history navigation @cross-browser', async ({ page }) => {
-  await page.goto('/components/page-examples/scheduling?view=month&range=0')
-  const calendar = page.getByRole('region', { name: 'Schedule', exact: true })
-  await calendar.getByRole('link', { name: 'Next', exact: true }).click()
-  await expect(calendar).toContainText('October 2026')
-  await expect(page).toHaveURL(/range=30/)
-  await calendar.getByRole('link', { name: 'Day', exact: true }).click()
-  await expect(calendar).toContainText('Saturday, October 17, 2026')
-  await expect(calendar).toContainText('No events in this range.')
-  await page.goBack()
-  await expect(calendar).toHaveAttribute('data-view', 'month')
-  await calendar.getByRole('link', { name: 'Today', exact: true }).click()
-  await expect(calendar).toContainText('September 2026')
-  await calendar.getByRole('link', { name: 'Show Friday, September 18, 2026', exact: true }).click()
-  await expect(calendar).toHaveAttribute('data-view', 'day')
-  await expect(calendar).toContainText('Cornering fundamentals')
-  await expect(calendar.locator('[data-event="lesson-201"]')).toHaveCount(0)
-})
-
-test('Scheduling crosses years and preserves date in App mode @cross-browser', async ({ page }) => {
-  await page.goto('/components/page-examples/scheduling?view=month&range=91&fveAppMode=app&fveAppFrame=page-workspace')
-  const calendar = page.getByRole('region', { name: 'Schedule', exact: true })
-  await expect(calendar).toContainText('December 2026')
-  await calendar.getByRole('link', { name: 'Next', exact: true }).click()
-  await expect(calendar).toContainText('January 2027')
-  await expect(page).toHaveURL(/fveAppMode=app/)
-  await calendar.getByRole('link', { name: 'Year', exact: true }).click()
-  await expect(calendar).toHaveAttribute('data-view', 'year')
-  await expect(calendar).toContainText('2027')
-  await calendar.getByRole('link', { name: 'Day', exact: true }).click()
-  await expect(calendar).toContainText('Sunday, January 17, 2027')
-  await calendar.getByRole('link', { name: 'Today', exact: true }).click()
-  await expect(calendar).toContainText('Thursday, September 17, 2026')
-  await expect(calendar.getByRole('link', { name: /Coastal trail lesson/ })).toBeVisible()
-})
-
 test('Compact Month calendar provides display navigation without creating form state @cross-browser', async ({ page }) => {
   await page.goto('/components/month-calendar')
   const preview = '#components-month-calendar-compact-panel-preview'

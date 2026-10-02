@@ -4,8 +4,8 @@ import AxeBuilder from '@axe-core/playwright'
 const representativeComponents = [
   ['button', 'Button.create'],
   ['select', 'Select.create'],
-  ['app-shell', 'AppShell.create'],
-  ['page-examples/messaging', 'Textarea.create'],
+  ['page-top-bar', 'PageTopBar.create'],
+  ['textarea', 'Textarea.create'],
 ] as const
 
 test('representative component galleries share complete copyable code behavior', async ({ page, context }) => {
@@ -24,7 +24,7 @@ test('representative component galleries share complete copyable code behavior',
     await page.goto(`/components/${id}`)
     const gallery = page.locator('[data-docs-layout="gallery"]')
     await expect(gallery).toBeVisible()
-    await expect(page.locator('[data-docs-toc="true"]')).toHaveCount(id.startsWith('page-examples/') ? 0 : 2)
+    await expect(page.locator('[data-docs-toc="true"]')).toHaveCount(2)
     const example = gallery.locator('[data-docs-example="true"]').first()
     const toolbar = example.locator(':scope > [data-docs-example-toolbar="true"]')
     await expect(toolbar.getByRole('heading', { level: 2 })).toBeVisible()
@@ -71,19 +71,23 @@ test('representative component galleries share complete copyable code behavior',
 })
 
 test('documentation preview frame tracks the pointer and starts structural examples at full width @cross-browser', async ({ page }) => {
-  await page.goto('/components/section')
-  const example = page.locator('#components-section')
+  await page.goto('/components/section-header')
+  const example = page.locator('#components-sectionHeaderWithActions')
   await example.scrollIntoViewIfNeeded()
   const panel = example.locator('[data-docs-example-preview="true"]')
   const frame = example.locator('[data-docs-preview-frame="true"]')
-  const handle = example.getByRole('separator', { name: 'Resize With heading and actions preview' })
-  const section = frame.locator('section[aria-label="Upcoming transactions"]')
+  const handle = example.getByRole('separator', { name: 'Resize Description, actions and divider preview' })
+  const section = frame.locator('[data-fve-section-header="true"]')
 
   const panelBox = await panel.boundingBox()
   const initialFrameBox = await frame.boundingBox()
   const initialSectionBox = await section.boundingBox()
   expect(initialFrameBox!.width).toBeCloseTo(panelBox!.width, 0)
-  expect(initialSectionBox!.width).toBeGreaterThan(initialFrameBox!.width * 0.9)
+  expect(initialSectionBox!.width).toBeCloseTo(await section.evaluate(element => {
+    const parent = element.parentElement!
+    const style = getComputedStyle(parent)
+    return parent.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight)
+  }), 0)
   await expect(frame).toHaveCSS('border-right-width', '1px')
   await expect(panel).toHaveCSS('border-right-width', '0px')
 
@@ -126,100 +130,6 @@ test('Resizable panels support pointer and keyboard resizing @cross-browser', as
   await expect(handle).toHaveAttribute('aria-valuenow', '0')
 })
 
-test('Bulk actions preserve stable selected identities @cross-browser', async ({ page }) => {
-  await page.goto('/components/bulk-actions')
-  const bulkActions = page.locator('#components-bulk-actions-panel-preview')
-  await bulkActions.getByRole('checkbox', { name: 'Select Alex Morgan', exact: true }).check()
-  await bulkActions.getByRole('button', { name: 'Queue review', exact: true }).click()
-  await expect(bulkActions.locator('#bulk-action-feedback')).toHaveText('Queued IDs: 1')
-})
-
-test('consumer-authored responsive actions retain destinations and keyboard access @cross-browser', async ({ page }) => {
-  await page.goto('/components/page-examples/account-management')
-  const recipe = page.locator('#components-responsive-actions-panel-preview')
-  const reports = recipe.getByRole('link', { name: 'View reports', exact: true })
-  await expect(reports).toBeVisible()
-  const destination = await reports.getAttribute('href')
-  const wideTrigger = recipe.getByRole('button', { name: 'More actions', exact: true })
-  await wideTrigger.focus()
-  await page.keyboard.press('ArrowDown')
-  await expect(recipe.getByRole('menuitem', { name: 'Account settings', exact: true })).toBeFocused()
-  await expect(recipe.getByRole('menuitem', { name: 'View reports', exact: true })).toHaveCount(0)
-  await page.keyboard.press('Escape')
-  await expect(wideTrigger).toBeFocused()
-
-  await page.setViewportSize({ width: 320, height: 800 })
-  await page.locator('html').evaluate(el => { el.style.fontSize = '200%' })
-  await expect(reports).toBeHidden()
-  const bounds = await recipe.boundingBox()
-  const resizeHandle = recipe.getByRole('separator', { name: 'Resize Responsive page actions preview' })
-  const handleBox = await resizeHandle.boundingBox()
-  expect(handleBox!.x).toBeGreaterThanOrEqual(bounds!.x)
-  expect(handleBox!.x + handleBox!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width)
-  await expect(recipe.getByRole('button', { name: 'Refresh balances' })).toBeVisible()
-  const compactTrigger = recipe.getByRole('button', { name: 'More actions', exact: true })
-  await compactTrigger.focus()
-  await page.keyboard.press('ArrowDown')
-  const menuReports = recipe.getByRole('menuitem', { name: 'View reports', exact: true })
-  await expect(menuReports).toBeFocused()
-  await expect(menuReports).toHaveAttribute('href', destination!)
-  await page.keyboard.press('Escape')
-  await expect(compactTrigger).toBeFocused()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-})
-
-test('Collection filters narrow the actual rendered account rows @cross-browser', async ({ page }) => {
-  await page.goto('/components/collection')
-  const table = page.locator('#accounts-selection')
-  const visibleNames = () => table.locator('tbody tr').evaluateAll(rows =>
-    rows.filter(row => row.getClientRects().length).map(row => row.querySelector('th')?.textContent?.trim()))
-
-  const search = page.getByRole('searchbox', { name: 'Search accounts', exact: true })
-  await search.fill('assets')
-  await expect.poll(visibleNames).toEqual(['Assets'])
-  await expect(page).toHaveURL(/query=assets/)
-
-  await page.reload()
-  await expect(page.getByRole('searchbox', { name: 'Search accounts', exact: true })).toHaveValue('assets')
-  await expect.poll(visibleNames).toEqual(['Assets'])
-
-  await page.getByRole('button', { name: 'Clear filters', exact: true }).click()
-  await expect.poll(visibleNames).toHaveLength(6)
-  await expect(page).not.toHaveURL(/query=/)
-
-  await page.getByRole('searchbox', { name: 'Search accounts', exact: true }).fill('nothing-here')
-  await expect(page.getByText('No accounts match these filters. Clear filters to restore all accounts.')).toBeVisible()
-  await page.getByRole('button', { name: 'Clear filters', exact: true }).click()
-
-  await page.getByRole('button', { name: 'Refresh filters', exact: true }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'Refreshing filter options' })).toBeVisible()
-  await expect(page.getByRole('searchbox', { name: 'Search accounts', exact: true })).toBeDisabled()
-  await expect(page.getByRole('searchbox', { name: 'Search accounts', exact: true })).toBeEnabled()
-
-  await page.getByRole('button', { name: 'Simulate filter error', exact: true }).click()
-  await expect(page.getByRole('alert')).toContainText('Filter options are temporarily unavailable.')
-  await page.getByRole('button', { name: 'Retry filters', exact: true }).click()
-  await expect(page.getByRole('alert')).toBeHidden()
-
-  await page.getByRole('combobox', { name: 'Filter by account type', exact: true }).selectOption('liability')
-  await expect.poll(visibleNames).toEqual(['Liabilities'])
-  await expect(page).toHaveURL(/accountType=liability/)
-})
-
-test('Collection bulk actions receive and clear selected table identities @cross-browser', async ({ page }) => {
-  await page.goto('/components/collection')
-  await page.getByRole('checkbox', { name: 'Select Assets', exact: true }).check()
-
-  const actions = page.getByRole('region', { name: 'Selected account actions', exact: true })
-  await expect(actions).toContainText('1 selected')
-  await page.getByRole('button', { name: 'Queue review', exact: true }).click()
-  await expect(page.locator('#account-bulk-audit')).toHaveText('Queued review for account IDs: 101')
-
-  await page.getByRole('button', { name: 'Clear selection', exact: true }).click()
-  await expect(page.getByRole('checkbox', { name: 'Select Assets', exact: true })).not.toBeChecked()
-  await expect(actions).toBeHidden()
-})
-
 test('Free-form tags add, reject, remove, and submit repeated native values @cross-browser', async ({ page }) => {
   await page.goto('/components/tag-input')
   const example = page.locator('#components-tag-input-panel-preview')
@@ -254,49 +164,6 @@ test('Calendar component galleries stay focused without connected view switching
   await expect(page.locator('#components-week-calendar-events-panel-preview').getByText('Overlaps the trail lesson by one hour')).toBeVisible()
   await page.goto('/components/year-calendar')
   await expect(page.locator('#components-year-calendar-events-panel-preview [data-fve-month-calendar="compact"]')).toHaveCount(12)
-})
-
-test('Media library shares stable selection with page-level bulk actions @cross-browser', async ({ page }) => {
-  await page.goto('/components/media-library')
-  const example = page.locator('#components-media-library-panel-preview')
-  const detail = example.getByRole('checkbox', { name: 'Select App icon', exact: true })
-  await detail.check()
-  const libraryStatus = example.locator('[data-fve-media-library] output[role="status"]')
-  await expect(libraryStatus).toHaveText('2 selected')
-  await expect(example.getByRole('button', { name: 'Set primary', exact: true })).toBeVisible()
-  await example.getByRole('button', { name: 'Clear selection', exact: true }).click()
-  await expect(libraryStatus).toHaveText('0 selected')
-  await expect(detail).not.toBeChecked()
-
-  await detail.check()
-  await example.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Updated blue code-mark description')
-  await example.getByRole('button', { name: 'Save alt text', exact: true }).click()
-  await expect(example.getByRole('img', { name: 'Updated blue code-mark description', exact: true })).toBeVisible()
-  await example.getByRole('button', { name: 'Set primary', exact: true }).click()
-  await expect(example.getByRole('status').last()).toHaveText('Primary asset: app-icon')
-  await example.getByRole('button', { name: 'Apply demo replacement', exact: true }).click()
-  await expect(example.getByRole('img', { name: 'Updated blue code-mark description', exact: true })).toHaveAttribute('src', '/favicon-32x32.png')
-
-  await example.getByRole('button', { name: 'Simulate loading', exact: true }).click()
-  await expect(example.getByRole('status', { name: '' }).filter({ hasText: 'Loading media' })).toBeVisible()
-  await example.getByRole('button', { name: 'Simulate error', exact: true }).click()
-  await expect(example.getByRole('alert')).toContainText('Media could not be loaded.')
-  await example.getByRole('button', { name: 'Retry media', exact: true }).click()
-  await expect(example.getByRole('alert')).toBeHidden()
-  await example.getByRole('button', { name: 'Show empty', exact: true }).click()
-  await expect(example.getByText('No media assets. Upload an image to begin.')).toBeVisible()
-  await example.getByRole('button', { name: 'Restore media', exact: true }).click()
-  await expect(example.getByRole('region', { name: 'Selected media actions', exact: true })).toBeVisible()
-})
-
-test('Former graph-and-trace links reach the complete dependency workspace @cross-browser', async ({ page }) => {
-  await page.goto('/components/page-examples/graph-and-trace')
-  await expect(page).toHaveURL('/components/page-examples/dependency-graph')
-  const workspace = page.locator('[data-fve-fixture-id="page-workspace"]')
-  await expect(workspace.getByRole('searchbox', { name: 'Search dependencies' })).toBeVisible()
-  await expect(workspace.getByRole('button', { name: /Simulate/ })).toHaveCount(0)
-  await expect(page.locator('#page-content')).toContainText('dependency')
-  // Working graph/span, financial, message, and review-state journeys live in workspace-pages.spec.ts.
 })
 
 test('Rich choice cards retain native selection and disabled semantics @cross-browser', async ({ page }) => {
@@ -380,11 +247,11 @@ test('Operational application examples preserve native input and recoverable act
   await expect(identity.getByRole('status')).toHaveText('Demo API token copied.')
 })
 
-test('AppShell mobile bottom navigation remains visible link navigation above page scroll @cross-browser', async ({ page }) => {
+test('Bottom navigation remains visible native link navigation @cross-browser', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/components/page-examples/account-management')
+  await page.goto('/components/bottom-navigation')
 
-  const navigation = page.locator('#ledger-bottom-navigation')
+  const navigation = page.locator('#components-bottom-navigation-panel-preview').getByRole('navigation', { name: 'Primary navigation', exact: true })
   await navigation.evaluate(element => element.scrollIntoView({ block: 'end' }))
   await expect(navigation).toBeVisible()
   await expect(navigation.getByRole('link')).toHaveCount(4)
@@ -392,11 +259,11 @@ test('AppShell mobile bottom navigation remains visible link navigation above pa
   await expect(navigation.getByRole('tab')).toHaveCount(0)
   expect(await navigation.evaluate(element => {
     const bounds = element.getBoundingClientRect()
-    return document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)?.closest('#ledger-bottom-navigation') === element
+    return element.contains(document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2))
   })).toBe(true)
 })
 
-for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 'input', 'breadcrumbs', 'collection', 'detail', 'app-shell', 'day-calendar', 'week-calendar', 'month-calendar', 'year-calendar', 'date-picker', 'command', 'notice', 'skeleton', 'metric', 'toggle-button', 'toggle-group', 'button-group', 'tabs', 'resizable']) {
+for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 'input', 'breadcrumbs', 'page-top-bar', 'day-calendar', 'week-calendar', 'month-calendar', 'year-calendar', 'date-picker', 'command', 'notice', 'skeleton', 'metric', 'toggle-button', 'toggle-group', 'button-group', 'tabs', 'resizable']) {
   test(`${id} gallery remains accessible in narrow themes and resized text`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 1000 })
     await page.goto(`/components/${id}`)

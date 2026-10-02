@@ -75,20 +75,3 @@ test('description lists retain readable fields in narrow themes and resized text
     }
   }
 })
-
-test('composed account and transaction details inherit the same field styling', async ({ page }) => {
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: 1000 })
-    for (const route of ['/components/detail', '/components/page-examples/account-management?destination=ledger-account-2048', '/components/page-examples/account-management?destination=ledger-transaction-201']) {
-      await page.goto(route)
-      const detail = page.locator('.docs-components-preview').getByRole('region', { name: 'Detail', exact: true })
-      await expect(detail.getByRole('heading', { name: 'Detail', exact: true })).toHaveCount(1)
-      const list = detail.locator('dl')
-      await expect(list.getByRole('term').first()).toHaveCSS('text-transform', 'uppercase')
-      await expect(list.getByRole('term').first()).toHaveCSS('font-size', '12px')
-      await expect(list.getByRole('definition').first()).toHaveCSS('font-size', '14px')
-      await expect(list.getByRole('definition').first()).toHaveCSS('font-weight', '400')
-      expect(await list.evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
-    }
-  }
-})

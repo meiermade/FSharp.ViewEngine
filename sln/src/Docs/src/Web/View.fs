@@ -200,13 +200,16 @@ module View =
                     || (ComponentDocumentation.registrations |> List.exists (fun item -> item.path = page.path))
                 if isComponent then entry |> DocsSearchEntry.withGroup "Components" else entry)
             |> DocsSearch.index
+        let site = site sections search
         let docsPage =
             docsPage
             |> DocumentationPage.withMetadata {
                 docsPage.metadata with
+                    canonicalUrl =
+                        docsPage.metadata.canonicalUrl
+                        |> Option.orElseWith (fun () -> site.baseUrl |> Option.map (fun baseUrl -> baseUrl.TrimEnd('/') + registration.path))
                     socialImage = Some "https://fve.meiermade.com/social-card.png" }
         let docsPage = pager sections registration.id |> Option.map (fun value -> DocumentationPage.withPager value docsPage) |> Option.defaultValue docsPage
-        let site = site sections search
         let sideNavItems = navigation sections
         let breadcrumbs = Navigation.breadcrumbs sideNavItems site.homeId docsPage.activeId
         let renderMode = appMode |> Option.map Fullscreen |> Option.defaultValue Embedded

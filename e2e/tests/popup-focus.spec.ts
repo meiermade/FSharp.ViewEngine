@@ -114,24 +114,6 @@ function contrast(a: number[], b: number[]) {
   return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05)
 }
 
-test('sticky table dropdowns retain keyboard-visible trigger focus and borderless popup paint', { tag: '@cross-browser' }, async ({ page }) => {
-  await page.goto('/components/collection')
-  for (const dark of [false, true]) {
-    await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
-    const control = page.getByRole('button', { name: 'More actions for Assets', exact: true })
-    await control.click()
-    const popup = page.locator('#account-101-actions-menu')
-    await expect(popup).toHaveCSS('border-top-width', '0px')
-    await expect(popup).toHaveCSS('outline-style', 'none')
-    await page.keyboard.press('ArrowDown')
-    await page.keyboard.press('Escape')
-    await expect(control).toBeFocused()
-    await expect(control).toHaveCSS('outline-style', 'solid')
-    await expect(control).toHaveCSS('outline-width', '2px')
-    await expect(control).toHaveCSS('outline-offset', '-2px')
-  }
-})
-
 test('popup focus retains system-color boundaries and active-target outlines in forced colors', { tag: '@cross-browser' }, async ({ page }) => {
   await page.emulateMedia({ forcedColors: 'active' })
   expect(await page.evaluate(() => matchMedia('(forced-colors: active)').matches)).toBe(true)

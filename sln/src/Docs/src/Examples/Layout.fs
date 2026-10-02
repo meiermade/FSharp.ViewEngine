@@ -13,7 +13,7 @@ module Layout =
     let link (href:string) (label:string) =
         a { _href href; _class "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-[var(--fve-radius-control)] px-3 py-1.5 text-sm font-medium text-[var(--fve-brand-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; label }
     let primaryLink (href:string) (label:string) =
-        a { _href href; _class "inline-flex min-h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] px-3 py-1.5 text-sm font-medium text-white hover:bg-[var(--fve-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; label }
+        a { _href href; _class "inline-flex min-h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-text)] px-3 py-1.5 text-sm font-medium text-[light-dark(white,#101828)] hover:bg-[var(--fve-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; label }
     let section (title:string) (content:HtmlElement) =
         section { _ariaLabel title; _class "grid min-w-0 gap-4"; SectionHeader.create title |> SectionHeader.render; content }
     let prose (content:HtmlElement) = div { _class "prose max-w-none text-[var(--fve-text)] dark:prose-invert"; content }

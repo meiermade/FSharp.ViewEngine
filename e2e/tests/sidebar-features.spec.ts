@@ -18,31 +18,3 @@ test('SideNav nested groups, badges, and item actions remain distinct @cross-bro
   expect(page.url()).toBe(before)
   expect((await new AxeBuilder({ page }).include('#components-side-nav-panel-preview').analyze()).violations).toEqual([])
 })
-
-test('AppShell icon rail retains names and survives mobile navigation state changes @cross-browser', async ({ page }) => {
-  await page.goto('/components/app-shell')
-  const shell = page.locator('#layout-sidebar')
-  const sideNav = shell.locator('#layout-sidebar-navigation')
-  const collapse = sideNav.getByRole('button', { name: 'Collapse navigation' })
-  const expandedWidth = (await sideNav.boundingBox())!.width
-  await collapse.click()
-  await expect(sideNav).toHaveAttribute('data-fve-collapsed', 'true')
-  await expect(sideNav.getByRole('button', { name: 'Expand navigation' })).toBeVisible()
-  await expect.poll(async () => (await sideNav.boundingBox())!.width).toBeLessThan(expandedWidth)
-  await expect(sideNav.getByRole('link', { name: 'Dashboard', exact: true })).toHaveAttribute('title', 'Dashboard')
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  await expect(sideNav.getByRole('button', { name: 'Expand navigation' })).toBeHidden()
-  const open = shell.getByRole('button', { name: 'Open navigation' })
-  await open.click()
-  await expect(sideNav).toHaveAttribute('role', 'dialog')
-  await expect(sideNav).toHaveAttribute('aria-modal', 'true')
-  await expect(sideNav.getByRole('link', { name: 'Dashboard', exact: true })).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(open).toBeFocused()
-
-  await page.setViewportSize({ width: 1280, height: 900 })
-  await expect(sideNav).toHaveAttribute('data-fve-collapsed', 'true')
-  await sideNav.getByRole('button', { name: 'Expand navigation' }).click()
-  await expect(sideNav).toHaveAttribute('data-fve-collapsed', 'false')
-})

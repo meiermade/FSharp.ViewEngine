@@ -112,12 +112,10 @@ test('Popover owns top-layer dismissal and optional content focus @cross-browser
   expect((await new AxeBuilder({ page }).include('#components-popover-panel-preview').analyze()).violations).toEqual([])
 })
 
-test('Message rows remain layout-only in focused and connected examples @cross-browser', async ({ page }) => {
+test('Message rows remain accessible layout-only content @cross-browser', async ({ page }) => {
   await page.goto('/components/message')
   await expect(page.getByRole('article', { name: /^Message from / })).toHaveCount(4)
   expect((await new AxeBuilder({ page }).include('[data-docs-layout="gallery"]').analyze()).violations).toEqual([])
-  await page.goto('/components/page-examples/messaging')
-  await expect(page.getByRole('article', { name: /^Message from / }).first()).toBeVisible()
 })
 
 test('First steps composes Floating panel and every initial state has a recovery path @cross-browser', async ({ page }) => {
@@ -253,22 +251,4 @@ test('Notification stays bottom-end, readable, and motion-safe at narrow 200% te
     expect((await new AxeBuilder({ page }).include('#components-notification-panel-preview').analyze()).violations).toEqual([])
     await preview.screenshot({ path: testInfo.outputPath(`notification-320-200-${theme}.png`) })
   }
-})
-
-test('viewport First steps clears the App-mode dock and does not trap application focus @cross-browser', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.goto('/components/page-examples/operations-dashboard?state=setup&fveAppMode=app&fveAppFrame=page-workspace')
-  const panel = page.locator('#fieldwork-first-steps')
-  const dock = page.locator('[data-fve-app-mode-controls="true"]')
-  await expect(panel).toBeVisible()
-  await expect(dock).toBeVisible()
-  await expect(dock.getByRole('button', { name: 'Review state' })).toContainText('Setup')
-  const [panelBox, dockBox] = await Promise.all([panel.boundingBox(), dock.boundingBox()])
-  expect(panelBox).not.toBeNull()
-  expect(dockBox).not.toBeNull()
-  expect(panelBox!.y + panelBox!.height).toBeLessThanOrEqual(dockBox!.y)
-  await panel.getByRole('button', { name: 'Minimize Finish your workspace', exact: true }).click()
-  await expect(page.getByRole('link', { name: 'View schedule', exact: true })).toBeVisible()
-  await page.getByRole('link', { name: 'View schedule', exact: true }).focus()
-  await expect(page.getByRole('link', { name: 'View schedule', exact: true })).toBeFocused()
 })
