@@ -23,7 +23,7 @@ test('Compact Month calendar selects canonical single and range values with keyb
   await expect(range.locator('input[name="reportingEnd"]')).toHaveValue('2026-09-24')
 
   const bounded = page.locator('#components-month-calendar-bounds-panel-preview').locator('#booking-month-calendar')
-  await expect(bounded.getByRole('gridcell', { name: 'Wednesday, 16 September 2026', exact: true })).toBeDisabled()
+  await expect(bounded.getByRole('gridcell', { name: /^Wednesday,? 16 September 2026$/ })).toBeDisabled()
   expect((await new AxeBuilder({ page }).include('#components-month-calendar-single-panel-preview').analyze()).violations).toEqual([])
 
   await page.setViewportSize({ width: 320, height: 1000 })
