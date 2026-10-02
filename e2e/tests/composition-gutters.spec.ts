@@ -10,7 +10,9 @@ test('detail statuses belong to fields beneath a Detail section heading', async 
       ['/components/page-examples/account-management?destination=ledger-transaction-201', 'Verified'],
     ]) {
       await page.goto(route)
-      const preview = page.locator('.docs-components-preview .fve-components').first()
+      const preview = route === '/components/detail'
+        ? page.locator('#components-detail-panel-preview .fve-components')
+        : page.locator('.docs-components-preview .fve-components').first()
       const detail = preview.getByRole('region', { name: 'Detail', exact: true })
       await expect(detail.getByRole('heading', { name: 'Detail', exact: true, level: 2 })).toBeVisible()
       await expect(detail.getByRole('term').filter({ hasText: /^Status$/ })).toBeVisible()
@@ -35,10 +37,10 @@ test('plain table surfaces match the page while row states remain distinct', asy
         await page.getByRole('button', { name: 'Choose color theme' }).click()
         await page.getByRole('menuitemradio', { name: theme, exact: true }).click()
         await page.mouse.move(0, 0)
-        const preview = page.locator('.docs-components-preview .fve-components')
+        const preview = page.locator(`#components-${route}-panel-preview .fve-components`)
         const pageColor = await preview.evaluate(element => {
           const probe = document.createElement('span')
-          probe.style.backgroundColor = 'var(--fve-page)'
+          probe.style.backgroundColor = 'var(--fve-background)'
           element.append(probe)
           const color = getComputedStyle(probe).backgroundColor
           probe.remove()
@@ -70,7 +72,7 @@ test('collection and detail share inset content boundaries without a sidebar', a
     await page.setViewportSize({ width, height: 1000 })
     for (const route of ['collection', 'detail']) {
       await page.goto(`/components/${route}`)
-      const preview = page.locator('.docs-components-preview .fve-components')
+      const preview = page.locator(`#components-${route}-panel-preview .fve-components`)
       const heading = preview.getByRole('heading', { name: route === 'collection' ? 'Accounts' : 'Transactions', exact: true })
       const table = preview.locator('[data-fve-table]').getByRole('region', { name: route === 'collection' ? 'Accounts' : 'Transactions', exact: true })
       const bounds = await preview.boundingBox()
@@ -88,13 +90,13 @@ test('collection and detail share inset content boundaries without a sidebar', a
         expect(Math.abs(controls!.width - tableBounds!.width)).toBeLessThanOrEqual(1)
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-      expect((await new AxeBuilder({ page }).include('.docs-components-preview').analyze()).violations).toEqual([])
+      expect((await new AxeBuilder({ page }).include(`#components-${route}-panel-preview`).analyze()).violations).toEqual([])
     }
     for (const destination of ['ledger-accounts', 'ledger-account-2048']) {
       await page.goto(`/components/page-examples/account-management?destination=${destination}`)
       const shell = page.locator('#ledger-app-shell')
       const heading = await shell.getByRole('heading', { level: 1 }).boundingBox()
-      const table = await shell.locator('[data-fve-table]').getByRole('region', { name: destination === 'ledger-accounts' ? 'Accounts' : 'Transactions', exact: true }).boundingBox()
+      const table = await shell.locator('[data-fve-table]').getByRole('region', { name: destination === 'ledger-accounts' ? 'Account data' : 'Transactions', exact: true }).boundingBox()
       expect(Math.abs(heading!.x - table!.x)).toBeLessThanOrEqual(1)
     }
   }
@@ -113,7 +115,7 @@ test('record menus copy, download, and navigate to matching fixtures @cross-brow
     ['detail', 'Northwind payment', 'transaction', 201],
   ] as const) {
     await page.goto(`/components/${route}`)
-    const preview = page.locator('.docs-components-preview')
+    const preview = page.locator(`#components-${route}-panel-preview`)
     const trigger = preview.getByRole('button', { name: `More actions for ${record}`, exact: true })
     await trigger.click()
     const menu = page.getByRole('menu', { name: `More actions for ${record}`, exact: true })
@@ -138,15 +140,17 @@ test('record menus copy, download, and navigate to matching fixtures @cross-brow
     expect(data.name ?? data.description).toBe(record)
     await trigger.click()
     await menu.getByRole('menuitem', { name: `View ${kind}`, exact: true }).click()
-    await expect(page.locator('#ledger-app-shell').getByRole('heading', { level: 1, name: record, exact: true })).toBeVisible()
+    await expect(page).toHaveURL(`/components/${route}`)
+    await expect(preview).toBeVisible()
+    await expect(menu).toBeHidden()
   }
   await page.goto('/components/detail')
-  await page.getByRole('button', { name: 'More actions', exact: true }).click()
+  await page.locator('#components-detail-panel-preview').getByRole('button', { name: 'More actions', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Copy account ID', exact: true }).click()
   await expect.poll(() => page.evaluate(() => (window as any).copiedValue)).toBe('2048')
   await page.goto('/components/collection')
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { value: { writeText: () => Promise.reject(new Error('Denied')) } }))
-  await page.getByRole('button', { name: 'More actions for Assets', exact: true }).click()
+  await page.locator('#components-collection-panel-preview').getByRole('button', { name: 'More actions for Assets', exact: true }).click()
   await page.getByRole('menuitem', { name: 'Copy account ID', exact: true }).click()
   await expect(page.getByRole('status').filter({ hasText: 'Could not copy account ID. Check clipboard permissions.' })).toBeVisible()
   expect(errors).toEqual([])

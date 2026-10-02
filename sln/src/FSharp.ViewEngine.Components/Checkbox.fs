@@ -1,10 +1,11 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
+/// <category>checkbox</category>
 [<NoEquality; NoComparison>]
 type CheckboxConfig =
     private
@@ -20,6 +21,7 @@ type CheckboxConfig =
           isDisabled:bool
           isPending:bool }
 
+/// <category>checkbox</category>
 [<RequireQualifiedAccess>]
 module Checkbox =
     let create name label =
@@ -42,7 +44,7 @@ module Checkbox =
         { config with id = Some id }
     let withDescription description (config:CheckboxConfig) = { config with description = Some description }
     let withValidation message (config:CheckboxConfig) = { config with validation = Some message }
-    let withChecked (config:CheckboxConfig) = { config with isChecked = true }
+    let withChecked isChecked (config:CheckboxConfig) = { config with isChecked = isChecked }
     let withIndeterminate (config:CheckboxConfig) = { config with isIndeterminate = true }
     let withVisuallyHiddenLabel (config:CheckboxConfig) = { config with labelHidden = true }
     let required (config:CheckboxConfig) = { config with isRequired = true }

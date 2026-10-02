@@ -1,16 +1,19 @@
-namespace FSharp.ViewEngine.Components.Application
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Components.Primitives
+open FSharp.ViewEngine.Components
 open type Html
 
+/// <category>first-steps</category>
 [<RequireQualifiedAccess>]
 type FirstStepState = Complete | Available
 
+/// <category>first-steps</category>
 [<NoEquality; NoComparison>]
 type FirstStep = private { id:string; label:string; description:string option; state:FirstStepState; action:HtmlElement option }
 
+/// <category>first-steps</category>
 [<RequireQualifiedAccess>]
 module FirstStep =
     let create id label =
@@ -21,9 +24,11 @@ module FirstStep =
     let complete (step:FirstStep) = { step with state = FirstStepState.Complete }
     let withAction action (step:FirstStep) = { step with action = Some action }
 
+/// <category>first-steps</category>
 [<NoEquality; NoComparison>]
 type FirstStepsConfig = private { id:string; title:string; steps:FirstStep list; state:FloatingPanelState; boundary:FloatingPanelBoundary }
 
+/// <category>first-steps</category>
 [<RequireQualifiedAccess>]
 module FirstSteps =
     let create id title steps =

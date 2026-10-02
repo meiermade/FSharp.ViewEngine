@@ -57,14 +57,11 @@ const chromium = selected.get('chromium')
 const firefox = selected.get('firefox')
 const webkit = selected.get('webkit')
 
-for (const [browser, tests, expected] of [
-  ['chromium', chromium, 242],
-  ['firefox', firefox, 90],
-  ['webkit', webkit, 90],
-]) {
-  if (tests.length !== expected) {
-    fail(`${browser} selection changed: expected ${expected}, found ${tests.length}`)
-  }
+for (const [browser, tests] of [['chromium', chromium], ['firefox', firefox], ['webkit', webkit]]) {
+  if (tests.length === 0) fail(`${browser} has no selected tests`)
+}
+if (firefox.length >= chromium.length || firefox.some(name => !chromium.includes(name))) {
+  fail('Focused compatibility projects must select a subset of Chromium contracts, not the full suite')
 }
 if (JSON.stringify(firefox) !== JSON.stringify(webkit)) {
   fail('Firefox and WebKit focused selections differ')

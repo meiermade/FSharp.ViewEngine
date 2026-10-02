@@ -24,43 +24,148 @@ test('representative component galleries share complete copyable code behavior',
     await page.goto(`/components/${id}`)
     const gallery = page.locator('[data-docs-layout="gallery"]')
     await expect(gallery).toBeVisible()
-    await expect(page.locator('[data-docs-toc="true"]')).toHaveCount(0)
+    await expect(page.locator('[data-docs-toc="true"]')).toHaveCount(id.startsWith('page-examples/') ? 0 : 2)
     const example = gallery.locator('[data-docs-example="true"]').first()
     const toolbar = example.locator(':scope > [data-docs-example-toolbar="true"]')
     await expect(toolbar.getByRole('heading', { level: 2 })).toBeVisible()
     await expect(toolbar.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
+    const desktopPreset = toolbar.getByRole('button', { name: 'Desktop preview' })
+    const mobilePreset = toolbar.getByRole('button', { name: 'Mobile preview' })
+    const frame = example.locator('[data-docs-preview-frame="true"]')
+    await expect(desktopPreset).toHaveAttribute('aria-pressed', 'true')
+    await mobilePreset.click()
+    await expect(mobilePreset).toHaveAttribute('aria-pressed', 'true')
+    await expect(frame).toHaveCSS('width', '390px')
+    const handle = example.getByRole('separator', { name: /^Resize .+ preview$/ })
+    const handleBox = await handle.boundingBox()
+    await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + handleBox!.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(handleBox!.x - 40, handleBox!.y + handleBox!.height / 2)
+    await page.mouse.up()
+    await expect.poll(() => frame.evaluate(element => element.getBoundingClientRect().width)).toBeLessThan(390)
+    await handle.focus()
+    await handle.press('End')
+    const fullWidth = await frame.evaluate(element => element.getBoundingClientRect().width)
+    await handle.press('ArrowLeft')
+    await expect.poll(() => frame.evaluate(element => element.getBoundingClientRect().width)).toBeLessThan(fullWidth)
     await toolbar.getByRole('tab', { name: 'Code', exact: true }).click()
     const code = example.locator('[data-docs-copy-source]')
     await expect(code).toContainText('open Acme.Components')
     await expect(code).not.toContainText('FSharp.ViewEngine.Docs')
+    const source = await code.textContent()
+    if (id === 'button' || id === 'select') {
+      await expect(toolbar.getByRole('heading', { level: 2 })).toHaveText('Default')
+      expect(source).not.toContain(`${id === 'button' ? 'Button' : 'Select'}.with`)
+    }
+    if (id === 'button') {
+      expect(source).toContain('Button.create (ButtonContent.Text "Continue") |> Button.render')
+    }
     const copy = example.getByRole('button', { name: /^Copy .+ code$/ })
     await copy.click()
     await expect(copy).toHaveAttribute('data-copied', 'true')
-    expect(await page.evaluate(() => (window as any).__copiedExample)).toBe(await code.textContent())
+    expect(await page.evaluate(() => (window as any).__copiedExample)).toBe(source)
     await expect(code).toContainText(api)
   }
 
   expect(errors).toEqual([])
 })
 
-test('Dedicated action pages preserve menu feedback and stable bulk selection @cross-browser', async ({ page }) => {
-  await page.goto('/components/action-cluster')
-  const actionCluster = page.locator('#components-action-cluster-panel-preview')
-  await actionCluster.getByRole('button', { name: 'More actions', exact: true }).first().click()
-  await actionCluster.getByRole('menuitem', { name: 'Archive account', exact: true }).click()
-  await expect(actionCluster.locator('output')).toHaveText('Archive requested.')
+test('documentation preview frame tracks the pointer and starts structural examples at full width @cross-browser', async ({ page }) => {
+  await page.goto('/components/section')
+  const example = page.locator('#components-section')
+  await example.scrollIntoViewIfNeeded()
+  const panel = example.locator('[data-docs-example-preview="true"]')
+  const frame = example.locator('[data-docs-preview-frame="true"]')
+  const handle = example.getByRole('separator', { name: 'Resize With heading and actions preview' })
+  const section = frame.locator('section[aria-label="Upcoming transactions"]')
 
-  await page.goto('/components/row-actions')
-  const rowActions = page.locator('#components-row-actions-panel-preview')
-  await rowActions.getByRole('button', { name: 'More actions for Operating checking', exact: true }).click()
-  await rowActions.getByRole('menuitem', { name: 'Archive account', exact: true }).click()
-  await expect(rowActions.locator('output')).toHaveText('Archive requested for Operating checking.')
+  const panelBox = await panel.boundingBox()
+  const initialFrameBox = await frame.boundingBox()
+  const initialSectionBox = await section.boundingBox()
+  expect(initialFrameBox!.width).toBeCloseTo(panelBox!.width, 0)
+  expect(initialSectionBox!.width).toBeGreaterThan(initialFrameBox!.width * 0.9)
+  await expect(frame).toHaveCSS('border-right-width', '1px')
+  await expect(panel).toHaveCSS('border-right-width', '0px')
 
+  const initialHandleBox = await handle.boundingBox()
+  const pointerY = Math.min(initialHandleBox!.y + initialHandleBox!.height / 2, page.viewportSize()!.height - 10)
+  await page.mouse.move(initialHandleBox!.x + initialHandleBox!.width / 2, pointerY)
+  await page.mouse.down()
+  await page.mouse.move(initialHandleBox!.x + initialHandleBox!.width / 2 - 160, pointerY, { steps: 8 })
+  await page.mouse.up()
+
+  const resizedFrameBox = await frame.boundingBox()
+  const resizedHandleBox = await handle.boundingBox()
+  expect(resizedFrameBox!.width - initialFrameBox!.width).toBeCloseTo(-160, 0)
+  expect(resizedHandleBox!.x - initialHandleBox!.x).toBeCloseTo(-160, 0)
+
+  await example.getByRole('button', { name: 'Desktop preview' }).click()
+  await expect.poll(async () => (await frame.boundingBox())!.width).toBeCloseTo(panelBox!.width, 0)
+  await example.getByRole('button', { name: 'Mobile preview' }).click()
+  await expect(frame).toHaveCSS('width', '390px')
+})
+
+test('Resizable panels support pointer and keyboard resizing @cross-browser', async ({ page }) => {
+  await page.goto('/components/resizable')
+  const panels = page.locator('#account-workspace-panels')
+  const leading = panels.locator(':scope > div').first()
+  const handle = panels.locator('[data-fve-resize-handle="true"]')
+  await expect(handle).toHaveAttribute('role', 'separator')
+  await expect(handle).toHaveAttribute('aria-orientation', 'vertical')
+  await handle.focus()
+  await handle.press('ArrowRight')
+  await expect(handle).toHaveAttribute('aria-valuenow', '36')
+  const keyboardWidth = await leading.evaluate(element => element.getBoundingClientRect().width)
+  const handleBox = await handle.boundingBox()
+  await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + handleBox!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(handleBox!.x + 48, handleBox!.y + handleBox!.height / 2)
+  await page.mouse.up()
+  await expect.poll(() => leading.evaluate(element => element.getBoundingClientRect().width)).toBeGreaterThan(keyboardWidth)
+  await handle.press('Enter')
+  await expect(handle).toHaveAttribute('aria-valuenow', '0')
+})
+
+test('Bulk actions preserve stable selected identities @cross-browser', async ({ page }) => {
   await page.goto('/components/bulk-actions')
   const bulkActions = page.locator('#components-bulk-actions-panel-preview')
   await bulkActions.getByRole('checkbox', { name: 'Select Alex Morgan', exact: true }).check()
   await bulkActions.getByRole('button', { name: 'Queue review', exact: true }).click()
   await expect(bulkActions.locator('#bulk-action-feedback')).toHaveText('Queued IDs: 1')
+})
+
+test('consumer-authored responsive actions retain destinations and keyboard access @cross-browser', async ({ page }) => {
+  await page.goto('/components/page-examples/account-management')
+  const recipe = page.locator('#components-responsive-actions-panel-preview')
+  const reports = recipe.getByRole('link', { name: 'View reports', exact: true })
+  await expect(reports).toBeVisible()
+  const destination = await reports.getAttribute('href')
+  const wideTrigger = recipe.getByRole('button', { name: 'More actions', exact: true })
+  await wideTrigger.focus()
+  await page.keyboard.press('ArrowDown')
+  await expect(recipe.getByRole('menuitem', { name: 'Account settings', exact: true })).toBeFocused()
+  await expect(recipe.getByRole('menuitem', { name: 'View reports', exact: true })).toHaveCount(0)
+  await page.keyboard.press('Escape')
+  await expect(wideTrigger).toBeFocused()
+
+  await page.setViewportSize({ width: 320, height: 800 })
+  await page.locator('html').evaluate(el => { el.style.fontSize = '200%' })
+  await expect(reports).toBeHidden()
+  const bounds = await recipe.boundingBox()
+  const resizeHandle = recipe.getByRole('separator', { name: 'Resize Responsive page actions preview' })
+  const handleBox = await resizeHandle.boundingBox()
+  expect(handleBox!.x).toBeGreaterThanOrEqual(bounds!.x)
+  expect(handleBox!.x + handleBox!.width).toBeLessThanOrEqual(bounds!.x + bounds!.width)
+  await expect(recipe.getByRole('button', { name: 'Refresh balances' })).toBeVisible()
+  const compactTrigger = recipe.getByRole('button', { name: 'More actions', exact: true })
+  await compactTrigger.focus()
+  await page.keyboard.press('ArrowDown')
+  const menuReports = recipe.getByRole('menuitem', { name: 'View reports', exact: true })
+  await expect(menuReports).toBeFocused()
+  await expect(menuReports).toHaveAttribute('href', destination!)
+  await page.keyboard.press('Escape')
+  await expect(compactTrigger).toBeFocused()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
 test('Collection filters narrow the actual rendered account rows @cross-browser', async ({ page }) => {
@@ -142,21 +247,19 @@ test('Free-form tags add, reject, remove, and submit repeated native values @cro
   await expect(entry).toBeFocused()
 })
 
-test('Calendar gallery keeps day, week, month and year views independent @cross-browser', async ({ page }) => {
-  await page.goto('/components/calendar')
-  await expect(page.getByRole('heading', { name: 'Month view', exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Week view', exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Day view', exact: true })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Year view', exact: true })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Calendar example states', exact: true })).toHaveCount(0)
-  await expect(page.locator('#components-calendar-week-panel-preview').getByText('Overlaps the trail lesson by one hour')).toBeVisible()
-  await expect(page.locator('#components-calendar-year-panel-preview .fve-calendar-year-month')).toHaveCount(12)
+test('Calendar component galleries stay focused without connected view switching @cross-browser', async ({ page }) => {
+  await page.goto('/components/week-calendar')
+  await expect(page.getByRole('heading', { name: 'Week calendar', level: 1, exact: true })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: /calendar view/ })).toHaveCount(0)
+  await expect(page.locator('#components-week-calendar-events-panel-preview').getByText('Overlaps the trail lesson by one hour')).toBeVisible()
+  await page.goto('/components/year-calendar')
+  await expect(page.locator('#components-year-calendar-events-panel-preview [data-fve-month-calendar="compact"]')).toHaveCount(12)
 })
 
 test('Media library shares stable selection with page-level bulk actions @cross-browser', async ({ page }) => {
   await page.goto('/components/media-library')
   const example = page.locator('#components-media-library-panel-preview')
-  const detail = example.getByRole('checkbox', { name: 'Select Trail pack detail', exact: true })
+  const detail = example.getByRole('checkbox', { name: 'Select App icon', exact: true })
   await detail.check()
   const libraryStatus = example.locator('[data-fve-media-library] output[role="status"]')
   await expect(libraryStatus).toHaveText('2 selected')
@@ -166,13 +269,13 @@ test('Media library shares stable selection with page-level bulk actions @cross-
   await expect(detail).not.toBeChecked()
 
   await detail.check()
-  await example.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Updated strap detail')
+  await example.getByRole('textbox', { name: 'Alt text', exact: true }).fill('Updated blue code-mark description')
   await example.getByRole('button', { name: 'Save alt text', exact: true }).click()
-  await expect(example.getByRole('img', { name: 'Updated strap detail', exact: true })).toBeVisible()
+  await expect(example.getByRole('img', { name: 'Updated blue code-mark description', exact: true })).toBeVisible()
   await example.getByRole('button', { name: 'Set primary', exact: true }).click()
-  await expect(example.getByRole('status').last()).toHaveText('Primary asset: trail-detail')
+  await expect(example.getByRole('status').last()).toHaveText('Primary asset: app-icon')
   await example.getByRole('button', { name: 'Apply demo replacement', exact: true }).click()
-  await expect(example.getByRole('img', { name: 'Updated strap detail', exact: true })).toHaveAttribute('src', '/favicon-32x32.png')
+  await expect(example.getByRole('img', { name: 'Updated blue code-mark description', exact: true })).toHaveAttribute('src', '/favicon-32x32.png')
 
   await example.getByRole('button', { name: 'Simulate loading', exact: true }).click()
   await expect(example.getByRole('status', { name: '' }).filter({ hasText: 'Loading media' })).toBeVisible()
@@ -215,11 +318,11 @@ test('Hierarchical tables disclose only their matching descendants @cross-browse
   const checking = example.getByRole('link', { name: 'Operating checking', exact: true })
   await expect(checking).toBeVisible()
 
-  await example.getByRole('button', { name: 'Toggle Cash', exact: true }).click()
+  await example.getByRole('button', { name: 'Collapse Cash', exact: true }).click()
   await expect(checking).toBeHidden()
   await expect(example.getByRole('link', { name: 'Accounts receivable', exact: true })).toBeVisible()
 
-  await example.getByRole('button', { name: 'Toggle Cash', exact: true }).click()
+  await example.getByRole('button', { name: 'Expand Cash', exact: true }).click()
   await expect(checking).toBeVisible()
 })
 
@@ -293,7 +396,7 @@ test('AppShell mobile bottom navigation remains visible link navigation above pa
   })).toBe(true)
 })
 
-for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 'input', 'breadcrumbs', 'collection', 'detail', 'app-shell', 'calendar']) {
+for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 'input', 'breadcrumbs', 'collection', 'detail', 'app-shell', 'day-calendar', 'week-calendar', 'month-calendar', 'year-calendar', 'date-picker', 'command', 'notice', 'skeleton', 'metric', 'toggle-button', 'toggle-group', 'button-group', 'tabs', 'resizable']) {
   test(`${id} gallery remains accessible in narrow themes and resized text`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 1000 })
     await page.goto(`/components/${id}`)
@@ -303,13 +406,19 @@ for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 
       await page.getByRole('menuitemradio', { name: theme, exact: true }).click()
       await expect.poll(() => page.evaluate(() => document.getAnimations().filter(animation => animation instanceof CSSTransition && animation.playState === 'running').length)).toBe(0)
       expect((await new AxeBuilder({ page }).include('[data-docs-layout="gallery"]').analyze()).violations).toEqual([])
-      if (['button', 'select', 'bottom-navigation', 'calendar'].includes(id)) {
+      if (['button', 'select', 'bottom-navigation', 'month-calendar', 'year-calendar', 'date-picker'].includes(id)) {
         await page.screenshot({ path: testInfo.outputPath(`${id}-${theme.toLowerCase()}-390.png`) })
       }
     }
     await page.setViewportSize({ width: 320, height: 1000 })
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    if (id === 'tabs') {
+      const code = gallery.getByRole('region', { name: 'Button F# code', exact: true })
+      await code.focus()
+      await page.keyboard.press('ArrowRight')
+      await expect.poll(() => code.evaluate(el => el.scrollLeft)).toBeGreaterThan(0)
+    }
     for (const toolbar of await gallery.locator('[data-docs-example-toolbar="true"]').all()) {
       for (const control of await toolbar.getByRole('tab').or(toolbar.getByRole('button', { name: /^Copy / })).all()) {
         const box = (await control.boundingBox())!
@@ -318,15 +427,29 @@ for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 
         await expect(control).toBeEnabled()
       }
     }
-    if (id === 'calendar' || id === 'bottom-navigation') {
-      for (const control of await gallery.locator('[data-docs-example-preview="true"] a, [data-docs-example-preview="true"] button').all()) {
+    if (id.endsWith('-calendar') || id === 'bottom-navigation') {
+      for (const control of await gallery.locator('[data-docs-example-preview="true"] a:not([role="grid"] a), [data-docs-example-preview="true"] button:not([role="grid"] button)').all()) {
         if (!await control.isVisible()) continue
+        await control.scrollIntoViewIfNeeded()
         const box = (await control.boundingBox())!
-        expect(box.x, await control.textContent()).toBeGreaterThanOrEqual(0)
-        expect(box.x + box.width, await control.textContent()).toBeLessThanOrEqual(321)
+        const scrollport = await control.evaluate(el => {
+          const region = el.closest('.fve-calendar-body')
+          if (!region) return null
+          const box = region.getBoundingClientRect()
+          return { left: box.left, right: box.right }
+        })
+        if (scrollport) {
+          // A genuine two-dimensional grid may contain cards wider than the mobile viewport.
+          expect(Math.min(box.x + box.width, scrollport.right) - Math.max(box.x, scrollport.left), await control.textContent()).toBeGreaterThan(0)
+          expect(scrollport.left).toBeGreaterThanOrEqual(0)
+          expect(scrollport.right).toBeLessThanOrEqual(321)
+        } else {
+          expect(box.x, await control.textContent()).toBeGreaterThanOrEqual(0)
+          expect(box.x + box.width, await control.textContent()).toBeLessThanOrEqual(321)
+        }
       }
     }
-    if (id === 'button' || id === 'calendar') await page.screenshot({ path: testInfo.outputPath(`${id}-dark-320-200.png`) })
+    if (id === 'button' || id === 'month-calendar') await page.screenshot({ path: testInfo.outputPath(`${id}-dark-320-200.png`) })
   })
 }
 
@@ -342,18 +465,18 @@ test('denied gallery copying reports failure without losing the source @cross-br
   await expect(copy).toHaveAttribute('data-copy-error', 'true')
   await expect(copy).toHaveText('Copy failed')
   await example.getByRole('tab', { name: 'Code', exact: true }).click()
-  await expect(example.locator('[data-docs-copy-source]')).toContainText('Button.create "Create account"')
+  await expect(example.locator('[data-docs-copy-source]')).toContainText('Button.create (ButtonContent.Text "Create account")')
   await example.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(example.getByRole('button', { name: 'Create account', exact: true })).toHaveCount(3)
 })
 
 test('gallery code switches preserve independent edited previews @cross-browser', async ({ page }) => {
   await page.goto('/components/input')
-  const name = page.locator('#components-input').getByRole('textbox', { name: 'Email', exact: true })
+  const name = page.locator('#components-input-panel-preview').getByRole('textbox', { name: 'Email', exact: true })
   const query = page.getByRole('searchbox', { name: 'Search', exact: true })
   await name.fill('Alex Rivera')
   await query.fill('Savings')
-  const formToolbar = page.locator('#components-input [data-docs-example-toolbar="true"]')
+  const formToolbar = page.locator('#components-input-panel-preview').locator('..').locator(':scope > [data-docs-example-toolbar="true"]')
   const searchToolbar = page.locator('#components-search-input [data-docs-example-toolbar="true"]')
   await formToolbar.getByRole('tab', { name: 'Code', exact: true }).click()
   await expect(query).toHaveValue('Savings')

@@ -1,35 +1,45 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>breadcrumbs</category>
 [<NoEquality; NoComparison>]
 type BreadcrumbItem<'destination> =
     private
         { label:string
           destination:'destination }
 
+/// <category>breadcrumbs</category>
 [<RequireQualifiedAccess>]
 module BreadcrumbItem =
     let create destination label =
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A breadcrumb label is required."
         { label = label; destination = destination }
 
+/// <category>breadcrumbs</category>
 [<NoEquality; NoComparison>]
 type BreadcrumbsConfig<'destination> =
     private
         { id:string
           label:string
+          maxVisibleItems:int
           items:BreadcrumbItem<'destination> list }
 
+/// <category>breadcrumbs</category>
 [<RequireQualifiedAccess>]
 module Breadcrumbs =
     let create id label (items:BreadcrumbItem<'destination> list) =
         if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable breadcrumbs ID is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible breadcrumbs label is required."
         if List.isEmpty items then invalidArg (nameof items) "At least one breadcrumb item is required."
-        { id = id; label = label; items = items }
+        { id = id; label = label; maxVisibleItems = 3; items = items }
+
+    /// Visible path items on wider screens, excluding the overflow trigger. Keeps the root and most recent items.
+    let withMaxVisibleItems count (config:BreadcrumbsConfig<'destination>) =
+        if count < 2 then invalidArg (nameof count) "At least the root and current breadcrumb must remain visible."
+        { config with maxVisibleItems = count }
 
     let private separator =
         span {
@@ -46,7 +56,15 @@ module Breadcrumbs =
 
     let render resolve (config:BreadcrumbsConfig<'destination>) =
         let currentIndex = config.items.Length - 1
-        let hiddenItems = config.items |> List.take currentIndex
+        let ancestors = config.items |> List.take currentIndex
+        let hiddenCount = max 0 (config.items.Length - config.maxVisibleItems)
+        let middleItems = config.items |> List.skip 1 |> List.truncate hiddenCount
+        let overflow id items =
+            DropdownMenu.create id "Show hidden breadcrumbs"
+            |> DropdownMenu.withTrigger (DropdownMenuTrigger.icon overflowIcon)
+            |> DropdownMenu.withContent (items |> List.map (fun item -> DropdownMenuItem.link item.destination item.label))
+            |> DropdownMenu.withAlignment DropdownMenuAlignment.Start
+            |> DropdownMenu.render resolve
 
         nav {
             _id config.id
@@ -54,31 +72,31 @@ module Breadcrumbs =
             _class "@container min-w-0 w-full"
             ol {
                 _role "list"
-                _class "-ml-1 flex min-w-0 flex-wrap items-center gap-1 text-sm text-[var(--fve-muted-text)]"
-                if hiddenItems.IsEmpty |> not then
+                _class "-ml-1 flex min-w-0 flex-nowrap items-center gap-1 text-sm text-[var(--fve-muted-text)]"
+                if ancestors.IsEmpty |> not then
                     li {
                         _class "flex shrink-0 sm:hidden"
-                        DropdownMenu.create
-                            $"{config.id}-overflow"
-                            "Show hidden breadcrumbs"
-                            (hiddenItems |> List.map (fun item -> MenuItem.link item.destination item.label))
-                        |> DropdownMenu.withAlignment MenuAlignment.Start
-                        |> DropdownMenu.withTriggerContent overflowIcon
-                        |> DropdownMenu.render resolve
+                        overflow $"{config.id}-overflow" ancestors
                     }
-                for index, item in config.items |> List.indexed do
+                for index, item in config.items |> List.indexed |> List.filter (fun (index, _) -> index = 0 || index > hiddenCount) do
+                    if index > 0 && index = hiddenCount + 1 && hiddenCount > 0 then
+                        li {
+                            _class "hidden shrink-0 items-center gap-1 sm:flex"
+                            separator
+                            overflow $"{config.id}-middle-overflow" middleItems
+                        }
                     let current = index = currentIndex
                     let compacted = index < currentIndex
                     li {
                         _class (
                             ComponentHtml.classes [
                                 "min-w-0 items-center gap-1"
-                                if compacted then "hidden sm:flex" else "flex flex-1 basis-full @min-[280px]:basis-auto" ])
+                                if compacted then "hidden sm:flex" else "flex flex-1" ])
                         if index > 0 then separator
                         if current then
                             span {
                                 _ariaCurrent "page"
-                                _class "block min-w-0 break-words px-1 py-1 font-semibold text-[var(--fve-text)] sm:truncate"
+                                _class "block min-w-0 truncate px-1 py-1 font-semibold text-[var(--fve-text)]"
                                 item.label
                             }
                         else

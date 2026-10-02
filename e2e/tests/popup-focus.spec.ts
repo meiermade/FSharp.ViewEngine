@@ -78,7 +78,7 @@ for (const fixture of [
 
 test('dropdown uses one focus target across pointer, keyboard and pointer leave', { tag: '@cross-browser' }, async ({ page }) => {
   await page.goto('/components/dropdown-menu')
-  const example = page.locator('#components-dropdown-menu')
+  const example = page.locator('#components-dropdown-menu-panel-preview')
   const trigger = example.getByRole('button', { name: 'Actions', exact: true })
   await trigger.click()
   const menu = example.getByRole('menu', { name: 'Actions', exact: true })
@@ -137,7 +137,7 @@ test('popup focus retains system-color boundaries and active-target outlines in 
   expect(await page.evaluate(() => matchMedia('(forced-colors: active)').matches)).toBe(true)
   for (const kind of ['select', 'searchable-select', 'dropdown-menu']) {
     await page.goto(kind === 'searchable-select' ? '/components/select' : `/components/${kind}`)
-    const example = page.locator(kind === 'dropdown-menu' ? '#components-dropdown-menu' : kind === 'searchable-select' ? '#components-select-search-multiple' : '#components-select-multiple')
+    const example = page.locator(kind === 'dropdown-menu' ? '#components-dropdown-menu-panel-preview' : kind === 'searchable-select' ? '#components-select-search-multiple' : '#components-select-multiple')
     const control = kind === 'dropdown-menu' ? example.getByRole('button', { name: 'Actions', exact: true }) : example.getByRole('button', { name: kind === 'select' ? 'Team members' : 'Search members', exact: true })
     if (kind !== 'dropdown-menu') {
       await page.keyboard.press('Tab')
@@ -175,7 +175,7 @@ for (const dark of [false, true]) {
           document.documentElement.classList.toggle('dark', dark)
           document.documentElement.style.fontSize = `${scale * 100}%`
         }, { dark, scale: viewport.scale })
-        const example = page.locator(kind === 'dropdown-menu' ? '#components-dropdown-menu' : kind === 'searchable-select' ? '#components-select-search-multiple' : '#components-select-multiple')
+        const example = page.locator(kind === 'dropdown-menu' ? '#components-dropdown-menu-panel-preview' : kind === 'searchable-select' ? '#components-select-search-multiple' : '#components-select-multiple')
         const control = kind === 'dropdown-menu' ? example.getByRole('button', { name: 'Actions', exact: true }) : example.getByRole('button', { name: kind === 'select' ? 'Team members' : 'Search members', exact: true })
         if (kind !== 'dropdown-menu') {
           await page.keyboard.press('Tab')

@@ -1,10 +1,17 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
+/// <category>switch</category>
+[<RequireQualifiedAccess>]
+type SwitchLayout =
+    | Inline
+    | Stacked
+
+/// <category>switch</category>
 [<NoEquality; NoComparison>]
 type SwitchConfig =
     private
@@ -13,10 +20,13 @@ type SwitchConfig =
           label:string
           description:string option
           validation:string option
+          size:ControlSize
+          layout:SwitchLayout
           isChecked:bool
           isDisabled:bool
           isPending:bool }
 
+/// <category>switch</category>
 [<RequireQualifiedAccess>]
 module Switch =
     let create name label =
@@ -27,6 +37,8 @@ module Switch =
           label = label
           description = None
           validation = None
+          size = ControlSize.Medium
+          layout = SwitchLayout.Inline
           isChecked = false
           isDisabled = false
           isPending = false }
@@ -36,7 +48,9 @@ module Switch =
         { config with id = Some id }
     let withDescription description (config:SwitchConfig) = { config with description = Some description }
     let withValidation message (config:SwitchConfig) = { config with validation = Some message }
-    let withChecked (config:SwitchConfig) = { config with isChecked = true }
+    let withSize size (config:SwitchConfig) = { config with size = size }
+    let withLayout layout (config:SwitchConfig) = { config with layout = layout }
+    let withChecked isChecked (config:SwitchConfig) = { config with isChecked = isChecked }
     let disabled (config:SwitchConfig) = { config with isDisabled = true }
     let pending (config:SwitchConfig) = { config with isPending = true }
 
@@ -52,19 +66,24 @@ module Switch =
             [ if config.description.IsSome then descriptionId
               if config.validation.IsSome then validationId ]
             |> String.concat " "
+        let trackSize, thumbSize, checkedTranslation =
+            match config.size with
+            | ControlSize.Small -> "h-4 w-7", "size-3", "translate-x-3"
+            | ControlSize.Medium -> "h-5 w-9", "size-4", "translate-x-4"
+            | ControlSize.Large -> "h-6 w-11", "size-5", "translate-x-5"
         let trackClasses =
             ComponentHtml.classes [
-                "block h-5 w-9 rounded-full bg-[var(--fve-neutral-subtle)] ring-1 ring-inset transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2"
+                $"block {trackSize} rounded-full bg-[var(--fve-neutral-subtle)] ring-1 ring-inset transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2"
                 if config.validation.IsSome then "ring-[var(--fve-critical-ring)] peer-focus-visible:ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)] peer-focus-visible:ring-[var(--fve-brand-ring)]" ]
         div {
             _class "min-w-0 [overflow-wrap:anywhere]"
             _dataSignals $"{{{valueSignal}: {initialValue}}}"
             label {
                 _for fieldId
-                _class "flex min-w-0 flex-wrap cursor-pointer items-start justify-between gap-4 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                _class (match config.layout with SwitchLayout.Inline -> "flex min-w-0 flex-wrap cursor-pointer items-start justify-between gap-4 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50" | SwitchLayout.Stacked -> "grid min-w-0 cursor-pointer justify-items-start gap-2 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50")
                 span { _class "min-w-0 font-medium"; config.label }
                 span {
-                    _class "ml-auto flex shrink-0 items-center gap-2"
+                    _class (match config.layout with SwitchLayout.Inline -> "ml-auto flex shrink-0 items-center gap-2" | SwitchLayout.Stacked -> "flex shrink-0 items-center gap-2")
                     if config.isPending then ComponentHtml.loadingGlyph ControlSize.Small
                     span {
                         _class "relative mt-0.5 shrink-0"
@@ -91,8 +110,8 @@ module Switch =
                         }
                         span {
                             _ariaHidden "true"
-                            _dataClass ("translate-x-4", $"${valueSignal}")
-                            _class "pointer-events-none absolute left-0.5 top-0.5 size-4 translate-x-0 rounded-full bg-white shadow-sm transition-transform"
+                            _dataClass (checkedTranslation, $"${valueSignal}")
+                            _class $"pointer-events-none absolute left-0.5 top-0.5 {thumbSize} translate-x-0 rounded-full bg-white shadow-sm transition-transform"
                         }
                     }
                 }

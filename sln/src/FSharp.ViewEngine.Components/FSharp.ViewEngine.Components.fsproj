@@ -3,9 +3,29 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <WarnOn>$(WarnOn);3390</WarnOn>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
   <Import Project="FSharp.ViewEngine.Components.Registry.props" />
+  <!-- Host-only assembly code supports this repository's catalog; fve never distributes it. -->
+  <ItemGroup>
+    <Compile Include="Templates/Fixture.fs" />
+    <Compile Include="Templates/Page.fs" />
+    <Compile Include="Templates/Section.fs" />
+    <Compile Include="Templates/Compositions.fs" />
+    <Compile Include="Templates/MediaLibrary.fs" />
+    <Compile Include="Templates/AppShell.fs" />
+    <Compile Include="Templates/ValidationIssue.fs" />
+    <Compile Include="Templates/DirectedGraph.fs" />
+    <Compile Include="Templates/Target.fs" />
+    <Compile Include="Templates/Navigation.fs" />
+    <Compile Include="Templates/Document.fs" />
+    <Compile Include="Templates/ApiReference.fs" />
+    <Compile Include="Templates/Registry.fs" />
+    <Compile Include="Templates/Search.fs" />
+    <Compile Include="Templates/Version.fs" />
+    <Compile Include="Templates/View.fs" />
+  </ItemGroup>
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="10.0.102" />
   </ItemGroup>

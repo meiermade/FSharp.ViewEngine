@@ -1,4 +1,4 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open System.Text.Json
@@ -6,8 +6,11 @@ open FSharp.ViewEngine
 open type Html
 open type Datastar
 
-/// Type markers keep single-value and multiple-value configuration pipelines distinct.
+/// <summary>Type marker that keeps single-value configuration pipelines distinct.</summary>
+/// <exclude/>
 type SingleSelection = internal | SingleSelection
+/// <summary>Type marker that keeps multiple-value configuration pipelines distinct.</summary>
+/// <exclude/>
 type MultipleSelection = internal | MultipleSelection
 
 [<NoEquality; NoComparison>]

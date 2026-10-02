@@ -1,11 +1,13 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open FSharp.ViewEngine
 open type Html
 
+/// <category>phone</category>
 [<NoEquality; NoComparison>]
 type PhoneConfig = private { content:HtmlElement }
 
+/// <category>phone</category>
 [<RequireQualifiedAccess>]
 module Phone =
     let create content = { content = content }
@@ -39,5 +41,3 @@ module Phone =
                 div { _class "min-h-0 flex-1 overflow-auto overscroll-contain"; _data("fve-phone-content", "true"); value.content }
             }
         }
-
-    let internal fullscreenContent (value:PhoneConfig) = render value

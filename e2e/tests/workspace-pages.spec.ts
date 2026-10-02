@@ -82,14 +82,14 @@ test('messages use deterministic URL-backed outcomes without retaining submitted
   await expect(frame(page).getByRole('log')).not.toContainText(deterministic);
 });
 
-test('schedule records and photographs retain matching destinations cross-browser', async ({ page }) => {
+test('schedule records and assets retain matching destinations cross-browser', async ({ page }) => {
   await page.goto(root + 'operations-dashboard');
   await frame(page).getByRole('link', { name: 'Coastal trail lesson', exact: true }).click();
   await expect(page).toHaveURL(/item=lesson-201/);
   await expect(frame(page)).toContainText('Maya and Sam');
-  await frame(page).getByRole('link', { name: 'View matching photograph' }).click();
+  await frame(page).getByRole('link', { name: 'View matching asset' }).click();
   await expect(page).toHaveURL(/item=photo-303/);
-  await expect(frame(page).getByRole('textbox', { name: 'Photo name' })).toHaveValue('Before the lesson');
+  await expect(frame(page).getByRole('textbox', { name: 'Asset name' })).toHaveValue('Touch icon');
   await page.goto(root + 'scheduling');
   await frame(page).getByRole('link', { name: 'Day', exact: true }).click();
   await expect(page).toHaveURL(/view=day/);
@@ -103,28 +103,28 @@ test('schedule records and photographs retain matching destinations cross-browse
 test('media selection and drawer use deterministic fixtures without transmitting files cross-browser', crossBrowser, async ({ page }) => {
   await page.goto(root + 'media-management');
   const library = frame(page).locator('#fieldwork-photos');
-  await library.getByRole('checkbox', { name: 'Select Before the lesson', exact: true }).check();
+  await library.getByRole('checkbox', { name: 'Select Touch icon', exact: true }).check();
   await expect(library.getByRole('status')).toHaveText('1 selected');
   await expect(frame(page).getByRole('button', { name: 'Use selected as cover' })).toHaveCount(0);
-  await frame(page).getByRole('link', { name: 'Before the lesson', exact: true }).click();
+  await frame(page).getByRole('link', { name: 'Touch icon', exact: true }).click();
   await frame(page).getByRole('textbox', { name: 'Image description' }).fill('A private submitted description.');
   await frame(page).getByRole('button', { name: 'Save changes' }).click();
   await expect(page).toHaveURL(/view=saved/);
-  await expect(frame(page).getByRole('img', { name: 'Solid amber background' })).toHaveAttribute('src', '/images/page-examples/amber.png');
+  await expect(frame(page).getByRole('img', { name: 'FSharp.ViewEngine blue code-mark touch icon' })).toHaveAttribute('src', '/apple-touch-icon.png');
   await expect(frame(page)).toContainText('continues to use seeded metadata');
   await expect(frame(page)).not.toContainText('A private submitted description.');
-  await frame(page).getByRole('link', { name: 'Back to photos' }).click();
+  await frame(page).getByRole('link', { name: 'Back to media' }).click();
 
   const uploadAction = frame(page).locator('#media-management-actions').getByRole('button', { name: 'Upload', exact: true });
   await uploadAction.click();
-  const drawer = frame(page).getByRole('dialog', { name: 'Upload photograph' });
+  const drawer = frame(page).getByRole('dialog', { name: 'Upload asset' });
   await expect(drawer).toBeVisible();
-  await expect(drawer.getByRole('textbox', { name: 'Photo name' })).toBeFocused();
+  await expect(drawer.getByRole('textbox', { name: 'Asset name' })).toBeFocused();
   await page.keyboard.press('Escape');
   await expect(drawer).toBeHidden();
   await expect(uploadAction).toBeFocused();
   await uploadAction.click();
-  await drawer.getByRole('textbox', { name: 'Photo name' }).fill('Private upload name');
+  await drawer.getByRole('textbox', { name: 'Asset name' }).fill('Private upload name');
   await drawer.getByRole('textbox', { name: 'Image description' }).fill('Private upload description');
   const fileMarker = Buffer.from('private-file-contents-must-not-leave-the-browser');
   await drawer.locator('input[type=file]').setInputFiles({ name: 'private-marker.png', mimeType: 'image/png', buffer: fileMarker });
@@ -201,18 +201,18 @@ test('page-example sidebars put workspace context first and keep the profile con
   }
 });
 
-test('media fixtures use repository-owned color backgrounds instead of photographs', async ({ page }) => {
+test('media fixtures use accurately named repository artwork', async ({ page }) => {
   await page.goto(root + 'media-management');
   const images = frame(page).locator('#fieldwork-photos img');
   await expect(images).toHaveCount(6);
   const fixtures = await images.evaluateAll(elements => elements.map(element => ({ src: (element as HTMLImageElement).getAttribute('src'), alt: (element as HTMLImageElement).alt })));
   expect(fixtures).toEqual([
-    { src: '/images/page-examples/blue.png', alt: 'Solid blue background' },
-    { src: '/images/page-examples/teal.png', alt: 'Solid teal background' },
-    { src: '/images/page-examples/amber.png', alt: 'Solid amber background' },
-    { src: '/images/page-examples/green.png', alt: 'Solid green background' },
-    { src: '/images/page-examples/coral.png', alt: 'Solid coral background' },
-    { src: '/images/page-examples/violet.png', alt: 'Solid violet background' },
+    { src: '/social-card.png', alt: 'FSharp.ViewEngine — Typed HTML views for F#' },
+    { src: '/android-chrome-512x512.png', alt: 'FSharp.ViewEngine blue code-mark icon' },
+    { src: '/apple-touch-icon.png', alt: 'FSharp.ViewEngine blue code-mark touch icon' },
+    { src: '/favicon-32x32.png', alt: 'FSharp.ViewEngine blue code-mark browser icon' },
+    { src: '/favicon-16x16.png', alt: 'FSharp.ViewEngine blue code-mark favicon' },
+    { src: '/logo.svg', alt: 'FSharp.ViewEngine code-mark logo' },
   ]);
 });
 
@@ -232,7 +232,8 @@ for (const slug of pages) {
     } else {
       await expect(review.getByRole('link', { name: 'Setup', exact: true })).toHaveCount(0);
     }
-    for (const [label, expected] of [['Loading', 'Loading '], ['Empty', 'Nothing to show yet'], ['Error', 'This view could not be loaded']]) {
+    const emptyHeading: Record<string, string> = { 'dependency-graph': 'No dependencies found', 'execution-detail': 'No execution selected', 'financial-reporting': 'No activity for this period', messaging: 'No messages in this conversation', 'operations-dashboard': 'No sessions scheduled', scheduling: 'No sessions in this period', 'media-management': 'No media in this selection' };
+    for (const [label, expected] of [['Loading', 'Loading '], ['Empty', emptyHeading[slug]], ['Error', 'This view could not be loaded']]) {
       await review.getByRole('link', { name: label, exact: true }).click();
       await expect(review.getByRole('link', { name: label, exact: true })).toHaveAttribute('aria-current', 'page');
       await expect(frame(page)).toContainText(expected);
@@ -260,13 +261,13 @@ for (const slug of pages) {
     await expect(open).toBeFocused();
     expect((await new AxeBuilder({ page }).include('[data-fve-app-mode-root="true"]').analyze()).violations).toEqual([]);
     if (slug === 'media-management') {
-      await app.getByRole('link', { name: 'Before the lesson', exact: true }).click();
+      await app.getByRole('link', { name: 'Touch icon', exact: true }).click();
       await app.getByRole('textbox', { name: 'Image description' }).fill('Helmets checked before the lesson.');
       await app.getByRole('button', { name: 'Save changes', exact: true }).click();
       await expect(page).toHaveURL(/fveAppMode=app/);
       await expect(page).toHaveURL(/view=saved/);
       await expect(app).toContainText('continues to use seeded metadata');
-      await expect(app.getByRole('textbox', { name: 'Image description' })).toHaveValue('Solid amber background');
+      await expect(app.getByRole('textbox', { name: 'Image description' })).toHaveValue('FSharp.ViewEngine blue code-mark touch icon');
     }
   });
 

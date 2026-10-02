@@ -3,15 +3,20 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open FSharp.ViewEngine
-open Acme.Components.Primitives
+open Acme.Components
 open type FSharp.ViewEngine.Html
 
-let button = Button.primary "Create account"
+let button = Button.create (ButtonContent.Text "Create account") |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid |> Button.render
+let refreshIcon = raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M15.312 11.424a5.5 5.5 0 0 1-9.201 2.42.75.75 0 0 0-1.022 1.098 7 7 0 0 0 11.89-3.518h.771a.75.75 0 0 0 .53-1.28l-1.75-1.75a.75.75 0 0 0-1.06 0l-1.75 1.75a.75.75 0 0 0 .53 1.28h1.062Z" clip-rule="evenodd"/><path fill-rule="evenodd" d="M4.688 8.576a5.5 5.5 0 0 1 9.201-2.42.75.75 0 0 0 1.022-1.098A7 7 0 0 0 3.021 8.576H2.25a.75.75 0 0 0-.53 1.28l1.75 1.75a.75.75 0 0 0 1.06 0l1.75-1.75a.75.75 0 0 0-.53-1.28H4.688Z" clip-rule="evenodd"/></svg>"""
+let iconButton = Button.create (ButtonContent.Icon ("Refresh accounts", refreshIcon)) |> Button.render
+let leadingButton = Button.create (ButtonContent.IconText (refreshIcon, "Refresh balances")) |> Button.render
+let trailingButton = Button.create (ButtonContent.TextIcon ("Sync now", refreshIcon)) |> Button.render
+let customButton = Button.create (ButtonContent.Custom (fragment { strong { "Custom" }; span { " content" } })) |> Button.render
 
 let select =
     Select.create "status" "Status" id [
-        Select.option "active" "Active"
-        Select.option "paused" "Paused"
+        SelectOption.create "active" "Active"
+        SelectOption.create "paused" "Paused"
     ]
     |> Select.withId "generated-status"
     |> Select.withSelected "active"
@@ -19,17 +24,31 @@ let select =
 
 let notice =
     Notice.create "generated-notice" "Generated source is active" (p { "This UI was copied by the packed fve tool." })
-    |> Notice.withTone Tone.Positive
+    |> Notice.withColor NoticeColor.Success
+    |> Notice.withVariant NoticeVariant.Outline
     |> Notice.render
+
+let skeleton =
+    SkeletonRegion.create "Loading account preview" (
+        div {
+            _class "grid min-w-0 gap-2"
+            Skeleton.create () |> Skeleton.render
+            Skeleton.create () |> Skeleton.withSize "75%" "1rem" |> Skeleton.render
+        })
+    |> SkeletonRegion.withAttributes [ _id "generated-skeleton" ]
+    |> SkeletonRegion.render
 
 let notification =
     Notification.create "generated-notification" "Ready for review" (p { "The generated project compiled successfully." })
-    |> Notification.withTone Tone.Informative
-    |> Notification.render
+    |> Notification.withColor NotificationColor.Info
+    |> Notification.persistent
+    |> Some
+    |> NotificationRegion.create "generated-notifications" "Build notifications"
+    |> NotificationRegion.render
 
 let browser =
     Browser.create (div { _class "p-5 text-sm text-[var(--fve-text)]"; "Consumer-owned browser content" })
-    |> Browser.withAddress "https://acme.example/generated"
+    |> Browser.withAddress "/"
     |> Browser.render
 
 let phone =
@@ -54,7 +73,7 @@ let document =
         body {
             _class "m-0"
             div {
-                _class (ComponentsTheme.className ComponentsTheme.sky + " min-h-screen bg-[var(--fve-page)] text-[var(--fve-text)]")
+                _class (ComponentsTheme.className ComponentsTheme.sky + " min-h-screen bg-[var(--fve-background)] text-[var(--fve-text)]")
                 _data("generated-consumer", "true")
                 main {
                     _class "mx-auto grid min-h-screen max-w-6xl gap-8 p-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
@@ -62,9 +81,10 @@ let document =
                         _class "grid content-start gap-6"
                         h1 { _class "text-3xl font-bold tracking-tight"; "Generated consumer" }
                         p { _class "max-w-2xl text-[var(--fve-muted-text)]"; "Rendered from source installed into an isolated project by the packaged CLI." }
-                        div { _class "flex flex-wrap items-center gap-3"; button }
+                        div { _class "flex flex-wrap items-center gap-3"; button; iconButton; leadingButton; trailingButton; customButton }
                         div { _class "max-w-md"; select }
                         notice
+                        skeleton
                         notification
                         browser
                     }

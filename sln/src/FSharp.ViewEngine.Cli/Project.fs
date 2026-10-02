@@ -48,7 +48,12 @@ module ConsumerProject =
         JsonSerializer.Serialize(configuration, jsonOptions) + "\n" |> Text.writeAtomic path
 
     let sourcePath (root:string) (fileName:string) = Path.Combine(root, ComponentsDirectory, fileName)
-    let relativeSourcePath (fileName:string) = $"{ComponentsDirectory}/{fileName}"
+    let relativeSourcePath (fileName:string) = $"{ComponentsDirectory}/{fileName.Replace('\\', '/')}"
+    let tryFileName (relativePath:string) =
+        let normalized = relativePath.Replace('\\', '/')
+        let prefix = ComponentsDirectory + "/"
+        if normalized.StartsWith(prefix, StringComparison.Ordinal) then Some normalized[prefix.Length..]
+        else None
     let projectBlock (components:RegistryComponent list) =
         let compileEntries =
             components

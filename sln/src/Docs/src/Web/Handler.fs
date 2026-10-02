@@ -7,7 +7,8 @@ open System.IO
 open System.Text.Json
 open Docs.Pages
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Components.Documentation
+open FSharp.ViewEngine.Components.Templates
+open FSharp.ViewEngine.Components
 open Giraffe
 
 module Handler =
@@ -15,9 +16,9 @@ module Handler =
 
     let sitemap =
         let urls =
-            Registry.all
-            |> List.map (fun page ->
-                let location = productionOrigin + (if page.path = "/" then "/" else page.path)
+            (Registry.all |> List.map _.path) @ Examples.paths
+            |> List.map (fun path ->
+                let location = productionOrigin + path
                 $"  <url><loc>{WebUtility.HtmlEncode location}</loc></url>")
             |> String.concat Environment.NewLine
         $"<?xml version=\"1.0\" encoding=\"UTF-8\"?>{Environment.NewLine}<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">{Environment.NewLine}{urls}{Environment.NewLine}</urlset>{Environment.NewLine}"
@@ -35,22 +36,32 @@ module Handler =
             let exitHref = context.Request.PathBase.ToString() + context.Request.Path.ToString() + Microsoft.AspNetCore.Http.QueryString.Create(remainingQuery).ToString()
             Some(AppMode.create (query "fveAppFrame") exitHref)
 
-    let private renderDocument (context:Microsoft.AspNetCore.Http.HttpContext) document =
-        let html = document |> Render.toHtmlDocString
-        match context.Request.Headers["datastar-request"].ToString(), context.Request.Query["fveAppTransition"].ToString() with
-        | "true", ("enter" | "exit") ->
-            let bodyStart = html.IndexOf("<body", StringComparison.Ordinal)
-            let bodyEnd = html.IndexOf("</body>", bodyStart, StringComparison.Ordinal)
-            if bodyStart < 0 || bodyEnd < 0 then invalidOp "The Documentation renderer did not emit a body element."
-            context.Response.Headers["datastar-selector"] <- "body"
-            context.Response.Headers["datastar-mode"] <- "replace"
-            html.Substring(bodyStart, bodyEnd + "</body>".Length - bodyStart)
-        | _ -> html
+    let private respond intent document (root, metadata) : HttpHandler =
+        match intent with
+        | Some intent ->
+            Navigation.respond intent (Render.toString root) (Render.toString metadata)
+        | None ->
+            document
+            |> Render.toHtmlDocString
+            |> htmlString
+
+    let private respondWithPage intent context registration page =
+        let mode = appMode context
+        respond
+            intent
+            (View.documentWithPageFor mode Registry.navigation registration page)
+            (View.navigationPageWithPage mode Registry.navigation registration page)
 
     let render page : HttpHandler =
         fun next context ->
-            let html = page |> View.documentFor (appMode context) Registry.navigation |> renderDocument context
-            htmlString html next context
+            let intent = Navigation.tryIntent context
+            let mode = appMode context
+            let response =
+                respond
+                    intent
+                    (View.documentFor mode Registry.navigation page)
+                    (View.navigationPage mode Registry.navigation page)
+            response next context
 
     let private pageRoutes =
         Registry.all
@@ -77,46 +88,27 @@ module Handler =
                 |> Render.toString
             (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
 
-    let private fixture : HttpHandler =
-        fun next context ->
-            let fixtureStep = context.Request.Query["fixtureStep"].ToString()
-            let fixtureState = context.Request.Query["fixtureState"].ToString()
-            let html =
-                Showcase.fixturePageFor fixtureStep fixtureState
-                |> View.documentWithPageFor (appMode context) Registry.navigation Showcase.fixtureRegistration
-                |> renderDocument context
-            htmlString html next context
-
     let private documentationSiteExample : HttpHandler =
         fun next context ->
+            let intent = Navigation.tryIntent context
             let state = context.Request.Query["fixtureState"].ToString()
-            let html =
-                Showcase.documentationSitePageFor state
-                |> View.documentWithPageFor (appMode context) Registry.navigation Showcase.documentationSiteRegistration
-                |> renderDocument context
-            htmlString html next context
+            respondWithPage intent context Showcase.documentationSiteRegistration (Showcase.documentationSitePageFor state) next context
 
     let private apiReferenceExample : HttpHandler =
         fun next context ->
+            let intent = Navigation.tryIntent context
             let state = context.Request.Query["fixtureState"].ToString()
-            let html =
-                Showcase.apiPageExampleFor state
-                |> View.documentWithPageFor (appMode context) Registry.navigation Showcase.apiPageExampleRegistration
-                |> renderDocument context
-            htmlString html next context
+            respondWithPage intent context Showcase.apiPageExampleRegistration (Showcase.apiPageExampleFor state) next context
 
     let private componentAppShell : HttpHandler =
         fun next context ->
+            let intent = Navigation.tryIntent context
             let destination =
                 match context.Request.Query["section"].ToString() with
                 | "projects" -> Components.Projects
                 | "settings" -> Components.Preferences
                 | _ -> Components.Dashboard
-            let html =
-                Components.appShellPageFor destination
-                |> View.documentWithPageFor (appMode context) Registry.navigation Components.appShellRegistration
-                |> renderDocument context
-            htmlString html next context
+            respondWithPage intent context Components.appShellRegistration (Components.appShellPageFor destination) next context
 
     let private accountWorkspace (context:Microsoft.AspNetCore.Http.HttpContext) =
         let workspace =
@@ -134,19 +126,24 @@ module Handler =
                 { Components.defaultAccountWorkspace with
                     feedback = "Enter a workspace name of 1–80 characters." }
             | _ -> Components.defaultAccountWorkspace
-        { workspace with searchQuery=context.Request.Query["query"].ToString(); filterType=(let value=context.Request.Query["accountType"].ToString() in if value="" then "all" else value) }
+        let filterType = context.Request.Query["accountType"].ToString() |> function | "" -> "all" | value -> value
+        let sortColumn = context.Request.Query["sort"].ToString() |> function | "balance" -> "balance" | _ -> "name"
+        let sortDirection = context.Request.Query["direction"].ToString() |> function | "desc" -> "desc" | _ -> "asc"
+        let page = context.Request.Query["page"].ToString() |> Int32.TryParse |> function | true, value when value > 0 -> value | _ -> 1
+        let visibleColumns =
+            match context.Request.Query["columns"].ToString() with
+            | "" -> Components.defaultAccountWorkspace.visibleColumns
+            | value -> value.Split(',', StringSplitOptions.RemoveEmptyEntries) |> Set.ofArray |> Set.intersect (set [ "type"; "commodity"; "balance"; "total" ])
+        { workspace with searchQuery=context.Request.Query["query"].ToString(); filterType=filterType; sortColumn=sortColumn; sortDirection=sortDirection; page=page; visibleColumns=visibleColumns }
 
     let private accountManagement : HttpHandler =
         fun next context ->
+            let intent = Navigation.tryIntent context
             let destination =
                 context.Request.Query["destination"].ToString()
                 |> Components.tryShellDestination
                 |> Option.defaultValue Components.LedgerAccounts
-            let html =
-                Components.accountManagementPageWith (accountWorkspace context) destination
-                |> View.documentWithPageFor (appMode context) Registry.navigation Components.accountManagementRegistration
-                |> renderDocument context
-            (setHttpHeader "Cache-Control" "private, no-store" >=> htmlString html) next context
+            (setHttpHeader "Cache-Control" "private, no-store" >=> respondWithPage intent context Components.accountManagementRegistration (Components.accountManagementPageWith (accountWorkspace context) destination)) next context
 
     let private exampleQuery (context:Microsoft.AspNetCore.Http.HttpContext) =
         let query key = context.Request.Query[key].ToString()
@@ -154,8 +151,8 @@ module Handler =
 
     let private pageExample page : HttpHandler =
         fun next context ->
-            let html = Components.pageExamplePageFor page (exampleQuery context) |> View.documentWithPageFor (appMode context) Registry.navigation (PageExamples.registration page) |> renderDocument context
-            htmlString html next context
+            let intent = Navigation.tryIntent context
+            respondWithPage intent context (PageExamples.registration page) (Components.pageExamplePageFor page (exampleQuery context)) next context
 
     let private exampleMutation action : HttpHandler =
         fun next context ->
@@ -264,12 +261,12 @@ module Handler =
         let html = Components.reviewTabsRegion true |> Render.toString
         setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
 
-    let private componentConfirmationDialog : HttpHandler =
+    let private componentAccountDeletion : HttpHandler =
         fun next context ->
             task {
                 do! System.Threading.Tasks.Task.Delay 1500
                 let html =
-                    Components.confirmationDialogContent (Some "Operating cannot be deleted while posted entries are assigned to its open period.")
+                    Components.accountDeletionContent (Some "Operating cannot be deleted while posted entries are assigned to its open period.")
                     |> Render.toString
                 return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
             }
@@ -306,6 +303,14 @@ module Handler =
             | _ -> None)
         |> Option.defaultValue false
 
+    let private signalInt key body =
+        trySignal key body
+        |> Option.bind (fun value ->
+            match value.ValueKind with
+            | JsonValueKind.Number -> match value.TryGetInt32() with true, parsed -> Some parsed | false, _ -> None
+            | JsonValueKind.String -> match Int32.TryParse(value.GetString()) with true, parsed -> Some parsed | false, _ -> None
+            | _ -> None)
+
     let private componentChoicePatch render : HttpHandler =
         fun next context ->
             task {
@@ -338,7 +343,7 @@ module Handler =
     let private componentSelectChoice =
         componentChoicePatch (fun body ->
             match signalString "components_status_value" body with
-            | Some "active" -> Components.selectFormRegion (Some Components.Active) None (Some "Accepted status: Active.")
+            | Some "active" -> Components.selectFormRegion (Some Components.AccountStatus.Active) None (Some "Accepted status: Active.")
             | Some "pending" -> Components.selectFormRegion (Some Components.Pending) None (Some "Accepted status: Pending.")
             | Some "scheduled" -> Components.selectFormRegion (Some Components.Scheduled) None (Some "Accepted status: Scheduled.")
             | _ -> Components.selectFormRegion None (Some "Choose an available status.") None)
@@ -362,6 +367,11 @@ module Handler =
             | Some "automatic" -> Components.radioGroupFormRegion (Some "automatic") None (Some "Accepted posting mode: Automatic.")
             | Some "manual" -> Components.radioGroupFormRegion (Some "manual") None (Some "Accepted posting mode: Manual review.")
             | _ -> Components.radioGroupFormRegion None (Some "Choose an available posting mode.") None)
+
+    let private componentNotification =
+        componentChoicePatch (fun body ->
+            let sequence = signalInt "components_notification_sequence" body |> Option.defaultValue 1 |> max 1 |> min 10000
+            Components.notificationLeadRegion sequence)
 
     let private componentMultipleChoice (name:string) render : HttpHandler =
         fun next context ->
@@ -421,16 +431,27 @@ module Handler =
     let private previewRoutes =
         Showcase.previewRoutes
         |> Map.toList
-        |> List.map (fun (path, html) -> route path >=> htmlString html)
+        |> List.map (fun (path, html) ->
+            match Showcase.tryPreviewPage path with
+            | None -> route path >=> htmlString html
+            | Some(site, page) ->
+                let site = { site with assets = { site.assets with navigation = Some Navigation.enhancement } }
+                let breadcrumbs = FSharp.ViewEngine.Components.Templates.Navigation.breadcrumbs site.navigation site.homeId page.activeId
+                let document = Document.create site page |> Document.render
+                let root = DocsView.navigationRootWithNavigation site breadcrumbs site.navigation Embedded page
+                let metadata = DocsView.documentMetadata site page
+                route path >=> fun next context ->
+                    respond (Navigation.tryIntent context) document (root, metadata) next context)
 
     let postRoutes : HttpHandler =
         choose [
+            ExampleView.postRoutes
             route "/components/page-examples/account-management/create" >=> createExampleAccount
             route "/components/page-examples/account-management/settings" >=> saveExampleSettings
             route "/components/page-examples/messaging/send" >=> sendExampleMessage
             route "/components/page-examples/media-management/save" >=> saveExamplePhoto false
             route "/components/page-examples/media-management/upload" >=> saveExamplePhoto true
-            route "/components/forms/contact" >=> componentContactForm Components.Stacked
+            route "/components/forms/contact" >=> componentContactForm Components.ContactFormLayout.Stacked
             route "/components/forms/contact/grid" >=> componentContactForm Components.TwoColumns
             route "/components/forms/contact/sectioned" >=> componentContactForm Components.Sectioned
             route "/components/choices/select" >=> componentSelectChoice
@@ -439,11 +460,32 @@ module Handler =
             route "/components/choices/checkbox" >=> componentCheckboxChoice
             route "/components/choices/switch" >=> componentSwitchChoice
             route "/components/choices/radio" >=> componentRadioChoice
-            route "/components/dialogs/confirm" >=> componentConfirmationDialog
+            route "/components/notifications/show" >=> componentNotification
+            route "/components/dialogs/confirm" >=> componentAccountDeletion
         ]
+
+    let private migrationRoutes =
+        [ "/components/primitives", "/components"; "/components/application", "/examples"
+          "/components/page", "/examples/application"; "/components/app-shell", "/examples/application"
+          "/components/collection", "/examples/application/accounts"; "/components/detail", "/examples/application/accounts/101"
+          "/components/form-layouts", "/examples/application/accounts/new"; "/components/media-library", "/components/card"
+          "/components/bulk-actions", "/examples/application/accounts"
+          "/docs", "/examples"; "/docs/components", "/components"; "/docs-components", "/components"
+          "/docs/components/layouts", "/examples/specification"; "/docs/components/content", "/components/code-block"
+          "/docs/components/navigation", "/components/side-nav"; "/docs/components/api-reference", "/examples/api-documentation"
+          "/docs/components/diagrams", "/components/mermaid"
+          "/components/fixture", "/examples/specification"
+          "/docs/components/fixture", "/examples/specification"; "/docs/components/interactive-examples", "/examples/specification"
+          "/docs/page-examples/documentation-site", "/examples/specification"
+          "/docs/page-examples/api-reference", "/examples/api-documentation"; "/docs/examples/api-reference", "/examples/api-documentation"
+          "/docs/page-examples/executable-specification", "/examples/specification"; "/docs/examples/executable-specification", "/examples/specification" ]
+        |> List.map (fun (path,destination) -> route path >=> redirectTo true destination)
+        |> choose
 
     let routes : HttpHandler =
         choose [
+            migrationRoutes
+            ExampleView.routes
             route "/sitemap.xml" >=> setHttpHeader "Content-Type" "application/xml; charset=utf-8" >=> setBodyFromString sitemap
             route "/robots.txt" >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8" >=> setBodyFromString robots
             route "/components/pagination/page" >=> componentPagination
@@ -455,9 +497,6 @@ module Handler =
             route "/components/page-examples/account-management/fixture" >=> componentAppShellFixture
             route "/components/page-examples/account-management" >=> accountManagement
             route "/components/app-shell" >=> componentAppShell
-            // Keep the former page URL reachable while the catalog consolidates its examples into Fixture.
-            route "/docs/components/interactive-examples" >=> fixture
-            route "/docs/components/fixture" >=> fixture
             route "/docs/page-examples/documentation-site" >=> documentationSiteExample
             route "/docs/page-examples/api-reference" >=> apiReferenceExample
             route "/components/menus/actions" >=> componentDropdownMenuPatch

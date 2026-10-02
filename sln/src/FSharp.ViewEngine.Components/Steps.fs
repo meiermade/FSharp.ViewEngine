@@ -1,16 +1,19 @@
-namespace FSharp.ViewEngine.Components.Application
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Components.Primitives
+open FSharp.ViewEngine.Components
 open type Html
 
+/// <category>steps</category>
 [<RequireQualifiedAccess>]
 type StepState = Complete | Current | Available | Unavailable
 
+/// <category>steps</category>
 [<NoEquality; NoComparison>]
 type Step<'destination> = private { label:string; description:string option; state:StepState; destination:'destination option }
 
+/// <category>steps</category>
 [<RequireQualifiedAccess>]
 module Step =
     let create label state =
@@ -21,9 +24,11 @@ module Step =
         if step.state = StepState.Unavailable then invalidArg (nameof step) "Unavailable steps cannot have destinations."
         { step with destination = Some destination }
 
+/// <category>steps</category>
 [<NoEquality; NoComparison>]
 type StepsConfig<'destination> = private { label:string; steps:Step<'destination> list }
 
+/// <category>steps</category>
 [<RequireQualifiedAccess>]
 module Steps =
     let create label steps =

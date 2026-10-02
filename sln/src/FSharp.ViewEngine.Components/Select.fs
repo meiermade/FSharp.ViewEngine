@@ -1,22 +1,41 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
+/// <category>select</category>
 [<NoEquality; NoComparison>]
 type SelectOption<'value> =
-    internal
+    private
         { value:'value
           label:string
           disabled:bool }
 
+/// <category>select</category>
+[<RequireQualifiedAccess>]
+module SelectOption =
+    let create value label : SelectOption<'value> =
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An option label is required."
+        { value = value; label = label; disabled = false }
+
+    let disabled (option:SelectOption<'value>) = { option with disabled = true }
+
+/// <category>select</category>
 [<RequireQualifiedAccess>]
 type SelectSearch =
     | Static
     | Remote of endpoint:string
 
+/// <category>select</category>
+[<RequireQualifiedAccess>]
+type SelectPosition =
+    | SelectedItem
+    | TriggerStart
+    | TriggerEnd
+
+/// <category>select</category>
 [<NoEquality; NoComparison>]
 type SelectConfig<'value, 'mode when 'value:equality> =
     private
@@ -43,18 +62,15 @@ type SelectConfig<'value, 'mode when 'value:equality> =
           isDisabled:bool
           isPending:bool
           size:ControlSize option
+          position:SelectPosition
           attributes:HtmlAttribute list }
 
+/// <category>select</category>
 type SelectConfig<'value when 'value:equality> = SelectConfig<'value, SingleSelection>
 
+/// <category>select</category>
 [<RequireQualifiedAccess>]
 module Select =
-    let option value label =
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An option label is required."
-        { value = value; label = label; disabled = false }
-
-    let disable (option:SelectOption<'value>) = { option with disabled = true }
-
     let create name label encode options : SelectConfig<'value> =
         if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A form name is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible label is required."
@@ -82,6 +98,7 @@ module Select =
           isDisabled = false
           isPending = false
           size = None
+          position = SelectPosition.SelectedItem
           attributes = [] }
 
     let withSelected selected (config:SelectConfig<'value>) = { config with selected = Some selected }
@@ -109,6 +126,7 @@ module Select =
           isDisabled = config.isDisabled
           isPending = config.isPending
           size = config.size
+          position = config.position
           attributes = config.attributes }
     let withSelectedMany selected (config:SelectConfig<'value, MultipleSelection>) =
         let choices =
@@ -120,6 +138,7 @@ module Select =
         if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable component ID is required."
         { config with id = Some id }
     let withSize size (config:SelectConfig<'value, 'mode>) = { config with size = Some size }
+    let withPosition position (config:SelectConfig<'value, 'mode>) = { config with position = position }
     let withVisuallyHiddenLabel (config:SelectConfig<'value, 'mode>) = { config with labelVisuallyHidden = true }
     let withDescription description (config:SelectConfig<'value, 'mode>) = { config with description = Some description }
     let withPlaceholder placeholder (config:SelectConfig<'value, 'mode>) = { config with placeholder = Some placeholder }
@@ -156,6 +175,11 @@ module Select =
           _dataPreserveAttr "data-fve-pointer-x data-fve-pointer-y"
           _dataOn ("pointermove", [ "window" ], "el.dataset.fvePointerX = evt.clientX; el.dataset.fvePointerY = evt.clientY") ]
 
+    let private edgePosition = function
+        | SelectPosition.TriggerEnd -> "block-end span-inline-start"
+        | SelectPosition.SelectedItem
+        | SelectPosition.TriggerStart -> "block-end span-inline-end"
+
     let private renderPlain config =
         let instanceId = config.id |> Option.defaultValue config.name |> ComponentHtml.signalToken
         let fieldId = $"fve-select-{instanceId}"
@@ -170,7 +194,12 @@ module Select =
         let popupIsOpen = $"{popupElement}.matches(':popover-open')"
         let listboxElement = $"document.getElementById('{listboxId}')"
         let openFocus = if config.isMultiple then $", {listboxElement}.focus()" else ""
-        let synchronizePopup = $"${openSignal} ? ({popupIsOpen} || ({popupElement}.showPopover({{source: document.getElementById('{triggerId}')}}){openFocus})) : ({popupIsOpen} && {popupElement}.hidePopover())"
+        let selectedItemPosition = not config.isMultiple && config.position = SelectPosition.SelectedItem && config.selected.IsSome
+        let alignSelected =
+            if selectedItemPosition then
+                $", requestAnimationFrame(() => {{ const selected = {popupElement}.querySelector('[role=option][aria-selected=true]'); if (selected && !matchMedia('(pointer: coarse)').matches) {popupElement}.scrollTop = selected.offsetTop + selected.offsetHeight / 2 - {popupElement}.clientHeight / 2; else {{ {popupElement}.style.positionArea = 'block-end span-inline-end'; {popupElement}.style.margin = '0.25rem 0'; }} }})"
+            else ""
+        let synchronizePopup = $"${openSignal} ? ({popupIsOpen} || ({popupElement}.showPopover({{source: document.getElementById('{triggerId}')}}){openFocus}{alignSelected})) : ({popupIsOpen} && {popupElement}.hidePopover())"
         let selectionSignal = $"{instanceId}_selected"
         let initialSelection = config.selectedMany |> List.map (fun choice -> { SelectedChoice.value = config.encode choice.value; label = choice.label })
         let valueSignal = $"{instanceId}_value"
@@ -323,7 +352,10 @@ module Select =
                 _dataEffect synchronizePopup
                 _dataOn ("beforetoggle", $"${openSignal} = evt.newState == 'open'; evt.newState == 'closed' && (${activeSignal} = '', ${typeaheadSignal} = '')")
                 for attribute in pointerTracking do attribute
-                _style "inset: auto; margin: 0.25rem 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
+                let effectivePosition = if config.isMultiple && config.position = SelectPosition.SelectedItem then SelectPosition.TriggerStart else config.position
+                let area = if selectedItemPosition then "center span-inline-end" else edgePosition effectivePosition
+                let margin = if selectedItemPosition then "0" else "0.25rem 0"
+                _style $"inset: auto; margin: {margin}; position-area: {area}; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
                 _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 max-h-60 overflow-auto rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-0 shadow-lg" ])
                 if config.isMultiple then
                     div {
@@ -518,7 +550,8 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
             _dataEffect synchronizePopup
             _dataOn ("beforetoggle", $"${openSignal} = evt.newState == 'open'; evt.newState == 'closed' && (${activeSignal} = '', document.getElementById('{searchId}')?._fveSelectRequest?.abort())")
             for attribute in pointerTracking do attribute
-            _style "inset: auto; margin: 0.25rem 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
+            let effectivePosition = if config.position = SelectPosition.SelectedItem then SelectPosition.TriggerStart else config.position
+            _style $"inset: auto; margin: 0.25rem 0; position-area: {edgePosition effectivePosition}; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
             _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 max-h-60 overflow-auto rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-0 shadow-lg" ])
             div {
                 _class "p-1"

@@ -1,15 +1,17 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>browser</category>
 [<NoEquality; NoComparison>]
 type BrowserConfig =
     private
         { content:HtmlElement
           address:string option }
 
+/// <category>browser</category>
 [<RequireQualifiedAccess>]
 module Browser =
     let create content = { content = content; address = None }
@@ -48,5 +50,3 @@ module Browser =
             | None -> ()
             value.content
         }
-
-    let internal fullscreenContent (value:BrowserConfig) = value.content

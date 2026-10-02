@@ -1,9 +1,10 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>pagination</category>
 [<NoEquality; NoComparison>]
 type PaginationItem<'destination> =
     private
@@ -11,6 +12,14 @@ type PaginationItem<'destination> =
     | CurrentPage of page:int
     | Gap
 
+/// <category>pagination</category>
+[<RequireQualifiedAccess>]
+type PaginationVariant =
+    | Full
+    | NumbersOnly
+    | PreviousNextOnly
+
+/// <category>pagination</category>
 [<NoEquality; NoComparison>]
 type PaginationConfig<'destination> =
     private
@@ -18,9 +27,11 @@ type PaginationConfig<'destination> =
           items:PaginationItem<'destination> list
           previous:'destination option
           next:'destination option
+          variant:PaginationVariant
           summary:HtmlElement option
           attributes:HtmlAttribute list }
 
+/// <category>pagination</category>
 [<RequireQualifiedAccess>]
 module PaginationItem =
     let private requirePositive page =
@@ -31,6 +42,7 @@ module PaginationItem =
     let current page = CurrentPage(requirePositive page)
     let gap<'destination> : PaginationItem<'destination> = Gap
 
+/// <category>pagination</category>
 [<RequireQualifiedAccess>]
 module Pagination =
     let create label items =
@@ -54,11 +66,13 @@ module Pagination =
           items = items
           previous = None
           next = None
+          variant = PaginationVariant.Full
           summary = None
           attributes = [] }
 
     let withPrevious destination (config:PaginationConfig<'destination>) = { config with previous = Some destination }
     let withNext destination (config:PaginationConfig<'destination>) = { config with next = Some destination }
+    let withVariant variant (config:PaginationConfig<'destination>) = { config with variant = variant }
     let withSummary summary (config:PaginationConfig<'destination>) = { config with summary = Some summary }
     let withAttributes attributes (config:PaginationConfig<'destination>) = { config with attributes = attributes }
 
@@ -67,7 +81,7 @@ module Pagination =
         | Some target ->
             a {
                 _href (resolve target)
-                _class "inline-flex min-h-9 items-center rounded-[var(--fve-radius-control)] px-3 text-sm font-medium text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+                _class "inline-flex min-h-9 items-center justify-center rounded-[var(--fve-radius-control)] px-3 text-sm font-medium text-[var(--fve-text)] no-underline ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
                 labelText
             }
         | None ->
@@ -87,34 +101,37 @@ module Pagination =
             | None -> ()
             div {
                 _class "flex flex-wrap items-center gap-1"
-                edgeLink resolve "Previous" config.previous
-                ol {
-                    _class "flex flex-wrap items-center gap-1"
-                    for item in config.items do
-                        li {
-                            match item with
-                            | PageLink(page, destination) ->
-                                a {
-                                    _href (resolve destination)
-                                    _ariaLabel $"Page {page}"
-                                    _class "inline-flex size-9 items-center justify-center rounded-[var(--fve-radius-control)] text-sm font-medium text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
-                                    string page
-                                }
-                            | CurrentPage page ->
-                                span {
-                                    _ariaCurrent "page"
-                                    _ariaLabel $"Page {page}, current page"
-                                    _class "inline-flex size-9 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] text-sm font-semibold text-[var(--fve-brand-text)] ring-1 ring-inset ring-[var(--fve-brand-ring)]"
-                                    string page
-                                }
-                            | Gap ->
-                                span {
-                                    _ariaHidden "true"
-                                    _class "inline-flex size-9 items-center justify-center text-[var(--fve-muted-text)]"
-                                    "…"
-                                }
-                        }
-                }
-                edgeLink resolve "Next" config.next
+                if config.variant <> PaginationVariant.NumbersOnly then
+                    edgeLink resolve "Previous" config.previous
+                if config.variant <> PaginationVariant.PreviousNextOnly then
+                    ol {
+                        _class "flex flex-wrap items-center gap-1"
+                        for item in config.items do
+                            li {
+                                match item with
+                                | PageLink(page, destination) ->
+                                    a {
+                                        _href (resolve destination)
+                                        _ariaLabel $"Page {page}"
+                                        _class "inline-flex size-9 items-center justify-center rounded-[var(--fve-radius-control)] text-sm font-medium text-[var(--fve-text)] no-underline ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+                                        string page
+                                    }
+                                | CurrentPage page ->
+                                    span {
+                                        _ariaCurrent "page"
+                                        _ariaLabel $"Page {page}, current page"
+                                        _class "inline-flex size-9 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] text-sm font-semibold text-[var(--fve-brand-text)] ring-1 ring-inset ring-[var(--fve-brand-ring)]"
+                                        string page
+                                    }
+                                | Gap ->
+                                    span {
+                                        _ariaHidden "true"
+                                        _class "inline-flex size-9 items-center justify-center text-[var(--fve-muted-text)]"
+                                        "…"
+                                    }
+                            }
+                    }
+                if config.variant <> PaginationVariant.NumbersOnly then
+                    edgeLink resolve "Next" config.next
             }
         }

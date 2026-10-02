@@ -13,10 +13,11 @@ module Registry =
           { label = "Integrations"
             pages = [ Usage.page; Svg.page; Datastar.page; Htmx.page; Alpine.page; TailwindElements.page ]
             sections = [] }
-          { label = "FSharp.ViewEngine.Components"
+          { label = "Components"
             pages = [ Components.overviewRegistration; Components.installationRegistration ]
             sections = [ { label = "Guides"; pages = Components.guideRegistrations; sections = [] } ] @ Catalog.navigation } ]
-        @ [ { label = "Project"
+        @ [ { label = "Examples"; pages = [ Examples.registration ]; sections = [] }
+            { label = "Project"
               pages = [ Benchmarks.page; Changelog.page ]
               sections = [] } ]
 

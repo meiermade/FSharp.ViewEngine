@@ -85,7 +85,7 @@ test('error summary sample exposes the public API and its field connection @cros
   await expect(email).toHaveValue('alex@fve.meiermade.com')
   await page.getByRole('link', { name: 'Input', exact: true }).click()
   await expect(page).toHaveURL(/\/components\/input$/)
-  await expect(page.locator('#components-input').getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
+  await expect(page.locator('#components-input-panel-preview').getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
   expect(errors).toEqual([])
 })
 
@@ -96,7 +96,7 @@ test('Docs document history still fetches changed pages @cross-browser', async (
   await expect(page.getByRole('textbox', { name: 'Payment instructions' })).toBeVisible()
   await page.goBack()
   await expect(page).toHaveURL(/\/components\/input$/)
-  await expect(page.locator('#components-input').getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
+  await expect(page.locator('#components-input-panel-preview').getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
   await page.goForward()
   await expect(page).toHaveURL(/\/components\/textarea$/)
   await expect(page.getByRole('textbox', { name: 'Payment instructions' })).toBeVisible()

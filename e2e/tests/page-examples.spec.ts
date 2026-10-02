@@ -9,12 +9,10 @@ test('App shell teaches layout while populated workflows live in Page examples',
   await expect(sidebar.getByRole('searchbox', { name: 'Search accounts', exact: true })).toHaveCount(0)
   await page.evaluate(() => { (window as any).__shellDocument = 'preserved' })
   await sidebar.getByRole('navigation', { name: 'Constrained workspace navigation', exact: true }).getByRole('link', { name: 'Projects', exact: true }).click()
-  await expect(page).toHaveURL('/components/app-shell?section=projects')
-  await expect(sidebar.getByRole('heading', { name: 'Projects', exact: true })).toBeVisible()
-  await expect(sidebar.getByRole('navigation', { name: 'Constrained workspace navigation', exact: true }).getByRole('link', { name: 'Projects', exact: true })).toHaveAttribute('aria-current', 'page')
-  expect(await page.evaluate(() => (window as any).__shellDocument)).toBe('preserved')
-  await page.goBack()
+  await expect(page).toHaveURL('/components/app-shell')
   await expect(sidebar.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible()
+  await expect(sidebar.getByRole('navigation', { name: 'Constrained workspace navigation', exact: true }).getByRole('link', { name: 'Dashboard', exact: true })).toHaveAttribute('aria-current', 'page')
+  expect(await page.evaluate(() => (window as any).__shellDocument)).toBe('preserved')
 
   await page.getByRole('link', { name: 'Account management', exact: true }).last().click()
   await expect(page).toHaveURL('/components/page-examples/account-management')
@@ -56,12 +54,12 @@ test('Page examples keep supporting documentation focused on their building bloc
   await expect(page.getByRole('navigation', { name: 'Example review state' })).toBeVisible()
 
   for (const [slug, title, components] of [
-    ['dependency-graph', 'Dependency graph', ['App shell', 'Page', 'Input', 'Description list', 'Status']],
+    ['dependency-graph', 'Dependency graph', ['App shell', 'Page', 'Input', 'Description list', 'Badge']],
     ['execution-detail', 'Execution detail', ['App shell', 'Page', 'Table', 'Description list', 'Notice']],
     ['financial-reporting', 'Financial reporting', ['App shell', 'Page', 'Metric', 'Table']],
     ['messaging', 'Messaging', ['App shell', 'Page', 'Side nav', 'Textarea']],
     ['operations-dashboard', 'Operations dashboard', ['App shell', 'Page', 'Metric', 'Table', 'First steps']],
-    ['scheduling', 'Scheduling', ['App shell', 'Page', 'Calendar', 'Description list']],
+    ['scheduling', 'Scheduling', ['App shell', 'Page', 'Day calendar', 'Week calendar', 'Month calendar', 'Year calendar', 'Description list']],
     ['media-management', 'Media management', ['App shell', 'Page', 'Media library', 'Input', 'Textarea', 'File selection']],
   ] as const) {
     await page.goto(`/components/page-examples/${slug}`)

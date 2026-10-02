@@ -111,8 +111,15 @@ for (const slug of ['file-selection', 'tag-input']) {
     const sizes = await field.evaluate(field => {
       const label = field.querySelector(':scope > label')!
       const control = document.getElementById(label.getAttribute('for')!)!
-      const measure = () => ({ labelHeight: label.getBoundingClientRect().height, controlHeight: control.getBoundingClientRect().height,
-        labelTop: label.getBoundingClientRect().top, controlTop: control.getBoundingClientRect().top })
+      const measure = () => {
+        const labelBounds = label.getBoundingClientRect()
+        const controlBounds = control.getBoundingClientRect()
+        return {
+          labelHeight: labelBounds.height,
+          controlHeight: controlBounds.height,
+          labelControlGap: controlBounds.top - labelBounds.bottom,
+        }
+      }
       const before = measure()
       ;(field as HTMLElement).style.minHeight = '400px'
       return { before, after: measure() }

@@ -1,10 +1,36 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
+/// <category>radio-group</category>
+[<NoEquality; NoComparison>]
+type RadioGroupOption<'value> =
+    private
+        { value:'value
+          label:string
+          description:string option
+          disabled:bool }
+
+/// <category>radio-group</category>
+[<RequireQualifiedAccess>]
+module RadioGroupOption =
+    let create value label : RadioGroupOption<'value> =
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An option label is required."
+        { value = value; label = label; description = None; disabled = false }
+
+    let withDescription description (option:RadioGroupOption<'value>) = { option with description = Some description }
+    let disabled (option:RadioGroupOption<'value>) = { option with disabled = true }
+
+/// <category>radio-group</category>
+[<RequireQualifiedAccess>]
+type RadioGroupOrientation =
+    | Vertical
+    | Horizontal
+
+/// <category>radio-group</category>
 [<NoEquality; NoComparison>]
 type RadioGroupConfig<'value when 'value:equality> =
     private
@@ -12,19 +38,18 @@ type RadioGroupConfig<'value when 'value:equality> =
           id:string option
           label:string
           encode:'value -> string
-          options:SelectOption<'value> list
+          options:RadioGroupOption<'value> list
           selected:'value option
           description:string option
           validation:string option
+          orientation:RadioGroupOrientation
           isRequired:bool
           isDisabled:bool
           isPending:bool }
 
+/// <category>radio-group</category>
 [<RequireQualifiedAccess>]
 module RadioGroup =
-    let option value label = Select.option value label
-    let disable option = Select.disable option
-
     let create name label encode options =
         if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A form name is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A radio group label is required."
@@ -36,6 +61,7 @@ module RadioGroup =
           selected = None
           description = None
           validation = None
+          orientation = RadioGroupOrientation.Vertical
           isRequired = false
           isDisabled = false
           isPending = false }
@@ -46,6 +72,7 @@ module RadioGroup =
     let withSelected selected (config:RadioGroupConfig<'value>) = { config with selected = Some selected }
     let withDescription description (config:RadioGroupConfig<'value>) = { config with description = Some description }
     let withValidation message (config:RadioGroupConfig<'value>) = { config with validation = Some message }
+    let withOrientation orientation (config:RadioGroupConfig<'value>) = { config with orientation = orientation }
     let required (config:RadioGroupConfig<'value>) = { config with isRequired = true }
     let disabled (config:RadioGroupConfig<'value>) = { config with isDisabled = true }
     let pending (config:RadioGroupConfig<'value>) = { config with isPending = true }
@@ -90,7 +117,7 @@ module RadioGroup =
             | Some description -> p { _id descriptionId; _class "mt-1 text-sm text-[var(--fve-muted-text)]"; description }
             | None -> ()
             div {
-                _class "mt-2 grid gap-2"
+                _class (match config.orientation with RadioGroupOrientation.Vertical -> "mt-2 grid gap-2" | RadioGroupOrientation.Horizontal -> "mt-2 flex flex-wrap gap-x-6 gap-y-3")
                 for choice in config.options do
                     let encodedValue = config.encode choice.value
                     let optionId = $"{groupId}-option-{ComponentHtml.optionToken encodedValue}"
@@ -101,7 +128,7 @@ module RadioGroup =
                             if config.validation.IsSome then "ring-[var(--fve-critical-ring)] peer-focus-visible:ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)] peer-focus-visible:ring-[var(--fve-brand-ring)]" ]
                     label {
                         _for optionId
-                        _class "flex cursor-pointer items-center gap-3 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
+                        _class "flex cursor-pointer items-start gap-3 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
                         input {
                             _id optionId
                             _type "radio"
@@ -124,7 +151,13 @@ module RadioGroup =
                                 _class "size-2.5 rounded-full bg-[var(--fve-brand-solid)]"
                             }
                         }
-                        span { _class "font-medium"; choice.label }
+                        span {
+                            _class "min-w-0"
+                            span { _class "block font-medium"; choice.label }
+                            match choice.description with
+                            | Some description -> span { _class "mt-0.5 block text-[var(--fve-muted-text)]"; description }
+                            | None -> ()
+                        }
                     }
             }
             match config.validation with

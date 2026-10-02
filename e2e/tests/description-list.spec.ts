@@ -10,7 +10,7 @@ const examples = [
 test('description lists show full-width detail grids with shared label and value typography', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/components/description-list')
-  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(3)
+  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(4)
   for (const [id, fields, columns] of examples) {
     const example = page.locator(`#${id}`)
     const preview = example.locator('.docs-components-preview')

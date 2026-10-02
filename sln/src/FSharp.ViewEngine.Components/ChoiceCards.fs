@@ -1,9 +1,10 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>choice-cards</category>
 [<NoEquality; NoComparison>]
 type ChoiceCardOption<'value> =
     private
@@ -14,6 +15,7 @@ type ChoiceCardOption<'value> =
           metadata:string option
           disabled:bool }
 
+/// <category>choice-cards</category>
 [<RequireQualifiedAccess>]
 module ChoiceCardOption =
     let create value label =
@@ -24,6 +26,7 @@ module ChoiceCardOption =
     let withMetadata metadata (option:ChoiceCardOption<'value>) = { option with metadata = Some metadata }
     let disabled (option:ChoiceCardOption<'value>) = { option with disabled = true }
 
+/// <category>choice-cards</category>
 [<NoEquality; NoComparison>]
 type ChoiceCardsConfig<'value when 'value:equality> =
     private
@@ -37,6 +40,7 @@ type ChoiceCardsConfig<'value when 'value:equality> =
           required:bool
           validation:string option }
 
+/// <category>choice-cards</category>
 [<RequireQualifiedAccess>]
 module ChoiceCards =
     let single id name label encode options =
@@ -47,8 +51,8 @@ module ChoiceCards =
         { id = id; name = name; label = label; encode = encode; options = options; selected = []; multiple = false; required = false; validation = None }
     let multiple id name label encode options = { single id name label encode options with multiple = true }
     let withSelected selected (config:ChoiceCardsConfig<'value>) = { config with selected = List.distinct selected }
-    let required config = { config with required = true }
-    let withValidation validation config = { config with validation = Some validation }
+    let required (config:ChoiceCardsConfig<'value>) = { config with required = true }
+    let withValidation validation (config:ChoiceCardsConfig<'value>) = { config with validation = Some validation }
     let render config =
         let legendId = config.id + "-legend"
         let validationId = config.id + "-validation"
@@ -60,7 +64,7 @@ module ChoiceCards =
             _class "grid gap-3"
             legend {
                 _id legendId
-                _class "text-sm font-medium text-[var(--fve-text)]"
+                _class "mb-3 text-sm font-medium text-[var(--fve-text)]"
                 config.label
             }
             div {

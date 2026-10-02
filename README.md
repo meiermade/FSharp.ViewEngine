@@ -42,12 +42,12 @@ For accessible, server-rendered Tailwind components with Datastar interactions, 
 dotnet new tool-manifest
 dotnet tool install FSharp.ViewEngine.Cli
 dotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components
-dotnet fve add button text-field --config src/Acme.Components/fve.json
+dotnet fve add button input --config src/Acme.Components/fve.json
 ```
 
-`fve` copies typed themes, actions, feedback, tables and hierarchy, branded form controls, files/uploads, tags, choice cards, progress/steps, calendar/media compositions, menus, overlays, collection/detail compositions, and application layouts from one versioned registry in deterministic F# compile order. Consumers own and commit the selected source; `fve diff` compares local changes without silently replacing them. See the [Components source documentation](./sln/src/FSharp.ViewEngine.Components/README.md) and [component gallery](https://fve.meiermade.com/components).
+`fve` copies independently installable Components and genuine helpers in deterministic F# compile order. Controls, feedback, tables, calendars, menus, overlays, headers, Card, and documentation controls share one consumer-selected namespace. Consumers own and commit the source; `fve diff` never silently replaces edits. See the [Components source documentation](./sln/src/FSharp.ViewEngine.Components/README.md).
 
-Documentation sites, API references, and executable specifications can add the same canonical Documentation source with `dotnet fve add documentation`. It supplies article/reference/canvas layouts, navigation, code/preview examples, diagrams, product frames, typed destinations and structural validation. Tailwind scans those consumer-owned F# files directly; Documentation uses the same `--fve-*` token contract as the other components, with no copied stylesheet. See [Documentation installation and migration](./sln/src/FSharp.ViewEngine.Components/Documentation/README.md).
+Page and site assembly is ordinary copyable F# source. Exactly three full-page templates share a small financial Account/Transaction model: Application, Specification, and API documentation. The Examples gallery opens each template outside the library shell with a compact Preview/Code bar. Its source viewer includes genuine Domain/Application libraries, the Server host, layout, pages, projects, and setup files; catalog viewer chrome is excluded. The Specification groups named resource workflows and provides clickable System context → Solution → project contracts.
 
 ## Local catalog development
 
@@ -58,23 +58,18 @@ cd sln
 ./fake.sh WatchDocs --single-target
 ```
 
-The watcher serves F# changes and compiles CSS from the common `sln/src` source root, including the shared and optional Documentation manifests, at the stable review URL `http://127.0.0.1:5054`. Starting it replaces only the previous FSharp.ViewEngine Docs watcher, including across worktrees; it never takes an unrelated listener. Override the local origin only when necessary with `DOCS_SERVER_URL=http://127.0.0.1:6054 ./fake.sh WatchDocs --single-target`. Package publication and sibling application changes are not needed. After adding/removing project references or compile items, restart this candidate's watcher so it reloads the project graph; ordinary edits stay in the same loop.
+The watcher serves F# changes and compiles CSS from the common `sln/src` source root, including Components and the authored templates, at the stable review URL `http://127.0.0.1:5054`. Starting it replaces only the previous FSharp.ViewEngine Docs watcher, including across worktrees; it never takes an unrelated listener. Override the local origin only when necessary with `DOCS_SERVER_URL=http://127.0.0.1:6054 ./fake.sh WatchDocs --single-target`. Package publication and sibling application changes are not needed. After adding/removing project references or compile items, restart this candidate's watcher so it reloads the project graph; ordinary edits stay in the same loop.
 
-- `/components` — shared installation/guides and the staged Primitives, Application, and Documentation directory.
-- `/components/primitives` — shared controls and layout foundations.
-- `/components/select#components-select-multiple`, `components/select#components-select-search-multiple` — typed multiple selection, native repeated form values, validation and unavailable states. The remote searchable Select example also demonstrates error/retry and whole-field refresh.
-- `/components/application` — the delivered shell/page, collection/detail, forms, workflows, and Page examples directory.
-- `/components/app-shell` — minimal shell layouts with constrained/full-width content and optional mobile bottom navigation.
-- `/components/page-examples/account-management` — connected dashboard, accounts, matching details, create-account form, reports, settings, and transaction pages.
-- `/components/calendar` — Primitives → Data display: focused Month, Week, Day and twelve-month Year views, with responsive agenda reflow for detailed views; typed dates/times, Today/selected-date navigation and empty/loading/error/unavailable recovery.
-- `/components/media-library` — native media selection, shared bulk actions, alt text, editing, replacement, and recovery.
-- `/components/page-examples/dependency-graph`, `/components/page-examples/execution-detail` — connected dependency selection, execution metadata, timed spans and logs; the former graph-and-trace URL redirects to the graph.
-- `/components/page-examples/financial-reporting`, `/components/page-examples/messaging` — labelled actual/plan balances and a deterministic URL-backed conversation workspace.
-- `/components/page-examples/operations-dashboard`, `/components/page-examples/scheduling`, `/components/page-examples/media-management` — linked operational records, calendar navigation, repository-owned color-background media, URL-backed selection, editing, replacement and browser-local file selection.
-- `/components/form-layouts` — stacked, two-column and sectioned server-validation forms. Fields retain aligned labels and control heights when adjacent help/error text differs. Search controls belong in the Input gallery; result filtering is demonstrated by Account management. The validation endpoint and default field IDs are unchanged.
-- `/docs` — Documentation components and assembled examples, including the shared App mode.
+- `/components` — independently installable controls, display, navigation, overlays, layout blocks, code, and diagrams, with shared guides.
+- `/components/card`, `/components/page-header`, `/components/section-header` — generic surfaces and optional reusable headings.
+- `/components/input`, `/components/textarea`, `/components/error-summary`, `/components/field-group` — focused form components, not a form-layout framework.
+- `/components/code-block`, `/components/callout`, `/components/example`, `/components/mermaid`, `/components/fsharp-api-reference` — reusable documentation building blocks.
+- `/examples` — exactly three template cards.
+- `/examples/application` — home, accounts, matching details, create/edit, transactions, settings, and profile.
+- `/examples/specification` — wide workflow canvases with shared Application HTML states, copyable App-mode composition, sequence diagrams, bullet rules and architecture.
+- `/examples/api-documentation` — account CRUD and transaction operations, requests, responses, payloads, and validation.
 
-Every consumer-facing reusable component has a dedicated route and navigation entry; composition pages are connected demonstrations rather than the only documentation location for nested components. Page-example messages, accounts, settings, and media use deterministic seeded data and finite URL-backed states rather than cookies or process-local memory. File selection remains browser-local; Docs never parses, retains, reflects, displays, or serves submitted file contents. Use the provided reset links or a fresh browser/test context to return to seeded states, and do not enter private data or run real customer/payment operations.
+Every reusable component has its own route, navigation entry, installation selector, and compiling source. Templates are consumer-authored pages rather than framework APIs. Demo forms validate finite server-rendered states without cookies, persistence, private-value retention, or financial effects. API operations are illustrative contracts, not live endpoints. Existing bookmarked framework-index URLs redirect to their owning component or template destination; compatibility fixtures are not additional top-level gallery entries.
 
 In another terminal at the checkout root, run focused catalog checks:
 

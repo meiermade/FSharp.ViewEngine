@@ -1,10 +1,9 @@
 module DocsTests
 
-open System.IO
 open Expecto
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Components.Primitives
-open FSharp.ViewEngine.Components.Documentation
+open FSharp.ViewEngine.Components
+open FSharp.ViewEngine.Components.Templates
 open type Html
 
 type Destination =
@@ -14,11 +13,6 @@ type Destination =
     | Reference
 
 let private issueCodes (issues:ValidationIssue list) = issues |> List.map _.code |> Set.ofList
-
-let private documentationSources () =
-    [ "View.fs"; "ApiReference.fs"; "Example.fs" ]
-    |> List.map (fun file -> Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components", "Documentation", file)) |> File.ReadAllText)
-    |> String.concat "\n"
 
 let private sequenceDiagram () =
     let person = SequenceDiagram.participant "Person" "Person"
@@ -158,14 +152,18 @@ let tests =
             Expect.stringContains rendered ">Note</div>" "callout label"
         }
 
-        test "Heading adornments preserve the semantic page heading" {
+        test "Heading adornments and lead content preserve the semantic page heading" {
             let page =
-                DocumentationPage.create "home" "Home" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections []
+                DocumentationPage.create "home" "Home" |> DocumentationPage.withDescription "Description"
                 |> DocumentationPage.withHeadingAdornment (img { _src "/logo.svg"; _alt "" })
+                |> DocumentationPage.withLead [ div { _data("docs-lead-example", "true"); "Lead example" } ]
+                |> DocumentationPage.withSections [ DocumentationSection.create "usage" "Usage" [ p { "Use it." } ] ]
             let rendered = DocumentationPage.render page |> Render.toString
 
             Expect.stringContains rendered "src=\"/logo.svg\"" "adornment is rendered before the title"
             Expect.equal (rendered.Split("<h1").Length - 1) 1 "page retains one semantic h1"
+            Expect.isLessThan (rendered.IndexOf("<h1", System.StringComparison.Ordinal)) (rendered.IndexOf("data-docs-lead-example", System.StringComparison.Ordinal)) "the lead follows the page heading"
+            Expect.isLessThan (rendered.IndexOf("data-docs-lead-example", System.StringComparison.Ordinal)) (rendered.IndexOf("id=\"usage\"", System.StringComparison.Ordinal)) "the lead precedes outlined sections"
         }
 
         test "Article, reference, and canvas builders select composable layouts" {
@@ -183,7 +181,7 @@ let tests =
             Expect.equal canvas.layout Canvas "canvas layout"
             Expect.equal canvas.heading Visible "general canvases retain a visible heading"
             Expect.equal hiddenCanvas.heading VisuallyHidden "consumers may opt into a visually hidden heading"
-            Expect.isEmpty (DocsPage.validate reference) "arbitrary valid sections pass structural validation"
+            Expect.isEmpty (DocumentationPage.validate reference) "arbitrary valid sections pass structural validation"
         }
 
         test "Article pages support explicit previous and next navigation" {
@@ -204,8 +202,7 @@ let tests =
             Expect.stringContains rendered ">Introduction</span>" "previous page title"
             Expect.stringContains rendered "Next" "next direction"
             Expect.stringContains rendered ">Usage</span>" "next page title"
-            Expect.stringContains rendered "window.fsharpDocsNavigation.navigate(evt" "pager uses Docs navigation lifecycle"
-            Expect.stringContains rendered "fsharpdocs:navigate" "pager requests standard Datastar navigation"
+            Expect.isFalse (rendered.Contains("window.fsharpDocsNavigation")) "the reusable pager remains independent of HTTP navigation transport"
         }
 
         test "Search indexes include page titles, headings, descriptions, and consumer keywords" {
@@ -216,7 +213,9 @@ let tests =
 
             Expect.sequenceEqual index[0].keywords [ "serialization" ] "consumer keywords"
             Expect.stringContains rendered "aria-label=\"Search documentation\"" "search dialog label"
-            Expect.stringContains rendered "data-docs-search-entry" "search result metadata"
+            Expect.stringContains rendered "data-fve-command-item" "shared command result metadata"
+            Expect.equal index[1].description "" "section results do not repeat page-wide description matches"
+            Expect.equal index[0].group "Search results" "the consumer can group page results"
             Expect.stringContains rendered "href=\"/guide#render\"" "heading deep link"
             Expect.stringContains rendered "Ctrl+K" "keyboard shortcut hint"
         }
@@ -236,7 +235,7 @@ let tests =
                         editUrl = Some "https://github.com/meiermade/FSharp.ViewEngine/edit/main/README.md" }
 
             let rendered = Document.create site page |> Document.render |> Render.toString
-            Expect.stringContains rendered "<title>Guide &#183; Example</title>" "browser title"
+            Expect.stringContains rendered "<title id=\"docs-document-title\">Guide &#183; Example</title>" "browser title"
             Expect.stringContains rendered "name=\"description\" content=\"A focused guide description.\"" "page description"
             Expect.stringContains rendered "rel=\"canonical\" href=\"https://fve.meiermade.com/docs\"" "canonical override"
             Expect.stringContains rendered "name=\"robots\" content=\"noindex\"" "robots metadata"
@@ -264,7 +263,6 @@ let tests =
                 |> Document.withSideNavItems navigation
                 |> Document.render
                 |> Render.toString
-            let manifest = documentationSources ()
             Expect.throws (fun () -> Document.create site page |> Document.withBreadcrumbs [] |> ignore) "explicit breadcrumb configuration cannot be empty"
             Expect.throws (fun () -> Document.create site page |> Document.withSideNavItems [] |> ignore) "explicit side navigation cannot be empty"
             Expect.isFalse (rendered.Contains("<style")) "component presentation is consumer-compiled"
@@ -288,10 +286,6 @@ let tests =
             Expect.stringContains rendered "window.fsharpDocsColorMode" "color mode is applied before paint and persisted"
             Expect.stringContains rendered "window.fsharpDocsPreviewColorMode" "isolated documentation previews inherit the resolved host color mode"
             Expect.stringContains rendered "iframe[data-docs-preview-src]" "color-mode synchronization is bounded to documentation preview frames"
-            Expect.stringContains manifest "bg-[var(--fve-neutral-subtle)]" "code uses the shared neutral surface"
-            Expect.stringContains manifest "[&_.token.keyword]:text-red-700" "Prism token utilities are source-local"
-            Expect.stringContains manifest "dark:[&_.token.keyword]:text-red-300" "Prism tokens adapt to dark mode"
-            Expect.stringContains manifest "font-mono text-sm" "code uses semantic Tailwind typography"
             Expect.stringContains rendered "rel=\"canonical\" href=\"https://fve.meiermade.com/guides/detail\"" "canonical page URL"
             Expect.stringContains rendered "name=\"description\" content=\"A customizable page.\"" "page-specific description"
         }
@@ -311,28 +305,28 @@ let tests =
 
         test "Rich API operations cover authentication, located parameters, responses, errors, and policy metadata" {
             let operation =
-                Operation.create POST "/v1/items/{id}"
-                |> Operation.withDescription "Update an item"
-                |> Operation.withAuthentication "Bearer token"
-                |> Operation.withParameters [
-                    Parameter.create "id" "string" Path
-                    |> Parameter.required
-                    |> Parameter.withDescription "Item identifier."
-                    |> Parameter.withExample "item_123"
-                    Parameter.create "mode" "string" Query
-                    |> Parameter.withDescription "Update mode."
-                    |> Parameter.withDefaultValue "safe"
-                    |> Parameter.withEnumValues [ "safe"; "force" ] ]
-                |> Operation.withResponses [
-                    Response.create "200"
-                    |> Response.withDescription "Updated"
-                    |> Response.withExample "json" "{ \"id\": \"item_123\" }"
-                    Response.create "404" |> Response.withDescription "Not found" ]
-                |> Operation.withErrors [ Error.create "item_not_found" "The item does not exist." ]
-                |> Operation.withIdempotency "Requests are idempotent for 24 hours."
-                |> Operation.withApiVersion "2026-08-01"
-                |> Operation.deprecated
-                |> Operation.render
+                ApiOperation.create POST "/v1/items/{id}"
+                |> ApiOperation.withDescription "Update an item"
+                |> ApiOperation.withAuthentication "Bearer token"
+                |> ApiOperation.withParameters [
+                    ApiParameter.create "id" "string" Path
+                    |> ApiParameter.required
+                    |> ApiParameter.withDescription "Item identifier."
+                    |> ApiParameter.withExample "item_123"
+                    ApiParameter.create "mode" "string" Query
+                    |> ApiParameter.withDescription "Update mode."
+                    |> ApiParameter.withDefaultValue "safe"
+                    |> ApiParameter.withEnumValues [ "safe"; "force" ] ]
+                |> ApiOperation.withResponses [
+                    ApiResponse.create "200"
+                    |> ApiResponse.withDescription "Updated"
+                    |> ApiResponse.withExample "json" "{ \"id\": \"item_123\" }"
+                    ApiResponse.create "404" |> ApiResponse.withDescription "Not found" ]
+                |> ApiOperation.withErrors [ ApiError.create "item_not_found" "The item does not exist." ]
+                |> ApiOperation.withIdempotency "Requests are idempotent for 24 hours."
+                |> ApiOperation.withApiVersion "2026-08-01"
+                |> ApiOperation.deprecated
+                |> ApiOperation.render
                 |> Render.toString
 
             Expect.stringContains operation "Bearer token" "authentication"
@@ -346,9 +340,9 @@ let tests =
 
         test "Reference builders render endpoint, parameters, request, and response examples" {
             let endpoint =
-                Endpoint.create POST "/v1/items"
-                |> Endpoint.withDescription "Creates an item."
-                |> Endpoint.render
+                ApiEndpoint.create POST "/v1/items"
+                |> ApiEndpoint.withDescription "Creates an item."
+                |> ApiEndpoint.render
                 |> Render.toString
             let parameters =
                 ApiReference.parameters [
@@ -378,10 +372,7 @@ let tests =
             Expect.stringContains plainHtml "window.fsharpDocsMermaid" "plain pages configure lazy Mermaid for later navigation"
             Expect.stringContains plainHtml "/scripts/mermaid.11.16.0.min.js" "plain pages retain the configured Mermaid source"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "plain pages do not eagerly load Mermaid"
-            let manifest = documentationSources ()
-            Expect.isFalse (plainHtml.Contains("prism-tomorrow.1.29.0.min.css")) "default Prism colors come from the consumer-compiled manifest rather than a dark-only stylesheet"
-            Expect.stringContains manifest "[&_.token.string]:text-green-800" "light Prism palette is available before highlighting"
-            Expect.stringContains manifest "dark:[&_.token.string]:text-green-300" "dark Prism palette is available before highlighting"
+            Expect.isFalse (plainHtml.Contains("prism-tomorrow.1.29.0.min.css")) "consumers opt into a Prism stylesheet through DocsAssets"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/prism.1.29.0.min.js\"")) "plain pages omit Prism scripts"
             Expect.stringContains diagramHtml "data-init=\"window.renderMermaid?.(el)\"" "diagram elements own their Datastar initialization"
             Expect.stringContains diagramHtml "data-mermaid-source=\"flowchart LR" "diagram source is encoded as data rather than visible content"
@@ -424,7 +415,7 @@ let tests =
             Expect.stringContains rendered "(node.dataset.mermaidSource ?? '') !== source" "stale in-flight renders are discarded when a host source changes"
             Expect.stringContains rendered "node.dataset.mermaidRenderedSource = source" "the completion marker records the source used for the committed SVG"
             Expect.stringContains rendered "mermaidRenderQueue" "Mermaid renders are serialized"
-            Expect.stringContains rendered "window.renderMermaid?.(content, true)" "initial document readiness does not rely solely on per-element Datastar initialization"
+            Expect.stringContains rendered "data-init=\"window.renderMermaid?.(el)\"" "Mermaid owns repeat-safe initialization on its generated-markup host"
             Expect.stringContains rendered "setMermaidFailed" "asset and render failures use the shared deterministic failure state"
             Expect.stringContains rendered "name=\"robots\"" "additional head content"
         }
@@ -479,7 +470,7 @@ let tests =
             let page =
                 DocumentationPage.create "buttons" "Buttons" |> DocumentationPage.withLayout Gallery |> DocumentationPage.withRightRail NoRail |> DocumentationPage.withSections [
                     DocumentationSection.create "primary" "Primary" [
-                        Example.gallery "primary-button" "Primary" "fsharp" "Button.primary \"Create\"" (button { _type "button"; "Create" }) ] ]
+                        Example.gallery "primary-button" "Primary" "fsharp" "Button.create (ButtonContent.Text \"Create\") |> Button.render" (button { _type "button"; "Create" }) ] ]
             let html = Document.create site page |> Document.render |> Render.toString
             Expect.equal page.layout Gallery "explicit gallery layout"
             Expect.stringContains html "data-docs-layout=\"gallery\"" "gallery layout hook"
@@ -489,6 +480,8 @@ let tests =
             Expect.stringContains html "aria-label=\"Copy Primary code\"" "copy action has an example-specific name"
             Expect.stringContains html "data-docs-copy-source=\"true\"" "copy targets the literal source"
             Expect.isLessThan (html.IndexOf(">Preview</button>")) (html.IndexOf(">Code</button>")) "preview is the first tab"
+            Expect.equal (System.Text.RegularExpressions.Regex.Matches(html, "role=\"tab\"").Count) 2 "gallery examples expose only preview and complete code"
+            Expect.equal (System.Text.RegularExpressions.Regex.Matches(html, "data-docs-copy-source=\"true\"").Count) 1 "the complete source is the only copy target"
         }
 
         test "Examples provide accessible independent preview and code tabs" {
@@ -542,8 +535,8 @@ let tests =
             Expect.stringContains framed "data-browser-url=\"https://fve.meiermade.com/components/browser\"" "canonical URL marker"
 
             let tabs =
-                [ Tab.create "empty" "Empty" (div { "No items" })
-                  Tab.create "ready" "Ready" (div { "Items" }) ]
+                [ TabItem.create "empty" "Empty" (div { "No items" })
+                  TabItem.create "ready" "Ready" (div { "Items" }) ]
                 |> Tabs.create "item-states" "Item states"
                 |> Tabs.render
                 |> Render.toString
@@ -553,54 +546,31 @@ let tests =
             Expect.stringContains tabs "role=\"tabpanel\"" "tab panel semantics"
         }
 
-        test "App mode keeps workflow destinations and review states explicit" {
-            let shippingPath = "/docs/components/fixture?fixtureStep=shipping&fixtureState=ready"
-            let ready = FixtureState.create "Ready" shippingPath |> FixtureState.current
-            let invalid = FixtureState.create "Address error" "/docs/components/fixture?fixtureStep=shipping&fixtureState=validation"
-            let fixture =
-                Browser.create (div { "Shipping address" })
-                |> Browser.withAddress ("https://fve.meiermade.com" + shippingPath)
-                |> Fixture.browser "checkout-shipping" "Shipping address" shippingPath
-                |> Fixture.withPrevious (FixtureLink.create "Cart" "/docs/components/fixture?fixtureStep=cart&fixtureState=ready")
-                |> Fixture.withNext (FixtureLink.create "Payment" "/docs/components/fixture?fixtureStep=payment&fixtureState=ready")
-                |> Fixture.withStates [ ready; invalid ]
+        test "Small display primitives preserve semantic and interaction boundaries" {
+            let shortcut = Kbd.shortcut [ "Control"; "K" ] |> Kbd.withLabel "Open search" |> Kbd.render |> Render.toString
+            Expect.equal (shortcut.Split("<kbd", System.StringSplitOptions.None).Length - 1) 2 "each shortcut key is semantic kbd markup"
+            Expect.stringContains shortcut "aria-label=\"Open search\"" "shortcut group is labelled"
+            Expect.isFalse (shortcut.Contains("data-on")) "Kbd registers no behavior"
 
-            let embedded = fixture |> Fixture.render |> Render.toString
-            Expect.stringContains embedded "data-fve-fixture-id=\"checkout-shipping\"" "stable fixture identity"
-            Expect.stringContains embedded "href=\"/docs/components/fixture?fixtureStep=shipping&amp;fixtureState=ready&amp;fveAppMode=app&amp;fveAppFrame=checkout-shipping&amp;fveAppTransition=enter\"" "launch is a real App-mode destination"
+            let semanticSeparator = Separator.create () |> Separator.semantic |> Separator.render |> Render.toString
+            Expect.stringContains semanticSeparator "role=\"separator\"" "semantic separator has a role"
+            Expect.stringContains semanticSeparator "aria-orientation=\"horizontal\"" "semantic orientation is explicit"
+            let decorativeSeparator = Separator.create () |> Separator.withOrientation SeparatorOrientation.Vertical |> Separator.render |> Render.toString
+            Expect.stringContains decorativeSeparator "aria-hidden=\"true\"" "decorative separator is ignored"
 
-            let unsafeId = "review'\\state"
-            let safeExpression =
-                Fixture.create unsafeId "Quoted fixture ID" "/docs/components/fixture" (div { "Fixture" })
-                |> Fixture.render
-                |> Render.toString
-                |> System.Net.WebUtility.HtmlDecode
-            Expect.stringContains safeExpression "=== \"review\\u0027\\\\state\"" "Fixture IDs are serialized as JavaScript strings"
-            Expect.isFalse (safeExpression.Contains("=== 'review'\\state'")) "Fixture IDs cannot terminate the return-focus expression"
+            let skeletonContent = div { _class "grid gap-2"; Skeleton.create () |> Skeleton.render }
+            let skeleton = SkeletonRegion.create "Loading records" skeletonContent |> SkeletonRegion.render |> Render.toString
+            Expect.stringContains skeleton "class=\"grid gap-2\"" "consumer-authored placeholder layout is preserved"
+            Expect.throws (fun () -> SkeletonRegion.create " " skeletonContent |> ignore) "loading region requires a meaningful label"
+            Expect.stringContains skeleton "role=\"status\"" "one region owns status"
+            Expect.stringContains skeleton "aria-busy=\"true\"" "region is truthfully busy"
+            Expect.equal (skeleton.Split("aria-hidden=\"true\"", System.StringSplitOptions.None).Length - 1) 1 "placeholder is silent"
+            Expect.stringContains skeleton "motion-reduce:animate-none" "placeholder honors reduced motion"
 
-            let page =
-                DocumentationPage.create "home" "Checkout"
-                |> DocumentationPage.withDescription "Checkout fixture."
-                |> DocumentationPage.withFixtures [ fixture ]
-            let appDocument =
-                Document.create site page
-                |> Document.withRenderMode (Fullscreen(AppMode.create "checkout-shipping" shippingPath))
-                |> Document.render
-                |> Render.toHtmlDocString
-
-            Expect.stringContains appDocument "data-fve-app-mode-root=\"true\"" "server renders the fullscreen fixture body"
-            Expect.stringContains appDocument "aria-label=\"Previous: Cart\"" "previous workflow destination"
-            Expect.stringContains appDocument "aria-label=\"Next: Payment\"" "next workflow destination"
-            Expect.stringContains appDocument "aria-label=\"Review state\"" "review-state menu"
-            Expect.stringContains appDocument "href=\"/docs/components/fixture?fixtureStep=shipping&amp;fixtureState=validation&amp;fveAppMode=app&amp;fveAppFrame=checkout-shipping\"" "review state retains App mode"
-            Expect.stringContains appDocument "data-fve-app-mode-exit=\"true\"" "exit is a real destination"
-
-            let phoneFixture =
-                Phone.create (div { "Phone content" })
-                |> Fixture.phone "checkout-phone" "Shipping address on phone" "/docs/components/fixture?fixtureState=ready"
-            let phone = phoneFixture |> Fixture.render |> Render.toString
-            Expect.stringContains phone "data-fve-phone=\"true\"" "standalone phone primitive"
-            Expect.stringContains phone "data-fve-fixture-id=\"checkout-phone\"" "Fixture owns the Phone App-mode identity"
+            let linked = Item.create "Account" |> Item.withLink "/accounts/1" |> Item.render |> Render.toString
+            Expect.stringContains linked "<li" "item preserves list semantics"
+            Expect.stringContains linked "href=\"/accounts/1\"" "whole row can be one link"
+            Expect.throws (fun () -> Item.create "Invalid" |> Item.withLink "/items/1" |> Item.withActions (button { "Edit" }) |> Item.render |> ignore) "whole-row links reject nested actions"
         }
 
         test "Graph validation is available without prescribing architecture depth" {

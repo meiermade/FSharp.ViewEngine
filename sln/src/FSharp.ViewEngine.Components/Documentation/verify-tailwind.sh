@@ -19,12 +19,12 @@ assert_output() {
 }
 
 assert_output '.fve-components'
-assert_output '.bg-\[var\(--fve-page\)\]'
+assert_output '.bg-\[var\(--fve-background\)\]'
 assert_output '.text-\[var\(--fve-text\)\]'
 assert_output '.border-\[var\(--fve-border\)\]'
 assert_output '.rounded-xl'
-assert_output 'list-style-type:disc'
-assert_output 'list-style-type:decimal'
+assert_output '.outline-none'
+assert_output '.focus-visible\:outline-2'
 assert_output '.lg\:block'
 assert_output '.xl\:hidden'
 assert_output '.data-\[selected\=true\]\:bg-\[var\(--fve-brand-subtle\)\]'

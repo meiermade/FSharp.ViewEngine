@@ -2,9 +2,9 @@ namespace Docs.Pages
 
 open System
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Components.Primitives
-open FSharp.ViewEngine.Components.Application
-open FSharp.ViewEngine.Components.Documentation
+open FSharp.ViewEngine.Components
+open FSharp.ViewEngine.Components.Templates
+open FSharp.ViewEngine.Components.Templates
 open Docs.Common
 open type Html
 open type Svg
@@ -126,12 +126,20 @@ module PageExamples =
             label
         }
 
+    // Ordinary consumer-authored anchors for compact page-header destinations.
+    let pageLink (href:string) (label:string) =
+        a {
+            _href href
+            _class "inline-flex min-h-8 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-1.5 text-sm font-medium leading-5 text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+            label
+        }
+
     let section (heading: string) (content: HtmlElement) =
         Section.create (SectionHeader.create heading |> SectionHeader.withDivider) content
-        |> Section.render id
+        |> Section.render
 
     let details (fields: (string * string) list) =
-        DescriptionList.create [ for label, value in fields -> DetailField.text label value ]
+        DescriptionList.create [ for label, value in fields -> DescriptionListItem.text label value ]
         |> DescriptionList.withColumns DescriptionListColumns.Three
         |> DescriptionList.render
 
@@ -152,15 +160,24 @@ module PageExamples =
                 |> LoadingIndicator.render
             }
         | Empty ->
-            EmptyState.create "Nothing to show yet" "Change the current selection or return to the populated workspace."
-            |> EmptyState.withActions (link (queryUrl page { query with state = Ready }) "Return to workspace")
+            let heading, description, action =
+                match page with
+                | DependencyGraph -> "No dependencies found", "There are no dependencies for this selection.", "View dependencies"
+                | ExecutionDetail -> "No execution selected", "Choose an execution to inspect its timing and logs.", "View latest execution"
+                | FinancialReporting -> "No activity for this period", "Choose a period with recorded balances and transactions.", "View recent activity"
+                | Messaging -> "No messages in this conversation", "Choose a conversation to read its messages.", "View conversations"
+                | Operations -> "No sessions scheduled", "Check the schedule for upcoming sessions.", "View schedule"
+                | Scheduling -> "No sessions in this period", "Return to the current period to see upcoming sessions.", "View current schedule"
+                | MediaManagement -> "No media in this selection", "Browse the library to choose an asset.", "Browse media"
+            EmptyState.create heading description
+            |> EmptyState.withActions (link (queryUrl (if page = Operations then Scheduling else page) { query with state = Ready }) action)
             |> EmptyState.render
         | Failed ->
             Notice.create
                 "workspace-error"
                 "This view could not be loaded"
                 (p { "Your selection is preserved. Try loading it again." })
-            |> Notice.withTone Tone.Critical
+            |> Notice.withColor NoticeColor.Error
             |> Notice.withActions (link (queryUrl page { query with state = Ready }) "Try again")
             |> Notice.render
 
@@ -178,16 +195,16 @@ module PageExamples =
             }
         }
 
-    let workspace page heading subtitle canvas actions content =
+    let workspace page heading subtitle canvas (actions:HtmlElement list) content =
         let product, workspaceName, destinations =
             match page with
             | DependencyGraph
             | ExecutionDetail ->
                 "Relay", "Customer analytics", [ DependencyGraph, "Dependencies"; ExecutionDetail, "Executions" ]
-            | FinancialReporting -> "Ledger", "Northwind Studio", [ FinancialReporting, "Overview" ]
+            | FinancialReporting -> "Ledger", "Meier Made", [ FinancialReporting, "Overview" ]
             | Messaging -> "Gather", "Northwind Outdoor", [ Messaging, "Messages" ]
             | _ ->
-                "Fieldwork", "Northwind Outdoor", [ Operations, "Overview"; Scheduling, "Schedule"; MediaManagement, "Photos" ]
+                "Fieldwork", "Northwind Outdoor", [ Operations, "Overview"; Scheduling, "Schedule"; MediaManagement, "Media" ]
 
         let items =
             [ for destination, label in destinations -> SideNavItem.create destination label ]
@@ -201,7 +218,6 @@ module PageExamples =
             |> SideNav.withCurrent page
             |> SideNav.withWidth SideNavWidth.Narrow
             |> SideNav.withContext (sideNavWorkspace workspaceName)
-            |> SideNav.withMobileContext (sideNavWorkspace workspaceName)
             |> SideNav.withFooter (
                 div {
                     _class "flex min-w-0 items-center gap-3"
@@ -217,13 +233,13 @@ module PageExamples =
         let header =
             PageHeader.create heading
             |> PageHeader.withSubtitle subtitle
-            |> PageHeader.withActions (ActionCluster.create (slug page + "-actions") actions)
+            |> (if List.isEmpty actions then id else PageHeader.withActions (div { _id (slug page + "-actions"); _class "flex flex-wrap items-center gap-3"; for action in actions do action }))
 
         let topBar =
             PageTopBar.create ()
             |> PageTopBar.withContent (
                 div {
-                    _class "flex min-h-[var(--fve-shell-bar-min-height)] items-center px-4 sm:px-6 lg:px-8"
+                    _class "flex min-w-0 flex-1 items-center"
 
                     Breadcrumbs.create
                         (slug page + "-breadcrumbs")
@@ -235,7 +251,6 @@ module PageExamples =
 
         let body =
             Page.create header content
-            |> Page.withTopBar topBar
             |> Page.withWidth PageWidth.Full
             |> Page.withBodyLayout (
                 if canvas then
@@ -243,9 +258,16 @@ module PageExamples =
                 else
                     PageBodyLayout.Padded
             )
-            |> Page.render id
+            |> Page.render
 
-        AppShell.create (slug page + "-shell") navigation body
+        let framedBody =
+            div {
+                _class "flex h-full min-h-0 flex-col"
+                div { _class "hidden shrink-0 md:block"; topBar |> PageTopBar.render }
+                div { _class "min-h-0 flex-1"; body }
+            }
+
+        AppShell.create (slug page + "-shell") navigation framedBody
         |> AppShell.withTheme (
             ComponentsTheme.sky
             |> ComponentsTheme.withDensity Density.Compact
@@ -308,14 +330,14 @@ module PageExamples =
             run = "run-2411" } ]
 
     let nodeStatus status =
-        Status.create status
-        |> Status.withTone (
+        Badge.create status
+        |> Badge.withColor (
             match status with
-            | "Succeeded" -> Tone.Positive
-            | "Failed" -> Tone.Critical
-            | _ -> Tone.Warning
+            | "Succeeded" -> BadgeColor.Success
+            | "Failed" -> BadgeColor.Error
+            | _ -> BadgeColor.Warning
         )
-        |> Status.render
+        |> Badge.render
 
     let selectedNode query =
         dependencyNodes
@@ -340,10 +362,10 @@ module PageExamples =
             _class "flex h-full min-h-0 flex-col"
 
             div {
-                _class "flex flex-wrap items-end gap-3 border-y border-[var(--fve-border)] px-4 py-3 sm:px-6 lg:px-8"
+                _class "flex shrink-0 flex-wrap items-end gap-1 border-y border-[var(--fve-border)] p-[12px] sm:px-6 sm:py-3 lg:px-8"
 
                 div {
-                    _class "min-w-0 flex-1"
+                    _class "min-w-0 basis-full md:flex-1 md:basis-48"
 
                     Input.create "graph-search" "Search dependencies"
                     |> Input.withType InputType.Search
@@ -351,15 +373,15 @@ module PageExamples =
                     |> Input.render
                 }
 
-                Button.create "Zoom out"
+                Button.create (ButtonContent.Icon ("Zoom out", raw """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" d="M4 10h12"/></svg>"""))
                 |> Button.withAttributes [ _dataOn ("click", "$_graphZoom = Math.max(0.75, $_graphZoom - 0.25)") ]
                 |> Button.render
 
-                Button.create "Zoom in"
+                Button.create (ButtonContent.Icon ("Zoom in", raw """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" d="M4 10h12M10 4v12"/></svg>"""))
                 |> Button.withAttributes [ _dataOn ("click", "$_graphZoom = Math.min(1.5, $_graphZoom + 0.25)") ]
                 |> Button.render
 
-                Button.create "Reset view"
+                Button.create (ButtonContent.Icon ("Reset view", raw """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7V3m0 4h4M4 7a6 6 0 1 1-1 6"/></svg>"""))
                 |> Button.withAttributes [ _dataOn ("click", "$_graphZoom = 1; $_graphQuery = ''") ]
                 |> Button.render
 
@@ -453,7 +475,7 @@ module PageExamples =
                 }
 
                 div {
-                    _class "grid gap-6 p-4 lg:grid-cols-2 sm:p-6 lg:p-8"
+                    _class "grid items-start gap-6 p-4 lg:grid-cols-2 sm:p-6 lg:p-8"
 
                     section
                         "Selected dependency"
@@ -510,15 +532,10 @@ module PageExamples =
     let dependencyGraph query =
         workspace
             DependencyGraph
-            "Dependencies"
-            "Production · Customer analytics · 6 dependencies"
+            "Dependency graph"
+            "Customer analytics · 6 dependencies"
             true
-            [ ApplicationAction.link
-                  (queryUrl
-                      ExecutionDetail
-                      { defaultQuery with
-                          item = (selectedNode query).run })
-                  "Inspect execution" ]
+            []
             (stateContent DependencyGraph query (graphContent query))
 
     type TraceSpan =
@@ -595,17 +612,18 @@ module PageExamples =
         div {
             _class "grid gap-6"
 
-            details
-                [ "Dependency", node.name
-                  "Worker", "warehouse-worker-01"
-                  "Started",
-                  (if node.status = "Blocked" then
-                       "Not started"
-                   else
-                       "17 Sep 2026, 09:42:18 UTC")
-                  "Duration", (if node.status = "Blocked" then "—" else "1.24 s")
-                  "Attempt", (if node.status = "Blocked" then "0" else "1")
-                  "Execution", node.run ]
+            DescriptionList.create [
+                DescriptionListItem.text "Duration" (if node.status = "Blocked" then "—" else "1.24 s")
+                DescriptionListItem.text "Started" (if node.status = "Blocked" then "Not started" else "17 Sep 2026, 09:42:18 UTC") ]
+            |> DescriptionList.render
+
+            Html.details {
+                summary { _class "cursor-pointer text-sm font-medium text-[var(--fve-brand-text)]"; "Execution metadata" }
+                div {
+                    _class "mt-3"
+                    details [ "Dependency", node.name; "Worker", "warehouse-worker-01"; "Attempt", (if node.status = "Blocked" then "0" else "1") ]
+                }
+            }
 
             div {
                 _class "flex flex-wrap items-center gap-3"
@@ -618,7 +636,7 @@ module PageExamples =
                     "blocked-run"
                     "Waiting for an upstream dependency"
                     (p { "warehouse.orders must succeed before this execution can start." })
-                |> Notice.withTone Tone.Warning
+                |> Notice.withColor NoticeColor.Warning
                 |> Notice.withActions (
                     link (queryUrl ExecutionDetail { defaultQuery with item = "run-2408" }) "Inspect failed dependency"
                 )
@@ -642,17 +660,17 @@ module PageExamples =
 
                             Table.create
                                 "Execution spans"
-                                [ Table.column "Operation" (fun (item: TraceSpan) ->
+                                [ TableColumn.create "Operation" (fun (item: TraceSpan) ->
                                       div {
                                           _style $"padding-left:{item.depth}rem"
                                           link (queryUrl ExecutionDetail { query with view = item.id }) item.operation
                                       })
-                                  |> Table.asRowHeader
-                                  Table.column "Service" (fun item -> text item.service)
-                                  Table.column "Start" (fun item -> text $"{item.start} ms") |> Table.alignEnd
-                                  Table.column "Duration" (fun item -> text $"{item.duration} ms")
-                                  |> Table.alignEnd
-                                  Table.column "0 — 620 — 1,240 ms" (fun item ->
+                                  |> TableColumn.asRowHeader
+                                  TableColumn.create "Service" (fun item -> text item.service)
+                                  TableColumn.create "Start" (fun item -> text $"{item.start} ms") |> TableColumn.alignEnd
+                                  TableColumn.create "Duration" (fun item -> text $"{item.duration} ms")
+                                  |> TableColumn.alignEnd
+                                  TableColumn.create "0 — 620 — 1,240 ms" (fun item ->
                                       div {
                                           _ariaHidden "true"
                                           _class "relative h-6 min-w-64 rounded bg-[var(--fve-surface-subtle)]"
@@ -733,7 +751,7 @@ module PageExamples =
             node.run
             (node.name + " · Production")
             false
-            [ ApplicationAction.link (queryUrl DependencyGraph { defaultQuery with item = node.key }) "View dependency" ]
+            [ pageLink (queryUrl DependencyGraph { defaultQuery with item = node.key }) "View dependency" ]
             (stateContent ExecutionDetail query (executionContent query))
 
     type BalancePoint =
@@ -941,13 +959,13 @@ module PageExamples =
 
                 Table.create
                     "Monthly closing balances (USD)"
-                    [ Table.column "Month" (fun (point: BalancePoint) -> text point.month)
-                      |> Table.asRowHeader
-                      |> Table.asMobilePrimary
-                      Table.column "Actual" (fun point -> text (currency point.actual))
-                      |> Table.alignEnd
-                      Table.column "Plan" (fun point -> text (currency point.planned))
-                      |> Table.alignEnd ]
+                    [ TableColumn.create "Month" (fun (point: BalancePoint) -> text point.month)
+                      |> TableColumn.asRowHeader
+                      |> TableColumn.asMobilePrimary
+                      TableColumn.create "Actual" (fun point -> text (currency point.actual))
+                      |> TableColumn.alignEnd
+                      TableColumn.create "Plan" (fun point -> text (currency point.planned))
+                      |> TableColumn.alignEnd ]
                     points
                 |> Table.withMobileLayout TableMobileLayout.Records
                 |> Table.render
@@ -960,7 +978,7 @@ module PageExamples =
                 _class "grid gap-8"
 
                 div {
-                    _class "grid gap-5 border-b border-[var(--fve-border)] pb-6 sm:grid-cols-3"
+                    _class "grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-5 border-b border-[var(--fve-border)] pb-6"
 
                     for label, value, description in
                         [ "Checking balance", "$38,442.11", "As of September 17"
@@ -975,16 +993,16 @@ module PageExamples =
                     "Recent transactions"
                     (Table.create
                         "Checking transactions"
-                        [ Table.column "Date" (fun (date, _, _, _) -> text date)
-                          Table.column "Description" (fun (_, name, id, _) ->
+                        [ TableColumn.create "Date" (fun (date, _, _, _) -> text date)
+                          TableColumn.create "Description" (fun (_, name, id, _) ->
                               link
                                   ("/components/page-examples/account-management?destination=ledger-transaction-"
                                    + string id)
                                   name)
-                          |> Table.asRowHeader
-                          |> Table.asMobilePrimary
-                          Table.column "Amount" (fun (_, _, _, amount) -> text (currency amount))
-                          |> Table.alignEnd ]
+                          |> TableColumn.asRowHeader
+                          |> TableColumn.asMobilePrimary
+                          TableColumn.create "Amount" (fun (_, _, _, amount) -> text (currency amount))
+                          |> TableColumn.alignEnd ]
                         [ "Jul 28", "Northwind payment", 201, 4800M
                           "Jul 27", "Cloud hosting", 202, 386.42M
                           "Jul 26", "ACH withdrawal", 203, 1240M ]
@@ -995,12 +1013,9 @@ module PageExamples =
         workspace
             FinancialReporting
             "Financial overview"
-            "Northwind Studio · Operating checking · USD"
+            "Operating checking · USD"
             false
-            [ ApplicationAction.link
-                  "/components/page-examples/account-management?destination=ledger-account-2048"
-                  "View account"
-              ApplicationAction.link "/components/page-examples/account-management" "All accounts" ]
+            [ pageLink "/components/page-examples/account-management?destination=ledger-account-2048" "View account" ]
             (stateContent FinancialReporting query content)
 
     type Conversation =
@@ -1107,33 +1122,13 @@ module PageExamples =
             }
 
             for message in messages |> List.filter (fun message -> message.conversation = conversation.id) do
-                div {
+                FSharp.ViewEngine.Components.Message.create message.author (p { _class "whitespace-pre-wrap break-words"; message.body })
+                |> FSharp.ViewEngine.Components.Message.withSide (if message.outgoing then MessageSide.Sender else MessageSide.Receiver)
+                |> FSharp.ViewEngine.Components.Message.withMetadata (message.author + " · " + message.time)
+                |> FSharp.ViewEngine.Components.Message.withAttributes [
                     _id ("message-" + message.id)
-                    _dataInit "el.parentElement.scrollTop = el.parentElement.scrollHeight"
-
-                    _class (
-                        if message.outgoing then
-                            "ml-auto grid max-w-[85%] justify-items-end gap-1"
-                        else
-                            "mr-auto grid max-w-[85%] gap-1"
-                    )
-
-                    p {
-                        _class "text-xs text-[var(--fve-muted-text)]"
-                        message.author + " · " + message.time
-                    }
-
-                    p {
-                        _class (
-                            if message.outgoing then
-                                "whitespace-pre-wrap break-words rounded-2xl rounded-br-sm bg-[var(--fve-brand-solid)] px-4 py-3 text-base text-white"
-                            else
-                                "whitespace-pre-wrap break-words rounded-2xl rounded-bl-sm bg-[var(--fve-surface-subtle)] px-4 py-3 text-base text-[var(--fve-text)]"
-                        )
-
-                        message.body
-                    }
-                }
+                    _dataInit "el.parentElement.scrollTop = el.parentElement.scrollHeight" ]
+                |> FSharp.ViewEngine.Components.Message.render
         }
 
     let conversationPanel query messages draft error =
@@ -1143,61 +1138,40 @@ module PageExamples =
             _id "conversation-panel"
             _class "flex h-full min-h-0 flex-col"
 
-            header {
-                _class "flex items-center gap-3 border-b border-[var(--fve-border)] p-4"
-                Avatar.create conversation.name conversation.initials |> Avatar.render
-
-                div {
-                    h2 {
-                        _class "text-base font-semibold"
-                        conversation.name
-                    }
-
-                    p {
-                        _class "text-xs text-[var(--fve-muted-text)]"
-                        conversation.participants
-                    }
-                }
-            }
-
             messageHistory conversation messages
 
             form {
                 _method "post"
                 _action (url Messaging + "/send?item=" + conversation.id)
-                _class "grid shrink-0 gap-3 border-t border-[var(--fve-border)] bg-[var(--fve-surface)] p-4"
+                _class "flex shrink-0 flex-wrap items-end gap-2 border-t border-[var(--fve-border)] bg-[var(--fve-surface)] p-[12px]"
 
                 let field =
                     Textarea.create "message" "Message"
                     |> Textarea.withId "message-compose"
-                    |> Textarea.withRows 2
+                    |> Textarea.withRows 1
+                    |> Textarea.withVisuallyHiddenLabel
                     |> Textarea.withValue draft
                     |> Textarea.required
-                    |> Textarea.withAttributes [ _maxlength 2000 ]
-
-                (match error with
-                 | Some message -> field |> Textarea.withValidation message
-                 | None -> field)
-                |> Textarea.render
+                    |> Textarea.withAttributes [ _maxlength 2000; _placeholder "Write a message…" ]
 
                 div {
-                    _class "flex flex-wrap items-center justify-between gap-3"
-
+                    _class "min-w-0 flex-[1_1_12rem]"
+                    (match error with
+                     | Some message -> field |> Textarea.withValidation message
+                     | None -> field)
+                    |> Textarea.render
+                }
+                Button.create (ButtonContent.Text "Send message")
+                |> Button.withColor ButtonColor.Primary
+                |> Button.withVariant ButtonVariant.Solid
+                |> Button.asSubmit
+                |> Button.render
+                if query.view = "sent" then
                     p {
                         _role "status"
-                        _class "text-xs text-[var(--fve-muted-text)]"
-
-                        if query.view = "sent" then
-                            "Message accepted. This deterministic example does not retain submitted text."
-                        else
-                            "Only participants in this conversation can see your reply."
+                        _class "w-full text-xs text-[var(--fve-muted-text)]"
+                        "Demo message added. Submitted text is not saved."
                     }
-
-                    Button.create "Send message"
-                    |> Button.withVariant ButtonVariant.Primary
-                    |> Button.asSubmit
-                    |> Button.render
-                }
             }
         }
 
@@ -1224,7 +1198,6 @@ module PageExamples =
             |> SideNav.withCurrent current.id
             |> SideNav.withWidth SideNavWidth.Wide
             |> SideNav.withContext (sideNavWorkspace "Northwind Outdoor")
-            |> SideNav.withMobileContext (sideNavWorkspace "Northwind Outdoor")
             |> SideNav.withFooter (
                 div {
                     _class "flex items-center gap-3"
@@ -1244,30 +1217,25 @@ module PageExamples =
                 conversationPanel query messages "" error
             }
 
+        let topBar =
+            PageTopBar.create ()
+            |> PageTopBar.withContent (Breadcrumbs.create "gather-breadcrumbs" "Gather breadcrumb" [ BreadcrumbItem.create "beach" "Gather"; BreadcrumbItem.create current.id "Messages" ] |> Breadcrumbs.render destination)
+
         let page =
             Page.create
-                (PageHeader.create "Messages"
-                 |> PageHeader.withSubtitle "Your conversations, together in one place.")
+                (PageHeader.create current.name
+                 |> PageHeader.withSubtitle current.participants)
                 (stateContent Messaging query content)
-            |> Page.withTopBar (
-                PageTopBar.create ()
-                |> PageTopBar.withContent (
-                    div {
-                        _class "flex min-h-[var(--fve-shell-bar-min-height)] items-center px-4 sm:px-6 lg:px-8"
-
-                        Breadcrumbs.create
-                            "gather-breadcrumbs"
-                            "Gather breadcrumb"
-                            [ BreadcrumbItem.create "beach" "Gather"
-                              BreadcrumbItem.create current.id "Messages" ]
-                        |> Breadcrumbs.render destination
-                    }
-                )
-            )
             |> Page.withBodyLayout PageBodyLayout.Canvas
-            |> Page.render destination
+            |> Page.render
 
-        AppShell.create "messaging-shell" navigation page
+        let framedPage =
+            div {
+                _class "flex h-full min-h-0 flex-col"
+                div { _class "hidden shrink-0 md:block"; topBar |> PageTopBar.render }
+                div { _class "min-h-0 flex-1"; page }
+            }
+        AppShell.create "messaging-shell" navigation framedPage
         |> AppShell.withTheme (
             ComponentsTheme.sky
             |> ComponentsTheme.withDensity Density.Compact
@@ -1340,13 +1308,13 @@ module PageExamples =
     let eventTable events =
         Table.create
             "Upcoming events"
-            [ Table.column "Event" (fun (event: ScheduledEvent) -> link (eventUrl event) event.name)
-              |> Table.asRowHeader
-              |> Table.asMobilePrimary
-              Table.column "Date" (fun event ->
+            [ TableColumn.create "Event" (fun (event: ScheduledEvent) -> link (eventUrl event) event.name)
+              |> TableColumn.asRowHeader
+              |> TableColumn.asMobilePrimary
+              TableColumn.create "Date" (fun event ->
                   text (event.date.ToString("MMM d", Globalization.CultureInfo.InvariantCulture)))
-              Table.column "Time" (fun event -> text event.time)
-              Table.column "People" (fun event -> text event.people) ]
+              TableColumn.create "Time" (fun event -> text event.time)
+              TableColumn.create "People" (fun event -> text event.people) ]
             events
         |> Table.withMobileLayout TableMobileLayout.Records
         |> Table.withDensity Density.Compact
@@ -1358,7 +1326,7 @@ module PageExamples =
                 _class "grid gap-8"
 
                 div {
-                    _class "grid gap-6 border-b border-[var(--fve-border)] pb-6 sm:grid-cols-3"
+                    _class "order-2 grid grid-cols-[repeat(auto-fit,minmax(min(100%,6.5rem),1fr))] gap-4 border-b border-[var(--fve-border)] pb-4 md:order-none"
 
                     for label, value, detail in
                         [ "Today's sessions", "2", "One lesson · One camp"
@@ -1367,12 +1335,13 @@ module PageExamples =
                         Metric.text label value |> Metric.withDescription detail |> Metric.render
                 }
 
-                section
-                    "Today's schedule"
-                    (eventTable (scheduledEvents |> List.filter (fun event -> event.date = DateOnly(2026, 9, 17))))
+                div {
+                    _class "order-3 md:order-none"
+                    section "Today's schedule" (eventTable (scheduledEvents |> List.filter (fun event -> event.date = DateOnly(2026, 9, 17))))
+                }
 
                 div {
-                    _class "grid gap-8 lg:grid-cols-2"
+                    _class "order-1 grid gap-8 md:order-none lg:grid-cols-2"
 
                     section
                         "Next up"
@@ -1399,7 +1368,7 @@ module PageExamples =
                         "Finish your workspace"
                         [ FirstStep.create "schedule" "Review this week's schedule"
                           |> FirstStep.withAction (link (url Scheduling) "Open schedule")
-                          FirstStep.create "photos" "Prepare your session photographs"
+                          FirstStep.create "photos" "Prepare your session assets"
                           |> FirstStep.withDescription "Review descriptions before sharing a collection."
                           |> FirstStep.withAction (link (url MediaManagement) "Open photos") ]
                     |> FirstSteps.render
@@ -1408,10 +1377,13 @@ module PageExamples =
         workspace
             Operations
             "Good morning, Andy"
-            "Thursday, September 17 · Northwind Outdoor"
+            "Thursday, September 17"
             false
-            [ ApplicationAction.link (url Scheduling) "View schedule"
-              |> ApplicationAction.withVariant ButtonVariant.Primary ]
+            [ a {
+                _href (url Scheduling)
+                _class "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] px-3 text-sm font-medium text-white hover:bg-[var(--fve-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                "View schedule"
+              } ]
             (stateContent Operations query content)
 
     let scheduling query =
@@ -1441,10 +1413,10 @@ module PageExamples =
                         })
 
                     section
-                        "Session photographs"
+                        "Session assets"
                         (link
                             (queryUrl MediaManagement { defaultQuery with item = event.photo })
-                            "View matching photograph")
+                            "View matching asset")
 
                     link (url Scheduling) "Back to schedule"
                 },
@@ -1452,10 +1424,8 @@ module PageExamples =
             | None ->
                 let view =
                     match query.view with
-                    | "day" -> CalendarView.Day
-                    | "week" -> CalendarView.Week
-                    | "year" -> CalendarView.Year
-                    | _ -> CalendarView.Month
+                    | "day" | "week" | "year" -> query.view
+                    | _ -> "month"
 
                 let today = DateOnly(2026, 9, 17)
                 let offset =
@@ -1463,48 +1433,88 @@ module PageExamples =
                     | true, value -> Math.Clamp(value, -366, 366)
                     | _ -> 0
                 let start = today.AddDays offset
+                let startValue = start.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
                 let step direction =
                     let target =
                         match view with
-                        | CalendarView.Day -> start.AddDays direction
-                        | CalendarView.Week -> start.AddDays(direction * 7)
-                        | CalendarView.Month -> start.AddMonths direction
-                        | CalendarView.Year -> start.AddYears direction
+                        | "day" -> start.AddDays direction
+                        | "week" -> start.AddDays(direction * 7)
+                        | "year" -> start.AddYears direction
+                        | _ -> start.AddMonths direction
                     target.DayNumber - today.DayNumber
 
-                Calendar.create
-                    "Schedule"
-                    view
-                    start
+                let events =
                     [ for event in scheduledEvents ->
-                          CalendarEvent.create
-                              event.id
-                              event.name
-                              event.date
-                              (eventUrl event)
+                          CalendarEvent.create event.id event.name event.date (eventUrl event)
                           |> CalendarEvent.withTime event.start event.finish
                           |> CalendarEvent.withDetail event.people ]
-                |> Calendar.withToday today (queryUrl Scheduling { query with range = "0" })
-                |> Calendar.withSelectedDate start
-                |> Calendar.withDateDestination (fun date -> queryUrl Scheduling { query with view = "day"; range = string (date.DayNumber - today.DayNumber) })
-                |> (if step -1 >= -366 then Calendar.withPrevious (queryUrl Scheduling { query with range = string (step -1) }) else id)
-                |> (if step 1 <= 366 then Calendar.withNext (queryUrl Scheduling { query with range = string (step 1) }) else id)
-                |> Calendar.withViewDestinations
-                    [ for value, label in
-                          [ CalendarView.Day, "day"
-                            CalendarView.Week, "week"
-                            CalendarView.Month, "month"
-                            CalendarView.Year, "year" ] ->
-                          value, queryUrl Scheduling { query with view = label } ]
-                |> Calendar.render id,
+                let dateDestination (date:DateOnly) = queryUrl Scheduling { query with view = "day"; range = string (date.DayNumber - today.DayNumber) }
+                let todayDestination = queryUrl Scheduling { query with range = "0" }
+                let previous = queryUrl Scheduling { query with range = string (step -1) }
+                let next = queryUrl Scheduling { query with range = string (step 1) }
+                let calendar =
+                    match view with
+                    | "day" ->
+                        DayCalendar.create "Daily sessions" start events
+                        |> DayCalendar.withToday today todayDestination
+                        |> DayCalendar.withSelectedDate start
+                        |> DayCalendar.withDateDestination dateDestination
+                        |> (if step -1 >= -366 then DayCalendar.withPrevious previous else id)
+                        |> (if step 1 <= 366 then DayCalendar.withNext next else id)
+                        |> DayCalendar.render id
+                    | "week" ->
+                        WeekCalendar.create "Weekly sessions" start events
+                        |> WeekCalendar.withToday today todayDestination
+                        |> WeekCalendar.withSelectedDate start
+                        |> WeekCalendar.withDateDestination dateDestination
+                        |> (if step -1 >= -366 then WeekCalendar.withPrevious previous else id)
+                        |> (if step 1 <= 366 then WeekCalendar.withNext next else id)
+                        |> WeekCalendar.render id
+                    | "year" ->
+                        YearCalendar.create "Annual sessions" start events
+                        |> YearCalendar.withToday today todayDestination
+                        |> YearCalendar.withSelectedDate start
+                        |> YearCalendar.withDateDestination dateDestination
+                        |> (if step -1 >= -366 then YearCalendar.withPrevious previous else id)
+                        |> (if step 1 <= 366 then YearCalendar.withNext next else id)
+                        |> YearCalendar.render id
+                    | _ ->
+                        MonthCalendar.create "Monthly sessions" start events
+                        |> MonthCalendar.withToday today todayDestination
+                        |> MonthCalendar.withSelectedDate start
+                        |> MonthCalendar.withDateDestination dateDestination
+                        |> (if step -1 >= -366 then MonthCalendar.withPrevious previous else id)
+                        |> (if step 1 <= 366 then MonthCalendar.withNext next else id)
+                        |> MonthCalendar.render id
+                Html.section {
+                    _ariaLabel "Schedule"
+                    _attr ("data-view", view)
+                    _class "grid min-w-0 gap-4"
+                    nav {
+                        _ariaLabel "Schedule calendar view"
+                        _class "flex flex-wrap gap-1"
+                        for value, label in [ "day", "Day"; "week", "Week"; "month", "Month"; "year", "Year" ] do
+                            a {
+                                _href (queryUrl Scheduling { query with view = value })
+                                if view = value then _ariaCurrent "page"
+                                _class "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-3 py-1 text-sm font-medium no-underline hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] aria-[current=page]:bg-[var(--fve-brand-subtle)] aria-[current=page]:text-[var(--fve-brand-text)]"
+                                label
+                            }
+                    }
+                    div {
+                        _id ("scheduling-calendar-" + view + "-" + startValue)
+                        _dataInit $"el.fveCalendarObserver?.disconnect(); const cell = el.querySelector('[data-date=\"{startValue}\"]'); const region = cell?.closest('[role=region]'); if (cell && region) {{ const observer = new ResizeObserver(() => {{ if (!el.isConnected) {{ observer.disconnect(); return }}; if (!region.clientWidth) return; const c = cell.getBoundingClientRect(), r = region.getBoundingClientRect(); const hours = region.querySelector('.fve-calendar-hours')?.clientWidth || 0; region.scrollLeft += c.left - r.left - Math.max(hours, (region.clientWidth - c.width) / 2) }}); el.fveCalendarObserver = observer; observer.observe(region) }}"
+                        calendar
+                    }
+                },
                 "Schedule"
 
         workspace
             Scheduling
             heading
-            "Northwind Outdoor · Times in America/New_York"
+            "Eastern time"
             false
-            [ ApplicationAction.link (url Operations) "Overview" ]
+            []
             (stateContent Scheduling query content)
 
     type WorkspacePhoto =
@@ -1516,34 +1526,34 @@ module PageExamples =
 
     let initialPhotos =
         [ { id = "photo-301"
-            name = "Camp on the coastal trail"
-            source = "/images/page-examples/blue.png"
-            alt = "Solid blue background"
+            name = "Social card"
+            source = "/social-card.png"
+            alt = "FSharp.ViewEngine — Typed HTML views for F#"
             eventId = "camp-017" }
           { id = "photo-302"
-            name = "Taking the first turn"
-            source = "/images/page-examples/teal.png"
-            alt = "Solid teal background"
+            name = "App icon"
+            source = "/android-chrome-512x512.png"
+            alt = "FSharp.ViewEngine blue code-mark icon"
             eventId = "lesson-202" }
           { id = "photo-303"
-            name = "Before the lesson"
-            source = "/images/page-examples/amber.png"
-            alt = "Solid amber background"
+            name = "Touch icon"
+            source = "/apple-touch-icon.png"
+            alt = "FSharp.ViewEngine blue code-mark touch icon"
             eventId = "lesson-201" }
           { id = "photo-304"
-            name = "A quiet afternoon"
-            source = "/images/page-examples/green.png"
-            alt = "Solid green background"
+            name = "Browser icon"
+            source = "/favicon-32x32.png"
+            alt = "FSharp.ViewEngine blue code-mark browser icon"
             eventId = "ride-019" }
           { id = "photo-305"
-            name = "A moment to learn"
-            source = "/images/page-examples/coral.png"
-            alt = "Solid coral background"
+            name = "Small favicon"
+            source = "/favicon-16x16.png"
+            alt = "FSharp.ViewEngine blue code-mark favicon"
             eventId = "camp-017" }
           { id = "photo-306"
-            name = "Building confidence"
-            source = "/images/page-examples/violet.png"
-            alt = "Solid violet background"
+            name = "Vector logo"
+            source = "/logo.svg"
+            alt = "FSharp.ViewEngine code-mark logo"
             eventId = "lesson-201" } ]
 
     let uploadedPhoto =
@@ -1583,7 +1593,7 @@ module PageExamples =
                 _action (url MediaManagement + "/save?item=" + photo.id)
                 _class "grid content-start gap-5"
 
-                Input.create "name" "Photo name"
+                Input.create "name" "Asset name"
                 |> Input.withValue photo.name
                 |> Input.required
                 |> Input.withAttributes [ _maxlength 120 ]
@@ -1592,7 +1602,7 @@ module PageExamples =
                 Textarea.create "alt" "Image description"
                 |> Textarea.withValue photo.alt
                 |> Textarea.withRows 3
-                |> Textarea.withDescription "Describe the scene for people who cannot see the photograph."
+                |> Textarea.withDescription "Describe the image for people who cannot see it."
                 |> Textarea.required
                 |> Textarea.withAttributes [ _maxlength 500 ]
                 |> Textarea.render
@@ -1606,12 +1616,13 @@ module PageExamples =
                 div {
                     _class "flex flex-wrap items-center gap-3"
 
-                    Button.create "Save changes"
-                    |> Button.withVariant ButtonVariant.Primary
+                    Button.create (ButtonContent.Text "Save changes")
+                    |> Button.withColor ButtonColor.Primary
+                    |> Button.withVariant ButtonVariant.Solid
                     |> Button.asSubmit
                     |> Button.render
 
-                    link (url MediaManagement) "Back to photos"
+                    link (url MediaManagement) "Back to media"
                 }
 
                 match scheduledEvents |> List.tryFind (fun event -> event.id = photo.eventId) with
@@ -1635,7 +1646,7 @@ module PageExamples =
                     _action (url MediaManagement + "/upload")
                     _class "grid gap-5"
 
-                    Input.create "name" "Photo name"
+                    Input.create "name" "Asset name"
                     |> Input.withId "media-upload-name"
                     |> Input.required
                     |> Input.withAttributes [ _maxlength 120 ]
@@ -1656,7 +1667,7 @@ module PageExamples =
                         }
                 }
 
-                FileSelection.create "media-upload-image" "image" "Photograph"
+                FileSelection.create "media-upload-image" "image" "Image file"
                 |> FileSelection.withAccept "image/jpeg,image/png,image/webp"
                 |> FileSelection.withDescription
                     "Selected files stay in your browser. This documentation fixture never submits or stores their contents."
@@ -1664,33 +1675,35 @@ module PageExamples =
             }
 
         let uploadDrawer =
-            Drawer.create "media-upload-drawer" "Upload photograph" uploadBody
+            Drawer.create "media-upload-drawer" "Upload asset" uploadBody
             |> Drawer.withDescription "Review a safe upload workflow using a repository-owned success fixture."
             |> Drawer.withInitialFocus "media-upload-name"
             |> Drawer.withFooter (
                 fragment {
-                    Button.create "Cancel"
+                    Button.create (ButtonContent.Text "Cancel")
                     |> Button.withAttributes [
                         _dataOn ("click", "document.getElementById('media-upload-drawer')?.close()") ]
                     |> Button.render
 
-                    Button.create "Upload"
+                    Button.create (ButtonContent.Text "Upload")
                     |> Button.asSubmit
-                    |> Button.withVariant ButtonVariant.Primary
+                    |> Button.withColor ButtonColor.Primary
+                    |> Button.withVariant ButtonVariant.Solid
                     |> Button.withAttributes [ _form "media-upload-form" ]
                     |> Button.render
                 }
             )
 
         let uploadAction =
-            ApplicationAction.command
-                "document.getElementById('media-upload-drawer')?.showModal(); queueMicrotask(() => document.getElementById('media-upload-name')?.focus())"
-                "Upload"
-            |> ApplicationAction.withVariant ButtonVariant.Primary
-            |> ApplicationAction.withAttributes [
+            Button.create (ButtonContent.Text "Upload")
+            |> Button.withColor ButtonColor.Primary
+            |> Button.withVariant ButtonVariant.Solid
+            |> Button.withAttributes [
+                _dataOn ("click", "document.getElementById('media-upload-drawer')?.showModal(); queueMicrotask(() => document.getElementById('media-upload-name')?.focus())")
                 _id "media-upload-drawer-trigger"
                 _ariaHaspopup "dialog"
                 _ariaControls "media-upload-drawer" ]
+            |> Button.render
 
         let content, heading =
             match selected with
@@ -1720,7 +1733,7 @@ module PageExamples =
                 div {
                     _class "grid gap-6"
 
-                    MediaLibrary.create "fieldwork-photos" "Session photographs" "photoIds" assets
+                    MediaLibrary.create "fieldwork-photos" "Session assets" "photoIds" assets
                     |> MediaLibrary.render id
 
                     if query.view = "upload-error" then
@@ -1731,16 +1744,15 @@ module PageExamples =
 
                     uploadDrawer |> Drawer.render
                 },
-                "Photos"
+                "Media"
 
         let actions =
-            [ if query.state = Ready && selected.IsNone then uploadAction
-              ApplicationAction.link (url Scheduling) "View schedule" ]
+            [ if query.state = Ready && selected.IsNone then uploadAction ]
 
         workspace
             MediaManagement
             heading
-            "Northwind Outdoor · Session library"
+            "Session assets"
             false
             actions
             (stateContent MediaManagement query content)
@@ -1762,7 +1774,9 @@ module PageExamples =
         }
         |> Browser.create
         |> Browser.withAddress ("https://fve.meiermade.com" + queryUrl page query)
-        |> Fixture.browser "page-workspace" (title page) (queryUrl page query)
+        |> Browser.render
+        |> Fixture.create "page-workspace" (title page) (queryUrl page query)
+        |> Fixture.withFullscreenContent (product page query)
         |> Fixture.withStates
             [ for state, label in reviewStates page ->
                   FixtureState.create label (queryUrl page { query with state = state })
@@ -1807,6 +1821,7 @@ module PageExamples =
               "stateKey"
               "queryUrl"
               "link"
+              "pageLink"
               "section"
               "details"
               "reviewStates"
@@ -1875,6 +1890,6 @@ module PageExamples =
         + usage
         + " }\n|> Browser.create\n|> Browser.withAddress \"https://fve.meiermade.com"
         + queryUrl page defaultQuery
-        + "\"\n|> Fixture.browser \"page-workspace\" \"Workspace\" \""
+        + "\"\n|> Browser.render\n|> Fixture.create \"page-workspace\" \"Workspace\" \""
         + queryUrl page defaultQuery
-        + "\"\n|> Fixture.render"
+        + "\"\n|> Fixture.withFullscreenContent (" + usage + ")\n|> Fixture.render"
