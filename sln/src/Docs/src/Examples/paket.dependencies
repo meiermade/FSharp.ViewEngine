@@ -1,0 +1,2 @@
+// These downloadable projects own their PackageReference dependencies.
+// Stop Paket from inheriting the Docs host's paket.references and rewriting them.
