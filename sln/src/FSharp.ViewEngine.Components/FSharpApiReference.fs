@@ -46,6 +46,26 @@ module private FSharpApiReflection =
         let path = IO.Path.ChangeExtension(anchor.Assembly.Location, ".xml")
         if IO.File.Exists path then Some(XDocument.Load path) else None
 
+    let remarks (anchor:Type) =
+        documentation anchor
+        |> Option.toList
+        |> List.collect (fun document ->
+            document.Descendants(XName.Get "member")
+            |> Seq.choose (fun member' ->
+                let name = member'.Attribute(XName.Get "name")
+                let remarks = member'.Element(XName.Get "remarks")
+                if isNull name || isNull remarks || not (name.Value.StartsWith("T:", StringComparison.Ordinal)) then None
+                else
+                    let comments =
+                        remarks.Value.Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                        |> Array.map _.Trim()
+                        |> Array.filter (String.IsNullOrWhiteSpace >> not)
+                        |> Array.map (fun line -> "/// " + line)
+                        |> String.concat "\n"
+                    Some(name.Value.Substring(2), comments))
+            |> Seq.toList)
+        |> Map.ofList
+
     let private opaqueRecord (type':Type) =
         FSharpType.IsRecord(type', true)
         && (FSharpType.GetRecordFields(type', true) |> Array.forall (fun field -> not field.GetMethod.IsPublic))
@@ -72,7 +92,7 @@ module private FSharpApiReflection =
 
     let private unionDeclaration (type':Type) =
         let cases =
-            FSharpType.GetUnionCases(type', true)
+            FSharpType.GetUnionCases type'
             |> Array.map (fun case ->
                 let fields = case.GetFields()
                 if Array.isEmpty fields then "    | " + case.Name
@@ -109,7 +129,7 @@ module private FSharpApiReflection =
             let moduleName = simpleName type'.Name
             let sourceName = if moduleName.EndsWith("Module", StringComparison.Ordinal) then moduleName.Substring(0, moduleName.Length - "Module".Length) else moduleName
             "module " + sourceName + " =\n" + String.concat "\n" methods
-        elif FSharpType.IsUnion(type', true) then unionDeclaration type'
+        elif FSharpType.IsUnion type' then unionDeclaration type'
         elif FSharpType.IsRecord(type', true) then recordDeclaration type'
         else "type " + typeName type'
 
@@ -130,9 +150,15 @@ module FSharpApiReference =
         | [] -> invalidArg (nameof owner) $"No public F# declarations are documented for the '{owner}' category."
         | types -> create types
 
-    /// Renders signatures from the compiled F# declarations without exposing private config fields.
+    /// Renders compiled signatures and declaration-owned XML usage remarks without exposing private config fields.
     let render (config:FSharpApiReferenceConfig) =
-        let source = config.types |> List.map FSharpApiReflection.declaration |> String.concat "\n\n"
+        let remarks = FSharpApiReflection.remarks (List.head config.types)
+        let source =
+            config.types
+            |> List.map (fun type' ->
+                let comments = remarks |> Map.tryFind type'.FullName |> Option.map (fun value -> value + "\n") |> Option.defaultValue ""
+                comments + FSharpApiReflection.declaration type')
+            |> String.concat "\n\n"
         div {
             _attr ("data-fve-api-reference", "true")
             _class "grid min-w-0 gap-4"

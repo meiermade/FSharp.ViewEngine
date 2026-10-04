@@ -85,6 +85,10 @@ module internal ButtonStyles =
         }
 
 /// <summary>Builds and renders semantic button controls.</summary>
+/// <remarks>
+/// Icon-only content requires an accessible name; Custom content must not contain interactive controls.
+/// Custom palettes must supply contrasting foreground, background, border and focus colors in both themes.
+/// </remarks>
 /// <category>button</category>
 [<RequireQualifiedAccess>]
 module Button =

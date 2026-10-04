@@ -32,6 +32,7 @@ type DatePickerConfig =
 /// <summary>
 /// A labelled form field that composes Popover and compact MonthCalendar selection.
 /// </summary>
+/// <remarks>Submitted date-only values must still be validated by the server.</remarks>
 /// <category>date-picker</category>
 [<RequireQualifiedAccess>]
 module DatePicker =

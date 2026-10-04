@@ -26,11 +26,13 @@ module Model =
         | ApplicationPage.Settings -> "/examples/application/settings"
         | ApplicationPage.SettingsSection key -> "/examples/application/settings/"+key
         | ApplicationPage.Profile -> "/examples/application/profile"
-    type Query = { search:string; accountType:string; sort:string; state:string; embedded:bool; workspace:Workspace; account:string; range:string; comparison:string; status:string; appMode:bool; specState:string; resource:string; dock:string; specification:bool; previewId:string }
-    let defaultQuery = { search=""; accountType="all"; sort="name"; state=""; embedded=false; workspace=defaultWorkspace; account="all"; range="90"; comparison="expected"; status="all"; appMode=false; specState=""; resource=""; dock="bottom"; specification=false; previewId="" }
+    type Query = { search:string; accountType:string; filters:string list; sort:string; state:string; embedded:bool; workspace:Workspace; account:string; range:string; comparison:string; status:string; appMode:bool; specState:string; resource:string; dock:string; specification:bool; previewId:string }
+    let defaultQuery = { search=""; accountType="all"; filters=[]; sort="name"; state=""; embedded=false; workspace=defaultWorkspace; account="all"; range="90"; comparison="expected"; status="all"; appMode=false; specState=""; resource=""; dock="bottom"; specification=false; previewId="" }
     let queryFromValues (value:string -> string) =
         let fallback key defaultValue = if value key="" then defaultValue else value key
-        { search=value "search"; accountType=fallback "accountType" "all"; sort=fallback "sort" "name"; state=value "state"; embedded=value "embedded"="1"
+        { search=value "search"; accountType=fallback "accountType" "all"
+          filters=(value "filters").Split(',', StringSplitOptions.RemoveEmptyEntries) |> Array.toList |> List.distinct |> List.filter (fun name -> List.contains name ["accountType";"status";"account"])
+          sort=fallback "sort" "name"; state=value "state"; embedded=value "embedded"="1"
           workspace=workspaceFromStrings (value "organization") (value "environment") (value "ledger")
           account=fallback "account" "all"; range=fallback "range" "90"; comparison=fallback "comparison" "expected"; status=fallback "status" "all"; appMode=(value "appMode"="1" || value "fveAppMode"="app"); specState=value "specState"; resource=value "resource"; dock=(if value "fveAppDock"="top" then "top" else "bottom"); specification=false; previewId="" }
     let elementId (query:Query) id = if query.previewId="" then id else query.previewId+"-"+id
@@ -60,6 +62,13 @@ module Model =
             let workflow,state,resource = specificationDestination page ""
             specificationHref workflow state {query with resource=resource}
         else workspaceUrl (applicationUrl page) query.workspace+(if query.embedded then "&embedded=1" else "")
+    /// Public collection controls, not submitted editor values or selected record keys.
+    let collectionQueryPairs (query:Query) =
+        [ "search",query.search; "accountType",query.accountType; "status",query.status
+          "account",query.account; "sort",query.sort; "filters",String.concat "," query.filters ]
+    let collectionHref (query:Query) page =
+        applicationHref query page + querySuffix (collectionQueryPairs query)
+
     let private jsonOptions = System.Text.Json.JsonSerializerOptions(WriteIndented=true)
     let accountPayload (account:Account) =
         System.Text.Json.JsonSerializer.Serialize ({| id=account.id; name=account.name; accountType=string account.accountType; currency=account.currency; balance=balance account |},jsonOptions)

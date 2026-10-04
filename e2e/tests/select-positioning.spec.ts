@@ -1,14 +1,18 @@
 import { test, expect, type Locator } from '@playwright/test'
 
 const centers = async (trigger: Locator, option: Locator) => {
-  const triggerBox = await trigger.boundingBox()
-  const optionBox = await option.boundingBox()
-  return {
-    triggerX: triggerBox!.x + 12,
-    triggerY: triggerBox!.y + triggerBox!.height / 2,
-    optionX: optionBox!.x + 12,
-    optionY: optionBox!.y + optionBox!.height / 2,
+  const labelPosition = (element: HTMLElement) => {
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT)
+    let label = walker.nextNode()
+    while (label && !label.textContent?.trim()) label = walker.nextNode()
+    const range = document.createRange()
+    range.selectNodeContents(label!)
+    const box = element.getBoundingClientRect()
+    return { x: range.getBoundingClientRect().x, y: box.y + box.height / 2 }
   }
+  const triggerPosition = await trigger.evaluate(labelPosition)
+  const optionPosition = await option.evaluate(labelPosition)
+  return { triggerX: triggerPosition.x, triggerY: triggerPosition.y, optionX: optionPosition.x, optionY: optionPosition.y }
 }
 
 test('ordinary Select aligns its selected option over the closed value and tracks page scroll @cross-browser', async ({ page }) => {
@@ -22,13 +26,21 @@ test('ordinary Select aligns its selected option over the closed value and track
   expect(Math.abs(position.triggerX - position.optionX)).toBeLessThanOrEqual(1)
   expect(Math.abs(position.triggerY - position.optionY)).toBeLessThanOrEqual(1)
 
-  await page.evaluate(() => scrollBy(0, 80))
-  position = await centers(trigger, selected)
-  expect(Math.abs(position.triggerY - position.optionY)).toBeLessThanOrEqual(1)
+  await page.locator('[data-docs-main]').evaluate(element => { element.scrollTop += 80 })
+  await expect.poll(async () => {
+    position = await centers(trigger, selected)
+    return Math.abs(position.triggerY - position.optionY)
+  }).toBeLessThanOrEqual(1)
   await page.keyboard.press('ArrowDown')
   await page.keyboard.press('Enter')
   await expect(trigger).toContainText('Daily')
   await expect(trigger).toBeFocused()
+  await trigger.click()
+  await expect(selected).toHaveText('Daily✓')
+  await expect.poll(async () => {
+    position = await centers(trigger, selected)
+    return Math.abs(position.triggerY - position.optionY)
+  }).toBeLessThanOrEqual(1)
 })
 
 test('Select trigger-edge and touch positioning remain visible @cross-browser', async ({ browser }) => {

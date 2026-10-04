@@ -76,12 +76,16 @@ let private submit : HttpHandler =
                 | Some(destination,state) ->
                     context.Response.Headers.CacheControl <- "private, no-store"
                     // All outcomes are finite authored states. Submitted values are never retained in URLs, cookies or storage.
+                    let collectionContext =
+                        match applicationPage with
+                        | Some ApplicationPage.Accounts | Some ApplicationPage.Transactions -> querySuffix (collectionQueryPairs submittedContext)
+                        | _ -> ""
                     let destination =
                         if Routing.specificationPage path |> Option.isSome then
                             let page = applicationPage |> Option.get
                             let workflow,variant,resource = specificationDestination page state
-                            specificationHref workflow variant {submittedContext with resource=resource;specification=true}+querySuffix ["state",state]
-                        else workspaceUrl destination submittedContext.workspace+querySuffix [ yield "state",state; if submittedContext.embedded then yield "embedded","1" ]
+                            specificationHref workflow variant {submittedContext with resource=resource;specification=true}+querySuffix ["state",state]+collectionContext
+                        else workspaceUrl destination submittedContext.workspace+querySuffix [ yield "state",state; if submittedContext.embedded then yield "embedded","1" ]+collectionContext
                     return! redirectTo false destination next context
                 | None -> return! (setStatusCode 404 >=> text "Example action not found.") next context
             with

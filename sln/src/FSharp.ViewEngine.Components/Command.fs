@@ -71,6 +71,10 @@ type CommandConfig<'destination> =
 /// A grouped, locally searchable command menu with real links, trusted actions and combobox keyboard behavior.
 /// Query and active-option state are ephemeral; the consumer owns available commands and their effects.
 /// </summary>
+/// <remarks>
+/// Shortcut labels do not register hotkeys. Matching ranks titles before keywords and descriptions;
+/// group order, available commands and trusted action effects remain consumer-owned.
+/// </remarks>
 /// <category>command</category>
 [<RequireQualifiedAccess>]
 module Command =

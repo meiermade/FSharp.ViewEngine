@@ -28,6 +28,7 @@ type SkeletonRegionConfig =
           content:HtmlElement
           attributes:HtmlAttribute list }
 
+/// <remarks>Use for initial loading, not to replace established content during navigation.</remarks>
 /// <category>skeleton</category>
 [<RequireQualifiedAccess>]
 module Skeleton =

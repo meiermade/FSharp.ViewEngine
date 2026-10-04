@@ -55,6 +55,7 @@ type ResizableConfig =
           orientation:ResizableOrientation
           attributes:HtmlAttribute list }
 
+/// <remarks>Resizing state is local; durable layout persistence remains consumer-owned.</remarks>
 /// <category>resizable</category>
 [<RequireQualifiedAccess>]
 module Resizable =
@@ -66,7 +67,8 @@ module Resizable =
     let withOrientation orientation (config:ResizableConfig) = { config with orientation = orientation }
     let withAttributes attributes (config:ResizableConfig) = { config with attributes = attributes }
 
-    let render (config:ResizableConfig) =
+    // The catalog shell reuses panel behavior with unframed, responsive presentation.
+    let internal renderWithClasses (rootClasses:string) (leadingClasses:string) (trailingClasses:string) (handleClasses:string) (config:ResizableConfig) =
         let signal = $"_{ComponentHtml.signalToken config.id}_size"
         let isHorizontal = config.orientation = ResizableOrientation.Horizontal
         let coordinate = if isHorizontal then "clientX" else "clientY"
@@ -87,21 +89,22 @@ module Resizable =
                 $"evt.key == 'Home' && (evt.preventDefault(), ${signal} = {minimum})"
                 $"evt.key == 'End' && (evt.preventDefault(), ${signal} = {config.leading.maximumSize})"
                 if not (String.IsNullOrEmpty toggleCollapse) then $"evt.key == 'Enter' && (evt.preventDefault(), {toggleCollapse})" ]
-        section {
+        div {
             _id config.id
+            _role "group"
             _ariaLabel config.label
-            _dataSignals $"{{{signal}: {config.leading.initialSize}}}"
-            _class (if isHorizontal then "flex min-h-64 min-w-0 overflow-hidden rounded-[var(--fve-radius-panel)] ring-1 ring-inset ring-[var(--fve-border)]" else "flex min-h-96 min-w-0 flex-col overflow-hidden rounded-[var(--fve-radius-panel)] ring-1 ring-inset ring-[var(--fve-border)]")
+            _attr ("data-signals__ifmissing", $"{{{signal}: {config.leading.initialSize}}}")
+            _class rootClasses
             for attribute in ComponentHtml.safeAttributes [ "class"; "aria-label" ] config.attributes do attribute
             div {
-                _class "min-h-0 min-w-0 shrink-0 overflow-auto"
+                _class leadingClasses
                 _dataAttr ("style", $"'flex-basis:' + ${signal} + '%%' ")
                 config.leading.content
             }
             div {
                 _role "separator"
                 _tabindex 0
-                _ariaLabel "Resize panels"
+                _ariaLabel ("Resize " + config.label)
                 _ariaOrientation (if isHorizontal then "vertical" else "horizontal")
                 _ariaValuemin (string collapsed)
                 _ariaValuemax (string config.leading.maximumSize)
@@ -112,8 +115,14 @@ module Resizable =
                 _dataOn ("pointermove", pointerMove)
                 _dataOn ("keydown", keyboard)
                 if not (String.IsNullOrEmpty toggleCollapse) then _dataOn ("dblclick", toggleCollapse)
-                _class (if isHorizontal then "group relative z-10 flex w-2 shrink-0 touch-none cursor-col-resize items-center justify-center bg-[var(--fve-surface-subtle)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]" else "group relative z-10 flex h-2 shrink-0 touch-none cursor-row-resize items-center justify-center bg-[var(--fve-surface-subtle)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]")
+                _class handleClasses
                 span { _ariaHidden true; _class (if isHorizontal then "h-8 w-1 rounded-full bg-[var(--fve-border)] group-hover:bg-[var(--fve-muted-text)]" else "h-1 w-8 rounded-full bg-[var(--fve-border)] group-hover:bg-[var(--fve-muted-text)]") }
             }
-            div { _class "min-h-0 min-w-0 flex-1 overflow-auto"; config.trailing }
+            div { _class trailingClasses; config.trailing }
         }
+
+    let render (config:ResizableConfig) =
+        let isHorizontal = config.orientation = ResizableOrientation.Horizontal
+        let root = if isHorizontal then "flex min-h-64 min-w-0 overflow-hidden rounded-[var(--fve-radius-panel)] ring-1 ring-inset ring-[var(--fve-border)]" else "flex min-h-96 min-w-0 flex-col overflow-hidden rounded-[var(--fve-radius-panel)] ring-1 ring-inset ring-[var(--fve-border)]"
+        let handle = if isHorizontal then "group relative z-10 flex w-2 shrink-0 touch-none cursor-col-resize items-center justify-center bg-[var(--fve-surface-subtle)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]" else "group relative z-10 flex h-2 shrink-0 touch-none cursor-row-resize items-center justify-center bg-[var(--fve-surface-subtle)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+        renderWithClasses root "min-h-0 min-w-0 shrink-0 overflow-auto" "min-h-0 min-w-0 flex-1 overflow-auto" handle config

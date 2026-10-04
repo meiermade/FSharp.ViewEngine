@@ -24,4 +24,4 @@ module WeekCalendar =
     let withError message (WeekCalendarConfig config) = CalendarRendering.withError message config |> WeekCalendarConfig
     let withUnavailable message (WeekCalendarConfig config) = CalendarRendering.withUnavailable message config |> WeekCalendarConfig
     let withStateAction action (WeekCalendarConfig config) = CalendarRendering.withStateAction action config |> WeekCalendarConfig
-    let render resolve (WeekCalendarConfig config) = CalendarRendering.render resolve (fun _ _ -> empty) config
+    let render resolve (WeekCalendarConfig config) = CalendarRendering.render resolve (fun _ _ -> empty) None config

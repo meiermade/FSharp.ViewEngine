@@ -201,7 +201,7 @@ module private ViewStyles =
     let navList = "m-0 min-w-0 list-none p-0 [&>li+li]:mt-px"
     let sectionContent = "flex flex-col gap-4 text-[var(--fve-text)]"
     let codeSurface = "bg-[var(--fve-docs-code-surface,var(--fve-background))] text-[var(--fve-text)]"
-    let tocLinks = "flex flex-col gap-2 [&>a]:text-sm [&>a]:leading-5 [&>a]:text-[var(--fve-muted-text)] [&>a]:no-underline [&>a:hover]:text-[var(--fve-brand-text)] [&>a[aria-current=location]]:font-semibold [&>a[aria-current=location]]:text-[var(--fve-brand-text)]"
+    let tocLinks = "flex min-w-0 flex-col gap-2 [&>a]:min-w-0 [&>a]:whitespace-normal [&>a]:[overflow-wrap:anywhere] [&>a]:text-sm [&>a]:leading-5 [&>a]:text-[var(--fve-muted-text)] [&>a]:no-underline [&>a:hover]:text-[var(--fve-brand-text)] [&>a[aria-current=location]]:font-semibold [&>a[aria-current=location]]:text-[var(--fve-brand-text)]"
 
 module private DocsSectionView =
     let render showHeading (docSection:DocumentationSectionConfig) =
@@ -285,7 +285,7 @@ module private NavigationView =
                         _data("attr:data-open", $"${signal} ? 'true' : 'false'")
                         Icons.chevron
                     }
-                    span { _class "min-w-0 flex-1 whitespace-nowrap"; group.label }
+                    span { _class "min-w-0 flex-1 whitespace-normal [overflow-wrap:anywhere]"; group.label }
                 }
                 ul {
                     _id $"nav-children-{group.id}"
@@ -305,14 +305,14 @@ module private NavigationView =
                     if isActive then _ariaCurrent "page"
                     _class $"{ViewStyles.navItem} data-[selected=true]:bg-[var(--fve-brand-subtle)] data-[selected=true]:font-semibold data-[selected=true]:text-[var(--fve-brand-text)]"
                     span { _class "grid size-4 shrink-0 place-items-center"; _ariaHidden "true" }
-                    span { _class "min-w-0 flex-1 whitespace-nowrap"; page.label }
+                    span { _class "min-w-0 flex-1 whitespace-normal [overflow-wrap:anywhere]"; page.label }
                 }
         }
 
     let sideNav (site:DocsSite<'destination>) (items:NavNode<'destination> list) activeId =
         aside {
             _id "side-nav"
-            _class "fixed inset-y-0 left-0 z-50 hidden h-dvh w-[min(18rem,calc(100vw-3rem))] border-r border-[var(--fve-border)] bg-[var(--fve-background)] shadow-xl lg:sticky lg:block lg:w-[min(18rem,24vw)] lg:shadow-none"
+            _class "fixed inset-y-0 left-0 z-50 hidden h-dvh w-[min(18rem,calc(100vw-3rem))] border-r border-[var(--fve-border)] bg-[var(--fve-background)] shadow-xl lg:relative lg:block lg:h-full lg:w-full lg:shadow-none"
             _ariaLabel "Documentation navigation"
             _data("class:hidden", "!$sideNavOpen")
             _data("docs-side-nav", "true")
@@ -321,7 +321,7 @@ module private NavigationView =
                 div {
                     _class "flex h-12 shrink-0 items-center gap-2.5 border-b border-[var(--fve-border)] px-4"
                     div { _class "flex size-7 items-center justify-center [&>img]:max-h-full [&>img]:max-w-full [&>svg]:max-h-full [&>svg]:max-w-full"; site.brandMark }
-                    div { _class "text-sm font-semibold"; site.name }
+                    div { _class "min-w-0 truncate text-sm font-semibold"; site.name }
                     div { _class "flex-1" }
                     button {
                         _type "button"
@@ -334,7 +334,7 @@ module private NavigationView =
                 }
                 nav {
                     _ariaLabel "Documentation"
-                    _class "min-h-0 flex-1 overflow-auto p-3"
+                    _class "min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3"
                     ul { _class (ViewStyles.navList + " w-full"); for section in items do node activeId section }
                 }
             }
@@ -441,10 +441,10 @@ module private TocView =
 
     let desktop (items:TocItem list) =
         aside {
-            _class "hidden w-[min(16rem,20vw)] shrink-0 overflow-y-auto border-l border-[var(--fve-border)] px-6 py-8 xl:block"
+            _class "hidden h-full min-h-0 min-w-0 w-full overflow-x-hidden overflow-y-auto px-4 py-8 xl:block"
             _data("docs-toc-rail", "true")
             div {
-                _class "sticky top-8"
+                _class "min-w-0"
                 div { _class "mb-3 text-xs font-semibold tracking-[0.14em] text-[var(--fve-muted-text)] uppercase"; "On this page" }
                 links ViewStyles.tocLinks items
             }
@@ -554,6 +554,8 @@ module DocsView =
 
     let sideNav (site:DocsSite<'destination>) (page:DocumentationPageConfig) = sideNavWith site site.navigation page
 
+    let private railResizeHandle = "group relative z-10 hidden w-1 shrink-0 touch-none cursor-col-resize items-center justify-center bg-[var(--fve-border)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+
     let pageContentWith (site:DocsSite<'destination>) (breadcrumbs:Breadcrumb list) (page:DocumentationPageConfig) =
         let items = tocItems page
         let layoutName, layoutClasses, mainClasses, mainInnerClasses =
@@ -574,18 +576,25 @@ module DocsView =
                     _class $"flex h-full min-h-0 {layoutClasses}"
                     _data("docs-page-layout", "true")
                     _data("docs-layout", layoutName)
-                    main {
+                    let mainView = main {
                         _id "main-content"
-                        _class $"min-w-0 flex-1 overflow-y-auto bg-[var(--fve-background)] px-4 py-10 outline-none sm:px-6 lg:px-10 {mainClasses}"
+                        _class $"min-h-0 min-w-0 flex-1 overflow-y-auto bg-[var(--fve-background)] px-4 py-10 outline-none sm:px-6 lg:px-10 {mainClasses}"
                         _data("docs-main", "true")
                         _tabindex -1
                         div { _class $"mx-auto {mainInnerClasses}"; _data("docs-main-inner", "true"); content page }
                     }
                     match page.rightRail with
-                    | TableOfContents when not items.IsEmpty -> TocView.desktop items
-                    | TableOfContents -> ()
-                    | NoRail -> ()
+                    | TableOfContents when not items.IsEmpty ->
+                        let leading = ResizablePanel.create mainView |> ResizablePanel.withBounds 55 85 |> ResizablePanel.withInitialSize 80
+                        Resizable.create "docs-content-panels" "On this page width" leading (TocView.desktop items)
+                        |> Resizable.renderWithClasses
+                            "flex h-full min-h-0 min-w-0 w-full max-xl:contents"
+                            "flex min-h-0 min-w-0 shrink-0 flex-col overflow-hidden max-xl:contents"
+                            "hidden min-h-0 min-w-0 flex-1 overflow-hidden xl:flex"
+                            (railResizeHandle + " xl:flex")
+                    | TableOfContents | NoRail -> mainView
                     | CustomRail rail ->
+                        mainView
                         aside {
                             _class $"w-128 shrink-0 overflow-y-auto border-l border-[var(--fve-border)] {ViewStyles.codeSurface} max-xl:w-auto max-xl:overflow-visible max-xl:border-t max-xl:border-l-0"
                             _data("docs-custom-rail", "true")
@@ -612,8 +621,17 @@ module DocsView =
                 _data("class:hidden", "!$sideNavOpen")
                 _data("on:click", "$sideNavOpen = false; window.fsharpDocsMobileNav.close()")
             }
-            sideNavWith site sideNavItems docPage
-            pageContentWith site breadcrumbs docPage
+            let leading =
+                sideNavWith site sideNavItems docPage
+                |> ResizablePanel.create
+                |> ResizablePanel.withBounds 12 28
+                |> ResizablePanel.withInitialSize 19
+            Resizable.create "docs-navigation-panels" "Documentation navigation width" leading (pageContentWith site breadcrumbs docPage)
+            |> Resizable.renderWithClasses
+                "flex h-full min-h-0 min-w-0 w-full"
+                "min-h-0 min-w-0 shrink-0 overflow-hidden max-lg:contents"
+                "flex min-h-0 min-w-0 flex-1 overflow-hidden"
+                (railResizeHandle + " lg:flex")
         }
 
     let page (site:DocsSite<'destination>) (docPage:DocumentationPageConfig) =

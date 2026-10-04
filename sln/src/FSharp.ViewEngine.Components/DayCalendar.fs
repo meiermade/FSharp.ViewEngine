@@ -24,4 +24,4 @@ module DayCalendar =
     let withError message (DayCalendarConfig config) = CalendarRendering.withError message config |> DayCalendarConfig
     let withUnavailable message (DayCalendarConfig config) = CalendarRendering.withUnavailable message config |> DayCalendarConfig
     let withStateAction action (DayCalendarConfig config) = CalendarRendering.withStateAction action config |> DayCalendarConfig
-    let render resolve (DayCalendarConfig config) = CalendarRendering.render resolve (fun _ _ -> empty) config
+    let render resolve (DayCalendarConfig config) = CalendarRendering.render resolve (fun _ _ -> empty) None config

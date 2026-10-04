@@ -41,37 +41,130 @@ module Application =
     let private statusBadge (status:TransactionStatus) =
         Badge.create (if status=TransactionStatus.Verified then "Verified" else "Unverified")
         |> Badge.withColor (if status=TransactionStatus.Verified then BadgeColor.Success else BadgeColor.Warning) |> Badge.render
+    let private selectedKeys (query:Query) kind =
+        if query.state<>"selected" then []
+        elif kind="accounts" then ["101";"102"] else ["201";"203"]
+    let private collectionSort query page ascending descending =
+        let next = if query.sort=ascending then descending else ascending
+        let href = collectionHref {query with sort=next;state=""} page
+        if query.sort=ascending then TableSort.ascending href
+        elif query.sort=descending then TableSort.descending href
+        else TableSort.by href
     let private transactionTable (query:Query) caption (rows:Transaction list) selectable =
         let url = applicationHref query
         let columns : TableColumn<Transaction> list =
-            [ TableColumn.create "Date" (fun (transaction:Transaction) -> text (date transaction.date))
+            [ TableColumn.create "Date" (fun (transaction:Transaction) -> text (date transaction.date)) |> (if selectable then TableColumn.withSort (collectionSort query ApplicationPage.Transactions "date-asc" "date-desc") else id)
               TableColumn.create "Description" (fun (transaction:Transaction) -> Layout.link (url (ApplicationPage.Transaction transaction.id)) transaction.description) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary
               TableColumn.create "Verification" (fun transaction -> statusBadge transaction.status)
               TableColumn.create "Account" (fun transaction -> Layout.link (url (ApplicationPage.Account transaction.accountId)) (findAccount transaction.accountId).name)
               TableColumn.create "Amount (USD)" (fun transaction -> text (money transaction.amount)) |> TableColumn.alignEnd ]
         let config = Table.create caption columns rows |> Table.withMobileLayout TableMobileLayout.Records
-        let config = if selectable then config |> Table.withSelection (TableSelection.create (elementId query "template-transactions-selection") (fun (transaction:Transaction) -> string transaction.id) (fun transaction -> transaction.description) |> TableSelection.withFormName "transactionIds") else config
+        let config = if selectable then config |> Table.withSelection (TableSelection.create (elementId query "template-transactions-selection") (fun (transaction:Transaction) -> string transaction.id) (fun transaction -> transaction.description) |> TableSelection.withFormName "transactionIds" |> TableSelection.withSelectedKeys (selectedKeys query "transactions")) |> Table.withScrollableRows else config
         config |> Table.render
     let private select query name label selected options =
         Select.create name label id (options |> List.map (fun (value,label) -> SelectOption.create value label)) |> Select.withId (elementId query ("template-"+name)) |> Select.withSelected selected |> Select.render
-    let private batchForm (query:Query) (kind:string) (table:HtmlElement) =
-        let page,selectionId = if kind="accounts" then ApplicationPage.Accounts,elementId query "template-accounts-selection" else ApplicationPage.Transactions,elementId query "template-transactions-selection"
-        form {
-            _method "post"; _action (applicationHref query page); _ariaLabel ("Selected "+kind+" actions"); _class "grid gap-4"
-            contextFields query; table
-            div {
-                _class "flex flex-wrap items-center gap-3"
-                Button.create (ButtonContent.Text "Review selected") |> Button.asSubmit |> Button.withAttributes [_name "action";_value "review-selected"] |> Button.render
-                Button.create (ButtonContent.Text "Clear selection") |> Button.withVariant ButtonVariant.Outline |> Button.withAttributes [_dataOn("click", $"document.getElementById('{selectionId}').dispatchEvent(new CustomEvent('fve-selection-clear'))")] |> Button.render
-                span { _class "text-xs text-[var(--fve-muted-text)]"; "Checks selected rows without changing financial records." }
-            }
-        }
     let private selectionFeedback (query:Query) =
         div {
             _class "contents"
             if query.state="selection-valid" then notice query "template-selection-valid" "Selected records checked" "The selected rows are available in the example. No financial changes were made." NoticeColor.Success
             if query.state="selection-invalid" then notice query "template-selection-invalid" "Choose records" "Select at least one available record before reviewing the selection." NoticeColor.Error
         }
+    // This collection composition belongs to Ledger, not the installed Components library.
+    type private CollectionFilter = { name:string; label:string; value:string; options:(string*string) list }
+    let private filterQuery name value (query:Query) =
+        match name with
+        | "accountType" -> {query with accountType=value}
+        | "status" -> {query with status=value}
+        | "account" -> {query with account=value}
+        | _ -> query
+    let private collection (query:Query) kind (filters:CollectionFilter list) (rows:HtmlElement) =
+        let page = if kind="accounts" then ApplicationPage.Accounts else ApplicationPage.Transactions
+        let active = filters |> List.filter (fun filter -> List.contains filter.name query.filters || filter.value<>"all")
+        let query = {query with filters=active |> List.map _.name}
+        let available = filters |> List.filter (fun filter -> not (List.contains filter.name query.filters))
+        let selectionId = elementId query ("template-"+kind+"-selection")
+        let formId = elementId query ("template-"+kind+"-batch-form")
+        let countSignal = (elementId query ("template-"+kind+"-selection-count")).Replace('-','_')
+        let review () = Button.create (ButtonContent.Text "Review selected") |> Button.asSubmit |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid |> Button.withAttributes [_attr("form",formId);_name "action";_value "review-selected"] |> Button.render
+        let clearFilters = active |> List.fold (fun query filter -> filterQuery filter.name "all" query) {query with filters=[];state=""}
+        div {
+            _attr("data-ledger-collection",kind)
+            _class "group/collection flex min-h-0 flex-1 flex-col"
+            _attr("data-signals__ifmissing",$"{{{countSignal}:0}}")
+            _dataOn("fve-table-selection-change",$"${countSignal} = evt.detail.keys.length")
+            _dataOn("click",$"const link = evt.target.closest('a[href]'); if (link?.closest('[data-ledger-applied-filters]') && evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey) document.getElementById('{selectionId}')?.dispatchEvent(new CustomEvent('fve-selection-clear'))")
+            div {
+                _attr("data-ledger-collection-toolbar","true")
+                _class "shrink-0 border-b border-[var(--fve-border)] bg-[var(--fve-background)] pb-4"
+                selectionFeedback query
+                form {
+                    _method "get"; _action (applicationHref query page); _ariaLabel (if kind="accounts" then "Account filters" else "Transaction filters")
+                    _class "flex min-w-0 flex-wrap items-center gap-3 group-has-[[data-fve-table]_input[name]:checked]/collection:hidden"
+                    _dataShow $"${countSignal} == 0"
+                    contextFields {query with specState="default";resource=""}
+                    for name,value in collectionQueryPairs query do if name<>"search" then hidden name value
+                    div {
+                        _class "min-w-0 flex-[1_1_14rem]"
+                        Input.create "search" ("Search "+kind) |> Input.withId (elementId query ("template-"+(if kind="accounts" then "account" else "transaction")+"-search")) |> Input.withType InputType.Search |> Input.withValue query.search |> Input.withVisuallyHiddenLabel |> Input.withAttributes [_placeholder ("Search "+kind)] |> Input.render
+                    }
+                    if available.IsEmpty then Button.create (ButtonContent.Text "Add filter") |> Button.disabled |> Button.render
+                    else
+                        DropdownMenu.create (elementId query ("template-"+kind+"-add-filter")) "Add filter"
+                        |> DropdownMenu.withTrigger (DropdownMenuTrigger.content (span { _class "inline-flex items-center gap-2"; Layout.icon "M12 4.5v15m7.5-7.5h-15"; "Add filter" }))
+                        |> DropdownMenu.withContent [for filter in available do DropdownMenuItem.link (collectionHref {query with filters=query.filters@[filter.name];state=""} page) filter.label]
+                        |> DropdownMenu.render id
+                }
+                div {
+                    _attr("data-ledger-selection-toolbar","true")
+                    _class "flex min-w-0 flex-wrap items-center gap-3"
+                    _dataShow $"${countSignal} > 0"
+                    _style "display:none"
+                    span { _class "text-sm font-medium"; _dataText $"${countSignal} + ' selected'" }
+                    review ()
+                    Button.create (ButtonContent.Text "Clear selection") |> Button.withVariant ButtonVariant.Outline |> Button.withAttributes [_dataOn("click", $"document.getElementById('{selectionId}').dispatchEvent(new CustomEvent('fve-selection-clear')); requestAnimationFrame(() => el.closest('[data-ledger-collection]').querySelector('input[type=search]').focus())")] |> Button.render
+                }
+                noscript {
+                    div {
+                        _class "hidden flex-wrap items-center gap-3 group-has-[[data-fve-table]_input[name]:checked]/collection:flex"
+                        span { _class "text-sm font-medium"; "Selected records" }
+                        review ()
+                        Layout.link (collectionHref {query with state=""} page) "Clear selection"
+                    }
+                }
+                if not active.IsEmpty then
+                    div {
+                        _attr("data-ledger-applied-filters","true")
+                        _class "mt-3 flex min-w-0 flex-wrap items-center gap-2"
+                        for filter in active do
+                            let label = filter.options |> List.tryFind (fst >> (=) filter.value) |> Option.map snd |> Option.defaultValue filter.value
+                            div {
+                                _class "inline-flex max-w-full items-center gap-1 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface-subtle)] pl-2"
+                                span { _class "text-xs text-[var(--fve-muted-text)]"; filter.label }
+                                DropdownMenu.create (elementId query ("template-"+kind+"-filter-"+filter.name)) (filter.label+" filter")
+                                |> DropdownMenu.withTrigger (DropdownMenuTrigger.content (span { _class "inline-flex min-w-0 items-center gap-2"; span { _class "truncate"; label }; Layout.icon "m6 9 6 6 6-6" }))
+                                |> DropdownMenu.withContent [
+                                    for value,label in filter.options do
+                                        let item = DropdownMenuItem.link (collectionHref (filterQuery filter.name value {query with state=""}) page) label
+                                        if value=filter.value then item |> DropdownMenuItem.withTrailing (Layout.icon "m4.5 12.75 6 6 9-13.5") else item ]
+                                |> DropdownMenu.render id
+                                a {
+                                    _href (collectionHref (filterQuery filter.name "all" {query with filters=query.filters |> List.filter ((<>) filter.name);state=""}) page)
+                                    _ariaLabel ("Remove "+filter.label+" filter")
+                                    _class "grid size-8 shrink-0 place-items-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                                    Layout.icon "m6 6 12 12M6 18 18 6"
+                                }
+                            }
+                        Layout.link (collectionHref clearFilters page) "Clear all"
+                    }
+            }
+            form {
+                _id formId; _method "post"; _action (applicationHref query page); _ariaLabel ("Selected "+kind+" actions"); _class "flex min-h-0 flex-1 flex-col"
+                contextFields query
+                for name,value in collectionQueryPairs query do hidden name value
+                rows
+            }
+        }
+
     let private chart (query:Query) =
         let selected = accounts |> List.tryFind (fun account -> string account.id=query.account) |> Option.defaultValue accounts.Head
         let range = match query.range with "30" -> 30 | "7" -> 7 | _ -> 90
@@ -127,30 +220,21 @@ module Application =
             |> DropdownMenu.withContent [DropdownMenuItem.link (url (ApplicationPage.Account account.id)) "Open account";DropdownMenuItem.link (url (ApplicationPage.EditAccount account.id)) "Edit account"]
             |> DropdownMenu.render id
         Table.create "Account hierarchy" [
-            TableColumn.create "Name" (function Group kind -> strong { groupLabel kind } | Record account -> a { _href (url (ApplicationPage.Account account.id)); _class "font-medium text-[var(--fve-brand-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; account.name }) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary
+            TableColumn.create "Name" (function Group kind -> strong { groupLabel kind } | Record account -> a { _href (url (ApplicationPage.Account account.id)); _class "font-medium text-[var(--fve-brand-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; account.name }) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary |> TableColumn.withSort (collectionSort query ApplicationPage.Accounts "name" "name-desc")
             TableColumn.create "Type" (function Group kind -> text (string kind) | Record account -> text (string account.accountType))
             TableColumn.create "Commodity" (fun _ -> text "USD")
-            TableColumn.create "Balance" (function Record account -> text (money (balance account)) | Group kind -> text (money (rows |> List.filter (fun account -> account.accountType=kind) |> List.sumBy balance))) |> TableColumn.alignEnd
+            TableColumn.create "Balance" (function Record account -> text (money (balance account)) | Group kind -> text (money (rows |> List.filter (fun account -> account.accountType=kind) |> List.sumBy balance))) |> TableColumn.alignEnd |> TableColumn.withSort (collectionSort query ApplicationPage.Accounts "balance-asc" "balance")
             TableColumn.create "Actions" (function Group _ -> text "" | Record account -> actions account) |> TableColumn.alignEnd ] values
         |> Table.withHierarchy hierarchy
-        |> Table.withSelection (TableSelection.create (elementId query "template-accounts-selection") rowKey (function Group kind -> groupLabel kind | Record account -> account.name) |> TableSelection.withFormName "accountIds")
-        |> Table.withMobileLayout TableMobileLayout.Scroll |> Table.render
+        |> Table.withSelection (TableSelection.create (elementId query "template-accounts-selection") rowKey (function Group kind -> groupLabel kind | Record account -> account.name) |> TableSelection.withFormName "accountIds" |> TableSelection.withSelectedKeys (selectedKeys query "accounts"))
+        |> Table.withMobileLayout TableMobileLayout.Scroll |> Table.withScrollableRows |> Table.render
     let private accountsPage (query:Query) =
-        let rows = accounts |> List.filter (fun account -> account.name.Contains(query.search,StringComparison.OrdinalIgnoreCase) && (query.accountType="all" || string account.accountType=query.accountType)) |> (if query.sort="balance" then List.sortByDescending balance else List.sortBy _.name)
-        div {
-            _class "grid gap-5"
-            selectionFeedback query
-            form {
-                _method "get"; _action (applicationHref query ApplicationPage.Accounts); _ariaLabel "Account filters"; _class "flex flex-wrap items-end gap-3"
-                contextFields query
-                Input.create "search" "Search accounts" |> Input.withId (elementId query "template-account-search") |> Input.withType InputType.Search |> Input.withValue query.search |> Input.render
-                select query "accountType" "Type" query.accountType (("all","All types")::(accountTypes |> List.map (fun kind -> string kind,string kind)))
-                select query "sort" "Sort" query.sort ["name","Name";"balance","Balance, highest first"]
-                submit "Apply filters"; Layout.link (applicationHref query ApplicationPage.Accounts) "Clear"
-            }
-            if rows.IsEmpty then EmptyState.create "No matching accounts" "Try a different search or account type." |> EmptyState.render
-            else batchForm query "accounts" (accountTable query rows)
-        }
+        let query = if List.contains query.sort ["name";"name-desc";"balance";"balance-asc"] then query else {query with sort="name"}
+        let rows = accounts |> List.filter (fun account -> account.name.Contains(query.search,StringComparison.OrdinalIgnoreCase) && (query.accountType="all" || string account.accountType=query.accountType))
+        let rows = match query.sort with "balance" -> List.sortByDescending balance rows | "balance-asc" -> List.sortBy balance rows | "name-desc" -> List.sortByDescending _.name rows | _ -> List.sortBy _.name rows
+        let filters = [{name="accountType";label="Type";value=query.accountType;options=("all","All types")::(accountTypes |> List.map (fun kind -> string kind,string kind))}]
+        let content = if rows.IsEmpty then EmptyState.create "No matching accounts" "Try a different search or account type." |> EmptyState.render else accountTable query rows
+        collection query "accounts" filters content
     let private accountDetail (query:Query) id deleting (reviewControls:HtmlElement) =
         let account = findAccount id
         let url = applicationHref query
@@ -180,7 +264,6 @@ module Application =
             if deleting then
                 if query.previewId<>"" then Layout.section ("Delete "+account.name+"?") (confirmation cancelId)
                 else fragment { Dialog.render deletion; noscript { confirmation (cancelId+"-native") } }
-            else div { _class "flex flex-wrap gap-2"; Layout.link (url (ApplicationPage.EditAccount id)) "Edit account"; Layout.link (url (ApplicationPage.DeleteAccount id)) "Delete account" }
         }
     let private accountForm (query:Query) existing suffix =
         let account = existing |> Option.map findAccount
@@ -209,22 +292,13 @@ module Application =
             }
         }
     let private transactionsPage (query:Query) =
+        let query = if List.contains query.sort ["date-asc";"date-desc"] then query else {query with sort="date-desc"}
         let rows = transactions |> List.filter (fun transaction -> transaction.description.Contains(query.search,StringComparison.OrdinalIgnoreCase) && (query.status="all" || (query.status="verified" && transaction.status=TransactionStatus.Verified) || (query.status="unverified" && transaction.status=TransactionStatus.NeedsReview)) && (query.account="all" || string transaction.accountId=query.account)) |> (if query.sort="date-asc" then List.sortBy _.date else List.sortByDescending _.date)
-        div {
-            _class "grid gap-5"
-            selectionFeedback query
-            form {
-                _method "get"; _action (applicationHref query ApplicationPage.Transactions); _ariaLabel "Transaction filters"; _class "flex flex-wrap items-end gap-3"
-                contextFields query
-                Input.create "search" "Search transactions" |> Input.withId (elementId query "template-transaction-search") |> Input.withType InputType.Search |> Input.withValue query.search |> Input.render
-                select query "status" "Verification" query.status ["all","All statuses";"verified","Verified";"unverified","Unverified"]
-                select query "account" "Account" query.account (("all","All accounts")::(accounts |> List.map (fun account -> string account.id,account.name)))
-                select query "sort" "Date" query.sort ["date-desc","Newest first";"date-asc","Oldest first"]
-                submit "Apply filters"; Layout.link (applicationHref query ApplicationPage.Transactions) "Clear"
-            }
-            if rows.IsEmpty then EmptyState.create "No matching transactions" "Adjust the search, account, or verification filter." |> EmptyState.render
-            else batchForm query "transactions" (transactionTable query "Transactions" rows true)
-        }
+        let filters = [
+            {name="status";label="Verification";value=query.status;options=["all","All statuses";"verified","Verified";"unverified","Unverified"]}
+            {name="account";label="Account";value=query.account;options=("all","All accounts")::(accounts |> List.map (fun account -> string account.id,account.name))} ]
+        let content = if rows.IsEmpty then EmptyState.create "No matching transactions" "Adjust the search, account, or verification filter." |> EmptyState.render else transactionTable query "Transactions" rows true
+        collection query "transactions" filters content
     let private transactionDetail (query:Query) id =
         let transaction = findTransaction id
         let account = findAccount transaction.accountId
@@ -335,7 +409,11 @@ module Application =
             | ApplicationPage.CreateAccount -> accountEditor query None reviewControls | ApplicationPage.EditAccount id -> accountEditor query (Some id) reviewControls
             | ApplicationPage.Transactions -> transactionsPage query | ApplicationPage.Transaction id -> transactionDetail query id
             | ApplicationPage.Settings -> settings query "organizations" | ApplicationPage.SettingsSection key -> settings query key | ApplicationPage.Profile -> profile query
-        let actions = match page with ApplicationPage.Accounts -> Layout.primaryLink (url ApplicationPage.CreateAccount) "Create account" | ApplicationPage.Account id -> Layout.link (url (ApplicationPage.EditAccount id)) "Edit" | _ -> text ""
+        let actions =
+            match page with
+            | ApplicationPage.Accounts -> Layout.primaryLink (url ApplicationPage.CreateAccount) "Create account"
+            | ApplicationPage.Account id -> div { _class "flex flex-wrap items-center gap-2"; Layout.link (url (ApplicationPage.EditAccount id)) "Edit account"; Layout.link (url (ApplicationPage.DeleteAccount id)) "Delete account" }
+            | _ -> text ""
         let heading = match page with ApplicationPage.CreateAccount -> "Accounts" | ApplicationPage.EditAccount id -> (findAccount id).name | _ -> title page
         fragment {
             Layout.applicationShell page (url page) query heading actions content

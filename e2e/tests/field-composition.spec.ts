@@ -30,13 +30,28 @@ test('Input group keeps addons out of values while interactive addons retain nat
   await page.goto('/components/input-group')
   const currency = page.locator('#components-input-group-panel-preview')
   const amount = currency.getByRole('textbox', { name: 'Budget', exact: true })
-  await expect(currency.locator('.fve-input-group > [aria-hidden="true"]')).toHaveCount(2)
+  await expect(currency.locator('.fve-input-group [aria-hidden="true"]')).toHaveCount(2)
   await amount.fill('1400')
   expect(await amount.evaluate(element => {
     const form = document.createElement('form')
     form.append(element.cloneNode(true))
     return [...new FormData(form).entries()]
   })).toEqual([['budgetAmount', '1400']])
+
+  const emptyAddons = page.locator('#components-input-group-default-panel-preview .fve-input-group')
+  const emptyInput = emptyAddons.getByRole('textbox', { name: 'Account reference', exact: true })
+  expect((await emptyInput.boundingBox())!.width / (await emptyAddons.boundingBox())!.width).toBeGreaterThan(.9)
+  const multiple = page.locator('#components-input-group-multiple-panel-preview .fve-input-group')
+  const recordSearch = multiple.getByRole('searchbox', { name: 'Search records', exact: true })
+  const inputBox = (await recordSearch.boundingBox())!
+  for (const addon of [multiple.getByText('In', { exact: true }), multiple.getByText('Accounts', { exact: true }), multiple.getByRole('button', { name: 'Clear', exact: true })]) {
+    const box = (await addon.boundingBox())!
+    expect(Math.abs(box.y + box.height / 2 - inputBox.y - inputBox.height / 2)).toBeLessThanOrEqual(1)
+  }
+  await recordSearch.fill('Checking')
+  await multiple.getByRole('button', { name: 'Clear', exact: true }).click()
+  await expect(recordSearch).toHaveValue('')
+  await expect(recordSearch).toBeFocused()
 
   const actionable = page.locator('#components-input-group-action-panel-preview')
   const url = actionable.getByRole('textbox', { name: 'Workspace URL', exact: true })
@@ -51,7 +66,10 @@ test('Input group keeps addons out of values while interactive addons retain nat
   await expect(invoiceAmount).toHaveValue('')
   const textarea = page.locator('#components-input-group-textarea-panel-preview')
   await expect(textarea.getByRole('textbox', { name: 'Message', exact: true })).toHaveValue('The September close is ready for review.')
-  await expect(textarea.getByRole('button', { name: 'Send', exact: true })).toBeVisible()
+  const send = textarea.getByRole('button', { name: 'Send', exact: true })
+  await expect(send).toBeVisible()
+  const messageBox = (await textarea.getByRole('textbox', { name: 'Message', exact: true }).boundingBox())!
+  expect((await send.boundingBox())!.y).toBeGreaterThanOrEqual(messageBox.y + messageBox.height)
   const invalid = page.locator('#components-input-group-validation-panel-preview').getByRole('textbox', { name: 'Routing number', exact: true })
   await expect(invalid).toHaveAttribute('aria-invalid', 'true')
   const pending = page.locator('#components-input-group-pending-panel-preview').getByRole('textbox', { name: 'Domain', exact: true })

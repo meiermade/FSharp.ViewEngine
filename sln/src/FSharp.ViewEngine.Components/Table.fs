@@ -138,11 +138,20 @@ type TableConfig<'row> =
           density:Density
           surface:TableSurface
           mobileLayout:TableMobileLayout
+          scrollRows:bool
           selection:TableSelectionConfig<'row> option
           hierarchy:TableHierarchyConfig<'row> option
           rowAttributes:'row -> HtmlAttribute list
           attributes:HtmlAttribute list }
 
+/// <remarks>
+/// Supply ordered rows and sort destinations; Table renders sort state without ordering data.
+/// Hierarchy keys, ancestors, levels and aggregate values are consumer-supplied.
+/// Selection keys must be unique; compose selection commands and visible counts outside Table.
+/// Table announces selection accessibly without a visible footer. Selection-change events also synchronize
+/// consumer controls after initialization and morphs. withScrollableRows uses a consumer-bounded flex height
+/// to scroll rows beneath sticky column headings; it does not fetch or paginate records.
+/// </remarks>
 /// <category>table</category>
 [<RequireQualifiedAccess>]
 module Table =
@@ -152,7 +161,7 @@ module Table =
             "[&_.fve-table-grid]:w-full [&_.fve-table-grid]:border-collapse [&_.fve-table-grid_thead]:bg-[var(--fve-table-background)] [&_.fve-table-grid_tr]:border-b [&_.fve-table-grid_tr]:border-[var(--fve-border)]"
             "[&_.fve-table-cell]:whitespace-nowrap [&_.fve-table-cell]:px-[var(--fve-table-padding-inline,0.75rem)] [&_.fve-table-cell]:py-[var(--fve-table-padding-block-compact,0.25rem)] data-[density=comfortable]:[&_.fve-table-cell]:py-[var(--fve-table-padding-block-comfortable,0.75rem)]"
             "[&_.fve-table-sort-control]:inline-flex [&_.fve-table-sort-control]:items-center [&_.fve-table-sort-control]:gap-1 [&_.fve-table-sort-control]:rounded-[var(--fve-radius-control)] [&_.fve-table-sort-control]:text-inherit [&_.fve-table-sort-control]:no-underline [&_.fve-table-sort-control:hover]:text-[var(--fve-text)] [&_.fve-table-sort-control:hover]:underline [&_.fve-table-sort-control:hover]:underline-offset-[0.2em] [&_.fve-table-sort-control:focus-visible]:outline-2 [&_.fve-table-sort-control:focus-visible]:outline-offset-2 [&_.fve-table-sort-control:focus-visible]:outline-[var(--fve-brand-ring)]"
-            "[&_.fve-table-row]:[--fve-row-background:var(--fve-table-background)] [&_.fve-table-row]:bg-[var(--fve-row-background)] [&_.fve-table-row:hover]:[--fve-row-background:var(--fve-surface-hover)] [&_.fve-table-row:focus-within]:[--fve-row-background:var(--fve-surface-hover)] [&_.fve-table-row[data-selected=true]]:[--fve-row-background:var(--fve-brand-subtle)] [&_.fve-table-row[data-selected=true]_.fve-table-mobile-label]:text-[var(--fve-text)]"
+            "[&_.fve-table-row]:[--fve-row-background:var(--fve-table-background)] [&_.fve-table-row]:bg-[var(--fve-row-background)] [&_.fve-table-row:hover]:[--fve-row-background:var(--fve-surface-hover)] [&_.fve-table-row[data-selected=true]]:[--fve-row-background:var(--fve-brand-subtle)] [&_.fve-table-row[data-selected=true]_.fve-table-mobile-label]:text-[var(--fve-text)]"
             "[&_.fve-table-actions]:bg-[var(--fve-row-background,var(--fve-table-background))] [&_.fve-table-actions_button[aria-haspopup=menu]]:size-[var(--fve-table-control-size,1.75rem)] [&_.fve-table-actions_button[aria-haspopup=menu]]:rounded-md [&_.fve-table-actions_button[aria-haspopup=menu]]:border [&_.fve-table-actions_button[aria-haspopup=menu]]:border-transparent [&_.fve-table-row:hover_.fve-table-actions_button[aria-haspopup=menu]]:border-[var(--fve-border)] [&_.fve-table-row:focus-within_.fve-table-actions_button[aria-haspopup=menu]]:border-[var(--fve-border)] [&_.fve-table-actions_button[aria-haspopup=menu]:hover]:border-[var(--fve-muted-text)]"
             "forced-colors:[&_.fve-table-row:focus-within]:outline forced-colors:[&_.fve-table-row:focus-within]:-outline-offset-1 forced-colors:[&_.fve-table-row:focus-within]:outline-[Highlight] forced-colors:[&_.fve-table-actions_[role=menuitem]:focus]:outline-2 forced-colors:[&_.fve-table-actions_[role=menuitem]:focus]:outline-[Highlight]"
             "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-scroll]:overflow-x-visible"
@@ -177,13 +186,14 @@ module Table =
         { caption = caption; columns = columns; rows = rows
           emptyState = div { _class "p-6 text-center text-sm text-[var(--fve-muted-text)]"; "No records" }
           captionVisible = false; density = Density.Compact; surface = TableSurface.Plain
-          mobileLayout = TableMobileLayout.Scroll; selection = None; hierarchy = None; rowAttributes = (fun _ -> []); attributes = [] }
+          mobileLayout = TableMobileLayout.Scroll; scrollRows = false; selection = None; hierarchy = None; rowAttributes = (fun _ -> []); attributes = [] }
 
     let withEmptyState emptyState config = { config with emptyState = emptyState }
     let withVisibleCaption config = { config with captionVisible = true }
     let withDensity density config = { config with density = density }
     let withSurface surface config = { config with surface = surface }
     let withMobileLayout layout config = { config with mobileLayout = layout }
+    let withScrollableRows config = { config with scrollRows = true }
     let withSelection selection config = { config with selection = Some selection }
     let withHierarchy hierarchy config = { config with hierarchy = Some hierarchy }
     /// Adds consumer-owned presentation or Datastar attributes to each rendered row without replacing table semantics.
@@ -242,7 +252,7 @@ module Table =
                     _disabled disabled
                     _class "fve-table-checkbox m-0 size-4 cursor-[inherit] appearance-none rounded border border-[var(--fve-border)] bg-[var(--fve-surface-subtle)] bg-center bg-[length:100%] checked:border-[var(--fve-brand-solid)] checked:bg-[var(--fve-brand-solid)] checked:bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%3E%3Cpath%20d=%27m3.5%208%203%203%206-6%27%20fill=%27none%27%20stroke=%27white%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27/%3E%3C/svg%3E')] indeterminate:border-[var(--fve-brand-solid)] indeterminate:bg-[var(--fve-brand-solid)] indeterminate:bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%3E%3Cpath%20d=%27M4%208h8%27%20stroke=%27white%27%20stroke-width=%272%27%20stroke-linecap=%27round%27/%3E%3C/svg%3E')] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-50 forced-colors:appearance-auto forced-colors:bg-none"
                     _dataEffect effect
-                    _dataOn ("change", $"{change}; {notify}")
+                    _dataOn ("change", change)
                 }
             }
         let cellClass column =
@@ -282,25 +292,40 @@ module Table =
         div {
             _attr ("data-fve-table", "true")
             _attr ("data-surface", if config.surface = TableSurface.Panel then "panel" else "plain")
-            _class (ComponentHtml.classes [ "fve-table"; layoutClasses; if config.mobileLayout = TableMobileLayout.Records then "fve-table-records" ])
+            _class (ComponentHtml.classes [
+                "fve-table"
+                layoutClasses
+                if config.mobileLayout = TableMobileLayout.Records then "fve-table-records"
+                if config.scrollRows then "flex min-h-0 flex-1 flex-col" ])
             _attr ("data-density", if config.density = Density.Compact then "compact" else "comfortable")
             match config.selection with
             | Some selection ->
                 _id selection.id
                 _attr ("data-signals__ifmissing", $"{{ {signal}: {ComponentHtml.javascriptString initial} }}")
                 // Retain rendered selections across morphs; never select off-page records.
-                _dataEffect $"if ({selected}.some(key => !{selectableKeysJson}.includes(key))) {{ {selected} = {selected}.filter(key => {selectableKeysJson}.includes(key)); {notify} }}"
-                _dataOn ("fve-selection-clear", $"{selected} = []; {notify}")
+                _dataEffect $"if ({selected}.some(key => !{selectableKeysJson}.includes(key))) {{ {selected} = {selected}.filter(key => {selectableKeysJson}.includes(key)); }} {notify}"
+                _dataOn ("fve-selection-clear", $"{selected} = []")
             | None -> ()
             match config.hierarchy with
             | Some hierarchy ->
                 _dataSignals ("{" + hierarchySignal + ": " + ComponentHtml.javascriptString (Set.toList hierarchy.expandedKeys) + "}")
             | None -> ()
+            if config.selection.IsSome then
+                output {
+                    _role "status"
+                    _ariaLive "polite"
+                    _class "sr-only"
+                    _dataText $"{selected}.length + ' selected'"
+                    $"{initial.Length} selected"
+                }
             div {
                 _role "region"
                 _ariaLabel config.caption
                 _tabindex 0
-                _class (ComponentHtml.classes [ "fve-table-scroll relative overflow-x-auto bg-[var(--fve-table-background)]"; if config.surface = TableSurface.Panel then "rounded-[var(--fve-radius-panel)] ring-1 ring-[var(--fve-border)]" ])
+                _class (ComponentHtml.classes [
+                    "fve-table-scroll relative bg-[var(--fve-table-background)]"
+                    if config.scrollRows then "min-h-0 flex-1 overflow-auto" else "overflow-x-auto"
+                    if config.surface = TableSurface.Panel then "rounded-[var(--fve-radius-panel)] ring-1 ring-[var(--fve-border)]" ])
                 if config.mobileLayout = TableMobileLayout.Records && sortableColumns.Length > 0 then
                     div {
                         _role "group"
@@ -323,7 +348,7 @@ module Table =
                         }
                         thead {
                             _role "rowgroup"
-                            _class "text-xs font-semibold text-[var(--fve-muted-text)]"
+                            _class (ComponentHtml.classes [ "text-xs font-semibold text-[var(--fve-muted-text)]"; if config.scrollRows then "sticky top-0 z-20" ])
                             tr {
                                 _role "row"
                                 match config.selection with
@@ -448,12 +473,4 @@ module Table =
                         }
                     }
             }
-            if config.selection.IsSome then
-                output {
-                    _role "status"
-                    _ariaLive "polite"
-                    _class (ComponentHtml.classes [ "block py-2 text-xs text-[var(--fve-muted-text)]"; if config.surface = TableSurface.Panel then "px-3" ])
-                    _dataText $"{selected}.length + ' selected on this page'"
-                    $"{initial.Length} selected on this page"
-                }
         }

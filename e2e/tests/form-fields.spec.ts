@@ -61,7 +61,7 @@ test('financial account search clears without submitting or changing the current
   expect(initialCount).toBeGreaterThan(1)
   await expect(clear).toBeHidden()
   await query.fill('Tax')
-  await root.getByRole('button', { name: 'Apply filters', exact: true }).click()
+  await query.press('Enter')
   await expect(root.getByRole('link', { name: 'Tax reserve', exact: true })).toBeVisible()
   await expect(root.getByRole('link', { name: 'Operating checking', exact: true })).toHaveCount(0)
   const filteredCount = await rows.count()
@@ -72,8 +72,8 @@ test('financial account search clears without submitting or changing the current
   await expect(query).toBeFocused()
   await expect(clear).toBeHidden()
   await expect(page).toHaveURL(filteredUrl)
-  await expect(rows).toHaveCount(filteredCount) // Clearing edits the query; applying filters owns the result update.
-  await root.getByRole('button', { name: 'Apply filters', exact: true }).click()
+  await expect(rows).toHaveCount(filteredCount) // Clearing edits the query; submitting search owns the result update.
+  await query.press('Enter')
   await expect(rows).toHaveCount(initialCount)
   expect(await query.getAttribute('aria-haspopup')).toBeNull()
 })

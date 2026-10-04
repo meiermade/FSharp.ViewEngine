@@ -9,13 +9,13 @@ open Ledger.Domain
 
 /// Ordinary consumer-owned markup. The same installed controls can be used by a real app or its Spec.
 module Layout =
-    let theme = ComponentsTheme.emerald
+    let theme = ComponentsTheme.sky
     let link (href:string) (label:string) =
         a { _href href; _class "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-[var(--fve-radius-control)] px-3 py-1.5 text-sm font-medium text-[var(--fve-brand-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; label }
     let primaryLink (href:string) (label:string) =
         a { _href href; _class "inline-flex min-h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-text)] px-3 py-1.5 text-sm font-medium text-[light-dark(white,#101828)] hover:bg-[var(--fve-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; label }
     let section (title:string) (content:HtmlElement) =
-        section { _ariaLabel title; _class "grid min-w-0 gap-4"; SectionHeader.create title |> SectionHeader.render; content }
+        section { _ariaLabel title; _class "grid min-w-0 grid-cols-1 gap-4"; SectionHeader.create title |> SectionHeader.render; content }
     let prose (content:HtmlElement) = div { _class "prose max-w-none text-[var(--fve-text)] dark:prose-invert"; content }
     let icon (data:string) =
         svg { _viewBox "0 0 24 24"; _fill "none"; _stroke "currentColor"; _strokeWidth "1.5"; _class "size-5 shrink-0"; _ariaHidden true; path { _strokeLinecap "round"; _strokeLinejoin "round"; _d data } }
@@ -107,27 +107,38 @@ module Layout =
             div { if settingsKey.IsNone then _class "border-t border-[var(--fve-border)]"
                   footerLink current (url ApplicationPage.Profile) "Andrew Meier" (icon "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.12a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75c-2.676 0-5.216-.584-7.5-1.63Z") }
         }) |> SideNav.render id
-    let private frame previewId theme (name:string) (navigation:string -> HtmlElement) (bar:PageTopBarConfig) (title:string) (description:string) (content:HtmlElement) =
+    let private frame previewId theme (name:string) (navigation:string -> HtmlElement) (bar:PageTopBarConfig) (title:string) (description:string) (actions:HtmlElement) collection (content:HtmlElement) =
         let preview = previewId<>""
+        let bounded = preview || collection
         let localId id = if preview then previewId+"-"+id else id
-        let body = fragment {
-            if name="Ledger" || name="Financial specification" then h1 { _class "sr-only"; title }
-            elif name<>"Ledger API" then div { _class "mx-auto max-w-7xl"; PageHeader.create title |> PageHeader.withSubtitle description |> PageHeader.render }
-            div { _class (if name="Ledger API" then "min-w-0" elif name="Financial specification" then "grid min-w-0 gap-8 px-4 py-8 sm:px-6 lg:px-8" else "mx-auto grid min-w-0 max-w-7xl gap-8 px-4 pt-6 pb-8 sm:px-6 lg:px-8"); content }
+        let body = div {
+            _class (if collection then "flex h-full min-h-0 flex-col" else "min-w-0")
+            div {
+                _class "mx-auto w-full max-w-7xl shrink-0"
+                let heading = PageHeader.create title |> PageHeader.withActions actions
+                (if name="Ledger" then heading else heading |> PageHeader.withSubtitle description) |> PageHeader.render
+            }
+            div {
+                _class (if collection then "mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col px-4 sm:px-6 lg:px-8"
+                        elif name="Ledger API" then "min-w-0"
+                        elif name="Financial specification" then "grid min-w-0 grid-cols-1 gap-8 px-4 pb-8 sm:px-6 lg:px-8"
+                        else "mx-auto grid min-w-0 max-w-7xl gap-8 px-4 pb-8 sm:px-6 lg:px-8")
+                content
+            }
         }
         div {
             _attr("data-template-shell", "true")
-            _class ((theme |> ComponentsTheme.withDensity Density.Compact |> ComponentsTheme.withControlSize ControlSize.Small |> ComponentsTheme.className)+" @container/fve-shell flex flex-col bg-[var(--fve-background)] text-[var(--fve-text)] "+(if preview then "h-full min-h-0" else "min-h-[calc(100dvh-var(--example-chrome-height,0px))]"))
+            _class ((theme |> ComponentsTheme.withDensity Density.Compact |> ComponentsTheme.withControlSize ControlSize.Small |> ComponentsTheme.className)+" @container/fve-shell flex flex-col bg-[var(--fve-background)] text-[var(--fve-text)] "+(if preview then "h-full min-h-0" elif collection then "h-[calc(100dvh-var(--example-chrome-height,0px))] min-h-0" else "min-h-[calc(100dvh-var(--example-chrome-height,0px))]"))
             if preview then _style "--example-chrome-height:0px"
-            div { _class (if preview then "shrink-0" else "sticky top-[var(--example-chrome-height,0px)] z-30 shrink-0"); bar |> PageTopBar.render }
-            details { _class "shrink-0 border-b border-[var(--fve-border)] @3xl/fve-shell:hidden"; summary { _class "cursor-pointer px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; name+" navigation" }; navigation (localId "template-mobile-navigation") }
+            div { _class (if bounded then "shrink-0" else "sticky top-[var(--example-chrome-height,0px)] z-30 shrink-0"); bar |> PageTopBar.render }
+            details { _class "shrink-0 border-b border-[var(--fve-border)] open:max-h-[40dvh] open:overflow-y-auto @3xl/fve-shell:hidden"; summary { _class "cursor-pointer px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; name+" navigation" }; navigation (localId "template-mobile-navigation") }
             div {
-                _class ("flex w-full items-stretch "+(if preview then "min-h-0 flex-1 overflow-hidden" else "min-h-[calc(100dvh-var(--example-chrome-height,0px)-var(--fve-shell-bar-min-height))]"))
-                aside { _class ("hidden w-60 shrink-0 @3xl/fve-shell:block "+(if preview then "h-full overflow-y-auto" else "sticky top-[calc(var(--example-chrome-height,0px)+var(--fve-shell-bar-min-height))] h-[calc(100dvh-var(--example-chrome-height,0px)-var(--fve-shell-bar-min-height))]")); navigation (localId "template-desktop-navigation") }
+                _class ("flex w-full items-stretch "+(if bounded then "min-h-0 flex-1 overflow-hidden" else "min-h-[calc(100dvh-var(--example-chrome-height,0px)-var(--fve-shell-bar-min-height))]"))
+                aside { _class ("hidden w-60 shrink-0 @3xl/fve-shell:block "+(if bounded then "h-full overflow-y-auto" else "sticky top-[calc(var(--example-chrome-height,0px)+var(--fve-shell-bar-min-height))] h-[calc(100dvh-var(--example-chrome-height,0px)-var(--fve-shell-bar-min-height))]")); navigation (localId "template-desktop-navigation") }
                 if preview then
-                    Html.section { _ariaLabel title; _class "min-w-0 flex-1 overflow-y-auto outline-none"; body }
+                    Html.section { _ariaLabel title; _class (if collection then "min-h-0 min-w-0 flex-1 overflow-hidden outline-none" else "min-w-0 flex-1 overflow-y-auto outline-none"); body }
                 else
-                    main { _id "main-content"; _tabindex -1; _class "min-w-0 flex-1 outline-none"; body }
+                    main { _id "main-content"; _tabindex -1; _class (if collection then "min-h-0 min-w-0 flex-1 overflow-hidden outline-none" else "min-w-0 flex-1 outline-none"); body }
             }
         }
     let shellWithNavigation (name:string) (current:string) sections overview (title:string) (description:string) (actions:HtmlElement) (content:HtmlElement) =
@@ -140,8 +151,7 @@ module Layout =
             |> PageTopBar.withContent (Breadcrumbs.create "template-document-breadcrumbs" "Breadcrumb" [
                 BreadcrumbItem.create overview "Overview"
                 if current<>overview then BreadcrumbItem.create current title ] |> Breadcrumbs.render id)
-            |> PageTopBar.withActions actions
-        frame "" theme name navigation bar title description content
+        frame "" theme name navigation bar title description actions false content
     let shell (name:string) (current:string) (groups:(string*(string*string) list) list) title description actions content =
         let sections = groups |> List.map (fun (label,items) ->
             let items = items |> List.map (fun (href,label) -> SideNavItem.create href label)
@@ -160,13 +170,14 @@ module Layout =
             match settingsKey with
             | Some _ -> link (url ApplicationPage.Home) "← Ledger"
             | None -> a { _href (url ApplicationPage.Home); _class "flex items-center gap-3 whitespace-nowrap text-base font-semibold"; span { _class "text-xl text-[var(--fve-brand-text)]"; "L" }; "Ledger" }
-        let bar = PageTopBar.create () |> PageTopBar.withBrand brand |> PageTopBar.withContent (Breadcrumbs.create (elementId query "template-breadcrumbs") "Breadcrumb" crumbs |> Breadcrumbs.render id) |> PageTopBar.withActions actions
+        let bar = PageTopBar.create () |> PageTopBar.withBrand brand |> PageTopBar.withContent (Breadcrumbs.create (elementId query "template-breadcrumbs") "Breadcrumb" crumbs |> Breadcrumbs.render id)
+        let collection = page=ApplicationPage.Accounts || page=ApplicationPage.Transactions
         let body = div {
-            _class "grid gap-6"
+            _class (if collection then "flex min-h-0 flex-1 flex-col gap-4" else "grid gap-6")
             if query.workspace.environment.sandbox then Notice.create (elementId query "template-sandbox") ("Sandbox · "+query.workspace.environment.name) (p { "This template uses seeded records. No bank synchronization or money movement is performed." }) |> Notice.withColor NoticeColor.Warning |> Notice.render
             content
         }
-        frame query.previewId theme "Ledger" (fun navId -> appNavigation navId page current query settingsKey) bar title (query.workspace.organization.name+" · "+query.workspace.environment.name+" · "+query.workspace.ledger.name) body
+        frame query.previewId theme "Ledger" (fun navId -> appNavigation navId page current query settingsKey) bar title (query.workspace.organization.name+" · "+query.workspace.environment.name+" · "+query.workspace.ledger.name) actions collection body
 
     /// Complete standalone host document; no catalog-only viewer chrome is required.
     let document (title:string) (content:HtmlElement) =

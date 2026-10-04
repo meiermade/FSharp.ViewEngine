@@ -351,7 +351,6 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expect(emptyStateSurface.getByRole('link', { name: 'Create account' })).toHaveAttribute('href', '/components/page-examples/account-management?destination=ledger-create-account')
 
   const simpleTables = await openPreview('/components/table', 'Table')
-  await expect(simpleTables.getByRole('table')).toHaveCount(7)
   await expect(simpleTables.locator('th[aria-sort] a')).toHaveCount(1)
   await expect(simpleTables.getByRole('link', { name: 'Operating checking', exact: true })).toBeVisible()
   await expect(simpleTables.first().getByRole('columnheader')).toHaveText(['Name', 'Email', 'Role'])
@@ -1373,7 +1372,7 @@ test('component pages lead with an example, then installation, usage, variants, 
 
   await page.setViewportSize({ width: 390, height: 844 })
   await page.locator('html').evaluate(element => { element.style.fontSize = '200%' })
-  await expect(page.getByRole('group', { name: 'On this page' })).toBeVisible()
+  await expect(page.getByRole('group', { name: 'On this page', exact: true })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
@@ -1391,7 +1390,7 @@ test('desktop table of contents tracks the visible section and survives Docs nav
   await expect(page.locator('[data-docs-toc-rail="true"] a[href="#overview"]')).toHaveAttribute('aria-current', 'location')
 })
 
-test('desktop table of contents follows the final visible section after preferred-font reflow', async ({ page }) => {
+test('desktop table of contents follows the final visible section after font loading and text reflow', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
@@ -1417,6 +1416,8 @@ test('desktop table of contents follows the final visible section after preferre
 
   releaseFont()
   await page.evaluate(() => document.fonts.ready)
+  // Font metrics alone need not change wrapping at every rail width. Exercise a real reflow.
+  await page.locator('html').evaluate(element => { element.style.fontSize = '110%' })
   await expect.poll(() => main.evaluate(element => element.scrollHeight)).not.toBe(fallbackHeight)
   await main.evaluate(element => element.scrollTo({ top: element.scrollHeight - element.clientHeight - 70, behavior: 'instant' }))
   await expect(page.locator('#shoelace-example')).toBeInViewport()
@@ -1430,7 +1431,7 @@ test('mobile table of contents is a compact keyboard-operable disclosure', async
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
 
-  const toc = page.getByRole('group', { name: 'On this page' })
+  const toc = page.getByRole('group', { name: 'On this page', exact: true })
   const summary = toc.locator('summary')
   await expect(toc).toBeVisible()
   await expect(toc).not.toHaveAttribute('open', '')

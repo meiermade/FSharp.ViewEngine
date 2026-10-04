@@ -237,7 +237,7 @@ let tests =
             Expect.stringContains verticalResizable "ArrowUp" "vertical resizing supports directional keys"
             Expect.throws (fun () -> ResizablePanel.create (text "Invalid") |> ResizablePanel.withBounds 80 20 |> ignore) "resizable bounds must be ordered"
 
-            let tooltip = Tooltip.create "help" "Supplementary help" (button { _type "button"; "Details" }) |> Tooltip.render |> Render.toString
+            let tooltip = Tooltip.create "help" "Supplementary help" (fun descriptionId -> button { _type "button"; _ariaDescribedby descriptionId; "Details" }) |> Tooltip.render |> Render.toString
             Expect.stringContains tooltip "aria-describedby=\"help-content\"" "tooltip supplements rather than replaces the trigger name"
             Expect.stringContains tooltip "role=\"tooltip\"" "tooltip content has the correct role"
             Expect.stringContains tooltip "popover=\"manual\"" "tooltip lifecycle is component-local"
@@ -369,9 +369,19 @@ let tests =
             Expect.stringContains month "data-date=\"2024-02-29\"" "leap day is an actual date"
             Expect.stringContains month "aria-current=\"date\"" "today is semantic, not inferred from server clock"
             Expect.isFalse (month.Contains("Outside range")) "events outside visible dates are excluded"
-            Expect.stringContains month "--fve-calendar-lane:2;--fve-calendar-lanes:2" "overlap has a separate lane"
-            Expect.stringContains month "--fve-calendar-start:121;--fve-calendar-duration:120;--fve-calendar-lane:1;--fve-calendar-lanes:2" "connected overlap reuses the ended first lane"
-            Expect.stringContains month "--fve-calendar-start:241;--fve-calendar-duration:30;--fve-calendar-lane:1;--fve-calendar-lanes:1" "adjacent non-overlap regains full width"
+            let timedDay = DayCalendar.create "Timed events" day events |> DayCalendar.render id |> Render.toString
+            Expect.stringContains timedDay "--fve-calendar-lane:2;--fve-calendar-lanes:2" "overlap has a separate lane"
+            Expect.stringContains timedDay "--fve-calendar-start:121;--fve-calendar-duration:120;--fve-calendar-lane:1;--fve-calendar-lanes:2" "connected overlap reuses the ended first lane"
+            Expect.stringContains timedDay "--fve-calendar-start:241;--fve-calendar-duration:30;--fve-calendar-lane:1;--fve-calendar-lanes:1" "adjacent non-overlap regains full width"
+            let start = DateOnly(2026, 9, 18)
+            let range = CalendarEvent.create "range" "Training" start "/events/range" |> CalendarEvent.withEndDate (start.AddDays 3)
+            for offset in [-1 .. 4] do
+                let html = DayCalendar.create "Range day" (start.AddDays offset) [range] |> DayCalendar.render id |> Render.toString
+                Expect.equal (html.Contains("data-event=\"range\"")) (offset >= 0 && offset <= 3) "all-day coverage includes both ends and excludes adjacent dates"
+            let rangedMonth = MonthCalendar.create "Range month" start [range] |> MonthCalendar.render id |> Render.toString
+            Expect.equal (Regex.Matches(rangedMonth, "<a[^>]*href=\"/events/range\"").Count) 2 "a Friday-to-Monday range splits into two week segments"
+            Expect.throws (fun () -> range |> CalendarEvent.withTime (TimeOnly(9, 0)) (TimeOnly(10, 0)) |> ignore) "multi-day events cannot become timed events"
+            Expect.throws (fun () -> range |> CalendarEvent.withEndDate (start.AddDays -1) |> ignore) "range ends cannot precede their start"
             let december = MonthCalendar.create "Year end" (DateOnly(2026, 12, 1)) [] |> MonthCalendar.render id |> Render.toString
             Expect.stringContains december "data-date=\"2027-01-03\"" "month geometry crosses the year boundary"
             let nextDay = DayCalendar.create "Next day" (day.AddDays 1) events |> DayCalendar.render id |> Render.toString
@@ -502,7 +512,9 @@ let tests =
 
             let aliases = Registry.aliases |> Map.ofList
             Expect.equal aliases["/components/section"] "/components/section-header" "section header has its own installable destination"
-            Expect.equal aliases["/components/upload"] "/components/upload-list" "the upload list route matches its public API"
+            for retired in ["/components/upload"; "/components/upload-list"; "/components/first-steps"] do
+                Expect.isFalse (Map.containsKey retired aliases) $"{retired} has no replacement alias"
+                Expect.equal (routeStatus retired) 404 $"{retired} is retired"
         }
 
         test "Registered pages render complete canonical documents with resolvable local references" {
@@ -1050,9 +1062,9 @@ after"""
                 Expect.isFalse (basic.source.Contains unrelated) $"basic source excludes advanced setup: {unrelated}"
         }
 
-        test "Table galleries isolate eight features without financial fixture dependencies" {
+        test "Table galleries isolate focused features without financial fixture dependencies" {
             let examples = Components.examplesFor "table"
-            Expect.equal (examples |> List.map _.title) [ "Default"; "Comfortable rows"; "With status values"; "With checkboxes"; "Stacked on mobile"; "Sortable records"; "Hierarchical accounts and aggregates"; "Empty state" ] "each table feature has a named example"
+            Expect.equal (examples |> List.map _.title) [ "Default"; "Comfortable rows"; "With status values"; "With checkboxes"; "Scrollable rows and sticky headings"; "Stacked on mobile"; "Sortable records"; "Hierarchical accounts and aggregates"; "Empty state" ] "each table feature has a named example"
             for example in examples do
                 Expect.stringContains example.source "Table.create" "the construction is directly visible"
                 Expect.isLessThan (example.source.Split('\n').Length) 51 "copied table code stays focused"
@@ -1062,14 +1074,16 @@ after"""
                 if example.title <> "Sortable records" && example.title <> "Hierarchical accounts and aggregates" then
                     Expect.isFalse (preview.Contains("<a ")) "ordinary first-column values are plain text"
             Expect.isFalse (examples[3].source.Contains "TableSelection.withDisabledRows") "selection keeps every displayed row selectable"
-            Expect.stringContains examples[4].source "TableMobileLayout.Records" "responsive records are an explicit opt-in"
-            Expect.stringContains examples[5].source "TableSort.ascending" "sorting exposes the current sort direction"
-            Expect.stringContains examples[5].source "TableColumn.withSort" "sorting keeps the next destination consumer-owned"
-            Expect.stringContains examples[6].source "Table.withHierarchy" "hierarchy is an explicit consumer-authored opt-in"
-            Expect.stringContains examples[7].source "Table.withEmptyState" "empty-state composition stays visible"
+            let source title = (examples |> List.find (fun example -> example.title = title)).source
+            Expect.stringContains (source "Scrollable rows and sticky headings") "Table.withScrollableRows" "bounded row scrolling is an explicit opt-in"
+            Expect.stringContains (source "Stacked on mobile") "TableMobileLayout.Records" "responsive records are an explicit opt-in"
+            Expect.stringContains (source "Sortable records") "TableSort.ascending" "sorting exposes the current sort direction"
+            Expect.stringContains (source "Sortable records") "TableColumn.withSort" "sorting keeps the next destination consumer-owned"
+            Expect.stringContains (source "Hierarchical accounts and aggregates") "Table.withHierarchy" "hierarchy is an explicit consumer-authored opt-in"
+            Expect.stringContains (source "Empty state") "Table.withEmptyState" "empty-state composition stays visible"
         }
 
-        test "Canonical component galleries start with an unmodified Default example" {
+        test "Canonical component galleries start with the default presentation" {
             let defaultGalleries =
                 [ "button", "Button"
                   "button-group", "ButtonGroup"
@@ -1132,7 +1146,8 @@ after"""
                 Expect.isNone example.note $"{gallery} does not explain away its default"
                 Expect.isLessThan (example.source.Split('\n').Length) 46 $"{gallery} keeps its default source focused"
                 for stateFunction in stateFunctions do
-                    Expect.isFalse (example.source.Contains($"|> {moduleName}.{stateFunction}")) $"{gallery} default does not apply {moduleName}.{stateFunction}"
+                    let source = if gallery = "select" then Regex.Replace(example.source, "\\|> Select\\.withSelected\\b[^\\r\\n]*", "") else example.source
+                    Expect.isFalse (source.Contains($"|> {moduleName}.{stateFunction}")) $"{gallery} default does not apply presentation modifiers: {moduleName}.{stateFunction}"
         }
 
         test "Every gallery example compiles using only its copied code and the public packages" {
@@ -1335,6 +1350,14 @@ after"""
             Expect.isFalse (buttonReference.Contains("<dl")) "XML summaries are not repeated as default-note cards"
             Expect.isFalse (buttonReference.Contains("label: string; color:")) "private ButtonConfig fields stay hidden"
             Expect.isFalse (buttonReference.Contains("// opaque")) "hidden representations do not add internal jargon"
+            Expect.stringContains buttonReference "| Primary" "public union cases remain available to consumers"
+            for path,helper,cases in [
+                "/components/command", "CommandContent", [ "| Link of"; "| Action of" ]
+                "/components/dropdown-menu", "MenuItemContent", [ "| Link of"; "| Action of"; "| Radio of"; "| Checkbox of"; "| Group of" ]
+                "/components/button-group", "", [ "| Button of"; "| Menu of" ] ] do
+                let reference = Components.tryPage path |> Option.get |> _.sections |> List.last |> _.content |> renderContent
+                for case in cases do Expect.isFalse (reference.Contains case) $"{path} never advertises inaccessible constructors"
+                if helper<>"" then Expect.isFalse (reference.Contains helper) $"{path} never advertises private helper types"
 
             let buttonGroupReference = Components.tryPage "/components/button-group" |> Option.get |> _.sections |> List.last |> _.content |> renderContent
             for declaration in [ "type ButtonGroupOrientation"; "type ButtonGroupItem"; "type ButtonGroupConfig"; "module ButtonGroupItem ="; "module ButtonGroup =" ] do
@@ -1456,8 +1479,7 @@ after"""
                 "/components/tag-input", "tag-input"
                 "/components/drawer", "drawer"
                 "/components/page-header", "page-header"
-                "/components/page-top-bar", "page-top-bar"
-                "/components/upload-list", "upload-list" ] do
+                "/components/page-top-bar", "page-top-bar" ] do
                 Expect.stringContains (render (Components.allRegistrations |> List.find (fun registration -> registration.path = path))) $"dotnet fve add {selector} --config" $"{path} installs its owning source selector"
 
             for registration, html in List.zip Components.guideRegistrations renderedGuides do
@@ -1467,7 +1489,6 @@ after"""
             Expect.stringContains allHtml "Interaction and server state" "interaction guide"
             Expect.stringContains allHtml "aria-activedescendant identifies the visually active option" "APG focus relationship"
             Expect.stringContains allHtml "cycles options when the same character is repeated" "Select typeahead behavior"
-            Expect.stringContains allHtml "This advanced example adds text and icon triggers, groups, independent checkbox choices, disabled, pending, destructive, shortcut, counters, and server-patched content." "DropdownMenu explains only the advanced behavior"
             Expect.stringContains allHtml "/components/menus/actions" "DropdownMenu example uses a real Docs-owned patch endpoint"
             Expect.stringContains allHtml "Theming and density" "theme guide"
             Expect.stringContains allHtml "Tailwind CSS setup" "Tailwind setup guide"
@@ -2164,14 +2185,14 @@ after"""
             Expect.stringContains sortedHtml "aria-sort=\"ascending\"" "only the current column carries aria-sort"
             Expect.stringContains sortedHtml "href=\"/records?sort=name&amp;direction=desc\"" "the consumer-provided next destination is preserved"
             Expect.stringContains sortedHtml "fve-table-mobile-sort" "record layouts include sort controls outside visually hidden headers"
-            Expect.stringContains html "1 selected on this page" "off-page initial keys are excluded"
+            Expect.stringContains html "1 selected" "off-page initial keys are excluded"
             Expect.stringContains html "[&quot;one&quot;,&quot;two&quot;,&quot;disabled&quot;]" "select all includes every displayed row"
             Expect.throws (fun () -> render [ "one"; "one" ] |> ignore) "duplicate keys are rejected"
             Expect.throws (fun () -> render [ "" ] |> ignore) "empty keys are rejected"
             Expect.throws (fun () -> Table.create "Invalid" [ TableColumn.create "Name" text ] [ "one" ] |> Table.withMobileLayout TableMobileLayout.Records |> Table.render |> ignore) "records require a primary column"
             let empty = render []
             Expect.stringContains empty "No records" "empty data retains the empty state"
-            Expect.stringContains empty "0 selected on this page" "empty data clears selection"
+            Expect.stringContains empty "0 selected" "empty data clears selection"
             let sectionHtml = Section.withoutHeader "Details" (p { "Content" }) |> Section.render |> Render.toString
             Expect.stringContains sectionHtml "aria-label=\"Details\"" "unheaded sections retain accessible identity"
             Expect.isFalse (sectionHtml.Contains("<header")) "section header is optional"
@@ -2522,9 +2543,8 @@ after"""
                 |> Select.withSelected "weekly"
                 |> Select.render
                 |> Render.toString
-            Expect.stringContains alignedHtml "position-area: center span-inline-end" "ordinary selected Selects position the popup around the trigger"
-            Expect.stringContains alignedHtml "selected.offsetTop + selected.offsetHeight / 2" "ordinary selected Selects scroll the selected option over the closed value"
-            Expect.stringContains alignedHtml "matchMedia(&#39;(pointer: coarse)&#39;)" "selected-item positioning falls back for touch"
+            Expect.stringContains alignedHtml "aria-selected=\"true\"" "selected identities are available to positioning and assistive technology"
+            Expect.isFalse (alignedHtml.Contains("rotate-180")) "opening does not rotate the plain Select chevron"
             let endAlignedHtml =
                 Select.create "format" "Format" id [ SelectOption.create "csv" "CSV" ]
                 |> Select.withPosition SelectPosition.TriggerEnd
@@ -2568,7 +2588,7 @@ after"""
             Expect.stringContains trigger "aria-invalid=\"true\"" "server validation is exposed"
             Expect.stringContains trigger "group flex" "searchable Select uses the same flex trigger layout as Select"
             Expect.stringContains trigger "justify-between" "searchable Select keeps its chevron on the trigger edge"
-            Expect.stringContains html "group-aria-expanded:rotate-180" "searchable Select uses the normal Select chevron state"
+            Expect.isFalse (html.Contains("rotate-180")) "opening does not rotate the searchable Select chevron"
             Expect.stringContains searchInput "id=\"fve-select-parent_account-search\"" "popup owns a distinct search input"
             Expect.stringContains searchInput "data-bind:parent_account_query" "remote query remains separate from selected identity"
             Expect.stringContains searchInput "requestCancellation: &#39;auto&#39;" "remote requests explicitly cancel older same-endpoint requests"

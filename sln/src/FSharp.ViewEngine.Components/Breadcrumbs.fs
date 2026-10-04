@@ -27,6 +27,10 @@ type BreadcrumbsConfig<'destination> =
           maxVisibleItems:int
           items:BreadcrumbItem<'destination> list }
 
+/// <remarks>
+/// withMaxVisibleItems counts path items, not the overflow trigger.
+/// The default is three; choose at least two to retain the root and current page.
+/// </remarks>
 /// <category>breadcrumbs</category>
 [<RequireQualifiedAccess>]
 module Breadcrumbs =

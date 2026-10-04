@@ -10,8 +10,8 @@ open type Html
 type internal CalendarPeriod = Day | Week | Month | Year
 
 /// <summary>
-/// An all-day event, or a minute-resolution interval on one consumer-local date.
-/// Consumers split overnight/multi-day events and resolve time zones before rendering.
+/// An inclusive all-day date range, or a minute-resolution interval on one consumer-local date.
+/// Consumers split overnight timed events and resolve time zones before rendering.
 /// </summary>
 /// <category>month-calendar</category>
 [<NoEquality; NoComparison>]
@@ -20,22 +20,37 @@ type CalendarEvent<'destination> =
         { id:string
           title:string
           date:DateOnly
+          endDate:DateOnly
           time:(TimeOnly * TimeOnly) option
           detail:string option
           destination:'destination }
 
+/// <remarks>
+/// create supplies a single-day all-day event. withEndDate extends it through an inclusive end date.
+/// Timed events remain same-day; split overnight intervals and resolve time zones before rendering.
+/// </remarks>
 /// <category>month-calendar</category>
 [<RequireQualifiedAccess>]
 module CalendarEvent =
     let create id title date destination =
         if String.IsNullOrWhiteSpace id || id |> Seq.exists Char.IsWhiteSpace then invalidArg (nameof id) "A stable event ID is required."
         if String.IsNullOrWhiteSpace title then invalidArg (nameof title) "An event title is required."
-        { id = id; title = title; date = date; time = None; detail = None; destination = destination }
+        { id = id; title = title; date = date; endDate = date; time = None; detail = None; destination = destination }
+    /// Extends an all-day event through this inclusive date; timed events cannot span dates.
+    let withEndDate (endDate:DateOnly) (event:CalendarEvent<'destination>) =
+        if endDate < event.date then invalidArg (nameof endDate) "An all-day range cannot end before it starts."
+        if event.time.IsSome then invalidArg (nameof event) "Only all-day events support an end date."
+        { event with endDate = endDate }
     let withTime (start:TimeOnly) (finish:TimeOnly) (event:CalendarEvent<'destination>) =
+        if event.endDate <> event.date then invalidArg (nameof event) "Timed events must occupy one date."
         if finish <= start || start.Ticks % TimeSpan.TicksPerMinute <> 0L || finish.Ticks % TimeSpan.TicksPerMinute <> 0L then
             invalidArg (nameof finish) "An event needs a positive, same-day interval in whole minutes."
         { event with time = Some (start, finish) }
     let withDetail detail (event:CalendarEvent<'destination>) = { event with detail = Some detail }
+    let internal occursOn date (event:CalendarEvent<'destination>) = event.date <= date && date <= event.endDate
+    let internal allDayLabel (event:CalendarEvent<'destination>) =
+        if event.endDate = event.date then "All day"
+        else "All day, " + event.date.ToString("MMM d, yyyy", CultureInfo.InvariantCulture) + "–" + event.endDate.ToString("MMM d, yyyy", CultureInfo.InvariantCulture)
 
 /// <category>month-calendar</category>
 [<RequireQualifiedAccess>]
@@ -124,10 +139,10 @@ module internal CalendarRendering =
                 (assigned |> List.map (fun (id, lane) -> id, (lane, lanes.Count))) @ place next
         place timed |> Map.ofList
 
-    let render (resolve:'destination -> string) (renderYear:('destination -> string) -> CalendarDisplayConfig<'destination> -> HtmlElement) (config:CalendarDisplayConfig<'destination>) =
+    let render (resolve:'destination -> string) (renderDates:('destination -> string) -> CalendarDisplayConfig<'destination> -> HtmlElement) id (config:CalendarDisplayConfig<'destination>) =
         let days = dates config
-        let events = config.events |> List.filter (fun event -> event.date >= days.Head && event.date <= List.last days) |> List.sortBy (fun event -> event.date, event.time, event.id)
-        let allDayRows = days |> List.map (fun date -> events |> List.filter (fun event -> event.date = date && event.time.IsNone) |> List.length) |> List.max
+        let events = config.events |> List.filter (fun event -> event.endDate >= days.Head && event.date <= List.last days) |> List.sortBy (fun event -> event.date, event.time, event.id)
+        let allDayRows = days |> List.map (fun date -> events |> List.filter (fun event -> CalendarEvent.occursOn date event && event.time.IsNone) |> List.length) |> List.max
         let times = events |> List.choose _.time
         let startHour = times |> List.fold (fun hour (start, _) -> min hour start.Hour) 8
         let endHour = times |> List.fold (fun hour (_, finish) -> max hour ((minute finish + 59) / 60)) 18
@@ -172,13 +187,14 @@ module internal CalendarRendering =
                     _class "block text-xs"
                     match event.time with
                     | Some (start, finish) -> start.ToString("h:mm tt", CultureInfo.InvariantCulture) + "–" + finish.ToString("h:mm tt", CultureInfo.InvariantCulture)
-                    | None -> "All day"
+                    | None -> CalendarEvent.allDayLabel event
                 }
                 match event.detail with
                 | Some detail -> span { _class "mt-1 block text-xs"; detail }
                 | None -> ()
             }
         section {
+            match id with Some id -> _id id | None -> ()
             _ariaLabel config.label
             _class "fve-calendar fve-control-small @container/fve-calendar grid min-w-0 grid-cols-1 gap-4 text-[var(--fve-text)]"
             _attr ("data-view", viewName config.view |> fun value -> value.ToLowerInvariant())
@@ -215,7 +231,7 @@ module internal CalendarRendering =
                 }
             | CalendarState.Ready ->
                 if List.isEmpty events then config.emptyState
-                if config.view = CalendarPeriod.Year then renderYear resolve config
+                if config.view = CalendarPeriod.Month || config.view = CalendarPeriod.Year then renderDates resolve config
                 else
                     div {
                         _class ("fve-calendar-body min-w-0 rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] " + (if timed then "relative grid max-h-152 grid-cols-[3.5rem_minmax(0,1fr)] overflow-auto" else "overflow-x-auto"))
@@ -224,12 +240,6 @@ module internal CalendarRendering =
                         _role "region"
                         _data ("on:keydown", "if (evt.target === el && !evt.ctrlKey && !evt.metaKey && !evt.altKey && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(evt.key)) { const horizontal = evt.key === 'ArrowLeft' || evt.key === 'ArrowRight'; if (horizontal ? el.scrollWidth > el.clientWidth : el.scrollHeight > el.clientHeight) { evt.preventDefault(); const offset = evt.key === 'ArrowLeft' || evt.key === 'ArrowUp' ? -64 : 64; el.scrollBy({left:horizontal ? offset : 0,top:horizontal ? 0 : offset}) } }")
                         _ariaLabel (config.label + (if timed then " scrollable times" else " scrollable dates"))
-                        if config.view = CalendarPeriod.Month then
-                            div {
-                                _class "fve-calendar-weekdays grid min-w-[56rem] grid-cols-7 border-b border-[var(--fve-border)] py-3 text-center text-xs text-[var(--fve-muted-text)]"
-                                _ariaHidden "true"
-                                for day in ["Mon"; "Tue"; "Wed"; "Thu"; "Fri"; "Sat"; "Sun"] do span { day }
-                            }
                         if timed then
                             div {
                                 _class "fve-calendar-hours sticky left-0 z-30 col-start-1 row-start-1 grid w-14 self-start bg-[var(--fve-background)] pt-[calc(4rem+var(--fve-calendar-all-day-rows)*4rem)] text-xs text-[var(--fve-muted-text)]"
@@ -241,7 +251,7 @@ module internal CalendarRendering =
                             _class ("fve-calendar-days m-0 grid list-none p-0 " + (if timed then "col-start-2 row-start-1 grid-cols-[repeat(var(--fve-calendar-days),minmax(0,1fr))]" + (if config.view = CalendarPeriod.Day then " min-w-80" else " min-w-[112rem] @min-[48rem]/fve-calendar:min-w-[56rem]") else "min-w-[56rem] grid-cols-7 gap-px bg-[var(--fve-border)]"))
                             _ariaLabel (config.label + " dates")
                             for date in days do
-                                let dayEvents = events |> List.filter (fun event -> event.date = date)
+                                let dayEvents = events |> List.filter (CalendarEvent.occursOn date)
                                 let lanes = placements dayEvents
                                 li {
                                     _class ("fve-calendar-day min-w-0 [overflow-wrap:anywhere] " + (if timed then "border-r border-[var(--fve-border)] last:border-r-0" else "min-h-32 bg-[var(--fve-background)] p-1"))

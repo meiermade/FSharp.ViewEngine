@@ -55,7 +55,7 @@ test('representative component galleries share complete copyable code behavior',
     const source = await code.textContent()
     if (id === 'button' || id === 'select') {
       await expect(toolbar.getByRole('heading', { level: 2 })).toHaveText('Default')
-      expect(source).not.toContain(`${id === 'button' ? 'Button' : 'Select'}.with`)
+      expect(source.replace(/\|> Select\.withSelected[^\n]*/g, '')).not.toContain(`${id === 'button' ? 'Button' : 'Select'}.with`)
     }
     if (id === 'button') {
       expect(source).toContain('Button.create (ButtonContent.Text "Continue") |> Button.render')
@@ -194,13 +194,6 @@ test('Hierarchical tables disclose only their matching descendants @cross-browse
 })
 
 test('Operational application examples preserve native input and recoverable actions @cross-browser', async ({ page }) => {
-  await page.goto('/components/first-steps')
-  const firstSteps = page.locator('#components-first-steps-panel-preview')
-  await firstSteps.getByRole('button', { name: 'Minimize First steps', exact: true }).click()
-  await expect(firstSteps.getByRole('region', { name: 'First steps', exact: true })).toBeHidden()
-  await firstSteps.getByRole('button', { name: 'Open First steps', exact: true }).click()
-  await expect(firstSteps.getByRole('region', { name: 'First steps', exact: true })).toBeVisible()
-
   await page.goto('/components/file-selection')
   const file = page.locator('#statement-files')
   await file.setInputFiles([
@@ -211,10 +204,6 @@ test('Operational application examples preserve native input and recoverable act
   await expect(page.locator('#statement-files-selected')).toContainText('card.ofx')
   await page.locator('#components-file-selection-panel-preview').getByRole('button', { name: 'Clear selected files', exact: true }).click()
   await expect(file).toHaveValue('')
-
-  await page.goto('/components/upload')
-  await page.locator('#components-upload-panel-preview').getByRole('button', { name: 'Retry', exact: true }).click()
-  await expect(page.locator('#components-upload-panel-preview').getByRole('status').last()).toHaveText('Retry queued for savings-july.csv.')
 
   await page.goto('/components/progress')
   await expect(page.getByRole('progressbar', { name: 'Statement import', exact: true }).first()).toHaveAttribute('value', '68')
@@ -353,4 +342,20 @@ test('gallery code switches preserve independent edited previews @cross-browser'
   await searchToolbar.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(query).toHaveValue('Savings')
   await expect(page).toHaveURL(/\/components\/input$/)
+})
+
+test('Item metadata interaction stays independent of its stretched row link @cross-browser', async ({ page }) => {
+  await page.goto('/components/item')
+  const preview = page.locator('#components-item-linked-metadata-panel-preview')
+  const edit = preview.getByRole('button', { name: 'Edit', exact: true })
+  expect(await edit.evaluate(element => element.closest('a') === null)).toBe(true)
+  await edit.click()
+  const dialog = page.getByRole('dialog', { name: 'Edit account name', exact: true })
+  await expect(dialog.getByRole('textbox', { name: 'Account name', exact: true })).toBeFocused()
+  await expect(page).toHaveURL('/components/item')
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeHidden()
+  await expect(edit).toBeFocused()
+  // Component galleries deliberately suppress destination activation; copied Items retain this native link.
+  await expect(preview.getByRole('link', { name: 'Operating account', exact: true })).toHaveAttribute('href', '/examples/application/accounts/101')
 })

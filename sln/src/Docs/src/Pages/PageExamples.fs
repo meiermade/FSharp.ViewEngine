@@ -1363,15 +1363,16 @@ module PageExamples =
                 }
 
                 if query.state = Setup then
-                    FirstSteps.create
-                        "fieldwork-first-steps"
-                        "Finish your workspace"
-                        [ FirstStep.create "schedule" "Review this week's schedule"
-                          |> FirstStep.withAction (link (url Scheduling) "Open schedule")
-                          FirstStep.create "photos" "Prepare your session assets"
-                          |> FirstStep.withDescription "Review descriptions before sharing a collection."
-                          |> FirstStep.withAction (link (url MediaManagement) "Open photos") ]
-                    |> FirstSteps.render
+                    FloatingPanel.create "fieldwork-workspace-guide" "Finish your workspace" (ol {
+                        _class "m-0 grid list-none gap-4 p-0 text-sm"
+                        li { p { _class "font-medium"; "Review this week's schedule" }; link (url Scheduling) "Open schedule" }
+                        li {
+                            p { _class "font-medium"; "Prepare your session assets" }
+                            p { _class "text-[var(--fve-muted-text)]"; "Review descriptions before sharing a collection." }
+                            link (url MediaManagement) "Open photos"
+                        }
+                    })
+                    |> FloatingPanel.render
             }
 
         workspace

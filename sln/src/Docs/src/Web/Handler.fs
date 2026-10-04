@@ -10,6 +10,8 @@ open FSharp.ViewEngine
 open FSharp.ViewEngine.Components.Templates
 open FSharp.ViewEngine.Components
 open Giraffe
+open Microsoft.Extensions.DependencyInjection
+open StarFederation.Datastar.DependencyInjection
 
 module Handler =
     let private productionOrigin = "https://fve.meiermade.com"
@@ -52,15 +54,19 @@ module Handler =
             (View.documentWithPageFor mode Registry.navigation registration page)
             (View.navigationPageWithPage mode Registry.navigation registration page)
 
-    let render page : HttpHandler =
+    let render (page:DocPage) : HttpHandler =
         fun next context ->
             let intent = Navigation.tryIntent context
             let mode = appMode context
             let response =
-                respond
-                    intent
-                    (View.documentFor mode Registry.navigation page)
-                    (View.navigationPage mode Registry.navigation page)
+                if page.id = Components.tableRegistration.id then
+                    let sort = Components.teamMemberSortFromQuery (context.Request.Query["sort"].ToString()) (context.Request.Query["direction"].ToString())
+                    respondWithPage intent context page (Components.tablePageFor sort)
+                else
+                    respond
+                        intent
+                        (View.documentFor mode Registry.navigation page)
+                        (View.navigationPage mode Registry.navigation page)
             response next context
 
     let private pageRoutes =
@@ -86,7 +92,14 @@ module Handler =
                 Components.teamMemberSortFromQuery sort direction
                 |> Components.sortableTeamTablePreview
                 |> Render.toString
-            (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+            task {
+                if context.Request.Headers["datastar-request"].ToString() = "true" then
+                    let service = context.RequestServices.GetRequiredService<IDatastarService>()
+                    do! service.PatchElementsAsync(html, cancellationToken = context.RequestAborted)
+                    return Some context
+                else
+                    return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+            }
 
     let private documentationSiteExample : HttpHandler =
         fun next context ->

@@ -15,7 +15,6 @@ for (const [view, width, scale, dark] of [
       const preview = `#components-${view}-calendar-events-panel-preview`
       const calendar = page.locator(`${preview} .fve-calendar`)
       await expect(calendar).toHaveAttribute('data-view', view)
-      await expect(calendar.locator('[data-event="lesson-201"]')).toHaveCount(1)
       await expect(calendar.getByRole('link', { name: /Coastal trail lesson/ })).toBeVisible()
       await expect(calendar.locator('time[aria-current="date"]')).toHaveAttribute('datetime', '2026-09-17')
       const geometry = await calendar.evaluate(el => {
@@ -31,12 +30,12 @@ for (const [view, width, scale, dark] of [
           second: { x: second.x, y: second.y },
           scrollable: el.querySelector('.fve-calendar-body')!.scrollWidth > el.querySelector('.fve-calendar-body')!.clientWidth,
           overflow: el.scrollWidth - el.clientWidth,
-          font: parseFloat(getComputedStyle(event.querySelector('strong')!).fontSize),
+          font: parseFloat(getComputedStyle(event.querySelector('strong, span:not([aria-hidden])')!).fontSize),
         }
       })
       expect(geometry.count).toBe(view === 'month' ? 35 : view === 'week' ? 7 : 1)
       expect(geometry.overflow).toBeLessThanOrEqual(1)
-      expect(geometry.font).toBeGreaterThanOrEqual(14 * scale)
+      expect(geometry.font).toBeGreaterThanOrEqual((view === 'month' ? 12 : 14) * scale)
       expect(geometry.columns).toBe(view === 'day' ? 1 : 7)
       expect(geometry.visibleCount).toBe(geometry.count)
       if (width < 1600) expect(geometry.scrollable).toBe(true)

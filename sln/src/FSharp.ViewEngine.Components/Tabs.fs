@@ -49,6 +49,11 @@ type TabsConfig =
           variant:TabsVariant
           orientation:TabsOrientation }
 
+/// <remarks>
+/// Horizontal tab strips scroll within their available width; labels remain on one line.
+/// Use zero-minimum grid tracks and min-w-0 flex/grid children in containing layouts so their
+/// intrinsic content width cannot expand the page. Panels retain their own layout and overflow behavior.
+/// </remarks>
 /// <category>tabs</category>
 [<RequireQualifiedAccess>]
 module Tabs =
@@ -100,18 +105,19 @@ module Tabs =
         let listClasses, tabClasses =
             match config.variant with
             | TabsVariant.Segmented ->
-                "inline-flex max-w-full items-center gap-1 overflow-x-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-1",
+                "inline-flex min-w-0 max-w-full items-center gap-1 overflow-x-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-1",
                 "min-h-[var(--fve-control-min-height)] shrink-0 rounded-[var(--fve-radius-control)] border-0 bg-transparent px-3 py-[calc(var(--fve-control-padding-block)+0.125rem)] text-sm font-semibold text-[var(--fve-muted-text)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)] aria-selected:bg-[var(--fve-surface)] aria-selected:text-[var(--fve-brand-text)] aria-selected:shadow-sm"
             | TabsVariant.Underlined ->
-                "flex max-w-full items-center gap-4 overflow-x-auto border-b border-[var(--fve-border)]",
+                "flex min-w-0 w-full max-w-full items-center gap-4 overflow-x-auto border-b border-[var(--fve-border)]",
                 "min-h-[var(--fve-control-min-height)] shrink-0 border-0 border-b-2 border-transparent bg-transparent px-2 py-[calc(var(--fve-control-padding-block)+0.125rem)] text-sm font-semibold text-[var(--fve-muted-text)] outline-none transition-colors hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)] aria-selected:border-[var(--fve-brand-solid)] aria-selected:text-[var(--fve-brand-text)]"
 
         div {
             _id config.id
-            _class (match config.orientation with TabsOrientation.Horizontal -> "min-w-0" | TabsOrientation.Vertical -> "grid min-w-0 gap-4 sm:grid-cols-[auto_1fr]")
+            _class (match config.orientation with TabsOrientation.Horizontal -> "min-w-0 w-full max-w-full" | TabsOrientation.Vertical -> "grid min-w-0 max-w-full gap-4 sm:grid-cols-[auto_minmax(0,1fr)]")
             _dataSignals $"{{{signal}: {ComponentHtml.javascriptString config.selectedId}}}"
             _dataInit ensureValidSelection
             div {
+                _id (config.id + "-list")
                 _role "tablist"
                 _ariaLabel config.label
                 _ariaOrientation (match config.orientation with TabsOrientation.Horizontal -> "horizontal" | TabsOrientation.Vertical -> "vertical")
@@ -145,7 +151,7 @@ module Tabs =
                         if not item.disabled then
                             _dataOn ("click", selectExpression item)
                             _dataOn ("keydown", $"{directionalKeys}; evt.key == 'Home' && (evt.preventDefault(), {first}); evt.key == 'End' && (evt.preventDefault(), {last})")
-                        _class (tabClasses + " disabled:pointer-events-none disabled:opacity-50")
+                        _class (tabClasses + " disabled:pointer-events-none disabled:opacity-50" + if config.orientation = TabsOrientation.Horizontal then " whitespace-nowrap" else "")
                         match item.leading with
                         | Some leading -> span { _ariaHidden true; _class "mr-2 inline-flex size-4 items-center justify-center align-text-bottom"; leading }
                         | None -> ()
@@ -161,7 +167,7 @@ module Tabs =
                     _tabindex 0
                     _hidden (not selected)
                     _dataAttr ("hidden", $"{selectedExpression item} ? null : true")
-                    _class (match config.orientation with TabsOrientation.Horizontal -> "mt-4 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]" | TabsOrientation.Vertical -> "min-w-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]")
+                    _class (match config.orientation with TabsOrientation.Horizontal -> "mt-4 min-w-0 max-w-full outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]" | TabsOrientation.Vertical -> "min-w-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]")
                     item.content
                 }
         }

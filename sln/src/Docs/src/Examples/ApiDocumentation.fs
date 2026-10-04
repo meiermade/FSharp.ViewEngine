@@ -52,7 +52,7 @@ module ApiDocumentation =
     let private operation page method' path (description:string) request requestFields (returns:string) (responses:(string*string*string) list) =
         let narrative = div {
             _class "grid gap-8"
-            header { _class "grid gap-4"; h1 { _class "text-2xl font-semibold tracking-tight sm:text-3xl"; title page }; p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; description }; methodPath method' path }
+            header { _class "grid gap-4"; p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; description }; methodPath method' path }
             Layout.section "Parameters" (if List.isEmpty requestFields then p { _class "text-base text-[var(--fve-muted-text)]"; "No parameters." } else parameters requestFields)
             Layout.section "Returns" (p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; returns })
             Layout.section "Response codes" (dl {
@@ -107,7 +107,7 @@ module ApiDocumentation =
             | _ ->
                 split (div {
                     _class "grid gap-8"
-                    header { _class "grid gap-4"; h1 { _class "text-2xl font-semibold tracking-tight sm:text-3xl"; title page }; p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; "Accounts and transactions over JSON. Explore resource definitions, request parameters and response states alongside copyable cURL examples." } }
+                    header { _class "grid gap-4"; p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; "Accounts and transactions over JSON. Explore resource definitions, request parameters and response states alongside copyable cURL examples." } }
                     Layout.section "Getting started" (div { _class "grid gap-4 text-base leading-7 text-[var(--fve-muted-text)]"; p { "These pages describe an API you can implement using the same financial model as the Application and Specification." }; p { "Set "; code { "$API_ORIGIN" }; " to your backend's origin before using the requests. This catalog does not expose a financial API, issue credentials or run requests." } })
                     Layout.section "Resources" (div {
                         _class "grid gap-5"

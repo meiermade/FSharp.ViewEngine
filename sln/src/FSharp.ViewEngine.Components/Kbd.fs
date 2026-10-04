@@ -12,6 +12,7 @@ type KbdConfig =
           label:string option
           attributes:HtmlAttribute list }
 
+/// <remarks>Key labels are presentational; the consumer registers any keyboard handlers.</remarks>
 /// <category>kbd</category>
 [<RequireQualifiedAccess>]
 module Kbd =

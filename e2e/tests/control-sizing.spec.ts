@@ -52,7 +52,7 @@ test('server-populated search follows native form reset and unavailable states @
     await expect(clear).toBeVisible()
   }
   await clear.click()
-  await root.getByRole('button', { name: 'Apply filters' }).click()
+  await search.press('Enter')
   await expect(search).toHaveValue('')
   await expect(clear).toBeHidden()
 })

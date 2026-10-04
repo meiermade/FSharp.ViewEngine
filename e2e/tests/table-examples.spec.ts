@@ -6,6 +6,7 @@ const examples = [
   ['components-table-comfortable-panel-preview', 'Comfortable rows'],
   ['components-table-status-panel-preview', 'With status values'],
   ['components-table-selection-panel-preview', 'With checkboxes'],
+  ['components-table-scrollable-panel-preview', 'Scrollable rows and sticky headings'],
   ['components-table-mobile-panel-preview', 'Stacked on mobile'],
   ['components-table-sorting-panel-preview', 'Sortable records'],
   ['components-table-hierarchy-panel-preview', 'Hierarchical accounts and aggregates'],
@@ -14,13 +15,13 @@ const examples = [
 
 test('table examples isolate features and expose short independent source', async ({ page }) => {
   await page.goto('/components/table')
-  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(8)
+  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(examples.length)
   for (const [id, title] of examples) {
     const preview = page.locator(`#${id}`)
     const example = preview.locator('..')
     await expect(example.getByRole('heading', { name: title, exact: true })).toBeVisible()
     await expect(preview.getByRole('table')).toHaveCount(id === 'components-table-empty-panel-preview' ? 0 : 1)
-    await expect(preview.getByRole('link')).toHaveCount(id === 'components-table-sorting-panel-preview' ? 4 : id === 'components-table-hierarchy-panel-preview' ? 7 : 0)
+    await expect(preview.getByRole('link')).toHaveCount(id === 'components-table-sorting-panel-preview' ? 2 : id === 'components-table-hierarchy-panel-preview' ? 7 : 0)
     await expect(preview.getByRole('button')).toHaveCount(id === 'components-table-hierarchy-panel-preview' ? 3 : 0)
     await expect(preview.getByRole('checkbox')).toHaveCount(id === 'components-table-selection-panel-preview' ? 5 : 0)
     await example.getByRole('tab', { name: 'Code', exact: true }).click()
@@ -52,7 +53,7 @@ test('sortable table headers expose current state and leave ordering to the cons
   await expect(table.getByRole('rowheader').first()).toHaveText('Alex Morgan')
   await page.evaluate(() => { (window as any).__tableSortDocumentMarker = true })
   const sortResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/table/sort')
-  await example.getByRole('group', { name: 'Sort Sortable team members', exact: true }).getByRole('link', { name: /Sort by Role; currently unsorted/ }).click()
+  await table.getByRole('columnheader', { name: /Role/ }).getByRole('link').click()
   expect((await sortResponse).status()).toBe(200)
   await expect(page).toHaveURL('/components/table')
   expect(await page.evaluate(() => (window as any).__tableSortDocumentMarker)).toBe(true)
@@ -76,9 +77,9 @@ test('table selection is native page-scoped and independent of the other example
   await alex.focus()
   await alex.press('Space')
   await expect(all).toBeChecked({ indeterminate: true })
-  await expect(selection.getByRole('status')).toHaveText('1 selected on this page')
+  await expect(selection.getByRole('status')).toHaveText('1 selected')
   await all.check()
-  await expect(selection.getByRole('status')).toHaveText('4 selected on this page')
+  await expect(selection.getByRole('status')).toHaveText('4 selected')
   await expect(guest).toBeChecked()
   const values = await selection.evaluate(element => {
     const form = document.createElement('form')
@@ -90,8 +91,19 @@ test('table selection is native page-scoped and independent of the other example
   await example.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(all).toBeChecked()
   await all.uncheck()
-  await expect(selection.getByRole('status')).toHaveText('0 selected on this page')
+  await expect(selection.getByRole('status')).toHaveText('0 selected')
   await expect(page.locator('#components-table-mobile').getByRole('checkbox')).toHaveCount(0)
+})
+
+test('bounded table rows scroll without moving their heading @cross-browser', async ({ page }) => {
+  await page.goto('/components/table')
+  const preview = page.locator('#components-table-scrollable-panel-preview')
+  const scroll = preview.getByRole('region', { name: 'Team members in a bounded viewport', exact: true })
+  const header = preview.getByRole('columnheader', { name: 'Name', exact: true })
+  const top = (await header.boundingBox())!.y
+  await scroll.evaluate(element => { element.scrollTop = element.scrollHeight })
+  await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+  expect(Math.abs((await header.boundingBox())!.y - top)).toBeLessThanOrEqual(1)
 })
 
 test('table examples preserve scrolling and one-tree mobile records across themes and text sizes', async ({ page }, testInfo) => {

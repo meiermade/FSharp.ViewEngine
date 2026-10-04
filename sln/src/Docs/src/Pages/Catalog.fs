@@ -12,10 +12,10 @@ module Catalog =
     let navigation =
         [ group "Actions" Components.actionRegistrations
           group "Feedback" (Components.feedbackRegistrations @ [ComponentDocumentation.calloutRegistration])
-          group "Data display" (Components.dataDisplayRegistrations @ [ComponentDocumentation.cardRegistration; Components.messageRegistration; Components.stepsRegistration; Components.uploadRegistration])
+          group "Data display" (Components.dataDisplayRegistrations @ [ComponentDocumentation.cardRegistration; Components.messageRegistration; Components.stepsRegistration])
           group "Form controls" (Components.formControlRegistrations @ [ComponentDocumentation.fieldGroupRegistration])
           group "Navigation" (Components.navigationRegistrations @ [Components.bottomNavigationRegistration])
-          group "Overlays" (Components.overlayRegistrations @ [Components.firstStepsRegistration])
+          group "Overlays" Components.overlayRegistrations
           group "Layout" (Components.frameRegistrations @ [Components.pageHeaderRegistration; ComponentDocumentation.sectionHeaderRegistration; Components.pageTopBarRegistration])
           group "Code and diagrams" [ComponentDocumentation.codeBlockRegistration; ComponentDocumentation.exampleRegistration; ComponentDocumentation.mermaidRegistration; ComponentDocumentation.fsharpReferenceRegistration] ]
     let componentRegistrations = navigation |> List.collect _.pages

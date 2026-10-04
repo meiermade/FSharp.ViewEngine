@@ -356,6 +356,25 @@ module Components =
             |> Item.render
         }
 
+    let linkedItemWithMetadata =
+        let editor =
+            Popover.create "item-account-editor" "Edit" (span { "Edit" }) "Edit account name" (
+                div {
+                    _class "grid gap-3"
+                    Input.create "item-account-name" "Account name" |> Input.withValue "Operating account" |> Input.render
+                    p { _class "text-sm text-[var(--fve-muted-text)]"; "This local example does not save changes." }
+                })
+            |> Popover.focusContentOnOpen
+            |> Popover.render
+        ul {
+            _class "w-full max-w-xl"
+            Item.create "Operating account"
+            |> Item.withLink "/examples/application/accounts/101"
+            |> Item.withMetadata editor
+            |> Item.withVariant ItemVariant.Outlined
+            |> Item.render
+        }
+
     let defaultLoadingIndicator =
         LoadingIndicator.create "Loading account balances"
         |> LoadingIndicator.render
@@ -545,6 +564,14 @@ module Components =
         Table.create "Team members" teamColumns teamMembers
         |> Table.render
 
+    let scrollableTeamTable =
+        div {
+            _class "flex h-28 min-h-0 w-full flex-col"
+            Table.create "Team members in a bounded viewport" teamColumns teamMembers
+            |> Table.withScrollableRows
+            |> Table.render
+        }
+
     let comfortableTeamTable =
         Table.create "Team members with comfortable rows" teamColumns teamMembers
         |> Table.withDensity Density.Comfortable
@@ -598,11 +625,11 @@ module Components =
         | _ -> NameAscending
 
     let private teamMemberSortUrl sort direction =
-        $"/components/table/sort?sort={sort}&direction={direction}"
+        $"/components/table?sort={sort}&direction={direction}"
 
     let private documentSort sort =
         sort
-        |> TableSort.withAttributes [ _dataOn ("click", "evt.preventDefault(); @get(evt.currentTarget.getAttribute('href'))") ]
+        |> TableSort.withAttributes [ _dataOn ("click", "if (evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey) { evt.preventDefault(); @get(el.getAttribute('href').replace('/components/table?', '/components/table/sort?'), { filterSignals: { exclude: /.*/ }, retry: 'never' }) }") ]
 
     let private sortFor column current =
         match column, current with
@@ -1151,6 +1178,7 @@ module Components =
         |> Select.multiple
         |> Select.withSelectedMany [ "alex" ]
         |> Select.withPlaceholder "Search members"
+        |> Select.withDescription "Try Jamie or Riley for matches, or error to test retry."
         |> Select.withSearch (SelectSearch.Remote "/components/members/search")
 
     let remoteMembersCombobox =
@@ -1216,6 +1244,7 @@ module Components =
             SelectOption.create "daily" "Daily"
             SelectOption.create "weekly" "Weekly"
             SelectOption.create "monthly" "Monthly" ]
+        |> Select.withSelected "daily"
         |> Select.render
 
     let basicSelect =
@@ -1224,6 +1253,7 @@ module Components =
             SelectOption.create "weekly" "Weekly"
             SelectOption.create "monthly" "Monthly" ]
         |> Select.withSelected "weekly"
+        |> Select.withPosition SelectPosition.SelectedItem
         |> Select.render
     let selectWithHelp =
         Select.create "digestFrequency" "Digest frequency" id [
@@ -1375,7 +1405,7 @@ module Components =
     let private accountComboboxConfig =
         Select.create "account" "Parent account" string (accountOptions accounts)
         |> Select.withPlaceholder "Search accounts"
-        |> Select.withDescription "Results remain authoritative on the server."
+        |> Select.withDescription "Try Operating for a match, or error to test retry."
         |> Select.withEmptyMessage "No matching accounts"
         |> Select.withLoadingMessage "Loading accounts"
         |> Select.withSearch (SelectSearch.Remote "/components/accounts/search")
@@ -3002,9 +3032,7 @@ module Components =
     let appShellRegistration = applicationRegistration "components-app-shell" "/components/app-shell" "App shell" "App shell"
     let bottomNavigationRegistration = applicationRegistration "components-bottom-navigation" "/components/bottom-navigation" "Bottom navigation" "Bottom navigation"
     let messageRegistration = applicationRegistration "components-message" "/components/message" "Message" "Message"
-    let uploadRegistration = { registration "components-upload" "/components/upload-list" "Upload list" "Upload list" with aliases=["/components/upload"] }
     let stepsRegistration = applicationRegistration "components-steps" "/components/steps" "Steps" "Steps"
-    let firstStepsRegistration = applicationRegistration "components-first-steps" "/components/first-steps" "First steps" "First steps"
     let dayCalendarRegistration = registration "components-day-calendar" "/components/day-calendar" "Day calendar" "Day calendar"
     let weekCalendarRegistration = registration "components-week-calendar" "/components/week-calendar" "Week calendar" "Week calendar"
     let monthCalendarRegistration = registration "components-month-calendar" "/components/month-calendar" "Month calendar" "Month calendar"
@@ -3040,7 +3068,7 @@ module Components =
     let compositionRegistrations = [ pageTopBarRegistration; pageHeaderRegistration ]
     let frameRegistrations = [ browserRegistration; phoneRegistration; resizableRegistration ]
     let applicationNavigationRegistrations = [ bottomNavigationRegistration ]
-    let applicationWorkflowRegistrations = [ messageRegistration; uploadRegistration; stepsRegistration; firstStepsRegistration ]
+    let applicationWorkflowRegistrations = [ messageRegistration; stepsRegistration ]
     let applicationResourceRegistrations : DocPage list = []
     let pageExampleRegistrations : DocPage list = []
     let guideRegistrations =
@@ -3434,14 +3462,32 @@ div {
         |> Resizable.render
 
     let basicTooltip =
-        Tooltip.create "archive-tooltip" "Moves the account out of active lists." (Button.create (ButtonContent.Text "Archive") |> Button.render)
+        Tooltip.create "archive-tooltip" "Moves the account out of active lists." (fun descriptionId ->
+            Button.create (ButtonContent.Text "Archive")
+            |> Button.withAttributes [ _ariaDescribedby descriptionId ]
+            |> Button.render)
         |> Tooltip.render
 
     let bottomTooltip =
-        Tooltip.create "bottom-placement-tooltip" "Moves the account out of active lists." (Button.create (ButtonContent.Text "Archive") |> Button.withVariant ButtonVariant.Outline |> Button.render)
+        Tooltip.create "bottom-placement-tooltip" "Moves the account out of active lists." (fun descriptionId ->
+            Button.create (ButtonContent.Text "Archive")
+            |> Button.withAttributes [ _ariaDescribedby descriptionId ]
+            |> Button.withVariant ButtonVariant.Outline
+            |> Button.render)
         |> Tooltip.withSide TooltipSide.Bottom
         |> Tooltip.withDelay 150
         |> Tooltip.render
+
+    let describedTooltip =
+        div {
+            _class "grid gap-3"
+            p { _id "archive-description"; _class "text-sm text-[var(--fve-muted-text)]"; "Archived accounts remain searchable." }
+            Tooltip.create "described-archive-tooltip" "Moves the account out of active lists." (fun descriptionId ->
+                Button.create (ButtonContent.Text "Archive")
+                |> Button.withAttributes [ _ariaDescribedby ("archive-description " + descriptionId) ]
+                |> Button.render)
+            |> Tooltip.render
+        }
 
     let profilePopover =
         Popover.create "profile-popover" "Account details" (span { "Account details" }) "Account details" (p { "Signed in as Alex Morgan." })
@@ -3606,6 +3652,19 @@ div {
         |> InputGroup.withInputType InputType.Search
         |> InputGroup.withAddon (InputGroupAddon.icon InputGroupPosition.Leading (raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.95 3.69l3.18 3.18a.75.75 0 1 1-1.06 1.06l-3.18-3.18A7 7 0 0 1 2 9Z" clip-rule="evenodd"/></svg>"""))
         |> InputGroup.withAddon (InputGroupAddon.keyboard InputGroupPosition.Trailing "⌘ K")
+        |> InputGroup.render
+
+    let multipleAddonInputGroup =
+        InputGroup.create "record-search" "recordSearch" "Search records"
+        |> InputGroup.withInputType InputType.Search
+        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "In")
+        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "Accounts")
+        |> InputGroup.withAddon (InputGroupAddon.action InputGroupPosition.Trailing (
+            Button.create (ButtonContent.Text "Clear")
+            |> Button.withVariant ButtonVariant.Ghost
+            |> Button.withSize ControlSize.Small
+            |> Button.withAttributes [ _dataOn ("click", "document.getElementById('record-search').value = ''; document.getElementById('record-search').focus()") ]
+            |> Button.render))
         |> InputGroup.render
 
     let actionableInputGroup =
@@ -3794,15 +3853,12 @@ div {
         | "resizable" -> "Split content into pointer- and keyboard-resizable horizontal or vertical panels."
         | "bottom-navigation" -> "Navigate primary mobile destinations from a compact bottom bar."
         | "message" -> "Compose sender identity, message content, metadata, and contextual actions."
-        | "upload-list" -> "Present consumer-owned upload progress, completion, and failure states."
         | "steps" -> "Communicate ordered workflow progress with current, complete, and upcoming steps."
-        | "first-steps" -> "Guide initial setup work with progress, actions, minimization, and dismissal."
         | "media-library" -> "Browse and select media with filters, metadata, and responsive collection states."
         | _ -> $"Use the {registration.title} component in typed F# interfaces."
 
     let private installationSelector (registration:DocPage) =
         match componentKey registration with
-        | "upload" -> "upload-list"
         | key -> key
 
     let private titledSection id title content =
@@ -3815,7 +3871,6 @@ div {
             let installation = installationSelector registration
             let leadContent =
                 [ Example.lead lead.id lead.title "fsharp" lead.source lead.preview ]
-                @ (lead.note |> Option.map prose |> Option.toList)
             let sections = [
                 titledSection "installation" "Installation" [
                     prose "Copy this component and its required dependencies into the consumer-owned Components project."
@@ -3828,9 +3883,8 @@ div {
                     } ]
                 titledSection "usage" "Usage" [ code "fsharp" lead.source ]
                 for item in variants do
-                    DocumentationSection.create item.id item.title (
-                        [ Example.gallery item.id item.title "fsharp" item.source item.preview ]
-                        @ (item.note |> Option.map prose |> Option.toList))
+                    DocumentationSection.create item.id item.title [
+                        Example.gallery item.id item.title "fsharp" item.source item.preview ]
                 if registration.id = appShellRegistration.id then
                     titledSection "complete-pages" "Complete page examples" [
                         p {
@@ -3872,30 +3926,6 @@ div {
         if registration.path.StartsWith("/components/page-examples/", StringComparison.Ordinal) then pageExampleGallery registration examples
         else componentGallery registration examples
 
-    let setupSteps =
-        [ FirstStep.create "connect-bank" "Connect a bank account"
-          |> FirstStep.withDescription "Import accounts and reconcile current balances."
-          |> FirstStep.withAction (a { _href "/components/collection"; _class "text-sm font-semibold text-[var(--fve-brand-text)] underline-offset-2 hover:underline"; "Connect account" })
-          FirstStep.create "review-accounts" "Review imported accounts"
-          |> FirstStep.complete ]
-
-    let firstStepsExample =
-        FirstSteps.create "ledger-first-steps" "First steps" setupSteps
-        |> FirstSteps.withinContainer
-        |> FirstSteps.render
-
-    let minimizedFirstStepsExample =
-        FirstSteps.create "minimized-first-steps" "First steps" setupSteps
-        |> FirstSteps.withinContainer
-        |> FirstSteps.minimized
-        |> FirstSteps.render
-
-    let dismissedFirstStepsExample =
-        FirstSteps.create "dismissed-first-steps" "First steps" setupSteps
-        |> FirstSteps.withinContainer
-        |> FirstSteps.dismissed
-        |> FirstSteps.render
-
     let floatingPanelContent =
         div {
             _class "grid gap-3 text-sm"
@@ -3913,6 +3943,22 @@ div {
         FloatingPanel.create "minimized-workspace-guide" "Workspace guide" floatingPanelContent
         |> FloatingPanel.withinContainer
         |> FloatingPanel.minimized
+        |> FloatingPanel.render
+
+    let floatingPanelChecklistContent =
+        ol {
+            _class "m-0 grid list-none gap-4 p-0 text-sm"
+            li {
+                p { _class "font-medium"; "1. Review the examples" }
+                a { _href "/examples"; _class "font-semibold text-[var(--fve-brand-text)] underline underline-offset-2"; "Open examples" }
+            }
+            li { p { _class "font-medium"; "2. Choose your components" }; p { _class "text-[var(--fve-muted-text)]"; "Complete" } }
+        }
+
+    let floatingPanelChecklistExample =
+        FloatingPanel.create "component-checklist" "Setup checklist" floatingPanelChecklistContent
+        |> FloatingPanel.withDescription "The consumer owns the checklist, progress, and destinations."
+        |> FloatingPanel.withinContainer
         |> FloatingPanel.render
 
     let notificationLeadItem sequence =
@@ -4009,40 +4055,6 @@ div {
         |> FileSelection.multiple
         |> FileSelection.pending
         |> FileSelection.render
-
-    let uploadQueueExample =
-        div {
-            _dataSignals "{uploadFeedback: ''}"
-            UploadList.create "Statement uploads"
-                [ UploadItem.create "upload-complete" "checking-july.ofx" UploadState.Complete
-                  |> UploadItem.withDetail "84 KB"
-                  UploadItem.create "upload-active" "card-july.csv" (UploadState.Uploading (68, 100))
-                  |> UploadItem.withDetail "142 KB"
-                  |> UploadItem.withActions (
-                      Button.create (ButtonContent.Text "Cancel")
-                      |> Button.withAttributes [ _dataOn ("click", "$uploadFeedback = 'Upload cancelled. The selected local file remains available to retry.'") ]
-                      |> Button.render)
-                  UploadItem.create "upload-failed" "savings-july.csv" (UploadState.Failed "The demo transport rejected this file.")
-                  |> UploadItem.withActions (
-                      Button.create (ButtonContent.Text "Retry")
-                      |> Button.withColor ButtonColor.Primary
-                      |> Button.withVariant ButtonVariant.Solid
-                      |> Button.withAttributes [ _dataOn ("click", "$uploadFeedback = 'Retry queued for savings-july.csv.'") ]
-                      |> Button.render) ]
-            |> UploadList.render
-            output {
-                _role "status"
-                _ariaLive "polite"
-                _dataShow "$uploadFeedback != ''"
-                _dataText "$uploadFeedback"
-                _style "display:none"
-                _class "mt-2 text-sm text-[var(--fve-muted-text)]"
-            }
-        }
-
-    let emptyUploadQueueExample =
-        UploadList.create "Statement uploads" []
-        |> UploadList.render
 
     let periodCloseStepsExample =
         div {
@@ -4225,8 +4237,25 @@ div {
         |> WeekCalendar.withDateDestination calendarDateDestination
         |> WeekCalendar.render id
 
+    let calendarMonthEvents =
+        calendarDemoEvents @ [
+            CalendarEvent.create "training-day" "Team training" calendarDemoDate (calendarDateDestination calendarDemoDate)
+            |> CalendarEvent.withEndDate (calendarDemoDate.AddDays 4)
+            CalendarEvent.create "equipment-preparation" "Equipment preparation" (calendarDemoDate.AddDays 1) (calendarDateDestination (calendarDemoDate.AddDays 1))
+            |> CalendarEvent.withEndDate (calendarDemoDate.AddDays 3)
+            CalendarEvent.create "site-preparation" "Site preparation" (DateOnly(2026, 8, 30)) (calendarDateDestination (DateOnly(2026, 8, 31)))
+            |> CalendarEvent.withEndDate (DateOnly(2026, 9, 2))
+            CalendarEvent.create "course-setup" "Course setup" (DateOnly(2026, 9, 28)) (calendarDateDestination (DateOnly(2026, 9, 28)))
+            |> CalendarEvent.withEndDate (DateOnly(2026, 10, 2))
+            CalendarEvent.create "setup-review" "Course setup and safety review" calendarDemoDate (calendarEventDestination "setup-review")
+            |> CalendarEvent.withTime (TimeOnly(8, 30)) (TimeOnly(9, 15))
+            |> CalendarEvent.withDetail "Review the route and equipment before the first session."
+            CalendarEvent.create "team-debrief" "Afternoon team debrief" calendarDemoDate (calendarEventDestination "team-debrief")
+            |> CalendarEvent.withTime (TimeOnly(15, 30)) (TimeOnly(16, 0)) ]
+
     let calendarMonthExample =
-        MonthCalendar.create "Team calendar" calendarDemoDate calendarDemoEvents
+        MonthCalendar.create "Team calendar" calendarDemoDate calendarMonthEvents
+        |> MonthCalendar.withId "team-month-calendar"
         |> MonthCalendar.withToday calendarDemoDate (calendarDateDestination calendarDemoDate)
         |> MonthCalendar.withSelectedDate calendarDemoDate
         |> MonthCalendar.withDateDestination calendarDateDestination
@@ -4598,11 +4627,10 @@ div {
           sample "table-comfortable" "Comfortable rows" [ "TeamMember"; "teamMembers"; "teamColumns"; "comfortableTeamTable" ] (detailsSurface comfortableTeamTable)
           sample "table-status" "With status values" [ "memberStatusTable" ] (detailsSurface memberStatusTable)
           sample "table-selection" "With checkboxes" [ "TeamMember"; "teamMembers"; "teamColumns"; "selectableTeamTable" ] (detailsSurface selectableTeamTable)
+          sample "table-scrollable" "Scrollable rows and sticky headings" [ "TeamMember"; "teamMembers"; "teamColumns"; "scrollableTeamTable" ] (detailsSurface scrollableTeamTable)
           sample "table-mobile" "Stacked on mobile" [ "TeamMember"; "teamMembers"; "mobileTeamTable" ] (detailsSurface mobileTeamTable)
           sample "table-sorting" "Sortable records" [ "TeamMember"; "teamMembers"; "TeamMemberSort"; "teamMemberSortUrl"; "documentSort"; "sortFor"; "sortableTeamTable" ] (detailsSurface (sortableTeamTablePreview current))
-          |> note "The application owns the query, destination, and ordered rows. Table only renders the accessible sort controls."
           sample "table-hierarchy" "Hierarchical accounts and aggregates" [ "HierarchyAccount"; "money"; "hierarchyAccounts"; "hierarchicalAccountTable" ] (detailsSurface hierarchicalAccountTable)
-          |> note "The consumer supplies every ancestor, level, aggregate value, and destination. Table owns disclosure presentation only."
           sample "table-empty" "Empty state" [ "TeamMember"; "teamColumns"; "emptyTeamTable" ] (detailsSurface emptyTeamTable) ]
 
     let examplesFor = function
@@ -4610,21 +4638,16 @@ div {
             sample "button-basic" "Default" [ "basicButton" ] (centered basicButton)
             sample "button-colors" "Colors" [ "buttonColorExamples" ] (centered buttonColorExamples)
             sample "button-content" "Content modes" [ "plusIcon"; "refreshIcon"; "buttonContentExamples" ] (centered buttonContentExamples)
-            |> note "ButtonContent makes text, icon-only, icon-before-text, text-before-icon, and custom presentational HTML explicit. Icon-only buttons require an accessible name; Custom content must not contain nested interactive controls."
             sample "button-variants" "Variants" [ "buttonVariantExamples" ] (centered buttonVariantExamples)
             sample "button-icon-variants" "Icon-only variants" [ "refreshIcon"; "iconOnlyButtonVariantExamples" ] (centered iconOnlyButtonVariantExamples)
             sample "button-custom" "Custom palette" [ "customButtonPalette"; "customPaletteButtons" ] (centered customPaletteButtons)
-            |> note "Supply explicit light/dark foreground, background, border, focus and interaction colors. You own contrast for custom palettes; one arbitrary color cannot guarantee readable text."
             sample "button" "Primary buttons" [ "primaryButtons" ] (centered primaryButtons)
-            |> note "Enabled actions move down one pixel while pressed without shifting the layout. Reduced motion, unavailable controls, and popup triggers do not move."
             sample "button-secondary" "Secondary buttons" [ "secondaryButtons" ] (centered secondaryButtons)
             sample "button-ghost" "Ghost buttons" [ "ghostButtons" ] (centered ghostButtons)
             sample "button-destructive" "Destructive buttons" [ "destructiveButtons" ] (centered destructiveButtons)
             sample "button-pending" "Pending buttons" [ "pendingSyncButton" ] (centered pendingSyncButton)
             sample "button-error-pending" "Pending error-colored action" [ "pendingErrorButton" ] (centered pendingErrorButton)
-            |> note "Pending is temporary work: the button is busy, displays progress, and prevents another activation."
             sample "button-disabled" "Disabled buttons" [ "disabledDeleteButton" ] (centered disabledDeleteButton)
-            |> note "Disabled is unavailable and does not display progress or claim that work is running."
             sample "button-icon-primary" "Primary icon-only" [ "plusIcon"; "addAccountIconOnlyButton" ] (centered addAccountIconOnlyButton)
             sample "button-icon-pending" "Pending icon-only" [ "refreshIcon"; "refreshingIconOnlyButton" ] (centered refreshingIconOnlyButton)
             sample "button-icon-disabled" "Disabled icon-only" [ "removeIcon"; "disabledRemoveIconOnlyButton" ] (centered disabledRemoveIconOnlyButton) ]
@@ -4638,8 +4661,7 @@ div {
             sample "badge-variants" "Variants" [ "badgeVariantExamples" ] (centered badgeVariantExamples) ]
         | "kbd" -> [
             sample "kbd" "Default" [ "keyboardKey" ] (centered keyboardKey)
-            sample "kbd-shortcut" "Shortcut group" [ "keyboardShortcut" ] (centered keyboardShortcut)
-            |> note "Kbd renders semantic key labels only. The host owns any corresponding keyboard behavior." ]
+            sample "kbd-shortcut" "Shortcut group" [ "keyboardShortcut" ] (centered keyboardShortcut) ]
         | "separator" -> [
             sample "separator-default" "Default" [ "defaultSeparator" ] (centered defaultSeparator)
             sample "separator" "Orientation and semantics" [ "separatorExamples" ] (centered separatorExamples) ]
@@ -4647,39 +4669,33 @@ div {
             sample "skeleton-default" "Default" [ "defaultSkeleton" ] (fieldSurface defaultSkeleton)
             sample "skeleton-text" "Text" [ "textSkeleton" ] (fieldSurface textSkeleton)
             sample "skeleton-avatar" "Avatar row" [ "avatarSkeleton" ] (fieldSurface avatarSkeleton)
-            |> note "Consumer-authored HTML owns the layout; one busy status owns the announcement while individual placeholders remain silent."
-            sample "skeleton-card" "Card" [ "cardSkeleton" ] (fieldSurface cardSkeleton)
-            |> note "Use Skeleton for initial loading, not to replace already-visible content. Reduced-motion users receive static placeholders." ]
+            sample "skeleton-card" "Card" [ "cardSkeleton" ] (fieldSurface cardSkeleton) ]
         | "item" -> [
             sample "item-default" "Default" [ "defaultItem" ] (centered defaultItem)
             sample "item" "Links and action rows" [ "itemExample" ] (centered itemExample)
-            |> note "Whole-row links never contain nested controls. Rows with actions keep their links and buttons individually reachable." ]
+            sample "item-linked-metadata" "Linked row with metadata action" [ "linkedItemWithMetadata" ] (centered linkedItemWithMetadata) ]
         | "resizable" -> [
             sample "resizable-default" "Default" [ "defaultResizablePanels" ] (detailsSurface defaultResizablePanels)
             sample "resizable" "Horizontal split panels" [ "resizablePanels" ] (detailsSurface resizablePanels)
-            sample "resizable-vertical" "Vertical split panels" [ "verticalResizablePanels" ] (detailsSurface verticalResizablePanels)
-            |> note "Pointer, touch and keyboard resizing are local. Consumers decide whether to persist a resulting size." ]
+            sample "resizable-vertical" "Vertical split panels" [ "verticalResizablePanels" ] (detailsSurface verticalResizablePanels) ]
         | "tooltip" -> [
             sample "tooltip" "Default" [ "basicTooltip" ] (centered basicTooltip)
-            sample "tooltip-bottom" "Bottom placement" [ "bottomTooltip" ] (centered bottomTooltip)
-            |> note "The trigger retains its own accessible name. Tooltip text is supplementary and never contains interactive content." ]
+            sample "tooltip-described" "Existing description" [ "describedTooltip" ] (centered describedTooltip)
+            sample "tooltip-bottom" "Bottom placement" [ "bottomTooltip" ] (centered bottomTooltip) ]
         | "popover" -> [
             sample "popover" "Default" [ "profilePopover" ] (centered profilePopover)
             sample "popover-focus" "Initial content focus" [ "focusedProfilePopover" ] (centered focusedProfilePopover)
-            sample "popover-alignment" "Side and alignment" [ "alignedPopover" ] (centered alignedPopover)
-            |> note "Popover owns trigger relationships, top-layer dismissal and optional initial focus. Use Dropdown menu for commands and Floating panel for persistent surfaces." ]
+            sample "popover-alignment" "Side and alignment" [ "alignedPopover" ] (centered alignedPopover) ]
         | "message" -> [
             sample "message-default" "Default" [ "defaultMessage" ] (detailsSurface defaultMessage)
             sample "message" "Sender and receiver" [ "messageRows" ] (detailsSurface messageRows)
-            sample "message-no-avatar" "Metadata and actions without an avatar" [ "messageWithoutAvatar" ] (detailsSurface messageWithoutAvatar)
-            |> note "Message owns layout only. The host owns conversation transport, persistence, streaming, retry and delivery truth." ]
+            sample "message-no-avatar" "Metadata and actions without an avatar" [ "messageWithoutAvatar" ] (detailsSurface messageWithoutAvatar) ]
         | "loading-indicator" -> [
             sample "loading-indicator" "Default" [ "defaultLoadingIndicator" ] (centered defaultLoadingIndicator)
             sample "loading-indicator-label" "With visible label" [ "visibleLoadingIndicator" ] (centered visibleLoadingIndicator) ]
         | "progress" -> [
             sample "progress-active" "Default" [ "operationalProgressExample" ] (fieldSurface operationalProgressExample)
             sample "progress-indeterminate" "Indeterminate" [ "indeterminateProgressExample" ] (fieldSurface indeterminateProgressExample)
-            |> note "Indeterminate progress reports work without aria-valuenow or an invented percentage."
             sample "progress-complete" "Complete" [ "completedProgressExample" ] (fieldSurface completedProgressExample)
             sample "progress-failed" "Failed" [ "failedProgressExample" ] (fieldSurface failedProgressExample) ]
         | "empty-state" -> [
@@ -4709,7 +4725,6 @@ div {
         | "input" -> [
             sample "input" "Default" [ "labelledInput" ] (fieldSurface labelledInput)
             sample "input-sizes" "Consistent control sizes" [ "refreshIcon"; "inputSizeExamples" ] (detailsSurface inputSizeExamples)
-            |> note "Small, Medium and Large use 32, 40 and 48px baselines. Small uses compact 14px/20px application text; Medium and Large use 16px/24px text. Values use regular weight, actions medium, and field labels remain 14px. Set a region with ControlSize.className, or set an application theme with ComponentsTheme.withControlSize. Explicit withSize overrides inherit neither the region size nor layout density."
             sample "input-help" "With help text" [ "inputWithHelp" ] (fieldSurface inputWithHelp)
             sample "input-required" "Required" [ "requiredInput" ] (fieldSurface requiredInput)
             sample "input-optional" "Optional" [ "optionalInput" ] (fieldSurface optionalInput)
@@ -4724,36 +4739,31 @@ div {
             sample "field-default" "Default" [ "defaultField" ] (fieldSurface defaultField)
             sample "field" "Custom control" [ "customCurrencyField" ] (fieldSurface customCurrencyField)
             sample "field-responsive" "Responsive label and control rows" [ "responsiveFieldRows" ] (fieldSurface responsiveFieldRows)
-            sample "field-group" "Semantic fieldset" [ "groupedFields" ] (fieldSurface groupedFields)
-            |> note "Field owns one label/help/error relationship around a custom control. Complete controls such as Input, Textarea and Checkbox remain convenient standalone APIs and should not be nested inside another Field wrapper." ]
+            sample "field-group" "Semantic fieldset" [ "groupedFields" ] (fieldSurface groupedFields) ]
         | "input-group" -> [
             sample "input-group-default" "Default" [ "defaultInputGroup" ] (fieldSurface defaultInputGroup)
             sample "input-group" "Text addons" [ "currencyInputGroup" ] (fieldSurface currencyInputGroup)
             sample "input-group-search" "Icon and keyboard hint" [ "searchInputGroup" ] (fieldSurface searchInputGroup)
+            sample "input-group-multiple" "Multiple addons" [ "multipleAddonInputGroup" ] (fieldSurface multipleAddonInputGroup)
             sample "input-group-action" "Interactive addon" [ "actionableInputGroup" ] (fieldSurface actionableInputGroup)
             sample "input-group-dropdown" "Dropdown addon" [ "dropdownInputGroup" ] (fieldSurface dropdownInputGroup)
             sample "input-group-textarea" "Textarea footer" [ "textareaInputGroup" ] (fieldSurface textareaInputGroup)
             sample "input-group-validation" "Validation" [ "invalidInputGroup" ] (fieldSurface invalidInputGroup)
-            sample "input-group-pending" "Pending" [ "pendingInputGroup" ] (fieldSurface pendingInputGroup)
-            |> note "Decorative addons are not form values or focus targets. Interactive addons keep their own accessible names and follow the native Tab order." ]
+            sample "input-group-pending" "Pending" [ "pendingInputGroup" ] (fieldSurface pendingInputGroup) ]
         | "form-layouts" -> [
             sample "form-layouts" "Stacked with server validation" [ "choiceSubmitButton"; "ContactDetails"; "ContactFormLayout"; "contactFormRegion"; "emptyContact"; "contactFormExample" ] (fullBleedThemedSurface contactFormExample)
-            |> note "Submit to see validation errors. This example does not save contact details. The validation form previously shown on Input now lives here."
             sample "form-layouts-grid" "Two-column form" [ "choiceSubmitButton"; "ContactDetails"; "ContactFormLayout"; "contactFormRegion"; "emptyContact"; "twoColumnFormExample" ] (fullBleedThemedSurface twoColumnFormExample)
             sample "form-layouts-sections" "Sectioned form" [ "choiceSubmitButton"; "ContactDetails"; "ContactFormLayout"; "contactFormRegion"; "emptyContact"; "sectionedFormExample" ] (fullBleedThemedSurface sectionedFormExample) ]
         | "file-selection" -> [
             sample "file-selection-default" "Default" [ "defaultFileSelection" ] (fieldSurface defaultFileSelection)
             sample "file-selection" "Multiple files" [ "fileSelectionExample" ] (fieldSurface fileSelectionExample)
             sample "file-selection-validation" "Validation" [ "invalidFileSelectionExample" ] (fieldSurface invalidFileSelectionExample)
-            sample "file-selection-pending" "Pending" [ "pendingFileSelectionExample" ] (fieldSurface pendingFileSelectionExample)
-            |> note "Pending communicates temporary validation with busy status; disabled would communicate only unavailability." ]
+            sample "file-selection-pending" "Pending" [ "pendingFileSelectionExample" ] (fieldSurface pendingFileSelectionExample) ]
         | "tag-input" -> [
             sample "tag-input" "Default" [ "tagInputExample" ] (fieldSurface tagInputExample)
             sample "tag-input-validation" "Validation" [ "invalidTagInputExample" ] (fieldSurface invalidTagInputExample)
             sample "tag-input-pending" "Pending" [ "pendingTagInputExample" ] (fieldSurface pendingTagInputExample)
-            |> note "Pending communicates that an update is temporarily in progress."
-            sample "tag-input-disabled" "Disabled" [ "disabledTagInputExample" ] (fieldSurface disabledTagInputExample)
-            |> note "Disabled communicates unavailability without busy or progress feedback." ]
+            sample "tag-input-disabled" "Disabled" [ "disabledTagInputExample" ] (fieldSurface disabledTagInputExample) ]
         | "textarea" -> [
             sample "textarea" "Default" [ "labelledTextarea" ] (fieldSurface labelledTextarea)
             sample "textarea-composer" "Visually hidden label" [ "composerTextarea" ] (fieldSurface composerTextarea)
@@ -4762,8 +4772,7 @@ div {
             sample "textarea-pending" "Pending" [ "pendingNotes" ] (fieldSurface pendingNotes)
             sample "textarea-disabled" "Disabled" [ "unavailableNotes" ] (fieldSurface unavailableNotes) ]
         | "error-summary" -> [
-            sample "error-summary" "Linked field errors" [ "errorSummaryExample" ] (fullBleedThemedSurface errorSummaryExample)
-            |> note "Click the error to focus its field. Your application supplies and clears validation messages." ]
+            sample "error-summary" "Linked field errors" [ "errorSummaryExample" ] (fullBleedThemedSurface errorSummaryExample) ]
         | "notice" -> [
             sample "notice" "Default" [ "informationNotice" ] (fieldSurface informationNotice)
             sample "notice-colors" "Colors" [ "noticeColorExamples" ] (detailsSurface noticeColorExamples)
@@ -4774,61 +4783,51 @@ div {
         | "notification" -> [
             sample "notification" "Default" [ "notificationLeadItem"; "notificationLeadRegion"; "simpleNotificationExample" ] (overlaySurface simpleNotificationExample)
             sample "notification-actions" "Persistent with an action" [ "notificationWithActionsExample" ] (overlaySurface notificationWithActionsExample)
-            sample "notification-timing" "Custom lifetime" [ "timedNotificationExample" ] (overlaySurface timedNotificationExample)
-            |> note "Notification owns dismissal and its local lifetime. NotificationRegion renders zero or one notification; each newly confirmed notification replaces the current one. Persistent notifications do not expire automatically but can still be replaced." ]
+            sample "notification-timing" "Custom lifetime" [ "timedNotificationExample" ] (overlaySurface timedNotificationExample) ]
         | "select" -> [
             sample "select-default" "Default" [ "defaultSelect" ] (fieldSurface defaultSelect)
-            sample "select" "With selected value" [ "basicSelect" ] (fieldSurface basicSelect)
+            sample "select" "Selected-item alignment (default)" [ "basicSelect" ] (fieldSurface basicSelect)
             sample "select-help" "With help text" [ "selectWithHelp" ] (fieldSurface selectWithHelp)
-            sample "select-edge" "Trigger-edge position" [ "edgeAlignedSelect" ] (fieldSurface edgeAlignedSelect)
-            |> note "Ordinary single selects align the selected option over the closed value by default. Choose a trigger edge explicitly for dense layouts; searchable and multiple selects remain edge-positioned. Touch and viewport-edge cases fall back to an edge position."
+            sample "select-edge" "Explicit trigger-edge position" [ "edgeAlignedSelect" ] (fieldSurface edgeAlignedSelect)
             sample "select-validation" "Required selection with validation" (formSource @ selectSource @ [ "selectFormRegion"; "statusSelect" ]) (fieldSurface statusSelect)
             sample "select-disabled" "Disabled" (selectSource @ [ "disabledStatusSelect" ]) (fieldSurface disabledStatusSelect)
             sample "select-pending" "Pending" (selectSource @ [ "pendingStatusSelect" ]) (fieldSurface pendingStatusSelect)
             sample "select-multiple" "Multiple selection" [ "memberOptions"; "multipleMembersSelect" ] (fieldSurface multipleMembersSelect)
             sample "select-multiple-selected" "With several selected" [ "memberOptions"; "selectedMembersSelect" ] (fieldSurface selectedMembersSelect)
             sample "select-multiple-validation" "Multiple selection with validation" (formSource @ [ "memberOptions"; "multipleSelectForm" ]) (fieldSurface (multipleSelectForm [] None None))
-            |> note "Submit to check the selection. This example does not save your data."
             sample "select-multiple-disabled" "Multiple selection, disabled" [ "memberOptions"; "disabledMembersSelect" ] (fieldSurface disabledMembersSelect)
             sample "select-multiple-pending" "Multiple selection, pending" [ "memberOptions"; "pendingMembersSelect" ] (fieldSurface pendingMembersSelect)
             sample "select-search" "Searchable" (comboboxSource @ [ "staticAccountCombobox" ]) (fieldSurface staticAccountCombobox)
             sample "select-search-remote" "Searchable with remote results" (comboboxSource @ [ "accountComboboxConfig"; "accountCombobox"; "accountComboboxOptions" ]) (fieldSurface accountCombobox)
-            |> note "Search Operating for a result, an unknown name for no matches, or error to try failure and retry."
             sample "select-search-validation" "Searchable with validation" (comboboxSource @ [ "validationAccountCombobox" ]) (fieldSurface validationAccountCombobox)
             sample "select-search-loading" "Searchable, loading" [ "loadingAccountCombobox" ] (fieldSurface loadingAccountCombobox)
             sample "select-search-disabled" "Searchable, disabled" (comboboxSource @ [ "disabledAccountCombobox" ]) (fieldSurface disabledAccountCombobox)
             sample "select-search-pending" "Searchable, pending" (comboboxSource @ [ "pendingAccountCombobox" ]) (fieldSurface pendingAccountCombobox)
             sample "select-search-multiple" "Searchable multiple selection" [ "memberOptions"; "multipleMembersCombobox" ] (fieldSurface multipleMembersCombobox)
             sample "select-search-multiple-remote" "Searchable multiple selection with remote results" [ "memberOptions"; "remoteMembersConfig"; "remoteMembersCombobox"; "searchMemberOptions"; "remoteMembersField"; "remoteMembersOptions" ] (fieldSurface remoteMembersCombobox)
-            |> note "Search for Jamie or Riley, an unknown name for no matches, or error to try recovery."
             sample "select-search-multiple-validation" "Searchable multiple selection with validation" (formSource @ [ "memberOptions"; "multipleComboboxForm" ]) (fieldSurface (multipleComboboxForm [] None None))
-            |> note "Submit to check the selection. This example does not save your data."
             sample "select-search-multiple-loading" "Searchable multiple selection, loading" [ "memberOptions"; "loadingMembersCombobox" ] (fieldSurface loadingMembersCombobox)
             sample "select-search-multiple-disabled" "Searchable multiple selection, disabled" [ "memberOptions"; "disabledMembersCombobox" ] (fieldSurface disabledMembersCombobox)
             sample "select-search-multiple-pending" "Searchable multiple selection, pending" [ "memberOptions"; "pendingMembersCombobox" ] (fieldSurface pendingMembersCombobox) ]
         | "month-calendar" -> [
             sample "month-calendar-default" "Default" (calendarDefaultSource "defaultMonthCalendar") (calendarSurface defaultMonthCalendar)
-            sample "month-calendar-events" "Events and date navigation" (calendarExampleSource "calendarMonthExample") (calendarSurface calendarMonthExample)
+            sample "month-calendar-events" "Events and date navigation" [ "calendarDemoDate"; "calendarEventDestination"; "calendarDemoEvents"; "calendarDateDestination"; "calendarMonthEvents"; "calendarMonthExample" ] (calendarSurface calendarMonthExample)
             sample "month-calendar-compact" "Compact month" (calendarExampleSource "compactMonthCalendar") (calendarSurface compactMonthCalendar)
             sample "month-calendar-selection" "Single-date selection" [ "monthSelection" ] (calendarSurface monthSelection)
             sample "month-calendar-single" "Clearable single date" [ "monthSelectionSingle" ] (calendarSurface monthSelectionSingle)
             sample "month-calendar-range" "Date range" [ "monthSelectionRange" ] (calendarSurface monthSelectionRange)
             sample "month-calendar-bounds" "Bounds, unavailable dates and Monday start" [ "boundedMonthSelection" ] (calendarSurface boundedMonthSelection)
             sample "month-calendar-caption" "Month and year selectors" [ "captionMonthSelection" ] (calendarSurface captionMonthSelection)
-            |> note "Use the dropdown caption for dates far from the current month, such as birth dates. Bounds constrain the selectors and arrow navigation."
-            sample "month-calendar-pending" "Pending availability" [ "pendingMonthSelection" ] (calendarSurface pendingMonthSelection)
-            |> note "Form selection submits canonical date-only values. Display calendars use date destinations instead; Date picker composes the compact selection configuration." ]
+            sample "month-calendar-pending" "Pending availability" [ "pendingMonthSelection" ] (calendarSurface pendingMonthSelection) ]
         | "date-picker" -> [
             sample "date-picker-default" "Default" [ "defaultDatePicker" ] (fieldSurface defaultDatePicker)
             sample "date-picker" "Clearable single date" [ "basicDatePicker" ] (fieldSurface basicDatePicker)
             sample "date-picker-range" "Date range" [ "rangeDatePicker" ] (fieldSurface rangeDatePicker)
             sample "date-picker-caption" "Month and year selectors" [ "captionDatePicker" ] (fieldSurface captionDatePicker)
-            |> note "Month and year selectors make long-distance dates practical while the calendar retains arrow and grid-keyboard navigation."
             sample "date-picker-bounds" "Bounds and unavailable dates" [ "boundedDatePicker" ] (fieldSurface boundedDatePicker)
             sample "date-picker-validation" "Validation" [ "invalidDatePicker" ] (fieldSurface invalidDatePicker)
             sample "date-picker-pending" "Pending" [ "pendingDatePicker" ] (fieldSurface pendingDatePicker)
-            sample "date-picker-disabled" "Disabled" [ "disabledDatePicker" ] (fieldSurface disabledDatePicker)
-            |> note "DatePicker composes Popover and compact MonthCalendar selection. The server remains responsible for validating submitted date-only values." ]
+            sample "date-picker-disabled" "Disabled" [ "disabledDatePicker" ] (fieldSurface disabledDatePicker) ]
         | "checkbox" -> [
             sample "checkbox" "Default" [ "basicCheckbox" ] (fieldSurface basicCheckbox)
             sample "checkbox-help" "With help text" [ "checkboxWithHelp" ] (fieldSurface checkboxWithHelp)
@@ -4873,13 +4872,10 @@ div {
         | "dropdown-menu" -> [
             sample "dropdown-menu" "Basic menu" [ "basicDropdownMenu" ] (centered basicDropdownMenu)
             sample "dropdown-menu-full-row" "Full context row and supporting descriptions" [ "menuTrailingChevron"; "fullRowDropdownMenu" ] (centered fullRowDropdownMenu)
-            |> note "The trigger fills its owning region without an inset border or rounded corners. Menu descriptions and trailing content preserve the same keyboard, dismissal and focus behavior."
-            sample "dropdown-menu-advanced" "Grouped states and server refresh" [ "Destination"; "destinationUrl"; "menuLeadingIcon"; "dropdownMenuItems"; "actionMenu"; "menuOverflowIcon"; "moreActionsMenu"; "dropdownMenuRegion" ] (fieldSurface (dropdownMenuRegion false))
-            |> note "This advanced example adds text and icon triggers, groups, independent checkbox choices, disabled, pending, destructive, shortcut, counters, and server-patched content." ]
+            sample "dropdown-menu-advanced" "Grouped states and server refresh" [ "Destination"; "destinationUrl"; "menuLeadingIcon"; "dropdownMenuItems"; "actionMenu"; "menuOverflowIcon"; "moreActionsMenu"; "dropdownMenuRegion" ] (fieldSurface (dropdownMenuRegion false)) ]
         | "command" -> [
             sample "command-default" "Default" [ "defaultCommand" ] (fieldSurface defaultCommand)
             sample "command-groups" "Groups, icons and shortcuts" [ "commandDocumentIcon"; "commandGroups"; "groupedCommand" ] (fieldSurface groupedCommand)
-            |> note "Shortcut labels do not register hotkeys. Matching ranks titles before keywords and descriptions; group order remains consumer-owned."
             sample "command-actions" "Actions and disabled items" [ "commandActionsExample" ] (fieldSurface commandActionsExample)
             sample "command-palette" "Dialog palette" [ "commandDocumentIcon"; "commandGroups"; "commandPaletteExample" ] (centered commandPaletteExample)
             sample "command-empty" "Empty results" [ "emptyCommand" ] (fieldSurface emptyCommand) ]
@@ -4887,28 +4883,24 @@ div {
             sample "dialog-default" "Default" [ "defaultDialog"; "defaultDialogExample" ] (centered defaultDialogExample)
             sample "dialog" "Modal dialog" [ "dialogConfig"; "reviewDialogTrigger"; "reviewDialog" ] (centered (div { reviewDialogTrigger; reviewDialog }))
             sample "dialog-confirmation" "Server-validated confirmation" [ "accountDeletionForm"; "accountDeletionContent"; "accountDeletionDialog"; "confirmationExample" ] (centered confirmationExample)
-            |> note "Compose a native form and Buttons inside Dialog. Focus Cancel first and prevent dismissal or repeated submission while pending. The demo server rejects deletion so you can inspect its validation state."
             sample "dialog-pending" "Pending confirmation" [ "accountDeletionForm"; "pendingDeletionDialog"; "pendingConfirmationExample" ] (centered pendingConfirmationExample) ]
         | "drawer" -> [
             sample "drawer-default" "Default" [ "defaultDrawer"; "defaultDrawerExample" ] (centered defaultDrawerExample)
             sample "drawer" "Standard detail drawer" [ "accountDrawerContent"; "accountDrawerConfig"; "accountDrawerExample" ] (centered accountDrawerExample)
             sample "drawer-wide" "Wide editing form" [ "accountEditorBody"; "accountEditorFooter"; "accountEditorDrawerConfig"; "accountEditorDrawerExample" ] (centered accountEditorDrawerExample)
             sample "drawer-start" "Start-side filters" [ "filterDrawerConfig"; "filterDrawerExample" ] (centered filterDrawerExample)
-            sample "drawer-horizontal" "Top and bottom edges" [ "topDrawerConfig"; "bottomDrawerConfig"; "horizontalDrawerExamples" ] (centered horizontalDrawerExamples)
-            |> note "All four edges use the native modal dialog lifecycle. Gesture and snap-point behavior is intentionally outside this component." ]
+            sample "drawer-horizontal" "Top and bottom edges" [ "topDrawerConfig"; "bottomDrawerConfig"; "horizontalDrawerExamples" ] (centered horizontalDrawerExamples) ]
         | "floating-panel" -> [
             sample "floating-panel" "Open non-modal panel" [ "floatingPanelContent"; "floatingPanelExample" ] (overlaySurface floatingPanelExample)
-            sample "floating-panel-minimized" "Minimized with restore" [ "floatingPanelContent"; "minimizedFloatingPanelExample" ] (overlaySurface minimizedFloatingPanelExample) ]
+            sample "floating-panel-minimized" "Minimized with restore" [ "floatingPanelContent"; "minimizedFloatingPanelExample" ] (overlaySurface minimizedFloatingPanelExample)
+            sample "floating-panel-checklist" "Consumer-authored checklist" [ "floatingPanelChecklistContent"; "floatingPanelChecklistExample" ] (overlaySurface floatingPanelChecklistExample) ]
         | "breadcrumbs" -> [
             sample "breadcrumbs" "Default" [ "breadcrumbsExample" ] breadcrumbsPreview
             sample "breadcrumbs-middle" "Middle overflow" [ "breadcrumbTrail"; "middleBreadcrumbsExample" ] (themedSurface middleBreadcrumbsExample)
-            |> note "Long trails keep the root, parent, and current page visible. Open the middle menu for earlier ancestors. Narrow screens collect all ancestors into one menu."
-            sample "breadcrumbs-visible" "Visible item count" [ "breadcrumbTrail"; "visibleBreadcrumbsExample" ] (themedSurface visibleBreadcrumbsExample)
-            |> note "withMaxVisibleItems counts path items, not the overflow trigger. The default is three; choose at least two to retain the root and current page." ]
+            sample "breadcrumbs-visible" "Visible item count" [ "breadcrumbTrail"; "visibleBreadcrumbsExample" ] (themedSurface visibleBreadcrumbsExample) ]
         | "side-nav" -> [
             sample "side-nav-default" "Default" [ "DefaultSideNavDestination"; "defaultSideNavUrl"; "defaultSideNav" ] defaultSideNavPreview
-            sample "side-nav" "Nested navigation with badges and actions" sideNavSource sideNavigationPreview
-            |> note "SideNav owns navigation structure, current destinations and optional workspace/profile regions. AppShell adds the opt-in desktop icon rail and mobile drawer behavior." ]
+            sample "side-nav" "Nested navigation with badges and actions" sideNavSource sideNavigationPreview ]
         | "page-top-bar" -> [ sample "page-top-bar" "With breadcrumbs" [ "pageTopBarExample"; "renderPageTopBar" ] pageTopBarPreview
                               sample "page-top-bar-shell" "Full-width shell bar" [ "shellTopBarExample" ] (shellTopBarExample |> themedSurface) ]
         | "page-header" -> [
@@ -4920,12 +4912,10 @@ div {
             sample "section-headerless" "Without a visible heading" [ "periodNote" ] (detailsSurface periodNote) ]
         | "browser" -> [
             sample "browser-default" "Default" [ "defaultBrowser" ] (centered defaultBrowser)
-            sample "browser" "With an address bar" [ "browserWithAddress" ] (centered browserWithAddress)
-            |> note "The address is presentational; Browser renders the content without navigation or viewer controls." ]
+            sample "browser" "With an address bar" [ "browserWithAddress" ] (centered browserWithAddress) ]
         | "phone" -> [
             sample "phone-default" "Default" [ "defaultPhone" ] (centered defaultPhone)
-            sample "phone" "With screen content" [ "phoneWithContent" ] (centered phoneWithContent)
-            |> note "Phone owns the device treatment; the screen remains product-owned HTML." ]
+            sample "phone" "With screen content" [ "phoneWithContent" ] (centered phoneWithContent) ]
         | "page" -> [
             sample "page-default" "Default" [ "defaultPage" ] (fullBleedThemedSurface defaultPage)
             sample "page" "With local navigation" [ "transactionsPage"; "renderTransactionsPage" ] transactionsPagePreview
@@ -4942,14 +4932,7 @@ div {
             sample "bottom-navigation-default" "Default" [ "defaultBottomNavigation" ] (detailsSurface defaultBottomNavigation)
             sample "bottom-navigation" "Four destinations" [ "bottomNavigationExample" ] (detailsSurface bottomNavigationExample)
             sample "bottom-navigation-compact" "Three destinations" [ "compactBottomNavigationExample" ] (detailsSurface compactBottomNavigationExample) ]
-        | "upload-list" -> [
-            sample "upload" "Queue and recovery" [ "uploadQueueExample" ] (detailsSurface uploadQueueExample)
-            sample "upload-empty" "Empty queue" [ "emptyUploadQueueExample" ] (detailsSurface emptyUploadQueueExample) ]
         | "steps" -> [ sample "steps" "Period-close steps" [ "periodCloseStepsExample" ] (detailsSurface periodCloseStepsExample) ]
-        | "first-steps" -> [
-            sample "first-steps" "Open setup guidance" [ "setupSteps"; "firstStepsExample" ] (overlaySurface firstStepsExample)
-            sample "first-steps-minimized" "Minimized guidance" [ "setupSteps"; "minimizedFirstStepsExample" ] (overlaySurface minimizedFirstStepsExample)
-            sample "first-steps-dismissed" "Dismissed with restore" [ "setupSteps"; "dismissedFirstStepsExample" ] (overlaySurface dismissedFirstStepsExample) ]
         | "day-calendar" -> dayCalendarExamples
         | "week-calendar" -> weekCalendarExamples
         | "year-calendar" -> yearCalendarExamples
@@ -4988,7 +4971,7 @@ div {
               "page", "Page"
               "metric", "Metric"
               "table", "Table"
-              "first-steps", "First steps" ]
+              "floating-panel", "Floating panel" ]
         | PageExamples.Scheduling ->
             [ "app-shell", "App shell"
               "page", "Page"
@@ -5113,9 +5096,7 @@ div {
     let accountManagementPage = accountManagementPageFor LedgerAccounts
     let bottomNavigationPage = gallery bottomNavigationRegistration (examplesFor "bottom-navigation")
     let messagePage = gallery messageRegistration (examplesFor "message")
-    let uploadPage = gallery uploadRegistration (examplesFor "upload-list")
     let stepsPage = gallery stepsRegistration (examplesFor "steps")
-    let firstStepsPage = gallery firstStepsRegistration (examplesFor "first-steps")
     let dayCalendarPage = gallery dayCalendarRegistration dayCalendarExamples
     let weekCalendarPage = gallery weekCalendarRegistration weekCalendarExamples
     let monthCalendarPage = gallery monthCalendarRegistration (examplesFor "month-calendar")
@@ -5229,9 +5210,7 @@ div {
           accountManagementRegistration.path, accountManagementPage
           bottomNavigationRegistration.path, bottomNavigationPage
           messageRegistration.path, messagePage
-          uploadRegistration.path, uploadPage
           stepsRegistration.path, stepsPage
-          firstStepsRegistration.path, firstStepsPage
           dayCalendarRegistration.path, dayCalendarPage
           weekCalendarRegistration.path, weekCalendarPage
           monthCalendarRegistration.path, monthCalendarPage

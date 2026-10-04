@@ -24,6 +24,10 @@ type ItemConfig =
           variant:ItemVariant
           attributes:HtmlAttribute list }
 
+/// <remarks>
+/// withLink stretches the title link without wrapping media, descriptions or metadata in an anchor.
+/// Supplied slot interactions remain independent. An explicit action cluster keeps the Item plain.
+/// </remarks>
 /// <category>item</category>
 [<RequireQualifiedAccess>]
 module Item =
@@ -44,6 +48,8 @@ module Item =
     let withMetadata metadata (config:ItemConfig) = { config with metadata = Some metadata }
     let withActions actions (config:ItemConfig) = { config with actions = Some actions }
 
+    /// Makes the title a stretched row link. Supplied media, description and metadata
+    /// remain separate interaction regions outside the anchor.
     let withLink href (config:ItemConfig) =
         if String.IsNullOrWhiteSpace href then invalidArg (nameof href) "A link destination is required."
         { config with href = Some href }
@@ -54,17 +60,27 @@ module Item =
     let private body config =
         fragment {
             match config.media with
-            | Some media -> div { _class "flex shrink-0 items-start"; media }
+            | Some media -> div { _class "relative z-10 flex shrink-0 items-start"; media }
             | None -> ()
             div {
                 _class "min-w-0 flex-1"
-                p { _class "font-semibold text-[var(--fve-text)] [overflow-wrap:anywhere]"; config.title }
+                p {
+                    _class "font-semibold text-[var(--fve-text)] [overflow-wrap:anywhere]"
+                    match config.href with
+                    | Some href ->
+                        a {
+                            _href href
+                            _class "no-underline outline-none before:absolute before:inset-0 before:rounded-[inherit] focus-visible:before:ring-2 focus-visible:before:ring-[var(--fve-brand-ring)]"
+                            config.title
+                        }
+                    | None -> config.title
+                }
                 match config.description with
-                | Some description -> div { _class "mt-1 text-sm leading-6 text-[var(--fve-muted-text)] [overflow-wrap:anywhere]"; description }
+                | Some description -> div { _class "relative z-10 mt-1 text-sm leading-6 text-[var(--fve-muted-text)] [overflow-wrap:anywhere]"; description }
                 | None -> ()
             }
             match config.metadata with
-            | Some metadata -> div { _class "min-w-0 shrink-0 text-sm text-[var(--fve-muted-text)] max-sm:w-full max-sm:pl-12"; metadata }
+            | Some metadata -> div { _class "relative z-10 min-w-0 shrink-0 text-sm text-[var(--fve-muted-text)] max-sm:w-full max-sm:pl-12"; metadata }
             | None -> ()
         }
 
@@ -77,13 +93,12 @@ module Item =
             | ItemVariant.Outlined -> "rounded-[var(--fve-radius-panel)] ring-1 ring-inset ring-[var(--fve-border)]"
             | ItemVariant.Muted -> "rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface-subtle)]"
         li {
-            _class ("min-w-0 list-none " + variantClasses)
+            _class ("relative min-w-0 list-none " + variantClasses)
             for attribute in ComponentHtml.safeAttributes [ "class" ] config.attributes do attribute
             match config.href with
-            | Some href ->
-                a {
-                    _href href
-                    _class "flex min-w-0 flex-wrap items-start gap-3 rounded-[inherit] p-4 no-underline outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+            | Some _ ->
+                div {
+                    _class "flex min-w-0 flex-wrap items-start gap-3 rounded-[inherit] p-4 transition-colors hover:bg-[var(--fve-surface-hover)]"
                     body config
                 }
             | None ->

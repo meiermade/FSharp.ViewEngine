@@ -27,6 +27,10 @@ type FieldConfig =
 /// <summary>
 /// Label, description, error, and layout ownership for a consumer-authored form control.
 /// </summary>
+/// <remarks>
+/// Use Field for custom controls. Complete controls such as Input, Textarea and Checkbox
+/// already own their labels and must not be nested inside another Field wrapper.
+/// </remarks>
 /// <category>field</category>
 [<RequireQualifiedAccess>]
 module Field =

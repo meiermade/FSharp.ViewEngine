@@ -28,6 +28,9 @@ type NotificationConfig =
           actions:HtmlElement option
           ttl:int option }
 
+/// <remarks>
+/// The default lifetime is 5000ms. persistent disables expiry, not manual dismissal or replacement.
+/// </remarks>
 /// <category>notification</category>
 [<RequireQualifiedAccess>]
 module Notification =
@@ -132,6 +135,9 @@ type NotificationRegionConfig =
           withinContainer:bool }
 
 /// <summary>A consumer-supplied bottom-end region that renders zero or one latest notification.</summary>
+/// <remarks>
+/// Supply zero or one latest confirmed notification. A newer notification replaces the current one.
+/// </remarks>
 /// <category>notification</category>
 [<RequireQualifiedAccess>]
 module NotificationRegion =

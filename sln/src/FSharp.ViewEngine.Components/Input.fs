@@ -14,6 +14,11 @@ type InputType =
 [<NoEquality; NoComparison>]
 type InputConfig = private { field:TextFieldData; kind:InputType; leadingIcon:HtmlElement option; prefix:string option; suffix:string option }
 
+/// <remarks>
+/// Small, Medium and Large use 32, 40 and 48px baselines at the standard root size.
+/// Inherit sizing from ControlSize.className or ComponentsTheme.withControlSize;
+/// withSize overrides the inherited size. Pending values remain submitted; disabled values do not.
+/// </remarks>
 /// <category>input</category>
 [<RequireQualifiedAccess>]
 module Input =
