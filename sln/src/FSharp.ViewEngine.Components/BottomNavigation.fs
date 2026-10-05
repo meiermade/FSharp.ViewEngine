@@ -1,11 +1,12 @@
-namespace FSharp.ViewEngine.Components.Application
+namespace FSharp.ViewEngine.Components
 
-open FSharp.ViewEngine.Components.Primitives
+open FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>bottom-navigation</category>
 [<NoEquality; NoComparison>]
 type BottomNavigationItem<'destination> =
     private
@@ -14,6 +15,7 @@ type BottomNavigationItem<'destination> =
           leading:HtmlElement option
           attributes:HtmlAttribute list }
 
+/// <category>bottom-navigation</category>
 [<RequireQualifiedAccess>]
 module BottomNavigationItem =
     let create destination label =
@@ -26,6 +28,7 @@ module BottomNavigationItem =
     let withLeading leading (item:BottomNavigationItem<'destination>) = { item with leading = Some leading }
     let withAttributes attributes (item:BottomNavigationItem<'destination>) = { item with attributes = attributes }
 
+/// <category>bottom-navigation</category>
 [<NoEquality; NoComparison>]
 type BottomNavigationConfig<'destination when 'destination:equality> =
     private
@@ -57,7 +60,7 @@ module internal BottomNavigationView =
                             if isCurrent then _ariaCurrent "page"
                             _class (
                                 ComponentHtml.classes [
-                                    "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-2 py-2 text-center text-xs font-semibold outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]"
+                                    "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-2 py-2 text-center text-xs font-semibold no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]"
                                     if isCurrent then "bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)]"
                                     else "text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]" ])
                             for attribute in ComponentHtml.safeAttributes [ "href"; "aria-current"; "class" ] item.attributes do attribute
@@ -70,6 +73,7 @@ module internal BottomNavigationView =
             }
         }
 
+/// <category>bottom-navigation</category>
 [<RequireQualifiedAccess>]
 module BottomNavigation =
     let create id label (items:BottomNavigationItem<'destination> list) =

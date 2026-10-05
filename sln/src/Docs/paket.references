@@ -3,3 +3,4 @@ Serilog
 Serilog.AspNetCore
 Serilog.Sinks.Console
 Serilog.Sinks.OpenTelemetry
+StarFederation.Datastar

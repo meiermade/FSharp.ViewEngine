@@ -4,7 +4,8 @@ open System
 open Docs.Common
 open Docs.Pages
 open FSharp.ViewEngine
-open FSharp.ViewEngine.Components.Documentation
+open FSharp.ViewEngine.Components.Templates
+open FSharp.ViewEngine.Components
 open type Html
 
 module View =
@@ -12,8 +13,8 @@ module View =
         match content with
         | Text value -> text value
         | Strong children -> strong { for child in children do renderInline child }
-        | InlineContent.Code value -> code { value }
-        | Link(label, href) -> a { _href href; label }
+        | InlineContent.Code value -> code { _class "whitespace-normal [overflow-wrap:anywhere]"; value }
+        | InlineContent.Link(label, href) -> a { _href href; _class "font-semibold text-[var(--fve-brand-text)] underline decoration-[var(--fve-brand-ring)] underline-offset-[0.18em] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; label }
 
     let private comparisonChart (chart:ComparisonChart) =
         figure {
@@ -49,25 +50,26 @@ module View =
 
     let private element (node:DocNode) =
         match node with
-        | DocNode.Paragraph children -> p { for child in children do renderInline child }
+        | DocNode.Paragraph children -> p { _class "m-0 text-base leading-relaxed text-[var(--fve-muted-text)] [overflow-wrap:anywhere]"; for child in children do renderInline child }
         | DocNode.UnorderedList items ->
-            ul { for item in items do li { for child in item do renderInline child } }
+            ul { _class "m-0 list-disc pl-5 text-base leading-relaxed text-[var(--fve-muted-text)] marker:text-[var(--fve-brand-ring)]"; for item in items do li { _class "mt-2 first:mt-0"; for child in item do renderInline child } }
         | DocNode.OrderedList items ->
-            ol { for item in items do li { for child in item do renderInline child } }
+            ol { _class "m-0 list-decimal pl-5 text-base leading-relaxed text-[var(--fve-muted-text)] marker:text-[var(--fve-brand-ring)]"; for item in items do li { _class "mt-2 first:mt-0"; for child in item do renderInline child } }
         | DocNode.BarChart chart -> comparisonChart chart
         | DocNode.DataTable(headers, rows) ->
             div {
                 _class "overflow-x-auto rounded-xl border border-[var(--fve-border)]"
                 table {
-                    thead { tr { for header in headers do th { header } } }
-                    tbody { for row in rows do tr { for cell in row do td { cell } } }
+                    _class "w-full border-collapse text-sm"
+                    thead { tr { for header in headers do th { _class "bg-[var(--fve-surface-subtle)] p-3 text-left text-xs tracking-wide text-[var(--fve-muted-text)] uppercase"; header } } }
+                    tbody { for row in rows do tr { for cell in row do td { _class "border-t border-[var(--fve-border)] p-3 align-top"; cell } } }
                 }
             }
         | DocNode.CodeBlock(language, source) -> CodeBlock.create language source |> CodeBlock.render
         | DocNode.Example(id, label, language, source, preview) -> Example.codeFirst id label language source preview
         | DocNode.Heading _ -> invalidOp "Headings are converted to documentation sections."
 
-    let private sections (nodes:DocNode list) : DocsSection list =
+    let private sections (nodes:DocNode list) : DocumentationSectionConfig list =
         let flush isDeclared title id level content sections =
             if not isDeclared && List.isEmpty content then sections
             else
@@ -92,24 +94,25 @@ module View =
 
     let private navigation (sections:NavSection list) =
         let rec group parentId (section:NavSection) =
-            let id = if String.IsNullOrEmpty parentId then slug section.label else parentId + "-" + slug section.label
-            let pages =
-                section.pages
-                |> List.map (fun page -> Nav.page page.id page.navLabel page.path page.path)
-
-            let groups = section.sections |> List.map (group id)
-
-            Nav.group
-                id
-                section.label
-                (section.label = "Getting started")
-                (pages @ groups)
+            match section.pages, section.sections with
+            | [page], [] when String.IsNullOrEmpty parentId && section.label=page.navLabel ->
+                Nav.page page.id page.navLabel page.path page.path
+            | _ ->
+                let id = if String.IsNullOrEmpty parentId then slug section.label else parentId + "-" + slug section.label
+                let pages =
+                    section.pages
+                    |> List.map (fun page -> Nav.page page.id page.navLabel page.path page.path)
+                let groups = section.sections |> List.map (group id)
+                Nav.group id section.label (section.label = "Getting started") (pages @ groups)
 
         sections |> List.map (group "")
 
     let private assets =
         { DocsAssets.defaults with
             productStylesheets = [ "/css/output.css" ]
+            prismStylesheet = Some "/css/prism-tomorrow.1.29.0.min.css"
+            prismScripts = DocsAssets.defaults.prismScripts @ ["/scripts/prism-bash.1.29.0.min.js";"/scripts/prism-json.1.29.0.min.js"]
+            navigation = Some Docs.Web.Navigation.enhancement
             additionalHead =
                 [ link { _rel "icon"; _href "/favicon.svg"; _type "image/svg+xml" }
                   link { _rel "manifest"; _href "/site.webmanifest" }
@@ -134,7 +137,7 @@ module View =
             | Text value -> value
             | Strong children -> children |> List.map collect |> String.concat ""
             | InlineContent.Code value -> value
-            | Link(label, _) -> label
+            | InlineContent.Link(label, _) -> label
         content |> List.map collect |> String.concat ""
 
     let private legacyPage (page:DocPage) =
@@ -177,35 +180,66 @@ module View =
 
     let private resolvePage (page:DocPage) =
         Catalog.tryPage page.path
+        |> Option.orElseWith (fun () -> ComponentDocumentation.tryPage page.path)
+        |> Option.orElseWith (fun () -> if page.path=Examples.registration.path then Some Examples.gallery else None)
         |> Option.orElseWith (fun () -> Components.tryPage page.path)
         |> Option.orElseWith (fun () -> Showcase.tryPage page.path)
         |> Option.defaultWith (fun () -> legacyPage page)
 
-    let private renderResolvedPage (appMode:AppMode option) (sections:NavSection list) (registration:DocPage) (docsPage:DocsPage) =
+    let private prepareResolvedPage (appMode:AppMode option) (sections:NavSection list) (registration:DocPage) (docsPage:DocumentationPageConfig) =
         let search =
             registeredPages sections
             |> List.map (fun (page:DocPage) ->
-                DocsSearchEntry.create page.path (resolvePage page) [ page.category; page.navLabel ])
+                let entry = DocsSearchEntry.create page.path (resolvePage page) [ page.category; page.navLabel ]
+                let isComponent =
+                    (Components.allRegistrations |> List.exists (fun item -> item.path = page.path))
+                    && page.path <> Components.overviewRegistration.path
+                    && page.path <> Components.installationRegistration.path
+                    && not (Components.guideRegistrations |> List.exists (fun item -> item.path = page.path))
+                    && not (page.path.StartsWith("/components/page-examples/", StringComparison.Ordinal))
+                    || (ComponentDocumentation.registrations |> List.exists (fun item -> item.path = page.path))
+                if isComponent then entry |> DocsSearchEntry.withGroup "Components" else entry)
             |> DocsSearch.index
+        let site = site sections search
         let docsPage =
             docsPage
             |> DocumentationPage.withMetadata {
                 docsPage.metadata with
+                    canonicalUrl =
+                        docsPage.metadata.canonicalUrl
+                        |> Option.orElseWith (fun () -> site.baseUrl |> Option.map (fun baseUrl -> baseUrl.TrimEnd('/') + registration.path))
                     socialImage = Some "https://fve.meiermade.com/social-card.png" }
         let docsPage = pager sections registration.id |> Option.map (fun value -> DocumentationPage.withPager value docsPage) |> Option.defaultValue docsPage
-        let site = site sections search
         let sideNavItems = navigation sections
-        let document =
-            Document.create site docsPage
-            |> Document.withBreadcrumbs (Navigation.breadcrumbs sideNavItems site.homeId docsPage.activeId)
-            |> Document.withSideNavItems sideNavItems
-        appMode
-        |> Option.map (fun mode -> Document.withAppMode mode document)
-        |> Option.defaultValue document
-        |> Document.render
+        let breadcrumbs = Navigation.breadcrumbs sideNavItems site.homeId docsPage.activeId
+        let renderMode = appMode |> Option.map Fullscreen |> Option.defaultValue Embedded
+        site, sideNavItems, breadcrumbs, renderMode, docsPage
+
+    let private renderResolvedPage appMode sections registration docsPage =
+        let site, sideNavItems, breadcrumbs, renderMode, docsPage = prepareResolvedPage appMode sections registration docsPage
+        DocsView.documentWithNavigation site breadcrumbs sideNavItems renderMode docsPage
+
+    let private renderResolvedNavigation appMode sections registration docsPage =
+        let site, sideNavItems, breadcrumbs, renderMode, docsPage = prepareResolvedPage appMode sections registration docsPage
+        DocsView.navigationRootWithNavigation site breadcrumbs sideNavItems renderMode docsPage,
+        DocsView.documentMetadata site docsPage
 
     let renderPage sections registration =
         renderResolvedPage None sections registration (resolvePage registration)
+
+    let navigationPage appMode sections registration =
+        renderResolvedNavigation appMode sections registration (resolvePage registration)
+
+    let navigationPageWithPage appMode sections registration docsPage =
+        renderResolvedNavigation appMode sections registration docsPage
+
+    let documentWithContent sections registration page root =
+        let site,_,_,_,page = prepareResolvedPage None sections registration page
+        DocsView.documentWithContent site page root
+
+    let contentMetadata sections registration page =
+        let site,_,_,_,page = prepareResolvedPage None sections registration page
+        DocsView.documentMetadata site page
 
     let document sections page = renderPage sections page
     let documentFor appMode sections page = renderResolvedPage appMode sections page (resolvePage page)

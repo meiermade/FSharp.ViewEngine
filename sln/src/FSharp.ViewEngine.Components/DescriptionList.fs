@@ -1,9 +1,10 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>description-list</category>
 [<RequireQualifiedAccess>]
 type DescriptionListColumns =
     | One
@@ -11,23 +12,26 @@ type DescriptionListColumns =
     | Three
     | Four
 
+/// <category>description-list</category>
 [<NoEquality; NoComparison>]
-type DetailFieldConfig =
+type DescriptionListItem =
     private
         { label:string
           value:HtmlElement
           description:string option
           attributes:HtmlAttribute list }
 
+/// <category>description-list</category>
 [<NoEquality; NoComparison>]
 type DescriptionListConfig =
     private
-        { fields:DetailFieldConfig list
+        { fields:DescriptionListItem list
           columns:DescriptionListColumns
           attributes:HtmlAttribute list }
 
+/// <category>description-list</category>
 [<RequireQualifiedAccess>]
-module DetailField =
+module DescriptionListItem =
     let create label value =
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A detail-field label is required."
         { label = label
@@ -37,10 +41,10 @@ module DetailField =
 
     let text (label:string) (value:string) = create label (span { value })
     let status (label:string) (status:HtmlElement) = create label status
-    let withDescription (description:string) (config:DetailFieldConfig) = { config with description = Some description }
-    let withAttributes attributes (config:DetailFieldConfig) = { config with attributes = attributes }
+    let withDescription (description:string) (config:DescriptionListItem) = { config with description = Some description }
+    let withAttributes attributes (config:DescriptionListItem) = { config with attributes = attributes }
 
-    let internal render (config:DetailFieldConfig) =
+    let internal render (config:DescriptionListItem) =
         div {
             _class "min-w-0"
             for attribute in ComponentHtml.safeAttributes [ "class"; "role" ] config.attributes do attribute
@@ -54,6 +58,7 @@ module DetailField =
             }
         }
 
+/// <category>description-list</category>
 [<RequireQualifiedAccess>]
 module DescriptionList =
     let create fields =
@@ -76,5 +81,5 @@ module DescriptionList =
         dl {
             _class (ComponentHtml.classes [ "grid gap-x-6 gap-y-4"; columns ])
             for attribute in ComponentHtml.safeAttributes [ "class"; "role" ] config.attributes do attribute
-            for field in config.fields do DetailField.render field
+            for field in config.fields do DescriptionListItem.render field
         }

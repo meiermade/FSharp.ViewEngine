@@ -1,9 +1,10 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>loading-indicator</category>
 [<NoEquality; NoComparison>]
 type LoadingIndicatorConfig =
     private
@@ -12,6 +13,7 @@ type LoadingIndicatorConfig =
           labelVisible:bool
           attributes:HtmlAttribute list }
 
+/// <category>loading-indicator</category>
 [<RequireQualifiedAccess>]
 module LoadingIndicator =
     let create label =

@@ -54,37 +54,6 @@ test('Input gallery teaches single fields with accessible adornments and native 
   expect(errors).toEqual([])
 })
 
-for (const [title, prefix, endpoint] of [
-  ['Contact details in two columns', 'contact-grid-', '/components/forms/contact/grid'],
-  ['Contact details in sections', 'contact-sectioned-', '/components/forms/contact/sectioned'],
-]) {
-  test(`${title} validates independently and preserves its layout through morphs`, crossBrowser, async ({ page }) => {
-    await page.goto('/components/form-layouts')
-    const first = page.getByRole('form', { name: 'Contact details', exact: true })
-    await first.getByRole('textbox', { name: 'Contact name', exact: true }).fill('Keep this separate form')
-    const form = page.getByRole('form', { name: title, exact: true })
-    await form.getByRole('textbox', { name: 'Email address', exact: true }).fill('invalid')
-    await form.getByRole('textbox', { name: 'Notes', exact: true }).fill('Keep this note')
-    const response = page.waitForResponse(response => new URL(response.url()).pathname === endpoint)
-    await form.getByRole('button', { name: 'Validate details', exact: true }).click()
-    expect((await response).status()).toBe(200)
-    const summary = page.locator(`[id="${prefix}errors"]`)
-    await expect(summary).toBeFocused()
-    await expect(summary.getByRole('link')).toHaveCount(2)
-    await summary.getByRole('link', { name: 'Email address: Enter a valid email address.', exact: true }).click()
-    const email = form.getByRole('textbox', { name: 'Email address', exact: true })
-    await expect(email).toBeFocused()
-    await email.fill('alex@fve.meiermade.com')
-    await form.getByRole('textbox', { name: 'Contact name', exact: true }).fill('Alex Morgan')
-    await form.getByRole('button', { name: 'Validate details', exact: true }).click()
-    await expect(page.locator(`[id="${prefix}result"]`)).toContainText('This example does not save your data.')
-    await expect(summary).toHaveCount(0)
-    await expect(form.getByRole('textbox', { name: 'Notes', exact: true })).toHaveValue('Keep this note')
-    await expect(first.getByRole('textbox', { name: 'Contact name', exact: true })).toHaveValue('Keep this separate form')
-    expect((await new AxeBuilder({ page }).include(`[id="components-${prefix}region"]`).analyze()).violations).toEqual([])
-  })
-}
-
 const representativeGalleryLayouts = [
   ['input', 1440, 1, false],
   ['textarea', 390, 1, true],
@@ -92,7 +61,6 @@ const representativeGalleryLayouts = [
   ['checkbox', 390, 1, false],
   ['switch', 1440, 1, true],
   ['radio-group', 320, 2, false],
-  ['form-layouts', 390, 1, true],
 ] as const
 
 for (const [slug, width, scale, dark] of representativeGalleryLayouts) {

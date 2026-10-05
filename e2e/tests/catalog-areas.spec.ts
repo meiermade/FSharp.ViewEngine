@@ -1,102 +1,58 @@
 import { expect, test } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-const families = [
-  ['Primitives', '/components/primitives'],
-  ['Application', '/components/application'],
-  ['Documentation', '/docs'],
-] as const
-
 const crossBrowser = { tag: '@cross-browser' }
 
-test.beforeEach(async ({ page }) => {
-  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
-    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
-  )
-})
-
-test('delivered catalog families expose Application examples and preserve morph history', crossBrowser, async ({ page }) => {
+test('flat component catalog preserves enhanced navigation and history', crossBrowser, async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components')
+  await page.evaluate(() => { (window as any).catalogSession = 'retained' })
   const cards = page.locator('#page-content .docs-catalog-grid')
-  await expect(cards.getByRole('link')).toHaveCount(3)
-  for (const [name, path] of families) {
-    await expect(cards.getByRole('link', { name: new RegExp(`^${name} `) })).toHaveAttribute('href', path)
-    await expect(page.getByRole('button', { name: `Toggle ${name} section`, exact: true })).toBeVisible()
+  for (const [name, path] of [['Button', '/components/button'], ['Page top bar', '/components/page-top-bar'], ['Field group', '/components/field-group']]) {
+    await expect(cards.locator(`a[href="${path}"]`)).toHaveAccessibleName(new RegExp(`^${name} `))
   }
-  const componentsToggle = page.getByRole('button', { name: 'Toggle FSharp.ViewEngine.Components section', exact: true })
-  await expect(componentsToggle).toHaveAttribute('aria-expanded', 'true')
-  await componentsToggle.click()
-  for (const [name] of families) {
-    await expect(page.getByRole('button', { name: `Toggle ${name} section`, exact: true })).toBeHidden()
-  }
-  await expect(page.getByRole('button', { name: 'Toggle Project section', exact: true })).toBeVisible()
-  await componentsToggle.click()
-  for (const [name] of families) {
-    await expect(page.getByRole('button', { name: `Toggle ${name} section`, exact: true })).toBeVisible()
-  }
-  await page.evaluate(() => { (window as unknown as { catalogSession: string }).catalogSession = 'retained' })
-  await cards.getByRole('link', { name: /^Application / }).click()
-  await expect(page).toHaveURL('/components/application')
-  await expect(page.getByRole('heading', { name: 'Application', level: 1, exact: true })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Toggle Application section', exact: true })).toHaveAttribute('aria-expanded', 'true')
-  await expect(componentsToggle).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#page-content .docs-catalog-card')).toHaveCount(21)
-  await expect(page.locator('#page-content .docs-catalog-card[href="/components/page-examples/account-management"]')).toContainText('Account management')
-  await expect(page.locator('#page-content .docs-catalog-card[href="/components/calendar"]')).toHaveCount(0)
-  await expect(page.locator('#page-content .docs-catalog-card[href="/components/media-library"]')).toContainText('Media library')
-  await expect(page.getByText(/connects the financial workspace, collections, matching record details, forms, actions, reports and settings/)).toBeVisible()
-  await page.locator('#page-content .docs-catalog-card[href="/components/collection"]').click()
-  await expect(page.getByRole('heading', { name: 'Collection', level: 1, exact: true })).toBeVisible()
-  await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Application')
-  await expect(page.locator('#components-collection [role="tabpanel"]:visible')).toHaveCount(1)
-  await page.goBack()
-  await expect(page).toHaveURL('/components/application')
-  await expect(page.getByRole('heading', { name: 'Application', level: 1, exact: true })).toBeVisible()
+  await expect(cards.locator('a[href="/components/primitives"], a[href="/components/application"], a[href="/docs"]')).toHaveCount(0)
+  await cards.locator('a[href="/components/button"]').click()
+  await expect(page.getByRole('heading', { name: 'Button', level: 1, exact: true })).toBeVisible()
   await page.goBack()
   await expect(page).toHaveURL('/components')
-  expect(await page.evaluate(() => (window as unknown as { catalogSession: string }).catalogSession)).toBe('retained')
+  await expect(cards.locator('a[href="/components/button"]')).toBeVisible()
+  expect(await page.evaluate(() => (window as any).catalogSession)).toBe('retained')
   expect(errors).toEqual([])
 })
 
-test('catalog search and pagers use family destinations without pretending unfinished demos exist', crossBrowser, async ({ page }) => {
-  await page.goto('/components/application')
+test('search reaches a dedicated component and Examples exposes exactly three templates', crossBrowser, async ({ page }) => {
+  await page.goto('/components')
   await page.getByRole('button', { name: 'Search documentation', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Search documentation', exact: true })
-  await dialog.getByRole('searchbox').fill('Documentation')
-  const result = dialog.locator('[data-docs-search-entry][href="/docs"]')
+  await dialog.getByRole('combobox').fill('Page top bar')
+  const result = dialog.locator('[data-fve-command-item][href="/components/page-top-bar"]')
   await expect(result).toBeVisible()
   await result.focus()
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL('/docs')
-  await expect(page.getByRole('heading', { name: 'Documentation', level: 1, exact: true })).toBeVisible()
-  await page.reload()
-  await expect(page.getByRole('button', { name: 'Toggle Documentation section', exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('heading', { name: 'Page top bar', level: 1, exact: true })).toBeVisible()
+  await page.getByRole('link', { name: 'Examples', exact: true }).click()
+  const cards = page.locator('a[data-example-template]')
+  await expect(cards).toHaveCount(3)
+  for (const path of ['/examples/application', '/examples/specification', '/examples/api-documentation']) {
+    await expect(cards.and(page.locator(`a[href="${path}"]`))).toBeVisible()
+  }
 })
 
-for (const [dark, width, scale] of [[false, 1440, 1], [true, 390, 1], [false, 320, 2]] as const) {
-    test(`catalog indexes and navigation remain accessible: ${dark ? 'dark' : 'light'} ${width}px ${scale}x`, async ({ page }) => {
-      await page.setViewportSize({ width, height: 960 })
-      for (const [name, path] of [['Components', '/components'], ...families]) {
-        await page.goto(path)
-        await page.evaluate(({ dark, scale }) => {
-          document.documentElement.classList.toggle('dark', dark)
-          document.documentElement.style.fontSize = `${scale * 100}%`
-        }, { dark, scale })
-        await expect(page.getByRole('heading', { name, level: 1, exact: true })).toBeVisible()
-        await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1)
-        expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations, `${name}/${dark}/${width}/${scale}`).toEqual([])
-      }
-      if (width < 1000) {
-        await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
-        for (const [name] of families) {
-          const toggle = page.getByRole('button', { name: `Toggle ${name} section`, exact: true })
-          await toggle.scrollIntoViewIfNeeded()
-          await expect(toggle).toBeVisible()
-        }
-        await page.keyboard.press('Escape')
-        await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toBeFocused()
-      }
+test('component and example indexes reflow with narrow enlarged text', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 960 })
+  for (const path of ['/components', '/examples']) {
+    await page.goto(path)
+    await page.evaluate(() => {
+      document.documentElement.classList.add('dark')
+      document.documentElement.style.fontSize = '200%'
     })
-}
+    await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1)
+    expect((await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa']).analyze()).violations).toEqual([])
+  }
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
+  await expect(page.getByRole('link', { name: 'Examples', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('button', { name: 'Open navigation', exact: true })).toBeFocused()
+})

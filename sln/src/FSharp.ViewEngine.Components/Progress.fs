@@ -1,29 +1,47 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>progress</category>
 [<RequireQualifiedAccess>]
 type ProgressState = Active | Complete | Failed
 
-[<NoEquality; NoComparison>]
-type ProgressConfig = private { label:string; value:int; maximum:int; valueText:string option; detail:string option; state:ProgressState }
+/// <category>progress</category>
+[<RequireQualifiedAccess>]
+type ProgressValue =
+    | Determinate of value:int * maximum:int
+    | Indeterminate
 
+/// <category>progress</category>
+[<NoEquality; NoComparison>]
+type ProgressConfig = private { label:string; progress:ProgressValue; valueText:string option; detail:string option; state:ProgressState }
+
+/// <category>progress</category>
 [<RequireQualifiedAccess>]
 module Progress =
     let create label value maximum =
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A progress label is required."
         if maximum < 1 then invalidArg (nameof maximum) "Progress maximum must be positive."
         if value < 0 || value > maximum then invalidArg (nameof value) "Progress value must be within its range."
-        { label = label; value = value; maximum = maximum; valueText = None; detail = None; state = ProgressState.Active }
+        { label = label; progress = ProgressValue.Determinate(value, maximum); valueText = None; detail = None; state = ProgressState.Active }
+    let indeterminate label =
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A progress label is required."
+        { label = label; progress = ProgressValue.Indeterminate; valueText = None; detail = None; state = ProgressState.Active }
     let withValueText valueText config = { config with valueText = Some valueText }
     let withDetail detail config = { config with detail = Some detail }
-    let complete config = { config with state = ProgressState.Complete }
+    let complete config =
+        match config.progress with
+        | ProgressValue.Indeterminate -> invalidArg (nameof config) "Indeterminate progress cannot be marked complete without a determinate value."
+        | ProgressValue.Determinate _ -> { config with state = ProgressState.Complete }
     let failed config = { config with state = ProgressState.Failed }
     let render config =
-        let percent = config.value * 100 / config.maximum
-        let readable = config.valueText |> Option.defaultValue (string percent + "%")
+        let percent =
+            match config.progress with
+            | ProgressValue.Determinate(value, maximum) -> Some(value * 100 / maximum)
+            | ProgressValue.Indeterminate -> None
+        let readable = config.valueText |> Option.defaultValue (percent |> Option.map (fun value -> string value + "%") |> Option.defaultValue "In progress")
         section {
             _role "group"
             _ariaLabel config.label
@@ -38,9 +56,13 @@ module Progress =
             }
             progress {
                 _ariaLabel config.label
-                _value (string config.value)
-                _max (string config.maximum)
-                _class "h-2 w-full overflow-hidden rounded-full accent-[var(--fve-brand-solid)]"
+                _ariaValuetext readable
+                match config.progress with
+                | ProgressValue.Determinate(value, maximum) ->
+                    _value (string value)
+                    _max (string maximum)
+                | ProgressValue.Indeterminate -> ()
+                _class ("h-2 w-full overflow-hidden rounded-full accent-[var(--fve-brand-solid)]" + if percent.IsNone then " animate-pulse motion-reduce:animate-none" else "")
                 readable
             }
             match config.detail with

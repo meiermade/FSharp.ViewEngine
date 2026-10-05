@@ -182,7 +182,7 @@ let private verifyCliInstallation (runDotnet:string -> string list -> unit) (pac
         let projectPath = Path.Combine(manifestDirectory, "Acme.Components.fsproj")
         let configPath = Path.Combine(manifestDirectory, "fve.json")
         runDotnet manifestDirectory [ "fve"; "init"; projectPath; "--namespace"; "Acme.Components"; "--framework"; "net8.0" ]
-        runDotnet manifestDirectory [ "fve"; "add"; "button"; "text-field"; "--config"; configPath ]
+        runDotnet manifestDirectory [ "fve"; "add"; "button"; "input"; "--config"; configPath ]
         runDotnet manifestDirectory [ "restore"; projectPath; "--source"; packageDirectory; "--source"; "https://api.nuget.org/v3/index.json" ]
         runDotnet manifestDirectory [ "build"; projectPath; "--no-restore" ]
 

@@ -2,10 +2,10 @@ import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 for (const [surface, route, label] of [
-  ['installation', '/docs', 'Copy code'],
+  ['installation', '/components/button', 'Copy code'],
   ['article', '/getting-started/first-view', 'Copy code'],
-  ['API example', '/docs/components/api-reference', 'Copy Create customer'],
-  ['gallery', '/components/page-examples/messaging', 'Copy Messaging workspace code'],
+
+  ['gallery', '/components/page-top-bar', 'Copy With breadcrumbs code'],
 ]) {
   test(`${surface} uses the shared copy icon and announces clipboard results @cross-browser`, async ({ page }) => {
     const errors: string[] = []
@@ -58,10 +58,10 @@ for (const [width, dark] of [[1440, false], [390, true]] as const) {
   test(`installation copy icons remain accessible at ${width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 900 })
     await page.emulateMedia({ colorScheme: dark ? 'dark' : 'light' })
-    await page.goto('/docs')
+    await page.goto('/components/button')
     const installation = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Installation', level: 2, exact: true }) })
-    await expect(installation.getByRole('button', { name: 'Copy code', exact: true })).toHaveCount(2)
-    expect((await new AxeBuilder({ page }).include('section:has(> #installation)').analyze()).violations).toEqual([])
+    await expect(installation.getByRole('button', { name: 'Copy code', exact: true })).toBeVisible()
+    expect((await new AxeBuilder({ page }).include('section#installation').analyze()).violations).toEqual([])
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     await installation.screenshot({ path: testInfo.outputPath(`installation-copy-${width}.png`) })
   })

@@ -2,27 +2,28 @@ import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 const examples = [
-  ['components-table', 'Simple'],
-  ['components-table-comfortable', 'Comfortable rows'],
-  ['components-table-status', 'With status values'],
-  ['components-table-selection', 'With checkboxes'],
-  ['components-table-mobile', 'Stacked on mobile'],
-  ['components-table-sorting', 'Sortable records'],
-  ['components-table-hierarchy', 'Hierarchical accounts and aggregates'],
-  ['components-table-empty', 'Empty state'],
+  ['components-table-panel-preview', 'Default'],
+  ['components-table-comfortable-panel-preview', 'Comfortable rows'],
+  ['components-table-status-panel-preview', 'With status values'],
+  ['components-table-selection-panel-preview', 'With checkboxes'],
+  ['components-table-scrollable-panel-preview', 'Scrollable rows and sticky headings'],
+  ['components-table-mobile-panel-preview', 'Stacked on mobile'],
+  ['components-table-sorting-panel-preview', 'Sortable records'],
+  ['components-table-hierarchy-panel-preview', 'Hierarchical accounts and aggregates'],
+  ['components-table-empty-panel-preview', 'Empty state'],
 ] as const
 
 test('table examples isolate features and expose short independent source', async ({ page }) => {
   await page.goto('/components/table')
-  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(8)
+  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(examples.length)
   for (const [id, title] of examples) {
-    const example = page.locator(`#${id}`)
+    const preview = page.locator(`#${id}`)
+    const example = preview.locator('..')
     await expect(example.getByRole('heading', { name: title, exact: true })).toBeVisible()
-    const preview = example.locator('.docs-components-preview')
-    await expect(preview.getByRole('table')).toHaveCount(id === 'components-table-empty' ? 0 : 1)
-    await expect(preview.getByRole('link')).toHaveCount(id === 'components-table-sorting' ? 2 : id === 'components-table-hierarchy' ? 7 : 0)
-    await expect(preview.getByRole('button')).toHaveCount(id === 'components-table-hierarchy' ? 3 : 0)
-    await expect(preview.getByRole('checkbox')).toHaveCount(id === 'components-table-selection' ? 5 : 0)
+    await expect(preview.getByRole('table')).toHaveCount(id === 'components-table-empty-panel-preview' ? 0 : 1)
+    await expect(preview.getByRole('link')).toHaveCount(id === 'components-table-sorting-panel-preview' ? 2 : id === 'components-table-hierarchy-panel-preview' ? 7 : 0)
+    await expect(preview.getByRole('button')).toHaveCount(id === 'components-table-hierarchy-panel-preview' ? 3 : 0)
+    await expect(preview.getByRole('checkbox')).toHaveCount(id === 'components-table-selection-panel-preview' ? 5 : 0)
     await example.getByRole('tab', { name: 'Code', exact: true }).click()
     const code = await example.locator('[data-docs-copy-source]').textContent()
     expect(code).toContain('Table.create')
@@ -30,7 +31,7 @@ test('table examples isolate features and expose short independent source', asyn
     for (const forbidden of ['ShellDestination', 'shellDestination', 'recordMenuItems', 'JsonSerializer', 'navigator.clipboard', 'RowActions', 'accountTable']) expect(code).not.toContain(forbidden)
     await example.getByRole('tab', { name: 'Preview', exact: true }).click()
   }
-  const simple = page.locator('#components-table .docs-components-preview')
+  const simple = page.locator('#components-table-panel-preview')
   await expect(simple.getByRole('columnheader')).toHaveText(['Name', 'Email', 'Role'])
   await expect(simple.getByRole('rowheader')).toHaveCount(4)
   for (const name of ['Alex Morgan', 'Jamie Lee', 'Riley Chen', 'Sam Rivera']) await expect(simple.getByRole('rowheader', { name, exact: true })).toBeVisible()
@@ -52,7 +53,7 @@ test('sortable table headers expose current state and leave ordering to the cons
   await expect(table.getByRole('rowheader').first()).toHaveText('Alex Morgan')
   await page.evaluate(() => { (window as any).__tableSortDocumentMarker = true })
   const sortResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/table/sort')
-  await example.getByRole('link', { name: /Sort by Role; currently unsorted/ }).click()
+  await table.getByRole('columnheader', { name: /Role/ }).getByRole('link').click()
   expect((await sortResponse).status()).toBe(200)
   await expect(page).toHaveURL('/components/table')
   expect(await page.evaluate(() => (window as any).__tableSortDocumentMarker)).toBe(true)
@@ -72,26 +73,37 @@ test('table selection is native page-scoped and independent of the other example
   const all = selection.getByRole('checkbox', { name: 'Select all rows on this page' })
   const alex = selection.getByRole('checkbox', { name: 'Select Alex Morgan', exact: true })
   const guest = selection.getByRole('checkbox', { name: 'Select Sam Rivera', exact: true })
-  await expect(guest).toBeDisabled()
+  await expect(guest).toBeEnabled()
   await alex.focus()
   await alex.press('Space')
   await expect(all).toBeChecked({ indeterminate: true })
-  await expect(selection.getByRole('status')).toHaveText('1 selected on this page')
+  await expect(selection.getByRole('status')).toHaveText('1 selected')
   await all.check()
-  await expect(selection.getByRole('status')).toHaveText('3 selected on this page')
-  await expect(guest).not.toBeChecked()
+  await expect(selection.getByRole('status')).toHaveText('4 selected')
+  await expect(guest).toBeChecked()
   const values = await selection.evaluate(element => {
     const form = document.createElement('form')
     form.append(element.cloneNode(true))
     return new FormData(form).getAll('memberIds')
   })
-  expect(values).toEqual(['1', '2', '3'])
+  expect(values).toEqual(['1', '2', '3', '4'])
   await example.getByRole('tab', { name: 'Code', exact: true }).click()
   await example.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(all).toBeChecked()
   await all.uncheck()
-  await expect(selection.getByRole('status')).toHaveText('0 selected on this page')
+  await expect(selection.getByRole('status')).toHaveText('0 selected')
   await expect(page.locator('#components-table-mobile').getByRole('checkbox')).toHaveCount(0)
+})
+
+test('bounded table rows scroll without moving their heading @cross-browser', async ({ page }) => {
+  await page.goto('/components/table')
+  const preview = page.locator('#components-table-scrollable-panel-preview')
+  const scroll = preview.getByRole('region', { name: 'Team members in a bounded viewport', exact: true })
+  const header = preview.getByRole('columnheader', { name: 'Name', exact: true })
+  const top = (await header.boundingBox())!.y
+  await scroll.evaluate(element => { element.scrollTop = element.scrollHeight })
+  await expect.poll(() => scroll.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
+  expect(Math.abs((await header.boundingBox())!.y - top)).toBeLessThanOrEqual(1)
 })
 
 test('table examples preserve scrolling and one-tree mobile records across themes and text sizes', async ({ page }, testInfo) => {
@@ -118,7 +130,7 @@ test('table examples preserve scrolling and one-tree mobile records across theme
         const label = await first.getByText('Email', { exact: true }).boundingBox()
         expect(Math.abs(primary!.x - label!.x)).toBeLessThanOrEqual(1)
         expect(await mobile.getByRole('table').evaluate(element => element.scrollWidth <= element.clientWidth + 1)).toBe(true)
-        const scroll = page.locator('#components-table .fve-table-scroll')
+        const scroll = page.locator('#components-table-panel-preview .fve-table-scroll')
         await expect(scroll).toHaveAttribute('tabindex', '0')
         expect(await scroll.evaluate(element => element.scrollWidth > element.clientWidth)).toBe(true)
         await scroll.evaluate(element => { element.scrollLeft = 0 })
@@ -134,7 +146,7 @@ test('table examples preserve scrolling and one-tree mobile records across theme
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
       expect((await new AxeBuilder({ page }).include('[data-docs-layout="gallery"]').analyze()).violations).toEqual([])
-      await page.locator(width === 1440 ? '#components-table' : '#components-table-mobile').evaluate(element => element.scrollIntoView({ block: 'start' }))
+      await page.locator(width === 1440 ? '#components-table-panel-preview' : '#components-table-mobile').evaluate(element => element.scrollIntoView({ block: 'start' }))
       await page.screenshot({ path: testInfo.outputPath(`tables-${theme.toLowerCase()}-${width}-${scale}x.png`) })
     }
   }

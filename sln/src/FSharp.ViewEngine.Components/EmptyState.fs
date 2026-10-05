@@ -1,9 +1,10 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>empty-state</category>
 [<NoEquality; NoComparison>]
 type EmptyStateConfig =
     private
@@ -13,6 +14,7 @@ type EmptyStateConfig =
           actions:HtmlElement option
           attributes:HtmlAttribute list }
 
+/// <category>empty-state</category>
 [<RequireQualifiedAccess>]
 module EmptyState =
     let create title description =

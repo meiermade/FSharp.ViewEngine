@@ -210,53 +210,6 @@ let tests =
             Expect.stringContains publish "Publish FSharp.ViewEngine.Cli" "CLI is independently publishable"
         }
 
-        test "Documentation is compiled from and distributed with the canonical source registry" {
-            let project = repositoryFile "sln/src/FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.fsproj"
-            let registry = repositoryFile "sln/src/FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.Registry.props"
-            let cliProject = repositoryFile "sln/src/FSharp.ViewEngine.Cli/FSharp.ViewEngine.Cli.fsproj"
-            let view = repositoryFile "sln/src/FSharp.ViewEngine.Components/Documentation/View.fs"
-            let document = repositoryFile "sln/src/FSharp.ViewEngine.Components/Documentation/Document.fs"
-            let baseManifestPath = repositoryPath "sln/src/FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.tailwind.css"
-            let docsStyles = repositoryFile "sln/src/Docs/input.css"
-            let dockerfile = repositoryFile "sln/Dockerfile"
-            let solution = repositoryFile "sln/FSharp.ViewEngine.slnx"
-            Expect.stringContains registry "Documentation/View.fs" "the registry owns the maintained Documentation implementation"
-            Expect.isFalse (registry.Contains("Documentation/Builders.fs")) "legacy Documentation builders are not compiled"
-            Expect.isFalse (document.Contains("DocsBlock")) "documentation sections store typed HTML rather than legacy blocks"
-            Expect.isFalse (document.Contains("DocsInline")) "documentation sections have no legacy inline model"
-            Expect.stringContains cliProject "EmbeddedResource Include=\"@(FveComponent);@(FveAsset)\"" "the CLI embeds registered source and base assets"
-            Expect.stringContains project "<IsPackable>false</IsPackable>" "the old Components package surface is retired"
-            Expect.isFalse (solution.Contains("FSharp.ViewEngine.Docs")) "there is no separate Docs project"
-            Expect.isFalse (registry.Contains("DefaultStyles.fs")) "embedded stylesheet source is removed"
-            Expect.isFalse (registry.Contains("documentation-styles")) "Documentation has no separate registry stylesheet"
-            Expect.isFalse (registry.Contains("Documentation.tailwind.css")) "Documentation has no separate CSS asset"
-            Expect.stringContains view "bg-[var(--fve-page)]" "Documentation layout utilities remain beside its markup"
-            Expect.stringContains view "data-fve-app-mode-root" "Documentation owns the server-rendered App-mode presentation"
-            Expect.isFalse (view.Contains("--spec-")) "Documentation themes through the shared fve token contract"
-            Expect.isFalse (view.Contains("DefaultStyles.css")) "documents do not inject package CSS"
-            Expect.isFalse (File.Exists baseManifestPath) "Components has no separate stylesheet contract"
-            Expect.isFalse (docsStyles.Contains("FSharp.ViewEngine.Components.tailwind.css")) "repository host scans component F# directly"
-            Expect.isFalse (docsStyles.Contains("AppMode.tailwind.css")) "App mode does not require a separate stylesheet"
-            Expect.isFalse (docsStyles.Contains("Documentation.tailwind.css")) "repository host scans Documentation F# directly"
-            Expect.stringContains registry "Browser.fs" "Browser is a shared Primitive"
-            Expect.stringContains registry "Phone.fs" "Phone is a shared Primitive"
-            Expect.stringContains registry "Documentation/Fixture.fs" "Documentation Fixture owns App mode"
-            Expect.stringContains dockerfile "FSharp.ViewEngine.Components/Documentation/verify-tailwind.sh" "container verifies Documentation source scanning"
-            Expect.isFalse ((workflow "preview.yml").Contains("PACKAGE_ID: FSharp.ViewEngine.Docs")) "CI verifies one CLI package"
-        }
-
-        test "Documentation documents consumer-owned Noto and semantic typography" {
-            let readme = repositoryFile "sln/src/FSharp.ViewEngine.Components/Documentation/README.md"
-            Expect.stringContains readme "does not ship font binaries or request Google-hosted assets" "font delivery remains consumer-owned"
-            Expect.stringContains readme "font-family: \"Noto Sans\"" "optional Noto Sans self-hosting is explicit"
-            Expect.stringContains readme "font-family: \"Noto Sans Mono\"" "optional Noto Sans Mono self-hosting is explicit"
-            Expect.stringContains readme "font-display: swap" "self-hosting recipe keeps fallback text readable"
-            for role in [ "--docs-text-ancillary"; "--docs-text-ui"; "--docs-text-reading"; "--docs-text-code" ] do
-                Expect.stringContains readme role $"README documents {role}"
-            Expect.isFalse (readme.Contains("fonts.googleapis.com")) "the package does not recommend runtime Google requests"
-            Expect.isFalse (readme.Contains("fonts.gstatic.com")) "the package does not recommend runtime Google assets"
-        }
-
         test "Package workflow verifies one release bundle before ordered publication" {
             let publish = workflow "publish.yml"
             let packageStart = publish.IndexOf("\n  package:", StringComparison.Ordinal)

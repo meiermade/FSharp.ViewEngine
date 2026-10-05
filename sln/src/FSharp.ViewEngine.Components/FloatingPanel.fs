@@ -1,21 +1,24 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
+/// <category>floating-panel</category>
 [<RequireQualifiedAccess>]
 type FloatingPanelState =
     | Open
     | Minimized
     | Dismissed
 
+/// <category>floating-panel</category>
 [<RequireQualifiedAccess>]
 type FloatingPanelBoundary =
     | Viewport
     | Container
 
+/// <category>floating-panel</category>
 [<NoEquality; NoComparison>]
 type FloatingPanelConfig =
     private
@@ -27,7 +30,10 @@ type FloatingPanelConfig =
           state:FloatingPanelState
           boundary:FloatingPanelBoundary }
 
+/// <summary>
 /// A persistent, non-modal product surface. It does not own completion or persistence policy.
+/// </summary>
+/// <category>floating-panel</category>
 [<RequireQualifiedAccess>]
 module FloatingPanel =
     let create id title body =

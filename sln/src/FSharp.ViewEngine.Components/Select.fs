@@ -1,22 +1,41 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
+/// <category>select</category>
 [<NoEquality; NoComparison>]
 type SelectOption<'value> =
-    internal
+    private
         { value:'value
           label:string
           disabled:bool }
 
+/// <category>select</category>
+[<RequireQualifiedAccess>]
+module SelectOption =
+    let create value label : SelectOption<'value> =
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An option label is required."
+        { value = value; label = label; disabled = false }
+
+    let disabled (option:SelectOption<'value>) = { option with disabled = true }
+
+/// <category>select</category>
 [<RequireQualifiedAccess>]
 type SelectSearch =
     | Static
     | Remote of endpoint:string
 
+/// <category>select</category>
+[<RequireQualifiedAccess>]
+type SelectPosition =
+    | SelectedItem
+    | TriggerStart
+    | TriggerEnd
+
+/// <category>select</category>
 [<NoEquality; NoComparison>]
 type SelectConfig<'value, 'mode when 'value:equality> =
     private
@@ -43,18 +62,21 @@ type SelectConfig<'value, 'mode when 'value:equality> =
           isDisabled:bool
           isPending:bool
           size:ControlSize option
+          position:SelectPosition
           attributes:HtmlAttribute list }
 
+/// <category>select</category>
 type SelectConfig<'value when 'value:equality> = SelectConfig<'value, SingleSelection>
 
+/// <remarks>
+/// SelectedItem is the default position: ordinary single selects align the current selected row with the trigger.
+/// An inset keeps the trigger outline visible. Position is recalculated on opening and external scrolling/resizing.
+/// TriggerStart/TriggerEnd request explicit edge placement. Searchable/multiple selects, touch, and insufficient
+/// viewport space use an above/below edge popup instead. Position never changes the submitted value.
+/// </remarks>
+/// <category>select</category>
 [<RequireQualifiedAccess>]
 module Select =
-    let option value label =
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An option label is required."
-        { value = value; label = label; disabled = false }
-
-    let disable (option:SelectOption<'value>) = { option with disabled = true }
-
     let create name label encode options : SelectConfig<'value> =
         if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A form name is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible label is required."
@@ -82,6 +104,7 @@ module Select =
           isDisabled = false
           isPending = false
           size = None
+          position = SelectPosition.SelectedItem
           attributes = [] }
 
     let withSelected selected (config:SelectConfig<'value>) = { config with selected = Some selected }
@@ -109,6 +132,7 @@ module Select =
           isDisabled = config.isDisabled
           isPending = config.isPending
           size = config.size
+          position = config.position
           attributes = config.attributes }
     let withSelectedMany selected (config:SelectConfig<'value, MultipleSelection>) =
         let choices =
@@ -120,6 +144,7 @@ module Select =
         if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable component ID is required."
         { config with id = Some id }
     let withSize size (config:SelectConfig<'value, 'mode>) = { config with size = Some size }
+    let withPosition position (config:SelectConfig<'value, 'mode>) = { config with position = position }
     let withVisuallyHiddenLabel (config:SelectConfig<'value, 'mode>) = { config with labelVisuallyHidden = true }
     let withDescription description (config:SelectConfig<'value, 'mode>) = { config with description = Some description }
     let withPlaceholder placeholder (config:SelectConfig<'value, 'mode>) = { config with placeholder = Some placeholder }
@@ -156,6 +181,65 @@ module Select =
           _dataPreserveAttr "data-fve-pointer-x data-fve-pointer-y"
           _dataOn ("pointermove", [ "window" ], "el.dataset.fvePointerX = evt.clientX; el.dataset.fvePointerY = evt.clientY") ]
 
+    let private edgePosition = function
+        | SelectPosition.TriggerEnd -> "block-end span-inline-start"
+        | SelectPosition.SelectedItem
+        | SelectPosition.TriggerStart -> "block-end span-inline-end"
+
+    let private initializePopupPosition triggerId alignSelected position =
+        "const triggerId = " + ComponentHtml.javascriptString triggerId +
+        "; const alignSelected = " + (if alignSelected then "true" else "false") +
+        "; const edge = " + ComponentHtml.javascriptString (edgePosition position) + ";" + """
+        el.fvePosition = () => {
+            const p = el, trigger = document.getElementById(triggerId);
+            if (!p.isConnected || !trigger || !p.matches(':popover-open')) return;
+            const r = trigger.getBoundingClientRect(), viewport = window.visualViewport;
+            const top = (viewport?.offsetTop || 0) + 8;
+            const bottom = (viewport?.offsetTop || 0) + (viewport?.height || innerHeight) - 8;
+            p.style.positionArea = edge; p.style.margin = '0.25rem 0';
+            p.style.top = 'auto'; p.style.bottom = 'auto'; p.style.left = 'auto'; p.style.right = 'auto';
+            p.style.width = 'anchor-size(width)'; p.style.maxHeight = '';
+            const limit = parseFloat(getComputedStyle(p).maxHeight);
+            const padding = parseFloat(getComputedStyle(p).paddingTop) || 0;
+            const inset = parseFloat(getComputedStyle(document.documentElement).fontSize) / 4;
+            p.style.maxHeight = Math.max(0, Math.min(limit, bottom - top)) + 'px';
+            if (alignSelected && !matchMedia('(pointer: coarse)').matches) {
+                p.style.width = Math.max(0, r.width - inset * 2) + 'px';
+                p.scrollTop = 0;
+                const selected = p.querySelector('[role=option][aria-selected=true]') || p.querySelector('[role=option]:not(:disabled)');
+                if (selected) {
+                    const item = selected.getBoundingClientRect(), box = p.getBoundingClientRect();
+                    const height = box.height, center = (r.top + r.bottom) / 2;
+                    const itemCenter = item.top - box.top + item.height / 2;
+                    const minOffset = Math.max(item.height / 2 + padding, itemCenter - (p.scrollHeight - p.clientHeight), center - (bottom - height));
+                    const maxOffset = Math.min(height - item.height / 2 - padding, itemCenter, center - top);
+                    if (minOffset <= maxOffset) {
+                        const offset = Math.max(minOffset, Math.min(maxOffset, itemCenter));
+                        const leftEdge = (viewport?.offsetLeft || 0) + 8;
+                        const rightEdge = (viewport?.offsetLeft || 0) + (viewport?.width || innerWidth) - 8;
+                        const width = Math.min(Math.max(0, r.width - inset * 2), Math.max(0, rightEdge - leftEdge));
+                        p.style.positionArea = 'none'; p.style.margin = '0';
+                        p.style.width = width + 'px';
+                        p.style.top = (center - offset) + 'px';
+                        p.style.left = Math.max(leftEdge, Math.min(r.left + inset, rightEdge - width)) + 'px';
+                        p.scrollTop = itemCenter - offset;
+                        return;
+                    }
+                }
+            }
+            p.style.width = 'anchor-size(width)';
+            const below = Math.max(0, bottom - r.bottom), above = Math.max(0, r.top - top);
+            const useBelow = below >= p.offsetHeight || below >= above;
+            p.style.positionArea = useBelow ? edge : edge.replace('block-end', 'block-start');
+            p.style.maxHeight = Math.max(0, Math.min(limit, (useBelow ? below : above) - 4)) + 'px';
+            const selected = p.querySelector('[role=option][aria-selected=true]');
+            if (selected) {
+                const itemTop = selected.getBoundingClientRect().top - p.getBoundingClientRect().top + p.scrollTop;
+                p.scrollTop = Math.max(0, itemTop + selected.offsetHeight / 2 - p.clientHeight / 2);
+            }
+        };
+        """
+
     let private renderPlain config =
         let instanceId = config.id |> Option.defaultValue config.name |> ComponentHtml.signalToken
         let fieldId = $"fve-select-{instanceId}"
@@ -170,7 +254,9 @@ module Select =
         let popupIsOpen = $"{popupElement}.matches(':popover-open')"
         let listboxElement = $"document.getElementById('{listboxId}')"
         let openFocus = if config.isMultiple then $", {listboxElement}.focus()" else ""
-        let synchronizePopup = $"${openSignal} ? ({popupIsOpen} || ({popupElement}.showPopover({{source: document.getElementById('{triggerId}')}}){openFocus})) : ({popupIsOpen} && {popupElement}.hidePopover())"
+        let selectedItemPosition = not config.isMultiple && config.position = SelectPosition.SelectedItem
+        let alignSelected = $", requestAnimationFrame(() => {popupElement}.fvePosition?.())"
+        let synchronizePopup = $"${openSignal} ? ({popupIsOpen} || ({popupElement}.showPopover({{source: document.getElementById('{triggerId}')}}){openFocus}{alignSelected})) : ({popupIsOpen} && {popupElement}.hidePopover())"
         let selectionSignal = $"{instanceId}_selected"
         let initialSelection = config.selectedMany |> List.map (fun choice -> { SelectedChoice.value = config.encode choice.value; label = choice.label })
         let valueSignal = $"{instanceId}_value"
@@ -313,21 +399,27 @@ module Select =
                 if config.isPending then
                     ComponentHtml.loadingGlyph ControlSize.Small
                 else
-                    raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0 text-[var(--fve-muted-text)] transition-transform group-aria-expanded:rotate-180" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
+                    raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0 text-[var(--fve-muted-text)]" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
             }
             div {
                 _id popupId
                 _popover "auto"
                 _role "group"
                 _ariaLabel (config.label + " options")
+                _attr ("data-init", initializePopupPosition triggerId selectedItemPosition config.position)
+                _dataOn ("resize", [ "window" ], "if (el.matches(':popover-open')) requestAnimationFrame(() => el.fvePosition?.())")
+                _dataOn ("scroll", [ "window"; "capture" ], "if (el.matches(':popover-open') && !(evt.target instanceof Node && el.contains(evt.target))) requestAnimationFrame(() => el.fvePosition?.())")
                 _dataEffect synchronizePopup
                 _dataOn ("beforetoggle", $"${openSignal} = evt.newState == 'open'; evt.newState == 'closed' && (${activeSignal} = '', ${typeaheadSignal} = '')")
                 for attribute in pointerTracking do attribute
-                _style "inset: auto; margin: 0.25rem 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
-                _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 max-h-60 overflow-auto rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-0 shadow-lg" ])
+                let effectivePosition = if config.isMultiple && config.position = SelectPosition.SelectedItem then SelectPosition.TriggerStart else config.position
+                let area = edgePosition effectivePosition
+                let margin = "0.25rem 0"
+                _style $"inset: auto; margin: {margin}; position-area: {area}; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
+                _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 max-h-60 overflow-auto rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] py-1 shadow-lg" ])
                 if config.isMultiple then
                     div {
-                        _class "flex items-center justify-between p-1"
+                        _class "flex items-center justify-between px-2 py-1"
                         ChoiceSelection.selectAll "Select all" config.label selectionSignal unavailable (enabledChoices config) listboxId
                         ChoiceSelection.clear config.label selectionSignal initialSelection unavailable listboxId
                     }
@@ -369,7 +461,7 @@ module Select =
                                     _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; {ChoiceSelection.toggle selectionSignal encodedValue choice.label}; ${typeaheadSignal} = ''; {listboxElement}.focus()")
                                 else
                                     _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; ${valueSignal} = {ComponentHtml.javascriptString encodedValue}; ${labelSignal} = {ComponentHtml.javascriptString choice.label}; ${typeaheadSignal} = ''; ${openSignal} = false; document.getElementById('{triggerId}').focus()")
-                            _class (ComponentHtml.classes [ ComponentHtml.popupItemClasses; "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50" ])
+                            _class (ComponentHtml.classes [ ComponentHtml.popupItemClasses; "fve-popup-item flex w-full items-center justify-between gap-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"; if selectedItemPosition then "px-2" else "px-4" ])
                             span { _class "min-w-0 [overflow-wrap:anywhere]"; choice.label }
                             span {
                                 _ariaHidden "true"
@@ -518,7 +610,8 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
             _dataEffect synchronizePopup
             _dataOn ("beforetoggle", $"${openSignal} = evt.newState == 'open'; evt.newState == 'closed' && (${activeSignal} = '', document.getElementById('{searchId}')?._fveSelectRequest?.abort())")
             for attribute in pointerTracking do attribute
-            _style "inset: auto; margin: 0.25rem 0; position-area: block-end span-inline-end; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
+            let effectivePosition = if config.position = SelectPosition.SelectedItem then SelectPosition.TriggerStart else config.position
+            _style $"inset: auto; margin: 0.25rem 0; position-area: {edgePosition effectivePosition}; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: anchor-size(width)"
             _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 max-h-60 overflow-auto rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-0 shadow-lg" ])
             div {
                 _class "p-1"
@@ -721,7 +814,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                         _dataText $"${labelSignal}"
                         selectedLabel
                 }
-                raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0 text-[var(--fve-muted-text)] transition-transform group-aria-expanded:rotate-180" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
+                raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4 shrink-0 text-[var(--fve-muted-text)]" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
             }
             if config.isMultiple then
                 ChoiceSelection.render config.name selectionSignal initialSelection unavailable

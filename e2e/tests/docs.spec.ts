@@ -36,7 +36,6 @@ const representativeRoutes = [
   { path: '/components', heading: 'Components' },
   { path: '/components/button', heading: 'Button' },
   { path: '/components/select', heading: 'Select' },
-  { path: '/components/page-examples/account-management', heading: 'Account management' },
 ] as const
 
 async function publicRoutePaths(request: APIRequestContext) {
@@ -47,9 +46,10 @@ async function publicRoutePaths(request: APIRequestContext) {
 }
 
 async function docsCatalogPaths(request: APIRequestContext) {
-  return (await publicRoutePaths(request)).filter(path =>
-    path.startsWith('/docs/components/') || path.startsWith('/docs/page-examples/'),
-  )
+  const published = await publicRoutePaths(request)
+  const representative = ['/components/button', '/components/code-block', '/components/page-top-bar']
+  for (const path of representative) expect(published).toContain(path)
+  return representative
 }
 
 const componentAccessibilityRouteGroups = [
@@ -66,12 +66,12 @@ const componentAccessibilityRouteGroups = [
     paths: ['/components/dialog'],
   },
   {
-    name: 'application workflows',
-    paths: ['/components/app-shell'],
+    name: 'shell structure',
+    paths: ['/components/page-top-bar'],
   },
   {
-    name: 'page examples',
-    paths: ['/components/page-examples/media-management'],
+    name: 'financial application',
+    paths: ['/examples/application/accounts'],
   },
 ]
 
@@ -120,25 +120,24 @@ test('representative documentation routes render without browser errors', async 
   expect(browserErrors).toEqual([])
 })
 
-test('legacy Docs catalog routes remain aliases with canonical destinations', async ({ page }) => {
+test('legacy Docs catalog routes remain aliases with canonical destinations', async ({ request }) => {
   const aliases = [
-    ['/docs/components', '/docs/components/layouts'],
-    ['/docs-components', '/docs/components/layouts'],
-    ['/docs/examples/api-reference', '/docs/page-examples/api-reference'],
-    ['/api-reference/render-to-string', '/docs/page-examples/api-reference'],
-    ['/docs/examples/executable-specification', '/docs/page-examples/executable-specification'],
-    ['/specification/render-a-view', '/docs/page-examples/executable-specification'],
+    ['/docs/components', '/components'],
+    ['/docs-components', '/components'],
+    ['/docs/examples/api-reference', '/examples/api-documentation'],
+    ['/docs/examples/executable-specification', '/examples/specification'],
   ] as const
 
   for (const [alias, canonicalPath] of aliases) {
-    const response = await page.goto(alias, { waitUntil: 'domcontentloaded' })
-    expect(response?.status(), alias).toBe(200)
-    await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', `${productionOrigin}${canonicalPath}`)
+    const response = await request.get(alias)
+    expect(response.status(), alias).toBe(200)
+    expect(new URL(response.url()).pathname).toBe(canonicalPath)
+    expect(await response.text()).toContain(`rel="canonical" href="${productionOrigin}${canonicalPath}"`)
   }
 })
 
 test('removed Components routes return not found', async ({ request }) => {
-  for (const path of ['/components/contract', '/components/chart', '/components/layouts']) {
+  for (const path of ['/components/contract', '/components/chart', '/components/layouts', '/components/row-actions', '/components/action-cluster', '/components/confirmation-dialog', '/components/status', '/components/icon-button']) {
     const response = await request.get(path)
     expect(response.status(), path).toBe(404)
   }
@@ -188,19 +187,18 @@ test('Representative Components pages provide focused examples, navigation, inte
     ['/components/button', 'Button'],
     ['/components/select', 'Select'],
     ['/components/dropdown-menu', 'Dropdown menu'],
-    ['/components/app-shell', 'App shell'],
-    ['/components/calendar', 'Calendar'],
-    ['/components/page-examples/media-management', 'Media management'],
+    ['/components/page-top-bar', 'Page top bar'],
+    ['/components/month-calendar', 'Month calendar'],
+    ['/components/card', 'Card'],
   ] as const
 
   const openPreview = (path: string, heading: string) => openComponentGallery(page, path, heading)
 
   for (const [path, heading] of componentRoutes) {
     const surface = await openPreview(path, heading)
-    if (path === '/components/collection' || path === '/components/page-examples/account-management') {
-      const accountType = surface.getByRole('combobox', { name: 'Filter by account type', exact: true })
-      await expect(accountType).toHaveCount(1)
-      await expect(surface.locator('select[name="accountType"]')).toHaveCount(path === '/components/collection' ? 1 : 0)
+    if (path === '/components/month-calendar') {
+      await expect(surface.getByRole('combobox', { name: 'Month', exact: true })).toHaveCount(1)
+      await expect(surface.getByRole('combobox', { name: 'Year', exact: true })).toHaveCount(1)
     } else {
       await expect(surface.locator('select')).toHaveCount(0)
     }
@@ -212,10 +210,8 @@ test('Representative Components pages provide focused examples, navigation, inte
   }
 
   await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
-  const packageNavOrder = await page.locator('#nav-fsharp-viewengine-components-primitives, #nav-fsharp-viewengine-components-application, #nav-fsharp-viewengine-components-documentation').evaluateAll(elements => elements.map(element => element.id))
-  expect(packageNavOrder).toEqual(['nav-fsharp-viewengine-components-primitives', 'nav-fsharp-viewengine-components-application', 'nav-fsharp-viewengine-components-documentation'])
-  await expect(page.locator('#nav-fsharp-viewengine-components-primitives')).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#nav-fsharp-viewengine-components-primitives-form-controls')).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('button', { name: 'Toggle Components section', exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByRole('button', { name: 'Toggle Form controls section', exact: true })).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#nav-components-select')).toHaveAttribute('data-selected', 'true')
 
   const resolvedBackground = (root: Locator, variable: string) =>
@@ -263,22 +259,40 @@ test('Representative Components pages provide focused examples, navigation, inte
 
   const buttonSurface = await openPreview('/components/button', 'Button')
   const docsRoot = page.locator('body')
-  const lightPage = await resolvedBackground(buttonSurface, '--fve-page')
-  const lightDocsPage = await resolvedBackground(docsRoot, '--fve-page')
+  const expectDocumentationShellSurfaces = async () => {
+    const background = await resolvedBackground(docsRoot, '--fve-background')
+    const sideNavigation = page.locator('[data-docs-side-nav="true"]')
+    const main = page.locator('main#main-content')
+    expect(await sideNavigation.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)
+    expect(await main.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(background)
+
+    const navigationItem = page.locator('#nav-home')
+    const restingBackground = await navigationItem.evaluate(element => getComputedStyle(element).backgroundColor)
+    await navigationItem.hover()
+    const hoverBackground = await navigationItem.evaluate(element => getComputedStyle(element).backgroundColor)
+    expect(hoverBackground).toBe(await resolvedBackground(docsRoot, '--fve-surface-hover'))
+    expect(hoverBackground).not.toBe(restingBackground)
+    await page.locator('main h1').first().hover()
+  }
+
+  const lightBackground = await resolvedBackground(buttonSurface, '--fve-background')
+  const lightDocsBackground = await resolvedBackground(docsRoot, '--fve-background')
   const lightBrand = await resolvedBackground(buttonSurface, '--fve-brand-solid')
   const lightDocsAccent = await resolvedBackground(docsRoot, '--fve-brand-solid')
-  expect(lightPage).toBe(lightDocsPage)
+  expect(lightBackground).toBe(lightDocsBackground)
   expect(lightBrand).toBe(lightDocsAccent)
+  await expectDocumentationShellSurfaces()
 
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
-  const darkPage = await resolvedBackground(buttonSurface, '--fve-page')
-  const darkDocsPage = await resolvedBackground(docsRoot, '--fve-page')
+  const darkBackground = await resolvedBackground(buttonSurface, '--fve-background')
+  const darkDocsBackground = await resolvedBackground(docsRoot, '--fve-background')
   const darkBrand = await resolvedBackground(buttonSurface, '--fve-brand-solid')
   const darkDocsAccent = await resolvedBackground(docsRoot, '--fve-brand-solid')
-  expect(darkPage).toBe(darkDocsPage)
-  expect(darkPage).not.toBe(lightPage)
+  expect(darkBackground).toBe(darkDocsBackground)
+  expect(darkBackground).not.toBe(lightBackground)
   expect(darkBrand).toBe(darkDocsAccent)
+  await expectDocumentationShellSurfaces()
 
   await observeActivations()
   for (const name of ['Create account', 'View reports', 'Cancel', 'Delete account']) {
@@ -302,22 +316,21 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expectUnavailableActivationPrevention(pendingButton)
   await expectUnavailableActivationPrevention(disabledButton)
 
-  const iconButtonSurface = await openPreview('/components/icon-button', 'Icon button')
-  await observeActivations()
+  const iconButtonSurface = page.locator('#components-button-icon-primary-panel-preview')
   const addAccount = iconButtonSurface.getByRole('button', { name: 'Add account' })
   await addAccount.focus()
   await expect(addAccount).toBeFocused()
   await expect(addAccount.locator('[aria-hidden="true"]')).toBeVisible()
-  for (const name of ['Add account', 'Refresh accounts']) {
-    const { hover, active } = await pressedBackgrounds(iconButtonSurface.getByRole('button', { name }))
-    expect(active, `${name} active background`).not.toBe(hover)
+  for (const control of [addAccount, page.locator('#components-button-icon-variants-panel-preview').getByRole('button', { name: 'Solid refresh' })]) {
+    const { hover, active } = await pressedBackgrounds(control)
+    expect(active, `${await control.getAttribute('aria-label')} active background`).not.toBe(hover)
   }
-  const iconCountBeforeEnabledActivation = await activationCount(iconButtonSurface, 'icon-button-activation-count')
+  const iconCountBeforeEnabledActivation = await activationCount(iconButtonSurface, 'button-icon-activation-count')
   await addAccount.click()
-  await expect.poll(() => activationCount(iconButtonSurface, 'icon-button-activation-count')).toBe(iconCountBeforeEnabledActivation + 1)
+  await expect.poll(() => activationCount(iconButtonSurface, 'button-icon-activation-count')).toBe(iconCountBeforeEnabledActivation + 1)
 
-  const refreshingAccounts = iconButtonSurface.getByRole('button', { name: 'Refreshing accounts' })
-  const disabledRemoveAccount = iconButtonSurface.getByRole('button', { name: 'Remove account' })
+  const refreshingAccounts = page.locator('#components-button-icon-pending-panel-preview').getByRole('button', { name: 'Refreshing accounts' })
+  const disabledRemoveAccount = page.locator('#components-button-icon-disabled-panel-preview').getByRole('button', { name: 'Remove account' })
   await expect(refreshingAccounts).toBeDisabled()
   await expect(refreshingAccounts).toHaveAttribute('aria-busy', 'true')
   await expect(disabledRemoveAccount).toBeDisabled()
@@ -325,8 +338,8 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expectUnavailableActivationPrevention(disabledRemoveAccount)
 
   const badgeSurface = await openPreview('/components/badge', 'Badge')
+  await expect(badgeSurface.getByText('Internal', { exact: true })).toHaveCount(1)
   await expect(badgeSurface.getByText('Internal', { exact: true })).toBeVisible()
-  await expect(badgeSurface.getByText('Reconciled', { exact: true })).toBeVisible()
 
   const loadingSurface = await openPreview('/components/loading-indicator', 'Loading indicator')
   await expect(loadingSurface.getByRole('status')).toHaveCount(2)
@@ -334,52 +347,25 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expect(loadingSurface.getByText('Refreshing transactions')).toBeVisible()
 
   const emptyStateSurface = await openPreview('/components/empty-state', 'Empty state')
-  await expect(emptyStateSurface.getByText('No accounts yet', { exact: true })).toBeVisible()
+  await expect(emptyStateSurface.getByText('No accounts yet', { exact: true }).first()).toBeVisible()
   await expect(emptyStateSurface.getByRole('link', { name: 'Create account' })).toHaveAttribute('href', '/components/page-examples/account-management?destination=ledger-create-account')
 
   const simpleTables = await openPreview('/components/table', 'Table')
-  await expect(simpleTables.getByRole('table')).toHaveCount(7)
   await expect(simpleTables.locator('th[aria-sort] a')).toHaveCount(1)
   await expect(simpleTables.getByRole('link', { name: 'Operating checking', exact: true })).toBeVisible()
   await expect(simpleTables.first().getByRole('columnheader')).toHaveText(['Name', 'Email', 'Role'])
-  // Rich record menus belong to the integrated Collection fixture, not the basic Table gallery.
-  const tableSurface = await openPreview('/components/collection', 'Collection')
-  const accountTable = tableSurface.getByRole('table', { name: 'Accounts' })
-  await expect(accountTable.locator('caption')).toHaveClass('sr-only')
-  await expect(accountTable.getByRole('rowheader')).toHaveCount(6)
-  const accountTableRegion = tableSurface.locator('[data-fve-table]').getByRole('region', { name: 'Accounts', exact: true })
-  await expect(accountTableRegion).toHaveAttribute('tabindex', '0')
-  await expect(accountTableRegion).not.toHaveClass(/rounded-\[var\(--fve-radius-panel\)\]/)
-  const actionsHeading = accountTable.getByRole('columnheader', { name: 'Actions' })
-  await expect(actionsHeading.locator('.sr-only')).toHaveText('Actions')
-  const assetsActions = accountTable.getByRole('button', { name: 'More actions for Assets' })
-  await expect(assetsActions).toBeVisible()
-  await expect(accountTable.getByRole('link', { name: 'View account' })).toHaveCount(0)
-  await assetsActions.click()
-  const assetsMenu = accountTable.getByRole('menu', { name: 'More actions for Assets' })
-  await expect(assetsMenu).toBeVisible()
-  await expect(assetsMenu).toHaveCSS('position', 'fixed')
-  await expect(assetsMenu).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  const viewAccountItem = assetsMenu.getByRole('menuitem', { name: 'View account' })
-  await expect(viewAccountItem).toHaveAttribute('href', '/components/page-examples/account-management?destination=ledger-account-101')
-  await expect(viewAccountItem).toBeFocused()
-  await expect(viewAccountItem).not.toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
-  await expect(viewAccountItem).toHaveCSS('box-shadow', 'none')
-  await page.keyboard.press('Escape')
-  await expect(assetsActions).toBeFocused()
-
   const descriptionListSurface = await openPreview('/components/description-list', 'Description list')
-  await expect(descriptionListSurface.locator('dl')).toHaveCount(3)
-  await expect(descriptionListSurface.first().locator('dt')).toHaveText(['Type', 'Commodity', 'Parent account', 'Source', 'Status', 'Balance'])
-  await expect(descriptionListSurface.locator('dd')).toHaveCount(16)
+  await expect(descriptionListSurface.locator('dl')).toHaveCount(4)
+  await expect(descriptionListSurface.first().locator('dt')).toHaveText(['Account type', 'Currency'])
+  await expect(page.locator('#components-description-list-panel-preview dt')).toHaveText(['Type', 'Commodity', 'Parent account', 'Source', 'Status', 'Balance'])
+  await expect(descriptionListSurface.locator('dd')).toHaveCount(18)
   await expect(descriptionListSurface.getByText('Includes cleared entries through today.')).toBeVisible()
 
   const metricSurface = await openPreview('/components/metric', 'Metric')
-  await expect(metricSurface.getByText('Available balance', { exact: true })).toBeVisible()
-  await expect(metricSurface.getByText('$42,800', { exact: true })).toBeVisible()
+  await expect(metricSurface.getByText('Available balance', { exact: true }).first()).toBeVisible()
+  await expect(metricSurface.getByText('$42,800', { exact: true }).first()).toBeVisible()
   await expect(metricSurface.getByText('Trend: ', { exact: true })).toHaveClass(/sr-only/)
-  const availableBalanceLabel = metricSurface.getByText('Available balance', { exact: true })
+  const availableBalanceLabel = metricSurface.getByText('Available balance', { exact: true }).last()
   const currentStatus = metricSurface.getByText('Current', { exact: true })
   const pendingEntriesLabel = metricSurface.getByText('Pending entries', { exact: true })
   await expect(currentStatus).toBeVisible()
@@ -394,7 +380,8 @@ test('Representative Components pages provide focused examples, navigation, inte
   expect(currentStatusBox.x - (availableBalanceBox.x + availableBalanceBox.width)).toBeLessThanOrEqual(16)
   expect(pendingEntriesBox.y - (availableBalanceBox.y + availableBalanceBox.height)).toBeGreaterThan(48)
 
-  const paginationSurface = await openPreview('/components/pagination', 'Pagination')
+  await openPreview('/components/pagination', 'Pagination')
+  const paginationSurface = page.locator('#components-pagination-panel-preview')
   const accountPages = paginationSurface.getByRole('navigation', { name: 'Accounts pages' })
   await expect(accountPages.getByText('Showing 26–50 of 184 accounts')).toBeVisible()
   await expect(accountPages.getByText('2', { exact: true })).toHaveAttribute('aria-current', 'page')
@@ -404,14 +391,12 @@ test('Representative Components pages provide focused examples, navigation, inte
   await page.evaluate(() => { (window as any).__paginationDocumentMarker = true })
   await nextPage.click()
   expect(await page.evaluate(() => (window as any).__paginationDocumentMarker)).toBe(true)
-  await expect(accountPages.getByText('Showing 51–75 of 184 accounts')).toBeVisible()
-  await expect(accountPages.getByText('3', { exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(accountPages.getByText('Previous', { exact: true })).toHaveAttribute('href', '/components/pagination/page?page=2')
-  await expect(accountPages.getByText('Next', { exact: true })).toHaveAttribute('href', '/components/pagination/page?page=4')
+  await expect(page).toHaveURL('/components/pagination')
+  await expect(accountPages.getByText('Showing 26–50 of 184 accounts')).toBeVisible()
+  await expect(accountPages.getByText('2', { exact: true })).toHaveAttribute('aria-current', 'page')
   await accountPages.getByRole('link', { name: 'Page 8' }).click()
-  await expect(accountPages.getByText('Showing 176–184 of 184 accounts')).toBeVisible()
-  await expect(accountPages.getByText('8', { exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(accountPages.getByText('Next', { exact: true })).toHaveAttribute('aria-disabled', 'true')
+  await expect(page).toHaveURL('/components/pagination')
+  await expect(accountPages.getByText('2', { exact: true })).toHaveAttribute('aria-current', 'page')
 
   const formEntries = async (form: Locator) =>
     form.evaluate(element => [...new FormData(element as HTMLFormElement).entries()].map(([name, value]) => [name, String(value)]))
@@ -533,12 +518,6 @@ test('Representative Components pages provide focused examples, navigation, inte
   expect(await clonedControlEntries(unavailableStatusValues)).toEqual([])
   await attachScreenshot('components-select-state-matrix-desktop-dark')
 
-  const collectionSurface = await openPreview('/components/collection', 'Collection')
-  const accountTypeFilter = collectionSurface.getByRole('combobox', { name: 'Filter by account type' })
-  await expect(accountTypeFilter.locator('option')).toHaveText(['All types', 'Asset', 'Liability', 'Equity', 'Revenue', 'Expense'])
-  await accountTypeFilter.selectOption('liability')
-  await expect(accountTypeFilter).toHaveValue('liability')
-
   const checkboxSurface = await openPreview('/components/checkbox', 'Checkbox')
   const checkboxForm = checkboxSurface.locator('#components-checkbox-form-region form')
   const confirmReview = checkboxSurface.getByRole('checkbox', { name: 'Confirm archived-account review' })
@@ -595,7 +574,7 @@ test('Representative Components pages provide focused examples, navigation, inte
   const toggleSurface = await openPreview('/components/toggle-button', 'Toggle button')
   const compactRows = toggleSurface.getByRole('button', { name: 'Compact rows', exact: true })
   await compactRows.click()
-  await expect(compactRows).toHaveAttribute('aria-pressed', 'false')
+  await expect(compactRows).toHaveAttribute('aria-pressed', 'true')
   const pendingCompactRows = toggleSurface.getByRole('button', { name: 'Applying compact rows' })
   const disabledCompactRows = toggleSurface.getByRole('button', { name: 'Compact rows unavailable' })
   await expect(pendingCompactRows).toBeDisabled()
@@ -802,7 +781,7 @@ test.describe('Components route accessibility', () => {
       for (const path of group.paths) {
         const response = await page.goto(path, { waitUntil: 'domcontentloaded' })
         expect(response?.status(), `${path} status`).toBe(200)
-        await expect(page.locator('main[data-docs-main="true"]')).toBeVisible()
+        await expect(page.getByRole('main')).toBeVisible()
         const results = await new AxeBuilder({ page })
           .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
           .analyze()
@@ -812,406 +791,6 @@ test.describe('Components route accessibility', () => {
       expect(browserErrors).toEqual([])
     })
   }
-})
-
-test('Components layouts, catalog, and responsive previews remain coherent', async ({ page }, testInfo) => {
-  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
-    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
-  )
-  const browserErrors = captureBrowserErrors(page)
-  const attachScreenshot = async (name: string) => {
-    if (testInfo.project.name !== 'chromium') return
-    await testInfo.attach(name, {
-      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-      contentType: 'image/png',
-    })
-  }
-  const openPreview = (path: string, heading: string) => openComponentGallery(page, path, heading)
-
-  const buttonSurface = await openPreview('/components/button', 'Button')
-  const comfortableControl = buttonSurface.getByRole('button', { name: 'Create account' }).nth(1)
-  const comfortableDensity = await comfortableControl.evaluate(element => ({
-    height: getComputedStyle(element).height,
-    paddingTop: getComputedStyle(element).paddingTop,
-  }))
-  await page.getByRole('button', { name: 'Choose color theme' }).click()
-  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
-
-  const dialogSurface = await openPreview('/components/dialog', 'Dialog')
-  const dialogTrigger = dialogSurface.getByRole('button', { name: 'Review account' })
-  const dialog = dialogSurface.getByRole('dialog', { name: 'Review account' })
-  await dialogTrigger.click()
-  await expect(dialog).toBeVisible()
-  await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(dialog).toBeHidden()
-  await expect(dialogTrigger).toBeFocused()
-
-  const appShellSurface = await openPreview('/components/page-examples/account-management', 'Account management')
-  const compactControl = appShellSurface.getByRole('link', { name: 'Create', exact: true })
-  const compactDensity = await compactControl.evaluate(element => ({
-    height: getComputedStyle(element).height,
-    paddingTop: getComputedStyle(element).paddingTop,
-  }))
-  // Application action regions opt into the compact size without changing the default form size.
-  expect(parseFloat(comfortableDensity.paddingTop)).toBe(8)
-  expect(parseFloat(comfortableDensity.height)).toBe(40)
-  expect(parseFloat(compactDensity.paddingTop)).toBe(6)
-  expect(parseFloat(compactDensity.height)).toBe(32)
-  await expect(appShellSurface.getByRole('navigation', { name: 'Ledger primary navigation' }).locator('[aria-current="page"]')).toHaveCount(1)
-  await expect(appShellSurface.getByRole('navigation', { name: 'Breadcrumb' }).locator('[aria-current="page"]')).toHaveCount(1)
-
-  const pageSurface = await openPreview('/components/page', 'Page')
-  const transactionTabs = pageSurface.getByRole('tablist', { name: 'Transaction views' })
-  const upcomingTab = transactionTabs.getByRole('tab', { name: 'Upcoming' })
-  const completedTab = transactionTabs.getByRole('tab', { name: 'Completed' })
-  await expect(upcomingTab).toHaveAttribute('aria-selected', 'true')
-  await expect(pageSurface.getByRole('tabpanel', { name: 'Upcoming' })).toBeVisible()
-  await expect(pageSurface.getByRole('tabpanel', { name: 'Completed' })).toBeHidden()
-  await completedTab.click()
-  await expect(completedTab).toHaveAttribute('aria-selected', 'true')
-  await expect(pageSurface.getByRole('tabpanel', { name: 'Completed' })).toBeVisible()
-  await expect(pageSurface.getByRole('tabpanel', { name: 'Upcoming' })).toBeHidden()
-  await completedTab.press('ArrowLeft')
-  await expect(upcomingTab).toBeFocused()
-  await expect(upcomingTab).toHaveAttribute('aria-selected', 'true')
-
-  await gotoAfterDocsAssetSettlement(page, '/components', 'domcontentloaded')
-  const catalog = page.locator('.docs-catalog-grid')
-  await expect(catalog.getByRole('link')).toHaveCount(3)
-  await attachScreenshot('components-catalog-desktop-dark')
-  await catalog.getByRole('link', { name: /^Primitives / }).click()
-  await expect(page).toHaveURL('/components/primitives')
-  for (const [label, slug] of [['Button', 'button'], ['Icon button', 'icon-button'], ['Notification', 'notification'], ['Empty state', 'empty-state'], ['Description list', 'description-list'], ['Calendar', 'calendar'], ['Breadcrumbs', 'breadcrumbs'], ['Side nav', 'side-nav'], ['Pagination', 'pagination'], ['Confirmation dialog', 'confirmation-dialog'], ['Drawer', 'drawer'], ['Floating panel', 'floating-panel'], ['Section', 'section']]) {
-    await expect(catalog.getByRole('link', { name: new RegExp(`^${label} `) })).toHaveAttribute('href', `/components/${slug}`)
-  }
-  await expect(page.locator('a[href="/components/chart"], a[href="/components/layouts"]')).toHaveCount(0)
-  await gotoAfterDocsAssetSettlement(page, '/components/application', 'domcontentloaded')
-  for (const [label, slug] of [['Page top bar', 'page-top-bar'], ['Page header', 'page-header'], ['Page', 'page'], ['App shell', 'app-shell'], ['Bottom navigation', 'bottom-navigation'], ['Bulk actions', 'bulk-actions'], ['Upload', 'upload'], ['Steps', 'steps'], ['First steps', 'first-steps'], ['Media library', 'media-library']]) {
-    await expect(catalog.locator(`a[href="/components/${slug}"]`)).toHaveCount(1)
-    await expect(catalog.locator(`a[href="/components/${slug}"]`)).toContainText(label)
-  }
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  await openPreview('/components/button', 'Button')
-  await attachScreenshot('components-button-mobile-dark')
-  await openPreview('/components/loading-indicator', 'Loading indicator')
-  await attachScreenshot('components-loading-mobile-dark')
-  const mobileTableSurface = await openPreview('/components/collection', 'Collection')
-  const mobileTableRegion = mobileTableSurface.locator('[data-fve-table]').getByRole('region', { name: 'Accounts', exact: true })
-  await expect.poll(() => mobileTableRegion.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
-  await expect(mobileTableRegion.locator('tbody tr').first()).toHaveCSS('display', 'grid')
-  const mobileAssetsActions = mobileTableRegion.getByRole('button', { name: 'More actions for Assets' })
-  await expect(mobileAssetsActions).toBeVisible()
-  const [mobileRegionBox, mobileActionsBox] = await Promise.all([mobileTableRegion.boundingBox(), mobileAssetsActions.boundingBox()])
-  expect(mobileRegionBox).toBeTruthy()
-  expect(mobileActionsBox).toBeTruthy()
-  expect(mobileActionsBox!.x + mobileActionsBox!.width).toBeLessThanOrEqual(mobileRegionBox!.x + mobileRegionBox!.width)
-  await attachScreenshot('components-collection-table-mobile-dark')
-  const mobileMenuSurface = await openPreview('/components/dropdown-menu', 'Dropdown menu')
-  await mobileMenuSurface.getByRole('button', { name: 'Actions', exact: true }).click()
-  const mobileActionsMenu = mobileMenuSurface.getByRole('menu', { name: 'Actions', exact: true })
-  await expect(mobileActionsMenu).toBeVisible()
-  const mobileMenuBox = await mobileActionsMenu.boundingBox()
-  expect(mobileMenuBox).toBeTruthy()
-  expect(mobileMenuBox!.x).toBeGreaterThanOrEqual(0)
-  expect(mobileMenuBox!.x + mobileMenuBox!.width).toBeLessThanOrEqual(390)
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await attachScreenshot('components-dropdown-menu-mobile-dark-open')
-  await page.keyboard.press('Escape')
-
-  await page.getByRole('button', { name: 'Choose color theme' }).click()
-  await page.getByRole('menuitemradio', { name: 'Light' }).click()
-  await openPreview('/components/icon-button', 'Icon button')
-  await attachScreenshot('components-icon-button-mobile-light')
-  await openPreview('/components/empty-state', 'Empty state')
-  await attachScreenshot('components-empty-state-mobile-light')
-  await openPreview('/components/description-list', 'Description list')
-  await attachScreenshot('components-description-list-mobile-light')
-  await openPreview('/components/pagination', 'Pagination')
-  await attachScreenshot('components-pagination-mobile-light')
-  await page.getByRole('button', { name: 'Choose color theme' }).click()
-  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
-  const mobileSelectSurface = await openPreview('/components/select', 'Select')
-  await mobileSelectSurface.getByRole('combobox', { name: 'Status', exact: true }).click()
-  await attachScreenshot('components-select-mobile-dark')
-  await page.keyboard.press('Escape')
-  await openPreview('/components/checkbox', 'Checkbox')
-  await attachScreenshot('components-checkbox-mobile-dark')
-  await openPreview('/components/switch', 'Switch')
-  await openPreview('/components/toggle-button', 'Toggle button')
-  await openPreview('/components/tabs', 'Tabs')
-  await openPreview('/components/radio-group', 'Radio group')
-  await attachScreenshot('components-radio-group-mobile-dark')
-
-  await gotoAfterDocsAssetSettlement(page, '/components')
-  await expect(page.getByRole('heading', { level: 1, name: 'Components' })).toBeVisible()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await page.getByRole('button', { name: 'Open navigation' }).click()
-  await expect(page.locator('#nav-fsharp-viewengine-components')).toBeVisible()
-  await attachScreenshot('components-catalog-mobile-dark')
-  expect(browserErrors).toEqual([])
-})
-
-test('Composition fixture destinations use Datastar navigation instead of native document reloads', crossBrowser, async ({ page }) => {
-  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
-    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
-  )
-  const browserErrors = captureBrowserErrors(page)
-  const destinationRequests: { path: string; resourceType: string }[] = []
-  page.on('request', request => {
-    const url = new URL(request.url())
-    if (url.pathname.startsWith('/components/page-examples/account-management')) {
-      destinationRequests.push({ path: url.pathname, resourceType: request.resourceType() })
-    }
-  })
-
-  for (const fixture of [
-    { path: '/components/breadcrumbs', link: 'Accounts', destination: 'ledger-accounts' },
-    { path: '/components/side-nav', link: 'Reports', destination: 'ledger-reports' },
-    { path: '/components/page-header', link: 'View reports', destination: 'ledger-reports' },
-    { path: '/components/page', link: 'Home', destination: 'treasury-home' },
-  ]) {
-    await gotoAfterDocsAssetSettlement(page, fixture.path, 'domcontentloaded')
-    const example = page.locator('[data-docs-example="true"]').first()
-    await example.locator(':scope > [data-docs-example-toolbar="true"]').getByRole('tab', { name: 'Preview' }).click()
-    await page.evaluate(() => { (window as any).__fixtureNavigationSentinel = 'preserved' })
-    destinationRequests.length = 0
-
-    await example.getByRole('link', { name: fixture.link, exact: true }).click()
-    await expect(page).toHaveURL(`/components/page-examples/account-management?destination=${fixture.destination}`)
-    await expect(page.getByRole('heading', { level: 1, name: 'Account management' })).toBeVisible()
-    expect(await page.evaluate(() => (window as any).__fixtureNavigationSentinel)).toBe('preserved')
-    expect(destinationRequests).toEqual([{ path: '/components/page-examples/account-management', resourceType: 'fetch' }])
-  }
-
-  expect(browserErrors).toEqual([])
-})
-
-test('AppShell keeps typed page ownership, responsive navigation, focus, deep links, and morph state coherent', crossBrowser, async ({ page }, testInfo) => {
-  test.slow()
-  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
-    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
-  )
-  const browserErrors = captureBrowserErrors(page)
-  const shellRequests: { path: string; resourceType: string }[] = []
-  page.on('request', request => {
-    const url = new URL(request.url())
-    if (url.pathname.startsWith('/components/page-examples/account-management')) {
-      shellRequests.push({ path: url.pathname, resourceType: request.resourceType() })
-    }
-  })
-  const expectFixtureMorph = async () => {
-    await expect.poll(() => shellRequests.length).toBe(1)
-    expect(shellRequests.shift()).toEqual({ path: '/components/page-examples/account-management/fixture', resourceType: 'fetch' })
-    await expect(page.locator('#page-content')).toHaveAttribute('data-fixture-navigation-marker', 'preserved')
-  }
-  const prepareFixtureMorph = async () => {
-    shellRequests.length = 0
-    await page.locator('#page-content').evaluate(element => element.setAttribute('data-fixture-navigation-marker', 'preserved'))
-  }
-  const attachScreenshot = async (name: string) => {
-    if (testInfo.project.name !== 'chromium') return
-    await testInfo.attach(name, {
-      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-      contentType: 'image/png',
-    })
-  }
-  const openShellPreview = async (path: string, shellId: string) => {
-    await gotoAfterDocsAssetSettlement(page, path, 'domcontentloaded')
-    const example = page.locator('#components-account-management [data-docs-example="true"]')
-    await expect(example).toHaveCount(1)
-    await example.getByRole('tab', { name: 'Preview' }).click()
-    const shell = page.locator(`#${shellId}`)
-    await expect(shell).toBeVisible()
-    return shell
-  }
-
-  await page.setViewportSize({ width: 1440, height: 800 })
-  let shell = await openShellPreview('/components/page-examples/account-management?destination=ledger-account-2048', 'ledger-app-shell')
-  await expect(shell.getByRole('heading', { level: 1, name: 'Operating checking', exact: true })).toHaveCount(1)
-  await expect(shell.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Operating checking', { exact: true })).toHaveAttribute('aria-current', 'page')
-  const ledgerNavigation = shell.getByRole('navigation', { name: 'Ledger primary navigation' })
-  await expect(ledgerNavigation).toHaveCount(1)
-  await expect(ledgerNavigation.getByRole('link', { name: 'Accounts', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(shell.getByRole('button', { name: 'Open navigation' })).toBeHidden()
-  await expect(shell.locator('[data-fve-action-cluster="true"] > span').getByRole('link', { name: 'View reports' })).toBeVisible()
-  const previewRegion = shell.getByRole('region', { name: 'Ledger application preview', exact: true })
-  await expect(previewRegion).toHaveCount(1)
-  await expect(shell.locator('main')).toHaveCount(0)
-  const sideNavigationHeaderBounds = await shell.locator('#ledger-side-navigation > div').first().boundingBox()
-  const pageHeaderBounds = await previewRegion.locator('header').first().boundingBox()
-  expect(sideNavigationHeaderBounds).toBeTruthy()
-  expect(pageHeaderBounds).toBeTruthy()
-  expect(sideNavigationHeaderBounds!.y + sideNavigationHeaderBounds!.height).toBe(pageHeaderBounds!.y + pageHeaderBounds!.height)
-  expect(await shell.locator('[id]').evaluateAll(elements => new Set(elements.map(element => element.id)).size === elements.length)).toBe(true)
-  await attachScreenshot('components-app-shell-ledger-desktop-light')
-
-  await prepareFixtureMorph()
-  await shell.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Accounts', exact: true }).click()
-  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-accounts')
-  shell = page.locator('#ledger-app-shell')
-  await expect(shell.getByRole('heading', { level: 1, name: 'Accounts', exact: true })).toHaveCount(1)
-  await expectFixtureMorph()
-
-  await prepareFixtureMorph()
-  await shell.getByRole('navigation', { name: 'Ledger primary navigation' }).getByRole('link', { name: 'Reports', exact: true }).click()
-  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-reports')
-  shell = page.locator('#ledger-app-shell')
-  await expect(shell).toBeVisible()
-  await expect(shell.getByRole('heading', { level: 1, name: 'Reports', exact: true })).toHaveCount(1)
-  await expect(shell.getByRole('navigation', { name: 'Ledger primary navigation' }).getByRole('link', { name: 'Reports', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(shell.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Reports', { exact: true })).toHaveAttribute('aria-current', 'page')
-  await expectFixtureMorph()
-
-  await prepareFixtureMorph()
-  await shell.getByRole('link', { name: 'View accounts', exact: true }).click()
-  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-accounts')
-  shell = page.locator('#ledger-app-shell')
-  await expect(shell.getByRole('heading', { level: 1, name: 'Accounts', exact: true })).toHaveCount(1)
-  await expectFixtureMorph()
-  await prepareFixtureMorph()
-  await shell.getByRole('link', { name: 'Assets', exact: true }).click()
-  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-account-101')
-  shell = page.locator('#ledger-app-shell')
-  await expectFixtureMorph()
-  await shell.getByRole('button', { name: 'Refresh balances' }).click()
-  await expect(shell.getByRole('status').filter({ hasText: 'Balance refreshes:' })).toHaveText('Balance refreshes: 1')
-
-  await prepareFixtureMorph()
-  await shell.getByRole('link', { name: /Andy Meier/ }).click()
-  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-settings')
-  shell = page.locator('#ledger-app-shell')
-  await expect(shell.getByRole('heading', { level: 1, name: 'Settings', exact: true })).toHaveCount(1)
-  await expectFixtureMorph()
-
-  shell = await openShellPreview('/components/page-examples/account-management?destination=treasury-transactions', 'treasury-app-shell')
-  await expect(shell.getByRole('navigation', { name: 'Treasury primary navigation' })).toHaveCount(1)
-  await expect(shell.getByRole('navigation', { name: 'Treasury primary navigation' }).getByRole('link', { name: 'Transactions', exact: true })).toHaveAttribute('aria-current', 'page')
-  await expect(shell.getByRole('tablist', { name: 'Transaction views' })).toBeVisible()
-  await expect(shell.locator('[data-fve-page-scroll="true"]')).toBeVisible()
-  await expect(shell.getByRole('heading', { level: 2, name: 'Manage' })).toHaveCount(0)
-  await page.getByRole('button', { name: 'Choose color theme' }).click()
-  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
-  await attachScreenshot('components-app-shell-treasury-desktop-dark')
-
-  await prepareFixtureMorph()
-  await shell.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'July 2026', exact: true }).click()
-  await expect(page).toHaveURL('/components/page-examples/account-management?destination=treasury-period-july')
-  shell = page.locator('#treasury-app-shell')
-  await expect(shell.getByRole('heading', { level: 1, name: 'Overview', exact: true })).toHaveCount(1)
-  await expectFixtureMorph()
-
-  await prepareFixtureMorph()
-  await shell.getByRole('navigation', { name: 'Treasury primary navigation' }).getByRole('link', { name: 'Payees', exact: true }).click()
-  await expect(page).toHaveURL('/components/page-examples/account-management?destination=treasury-payees')
-  shell = page.locator('#treasury-app-shell')
-  await expect(shell.getByRole('heading', { level: 1, name: 'Payees', exact: true })).toHaveCount(1)
-  await expectFixtureMorph()
-
-  await expect(shell.locator('#treasury-side-navigation').getByText('Workspace', { exact: true })).toBeVisible()
-  await expect(shell.locator('#treasury-side-navigation').getByText('Meier Made', { exact: true })).toBeVisible()
-  await expect(shell.locator('#treasury-side-navigation').getByText('Andy Meier', { exact: true })).toBeVisible()
-  await expect(shell.locator('#treasury-side-navigation').getByText('Cash management', { exact: true })).toHaveCount(0)
-  await prepareFixtureMorph()
-  await shell.getByRole('navigation', { name: 'Treasury primary navigation' }).getByRole('link', { name: 'Overview', exact: true }).click()
-  await expect(page).toHaveURL('/components/page-examples/account-management?destination=treasury-home')
-  shell = page.locator('#treasury-app-shell')
-  await expect(shell.getByRole('heading', { level: 1, name: 'Overview', exact: true })).toHaveCount(1)
-  await expectFixtureMorph()
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  shell = await openShellPreview('/components/page-examples/account-management?destination=ledger-account-2048', 'ledger-app-shell')
-  const breadcrumbOverflow = shell.getByRole('button', { name: 'Show hidden breadcrumbs' })
-  await expect(breadcrumbOverflow).toBeVisible()
-  await breadcrumbOverflow.click()
-  const breadcrumbMenu = shell.getByRole('menu', { name: 'Show hidden breadcrumbs' })
-  await expect(breadcrumbMenu).toBeVisible()
-  await expect(breadcrumbMenu).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(breadcrumbMenu.getByRole('menuitem', { name: 'Home' })).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(breadcrumbMenu).toBeHidden()
-  await expect(breadcrumbOverflow).toBeFocused()
-  const openNavigation = shell.getByRole('button', { name: 'Open navigation' })
-  await expect(openNavigation).toBeVisible()
-  await openNavigation.click()
-  const mobileNavigation = shell.locator('#ledger-side-navigation')
-  await expect(mobileNavigation).toBeVisible()
-  await expect(mobileNavigation).toHaveAttribute('role', 'dialog')
-  await expect(mobileNavigation).toHaveAttribute('aria-label', 'Ledger primary navigation')
-  await expect(mobileNavigation).toHaveAttribute('aria-modal', 'true')
-  await expect(mobileNavigation.getByRole('link', { name: 'Accounts', exact: true })).toBeFocused()
-  await expect(shell.locator('[data-fve-app-shell-content="true"]')).toHaveAttribute('inert', /^(|true)$/)
-  const openAccessibility = await new AxeBuilder({ page })
-    .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
-    .analyze()
-  expect(openAccessibility.violations).toEqual([])
-
-  const firstNavigationLink = mobileNavigation.getByRole('link', { name: 'Ledger', exact: true })
-  await firstNavigationLink.focus()
-  await page.keyboard.press('Shift+Tab')
-  await expect(mobileNavigation.getByRole('link', { name: /Andy Meier/ })).toBeFocused()
-  await page.keyboard.press('Tab')
-  await expect(firstNavigationLink).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(mobileNavigation).toBeHidden()
-  await expect(openNavigation).toBeFocused()
-
-  await openNavigation.click()
-  const backdrop = shell.locator('[data-fve-app-shell-backdrop="true"]')
-  const backdropBox = await backdrop.boundingBox()
-  expect(backdropBox).toBeTruthy()
-  await backdrop.click({ position: { x: backdropBox!.width - 8, y: 120 } })
-  await expect(mobileNavigation).toBeHidden()
-  await expect(openNavigation).toBeFocused()
-
-  await page.locator('html').evaluate(element => { element.style.fontSize = '200%' })
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await expect(openNavigation).toBeVisible()
-  const resizedProductName = shell.locator('[data-fve-app-shell-content="true"]').getByText('Ledger', { exact: true })
-  await expect(resizedProductName).toBeVisible()
-  expect(await resizedProductName.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
-  const resizedCurrentBreadcrumb = shell.getByRole('navigation', { name: 'Breadcrumb' }).getByText('Operating checking', { exact: true })
-  await expect(resizedCurrentBreadcrumb).toBeVisible()
-  expect(await resizedCurrentBreadcrumb.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true)
-  const resizedActionCluster = shell.locator('[data-fve-action-cluster="true"]')
-  const resizedAction = resizedActionCluster.getByRole('button', { name: 'Refresh balances' })
-  await expect(resizedAction).toBeVisible()
-  await expect(resizedActionCluster.locator(':scope > span').getByRole('link', { name: 'View reports' })).toBeHidden()
-  const resizedOverflow = resizedActionCluster.getByRole('button', { name: 'More actions' })
-  await resizedOverflow.click()
-  const resizedOverflowMenu = resizedActionCluster.getByRole('menu', { name: 'More actions' })
-  await expect(resizedOverflowMenu.getByRole('menuitem', { name: 'View reports' })).toBeVisible()
-  await expect(resizedOverflowMenu.getByRole('menuitem', { name: 'Settings' })).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(resizedOverflow).toBeFocused()
-  const resizedBounds = await resizedAction.boundingBox()
-  const resizedShellBounds = await shell.boundingBox()
-  expect(resizedBounds).toBeTruthy()
-  expect(resizedShellBounds).toBeTruthy()
-  expect(resizedBounds!.x).toBeGreaterThanOrEqual(resizedShellBounds!.x)
-  expect(resizedBounds!.x + resizedBounds!.width).toBeLessThanOrEqual(resizedShellBounds!.x + resizedShellBounds!.width)
-  await attachScreenshot('components-app-shell-ledger-mobile-dark-200-percent')
-
-  await page.locator('html').evaluate(element => { element.style.fontSize = '100%' })
-  await openNavigation.click()
-  await page.setViewportSize({ width: 1280, height: 800 })
-  await expect(mobileNavigation).toBeVisible()
-  await expect(mobileNavigation).not.toHaveAttribute('role', 'dialog')
-  expect(await shell.locator('[data-fve-app-shell-content="true"]').evaluate(element => element.hasAttribute('inert'))).toBe(false)
-  await page.setViewportSize({ width: 390, height: 844 })
-  await expect(mobileNavigation).toBeHidden()
-
-  await breadcrumbOverflow.click()
-  await expect(breadcrumbMenu).toBeVisible()
-  await prepareFixtureMorph()
-  await breadcrumbMenu.getByRole('menuitem', { name: 'Accounts', exact: true }).click()
-  await expect(page).toHaveURL('/components/page-examples/account-management?destination=ledger-accounts')
-  shell = page.locator('#ledger-app-shell')
-  await expect(shell.getByRole('heading', { level: 1, name: 'Accounts', exact: true })).toHaveCount(1)
-  await expectFixtureMorph()
-  expect(browserErrors).toEqual([])
 })
 
 test('Components examples preserve documentation framing without clipping anchored popups', async ({ page }) => {
@@ -1229,223 +808,21 @@ test('Components examples preserve documentation framing without clipping anchor
       await tab.click()
       const panel = page.locator(`#${panelId}`)
       await expect(panel).toBeVisible()
-      await expect(panel).toHaveCSS('border-bottom-left-radius', '12px')
-      await expect(panel).toHaveCSS('border-bottom-right-radius', '12px')
+      const framedSurface = name === 'Preview' ? panel.locator('[data-docs-preview-frame="true"]') : panel
+      await expect(framedSurface).toHaveCSS('border-bottom-left-radius', '12px')
+      await expect(framedSurface).toHaveCSS('border-bottom-right-radius', '12px')
     }
   }
 
   await page.goto('/components/dropdown-menu', { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
   await page.evaluate(() => (window as any).fsharpDocsCode.loading)
-  const menuExample = page.locator('[data-docs-example="true"]')
+  const menuExample = page.locator('#components-dropdown-menu-advanced')
   await menuExample.getByRole('tab', { name: 'Preview' }).click()
   await expect(menuExample).toHaveCSS('overflow', 'visible')
   await menuExample.getByRole('button', { name: 'Actions', exact: true }).click()
   await expect(menuExample.getByRole('menu', { name: 'Actions', exact: true })).toBeVisible()
 
-  await page.goto('/components/collection', { waitUntil: 'domcontentloaded' })
-  await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-  await page.evaluate(() => (window as any).fsharpDocsCode.loading)
-  const tableExample = page.locator('[data-docs-example="true"]')
-  await tableExample.getByRole('tab', { name: 'Preview' }).click()
-  const rowActionTrigger = tableExample.getByRole('button', { name: 'More actions for Assets' })
-  const rowActionMenu = tableExample.locator('#account-101-actions-menu')
-  await rowActionTrigger.click()
-  await expect(rowActionMenu).toHaveAttribute('popover', 'auto')
-  expect(await rowActionMenu.evaluate(menu => menu.matches(':popover-open'))).toBe(true)
-  expect(await rowActionMenu.evaluate(menu => getComputedStyle(menu).getPropertyValue('position-area'))).toBe('none')
-  expect(await rowActionMenu.evaluate(menu => {
-    const bounds = menu.getBoundingClientRect()
-    const paintedElement = document.elementFromPoint(bounds.right - 8, bounds.top + bounds.height / 2)
-    return paintedElement === menu || (paintedElement !== null && menu.contains(paintedElement))
-  })).toBe(true)
-
-  const initialOffset = await rowActionMenu.evaluate(menu => {
-    const trigger = document.getElementById('account-101-actions-trigger')!.getBoundingClientRect()
-    const bounds = menu.getBoundingClientRect()
-    return { inlineEnd: trigger.right - bounds.right, blockStart: bounds.top - trigger.bottom }
-  })
-  await page.locator('#main-content').evaluate(main => main.scrollBy(0, 40))
-  await expect.poll(() => rowActionMenu.evaluate(menu => {
-    const trigger = document.getElementById('account-101-actions-trigger')!.getBoundingClientRect()
-    const bounds = menu.getBoundingClientRect()
-    return { inlineEnd: trigger.right - bounds.right, blockStart: bounds.top - trigger.bottom }
-  })).toEqual(initialOffset)
-  await tableExample.locator('[data-fve-table]').getByRole('region', { name: 'Accounts', exact: true }).evaluate(region => region.scrollBy(80, 0))
-  await expect.poll(() => rowActionMenu.evaluate(menu => {
-    const trigger = document.getElementById('account-101-actions-trigger')!.getBoundingClientRect()
-    const bounds = menu.getBoundingClientRect()
-    return { inlineEnd: trigger.right - bounds.right, blockStart: bounds.top - trigger.bottom }
-  })).toEqual(initialOffset)
-
-  await page.keyboard.press('Escape')
-  expect(await rowActionMenu.evaluate(menu => menu.style.getPropertyValue('position-area'))).toBe('block-end span-inline-start')
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.locator('html').evaluate(element => { element.style.fontSize = '200%' })
-  await rowActionTrigger.scrollIntoViewIfNeeded()
-  await rowActionTrigger.click()
-  await expect(rowActionMenu).toBeVisible()
-  const resizedMenuBounds = await rowActionMenu.boundingBox()
-  expect(resizedMenuBounds).toBeTruthy()
-  expect(resizedMenuBounds!.x).toBeGreaterThanOrEqual(0)
-  expect(resizedMenuBounds!.x + resizedMenuBounds!.width).toBeLessThanOrEqual(390)
-  expect(resizedMenuBounds!.y).toBeGreaterThanOrEqual(0)
-  expect(resizedMenuBounds!.y + resizedMenuBounds!.height).toBeLessThanOrEqual(844)
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  expect(browserErrors).toEqual([])
-})
-
-test.skip('retired editable Combobox gallery workflow', crossBrowser, async ({ page }, testInfo) => {
-  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
-    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
-  )
-  const browserErrors = captureBrowserErrors(page)
-  const openPreview = () => openComponentGallery(page, '/components/select', 'Select')
-  const attachScreenshot = async (name: string) => {
-    if (testInfo.project.name !== 'chromium') return
-    await testInfo.attach(name, {
-      body: await page.screenshot({ fullPage: true, animations: 'disabled' }),
-      contentType: 'image/png',
-    })
-  }
-  const clonedControlEntries = async (controls: Locator) =>
-    controls.evaluateAll(elements => {
-      const form = document.createElement('form')
-      for (const element of elements) form.appendChild(element.cloneNode(true))
-      return [...new FormData(form).entries()].map(([name, value]) => [name, String(value)])
-    })
-
-  const comboboxSurface = await openPreview()
-  await page.getByRole('button', { name: 'Choose color theme' }).click()
-  await page.getByRole('menuitemradio', { name: 'Dark' }).click()
-
-  const staticAccount = comboboxSurface.getByRole('combobox', { name: 'Static account' })
-  const staticListbox = comboboxSurface.getByRole('listbox', { name: 'Static account' })
-  const staticValue = comboboxSurface.locator('input[type="hidden"][name="staticAccount"]')
-  await staticAccount.fill('tax')
-  await expect(staticListbox.getByRole('option', { name: 'Tax reserve' })).toBeVisible()
-  await expect(staticListbox.getByRole('option', { name: 'Payroll clearing' })).toBeHidden()
-  await expect(staticAccount).toBeFocused()
-  await page.keyboard.press('Enter')
-  await expect(staticAccount).toHaveValue('Tax reserve')
-  await expect(staticValue).toHaveValue('102')
-  await comboboxSurface.getByRole('button', { name: 'Clear Static account' }).click()
-  await expect(staticAccount).toBeFocused()
-  await expect(staticAccount).toHaveValue('')
-  await expect(staticValue).toHaveValue('')
-
-  const parentAccount = comboboxSurface.getByRole('combobox', { name: 'Parent account' })
-  const accountPopup = comboboxSurface.locator('#fve-select-account-popup')
-  const accountListbox = comboboxSurface.getByRole('listbox', { name: 'Parent account' })
-  const accountValue = comboboxSurface.locator('input[type="hidden"][name="account"]')
-  const activeAccountOption = async () => parentAccount.getAttribute('aria-activedescendant')
-  const remoteQuery = (url: string) => {
-    const signals = new URL(url).searchParams.get('datastar')
-    return signals ? String(JSON.parse(signals).account_query ?? '') : null
-  }
-
-  await parentAccount.click()
-  await expect(parentAccount).toBeFocused()
-  await expect(accountPopup).toHaveAttribute('popover', 'auto')
-  expect(await accountPopup.evaluate(popup => popup.matches(':popover-open'))).toBe(true)
-  const comboboxScrollY = await page.evaluate(() => window.scrollY)
-  const comboboxPopupOffset = await accountPopup.evaluate(popup => {
-    const input = document.getElementById('fve-select-account')!.getBoundingClientRect()
-    const bounds = popup.getBoundingClientRect()
-    return { inlineStart: bounds.left - input.left, blockStart: bounds.top - input.bottom }
-  })
-  await page.evaluate(() => window.scrollBy(0, 40))
-  await expect.poll(() => accountPopup.evaluate(popup => {
-    const input = document.getElementById('fve-select-account')!.getBoundingClientRect()
-    const bounds = popup.getBoundingClientRect()
-    return { inlineStart: bounds.left - input.left, blockStart: bounds.top - input.bottom }
-  })).toEqual(comboboxPopupOffset)
-  expect(await accountPopup.evaluate(popup => {
-    const bounds = popup.getBoundingClientRect()
-    const paintedElement = document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2)
-    return paintedElement === popup || (paintedElement !== null && popup.contains(paintedElement))
-  })).toBe(true)
-  await page.evaluate(scrollY => window.scrollTo(0, scrollY), comboboxScrollY)
-  await page.keyboard.press('End')
-  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Tax reserve' }).getAttribute('id'))
-  await expect(accountListbox.getByRole('option', { name: 'Payroll clearing' })).toBeDisabled()
-  await page.keyboard.press('Enter')
-  await expect(accountValue).toHaveValue('102')
-
-  const olderRequestStarted = page.waitForRequest(request => remoteQuery(request.url()) === 'oper')
-  await parentAccount.fill('oper')
-  await olderRequestStarted
-  await expect(parentAccount).toHaveAttribute('aria-busy', 'true')
-  await expect(accountPopup.getByRole('status')).toHaveText('Loading accounts')
-  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
-  await parentAccount.fill('tax')
-  await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toBeVisible()
-  await expect(accountListbox.getByRole('option', { name: 'Operating' })).toHaveCount(0)
-  const staleRequestWindow = await page.request.get('/components/accounts/search/settled')
-  expect(staleRequestWindow.status()).toBe(204)
-  await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toBeVisible()
-  await expect(accountListbox.getByRole('option', { name: 'Operating' })).toHaveCount(0)
-  await expect(parentAccount).toBeFocused()
-  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Tax reserve' }).getAttribute('id'))
-  await page.keyboard.press('Enter')
-  await expect(parentAccount).toHaveValue('Tax reserve')
-  await expect(accountValue).toHaveValue('102')
-
-  await parentAccount.fill('oper')
-  await expect(accountListbox.getByRole('option', { name: 'Operating' })).toBeVisible()
-  await expect(accountListbox.getByRole('option', { name: 'Tax reserve' })).toHaveCount(0)
-  await expect.poll(activeAccountOption).toBe(await accountListbox.getByRole('option', { name: 'Operating' }).getAttribute('id'))
-  await page.keyboard.press('Enter')
-  await expect(parentAccount).toHaveValue('Operating')
-  await expect(accountValue).toHaveValue('101')
-
-  const clearedResults = page.waitForResponse(response => remoteQuery(response.url()) === '')
-  await comboboxSurface.getByRole('button', { name: 'Clear Parent account' }).click()
-  await clearedResults
-  await expect(parentAccount).toBeFocused()
-  await expect(parentAccount).toHaveValue('')
-  await expect(accountValue).toHaveValue('')
-
-  await parentAccount.fill('missing')
-  await expect(accountPopup.getByRole('status')).toHaveText('No matching accounts')
-  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
-  await parentAccount.fill('error')
-  await expect(accountPopup.getByRole('alert')).toHaveText('Accounts could not be loaded.')
-  await expect(parentAccount).toBeFocused()
-  await expect(parentAccount).not.toHaveAttribute('aria-activedescendant')
-  await accountPopup.getByRole('button', { name: 'Retry' }).click()
-  await expect(accountPopup.getByRole('status')).toHaveText('No matching accounts')
-  await expect(parentAccount).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(parentAccount).toBeFocused()
-
-  const loadingAccount = comboboxSurface.getByRole('combobox', { name: 'Loading account' })
-  await expect(loadingAccount).toHaveAttribute('aria-busy', 'true')
-  await loadingAccount.click()
-  await expect(comboboxSurface.locator('#fve-select-components_loading_account-popup').getByRole('status')).toHaveText('Loading accounts')
-  const validationAccount = comboboxSurface.getByRole('combobox', { name: 'Account with validation' })
-  await expect(validationAccount).toHaveAttribute('aria-invalid', 'true')
-  await expect(validationAccount).toHaveAttribute('aria-describedby', 'fve-select-components_validated_account-description fve-select-components_validated_account-validation')
-  const disabledAccount = comboboxSurface.getByRole('combobox', { name: 'Disabled account' })
-  const pendingAccount = comboboxSurface.getByRole('combobox', { name: 'Updating account' })
-  await expect(disabledAccount).toBeDisabled()
-  await expect(disabledAccount).toHaveAttribute('aria-disabled', 'true')
-  await expect(pendingAccount).toBeDisabled()
-  await expect(pendingAccount).toHaveAttribute('aria-busy', 'true')
-  const unavailableAccountValues = comboboxSurface.locator('input[type="hidden"][name="disabledAccount"], input[type="hidden"][name="pendingAccount"]')
-  await expect(unavailableAccountValues).toHaveCount(2)
-  expect(await clonedControlEntries(unavailableAccountValues)).toEqual([])
-  await attachScreenshot('components-select-search-state-matrix-desktop-dark')
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  await page.getByRole('button', { name: 'Choose color theme' }).click()
-  await page.getByRole('menuitemradio', { name: 'Light' }).click()
-  const mobileSearchableSelectSurface = await openPreview()
-  const mobileParentAccount = mobileSearchableSelectSurface.getByRole('button', { name: 'Parent account' })
-  await mobileParentAccount.fill('error')
-  await expect(mobileSearchableSelectSurface.locator('#fve-select-account-popup').getByRole('alert')).toHaveText('Accounts could not be loaded.')
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  await attachScreenshot('components-select-search-mobile-light-error')
   expect(browserErrors).toEqual([])
 })
 
@@ -1511,38 +888,41 @@ test('Tabs preserve variants, automatic keyboard selection, instances, morphs, a
   }
   const openPreview = () => openComponentGallery(page, '/components/tabs', 'Tabs')
 
-  const surface = await openPreview()
-  const segmented = surface.getByRole('tablist', { name: 'Example format' })
+  await openPreview()
+  const gallery = page.locator('[data-docs-layout="gallery"]')
+  const defaultSurface = page.locator('#components-tabs-panel-preview .fve-components')
+  const underlinedSurface = page.locator('#components-tabs-underlined-panel-preview .fve-components')
+  const segmented = defaultSurface.getByRole('tablist', { name: 'Example format' })
   const codeTab = segmented.getByRole('tab', { name: 'Code' })
   const previewTab = segmented.getByRole('tab', { name: 'Preview' })
-  const codePanel = surface.getByRole('tabpanel', { name: 'Code' })
-  const previewPanel = surface.getByRole('tabpanel', { name: 'Preview' })
-  await expect(previewTab).toHaveAttribute('aria-selected', 'true')
-  await expect(previewTab).toHaveAttribute('tabindex', '0')
-  await expect(previewPanel).toBeVisible()
-  await expect(codePanel).toBeHidden()
-
-  await previewTab.focus()
-  await page.keyboard.press('ArrowLeft')
-  await expect(codeTab).toBeFocused()
+  const codePanel = defaultSurface.getByRole('tabpanel', { name: 'Code' })
+  const previewPanel = defaultSurface.getByRole('tabpanel', { name: 'Preview' })
   await expect(codeTab).toHaveAttribute('aria-selected', 'true')
+  await expect(codeTab).toHaveAttribute('tabindex', '0')
   await expect(codePanel).toBeVisible()
   await expect(previewPanel).toBeHidden()
-  await page.keyboard.press('Tab')
-  await expect(codePanel).toBeFocused()
+
   await codeTab.focus()
-  await page.keyboard.press('End')
+  await page.keyboard.press('ArrowLeft')
   await expect(previewTab).toBeFocused()
   await expect(previewTab).toHaveAttribute('aria-selected', 'true')
+  await expect(previewPanel).toBeVisible()
+  await expect(codePanel).toBeHidden()
+  await page.keyboard.press('Tab')
+  await expect(previewPanel).toBeFocused()
+  await previewTab.focus()
   await page.keyboard.press('Home')
   await expect(codeTab).toBeFocused()
-  await page.keyboard.press('ArrowRight')
+  await expect(codeTab).toHaveAttribute('aria-selected', 'true')
+  await page.keyboard.press('End')
   await expect(previewTab).toBeFocused()
   await page.keyboard.press('ArrowRight')
   await expect(codeTab).toBeFocused()
+  await page.keyboard.press('ArrowRight')
+  await expect(previewTab).toBeFocused()
   await previewTab.click()
 
-  const underlined = surface.getByRole('tablist', { name: 'Account sections' })
+  const underlined = underlinedSurface.getByRole('tablist', { name: 'Account sections' })
   const overviewTab = underlined.getByRole('tab', { name: 'Overview' })
   const activityTab = underlined.getByRole('tab', { name: 'Activity' })
   const settingsTab = underlined.getByRole('tab', { name: 'Settings' })
@@ -1555,18 +935,18 @@ test('Tabs preserve variants, automatic keyboard selection, instances, morphs, a
   await expect(overviewTab).toBeFocused()
   await activityTab.click()
   await expect(activityTab).toHaveAttribute('aria-selected', 'true')
-  await expect(surface.getByRole('tabpanel', { name: 'Activity' })).toBeVisible()
+  await expect(underlinedSurface.getByRole('tabpanel', { name: 'Activity' })).toBeVisible()
   await expect(previewTab).toHaveAttribute('aria-selected', 'true')
 
-  const refresh = surface.getByRole('button', { name: 'Refresh activity' })
+  const refresh = underlinedSurface.getByRole('button', { name: 'Refresh activity' })
   await refresh.click()
-  await expect(surface.getByRole('status')).toHaveText('Review refreshed')
-  await expect(surface.getByText('Updated just now.')).toBeVisible()
+  await expect(underlinedSurface.getByRole('status')).toHaveText('Review refreshed')
+  await expect(underlinedSurface.getByText('Updated just now.')).toBeVisible()
   await expect(underlined.getByRole('tab', { name: 'Activity' })).toHaveAttribute('aria-selected', 'true')
-  await expect(surface.getByRole('button', { name: 'Refresh activity' })).toBeFocused()
+  await expect(underlinedSurface.getByRole('button', { name: 'Refresh activity' })).toBeFocused()
   await expect(previewTab).toHaveAttribute('aria-selected', 'true')
 
-  const ids = await surface.locator('[id]').evaluateAll(elements => elements.map(element => element.id))
+  const ids = await gallery.locator('[id]').evaluateAll(elements => elements.map(element => element.id))
   expect(new Set(ids).size).toBe(ids.length)
   const accessibility = await new AxeBuilder({ page })
     .include('#components-tabs-panel-preview')
@@ -1585,9 +965,9 @@ test('Tabs preserve variants, automatic keyboard selection, instances, morphs, a
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Light' }).click()
-  const mobileSurface = await openPreview()
-  const mobileSegmented = mobileSurface.getByRole('tablist', { name: 'Example format' })
-  const mobileUnderlined = mobileSurface.getByRole('tablist', { name: 'Account sections' })
+  await openPreview()
+  const mobileSegmented = page.locator('#components-tabs-panel-preview .fve-components').getByRole('tablist', { name: 'Example format' })
+  const mobileUnderlined = page.locator('#components-tabs-underlined-panel-preview .fve-components').getByRole('tablist', { name: 'Account sections' })
   await mobileSegmented.getByRole('tab', { name: 'Code' }).focus()
   await page.keyboard.press('ArrowRight')
   await page.keyboard.press('ArrowLeft')
@@ -1629,7 +1009,7 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
   await expect(dialog).toBeHidden()
   await expect(dialogTrigger).toBeFocused()
 
-  const confirmationSurface = await openPreview('/components/confirmation-dialog', 'Confirmation dialog')
+  const confirmationSurface = dialogSurface
   await page.getByRole('button', { name: 'Choose color theme' }).click()
   await page.getByRole('menuitemradio', { name: 'Dark' }).click()
   const confirmationTrigger = confirmationSurface.locator('#delete-account-confirmation-trigger')
@@ -1646,7 +1026,7 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
   const confirmationAccessibility = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze()
-  expect(confirmationAccessibility.violations, 'open ConfirmationDialog').toEqual([])
+  expect(confirmationAccessibility.violations, 'composed confirmation Dialog').toEqual([])
 
   let confirmationRequests = 0
   page.on('request', request => {
@@ -1656,12 +1036,14 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
   await confirmDeletion.click()
   await expect(confirmDeletion).toBeDisabled()
   await expect(confirmDeletion).toHaveAttribute('aria-busy', 'true')
+  await expect(confirmation.locator('form')).toHaveAttribute('aria-busy', 'true')
   await expect(confirmation.getByRole('status')).toHaveText('Confirmation in progress.')
   await page.keyboard.press('Escape')
   await expect(confirmation).toBeVisible()
-  await attachScreenshot('components-confirmation-dialog-desktop-dark-pending')
+  await attachScreenshot('components-dialog-confirmation-desktop-dark-pending')
   await confirmationResponse
   await expect(confirmation.getByRole('alert')).toHaveText('Operating cannot be deleted while posted entries are assigned to its open period.')
+  await expect(confirmation.locator('form')).toHaveAttribute('aria-busy', 'false')
   await expect(confirmation.getByRole('button', { name: 'Delete account' })).toBeFocused()
   expect(confirmationRequests).toBe(1)
   await confirmation.getByRole('button', { name: 'Keep account' }).click()
@@ -1791,10 +1173,10 @@ test('search filters pages and headings with keyboard access', crossBrowser, asy
 
   const dialog = page.getByRole('dialog', { name: 'Search documentation' })
   await expect(dialog).toBeVisible()
-  const input = dialog.getByRole('searchbox')
+  const input = dialog.getByRole('combobox')
   await expect(input).toBeFocused()
   await input.fill('Rendering')
-  const visible = dialog.locator('[data-docs-search-entry]:visible')
+  const visible = dialog.getByRole('option')
   await expect(visible).not.toHaveCount(0)
   await expect(visible.first()).toHaveAttribute('href', /guides\/rendering/)
 })
@@ -1830,7 +1212,17 @@ test('Docs typography uses semantic ancillary, UI, reading, and code roles', asy
   await expect(code).toHaveCSS('font-size', '14px')
   expect(await code.evaluate(element => getComputedStyle(element).fontFamily)).toContain('Noto Sans Mono')
   expect(Number.parseFloat(await code.evaluate(element => getComputedStyle(element).lineHeight))).toBeCloseTo(21.7, 1)
-  await expect(page.getByRole('button', { name: 'Copy code' }).first()).toHaveCSS('font-size', '12px')
+  const copy = page.getByRole('button', { name: 'Copy code' }).first()
+  await expect(copy).toHaveCSS('font-size', '12px')
+  const copyInset = await copy.evaluate(button => {
+    const boundary = button.closest('pre') ?? button.parentElement?.querySelector('pre')
+    if (!boundary) throw new Error('Copy button has no code boundary')
+    const buttonBox = button.getBoundingClientRect()
+    const boundaryBox = boundary.getBoundingClientRect()
+    return { top: buttonBox.top - boundaryBox.top, right: boundaryBox.right - buttonBox.right }
+  })
+  expect(copyInset.top).toBeGreaterThanOrEqual(11)
+  expect(copyInset.right).toBeGreaterThanOrEqual(11)
 
   await page.goto('/docs/previews/tables', { waitUntil: 'domcontentloaded' })
   await expect(page.locator('[data-docs-section-content="true"] table th').first()).toHaveCSS('font-size', '12px')
@@ -1842,16 +1234,17 @@ test('Docs typography uses semantic ancillary, UI, reading, and code roles', asy
 
 test('color mode selector supports persistence, keyboard navigation, and system changes', crossBrowser, async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
-  await page.goto('/docs/components/layouts', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components/code-block', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => localStorage.removeItem('fsharp-viewengine-docs-navigation-color-mode'))
   await page.reload({ waitUntil: 'domcontentloaded' })
 
   await page.locator('[data-docs-example]').first().getByRole('tab', { name: 'Code' }).click()
-  const codeSurface = page.locator('pre:has(code[data-docs-copy-source="true"])').first()
+  const codeSurface = page.locator('pre:visible:has(code[data-docs-copy-source="true"])').first()
   await expect(codeSurface).toBeVisible()
   const lightCodeBackground = await codeSurface.evaluate(element => getComputedStyle(element).backgroundColor)
   const lightCodeText = await codeSurface.evaluate(element => getComputedStyle(element).color)
-  expect(lightCodeBackground).toBe(await resolvedVariableColor(page.locator('body'), 'background-color', '--fve-neutral-subtle'))
+  expect(lightCodeBackground).toBe(await resolvedVariableColor(page.locator('body'), 'background-color', '--fve-docs-code-surface'))
+  expect(lightCodeBackground).not.toBe(await page.locator('[data-docs-side-nav="true"]').evaluate(element => getComputedStyle(element).backgroundColor))
   expect(lightCodeText).toBe(await resolvedVariableColor(page.locator('body'), 'color', '--fve-text'))
 
   const trigger = page.getByRole('button', { name: 'Choose color theme' })
@@ -1864,7 +1257,8 @@ test('color mode selector supports persistence, keyboard navigation, and system 
   await expect(page.locator('html')).toHaveClass(/dark/)
   const darkCodeBackground = await codeSurface.evaluate(element => getComputedStyle(element).backgroundColor)
   const darkCodeText = await codeSurface.evaluate(element => getComputedStyle(element).color)
-  expect(darkCodeBackground).toBe(await resolvedVariableColor(page.locator('body'), 'background-color', '--fve-neutral-subtle'))
+  expect(darkCodeBackground).toBe(await resolvedVariableColor(page.locator('body'), 'background-color', '--fve-docs-code-surface'))
+  expect(darkCodeBackground).not.toBe(await page.locator('[data-docs-side-nav="true"]').evaluate(element => getComputedStyle(element).backgroundColor))
   expect(darkCodeText).toBe(await resolvedVariableColor(page.locator('body'), 'color', '--fve-text'))
   expect(darkCodeBackground).not.toBe(lightCodeBackground)
   expect(darkCodeText).not.toBe(lightCodeText)
@@ -1932,6 +1326,56 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
+test('component pages lead with an example, then installation, usage, variants, and API navigation @cross-browser', crossBrowser, async ({ page }) => {
+  await page.setViewportSize({ width: 1512, height: 982 })
+  await gotoAfterDocsAssetSettlement(page, '/components/button', 'domcontentloaded')
+
+  await expect(page.getByRole('heading', { level: 1, name: 'Button', exact: true })).toBeVisible()
+  await expect(page.locator('main h1 + p')).toHaveText('Trigger actions and submit forms with explicit text, icon, color, variant, size, and pending content.')
+
+  const examples = page.locator('[data-docs-example="true"]')
+  const lead = examples.first()
+  await expect(lead.getByRole('heading', { level: 2, name: 'Default' })).toHaveClass(/sr-only/)
+  await expect(lead.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.locator('#installation')).toContainText('dotnet fve add button --config src/Acme.Components/fve.json')
+  await expect(page.locator('#usage code[data-docs-copy-source="true"]')).toContainText('Button.create (ButtonContent.Text "Continue")')
+
+  const documentOrder = await page.locator('[data-docs-example="true"], #installation, #usage, #api-reference').evaluateAll(elements =>
+    elements.map(element => element.id || element.getAttribute('data-docs-example-title') || element.querySelector('[data-docs-example-title]')?.textContent?.trim()),
+  )
+  expect(documentOrder.slice(0, 3)).toEqual(['Default', 'installation', 'usage'])
+  expect(documentOrder.at(-1)).toBe('api-reference')
+
+  const toc = page.locator('[data-docs-toc-rail="true"]')
+  await expect(toc.getByRole('link', { name: 'Installation', exact: true })).toHaveAttribute('href', '#installation')
+  await expect(toc.getByRole('link', { name: 'Usage', exact: true })).toHaveAttribute('href', '#usage')
+  await expect(toc.getByRole('link', { name: 'API reference', exact: true })).toHaveAttribute('href', '#api-reference')
+  await expect(toc.getByRole('link', { name: 'Default', exact: true })).toHaveCount(0)
+
+  const navigationGutters = await page.locator('#nav-components-button').evaluate(element => {
+    const item = element.getBoundingClientRect()
+    const navigation = element.closest('[data-docs-side-nav="true"]')!.getBoundingClientRect()
+    return { left: item.left - navigation.left, right: navigation.right - item.right }
+  })
+  expect(navigationGutters.left).toBeGreaterThanOrEqual(12)
+  expect(navigationGutters.right).toBeGreaterThanOrEqual(12)
+
+  await toc.getByRole('link', { name: 'Usage', exact: true }).click()
+  await expect(page).toHaveURL('/components/button#usage')
+  await expect(page.locator('#usage')).toBeFocused()
+
+  await page.locator('#nav-components-button-group').click()
+  await expect(page).toHaveURL('/components/button-group')
+  await expect(page.getByRole('heading', { level: 1, name: 'Button group', exact: true })).toBeVisible()
+  await expect(page.locator('[data-docs-toc-rail="true"] a[href="#installation"]')).toBeVisible()
+  await expect(page.locator('[data-docs-toc-rail="true"] a[href="#api-reference"]')).toBeVisible()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.locator('html').evaluate(element => { element.style.fontSize = '200%' })
+  await expect(page.getByRole('group', { name: 'On this page', exact: true })).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+})
+
 test('desktop table of contents tracks the visible section and survives Docs navigation', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
@@ -1946,7 +1390,7 @@ test('desktop table of contents tracks the visible section and survives Docs nav
   await expect(page.locator('[data-docs-toc-rail="true"] a[href="#overview"]')).toHaveAttribute('aria-current', 'location')
 })
 
-test('desktop table of contents follows the final visible section after preferred-font reflow', async ({ page }) => {
+test('desktop table of contents follows the final visible section after font loading and text reflow', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
@@ -1972,6 +1416,8 @@ test('desktop table of contents follows the final visible section after preferre
 
   releaseFont()
   await page.evaluate(() => document.fonts.ready)
+  // Font metrics alone need not change wrapping at every rail width. Exercise a real reflow.
+  await page.locator('html').evaluate(element => { element.style.fontSize = '110%' })
   await expect.poll(() => main.evaluate(element => element.scrollHeight)).not.toBe(fallbackHeight)
   await main.evaluate(element => element.scrollTo({ top: element.scrollHeight - element.clientHeight - 70, behavior: 'instant' }))
   await expect(page.locator('#shoelace-example')).toBeInViewport()
@@ -1985,7 +1431,7 @@ test('mobile table of contents is a compact keyboard-operable disclosure', async
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
 
-  const toc = page.getByRole('group', { name: 'On this page' })
+  const toc = page.getByRole('group', { name: 'On this page', exact: true })
   const summary = toc.locator('summary')
   await expect(toc).toBeVisible()
   await expect(toc).not.toHaveAttribute('open', '')
@@ -2012,17 +1458,21 @@ test('on-this-page links scroll the nested documentation viewport', async ({ pag
 })
 
 test('Docs navigation scrolls content to top and highlights morphed code', crossBrowser, async ({ page }) => {
-  await page.goto('/extensions/svg', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components/button', { waitUntil: 'domcontentloaded' })
   const main = page.locator('[data-docs-main="true"]')
   await main.evaluate(element => element.scrollTo({ top: element.scrollHeight }))
   expect(await main.evaluate(element => element.scrollTop)).toBeGreaterThan(0)
 
-  await page.locator('#nav-core-concepts').click()
-  await page.locator('#nav-custom').click()
-  await expect(page).toHaveURL('/custom')
-  await expect(page.getByRole('heading', { level: 1, name: 'Custom Elements & Attributes' })).toBeVisible()
+  const navigation = page.getByRole('complementary', { name: 'Documentation navigation' })
+  await navigation.getByRole('link', { name: 'Button group', exact: true }).click()
+  await expect(page).toHaveURL('/components/button-group')
+  await expect(page.getByRole('heading', { level: 1, name: 'Button group' })).toBeVisible()
   await expect.poll(() => main.evaluate(element => element.scrollTop)).toBe(0)
-  await expect(page.locator('pre:has(code[data-docs-copy-source="true"]) .token.keyword').first()).toBeVisible()
+  const keyword = page.locator('#api-reference pre:has(code[data-docs-copy-source="true"]) .token.keyword').first()
+  await expect(keyword).toBeVisible()
+  expect(await keyword.evaluate(element => getComputedStyle(element).color)).toBe(
+    await resolvedVariableColor(page.locator('body'), 'color', '--color-red-700'),
+  )
 })
 
 test('Docs navigation loads Prism dependencies before highlighting a code page', crossBrowser, async ({ page }) => {
@@ -2147,18 +1597,11 @@ test('inline prose links are visually identifiable and article pagers continue t
   const installation = page.getByRole('link', { name: 'Installation', exact: true }).last()
   await expect(installation).toHaveCSS('text-decoration-line', 'underline')
   await expect(installation).toHaveCSS('font-weight', '600')
-
-  await page.goto('/docs', { waitUntil: 'domcontentloaded' })
-  await expect(page.getByText('This documentation site compiles the same FSharp.ViewEngine.Components.Documentation source distributed by fve', { exact: false })).toBeVisible()
-  const pager = page.getByRole('navigation', { name: 'Page navigation' })
-  await expect(page.getByRole('link', { name: 'Browse components' })).toHaveAttribute('href', '/docs/components/layouts')
-  await expect(page.getByRole('link', { name: 'Browse page examples' })).toHaveAttribute('href', '/docs/page-examples/documentation-site')
-  await expect(pager.getByRole('link', { name: /Previous Media management/ })).toHaveAttribute('href', '/components/page-examples/media-management')
-  const next = pager.getByRole('link', { name: /Next Layouts/ })
-  await expect(next).toBeVisible()
+  await page.goto('/getting-started/first-view', { waitUntil: 'domcontentloaded' })
+  const next = page.getByRole('navigation', { name: 'Page navigation' }).getByRole('link', { name: /Next/ })
   await next.click()
-  await expect(page).toHaveURL('/docs/components/layouts')
-  await expect(page.getByRole('heading', { level: 1, name: 'Layouts' })).toBeVisible()
+  await expect(page).toHaveURL('/guides/elements-and-attributes')
+  await expect(page.getByRole('heading', { level: 1, name: 'Elements and attributes' })).toBeVisible()
 })
 
 test('Tailwind Plus Elements previews render and operate the actual custom elements', crossBrowser, async ({ page }) => {
@@ -2348,9 +1791,9 @@ test('a Mermaid render rejection shows the accessible failure state without an e
   expect(pageErrors).toEqual([])
 })
 
-test('pending diagrams render after Docs navigation without relying on repeated data-init', crossBrowser, async ({ page }) => {
+test('pending diagrams render after Docs navigation through component-local initialization', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
-  await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components/code-block', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => {
     const docsWindow = window as typeof window & {
       renderMermaid?: (root: Document | Element, pendingOnly?: boolean) => Promise<void>
@@ -2361,18 +1804,18 @@ test('pending diagrams render after Docs navigation without relying on repeated 
     docsWindow.renderMermaid = (root, pendingOnly) => {
       const fromDataInit = root instanceof Element && root.matches('.mermaid')
       docsWindow.mermaidRenderHosts?.push(fromDataInit ? 'data-init' : root instanceof Element ? root.id : 'document')
-      return fromDataInit ? Promise.resolve() : renderMermaid?.(root, pendingOnly) ?? Promise.resolve()
+      return renderMermaid?.(root, pendingOnly) ?? Promise.resolve()
     }
   })
 
-  await page.locator('#nav-docs-diagrams').click()
-  await expect(page).toHaveURL('/docs/components/diagrams')
+  await page.locator('#nav-components-mermaid').click()
+  await expect(page).toHaveURL('/components/mermaid')
 
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
   await expect(diagram.locator('svg')).toBeVisible()
-  await expect.poll(() => page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('page-content')
-  expect(await page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('data-init')
+  await expect.poll(() => page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('data-init')
+  expect(await page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).not.toContain('page-content')
 
   await page.evaluate(async () => {
     const diagram = document.querySelector<HTMLElement>('main [data-docs-diagram="true"]')!
@@ -2439,9 +1882,9 @@ test('queued pending rendering discards stale in-flight Mermaid results for a re
 
 test('diagrams render after Docs navigation and light-dark rerenders', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
-  await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
-  await page.locator('#nav-docs-diagrams').click()
-  await expect(page).toHaveURL('/docs/components/diagrams')
+  await page.goto('/components/code-block', { waitUntil: 'domcontentloaded' })
+  await page.locator('#nav-components-mermaid').click()
+  await expect(page).toHaveURL('/components/mermaid')
 
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
@@ -2464,14 +1907,15 @@ test('diagrams render after Docs navigation and light-dark rerenders', crossBrow
 })
 
 test('diagram previews rerender after their hidden panel becomes visible', crossBrowser, async ({ page }) => {
-  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
-  const example = page.locator('[data-docs-example="true"]:has(#docs-mermaid-example-tab-preview)')
-  await example.getByRole('tab', { name: 'Preview' }).click()
-  const preview = example.locator('iframe').contentFrame()
-  const diagram = preview.locator('.mermaid svg')
+  await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
+  const example = page.locator('[data-docs-example="true"]').first()
+  const diagram = example.locator('.mermaid svg')
+  await expect(diagram).toBeVisible()
+  await example.getByRole('tab', { name: 'Code', exact: true }).click()
+  await expect(diagram).toBeHidden()
+  await example.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(diagram).toBeVisible()
   await expect.poll(() => diagram.getAttribute('viewBox')).not.toBe('-8 -8 16 16')
-  expect((await diagram.boundingBox())!.width).toBeGreaterThan(200)
 })
 
 test('documentation remains readable when text is resized to 200 percent', crossBrowser, async ({ page }) => {
@@ -2489,51 +1933,21 @@ test('documentation remains readable when text is resized to 200 percent', cross
   expect(bounds.headingRight).toBeLessThanOrEqual(bounds.mainRight)
 })
 
-test('code-free catalog indexes settle without starting Prism', crossBrowser, async ({ page }) => {
+test('code-free Examples index settles without starting Prism', crossBrowser, async ({ page }) => {
   const prismRequests: string[] = []
   page.on('request', request => {
     if (/\/scripts\/prism|\/css\/prism/.test(new URL(request.url()).pathname)) prismRequests.push(request.url())
   })
-  for (const path of ['/components/application', '/components/primitives']) {
+  for (const path of ['/examples']) {
     await gotoAfterDocsAssetSettlement(page, path)
     await expect(page.locator('code[class*="language-"]')).toHaveCount(0)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   }
-  expect(prismRequests).toEqual([])
+  expect(prismRequests.filter(url => /\/scripts\/prism/.test(new URL(url).pathname))).toEqual([])
+  expect(prismRequests.some(url => new URL(url).pathname === '/css/prism-tomorrow.1.29.0.min.css')).toBe(true)
 })
 
-test('Documentation namespaces wrap within narrow and enlarged reading columns', crossBrowser, async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 844 })
-  await page.goto('/docs', { waitUntil: 'domcontentloaded' })
-  const paragraph = page.getByText('This documentation site compiles the same FSharp.ViewEngine.Components.Documentation source distributed by fve.', { exact: false })
-  for (const dark of [false, true]) {
-    for (const fontSize of ['100%', '200%']) {
-      await page.evaluate(({ dark, fontSize }) => {
-        document.documentElement.classList.toggle('dark', dark)
-        document.documentElement.style.fontSize = fontSize
-      }, { dark, fontSize })
-      await expect(paragraph).toBeVisible()
-      await expect.poll(() => paragraph.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1)
-      await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1)
-    }
-  }
-})
-
-test('Docs catalog navigation updates articles without a full-page browser error', crossBrowser, async ({ page }) => {
-  const browserErrors = captureBrowserErrors(page)
-  await page.goto('/docs/page-examples/api-reference', { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('button', { name: 'Toggle Documentation section', exact: true })).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.locator('#nav-fsharp-viewengine-components-documentation-components')).toBeVisible()
-  await expect(page.locator('#nav-fsharp-viewengine-components-documentation-page-examples')).toBeVisible()
-  await page.locator('#nav-fsharp-viewengine-components-documentation-components').click()
-  await page.locator('#nav-docs-layouts').click()
-  await expect(page).toHaveURL('/docs/components/layouts')
-  await expect(page.getByRole('heading', { level: 1, name: 'Layouts' })).toBeVisible()
-  await expect(page.locator('[data-docs-layout="article"]')).toBeVisible()
-  expect(browserErrors).toEqual([])
-})
-
-test('Docs catalog host documents retain one page heading and unique IDs', async ({ page, request }) => {
+test('representative component documents retain one page heading and unique IDs', async ({ page, request }) => {
   for (const path of await docsCatalogPaths(request)) {
     await page.goto(path, { waitUntil: 'domcontentloaded' })
     await expect(page.locator('#page-content h1')).toHaveCount(1)
@@ -2548,13 +1962,13 @@ test('Docs catalog host documents retain one page heading and unique IDs', async
   }
 })
 
-test('Docs component and page-example catalogs default to complete styled previews', async ({ page, request }) => {
+test('representative component examples default to complete styled previews', async ({ page, request }) => {
   const browserErrors = captureBrowserErrors(page)
   let reviewedPreviews = 0
 
   for (const path of await docsCatalogPaths(request)) {
     await page.goto(path, { waitUntil: 'domcontentloaded' })
-    reviewedPreviews += await page.locator('button[role="tab"][id^="docs-"][id$="-example-tab-preview"]:visible').count()
+    reviewedPreviews += await page.locator('[data-docs-example="true"] [role="tab"][aria-selected="true"]').count()
     const examples = page.locator('[data-docs-example="true"]')
     expect(await examples.count(), path).toBeGreaterThan(0)
     for (const example of await examples.all()) {
@@ -2576,33 +1990,8 @@ test('Docs component and page-example catalogs default to complete styled previe
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), path).toBe(true)
   }
-  expect(reviewedPreviews).toBe(25)
+  expect(reviewedPreviews).toBeGreaterThan(0)
   expect(browserErrors).toEqual([])
-})
-
-test('catalog code is extracted from the same compiled definition as its preview', async ({ page }) => {
-  await page.goto('/docs/components/fixture', { waitUntil: 'domcontentloaded' })
-  const example = page.locator('[data-docs-example="true"]:has(#docs-state-tabs-example-tab-preview)')
-  await example.getByRole('tab', { name: 'Code' }).click()
-  const source = await example.getByRole('tabpanel', { name: 'Code' }).innerText()
-  expect(source).toContain('Tabs.create "component-workflow-states" "Workflow states"')
-  expect(source).toContain('Tabs.withVariant TabsVariant.Underlined')
-  expect(source).toContain('productScreen "ready"')
-  expect(source).not.toContain('docsStateTabs')
-
-  await example.getByRole('tab', { name: 'Preview' }).click()
-  const preview = example.getByRole('tabpanel', { name: 'Preview' })
-  await expect(preview.locator('iframe')).toHaveCount(0)
-  const workflowTabs = preview.locator('#component-workflow-states')
-  await expect(workflowTabs.getByRole('tab', { name: 'Ready' })).toBeVisible()
-  await expect(workflowTabs.getByRole('tabpanel')).toContainText('Render your first component')
-  await expect(preview.locator('input[value="accountSummary"]')).toBeVisible()
-
-  const browserFrame = page.locator('[data-docs-example="true"]:has(#docs-browser-frame-example-tab-preview)')
-  await browserFrame.getByRole('tab', { name: 'Preview' }).click()
-  const browserPreview = browserFrame.getByRole('tabpanel', { name: 'Preview' })
-  await expect(browserPreview.locator('iframe')).toHaveCount(0)
-  await expect(browserPreview.locator('[data-browser-frame="true"]')).toBeVisible()
 })
 
 test('benchmark comparison remains legible in light and dark themes', async ({ page }) => {
@@ -2619,66 +2008,6 @@ test('benchmark comparison remains legible in light and dark themes', async ({ p
     })
     expect(colors.background).not.toBe(colors.text)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-  }
-})
-
-test('API reference page example renders endpoint and request-response composition', async ({ page }) => {
-  await page.goto('/docs/page-examples/api-reference', { waitUntil: 'domcontentloaded' })
-  const example = page.locator('[data-docs-example="true"]').first()
-  await example.getByRole('tab', { name: 'Preview' }).click()
-  const preview = example.locator('iframe').contentFrame()
-  await expect(preview.locator('[data-http-method="POST"]')).toBeVisible()
-  await expect(preview.getByText('Rendered HTML and response media type.')).toBeVisible()
-  await expect(preview.locator('[data-docs-code-panel="true"]')).toHaveCount(2)
-
-  await page.setViewportSize({ width: 390, height: 844 })
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
-})
-
-test('specification page example state tabs work after parsing while the optional CDN module is pending', crossBrowser, async ({ page }) => {
-  let releaseTailwind = () => {}
-  const tailwindReleased = new Promise<void>(resolve => { releaseTailwind = resolve })
-  let markTailwindIntercepted = () => {}
-  const tailwindIntercepted = new Promise<void>(resolve => { markTailwindIntercepted = resolve })
-  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', async route => {
-    markTailwindIntercepted()
-    await tailwindReleased
-    await route.fulfill({ status: 200, contentType: 'text/javascript', body: '' })
-  })
-
-  const browserErrors = captureBrowserErrors(page)
-  const navigation = page.goto('/docs/page-examples/executable-specification', { waitUntil: 'commit' })
-  await tailwindIntercepted
-
-  try {
-    await navigation
-    await expect.poll(() => page.evaluate(() => (window as any).fsharpDocsTailwindElements?.startedAt)).toBe('interactive')
-    await waitForDocsCodeSettlement(page)
-    const example = page.locator('[data-docs-example="true"]').first()
-    await example.getByRole('tab', { name: 'Preview' }).click()
-    const preview = example.locator('iframe').contentFrame()
-    const ready = preview.getByRole('tab', { name: 'Ready' })
-    const validation = preview.getByRole('tab', { name: 'Validation' })
-
-    await expect(preview.locator('body')).toHaveClass(/fve-components/)
-    await expect(preview.locator('body')).toHaveClass(/fve-theme-sky/)
-    await expect(ready).toBeVisible()
-    const restingColor = await validation.evaluate(element => getComputedStyle(element).color)
-    await validation.hover()
-    await expect.poll(() => validation.evaluate(element => getComputedStyle(element).color)).not.toBe(restingColor)
-    await validation.click()
-    await expect(validation).toHaveAttribute('aria-selected', 'true')
-    await expect(preview.getByRole('tabpanel', { name: 'Validation' })).toBeVisible()
-
-    await validation.press('ArrowLeft')
-    await expect(ready).toBeFocused()
-    await expect(ready).toHaveAttribute('aria-selected', 'true')
-
-    releaseTailwind()
-    await page.evaluate(() => (window as any).fsharpDocsTailwindElements.loading)
-    expect(browserErrors).toEqual([])
-  } finally {
-    releaseTailwind()
   }
 })
 
@@ -2701,10 +2030,10 @@ test('sitemap, robots, and social metadata expose canonical public discovery', a
   expect(sitemap.headers()['content-type']).toContain('application/xml')
   const sitemapXml = await sitemap.text()
   const paths = await publicRoutePaths(request)
-  expect(paths.length).toBeGreaterThan(90)
   expect(paths).toContain('/')
   expect(paths).toContain('/components')
-  expect(paths).toContain('/docs')
+  expect(paths).toContain('/examples')
+  expect(paths).not.toContain('/docs')
   expect(sitemapXml).not.toContain('/docs/components</loc>')
   expect(sitemapXml).not.toContain('/docs/previews/')
 

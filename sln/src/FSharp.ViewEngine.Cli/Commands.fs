@@ -93,8 +93,13 @@ module Commands =
                 let projectPath = Path.GetFullPath(Path.Combine(root, configuration.Project))
                 if not (File.Exists projectPath) then fail output $"Project '{projectPath}' was not found."
                 else
-                    let previousComponents = componentsForNames registry configuration.Components
                     let installed = configuration.Files |> Seq.map (fun file -> file.Component, file) |> Map.ofSeq
+                    let previousComponents =
+                        componentsForNames registry configuration.Components
+                        |> List.map (fun item ->
+                            match Map.tryFind item.Name installed |> Option.bind (fun file -> ConsumerProject.tryFileName file.Path) with
+                            | Some fileName -> { item with FileName = fileName }
+                            | None -> item)
                     let mutable conflicts = []
                     let planned =
                         selected
@@ -103,20 +108,38 @@ module Commands =
                             let source = Registry.sourceFor configuration.Namespace item
                             let checksum = Text.checksum source
                             let existing = Map.tryFind item.Name installed
-                            let shouldWrite =
-                                match existing, File.Exists path with
-                                | Some _, true -> request.Overwrite
-                                | Some _, false ->
+                            let previousPath = existing |> Option.map (fun file -> Path.GetFullPath(Path.Combine(root, file.Path)))
+                            let relocated = previousPath |> Option.exists (fun previous -> not (String.Equals(previous, path, StringComparison.Ordinal)))
+                            let previousExists = previousPath |> Option.exists File.Exists
+                            let previousUnchanged =
+                                match existing, previousPath with
+                                | Some file, Some previous when File.Exists previous -> Text.checksum (File.ReadAllText previous) = file.RegistryChecksum
+                                | _ -> false
+                            let targetExists = File.Exists path
+                            let shouldWrite, removePrevious =
+                                match existing, relocated, previousExists, previousUnchanged, targetExists with
+                                | Some _, false, _, _, true -> request.Overwrite, false
+                                | Some _, false, _, _, false ->
                                     if not request.Overwrite then conflicts <- $"'{path}' is missing." :: conflicts
-                                    request.Overwrite
-                                | None, true ->
-                                    if Text.checksum (File.ReadAllText path) = checksum then false
-                                    elif request.Overwrite then true
+                                    request.Overwrite, false
+                                | Some _, true, true, false, _ when not request.Overwrite ->
+                                    conflicts <- $"'{previousPath.Value}' contains consumer changes and cannot be relocated automatically." :: conflicts
+                                    false, false
+                                | Some _, true, true, _, true when not request.Overwrite ->
+                                    conflicts <- $"'{path}' already exists while relocating '{previousPath.Value}'." :: conflicts
+                                    false, false
+                                | Some _, true, true, _, _ -> true, true
+                                | Some _, true, false, _, _ ->
+                                    if not request.Overwrite then conflicts <- $"'{previousPath.Value}' is missing." :: conflicts
+                                    request.Overwrite, false
+                                | None, _, _, _, true ->
+                                    if Text.checksum (File.ReadAllText path) = checksum then false, false
+                                    elif request.Overwrite then true, false
                                     else
                                         conflicts <- $"'{path}' already exists with different content." :: conflicts
-                                        false
-                                | None, false -> true
-                            item, path, source, checksum, existing, shouldWrite)
+                                        false, false
+                                | None, _, _, _, false -> true, false
+                            item, path, source, checksum, existing, shouldWrite, relocated, previousPath, removePrevious)
                     if not conflicts.IsEmpty then
                         conflicts |> List.rev |> List.iter (fun conflict -> output.Error.WriteLine($"conflict: {conflict}"))
                         output.Error.WriteLine("No files were changed. Re-run with --overwrite only if replacing those files is intended.")
@@ -125,13 +148,14 @@ module Commands =
                         match ConsumerProject.updateProject projectPath previousComponents selected request.Overwrite with
                         | Error message -> fail output message
                         | Ok () ->
-                            for (_, path, source, _, _, shouldWrite) in planned do
+                            for (_, path, source, _, _, shouldWrite, _, previousPath, removePrevious) in planned do
                                 if shouldWrite then Text.writeAtomic path source
+                                if removePrevious then previousPath |> Option.iter File.Delete
                             let componentFiles =
                                 planned
-                                |> List.map (fun (item, _, _, checksum, existing, shouldWrite) ->
+                                |> List.map (fun (item, _, _, checksum, existing, shouldWrite, relocated, _, _) ->
                                     match existing with
-                                    | Some file when not shouldWrite -> file
+                                    | Some file when not shouldWrite && not relocated -> file
                                     | _ ->
                                         { Component = item.Name
                                           Path = ConsumerProject.relativeSourcePath item.FileName
@@ -161,8 +185,13 @@ module Commands =
             if different then output.Out.WriteLine($"registry {configuration.RegistryVersion} -> {registry.Version}")
             for file in configuration.Files do
                 let path = Path.Combine(root, file.Path)
-                let expected =
-                    Map.tryFind file.Component current |> Option.map (Registry.sourceFor configuration.Namespace)
+                let item = Map.tryFind file.Component current
+                match item with
+                | Some item when file.Path.Replace('\\', '/') <> ConsumerProject.relativeSourcePath item.FileName ->
+                    different <- true
+                    output.Out.WriteLine($"relocated {file.Component} {file.Path} -> {ConsumerProject.relativeSourcePath item.FileName}")
+                | _ -> ()
+                let expected = item |> Option.map (Registry.sourceFor configuration.Namespace)
                 match expected, File.Exists path with
                 | None, _ ->
                     different <- true

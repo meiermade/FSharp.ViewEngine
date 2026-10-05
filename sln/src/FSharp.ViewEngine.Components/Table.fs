@@ -1,10 +1,11 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
+/// <category>table</category>
 [<RequireQualifiedAccess>]
 type TableMobileLayout =
     | Scroll
@@ -17,11 +18,13 @@ type private MobileCell =
     | Summary
     | Actions
 
+/// <category>table</category>
 [<RequireQualifiedAccess>]
 type TableSortDirection =
     | Ascending
     | Descending
 
+/// <category>table</category>
 [<NoEquality; NoComparison>]
 type TableSort =
     private
@@ -29,6 +32,7 @@ type TableSort =
           direction:TableSortDirection option
           attributes:HtmlAttribute list }
 
+/// <category>table</category>
 [<RequireQualifiedAccess>]
 module TableSort =
     let by destination =
@@ -39,6 +43,7 @@ module TableSort =
     /// Adds opt-in interaction attributes while Table retains the destination and accessibility contract.
     let withAttributes (attributes:HtmlAttribute list) (sort:TableSort) = { sort with attributes = attributes }
 
+/// <category>table</category>
 [<NoEquality; NoComparison>]
 type TableColumn<'row> =
     private
@@ -51,34 +56,57 @@ type TableColumn<'row> =
           mobile:MobileCell
           sort:TableSort option }
 
+/// <category>table</category>
+[<RequireQualifiedAccess>]
+module TableColumn =
+    let create heading cell =
+        if String.IsNullOrWhiteSpace heading then invalidArg (nameof heading) "A column heading is required."
+        { heading = heading; cell = cell; rowHeader = false; headingVisible = true; stickyEnd = false; alignEnd = false; mobile = MobileCell.Field; sort = None }
+
+    let rowActions cell =
+        { heading = "Actions"; cell = cell; rowHeader = false; headingVisible = false; stickyEnd = true; alignEnd = true; mobile = MobileCell.Actions; sort = None }
+
+    let alignEnd (column:TableColumn<'row>) = { column with alignEnd = true }
+    let asRowHeader (column:TableColumn<'row>) = { column with rowHeader = true }
+    let asMobilePrimary (column:TableColumn<'row>) = { column with mobile = MobileCell.Primary }
+    let asMobileSummary (column:TableColumn<'row>) = { column with mobile = MobileCell.Summary }
+    /// The consumer owns the destination and has already ordered the supplied rows.
+    let withSort sort (column:TableColumn<'row>) = { column with sort = Some sort }
+
+/// <category>table</category>
 [<RequireQualifiedAccess>]
 type TableSurface =
     | Panel
     | Plain
 
-/// Selection is scoped to eligible rendered rows. Keys must be stable and unique.
+/// <summary>
+/// Selection is scoped to rendered rows. Keys must be stable and unique.
+/// </summary>
+/// <category>table</category>
 [<NoEquality; NoComparison>]
 type TableSelectionConfig<'row> =
     private
         { id:string
           keyFor:'row -> string
           labelFor:'row -> string
-          disabledFor:'row -> bool
           selectedKeys:Set<string>
           formName:string }
 
+/// <category>table</category>
 [<RequireQualifiedAccess>]
 module TableSelection =
     let create id keyFor labelFor =
         if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable selection ID is required."
-        { id = id; keyFor = keyFor; labelFor = labelFor; disabledFor = (fun _ -> false); selectedKeys = Set.empty; formName = id }
+        { id = id; keyFor = keyFor; labelFor = labelFor; selectedKeys = Set.empty; formName = id }
     let withSelectedKeys keys config = { config with selectedKeys = Set.ofList keys }
-    let withDisabledRows predicate config = { config with disabledFor = predicate }
     let withFormName name config =
         if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A selection form name is required."
         { config with formName = name }
 
+/// <summary>
 /// Hierarchy is consumer-authored: keys, ancestors, levels, aggregates, and eligibility remain application policy.
+/// </summary>
+/// <category>table</category>
 [<NoEquality; NoComparison>]
 type TableHierarchyConfig<'row> =
     private
@@ -90,6 +118,7 @@ type TableHierarchyConfig<'row> =
           hasChildrenFor:'row -> bool
           expandedKeys:Set<string> }
 
+/// <category>table</category>
 [<RequireQualifiedAccess>]
 module TableHierarchy =
     let create id keyFor labelFor ancestorsFor levelFor hasChildrenFor =
@@ -97,6 +126,7 @@ module TableHierarchy =
         { id = id; keyFor = keyFor; labelFor = labelFor; ancestorsFor = ancestorsFor; levelFor = levelFor; hasChildrenFor = hasChildrenFor; expandedKeys = Set.empty }
     let withExpandedKeys keys config = { config with expandedKeys = Set.ofList keys }
 
+/// <category>table</category>
 [<NoEquality; NoComparison>]
 type TableConfig<'row> =
     private
@@ -108,20 +138,30 @@ type TableConfig<'row> =
           density:Density
           surface:TableSurface
           mobileLayout:TableMobileLayout
+          scrollRows:bool
           selection:TableSelectionConfig<'row> option
           hierarchy:TableHierarchyConfig<'row> option
           rowAttributes:'row -> HtmlAttribute list
           attributes:HtmlAttribute list }
 
+/// <remarks>
+/// Supply ordered rows and sort destinations; Table renders sort state without ordering data.
+/// Hierarchy keys, ancestors, levels and aggregate values are consumer-supplied.
+/// Selection keys must be unique; compose selection commands and visible counts outside Table.
+/// Table announces selection accessibly without a visible footer. Selection-change events also synchronize
+/// consumer controls after initialization and morphs. withScrollableRows uses a consumer-bounded flex height
+/// to scroll rows beneath sticky column headings; it does not fetch or paginate records.
+/// </remarks>
+/// <category>table</category>
 [<RequireQualifiedAccess>]
 module Table =
     let private layoutClasses =
         String.concat " " [
-            "@container/fve-table w-full min-w-0 max-w-full [--fve-table-background:var(--fve-page)] data-[surface=panel]:[--fve-table-background:var(--fve-surface)]"
+            "@container/fve-table w-full min-w-0 max-w-full [--fve-table-background:var(--fve-background)] data-[surface=panel]:[--fve-table-background:var(--fve-surface)]"
             "[&_.fve-table-grid]:w-full [&_.fve-table-grid]:border-collapse [&_.fve-table-grid_thead]:bg-[var(--fve-table-background)] [&_.fve-table-grid_tr]:border-b [&_.fve-table-grid_tr]:border-[var(--fve-border)]"
             "[&_.fve-table-cell]:whitespace-nowrap [&_.fve-table-cell]:px-[var(--fve-table-padding-inline,0.75rem)] [&_.fve-table-cell]:py-[var(--fve-table-padding-block-compact,0.25rem)] data-[density=comfortable]:[&_.fve-table-cell]:py-[var(--fve-table-padding-block-comfortable,0.75rem)]"
             "[&_.fve-table-sort-control]:inline-flex [&_.fve-table-sort-control]:items-center [&_.fve-table-sort-control]:gap-1 [&_.fve-table-sort-control]:rounded-[var(--fve-radius-control)] [&_.fve-table-sort-control]:text-inherit [&_.fve-table-sort-control]:no-underline [&_.fve-table-sort-control:hover]:text-[var(--fve-text)] [&_.fve-table-sort-control:hover]:underline [&_.fve-table-sort-control:hover]:underline-offset-[0.2em] [&_.fve-table-sort-control:focus-visible]:outline-2 [&_.fve-table-sort-control:focus-visible]:outline-offset-2 [&_.fve-table-sort-control:focus-visible]:outline-[var(--fve-brand-ring)]"
-            "[&_.fve-table-row]:[--fve-row-background:var(--fve-table-background)] [&_.fve-table-row]:bg-[var(--fve-row-background)] [&_.fve-table-row:hover]:[--fve-row-background:var(--fve-surface-hover)] [&_.fve-table-row:focus-within]:[--fve-row-background:var(--fve-surface-hover)] [&_.fve-table-row[data-selected=true]]:[--fve-row-background:var(--fve-brand-subtle)] [&_.fve-table-row[data-selected=true]_.fve-table-mobile-label]:text-[var(--fve-text)]"
+            "[&_.fve-table-row]:[--fve-row-background:var(--fve-table-background)] [&_.fve-table-row]:bg-[var(--fve-row-background)] [&_.fve-table-row:hover]:[--fve-row-background:var(--fve-surface-hover)] [&_.fve-table-row[data-selected=true]]:[--fve-row-background:var(--fve-brand-subtle)] [&_.fve-table-row[data-selected=true]_.fve-table-mobile-label]:text-[var(--fve-text)]"
             "[&_.fve-table-actions]:bg-[var(--fve-row-background,var(--fve-table-background))] [&_.fve-table-actions_button[aria-haspopup=menu]]:size-[var(--fve-table-control-size,1.75rem)] [&_.fve-table-actions_button[aria-haspopup=menu]]:rounded-md [&_.fve-table-actions_button[aria-haspopup=menu]]:border [&_.fve-table-actions_button[aria-haspopup=menu]]:border-transparent [&_.fve-table-row:hover_.fve-table-actions_button[aria-haspopup=menu]]:border-[var(--fve-border)] [&_.fve-table-row:focus-within_.fve-table-actions_button[aria-haspopup=menu]]:border-[var(--fve-border)] [&_.fve-table-actions_button[aria-haspopup=menu]:hover]:border-[var(--fve-muted-text)]"
             "forced-colors:[&_.fve-table-row:focus-within]:outline forced-colors:[&_.fve-table-row:focus-within]:-outline-offset-1 forced-colors:[&_.fve-table-row:focus-within]:outline-[Highlight] forced-colors:[&_.fve-table-actions_[role=menuitem]:focus]:outline-2 forced-colors:[&_.fve-table-actions_[role=menuitem]:focus]:outline-[Highlight]"
             "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-scroll]:overflow-x-visible"
@@ -140,33 +180,20 @@ module Table =
             "@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-label]:inline @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-label]:font-normal @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-label]:text-[var(--fve-muted-text)]"
             "@max-[16rem]/fve-table:[&.fve-table-records_[data-mobile-cell=field]]:grid-cols-1 @max-[16rem]/fve-table:[&.fve-table-records_[data-mobile-cell=field]]:gap-0.5" ]
 
-    let column heading cell =
-        if String.IsNullOrWhiteSpace heading then invalidArg (nameof heading) "A column heading is required."
-        { heading = heading; cell = cell; rowHeader = false; headingVisible = true; stickyEnd = false; alignEnd = false; mobile = MobileCell.Field; sort = None }
-
-    let rowActionsColumn cell =
-        { heading = "Actions"; cell = cell; rowHeader = false; headingVisible = false; stickyEnd = true; alignEnd = true; mobile = MobileCell.Actions; sort = None }
-
-    let alignEnd (column:TableColumn<'row>) = { column with alignEnd = true }
-    let asRowHeader (column:TableColumn<'row>) = { column with rowHeader = true }
-    let asMobilePrimary (column:TableColumn<'row>) = { column with mobile = MobileCell.Primary }
-    let asMobileSummary (column:TableColumn<'row>) = { column with mobile = MobileCell.Summary }
-    /// The consumer owns the destination and has already ordered the supplied rows.
-    let withSort sort (column:TableColumn<'row>) = { column with sort = Some sort }
-
     let create caption columns rows =
         if String.IsNullOrWhiteSpace caption then invalidArg (nameof caption) "A table caption is required."
         if List.isEmpty columns then invalidArg (nameof columns) "At least one table column is required."
         { caption = caption; columns = columns; rows = rows
           emptyState = div { _class "p-6 text-center text-sm text-[var(--fve-muted-text)]"; "No records" }
           captionVisible = false; density = Density.Compact; surface = TableSurface.Plain
-          mobileLayout = TableMobileLayout.Scroll; selection = None; hierarchy = None; rowAttributes = (fun _ -> []); attributes = [] }
+          mobileLayout = TableMobileLayout.Scroll; scrollRows = false; selection = None; hierarchy = None; rowAttributes = (fun _ -> []); attributes = [] }
 
     let withEmptyState emptyState config = { config with emptyState = emptyState }
     let withVisibleCaption config = { config with captionVisible = true }
     let withDensity density config = { config with density = density }
     let withSurface surface config = { config with surface = surface }
     let withMobileLayout layout config = { config with mobileLayout = layout }
+    let withScrollableRows config = { config with scrollRows = true }
     let withSelection selection config = { config with selection = Some selection }
     let withHierarchy hierarchy config = { config with hierarchy = Some hierarchy }
     /// Adds consumer-owned presentation or Datastar attributes to each rendered row without replacing table semantics.
@@ -184,10 +211,10 @@ module Table =
             match config.selection with
             | None -> []
             | Some selection ->
-                let rows = config.rows |> List.map (fun row -> selection.keyFor row, selection.labelFor row, selection.disabledFor row)
-                if rows |> List.exists (fun (key, label, _) -> String.IsNullOrWhiteSpace key || String.IsNullOrWhiteSpace label) then
+                let rows = config.rows |> List.map (fun row -> selection.keyFor row, selection.labelFor row)
+                if rows |> List.exists (fun (key, label) -> String.IsNullOrWhiteSpace key || String.IsNullOrWhiteSpace label) then
                     invalidArg (nameof config) "Every selectable row requires a non-empty key and accessible label."
-                let keys = rows |> List.map (fun (key, _, _) -> key)
+                let keys = rows |> List.map fst
                 if keys.Length <> (keys |> Set.ofList |> Set.count) then invalidArg (nameof config) "Selection keys must be unique."
                 rows
         let hierarchyRows =
@@ -204,12 +231,12 @@ module Table =
                 rows
         let hierarchySignal = config.hierarchy |> Option.map (fun hierarchy -> $"_table_{ComponentHtml.optionToken hierarchy.id}_expanded") |> Option.defaultValue ""
         let expanded = "$" + hierarchySignal
-        let eligible = selectionRows |> List.choose (fun (key, _, disabled) -> if disabled then None else Some key)
-        let eligibleJson = ComponentHtml.javascriptString eligible
+        let selectableKeys = selectionRows |> List.map fst
+        let selectableKeysJson = ComponentHtml.javascriptString selectableKeys
         let signal = config.selection |> Option.map (fun selection -> $"_table_{ComponentHtml.optionToken selection.id}_selected") |> Option.defaultValue ""
         let selected = $"${signal}"
-        let initial = config.selection |> Option.map (fun selection -> eligible |> List.filter selection.selectedKeys.Contains) |> Option.defaultValue []
-        let allSelected = $"({eligible.Length} > 0 && {selected}.length == {eligible.Length})"
+        let initial = config.selection |> Option.map (fun selection -> selectableKeys |> List.filter selection.selectedKeys.Contains) |> Option.defaultValue []
+        let allSelected = $"({selectableKeys.Length} > 0 && {selected}.length == {selectableKeys.Length})"
         let notify = $"el.closest('[data-fve-table]').dispatchEvent(new CustomEvent('fve-table-selection-change', {{ bubbles: true, detail: {{ keys: Array.from({selected}) }} }}))"
         let selectionControl id accessibleLabel name value checkedValue disabled effect change =
             label {
@@ -225,7 +252,7 @@ module Table =
                     _disabled disabled
                     _class "fve-table-checkbox m-0 size-4 cursor-[inherit] appearance-none rounded border border-[var(--fve-border)] bg-[var(--fve-surface-subtle)] bg-center bg-[length:100%] checked:border-[var(--fve-brand-solid)] checked:bg-[var(--fve-brand-solid)] checked:bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%3E%3Cpath%20d=%27m3.5%208%203%203%206-6%27%20fill=%27none%27%20stroke=%27white%27%20stroke-width=%272%27%20stroke-linecap=%27round%27%20stroke-linejoin=%27round%27/%3E%3C/svg%3E')] indeterminate:border-[var(--fve-brand-solid)] indeterminate:bg-[var(--fve-brand-solid)] indeterminate:bg-[url('data:image/svg+xml,%3Csvg%20xmlns=%27http://www.w3.org/2000/svg%27%20viewBox=%270%200%2016%2016%27%3E%3Cpath%20d=%27M4%208h8%27%20stroke=%27white%27%20stroke-width=%272%27%20stroke-linecap=%27round%27/%3E%3C/svg%3E')] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-50 forced-colors:appearance-auto forced-colors:bg-none"
                     _dataEffect effect
-                    _dataOn ("change", $"{change}; {notify}")
+                    _dataOn ("change", change)
                 }
             }
         let cellClass column =
@@ -265,25 +292,40 @@ module Table =
         div {
             _attr ("data-fve-table", "true")
             _attr ("data-surface", if config.surface = TableSurface.Panel then "panel" else "plain")
-            _class (ComponentHtml.classes [ "fve-table"; layoutClasses; if config.mobileLayout = TableMobileLayout.Records then "fve-table-records" ])
+            _class (ComponentHtml.classes [
+                "fve-table"
+                layoutClasses
+                if config.mobileLayout = TableMobileLayout.Records then "fve-table-records"
+                if config.scrollRows then "flex min-h-0 flex-1 flex-col" ])
             _attr ("data-density", if config.density = Density.Compact then "compact" else "comfortable")
             match config.selection with
             | Some selection ->
                 _id selection.id
                 _attr ("data-signals__ifmissing", $"{{ {signal}: {ComponentHtml.javascriptString initial} }}")
-                // Retain eligible selections across morphs; never select off-page or disabled records.
-                _dataEffect $"if ({selected}.some(key => !{eligibleJson}.includes(key))) {{ {selected} = {selected}.filter(key => {eligibleJson}.includes(key)); {notify} }}"
-                _dataOn ("fve-selection-clear", $"{selected} = []; {notify}")
+                // Retain rendered selections across morphs; never select off-page records.
+                _dataEffect $"if ({selected}.some(key => !{selectableKeysJson}.includes(key))) {{ {selected} = {selected}.filter(key => {selectableKeysJson}.includes(key)); }} {notify}"
+                _dataOn ("fve-selection-clear", $"{selected} = []")
             | None -> ()
             match config.hierarchy with
             | Some hierarchy ->
                 _dataSignals ("{" + hierarchySignal + ": " + ComponentHtml.javascriptString (Set.toList hierarchy.expandedKeys) + "}")
             | None -> ()
+            if config.selection.IsSome then
+                output {
+                    _role "status"
+                    _ariaLive "polite"
+                    _class "sr-only"
+                    _dataText $"{selected}.length + ' selected'"
+                    $"{initial.Length} selected"
+                }
             div {
                 _role "region"
                 _ariaLabel config.caption
                 _tabindex 0
-                _class (ComponentHtml.classes [ "fve-table-scroll relative overflow-x-auto bg-[var(--fve-table-background)]"; if config.surface = TableSurface.Panel then "rounded-[var(--fve-radius-panel)] ring-1 ring-[var(--fve-border)]" ])
+                _class (ComponentHtml.classes [
+                    "fve-table-scroll relative bg-[var(--fve-table-background)]"
+                    if config.scrollRows then "min-h-0 flex-1 overflow-auto" else "overflow-x-auto"
+                    if config.surface = TableSurface.Panel then "rounded-[var(--fve-radius-panel)] ring-1 ring-[var(--fve-border)]" ])
                 if config.mobileLayout = TableMobileLayout.Records && sortableColumns.Length > 0 then
                     div {
                         _role "group"
@@ -306,7 +348,7 @@ module Table =
                         }
                         thead {
                             _role "rowgroup"
-                            _class "text-xs font-semibold text-[var(--fve-muted-text)]"
+                            _class (ComponentHtml.classes [ "text-xs font-semibold text-[var(--fve-muted-text)]"; if config.scrollRows then "sticky top-0 z-20" ])
                             tr {
                                 _role "row"
                                 match config.selection with
@@ -315,9 +357,9 @@ module Table =
                                         _role "columnheader"
                                         _scope "col"
                                         _class "fve-table-cell fve-table-selection w-px"
-                                        selectionControl $"{selection.id}-all" "Select all rows on this page" "" "all" (initial.Length = eligible.Length && eligible.Length > 0) eligible.IsEmpty
+                                        selectionControl $"{selection.id}-all" "Select all rows on this page" "" "all" (initial.Length = selectableKeys.Length && selectableKeys.Length > 0) selectableKeys.IsEmpty
                                             $"el.checked = {allSelected}; el.indeterminate = {selected}.length > 0 && !{allSelected}"
-                                            $"{selected} = el.checked ? {eligibleJson} : []"
+                                            $"{selected} = el.checked ? {selectableKeysJson} : []"
                                         span {
                                             _ariaHidden true
                                             _class "fve-table-mobile-label hidden"
@@ -358,18 +400,18 @@ module Table =
                                     | None -> ()
                                     match config.selection with
                                     | Some selection ->
-                                        let key, _, _ = selectionRows[index]
+                                        let key, _ = selectionRows[index]
                                         _id $"{selection.id}-row-{ComponentHtml.optionToken key}"
                                         _dataAttr ("data-selected", $"{selected}.includes({ComponentHtml.javascriptString key}) ? 'true' : 'false'")
                                     | None -> ()
                                     match config.selection with
                                     | Some selection ->
-                                        let key, label, disabled = selectionRows[index]
+                                        let key, label = selectionRows[index]
                                         let keyJson = ComponentHtml.javascriptString key
                                         td {
                                             _role "cell"
                                             _class "fve-table-cell fve-table-selection w-px"
-                                            selectionControl $"{selection.id}-select-{ComponentHtml.optionToken key}" $"Select {label}" selection.formName key (List.contains key initial) disabled
+                                            selectionControl $"{selection.id}-select-{ComponentHtml.optionToken key}" $"Select {label}" selection.formName key (List.contains key initial) false
                                                 $"el.checked = {selected}.includes({keyJson})"
                                                 $"{selected} = el.checked ? [...{selected}.filter(key => key != {keyJson}), {keyJson}] : {selected}.filter(key => key != {keyJson})"
                                         }
@@ -384,19 +426,32 @@ module Table =
                                             if column.mobile = MobileCell.Field then
                                                 span { _ariaHidden true; _class "fve-table-mobile-label hidden"; column.heading }
                                             match config.hierarchy with
-                                            | Some _ when column.rowHeader ->
+                                            | Some hierarchy when column.rowHeader ->
                                                 let key, label, _, level, hasChildren = hierarchyRows[index]
                                                 span {
                                                     _class "inline-flex items-center gap-2"
-                                                    _style ("padding-inline-start:" + string (float level * 1.25) + "rem")
+                                                    _style ("padding-inline-start:" + string (float level * 1.0) + "rem")
                                                     if hasChildren then
                                                         button {
                                                             _type "button"
                                                             _ariaLabel ("Toggle " + label)
+                                                            _dataAttr ("aria-label", expanded + ".includes(" + ComponentHtml.javascriptString key + ") ? " + ComponentHtml.javascriptString ("Collapse " + label) + " : " + ComponentHtml.javascriptString ("Expand " + label))
                                                             _dataAttr ("aria-expanded", expanded + ".includes(" + ComponentHtml.javascriptString key + ") ? 'true' : 'false'")
                                                             _dataOn ("click", expanded + " = " + expanded + ".includes(" + ComponentHtml.javascriptString key + ") ? " + expanded + ".filter(key => key != " + ComponentHtml.javascriptString key + ") : [..." + expanded + ", " + ComponentHtml.javascriptString key + "]")
                                                             _class "inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
-                                                            span { _ariaHidden true; _dataText (expanded + ".includes(" + ComponentHtml.javascriptString key + ") ? '−' : '+'"); "+" }
+                                                            let isExpanded = hierarchy.expandedKeys.Contains key
+                                                            span {
+                                                                _ariaHidden true
+                                                                _dataShow (expanded + ".includes(" + ComponentHtml.javascriptString key + ")")
+                                                                if not isExpanded then _style "display:none"
+                                                                raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M14.78 12.53a.75.75 0 0 1-1.06 0L10 8.81l-3.72 3.72a.75.75 0 0 1-1.06-1.06l4.25-4.25a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06Z" clip-rule="evenodd"/></svg>"""
+                                                            }
+                                                            span {
+                                                                _ariaHidden true
+                                                                _dataShow ("!" + expanded + ".includes(" + ComponentHtml.javascriptString key + ")")
+                                                                if isExpanded then _style "display:none"
+                                                                raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M5.22 7.47a.75.75 0 0 1 1.06 0L10 11.19l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.53a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
+                                                            }
                                                         }
                                                     else
                                                         span { _ariaHidden true; _class "inline-block size-8 shrink-0" }
@@ -418,12 +473,4 @@ module Table =
                         }
                     }
             }
-            if config.selection.IsSome then
-                output {
-                    _role "status"
-                    _ariaLive "polite"
-                    _class (ComponentHtml.classes [ "block py-2 text-xs text-[var(--fve-muted-text)]"; if config.surface = TableSurface.Panel then "px-3" ])
-                    _dataText $"{selected}.length + ' selected on this page'"
-                    $"{initial.Length} selected on this page"
-                }
         }

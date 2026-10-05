@@ -98,14 +98,6 @@
   font-weight: 650;
 }
 
-.docs-showcase-surface {
-  min-height: 15rem;
-  border-radius: 0.65rem;
-  background: var(--fve-surface-subtle);
-  padding: 1.5rem;
-  color: var(--fve-text);
-}
-
 .twe-preview-surface {
   min-height: 10rem;
   border-radius: 0.65rem;
@@ -698,7 +690,7 @@
   overflow: hidden;
   border: 1px solid var(--fve-border);
   border-radius: 0.65rem;
-  background: var(--fve-page);
+  background: var(--fve-background);
   box-shadow: 0 8px 24px rgb(0 0 0 / 0.08);
 }
 
@@ -786,94 +778,6 @@
   gap: 1rem;
 }
 
-.docs-product-screen {
-  min-height: 22rem;
-  background: #f8fafc;
-  color: #0f172a;
-}
-
-.docs-product-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid #e2e8f0;
-  background: white;
-  padding: 0.8rem 1rem;
-}
-
-.docs-product-header span {
-  display: grid;
-  width: 2rem;
-  height: 2rem;
-  place-items: center;
-  border-radius: 999px;
-  background: #0f172a;
-  color: white;
-  font-size: 0.6875rem;
-}
-
-.docs-product-content {
-  max-width: 36rem;
-  margin: 0 auto;
-  padding: 2rem 1.25rem;
-}
-
-.docs-product-content > small {
-  color: #0369a1;
-  font-weight: 750;
-  letter-spacing: 0.08em;
-}
-
-.docs-product-content h3 {
-  margin: 0.45rem 0 0.4rem;
-  font-size: 1.45rem;
-}
-
-.docs-product-content > p {
-  margin: 0;
-  color: #64748b;
-  font-size: 0.8125rem;
-  line-height: 1.6;
-}
-
-.docs-product-card {
-  margin-top: 1.25rem;
-  border: 1px solid #e2e8f0;
-  border-radius: 0.7rem;
-  background: white;
-  padding: 1rem;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.05);
-}
-
-.docs-product-card label {
-  display: block;
-  margin-bottom: 0.4rem;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
-.docs-product-card input {
-  width: 100%;
-  border: 1px solid;
-  border-radius: 0.45rem;
-  padding: 0.65rem 0.75rem;
-  color: #334155;
-}
-
-.docs-product-error {
-  margin: 0.4rem 0 0;
-  color: #b91c1c;
-  font-size: 0.72rem;
-}
-
-.docs-product-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1rem;
-}
-
-.docs-product-actions button,
 .docs-navigation-actions button,
 .docs-navigation-actions a {
   border: 1px solid #cbd5e1;
@@ -887,68 +791,11 @@
   text-decoration: none;
 }
 
-.docs-product-actions .docs-product-primary {
-  border-color: #0284c7;
-  background: #0284c7;
-  color: white;
-}
-
-/* The App-mode product fixture follows the document-wide color preference. */
-.dark .docs-product-screen {
-  background: #0f172a;
-  color: #f8fafc;
-}
-
-.dark .docs-product-header {
-  border-color: #334155;
-  background: #111827;
-}
-
-.dark .docs-product-header span {
-  background: #e2e8f0;
-  color: #0f172a;
-}
-
-.dark .docs-product-content > small {
-  color: #38bdf8;
-}
-
-.dark .docs-product-content > p {
-  color: #94a3b8;
-}
-
-.dark .docs-product-card {
-  border-color: #334155;
-  background: #111827;
-  box-shadow: 0 1px 2px rgb(0 0 0 / 0.25);
-}
-
-.dark .docs-product-card input {
-  border-color: #475569;
-  background: #0f172a;
-  color: #e2e8f0;
-}
-
-.dark .docs-product-card input::placeholder {
-  color: #94a3b8;
-}
-
-.dark .docs-product-error {
-  color: #fca5a5;
-}
-
-.dark .docs-product-actions button,
 .dark .docs-navigation-actions button,
 .dark .docs-navigation-actions a {
   border-color: #475569;
   background: #1e293b;
   color: #e2e8f0;
-}
-
-.dark .docs-product-actions .docs-product-primary {
-  border-color: #0284c7;
-  background: #0284c7;
-  color: white;
 }
 
 .docs-navigation-actions {
@@ -1088,71 +935,42 @@
   }
 }
 
-/* Custom styles inspired by Tailwind CSS docs */
-.prose pre {
-  position: relative;
-  border-radius: 0.75rem;
-  background-color: rgb(15 23 42);
-  border: 1px solid rgb(30 41 59);
-  box-shadow: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
-  overflow-x: auto;
-}
-
-.prose pre code {
-  background-color: transparent !important;
-  border-radius: 0;
-  padding: 0;
-  color: rgb(226 232 240);
-  font-size: 0.875rem;
-  line-height: 1.7;
-  font-family: 'Fira Code', 'JetBrains Mono', 'Monaco', 'Cascadia Code', 'Segoe UI Mono', 'Roboto Mono', 'Oxygen Mono', 'Ubuntu Monospace', 'Source Code Pro', 'Fira Mono', 'Droid Sans Mono', 'Courier New', monospace;
-}
-
-/* Add subtle syntax highlighting for F# code */
-.prose pre code .hljs-keyword {
-  color: rgb(168 85 247);
-}
-
-.prose pre code .hljs-string {
-  color: rgb(34 197 94);
-}
-
-.prose pre code .hljs-comment {
-  color: rgb(148 163 184);
-  font-style: italic;
-}
-
-.prose pre code .hljs-function {
-  color: rgb(59 130 246);
-}
-
-.prose pre code .hljs-number {
-  color: rgb(251 146 60);
-}
-
-/* Better inline code styling */
-.prose :not(pre) > code {
-  background-color: rgb(51 65 85) !important;
-  color: rgb(226 232 240) !important;
-  padding: 0.25rem 0.5rem !important;
-  border-radius: 0.375rem !important;
-  font-size: 0.875rem !important;
-  font-weight: 500 !important;
-}
-
-.prose code::before,
-.prose code::after {
-  content: none !important;
-}
-
-/* Documentation's phone fixture supplies product content inside the shared Phone primitive. */
-[data-fve-phone-screen="true"]:has(.docs-app-mode-phone-screen) { --fve-surface: var(--fve-page); --fve-text: var(--fve-text); }
-.docs-app-mode-phone-screen { display: flex; min-height: 100%; flex-direction: column; background: var(--fve-page); color: var(--fve-text); }
-.docs-app-mode-phone-header { display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--fve-border); padding: 1rem 1.25rem; }
-.docs-app-mode-phone-header > span { display: grid; width: 1.75rem; height: 1.75rem; place-items: center; border-radius: 50%; background: var(--fve-brand-subtle); color: var(--fve-brand-active); font-size: var(--docs-text-ancillary); font-weight: 700; }
-.docs-app-mode-phone-content { display: grid; flex: 1; align-content: start; gap: 1rem; padding: 2rem 1.25rem; }
-.docs-app-mode-phone-content small { color: var(--fve-muted-text); font-size: var(--docs-text-ancillary); font-weight: 700; letter-spacing: .08em; }
-.docs-app-mode-phone-content h3, .docs-app-mode-phone-content p { margin: 0; }
-.docs-app-mode-phone-content p { color: var(--fve-muted-text); }
-.docs-app-mode-phone-content input { min-height: 2.75rem; border: 1px solid var(--fve-border); border-radius: .5rem; background: var(--fve-surface); padding: .5rem .75rem; color: var(--fve-text); font: inherit; }
-.docs-app-mode-phone-content button { justify-self: stretch; }
+/* Prism generates token spans, so this is the narrow generated-markup styling boundary. */
+[data-docs-copyable-code] .token.comment,
+[data-docs-copyable-code] .token.prolog,
+[data-docs-copyable-code] .token.doctype,
+[data-docs-copyable-code] .token.cdata { color: var(--fve-muted-text); }
+[data-docs-copyable-code] .token.punctuation { color: var(--fve-text); }
+[data-docs-copyable-code] .token.deleted,
+[data-docs-copyable-code] .token.property,
+[data-docs-copyable-code] .token.tag,
+[data-docs-copyable-code] .token.keyword { color: var(--color-red-700); }
+[data-docs-copyable-code] .token.boolean,
+[data-docs-copyable-code] .token.constant,
+[data-docs-copyable-code] .token.number,
+[data-docs-copyable-code] .token.symbol { color: var(--color-blue-700); }
+[data-docs-copyable-code] .token.attr-name,
+[data-docs-copyable-code] .token.builtin,
+[data-docs-copyable-code] .token.string { color: var(--color-green-800); }
+[data-docs-copyable-code] .token.operator { color: var(--color-cyan-800); }
+[data-docs-copyable-code] .token.class-name,
+[data-docs-copyable-code] .token.function { color: var(--color-purple-700); }
+[data-docs-copyable-code] .token.variable { color: var(--color-orange-800); }
+[data-docs-copyable-code] .token.important,
+[data-docs-copyable-code] .token.bold { font-weight: 700; }
+[data-docs-copyable-code] .token.italic { font-style: italic; }
+.dark [data-docs-copyable-code] .token.deleted,
+.dark [data-docs-copyable-code] .token.property,
+.dark [data-docs-copyable-code] .token.tag,
+.dark [data-docs-copyable-code] .token.keyword { color: var(--color-red-300); }
+.dark [data-docs-copyable-code] .token.boolean,
+.dark [data-docs-copyable-code] .token.constant,
+.dark [data-docs-copyable-code] .token.number,
+.dark [data-docs-copyable-code] .token.symbol { color: var(--color-blue-300); }
+.dark [data-docs-copyable-code] .token.attr-name,
+.dark [data-docs-copyable-code] .token.builtin,
+.dark [data-docs-copyable-code] .token.string { color: var(--color-green-300); }
+.dark [data-docs-copyable-code] .token.operator { color: var(--color-cyan-200); }
+.dark [data-docs-copyable-code] .token.class-name,
+.dark [data-docs-copyable-code] .token.function { color: var(--color-purple-300); }
+.dark [data-docs-copyable-code] .token.variable { color: var(--color-orange-300); }

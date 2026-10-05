@@ -1,57 +1,6 @@
 import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
-test('native contact values survive server rejection and linked correction @cross-browser', async ({ page }) => {
-  const errors: string[] = []
-  page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/components/form-layouts')
-  const form = page.getByRole('form', { name: 'Contact details', exact: true })
-  await expect(form).toBeVisible()
-  const documentFetches: string[] = []
-  page.on('request', request => {
-    if (request.method() === 'GET' && new URL(request.url()).pathname === '/components/form-layouts') documentFetches.push(request.url())
-  })
-  const name = form.getByRole('textbox', { name: 'Contact name' })
-  const email = form.getByRole('textbox', { name: 'Email address' })
-  const notes = form.getByRole('textbox', { name: 'Notes' })
-  await email.fill('not-an-email')
-  await notes.fill('Keep this note after validation. <Not markup>')
-  const response = page.waitForResponse(response => response.url().endsWith('/components/forms/contact'))
-  await form.getByRole('button', { name: 'Validate details' }).click()
-  expect((await response).status()).toBe(200)
-  const summary = page.getByRole('alert').filter({ hasText: 'Check your contact details' })
-  await expect(summary).toBeVisible()
-  await expect(summary).toBeFocused()
-  await expect(summary.getByRole('link')).toHaveCount(2)
-  await expect(notes).toHaveValue('Keep this note after validation. <Not markup>')
-  await expect(email).toHaveValue('not-an-email')
-  await summary.getByRole('link', { name: 'Email address: Enter a valid email address.' }).click()
-  await expect(email).toBeFocused()
-  await expect(page).toHaveURL(/#contact-email$/)
-  await page.goBack()
-  await expect(page).toHaveURL(/\/components\/form-layouts$/)
-  await expect(notes).toHaveValue('Keep this note after validation. <Not markup>')
-  await page.goForward()
-  await expect(page).toHaveURL(/#contact-email$/)
-  await expect(notes).toHaveValue('Keep this note after validation. <Not markup>')
-  expect(documentFetches).toEqual([])
-  await name.fill('Alex Rivera')
-  await form.getByRole('button', { name: 'Validate details' }).click()
-  await expect(summary.getByRole('link')).toHaveCount(1)
-  await expect(name).toHaveValue('Alex Rivera')
-  await email.fill('alex@fve.meiermade.com')
-  expect(await form.evaluate(form => Object.fromEntries(new FormData(form as HTMLFormElement)))).toEqual({
-    contactName: 'Alex Rivera', email: 'alex@fve.meiermade.com', notes: 'Keep this note after validation. <Not markup>',
-  })
-  await form.getByRole('button', { name: 'Validate details' }).click()
-  await expect(page.getByRole('status').filter({ hasText: 'Details are valid' })).toBeVisible()
-  await expect(summary).toHaveCount(0)
-  await expect(email).toHaveAttribute('aria-invalid', 'false')
-  await expect(notes).toHaveValue('Keep this note after validation. <Not markup>')
-  expect((await new AxeBuilder({ page }).include('#components-contact-region').analyze()).violations).toEqual([])
-  expect(errors).toEqual([])
-})
-
 test('error summary sample exposes the public API and its field connection @cross-browser', async ({ page }, testInfo) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
@@ -85,7 +34,7 @@ test('error summary sample exposes the public API and its field connection @cros
   await expect(email).toHaveValue('alex@fve.meiermade.com')
   await page.getByRole('link', { name: 'Input', exact: true }).click()
   await expect(page).toHaveURL(/\/components\/input$/)
-  await expect(page.locator('#components-input').getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
+  await expect(page.locator('#components-input-panel-preview').getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
   expect(errors).toEqual([])
 })
 
@@ -96,25 +45,26 @@ test('Docs document history still fetches changed pages @cross-browser', async (
   await expect(page.getByRole('textbox', { name: 'Payment instructions' })).toBeVisible()
   await page.goBack()
   await expect(page).toHaveURL(/\/components\/input$/)
-  await expect(page.locator('#components-input').getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
+  await expect(page.locator('#components-input-panel-preview').getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
   await page.goForward()
   await expect(page).toHaveURL(/\/components\/textarea$/)
   await expect(page.getByRole('textbox', { name: 'Payment instructions' })).toBeVisible()
 })
 
-test('account-result search belongs to the collection workflow and clears without submitting @cross-browser', async ({ page }) => {
-  await page.goto('/components/page-examples/account-management')
-  const root = page.locator('#ledger-app-shell')
+test('financial account search clears without submitting or changing the current results @cross-browser', async ({ page }) => {
+  await page.goto('/examples/application/accounts')
+  const root = page.locator('#main-content')
   const query = root.getByRole('searchbox', { name: 'Search accounts', exact: true })
   const clear = root.getByRole('button', { name: 'Clear Search accounts', includeHidden: true })
   const rows = root.getByRole('table').locator('tbody tr')
   const initialCount = await rows.count()
   expect(initialCount).toBeGreaterThan(1)
   await expect(clear).toBeHidden()
-  await query.fill('Assets')
-  await root.getByRole('button', { name: 'Apply filters', exact: true }).click()
-  await expect(rows).toHaveCount(1)
-  await expect(rows).toContainText('Assets')
+  await query.fill('Tax')
+  await query.press('Enter')
+  await expect(root.getByRole('link', { name: 'Tax reserve', exact: true })).toBeVisible()
+  await expect(root.getByRole('link', { name: 'Operating checking', exact: true })).toHaveCount(0)
+  const filteredCount = await rows.count()
   const filteredUrl = page.url()
   await clear.focus()
   await page.keyboard.press('Enter')
@@ -122,8 +72,8 @@ test('account-result search belongs to the collection workflow and clears withou
   await expect(query).toBeFocused()
   await expect(clear).toBeHidden()
   await expect(page).toHaveURL(filteredUrl)
-  await expect(rows).toHaveCount(1) // Clearing edits the query; applying filters owns the result update.
-  await root.getByRole('button', { name: 'Apply filters', exact: true }).click()
+  await expect(rows).toHaveCount(filteredCount) // Clearing edits the query; submitting search owns the result update.
+  await query.press('Enter')
   await expect(rows).toHaveCount(initialCount)
   expect(await query.getAttribute('aria-haspopup')).toBeNull()
 })
@@ -135,7 +85,6 @@ test('native textarea editing states preserve successful values only @cross-brow
   await expect(editable).toHaveAttribute('maxlength', '400')
   await editable.fill('Invoice INV-2048\nSecond line')
   await expect(page.getByRole('heading', { name: 'Read-only', exact: true })).toHaveCount(0)
-  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(5)
   await expect(page.getByRole('textbox', { name: 'Checking notes' })).not.toBeEditable()
   await expect(page.getByRole('textbox', { name: 'Checking notes' })).toHaveAttribute('aria-busy', 'true')
   await expect(page.getByRole('textbox', { name: 'Unavailable notes' })).toBeDisabled()
@@ -144,10 +93,11 @@ test('native textarea editing states preserve successful values only @cross-brow
     for (const field of element.querySelectorAll('textarea')) form.append(field.cloneNode(true))
     return Object.fromEntries(new FormData(form))
   })
-  expect(values).toEqual({ message: '', invalidMessage: '', instructions: 'Invoice INV-2048\nSecond line', pendingNotes: 'Please quote invoice INV-2048.' })
+  expect(values).toMatchObject({ message: '', invalidMessage: '', instructions: 'Invoice INV-2048\nSecond line', pendingNotes: 'Please quote invoice INV-2048.' })
+  expect(values).not.toHaveProperty('unavailableNotes')
 })
 
-for (const component of ['input', 'textarea', 'error-summary', 'notice', 'form-layouts']) {
+for (const component of ['input', 'textarea', 'error-summary', 'notice']) {
   test(`${component} remains accessible in narrow light/dark and resized text`, async ({ page }, testInfo) => {
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))

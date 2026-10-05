@@ -8,6 +8,7 @@ open Microsoft.Extensions.Hosting
 open Serilog
 open Serilog.Events
 open Serilog.Sinks.OpenTelemetry
+open StarFederation.Datastar.DependencyInjection
 
 let webApp (config:Config) =
     choose [
@@ -64,6 +65,7 @@ let configureServices (services:IServiceCollection) =
     services
         .AddSerilog()
         .AddGiraffe()
+        .AddDatastar()
     |> ignore
 
 [<EntryPoint>]

@@ -1,10 +1,11 @@
-namespace FSharp.ViewEngine.Components.Primitives
+namespace FSharp.ViewEngine.Components
 
 open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
+/// <category>file-selection</category>
 [<NoEquality; NoComparison>]
 type FileSelectionConfig =
     private
@@ -19,6 +20,7 @@ type FileSelectionConfig =
           pending:bool
           validation:string option }
 
+/// <category>file-selection</category>
 [<RequireQualifiedAccess>]
 module FileSelection =
     let create id name label =
@@ -67,8 +69,15 @@ module FileSelection =
                 | Some accept -> _accept accept
                 | None -> ()
                 _dataOn ("change", update)
-                _class "block min-h-[var(--fve-control-min-height)] w-full rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] text-sm text-[var(--fve-text)] ring-1 ring-[var(--fve-border)] file:mr-3 file:min-h-[var(--fve-control-min-height)] file:border-0 file:bg-[var(--fve-neutral-subtle)] file:px-3 file:text-sm file:font-semibold focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-50"
+                _class "block min-h-[var(--fve-control-min-height)] w-full cursor-pointer rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] text-sm text-[var(--fve-text)] ring-1 ring-[var(--fve-border)] aria-invalid:ring-[var(--fve-critical-ring)] file:mr-3 file:min-h-[var(--fve-control-min-height)] file:cursor-pointer file:border-0 file:bg-[var(--fve-neutral-subtle)] file:px-3 file:text-sm file:font-semibold file:text-[var(--fve-text)] file:hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-50 disabled:file:cursor-not-allowed"
             }
+            if config.pending then
+                p {
+                    _role "status"
+                    _ariaLive "polite"
+                    _class "text-sm text-[var(--fve-muted-text)]"
+                    "Validating selected files…"
+                }
             match config.description with
             | Some description ->
                 p {
