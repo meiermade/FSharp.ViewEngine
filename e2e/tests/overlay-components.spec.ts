@@ -218,15 +218,21 @@ test('Notification default lifetime pauses for hover and focus within it and sur
   const badgeResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/badge' && response.request().headers()['datastar-request'] === 'true')
   await page.locator('#nav-components-badge').click()
   expect((await badgeResponse).status()).toBe(200)
+  // Response headers precede the morph; wait for its committed destination.
+  await expect(page).toHaveURL(/\/components\/badge$/)
   const notificationResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/notification' && response.request().headers()['datastar-request'] === 'true')
   await page.locator('#nav-components-notification').click()
   expect((await notificationResponse).status()).toBe(200)
+  await expect(page).toHaveURL(/\/components\/notification$/)
   preview = page.locator('#components-notification-panel-preview')
   await expect(preview.locator('[data-fve-notification]')).toHaveCount(0)
   await preview.getByRole('button', { name: 'Show notification', exact: true }).click()
   notification = preview.locator('[data-fve-notification]')
   await expect(notification).toHaveCount(1)
   await expect(notification.getByRole('status')).toContainText('Server-confirmed notification')
+  await notification.getByRole('status').hover()
+  await page.waitForTimeout(1200)
+  await expect(notification).toBeVisible()
 })
 
 test('Notification stays bottom-end, readable, and motion-safe at narrow 200% text', async ({ page }, testInfo) => {
