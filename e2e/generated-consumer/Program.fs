@@ -22,6 +22,20 @@ let select =
     |> Select.withSelected "active"
     |> Select.render
 
+// Keep edge-case compositions in the installed consumer, not the public gallery.
+let inputGroup =
+    form {
+        _id "generated-input-group"
+        _class "min-w-0 max-w-sm"
+        InputGroup.create "record-search" "recordSearch" "Search records"
+        |> InputGroup.withInputType InputType.Search
+        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "In")
+        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "Accounts")
+        |> InputGroup.withAddon (InputGroupAddon.action InputGroupPosition.Trailing (
+            Html.button { _type "reset"; _class "rounded border px-3 py-1 text-sm"; "Clear" }))
+        |> InputGroup.render
+    }
+
 let notice =
     Notice.create "generated-notice" "Generated source is active" (p { "This UI was copied by the packed fve tool." })
     |> Notice.withColor NoticeColor.Success
@@ -78,11 +92,12 @@ let document =
                 main {
                     _class "mx-auto grid min-h-screen max-w-6xl gap-8 p-6 lg:grid-cols-[minmax(0,1fr)_20rem]"
                     section {
-                        _class "grid content-start gap-6"
+                        _class "grid min-w-0 content-start gap-6"
                         h1 { _class "text-3xl font-bold tracking-tight"; "Generated consumer" }
                         p { _class "max-w-2xl text-[var(--fve-muted-text)]"; "Rendered from source installed into an isolated project by the packaged CLI." }
                         div { _class "flex flex-wrap items-center gap-3"; button; iconButton; leadingButton; trailingButton; customButton }
                         div { _class "max-w-md"; select }
+                        inputGroup
                         notice
                         skeleton
                         notification

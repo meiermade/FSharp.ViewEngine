@@ -1,6 +1,44 @@
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 
+test('installed InputGroup keeps multiple addons operable at narrow enlarged widths', async ({ page, browserName }, testInfo) => {
+  await page.goto('/')
+  const form = page.locator('#generated-input-group')
+  const input = form.getByRole('searchbox', { name: 'Search records', exact: true })
+  const clear = form.getByRole('button', { name: 'Clear', exact: true })
+  const inputBox = (await input.boundingBox())!
+  const addons = [form.getByText('In', { exact: true }), form.getByText('Accounts', { exact: true }), clear]
+  for (const addon of addons) {
+    const box = (await addon.boundingBox())!
+    expect(Math.abs(box.y + box.height / 2 - inputBox.y - inputBox.height / 2)).toBeLessThanOrEqual(1)
+  }
+
+  await page.setViewportSize({ width: 320, height: 844 })
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+  await expect(input).toBeVisible()
+  const frame = (await form.locator('.fve-input-group').boundingBox())!
+  const narrow = (await input.boundingBox())!
+  const fontSize = await input.evaluate(el => Number.parseFloat(getComputedStyle(el).fontSize))
+  expect(narrow.width).toBeGreaterThanOrEqual(4 * fontSize)
+  for (const control of [input, ...addons]) {
+    const box = (await control.boundingBox())!
+    expect(box.x).toBeGreaterThanOrEqual(frame.x)
+    expect(box.x + box.width).toBeLessThanOrEqual(frame.x + frame.width + 1)
+  }
+  expect((await clear.boundingBox())!.y).toBeGreaterThanOrEqual(narrow.y + narrow.height)
+  await input.fill('Checking')
+  await expect(input).toHaveValue('Checking')
+  expect(await form.evaluate(el => [...new FormData(el as HTMLFormElement).entries()])).toEqual([['recordSearch', 'Checking']])
+  // macOS WebKit uses Option+Tab to include native buttons in keyboard navigation.
+  await input.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab')
+  await expect(clear).toBeFocused()
+  await clear.click()
+  await expect(input).toHaveValue('')
+  const screenshot = testInfo.outputPath('input-group-320-enlarged.png')
+  await form.screenshot({ path: screenshot })
+  await testInfo.attach('input-group-320-enlarged', { path: screenshot, contentType: 'image/png' })
+})
+
 test('packed fve output renders a styled accessible generated consumer', async ({ page }, testInfo) => {
   await page.goto('/')
 

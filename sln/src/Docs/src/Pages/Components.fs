@@ -3654,40 +3654,6 @@ div {
         |> InputGroup.withAddon (InputGroupAddon.keyboard InputGroupPosition.Trailing "⌘ K")
         |> InputGroup.render
 
-    let multipleAddonInputGroup =
-        InputGroup.create "record-search" "recordSearch" "Search records"
-        |> InputGroup.withInputType InputType.Search
-        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "In")
-        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "Accounts")
-        |> InputGroup.withAddon (InputGroupAddon.action InputGroupPosition.Trailing (
-            Button.create (ButtonContent.Text "Clear")
-            |> Button.withVariant ButtonVariant.Ghost
-            |> Button.withSize ControlSize.Small
-            |> Button.withAttributes [ _dataOn ("click", "document.getElementById('record-search').value = ''; document.getElementById('record-search').focus()") ]
-            |> Button.render))
-        |> InputGroup.render
-
-    let actionableInputGroup =
-        InputGroup.create "workspace-url" "workspaceUrl" "Workspace URL"
-        |> InputGroup.withValue "components"
-        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "fve.meiermade.com/")
-        |> InputGroup.withAddon (InputGroupAddon.action InputGroupPosition.Trailing (Button.create (ButtonContent.Text "Copy") |> Button.withVariant ButtonVariant.Ghost |> Button.withSize ControlSize.Small |> Button.render))
-        |> InputGroup.render
-
-    let dropdownInputGroup =
-        let menu =
-            DropdownMenu.create "amount-options" "Amount options"
-            |> DropdownMenu.withTrigger (DropdownMenuTrigger.text "Options")
-            |> DropdownMenu.withContent [
-                DropdownMenuItem.action "document.getElementById('invoice-amount').value = ''" "Clear amount"
-                DropdownMenuItem.action "document.getElementById('invoice-amount').value = '125.00'" "Use standard amount" ]
-            |> DropdownMenu.render id
-        InputGroup.create "invoice-amount" "invoiceAmount" "Invoice amount"
-        |> InputGroup.withValue "89.50"
-        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "$")
-        |> InputGroup.withAddon (InputGroupAddon.action InputGroupPosition.Trailing menu)
-        |> InputGroup.render
-
     let textareaInputGroup =
         InputGroup.create "message-draft" "message" "Message"
         |> InputGroup.asTextarea 4
@@ -4744,9 +4710,6 @@ div {
             sample "input-group-default" "Default" [ "defaultInputGroup" ] (fieldSurface defaultInputGroup)
             sample "input-group" "Text addons" [ "currencyInputGroup" ] (fieldSurface currencyInputGroup)
             sample "input-group-search" "Icon and keyboard hint" [ "searchInputGroup" ] (fieldSurface searchInputGroup)
-            sample "input-group-multiple" "Multiple addons" [ "multipleAddonInputGroup" ] (fieldSurface multipleAddonInputGroup)
-            sample "input-group-action" "Interactive addon" [ "actionableInputGroup" ] (fieldSurface actionableInputGroup)
-            sample "input-group-dropdown" "Dropdown addon" [ "dropdownInputGroup" ] (fieldSurface dropdownInputGroup)
             sample "input-group-textarea" "Textarea footer" [ "textareaInputGroup" ] (fieldSurface textareaInputGroup)
             sample "input-group-validation" "Validation" [ "invalidInputGroup" ] (fieldSurface invalidInputGroup)
             sample "input-group-pending" "Pending" [ "pendingInputGroup" ] (fieldSurface pendingInputGroup) ]

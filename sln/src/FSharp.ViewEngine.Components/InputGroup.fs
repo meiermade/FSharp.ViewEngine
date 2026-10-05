@@ -46,7 +46,7 @@ type InputGroupConfig =
 module InputGroupAddon =
     let text position value =
         { position = position
-          content = span { TextField.requiredText (nameof value) value }
+          content = span { _class "min-w-0 [overflow-wrap:anywhere]"; TextField.requiredText (nameof value) value }
           decorative = true }
 
     let icon position icon = { position = position; content = icon; decorative = true }
@@ -59,6 +59,7 @@ module InputGroupAddon =
 /// <remarks>
 /// Decorative addons are not focus targets or form values.
 /// Interactive addons require accessible names and keep native Tab order.
+/// Controls and addons wrap when their preferred widths no longer fit; footers keep their own row.
 /// </remarks>
 /// <category>input-group</category>
 [<RequireQualifiedAccess>]
@@ -111,7 +112,7 @@ module InputGroup =
             span {
                 if addon.decorative then _ariaHidden true
                 _class (ComponentHtml.classes [
-                    "flex shrink-0 items-center justify-center text-sm text-[var(--fve-muted-text)]"
+                    "flex min-w-0 max-w-full shrink-0 items-center justify-center text-sm text-[var(--fve-muted-text)]"
                     if addon.decorative then "pointer-events-none" ])
                 addon.content
             }
@@ -120,13 +121,13 @@ module InputGroup =
             let trailing = config.addons |> List.filter (fun addon -> addon.position = InputGroupPosition.Trailing)
             div {
                 _class (ComponentHtml.classes [
-                    "fve-input-group grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-y-2 overflow-hidden rounded-[var(--fve-radius-control)] border bg-[var(--fve-surface)] px-3 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
+                    "fve-input-group flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2 overflow-hidden rounded-[var(--fve-radius-control)] border bg-[var(--fve-surface)] px-3 has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2"
                     if config.validation.IsSome then "border-[var(--fve-critical-ring)] has-[:focus-visible]:outline-[var(--fve-critical-ring)]" else "border-[var(--fve-border)] has-[:focus-visible]:outline-[var(--fve-brand-ring)]"
                     if config.disabled then "opacity-50"
                     if config.pending then "bg-[var(--fve-neutral-subtle)]" ])
                 if not (List.isEmpty leading) then
                     div {
-                        _class "col-start-1 row-start-1 mr-2 flex min-w-0 items-center gap-2"
+                        _class "flex min-w-0 max-w-full flex-wrap items-center gap-2"
                         for addon in leading do renderAddon addon
                     }
                 match config.control with
@@ -136,23 +137,23 @@ module InputGroup =
                         _name config.name
                         _type (inputType kind)
                         _value config.value
-                        _class "col-start-2 row-start-1 w-full min-h-[calc(var(--fve-control-min-height)-2px)] min-w-0 border-0 bg-transparent py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] text-[var(--fve-text)] outline-none placeholder:text-[var(--fve-muted-text)]"
+                        _class "w-full min-h-[calc(var(--fve-control-min-height)-2px)] min-w-0 max-w-full flex-[1_0_8rem] border-0 bg-transparent py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] text-[var(--fve-text)] outline-none placeholder:text-[var(--fve-muted-text)]"
                     }
                 | InputGroupControl.Textarea rows ->
                     textarea {
                         for attribute in fieldAttributes do attribute
                         _name config.name
                         _rows rows
-                        _class "col-start-2 row-start-1 w-full min-h-24 min-w-0 resize-y border-0 bg-transparent py-3 text-sm leading-6 text-[var(--fve-text)] outline-none placeholder:text-[var(--fve-muted-text)]"
+                        _class "w-full min-h-24 min-w-0 max-w-full flex-[1_0_8rem] resize-y border-0 bg-transparent py-3 text-sm leading-6 text-[var(--fve-text)] outline-none placeholder:text-[var(--fve-muted-text)]"
                         config.value
                     }
                 if not (List.isEmpty trailing) then
                     div {
-                        _class "col-start-3 row-start-1 ml-2 flex min-w-0 items-center gap-2"
+                        _class "flex min-w-0 max-w-full flex-wrap items-center gap-2"
                         for addon in trailing do renderAddon addon
                     }
                 match config.footer with
-                | Some footer -> div { _class "col-span-3 col-start-1 row-start-2 -mx-3 flex min-w-0 flex-wrap items-center justify-between gap-2 border-t border-[var(--fve-border)] px-3 py-2"; footer }
+                | Some footer -> div { _class "-mx-3 flex w-[calc(100%+1.5rem)] min-w-0 flex-none flex-wrap items-center justify-between gap-2 border-t border-[var(--fve-border)] px-3 py-2"; footer }
                 | None -> ()
             }
         field
