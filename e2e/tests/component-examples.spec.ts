@@ -287,21 +287,22 @@ for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 
       for (const control of await gallery.locator('[data-docs-example-preview="true"] a:not([role="grid"] a), [data-docs-example-preview="true"] button:not([role="grid"] button)').all()) {
         if (!await control.isVisible()) continue
         await control.scrollIntoViewIfNeeded()
-        const box = (await control.boundingBox())!
-        const scrollport = await control.evaluate(el => {
-          const region = el.closest('.fve-calendar-body')
-          if (!region) return null
-          const box = region.getBoundingClientRect()
-          return { left: box.left, right: box.right }
+        const { left, right, text, scrollport } = await control.evaluate(el => {
+          const box = el.getBoundingClientRect()
+          const region = el.closest('.fve-calendar-body')?.getBoundingClientRect()
+          return {
+            left: box.left, right: box.right, text: el.textContent,
+            scrollport: region ? { left: region.left, right: region.right } : null,
+          }
         })
         if (scrollport) {
           // A genuine two-dimensional grid may contain cards wider than the mobile viewport.
-          expect(Math.min(box.x + box.width, scrollport.right) - Math.max(box.x, scrollport.left), await control.textContent()).toBeGreaterThan(0)
+          expect(Math.min(right, scrollport.right) - Math.max(left, scrollport.left), text).toBeGreaterThan(0)
           expect(scrollport.left).toBeGreaterThanOrEqual(0)
           expect(scrollport.right).toBeLessThanOrEqual(321)
         } else {
-          expect(box.x, await control.textContent()).toBeGreaterThanOrEqual(0)
-          expect(box.x + box.width, await control.textContent()).toBeLessThanOrEqual(321)
+          expect(left, text).toBeGreaterThanOrEqual(0)
+          expect(right, text).toBeLessThanOrEqual(321)
         }
       }
     }
