@@ -80,15 +80,16 @@ E2E_START_LOCAL=0 E2E_CROSS_BROWSER_MODE=full DOCS_E2E_BASE_URL=http://127.0.0.1
   --project=chromium --project=firefox --project=webkit --workers=1
 ```
 
-For multiple-choice behavior, run the same command with `tests/multiple-choice.spec.ts`. It covers keyboard selection/removal, native POST values, result/whole-field morphs, request cancellation and removal, and light/dark/390px/320px/200% layouts. The examples do not save data; clear selection or use a fresh browser context to reset them. `tests/popup-focus.spec.ts` checks Select/searchable Select keyboard field outlines, solid active rows, selected-versus-active contrast, borderless floating panels, forced-colors fallbacks and sticky-table DropdownMenu integration.
+For focused control interactions, replace the spec with `tests/multiple-choice.spec.ts` or `tests/popup-focus.spec.ts`.
 
-Run `npm run test:selection` to inspect the intentional browser contracts. PR CI retains complete Chromium coverage in six isolated shards, plus focused Firefox and WebKit compatibility journeys in three shards per engine; each shard owns an isolated local candidate and continues after other shard failures. The full suite includes detailed geometry and documentation workflows. Release acceptance instead runs `tests/staging-smoke.spec.ts` in one retry-free job: Chromium checks the Access perimeter, exact image identity, representative rendered pages, a stateless validated form and native Select/navigation behavior; Firefox and WebKit check the same native interaction/navigation journey. This proves the deployed boundary without repeating every Docs regression. Both use one browser worker and failure-only diagnostics. Route/link/asset and request-boundary contracts remain in direct HTTP or F# tests.
+From `e2e`, verify browser selection or run the local suite in CI's pinned browser container:
 
-Local readiness coverage deliberately exercises adverse timing: the Profile journey holds the Datastar module while activating its native radio, then verifies initialization and reload retain that appearance. The existing Notification lifecycle journey uses a loopback-only native HTTP proxy that flushes real navigation headers and delays the genuine SSE bodies; deployed runs retain the actual protected transport without that proxy. No handlers, navigation outcomes or notification contents are mocked.
+```sh
+npm run test:selection
+E2E_SERVER_PORT=6054 bash scripts/test-ci.sh
+```
 
-Calendar, gallery, navigation, overlay and template failures attach bounded `load-diagnostics` JSON with whitelisted route labels, request phases/status/timing, pending requests and document lifecycle events. It never records headers, bodies, query strings, arbitrary URLs or raw errors; authenticated traces remain disabled. `npm run test:selection` also checks this diagnostic redaction contract. A received response is not considered a finished body or a committed destination.
-
-For an exact-candidate local preflight in the same pinned browser container used by CI, run `E2E_SERVER_PORT=6054 bash scripts/test-ci.sh` from `e2e` when the regular Docs watcher occupies 5054. Keep packed-consumer compilation and component interaction coverage: reduce expensive/repeated work only when it provides no distinct protection. Release smoke complements this PR coverage; it does not replace genuine .NET 8/9/10 packaged consumers or release-package verification.
+PR CI runs the full Chromium suite and focused Firefox/WebKit regressions. Releases run a short protected-staging smoke suite; package verification and production safeguards remain required.
 
 ## Releases
 
@@ -103,8 +104,6 @@ CLI releases package the exact canonical component source registry compiled by t
 When a published package is permanently replaced, deprecate it only after its replacement and canonical production documentation are verified. In NuGet.org **Manage Packages → Deprecation**, select every version, choose **Legacy**, name the replacement package, and leave the versions listed/downloadable. Verify the resulting public metadata and pinned downloads with `node e2e/scripts/verify-package-retirement.mjs`; the check covers every Components and Docs version returned by NuGet.org rather than a hard-coded list.
 
 Versioned changelog entries are added in a follow-up pull request after the package is published and verified and its GitHub release has been reconciled. Feature pull requests and pre-publication workflow steps must not claim a package version or release date that does not yet exist.
-
-Known non-blocking release issue: release run [37452579840](https://github.com/meiermade/FSharp.ViewEngine/actions/runs/37452579840) measured a 4px initial horizontal Select label offset in WebKit against the regression's 1px limit. The alignment assertion remains unchanged in PR CI; this is not a fixed or proven flaky result. The release smoke requires working keyboard selection, focus, dismissal and navigation rather than pixel-perfect alignment. Historical initial-load stalls remain tracked separately; a current failure to load essential pages still blocks smoke acceptance.
 
 Every successful push to `main` deploys one immutable candidate to the Cloudflare Access-protected staging site at `https://fve.meiermade.net` and runs a bounded, credential-scoped smoke test. The public documentation site at `https://fve.meiermade.com` remains on its last released package-coherent image until an explicit release promotes that exact staging-accepted digest; ordinary merges do not update production. The legacy `https://fsharpviewengine.meiermade.com` hostname permanently redirects to the canonical origin while preserving paths and query strings.
 
