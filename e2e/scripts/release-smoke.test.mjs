@@ -24,6 +24,7 @@ require('fs').writeFileSync(process.env.ARGUMENTS, JSON.stringify(process.argv.s
         EXPECTED_COMMIT: 'accepted-source', DOCS_EXPECTED_COMMIT: 'accepted-source',
         EXPECTED_IMAGE: 'accepted-image', DOCS_EXPECTED_IMAGE: 'accepted-image',
         DOCS_E2E_BASE_URL: 'https://fve.meiermade.net',
+        CF_ACCESS_CLIENT_ID: 'runner-test-id', CF_ACCESS_CLIENT_SECRET: 'runner-test-secret',
         E2E_BROWSER: 'webkit', E2E_CROSS_BROWSER_MODE: 'full', E2E_SHARD: '1/3',
         ...changes,
       },
@@ -54,6 +55,19 @@ test('failed smoke propagates failure and still removes temporary auth', () => {
   const result = runSmoke({}, 17)
   assert.equal(result.status, 17)
   assert.equal(result.authRemoved, true)
+})
+
+test('missing or partial Access credentials stop before browser invocation', () => {
+  for (const changes of [
+    { CF_ACCESS_CLIENT_ID: undefined, CF_ACCESS_CLIENT_SECRET: undefined },
+    { CF_ACCESS_CLIENT_ID: '', CF_ACCESS_CLIENT_SECRET: '' },
+    { CF_ACCESS_CLIENT_ID: '' },
+    { CF_ACCESS_CLIENT_SECRET: '' },
+  ]) {
+    const result = runSmoke(changes)
+    assert.notEqual(result.status, 0)
+    assert.equal(result.arguments, null)
+  }
 })
 
 test('wrong staging identity or origin stops before browser invocation', () => {

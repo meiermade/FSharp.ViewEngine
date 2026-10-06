@@ -342,19 +342,14 @@ let tests =
                 Directory.Delete(fakeDirectory, true)
         }
 
-        test "PR and release browser matrices select the same complete shards" {
+        test "PR browser matrix retains all regression shards" {
             let previewShards = workflow "preview.yml" |> browserShards
-            let releaseShards = workflow "publish.yml" |> browserShards
-            let canonical shards = shards |> List.sortBy (fun shard -> shard.browser, shard.index)
             Expect.isNonEmpty previewShards "PR acceptance selects browser shards"
-            Expect.equal (canonical previewShards) (canonical releaseShards) "PR and release acceptance use one browser contract"
 
-            for browser in [ "chromium"; "firefox"; "webkit" ] do
+            for browser, total in [ "chromium", 6; "firefox", 3; "webkit", 3 ] do
                 let shards = previewShards |> List.filter (fun shard -> shard.browser = browser)
-                Expect.isNonEmpty shards $"{browser} retains intentional coverage"
                 let totals = shards |> List.map _.total |> List.distinct
-                Expect.equal totals.Length 1 $"{browser} uses one shard total"
-                let total = totals.Head
+                Expect.equal totals [ total ] $"{browser} retains its full shard total"
                 let indexes = shards |> List.map _.index |> List.sort
                 Expect.equal indexes [ 1 .. total ] $"{browser} shards are complete and unique"
         }

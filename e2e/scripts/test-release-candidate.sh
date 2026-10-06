@@ -10,6 +10,8 @@ test "$DOCS_EXPECTED_COMMIT" = "$EXPECTED_COMMIT"
 test "$DOCS_EXPECTED_IMAGE" = "$EXPECTED_IMAGE"
 
 test "$DOCS_E2E_BASE_URL" = 'https://fve.meiermade.net'
+: "${CF_ACCESS_CLIENT_ID:?CF_ACCESS_CLIENT_ID is required for protected release smoke}"
+: "${CF_ACCESS_CLIENT_SECRET:?CF_ACCESS_CLIENT_SECRET is required for protected release smoke}"
 
 # Full Docs regressions run in PR CI. Release proves the deployed boundary
 # without repeating gallery geometry and every documentation workflow.
