@@ -83,6 +83,15 @@ for (const [browser, shardCount, completeSelection] of [
   }
 }
 
+const releaseSmoke = listSelected(['tests/staging-smoke.spec.ts'])
+for (const [browser, count] of [['chromium', 5], ['firefox', 1], ['webkit', 1]]) {
+  if (releaseSmoke.get(browser).length !== count) fail(`${browser} release smoke must select ${count} intentional checks`)
+}
+if (JSON.stringify(releaseSmoke.get('firefox')) !== JSON.stringify(releaseSmoke.get('webkit'))) {
+  fail('Release compatibility smoke selections differ')
+}
+
 if (!process.exitCode) {
-  console.log(`E2E selection verified: Chromium ${chromium.length}, Firefox ${firefox.length}, WebKit ${webkit.length}`)
+  console.log(`PR E2E selection verified: Chromium ${chromium.length}, Firefox ${firefox.length}, WebKit ${webkit.length}`)
+  console.log('Release smoke selection verified: Chromium 5, Firefox 1, WebKit 1')
 }
