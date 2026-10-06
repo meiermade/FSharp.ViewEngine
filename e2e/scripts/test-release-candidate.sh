@@ -9,16 +9,9 @@ set -euo pipefail
 test "$DOCS_EXPECTED_COMMIT" = "$EXPECTED_COMMIT"
 test "$DOCS_EXPECTED_IMAGE" = "$EXPECTED_IMAGE"
 
-release_specs=()
-for spec in tests/*.spec.ts; do
-  if [[ "$(basename "$spec")" != "production-smoke.spec.ts" ]]; then
-    release_specs+=("$spec")
-  fi
-done
+test "$DOCS_E2E_BASE_URL" = 'https://fve.meiermade.net'
 
-if [[ ${#release_specs[@]} -eq 0 ]]; then
-  echo "No staging release acceptance specs found" >&2
-  exit 2
-fi
-
-E2E_CROSS_BROWSER_MODE=focused bash scripts/test-published-ci.sh "${release_specs[@]}"
+# Full Docs regressions run in PR CI. Release proves the deployed boundary
+# without repeating gallery geometry and every documentation workflow.
+unset E2E_SHARD
+E2E_BROWSER=all E2E_CROSS_BROWSER_MODE=focused bash scripts/test-published-ci.sh tests/staging-smoke.spec.ts

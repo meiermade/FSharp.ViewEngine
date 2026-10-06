@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixture'
 
 const stagingOrigin = 'https://fve.meiermade.net'
 const configuredOrigin = new URL(process.env.DOCS_E2E_BASE_URL ?? 'http://127.0.0.1:5054').origin
@@ -53,7 +53,31 @@ test.describe('protected staging smoke', () => {
       await expect(page.locator('main')).toBeVisible()
     }
 
+    const stylesheet = await page.request.get('/css/output.css')
+    expect(stylesheet.ok()).toBe(true)
+    expect(stylesheet.headers()['content-type']).toContain('text/css')
     expect(pageErrors).toEqual([])
+  })
+
+  test('representative Select supports native keyboard choice and documentation navigation @cross-browser', async ({ page }) => {
+    await page.goto('/components/select')
+    const panel = page.locator('#components-select-panel-preview')
+    const trigger = panel.getByRole('combobox', { name: 'Update frequency' })
+    await trigger.click()
+    await expect(panel.getByRole('option', { name: 'Weekly', exact: true, selected: true })).toBeVisible()
+    await page.keyboard.press('ArrowDown')
+    await page.keyboard.press('Enter')
+    await expect(trigger).toContainText('Daily')
+    await expect(panel.locator('input[name="updateFrequency"]')).toHaveValue('daily')
+    await expect(trigger).toBeFocused()
+    await trigger.click()
+    await expect(panel.getByRole('option', { name: 'Daily', exact: true, selected: true })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(trigger).toBeFocused()
+    await page.getByRole('button', { name: 'Toggle Actions section', exact: true }).click()
+    await page.getByRole('link', { name: 'Button', exact: true }).first().click()
+    await expect(page).toHaveURL(/\/components\/button$/)
+    await expect(page.getByRole('heading', { name: 'Button', level: 1, exact: true })).toBeVisible()
   })
 
   test('protected stateless financial form validates without retaining values', async ({ page }) => {
