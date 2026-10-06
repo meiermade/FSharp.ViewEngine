@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixture'
 
 test('catalog Preview Code and history retain the selected financial page', async ({ page }) => {
   await page.goto('/examples/application/accounts')
@@ -88,6 +88,72 @@ test('workspace menu and appearance preferences survive App mode document naviga
   await expect(page.locator('html')).not.toHaveClass(/dark/)
   await expect(page.getByRole('navigation', { name: 'App mode controls' })).toBeVisible()
 })
+
+for (const { saved, choice, activation } of [
+  { saved: 'dark', choice: 'Light', activation: 'Space' },
+  { saved: 'dark', choice: 'System', activation: 'Space' },
+  { saved: 'light', choice: 'System', activation: 'label' },
+  { saved: 'dark', choice: 'Light', activation: 'ArrowDown' },
+]) {
+  test(`Profile appearance honors native activation before delayed initialization (${saved} → ${choice}, ${activation}) @cross-browser`, async ({ page }) => {
+    // System must follow the OS, not simply select a light fallback.
+    await page.emulateMedia({ colorScheme: choice === 'System' ? 'dark' : 'light' })
+    await page.addInitScript(saved => {
+      if (!localStorage.getItem('financial-example-appearance')) {
+        localStorage.setItem('financial-example-appearance', saved)
+        localStorage.setItem('fsharp-viewengine-docs-navigation-color-mode', saved)
+      }
+    }, saved)
+    let release!: () => void
+    const moduleReady = new Promise<void>(resolve => { release = resolve })
+    await page.route('**/scripts/datastar.1.0.2.js', async route => {
+      await moduleReady
+      await route.continue()
+    })
+    try {
+      // Observe native SSR interaction while the module is still unavailable, not after hydration.
+      await page.goto('/examples/specification/profile?appMode=1', { waitUntil: 'commit' })
+      const group = page.getByRole('radiogroup', { name: 'Appearance', exact: true })
+      const clickText = async (text: string) => {
+        const target = group.getByText(text, { exact: true })
+        await expect(target).toBeVisible()
+        await target.evaluate(el => el.scrollIntoView({ block: 'center', behavior: 'instant' }))
+        const box = await target.boundingBox()
+        expect(box).not.toBeNull()
+        // WebKit withholds animation frames while this module is pending. Use a
+        // real native pointer, not locator.click's frame-based stability wait.
+        await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2)
+      }
+      // A bubbled non-input click must not overwrite the preference with undefined.
+      await clickText('Appearance')
+      expect(await page.evaluate(() => localStorage.getItem('financial-example-appearance'))).toBe(saved)
+      const radio = page.getByRole('radio', { name: choice, exact: true })
+      await expect(radio).toBeVisible()
+      const system = page.getByRole('radio', { name: 'System', exact: true })
+      if (choice === 'System' || activation === 'ArrowDown') await expect(system).toBeChecked()
+      if (activation === 'label') {
+        await clickText(choice)
+      } else {
+        await (activation === 'ArrowDown' ? system : radio).focus()
+        await page.keyboard.press(activation)
+      }
+      const mode = choice.toLowerCase()
+      await expect(radio).toBeChecked()
+      await expect(page.locator('html')).toHaveAttribute('data-color-mode', mode)
+      expect(await page.evaluate(() => localStorage.getItem('financial-example-appearance'))).toBe(mode)
+      release()
+      await page.waitForLoadState('load')
+      await expect(radio).toBeChecked()
+      await expect(page.locator('html')).toHaveClass(choice === 'System' ? /dark/ : /^(?!.*\bdark\b)/)
+      await page.reload()
+      await expect(radio).toBeChecked()
+      await expect(page.locator('html')).toHaveAttribute('data-color-mode', mode)
+      await expect(page.locator('html')).toHaveClass(choice === 'System' ? /dark/ : /^(?!.*\bdark\b)/)
+    } finally {
+      release()
+    }
+  })
+}
 
 test('rendered architecture nodes navigate from system context to project contracts', async ({ page }) => {
   await page.goto('/examples/specification/architecture')

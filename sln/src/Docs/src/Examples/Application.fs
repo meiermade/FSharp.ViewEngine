@@ -345,6 +345,8 @@ module Application =
     let private profile (query:Query) =
         let appearanceId = elementId query "template-appearance"
         let appearanceSignal = appearanceId.Replace('-', '_')+"_value"
+        let applyAppearance = "localStorage.setItem('financial-example-appearance', mode); const dark = mode == 'dark' || (mode == 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.classList.toggle('dark', dark); document.documentElement.style.colorScheme = dark ? 'dark' : 'light'; document.documentElement.dataset.colorMode = mode; window.dispatchEvent(new CustomEvent('financial-example-color-mode', {detail: mode}))"
+        let activateAppearance = $"const input = event.target; if (input instanceof HTMLInputElement && input.type == 'radio' && input.checked) {{ const mode = input.value; {applyAppearance} }}"
         div {
             _class "grid max-w-4xl gap-8"
             if query.state="validated" then notice query "template-profile-valid" "Profile values validated" "No identity values were saved or retained." NoticeColor.Success
@@ -366,9 +368,11 @@ module Application =
             Layout.section "Preferences" (div {
                 _class "grid max-w-xl gap-4"
                 div {
-                    _dataInit $"queueMicrotask(() => {{ ${appearanceSignal} = document.documentElement.dataset.colorMode ?? 'system' }})"
+                    _dataInit $"queueMicrotask(() => {{ const mode = localStorage.getItem('financial-example-appearance') || 'system'; ${appearanceSignal} = mode; {applyAppearance} }})"
                     _dataOn("financial-example-color-mode__window", $"${appearanceSignal} = evt.detail")
-                    _dataOn("change", "const mode = evt.target.value; localStorage.setItem('financial-example-appearance', mode); const dark = mode == 'dark' || (mode == 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches); document.documentElement.classList.toggle('dark', dark); document.documentElement.style.colorScheme = dark ? 'dark' : 'light'; document.documentElement.dataset.colorMode = mode; window.dispatchEvent(new CustomEvent('financial-example-color-mode', {detail: mode}))")
+                    _onclick activateAppearance
+                    // Chromium does not click an already-checked radio when Space is pressed.
+                    _onkeydown $"if (event.key == ' ') {{ {activateAppearance} }}"
                     RadioGroup.create (elementId query "appearance") "Appearance" id [RadioGroupOption.create "system" "System";RadioGroupOption.create "light" "Light";RadioGroupOption.create "dark" "Dark"]
                     |> RadioGroup.withId appearanceId |> RadioGroup.withSelected "system" |> RadioGroup.render
                 }
