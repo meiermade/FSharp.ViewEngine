@@ -1,4 +1,5 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixture'
+import { delayLocalNavigation } from './helpers/navigation-delay'
 import AxeBuilder from '@axe-core/playwright'
 
 for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
@@ -200,39 +201,45 @@ test('Notification keeps only the latest server-confirmed instance @cross-browse
   expect((await new AxeBuilder({ page }).include('#components-notification-panel-preview').analyze()).violations).toEqual([])
 })
 
-test('Notification default lifetime pauses for hover and focus within it and survives Datastar navigation @cross-browser', async ({ page }) => {
-  await page.goto('/components/notification')
-  let preview = page.locator('#components-notification-panel-preview')
-  await preview.getByRole('button', { name: 'Show notification', exact: true }).click()
-  let notification = preview.locator('#saved-notification-1')
-  await notification.getByRole('status').hover()
-  await page.waitForTimeout(5200)
-  await expect(notification).toBeVisible()
-  await notification.getByRole('button', { name: 'Dismiss Changes saved', exact: true }).focus()
-  await preview.getByRole('button', { name: 'Show notification', exact: true }).hover()
-  await page.waitForTimeout(1200)
-  await expect(notification).toBeVisible()
-  await preview.getByRole('button', { name: 'Show notification', exact: true }).focus()
-  await expect(notification).toHaveCount(0, { timeout: 5500 })
+test('Notification default lifetime pauses for hover and focus within it and survives Datastar navigation @cross-browser', async ({ page, baseURL }) => {
+  const navigation = await delayLocalNavigation(baseURL!)
+  try {
+    await page.goto(`${navigation?.origin ?? ''}/components/notification`)
+    let preview = page.locator('#components-notification-panel-preview')
+    await preview.getByRole('button', { name: 'Show notification', exact: true }).click()
+    let notification = preview.locator('#saved-notification-1')
+    await notification.getByRole('status').hover()
+    await page.waitForTimeout(5200)
+    await expect(notification).toBeVisible()
+    await notification.getByRole('button', { name: 'Dismiss Changes saved', exact: true }).focus()
+    await preview.getByRole('button', { name: 'Show notification', exact: true }).hover()
+    await page.waitForTimeout(1200)
+    await expect(notification).toBeVisible()
+    await preview.getByRole('button', { name: 'Show notification', exact: true }).focus()
+    await expect(notification).toHaveCount(0, { timeout: 5500 })
 
-  const badgeResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/badge' && response.request().headers()['datastar-request'] === 'true')
-  await page.locator('#nav-components-badge').click()
-  expect((await badgeResponse).status()).toBe(200)
-  // Response headers precede the morph; wait for its committed destination.
-  await expect(page).toHaveURL(/\/components\/badge$/)
-  const notificationResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/notification' && response.request().headers()['datastar-request'] === 'true')
-  await page.locator('#nav-components-notification').click()
-  expect((await notificationResponse).status()).toBe(200)
-  await expect(page).toHaveURL(/\/components\/notification$/)
-  preview = page.locator('#components-notification-panel-preview')
-  await expect(preview.locator('[data-fve-notification]')).toHaveCount(0)
-  await preview.getByRole('button', { name: 'Show notification', exact: true }).click()
-  notification = preview.locator('[data-fve-notification]')
-  await expect(notification).toHaveCount(1)
-  await expect(notification.getByRole('status')).toContainText('Server-confirmed notification')
-  await notification.getByRole('status').hover()
-  await page.waitForTimeout(1200)
-  await expect(notification).toBeVisible()
+    const badgeResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/badge' && response.request().headers()['datastar-request'] === 'true')
+    await page.locator('#nav-components-badge').click()
+    expect((await badgeResponse).status()).toBe(200)
+    // Response headers precede the morph; wait for its committed destination.
+    await expect(page).toHaveURL(/\/components\/badge$/)
+    const notificationResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/notification' && response.request().headers()['datastar-request'] === 'true')
+    await page.locator('#nav-components-notification').click()
+    expect((await notificationResponse).status()).toBe(200)
+    await expect(page).toHaveURL(/\/components\/notification$/)
+    preview = page.locator('#components-notification-panel-preview')
+    await expect(preview.locator('[data-fve-notification]')).toHaveCount(0)
+    await preview.getByRole('button', { name: 'Show notification', exact: true }).click()
+    notification = preview.locator('[data-fve-notification]')
+    await expect(notification).toHaveCount(1)
+    await expect(notification.getByRole('status')).toContainText('Server-confirmed notification')
+    await notification.getByRole('status').hover()
+    await page.waitForTimeout(1200)
+    await expect(notification).toBeVisible()
+    if (navigation) expect(navigation.delayed).toEqual(['/components/badge', '/components/notification'])
+  } finally {
+    await navigation?.close()
+  }
 })
 
 test('Notification stays bottom-end, readable, and motion-safe at narrow 200% text', async ({ page }, testInfo) => {

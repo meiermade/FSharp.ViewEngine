@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixture'
 
 test('catalog Preview Code and history retain the selected financial page', async ({ page }) => {
   await page.goto('/examples/application/accounts')
@@ -87,6 +87,41 @@ test('workspace menu and appearance preferences survive App mode document naviga
   await expect(light).toBeChecked()
   await expect(page.locator('html')).not.toHaveClass(/dark/)
   await expect(page.getByRole('navigation', { name: 'App mode controls' })).toBeVisible()
+})
+
+test('Profile appearance honors native activation before delayed initialization @cross-browser', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (!localStorage.getItem('financial-example-appearance')) {
+      localStorage.setItem('financial-example-appearance', 'dark')
+      localStorage.setItem('fsharp-viewengine-docs-navigation-color-mode', 'dark')
+    }
+  })
+  let release!: () => void
+  const moduleReady = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/scripts/datastar.1.0.2.js', async route => {
+    await moduleReady
+    await route.continue()
+  })
+  try {
+    // Observe native SSR interaction while the module is still unavailable, not after hydration.
+    await page.goto('/examples/specification/profile?appMode=1', { waitUntil: 'commit' })
+    const light = page.getByRole('radio', { name: 'Light', exact: true })
+    await expect(light).toBeVisible()
+    await light.focus()
+    await page.keyboard.press('Space')
+    await expect(light).toBeChecked()
+    await expect(page.locator('html')).toHaveAttribute('data-color-mode', 'light')
+    expect(await page.evaluate(() => localStorage.getItem('financial-example-appearance'))).toBe('light')
+    release()
+    await page.waitForLoadState('load')
+    await expect(light).toBeChecked()
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+    await page.reload()
+    await expect(light).toBeChecked()
+    await expect(page.locator('html')).not.toHaveClass(/dark/)
+  } finally {
+    release()
+  }
 })
 
 test('rendered architecture nodes navigate from system context to project contracts', async ({ page }) => {

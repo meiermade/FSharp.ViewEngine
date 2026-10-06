@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixture'
 import AxeBuilder from '@axe-core/playwright'
 
 for (const [view, width, scale, dark] of [

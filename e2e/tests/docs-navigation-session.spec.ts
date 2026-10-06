@@ -1,4 +1,5 @@
-import { test, expect, type Page } from '@playwright/test'
+import { type Page } from '@playwright/test'
+import { test, expect } from '../fixture'
 
 async function galleryLink(page: Page, slug: string) {
   const link = page.locator(`#nav-components-${slug}`)

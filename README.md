@@ -84,7 +84,11 @@ For multiple-choice behavior, run the same command with `tests/multiple-choice.s
 
 Run `npm run test:selection` to inspect the protected browser contract. PR and release workflows execute complete Chromium coverage in six isolated shards, plus focused Firefox and WebKit compatibility journeys in three shards per engine. Each shard uses one browser worker, no retries, and failure-only diagnostics. Release acceptance runs at most two shards concurrently because they share the protected staging workload and cancels queued shards after a failure; PR shards each own an isolated local candidate and continue after failures to provide complete review feedback. Route/link/asset and request-boundary contracts run through direct HTTP or F# tests instead of being repeated in every engine.
 
-These checks do not replace the right-sized release acceptance contract or genuine .NET 8/9/10 packaged consumers.
+Local readiness coverage deliberately exercises adverse timing: the Profile journey holds the Datastar module while activating its native radio, then verifies initialization and reload retain that appearance. The existing Notification lifecycle journey uses a loopback-only native HTTP proxy that flushes real navigation headers and delays the genuine SSE bodies; deployed runs retain the actual protected transport without that proxy. No handlers, navigation outcomes or notification contents are mocked.
+
+Calendar, gallery, navigation, overlay and template failures attach bounded `load-diagnostics` JSON with whitelisted route labels, request phases/status/timing, pending requests and document lifecycle events. It never records headers, bodies, query strings, arbitrary URLs or raw errors; authenticated traces remain disabled. `npm run test:selection` also checks this diagnostic redaction contract. A received response is not considered a finished body or a committed destination.
+
+For an exact-candidate local preflight in the same pinned browser container used by CI, run `E2E_SERVER_PORT=6054 bash scripts/test-ci.sh` from `e2e` when the regular Docs watcher occupies 5054. Keep packed-consumer compilation and component interaction coverage: reduce expensive/repeated work only when it provides no distinct protection. These checks do not replace the existing staging acceptance contract or genuine .NET 8/9/10 packaged consumers.
 
 ## Releases
 
