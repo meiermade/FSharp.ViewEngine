@@ -38,6 +38,9 @@ export const application = config.isStaging
         policies: [
             { id: config.cloudflareConfig.allowAdminsAccessPolicyId!, precedence: 1 },
             { id: ciPolicy!.id, precedence: 2 },
+            { id: config.cloudflareConfig.piAccessPolicyId!, precedence: 3 },
+            { id: config.cloudflareConfig.benjiAccessPolicyId!, precedence: 4 },
+            { id: config.cloudflareConfig.minnieAccessPolicyId!, precedence: 5 },
         ],
     }, {
         provider,

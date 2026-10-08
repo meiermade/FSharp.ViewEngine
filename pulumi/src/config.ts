@@ -95,6 +95,9 @@ export const cloudflareConfig = {
     teamName: optionalStagingValue('teamName'),
     googleAccessIdentityProviderId: optionalStagingValue('googleAccessIdentityProviderId'),
     allowAdminsAccessPolicyId: optionalStagingValue('allowAdminsAccessPolicyId'),
+    piAccessPolicyId: optionalStagingValue('piAccessPolicyId'),
+    benjiAccessPolicyId: optionalStagingValue('benjiAccessPolicyId'),
+    minnieAccessPolicyId: optionalStagingValue('minnieAccessPolicyId'),
     cloudflaredVersion: rawCloudflareConfig.get('cloudflaredVersion') ?? '2026.7.3',
 }
 

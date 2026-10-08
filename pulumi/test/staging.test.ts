@@ -29,6 +29,9 @@ process.env.PULUMI_CONFIG = JSON.stringify({
     'cloudflare:teamName': 'meiermade',
     'cloudflare:googleAccessIdentityProviderId': 'google-idp-id',
     'cloudflare:allowAdminsAccessPolicyId': 'admin-policy-id',
+    'cloudflare:piAccessPolicyId': 'pi-policy-id',
+    'cloudflare:benjiAccessPolicyId': 'benji-policy-id',
+    'cloudflare:minnieAccessPolicyId': 'minnie-policy-id',
     'openTelemetry:endpoint': 'http://otel-collector:4318',
 })
 
@@ -119,7 +122,12 @@ test('creates isolated Access, DNS, and tunnel resources for staging', () => {
     assert.deepEqual(application.inputs.policies, [
         { id: 'admin-policy-id', precedence: 1 },
         { id: 'fsharpviewengine-dev-ci-id', precedence: 2 },
+        { id: 'pi-policy-id', precedence: 3 },
+        { id: 'benji-policy-id', precedence: 4 },
+        { id: 'minnie-policy-id', precedence: 5 },
     ])
+    assert.equal(resourcesOfType('cloudflare:index/zeroTrustAccessServiceToken:ZeroTrustAccessServiceToken').length, 1)
+    assert.equal(resourcesOfType('cloudflare:index/zeroTrustAccessPolicy:ZeroTrustAccessPolicy').length, 1)
 
     const record = resource('cloudflare:index/dnsRecord:DnsRecord', 'fsharpviewengine-dev')
     assert.equal(record.inputs.zoneId, 'internal-zone-id')
