@@ -54,6 +54,7 @@
     <EmbeddedResource Include="src\Examples\UseCases\Operations.fs" LogicalName="Docs.Examples.UseCases.Operations.fs" />
     <EmbeddedResource Include="src\Examples\UseCases\Ledger.Application.fsproj" LogicalName="Docs.Examples.UseCases.Ledger.Application.fsproj" />
     <EmbeddedResource Include="src\Examples\Setup.md" LogicalName="Docs.Examples.Setup.md" />
+    <EmbeddedResource Include="src\Examples\input.css" LogicalName="Docs.Examples.input.css" />
     <EmbeddedResource Include="src\Pages\ComponentDocumentation.fs" LogicalName="Docs.Pages.ComponentDocumentation.fs" />
     <EmbeddedResource Include="src\Pages\Showcase.fs" LogicalName="Docs.Pages.Showcase.fs" />
     <EmbeddedResource Include="src\Pages\Components.fs" LogicalName="Docs.Pages.Components.fs" />

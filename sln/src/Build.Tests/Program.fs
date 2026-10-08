@@ -61,7 +61,7 @@ let tests =
             Expect.stringContains deployment "name: 'DOCS_SERVER_URL', value: 'http://0.0.0.0:5000'" "the deployed host names its listener explicitly"
             Expect.stringContains build "\"--watch=always\"" "background WatchDocs must not silently stop its CSS watcher"
             Expect.stringContains build "WatchDocs.runExclusiveWatcher" "one owned watcher replaces only its predecessor"
-            Expect.stringContains build "DOCS_SERVER_URL" "local review has a Docs-specific override"
+            Expect.stringContains build "DOCS_SERVER_URL" "the watcher sets the Docs listener explicitly"
             for invalid in [ "https://localhost:5054"; "http://localhost:5054"; "http://127.0.0.1:5054/path"; "http://127.0.0.1:5054?state=ready" ] do
                 Expect.throws (fun () -> WatchDocs.ensureLoopbackUrlAvailable "WatchDocs test" invalid) $"rejects {invalid}"
         }

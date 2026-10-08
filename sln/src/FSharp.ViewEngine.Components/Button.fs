@@ -139,7 +139,7 @@ module Button =
         | ButtonColor.Neutral -> ComponentColors.neutral
         | ButtonColor.Custom colors -> colors
 
-    let private variantClasses = function
+    let internal variantClasses = function
         | ButtonVariant.Solid -> ComponentColors.solid + " " + ComponentColors.solidInteraction
         | ButtonVariant.Soft -> ComponentColors.soft + " " + ComponentColors.softInteraction
         | ButtonVariant.Outline -> ComponentColors.outline + " " + ComponentColors.softInteraction
@@ -184,6 +184,36 @@ module Button =
         | ButtonContent.TextIcon (text, _) -> Html.text text
         | ButtonContent.Custom content -> content
 
+    let private classesFor appearance (config:ButtonConfig) =
+        ComponentHtml.classes [
+            ButtonStyles.baseClasses
+            (if iconOnly config.content then ComponentHtml.iconButtonSizeClasses config.size else ComponentHtml.sizeClasses config.size)
+            appearance
+            ComponentColors.focus
+            config.className |> Option.defaultValue "" ]
+
+    /// Renders a native destination link with Button presentation. Links cannot submit, be disabled or be pending.
+    let renderLink href (config:ButtonConfig) =
+        if String.IsNullOrWhiteSpace href then invalidArg (nameof href) "A native Button link requires a destination."
+        if config.disabled || config.pending || config.buttonType<>ButtonType.Button then
+            invalidArg (nameof config) "Native Button links do not support disabled, pending or form-submit behavior."
+        let interaction =
+            match config.variant with
+            | ButtonVariant.Solid -> ComponentColors.solid + " hover:bg-[var(--fve-color-hover)] active:bg-[var(--fve-color-active)]"
+            | ButtonVariant.Soft -> ComponentColors.soft + " hover:bg-[var(--fve-color-soft-hover)] active:bg-[var(--fve-color-soft-active)]"
+            | ButtonVariant.Outline -> ComponentColors.outline + " hover:bg-[var(--fve-color-soft-hover)] active:bg-[var(--fve-color-soft-active)]"
+            | ButtonVariant.Ghost -> ComponentColors.ghost + " hover:bg-[var(--fve-color-soft-hover)] active:bg-[var(--fve-color-soft-active)]"
+        a {
+            _href href
+            match accessibleName config.content with Some name -> _ariaLabel name | None -> ()
+            _style (ComponentColors.style (palette config.color) config.attributes)
+            _class (classesFor interaction config)
+            for attribute in ComponentHtml.safeAttributes [ "href"; "type"; "aria-label"; "disabled"; "aria-busy"; "class"; "style" ] config.attributes do attribute
+            renderAvailable config.content
+        }
+
+    let internal renderGroupedLink href groupClass config = config |> withGroupClass groupClass |> renderLink href
+
     /// Renders the configured native button.
     let render config =
         let unavailable = config.disabled || config.pending
@@ -193,13 +223,7 @@ module Button =
             _disabled unavailable
             if config.pending then _ariaBusy true
             _style (ComponentColors.style (palette config.color) config.attributes)
-            _class (
-                ComponentHtml.classes [
-                    ButtonStyles.baseClasses
-                    (if iconOnly config.content then ComponentHtml.iconButtonSizeClasses config.size else ComponentHtml.sizeClasses config.size)
-                    variantClasses config.variant
-                    ComponentColors.focus
-                    config.className |> Option.defaultValue "" ])
+            _class (classesFor (variantClasses config.variant) config)
             if not unavailable then
                 _dataOn ("keydown", [ "capture" ], "if (evt.target === el && (evt.key === ' ' || evt.key === 'Enter') && !evt.altKey && !evt.ctrlKey && !evt.metaKey && !el.hasAttribute('aria-haspopup') && el.getAttribute('aria-disabled') !== 'true' && el.getAttribute('aria-busy') !== 'true') el.dataset.fveKeyboardPressed = 'true'")
                 // WebKit can retain native :active after a keyboard press loses focus.

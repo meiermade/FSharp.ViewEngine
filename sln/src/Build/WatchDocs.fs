@@ -10,6 +10,7 @@ open System.Threading
 [<Literal>]
 let private productMarker = "fsharp-viewengine"
 
+[<Literal>]
 let defaultUrl = "http://127.0.0.1:5054"
 
 type WatcherOwnership =
@@ -70,13 +71,6 @@ let private stopExistingWatcher watcherName =
     tryReadOwnership watcherName |> Option.iter (stopOwnedWatcher watcherName)
     let path = watcherOwnershipFile watcherName
     if File.Exists path then File.Delete path
-
-let configuredUrl () =
-    Environment.GetEnvironmentVariable "DOCS_SERVER_URL"
-    |> Option.ofObj
-    |> Option.filter (String.IsNullOrWhiteSpace >> not)
-    |> Option.defaultValue defaultUrl
-    |> _.TrimEnd('/')
 
 let ensureLoopbackUrlAvailable watcherName (serverUrl:string) =
     let uri =

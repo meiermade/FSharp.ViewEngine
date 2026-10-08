@@ -6,12 +6,12 @@ async function galleryLink(page: Page, slug: string) {
   const parents = await link.evaluate(el => {
     const ids: string[] = []
     for (let node = el.parentElement; node; node = node.parentElement) {
-      if (node.id.startsWith('nav-children-')) ids.unshift(node.id)
+      if (node.tagName === 'DETAILS') ids.unshift(node.querySelector(':scope > summary')!.id)
     }
     return ids
   })
   for (const id of parents) {
-    const button = page.locator(`button[aria-controls="${id}"]`)
+    const button = page.locator(`summary[id="${id}"]`)
     if (await button.getAttribute('aria-expanded') === 'false') await button.click()
   }
   return link
@@ -159,7 +159,7 @@ test('sidebar preserves expanded groups and scroll during navigation morphs @cro
   const nav = sidebar.getByRole('navigation', { name: 'Documentation', exact: true })
   const expandedGroups = ['Guides', 'Actions', 'Feedback', 'Form controls', 'Navigation', 'Overlays']
   for (const name of expandedGroups) {
-    await sidebar.getByRole('button', { name: `Toggle ${name} section`, exact: true }).click()
+    await sidebar.getByLabel(`Toggle ${name} section`, { exact: true }).click()
   }
 
   for (const slug of ['phone', 'dialog', 'select', 'browser']) {
@@ -171,9 +171,9 @@ test('sidebar preserves expanded groups and scroll during navigation morphs @cro
     await expect(link).toHaveAttribute('aria-current', 'page')
     await expect.poll(async () => Math.abs(await nav.evaluate(el => el.scrollTop) - scrollBefore)).toBeLessThan(2)
     for (const name of expandedGroups) {
-      await expect(sidebar.getByRole('button', { name: `Toggle ${name} section`, exact: true })).toHaveAttribute('aria-expanded', 'true')
+      await expect(sidebar.getByLabel(`Toggle ${name} section`, { exact: true })).toHaveAttribute('aria-expanded', 'true')
     }
-    await expect(sidebar.getByRole('button', { name: 'Toggle Data display section', exact: true })).toHaveAttribute('aria-expanded', 'false')
+    await expect(sidebar.getByLabel('Toggle Data display section', { exact: true })).toHaveAttribute('aria-expanded', 'false')
   }
 
   const scrollBeforeHistory = await nav.evaluate(el => el.scrollTop)

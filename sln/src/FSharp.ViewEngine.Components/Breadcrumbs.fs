@@ -9,14 +9,19 @@ open type Html
 type BreadcrumbItem<'destination> =
     private
         { label:string
-          destination:'destination }
+          destination:'destination option }
 
 /// <category>breadcrumbs</category>
 [<RequireQualifiedAccess>]
 module BreadcrumbItem =
     let create destination label =
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A breadcrumb label is required."
-        { label = label; destination = destination }
+        { label = label; destination = Some destination }
+
+    /// A hierarchy label without a destination, such as a non-page navigation group.
+    let unlinked label : BreadcrumbItem<'destination> =
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A breadcrumb label is required."
+        { label = label; destination = None }
 
 /// <category>breadcrumbs</category>
 [<NoEquality; NoComparison>]
@@ -66,7 +71,10 @@ module Breadcrumbs =
         let overflow id items =
             DropdownMenu.create id "Show hidden breadcrumbs"
             |> DropdownMenu.withTrigger (DropdownMenuTrigger.icon overflowIcon)
-            |> DropdownMenu.withContent (items |> List.map (fun item -> DropdownMenuItem.link item.destination item.label))
+            |> DropdownMenu.withContent (items |> List.map (fun item ->
+                match item.destination with
+                | Some destination -> DropdownMenuItem.link destination item.label
+                | None -> DropdownMenuItem.action "void 0" item.label |> DropdownMenuItem.disabled))
             |> DropdownMenu.withAlignment DropdownMenuAlignment.Start
             |> DropdownMenu.render resolve
 
@@ -104,11 +112,14 @@ module Breadcrumbs =
                                 item.label
                             }
                         else
-                            a {
-                                _href (resolve item.destination)
-                                _class "block min-w-0 truncate rounded-[var(--fve-radius-control)] px-1 py-1 outline-none hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
-                                item.label
-                            }
+                            match item.destination with
+                            | Some destination ->
+                                a {
+                                    _href (resolve destination)
+                                    _class "block min-w-0 truncate rounded-[var(--fve-radius-control)] px-1 py-1 outline-none hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+                                    item.label
+                                }
+                            | None -> span { _class "block min-w-0 truncate px-1 py-1"; item.label }
                     }
             }
         }

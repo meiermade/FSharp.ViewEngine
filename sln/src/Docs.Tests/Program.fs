@@ -50,7 +50,7 @@ let private mutationStatus path (origin:string) (contentType:string) contentLeng
     Handler.postRoutes next context |> Async.AwaitTask |> Async.RunSynchronously |> ignore
     context.Response.StatusCode
 
-let private postForm (reference:string) (fields:(string * string) list) =
+let private postFormResponse (reference:string) (fields:(string * string) list) =
     let uri = Uri(Uri "https://fve.meiermade.com", reference)
     let body =
         fields
@@ -73,7 +73,11 @@ let private postForm (reference:string) (fields:(string * string) list) =
     Handler.postRoutes next context |> Async.AwaitTask |> Async.RunSynchronously |> ignore
     context.Response.Body.Position <- 0L
     use reader = new StreamReader(context.Response.Body)
-    context.Response.StatusCode, context.Response.Headers.Location.ToString(), context.Response.Headers.SetCookie.ToString(), reader.ReadToEnd()
+    context.Response.StatusCode, context.Response.Headers.Location.ToString(), context.Response.Headers.SetCookie.ToString(), reader.ReadToEnd(), context.Response.Headers.CacheControl.ToString()
+
+let private postForm reference fields =
+    let status,location,cookies,body,_ = postFormResponse reference fields
+    status,location,cookies,body
 
 let private shellTestUrl = function
     | Home -> "/"
@@ -553,14 +557,14 @@ let tests =
 
         test "Navigation separates Components from the three source-authored templates" {
             Expect.sequenceEqual (Registry.navigation |> List.map _.label)
-                ["Getting started"; "Core concepts"; "Integrations"; "Components"; "Examples"; "Project"] "public information architecture"
+                ["Getting started"; "Core concepts"; "Integrations"; "Components"; "Project"; "Examples"] "public information architecture"
             let components = Registry.navigation |> List.find (fun section -> section.label="Components")
             Expect.sequenceEqual (components.sections |> List.map _.label)
                 ["Guides"; "Actions"; "Feedback"; "Data display"; "Form controls"; "Navigation"; "Overlays"; "Layout"; "Code and diagrams"] "focused component groups"
             let examples = Registry.navigation |> List.find (fun section -> section.label="Examples")
             Expect.sequenceEqual (examples.pages |> List.map _.path) ["/examples"] "one template gallery, not one gallery entry per inner page"
             Expect.sequenceEqual (Examples.templates |> List.map _.path)
-                ["/examples/application"; "/examples/specification"; "/examples/api-documentation"] "exactly three cohesive examples"
+                ["/examples/specification"; "/examples/application"; "/examples/api-documentation"] "exactly three cohesive examples"
             for retired in ["Primitives"; "Application"; "Documentation"; "Page examples"; "Integration examples"] do
                 Expect.isFalse (components.sections |> List.exists (fun section -> section.label=retired)) "framework categories are not component navigation"
         }
@@ -1146,7 +1150,11 @@ after"""
                 Expect.isNone example.note $"{gallery} does not explain away its default"
                 Expect.isLessThan (example.source.Split('\n').Length) 46 $"{gallery} keeps its default source focused"
                 for stateFunction in stateFunctions do
-                    let source = if gallery = "select" then Regex.Replace(example.source, "\\|> Select\\.withSelected\\b[^\\r\\n]*", "") else example.source
+                    let source =
+                        match gallery with
+                        | "select" -> Regex.Replace(example.source, "\\|> Select\\.withSelected\\b[^\\r\\n]*", "")
+                        | "side-nav" -> example.source.Replace("SideNav.withContent", "SideNavContent")
+                        | _ -> example.source
                     Expect.isFalse (source.Contains($"|> {moduleName}.{stateFunction}")) $"{gallery} default does not apply presentation modifiers: {moduleName}.{stateFunction}"
         }
 
@@ -1208,8 +1216,9 @@ after"""
                 Expect.stringContains html $"rel=\"canonical\" href=\"https://fve.meiermade.com{path}\"" "complete template metadata"
                 Expect.stringContains html "id=\"main-content\"" "one semantic content target"
                 Expect.isFalse (html.Contains "data-docs-sidebar") "no outer library documentation shell"
-                Expect.stringContains html ">Preview</a>" "real preview destination"
-                Expect.stringContains html ">Code</a>" "real source destination"
+                Expect.isFalse (html.Contains "data-example-viewer-bar") "no duplicate preview/code chrome"
+                Expect.stringContains html "href=\"/examples/source.zip\"" "complete source is downloadable from the host top bar"
+            Expect.equal (Regex.Matches(gallery,"target=\"_blank\" rel=\"noopener\"").Count) 3 "each template opens in an isolated new tab"
             for file in Examples.sourceFiles do
                 let status,source = routeResponse ("/examples/source/"+file)
                 Expect.equal status 200 file
@@ -1240,11 +1249,11 @@ after"""
             let before = routeResponse "/examples/application/accounts/105" |> snd
             for path,fields,state,message in [
                 "/examples/application/accounts/new",accountFields "Private reserve" "Asset","validated","Account validated"
-                "/examples/application/accounts/new",accountFields "Operating checking" "Asset","invalid","Check the account name"
-                "/examples/application/accounts/new",accountFields "Private reserve" "unavailable","invalid-type","Check the account name"
+                "/examples/application/accounts/new",accountFields "Operating checking" "Asset","invalid","Use a unique name between 1 and 80 characters."
+                "/examples/application/accounts/new",accountFields "Private reserve" "unavailable","invalid-type","Check account type"
                 "/examples/application/accounts/new",accountFields "Private reserve" "Asset" |> List.map (fun (key,value) -> key,if key="currency" then "EUR" else value),"invalid-details","Check account details"
                 "/examples/application/accounts/101/edit",accountFields "Operating checking" "Asset","validated","Account validated"
-                "/examples/application/accounts/101/edit",accountFields "Tax reserve" "Asset","invalid","Check the account name"
+                "/examples/application/accounts/101/edit",accountFields "Tax reserve" "Asset","invalid","Use a unique name between 1 and 80 characters."
                 "/examples/application/accounts/101/delete",["action","delete"],"delete-blocked","Account cannot be deleted"
                 "/examples/application/accounts/105/delete",["action","delete"],"deleted","Deletion validated"
                 "/examples/application/accounts",["action","review-selected";"accountIds","105";"accountIds","group-Asset"],"selection-valid","Selected records checked"
@@ -1255,17 +1264,97 @@ after"""
                 "/examples/application/settings/organizations",["workspace","";"currency","USD"],"invalid","Check organization values"
                 "/examples/application/profile",["name","Private person";"email","private@example.invalid";"timezone","UTC"],"validated","Profile values validated"
                 "/examples/application/profile",["name","Private person";"email","not-an-email";"timezone","UTC"],"invalid","Check profile values" ] do
-                let status,location,cookies,_ = postForm path fields
-                Expect.equal status 302 path
-                let parameters = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery((Uri(Uri "https://fve.meiermade.com",location)).Query)
-                Expect.equal (string parameters["state"]) state "authoritative finite outcome"
+                let status,location,cookies,body,cache = postFormResponse path fields
+                let editorFailure = path.Contains("/accounts/") && state.StartsWith("invalid", StringComparison.Ordinal)
+                Expect.equal status (if editorFailure then 200 else 302) path
                 Expect.equal cookies "" "submissions create no session cookies"
-                let renderStatus,html = routeResponse location
-                Expect.equal renderStatus 200 "redirect destination resolves"
+                let html =
+                    if editorFailure then
+                        Expect.equal location "" "failed editor values never enter a redirect URL"
+                        Expect.equal cache "private, no-store" "private editor responses cannot be stored"
+                        body
+                    else
+                        let parameters = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery((Uri(Uri "https://fve.meiermade.com",location)).Query)
+                        Expect.equal (string parameters["state"]) state "authoritative finite outcome"
+                        let renderStatus,html = routeResponse location
+                        Expect.equal renderStatus 200 "redirect destination resolves"
+                        html
                 Expect.stringContains html message "rendered feedback matches the outcome"
                 for privateValue in ["Private reserve";"Private workspace";"Private person";"private@example.invalid"] do
-                    Expect.isFalse ((location+html).Contains privateValue) "private submitted values are not retained or reflected"
+                    Expect.isFalse (location.Contains privateValue) "private values never enter URLs"
+                    if not editorFailure then Expect.isFalse (html.Contains privateValue) "successful/non-editor submissions do not retain private values"
             Expect.equal (routeResponse "/examples/application/accounts/105" |> snd) before "eligible deletion does not mutate the record"
+        }
+
+        test "Account editor failures retain exact private entries only in the current response" {
+            let path = "/examples/application/accounts/101/edit"
+            let fields = ["name","  Private draft  ";"accountType","Asset";"parentType","Expense";"currency","USD";"subtype","Generic";"observedBalance","not-required";"from","accounts";"search","operating";"filterAccountType","Expense";"sort","balance"]
+            let status,location,cookies,body,cache = postFormResponse path fields
+            Expect.equal status 200 "invalid parent/type relationship renders field errors directly"
+            Expect.equal cache "private, no-store" "the private draft is not cacheable"
+            Expect.equal location "" "there is no draft redirect"
+            Expect.equal cookies "" "there is no durable draft session"
+            Expect.stringContains body "value=\"  Private draft  \"" "name whitespace survives this response exactly"
+            Expect.stringContains body "name=\"filterAccountType\" value=\"Expense\"" "collection filtering is distinct from the editable type"
+            let resultTitle = Regex.Match(body,"<title[^>]*>([^<]+)</title>").Groups[1].Value |> WebUtility.HtmlDecode
+            Expect.equal resultTitle "Accounts · Application example" "opening/validating the editor keeps its collection title and host identity"
+            for href in Regex.Matches(body,"href=\"([^\"]*)\"") |> Seq.cast<Match> do
+                Expect.isFalse (WebUtility.HtmlDecode(href.Groups[1].Value).Contains "Private draft") "private values never enter navigation destinations"
+            Expect.isFalse ((routeResponse path |> snd).Contains "Private draft") "a new GET cannot recover the draft"
+            let success = fields |> List.map (fun (key,value) -> key,if key="parentType" then "Asset" else value)
+            let successStatus,redirect,_,_,_ = postFormResponse path success
+            Expect.equal successStatus 302 "valid submission returns to the collection"
+            let destination = Uri(Uri "https://fve.meiermade.com",redirect)
+            Expect.equal destination.AbsolutePath path "the finite result remains on the submitted editor route"
+            let resultTitle = Regex.Match(routeResponse redirect |> snd,"<title[^>]*>([^<]+)</title>").Groups[1].Value |> WebUtility.HtmlDecode
+            Expect.equal resultTitle "Accounts · Application example" "the originating collection remains the background"
+            let query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery destination.Query
+            for key,value in ["search","operating";"accountType","Expense";"sort","balance";"from","accounts"] do
+                Expect.equal (string query[key]) value ("public context survives: "+key)
+        }
+
+        test "Transaction deletion validates existence without restricting verification or mutating fixtures" {
+            for id in [201;203] do
+                let record = $"/examples/application/transactions/{id}"
+                let before = routeResponse record |> snd
+                let path = record+"/delete"
+                Expect.equal (routeStatus path) 200 "verified and unverified records can both open confirmation"
+                let status,location,cookies,_ = postForm path ["action","delete";"from","transactions"]
+                Expect.equal status 302 "an existing record validates deletion"
+                Expect.equal cookies "" "deletion does not create a session"
+                Expect.stringContains location "state=deleted" "deletion outcome is authoritative"
+                Expect.stringContains location "from=transactions" "the originating collection is retained"
+                Expect.stringContains (routeResponse location |> snd) "Transactions" "the finite outcome renders its collection background"
+                Expect.equal (routeResponse record |> snd) before "validation does not mutate seeded records"
+            let missing = "/examples/application/transactions/999/delete"
+            Expect.equal (routeStatus missing) 404 "missing records cannot open confirmation"
+            Expect.equal (postForm missing ["action","delete"] |> fun (status,_,_,_) -> status) 404 "missing records cannot validate deletion"
+            Expect.equal (routeStatus "/examples/specification/transactions/delete-transaction") 200 "deletion has an owning Specification workflow"
+            Expect.equal (routeStatus "/examples/api-documentation/delete-transaction") 200 "deletion has an owning API contract"
+        }
+
+        test "Example ZIP exposes complete consumer source and pinned runtime assets" {
+            let webRoot = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "wwwroot"))
+            use app = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(Microsoft.AspNetCore.Builder.WebApplicationOptions(WebRootPath=webRoot)).Build()
+            let context = DefaultHttpContext()
+            context.RequestServices <- app.Services
+            context.Request.Scheme <- "https"
+            context.Request.Host <- HostString "fve.meiermade.com"
+            context.Request.Path <- PathString "/examples/source.zip"
+            context.Response.Body <- new MemoryStream()
+            let next : HttpFunc = fun current -> task { return Some current }
+            Handler.routes next context |> Async.AwaitTask |> Async.RunSynchronously |> ignore
+            Expect.equal context.Response.StatusCode 200 "ZIP download resolves"
+            Expect.equal context.Response.ContentType "application/zip" "download has the native ZIP media type"
+            context.Response.Body.Position <- 0L
+            use archive = new System.IO.Compression.ZipArchive(context.Response.Body,System.IO.Compression.ZipArchiveMode.Read)
+            let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
+            for file in Examples.sourceFiles do Expect.isTrue (entries.Contains file) ("complete source: "+file)
+            for file in ["wwwroot/scripts/datastar.1.0.2.js";"wwwroot/scripts/mermaid.11.16.0.min.js";"wwwroot/css/prism-tomorrow.1.29.0.min.css"] do
+                Expect.isTrue (entries.Contains file) ("pinned runtime asset: "+file)
+            for entry in archive.Entries |> Seq.filter (fun entry -> entry.FullName.EndsWith ".fs") do
+                use reader = new StreamReader(entry.Open())
+                Expect.isFalse (reader.ReadToEnd().Contains "FSharp.ViewEngine.Components.Templates") "copied source has no private Templates dependency"
         }
 
         test "Specification form outcomes preserve exact resource and submitted workspace mode and dock" {
@@ -1620,18 +1709,19 @@ after"""
                 SideNav.create
                     "product-navigation"
                     "Product navigation"
-                    (SideNavHeader.create "Ledger" |> SideNavHeader.withContent (strong { icon; " Ledger" }) |> SideNavHeader.withCompactContent icon)
-                    [ SideNavSection.group "Manage" [
-                          SideNavItem.create Home "Dashboard" |> SideNavItem.withLeading icon
-                          SideNavItem.create Accounts "Accounts" |> SideNavItem.withBadge (span { "4" }) |> SideNavItem.withAction (button { _type "button"; _ariaLabel "Pin accounts"; "Pin" })
-                          SideNavItem.unavailable "Unavailable" ]
-                      SideNavSection.group "Analyze" [ SideNavItem.nested "Reporting" [ SideNavItem.create Reports "Reports" ] |> SideNavItem.withLeading icon |> SideNavItem.expanded ]
-                      SideNavSection.group "Configure" [ SideNavItem.create Settings "Settings" ] ]
+                |> SideNav.withHeader (SideNavHeader.create "Ledger" |> SideNavHeader.withContent (strong { icon; " Ledger" }) |> SideNavHeader.withCompactContent icon)
+                |> SideNav.withContent (SideNavContent.create [
+                    SideNavSection.create "Manage" [
+                        SideNavItem.create Home "Dashboard" |> SideNavItem.withLeading icon
+                        SideNavItem.create Accounts "Accounts" |> SideNavItem.withBadge (span { "4" }) |> SideNavItem.withAction (button { _type "button"; _ariaLabel "Pin accounts"; "Pin" })
+                        SideNavItem.unavailable "Unavailable" ]
+                    SideNavSection.create "Analyze" [ SideNavGroup.create "Reporting" [ SideNavItem.create Reports "Reports" ] |> SideNavGroup.withLeading icon |> SideNavGroup.expanded ]
+                    SideNavSection.create "Configure" [ SideNavItem.create Settings "Settings" ] ])
                 |> SideNav.withCurrent Accounts
                 |> SideNav.withWidth SideNavWidth.Standard
-                |> SideNav.withContext (p { "Meier Made" })
+                |> SideNav.withContext [p { "Meier Made" }]
                 |> SideNav.withMobileContext (p { "Meier Made mobile" })
-                |> SideNav.withFooter (a { _href "/account"; "Andrew Meier" })
+                |> SideNav.withFooter [a { _href "/account"; "Andrew Meier" }]
                 |> SideNav.withCompactFooter (a { _href "/account"; _ariaLabel "Andrew Meier profile"; "AM" })
             let groupedHtml = grouped |> SideNav.render shellTestUrl |> Render.toString
             Expect.stringContains groupedHtml "aria-label=\"Product navigation\"" "SideNav has its consumer label"
@@ -1648,10 +1738,11 @@ after"""
             Expect.equal (Regex.Matches(groupedHtml, "aria-current=\"page\"").Count) 1 "SideNav exposes one current destination"
 
             let ungrouped =
-                SideNav.create "compact-navigation" "Compact navigation" (SideNavHeader.create "Treasury") [
-                    SideNavSection.ungrouped [
-                        SideNavItem.create Home "Overview"
-                        SideNavItem.create Reports "Transactions" ] ]
+                SideNav.create "compact-navigation" "Compact navigation"
+                |> SideNav.withHeader (SideNavHeader.create "Treasury")
+                |> SideNav.withContent (SideNavContent.create [
+                    SideNavItem.create Home "Overview"
+                    SideNavItem.create Reports "Transactions" ])
             let ungroupedHtml = ungrouped |> SideNav.render shellTestUrl |> Render.toString
             Expect.stringContains ungroupedHtml "aria-label=\"Compact navigation\"" "ungrouped navigation retains its name"
             Expect.isFalse (ungroupedHtml.Contains("uppercase tracking-wide")) "ungrouped navigation adds no invented group heading"
@@ -1849,13 +1940,13 @@ after"""
             Expect.throws (fun () -> Breadcrumbs.create "crumbs" " " [ BreadcrumbItem.create Home "Home" ] |> ignore) "Breadcrumbs requires an accessible label"
             Expect.throws (fun () -> Breadcrumbs.create "crumbs" "Breadcrumb" [] |> ignore) "Breadcrumbs rejects an empty path"
             Expect.throws (fun () -> SideNavItem.create Home " " |> ignore) "side-navigation items require labels"
-            Expect.throws (fun () -> SideNavSection.ungrouped [] |> ignore) "SideNav rejects an empty ungrouped section"
-            Expect.throws (fun () -> SideNavSection.group "Manage" [] |> ignore) "SideNav rejects an empty group"
+            Expect.throws (fun () -> SideNavSection.create "Empty" [] |> ignore) "SideNav rejects an empty section"
+            Expect.throws (fun () -> SideNavGroup.create "Manage" [] |> ignore) "SideNav rejects an empty group"
             Expect.throws (fun () -> SideNavHeader.create " " |> ignore) "SideNavHeader requires an accessible identity"
-            Expect.throws (fun () -> SideNav.create " " "Navigation" (SideNavHeader.create "Product") [ SideNavSection.ungrouped [ SideNavItem.create Home "Home" ] ] |> ignore) "SideNav requires a stable ID"
-            Expect.throws (fun () -> SideNav.create "nav" " " (SideNavHeader.create "Product") [ SideNavSection.ungrouped [ SideNavItem.create Home "Home" ] ] |> ignore) "SideNav requires an accessible label"
+            Expect.throws (fun () -> SideNav.create " " "Navigation" |> SideNav.withContent (SideNavContent.create [ SideNavItem.create Home "Home" ]) |> ignore) "SideNav requires a stable ID"
+            Expect.throws (fun () -> SideNav.create "nav" " " |> SideNav.withContent (SideNavContent.create [ SideNavItem.create Home "Home" ]) |> ignore) "SideNav requires an accessible label"
             Expect.throws (fun () -> ungrouped |> SideNav.withCurrent Settings |> ignore) "SideNav rejects an unrepresented current destination"
-            Expect.throws (fun () -> SideNav.create "nav" "Navigation" (SideNavHeader.create "Product") [ SideNavSection.ungrouped [ SideNavItem.create Home "Home"; SideNavItem.create Home "Duplicate" ] ] |> ignore) "SideNav rejects duplicate destinations"
+            Expect.throws (fun () -> SideNav.create "nav" "Navigation" |> SideNav.withContent (SideNavContent.create [ SideNavItem.create Home "Home"; SideNavItem.create Home "Duplicate" ]) |> ignore) "SideNav rejects duplicate destinations"
             Expect.throws (fun () -> PageHeader.create " " |> ignore) "PageHeader requires a route title"
             Expect.throws (fun () -> PageHeader.create "Title" |> PageHeader.withSubtitle " " |> ignore) "PageHeader rejects an empty subtitle"
             Expect.throws (fun () -> SectionHeader.create "Activity" |> SectionHeader.withDescription " " |> ignore) "SectionHeader rejects empty supporting text"
@@ -1864,7 +1955,7 @@ after"""
             Expect.throws (fun () -> BottomNavigation.create "quick-navigation" "Quick navigation" [] |> ignore) "BottomNavigation rejects an empty item list"
             Expect.throws (fun () -> BottomNavigation.create "quick-navigation" "Quick navigation" [ BottomNavigationItem.create Home "Home"; BottomNavigationItem.create Home "Home again" ] |> ignore) "BottomNavigation rejects duplicate destinations"
             Expect.throws (fun () -> AppShell.create " " grouped empty |> ignore) "AppShell requires a stable ID"
-            Expect.throws (fun () -> AppShell.create "same-id" (SideNav.create "same-id" "Navigation" (SideNavHeader.create "Product") [ SideNavSection.ungrouped [ SideNavItem.create Home "Home" ] ]) empty |> ignore) "AppShell and SideNav IDs must differ"
+            Expect.throws (fun () -> AppShell.create "same-id" (SideNav.create "same-id" "Navigation" |> SideNav.withContent (SideNavContent.create [ SideNavItem.create Home "Home" ])) empty |> ignore) "AppShell and SideNav IDs must differ"
             Expect.throws (fun () -> AppShell.create "product-shell" grouped empty |> AppShell.withMobileBottomNavigation "product-shell" "Quick navigation" [ BottomNavigationItem.create Home "Home" ] |> ignore) "AppShell requires distinct bottom-navigation IDs"
             Expect.throws (fun () -> AppShell.create "product-shell" grouped empty |> AppShell.withMobileBottomNavigation "quick-navigation" "Quick navigation" [ BottomNavigationItem.create Reports "Reports" ] |> ignore) "AppShell rejects mobile destinations missing from SideNav"
         }
@@ -1962,20 +2053,22 @@ after"""
             Expect.stringContains validationHtml "The value is still referenced." "server validation remains visible"
 
             let drawerBody = nav { _ariaLabel "Account settings"; a { _href "/accounts"; "Accounts" } }
-            let endDrawer = Drawer.create "settings-drawer" "Settings" drawerBody
+            let endDrawer = Drawer.create "settings-drawer" "Settings" drawerBody |> Drawer.withAttributes [_id "override"; _class "override"; _ariaModal false; _dataOn("close","override"); _dataOn("cancel","evt.preventDefault()")]
             let endDrawerHtml =
                 div { endDrawer |> Drawer.trigger "Open settings"; endDrawer |> Drawer.render }
                 |> Render.toString
             Expect.stringContains endDrawerHtml "<dialog id=\"settings-drawer\"" "Drawer remains a native dialog"
+            Expect.isFalse (endDrawerHtml.Contains "override") "consumer lifecycle attributes cannot replace structural identity or dismissal"
+            Expect.stringContains endDrawerHtml "data-on:cancel=\"evt.preventDefault()\"" "consumer lifecycle guards are retained"
             Expect.stringContains endDrawerHtml "inset-y-0 right-0 ml-auto mr-0 h-dvh border-l" "Drawer defaults to the end edge"
-            Expect.stringContains endDrawerHtml "w-[min(24rem,calc(100%-3rem))]" "Drawer reserves narrow viewport space"
+            Expect.stringContains endDrawerHtml "w-full max-w-full sm:w-96" "Drawer fills mobile widths and bounds its desktop surface"
             Expect.stringContains endDrawerHtml "aria-label=\"Account settings\"" "consumer landmarks are preserved"
             Expect.stringContains endDrawerHtml "id=\"settings-drawer-close\"" "Drawer owns a stable close target"
             Expect.stringContains endDrawerHtml "evt.target == evt.currentTarget" "Drawer backdrop dismisses explicitly"
             let startDrawerHtml = endDrawer |> Drawer.withSide DrawerSide.Start |> Drawer.render |> Render.toString
             Expect.stringContains startDrawerHtml "inset-y-0 left-0 ml-0 mr-auto h-dvh border-r" "Drawer supports the typed start edge"
             let wideDrawerHtml = endDrawer |> Drawer.withSize DrawerSize.Large |> Drawer.render |> Render.toString
-            Expect.stringContains wideDrawerHtml "w-[min(42rem,calc(100%-3rem))]" "Drawer supports a typed large editing surface"
+            Expect.stringContains wideDrawerHtml "w-full max-w-full sm:w-[42rem]" "Drawer supports a typed large editing surface"
             let topDrawerHtml = endDrawer |> Drawer.withSide DrawerSide.Top |> Drawer.render |> Render.toString
             Expect.stringContains topDrawerHtml "inset-x-0 top-0" "Drawer supports the typed top edge"
             let bottomDrawerHtml = endDrawer |> Drawer.withSide DrawerSide.Bottom |> Drawer.withSize DrawerSize.Large |> Drawer.render |> Render.toString
@@ -2011,6 +2104,13 @@ after"""
             Expect.throws (fun () -> Button.create (ButtonContent.Icon (" ", icon)) |> ignore) "icon-only Button rejects an empty accessible name"
             Expect.throws (fun () -> Button.create (ButtonContent.IconText (icon, " ")) |> ignore) "IconText Button rejects empty text"
             Expect.throws (fun () -> Button.create (ButtonContent.TextIcon (" ", icon)) |> ignore) "TextIcon Button rejects empty text"
+
+            let linkConfig = Button.create (ButtonContent.Text "Edit") |> Button.withAttributes [_attr("href","/wrong"); _class "override"]
+            let link = linkConfig |> Button.renderLink "/accounts/101/edit?from=accounts&sort=name" |> Render.toString
+            Expect.stringContains link "<a href=\"/accounts/101/edit?from=accounts&amp;sort=name\"" "styled links keep an encoded native destination"
+            Expect.isFalse (link.Contains "<button" || link.Contains "type=\"button\"" || link.Contains "override" || link.Contains "/wrong") "links retain anchor semantics and protect presentation/destination"
+            for modifier in [Button.asSubmit; Button.disabled; Button.pending] do
+                Expect.throws (fun () -> linkConfig |> modifier |> Button.renderLink "/accounts" |> ignore) "native links cannot claim button-only states"
 
             let pendingIconButton =
                 Button.create (ButtonContent.Icon ("Refresh accounts", icon))

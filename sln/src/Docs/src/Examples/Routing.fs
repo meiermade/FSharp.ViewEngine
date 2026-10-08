@@ -17,6 +17,7 @@ module Routing =
         | [""; "examples"; "application"; "accounts"; id; "delete"] -> idFrom id tryAccount |> Option.map ApplicationPage.DeleteAccount
         | [""; "examples"; "application"; "transactions"] -> Some ApplicationPage.Transactions
         | [""; "examples"; "application"; "transactions"; id] -> idFrom id tryTransaction |> Option.map ApplicationPage.Transaction
+        | [""; "examples"; "application"; "transactions"; id; "delete"] -> idFrom id tryTransaction |> Option.map ApplicationPage.DeleteTransaction
         | [""; "examples"; "application"; "settings"] -> Some ApplicationPage.Settings
         | [""; "examples"; "application"; "settings"; key] when settingsSections |> List.exists (fst >> (=) key) -> Some (ApplicationPage.SettingsSection key)
         | [""; "examples"; "application"; "profile"] -> Some ApplicationPage.Profile
@@ -29,4 +30,4 @@ module Routing =
             if List.contains page pages then Some page else None
         else None
     let specificationPage path = documentPage "/examples/specification" Specification.pages path
-    let apiPage path = documentPage "/examples/api-documentation" ["list-accounts"; "create-account"; "update-account"; "delete-account"; "list-transactions"; "get-transaction"] path
+    let apiPage path = documentPage "/examples/api-documentation" ["list-accounts"; "create-account"; "update-account"; "delete-account"; "list-transactions"; "get-transaction"; "delete-transaction"] path

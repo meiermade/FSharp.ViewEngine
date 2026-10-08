@@ -38,15 +38,6 @@ let exec workDir cmd args =
     |> Async.AwaitTask
     |> Async.Ignore
 
-let execEnv key value workDir cmd args =
-    CreateProcess.fromRawCommand cmd args
-    |> CreateProcess.setEnvironmentVariable key value
-    |> CreateProcess.withWorkingDirectory workDir
-    |> CreateProcess.ensureExitCode
-    |> Proc.start
-    |> Async.AwaitTask
-    |> Async.Ignore
-
 let dotnet workdir args = exec workdir "dotnet" args
 let tailwindcss args = exec docsDir "tailwindcss" args
 
@@ -285,13 +276,23 @@ Target.create "VerifyPackage" (fun _ ->
 )
 
 Target.create "WatchDocs" (fun _ ->
-    let docsUrl = WatchDocs.configuredUrl ()
+    let docsUrl = WatchDocs.defaultUrl
 
     WatchDocs.runExclusiveWatcher "WatchDocs" docsUrl <| fun () ->
         Trace.trace $"Starting the FSharp.ViewEngine Docs at {docsUrl}"
 
         let watchApp =
-            execEnv "DOCS_SERVER_URL" docsUrl docsDir "dotnet" ["watch"; "run"; "--no-restore"]
+            CreateProcess.fromRawCommand "dotnet"
+                ["watch"; "run"; "--no-restore"; "--no-launch-profile"; "--non-interactive"]
+            |> CreateProcess.setEnvironmentVariable "DOCS_SERVER_URL" docsUrl
+            |> CreateProcess.setEnvironmentVariable "DOCS_PUBLIC_ORIGIN" docsUrl
+            // Avoid recursive native FileSystemWatcher failures on macOS.
+            |> CreateProcess.setEnvironmentVariable "DOTNET_USE_POLLING_FILE_WATCHER" "1"
+            |> CreateProcess.withWorkingDirectory docsDir
+            |> CreateProcess.ensureExitCode
+            |> Proc.start
+            |> Async.AwaitTask
+            |> Async.Ignore
 
         let watchCss =
             // Imported package stylesheets are siblings of Docs, so watch their common root.

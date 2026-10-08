@@ -30,7 +30,8 @@ type DrawerConfig =
           footer:HtmlElement option
           initialFocusId:string
           side:DrawerSide
-          size:DrawerSize }
+          size:DrawerSize
+          attributes:HtmlAttribute list }
 
 /// <category>drawer</category>
 [<RequireQualifiedAccess>]
@@ -45,7 +46,8 @@ module Drawer =
           footer = None
           initialFocusId = $"{id}-close"
           side = DrawerSide.End
-          size = DrawerSize.Standard }
+          size = DrawerSize.Standard
+          attributes = [] }
 
     let withDescription description (config:DrawerConfig) =
         NativeOverlay.requireText (nameof description) "A drawer description cannot be empty." description
@@ -60,6 +62,9 @@ module Drawer =
     let withSide side (config:DrawerConfig) = { config with side = side }
 
     let withSize size (config:DrawerConfig) = { config with size = size }
+
+    /// Consumer-owned dimensions and route lifecycle; structural overlay attributes remain protected.
+    let withAttributes attributes (config:DrawerConfig) = { config with attributes = config.attributes @ attributes }
 
     let trigger label (config:DrawerConfig) =
         NativeOverlay.trigger config.id (Some config.initialFocusId) label
@@ -78,8 +83,8 @@ module Drawer =
             | DrawerSide.Bottom -> "inset-x-0 bottom-0 mb-0 mt-auto w-full max-w-none border-t"
         let sizeClasses =
             match config.side, config.size with
-            | (DrawerSide.Start | DrawerSide.End), DrawerSize.Standard -> "w-[min(24rem,calc(100%-3rem))] sm:w-96"
-            | (DrawerSide.Start | DrawerSide.End), DrawerSize.Large -> "w-[min(42rem,calc(100%-3rem))]"
+            | (DrawerSide.Start | DrawerSide.End), DrawerSize.Standard -> "w-full max-w-full sm:w-96"
+            | (DrawerSide.Start | DrawerSide.End), DrawerSize.Large -> "w-full max-w-full sm:w-[42rem]"
             | (DrawerSide.Top | DrawerSide.Bottom), DrawerSize.Standard -> "h-[min(20rem,calc(100%-3rem))]"
             | (DrawerSide.Top | DrawerSide.Bottom), DrawerSize.Large -> "h-[min(36rem,calc(100%-3rem))]"
         dialog {
@@ -87,6 +92,7 @@ module Drawer =
             _ariaLabelledby titleId
             _ariaModal true
             if config.description.IsSome then _ariaDescribedby descriptionId
+            for attribute in ComponentHtml.safeAttributes [ "id"; "class"; "open"; "aria-labelledby"; "aria-describedby"; "aria-modal"; "data-on:close"; "data-on:click" ] config.attributes do attribute
             _dataOn ("click", NativeOverlay.dismissOnBackdropExpression config.id)
             _dataOn ("close", NativeOverlay.restoreFocusExpression config.id)
             _class (ComponentHtml.classes [
@@ -98,7 +104,8 @@ module Drawer =
                 div {
                     _class "flex shrink-0 items-start justify-between gap-4 border-b border-[var(--fve-border)] p-5"
                     div {
-                        h2 { _id titleId; _class "text-lg font-semibold"; config.title }
+                        _class "min-w-0 flex-1"
+                        h2 { _id titleId; _class "text-lg font-semibold [overflow-wrap:anywhere]"; config.title }
                         match config.description with
                         | Some description -> p { _id descriptionId; _class "mt-1 text-sm text-[var(--fve-muted-text)]"; description }
                         | None -> ()

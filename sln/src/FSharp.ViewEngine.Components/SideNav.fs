@@ -23,63 +23,131 @@ module SideNavHeader =
     let withContent content (config:SideNavHeaderConfig) = { config with content = content }
     let withCompactContent content (config:SideNavHeaderConfig) = { config with compactContent = Some content }
 
+[<NoEquality; NoComparison>]
+type private SideNavRowDestination<'destination> =
+    | Link of 'destination
+    | Menu of DropdownMenuConfig<'destination>
+
 /// <category>side-nav</category>
 [<NoEquality; NoComparison>]
-type SideNavItem<'destination> =
+type SideNavRowConfig<'destination> =
     private
         { label:string
+          destination:SideNavRowDestination<'destination>
+          leading:HtmlElement option
+          current:bool
+          attributes:HtmlAttribute list }
+
+/// <summary>A full-width link or menu row for context and footer slots.</summary>
+/// <category>side-nav</category>
+[<RequireQualifiedAccess>]
+module SideNavRow =
+    let private create label destination =
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A side-navigation row label is required."
+        { label = label; destination = destination; leading = None; current = false; attributes = [] }
+
+    let link destination label = create label (Link destination)
+    let menu menu label = create label (Menu menu)
+    let withLeading leading (row:SideNavRowConfig<'destination>) = { row with leading = Some leading }
+    let current (row:SideNavRowConfig<'destination>) = { row with current = true }
+    let withAttributes attributes (row:SideNavRowConfig<'destination>) = { row with attributes = attributes }
+
+    let render resolve (row:SideNavRowConfig<'destination>) =
+        let body menu = span {
+            _class "flex min-w-0 w-full items-center gap-3"
+            match row.leading with
+            | Some leading -> span { _ariaHidden true; _class "flex size-5 shrink-0 items-center justify-center [&>svg]:size-5"; leading }
+            | None -> ()
+            span { _class "min-w-0 flex-1 truncate text-left"; row.label }
+            span {
+                _ariaHidden true
+                _class "size-4 shrink-0"
+                if menu then
+                    raw """<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
+                else
+                    raw """<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.22 4.22a.75.75 0 0 1 1.06 0l5.25 5.25a.75.75 0 0 1 0 1.06l-5.25 5.25a.75.75 0 1 1-1.06-1.06L11.94 10 7.22 5.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
+            }
+        }
+        match row.destination with
+        | Link destination ->
+            a {
+                _href (resolve destination)
+                if row.current then _ariaCurrent "page"
+                _class (ComponentHtml.classes [ ComponentHtml.popupControlClasses; "flex min-h-10 w-full shrink-0 items-center px-4 py-2 text-sm leading-5 font-semibold no-underline hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]"; if row.current then "bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)]" else "text-[var(--fve-text)]" ])
+                for attribute in ComponentHtml.safeAttributes [ "href"; "aria-current"; "class" ] row.attributes do attribute
+                body false
+            }
+        | Menu menu ->
+            menu
+            |> DropdownMenu.withTrigger (DropdownMenuTrigger.content (body true) |> DropdownMenuTrigger.asFullRow |> DropdownMenuTrigger.withAttributes row.attributes)
+            |> DropdownMenu.render resolve
+
+type internal SideNavNodeKind = Item | Section | Group
+
+/// <summary>A typed navigation link, static section, or collapsible group.</summary>
+/// <category>side-nav</category>
+[<NoEquality; NoComparison>]
+type SideNavNode<'destination> =
+    private
+        { kind:SideNavNodeKind
+          id:string option
+          label:string
           destination:'destination option
           leading:HtmlElement option
           badge:HtmlElement option
           action:HtmlElement option
-          children:SideNavItem<'destination> list
+          children:SideNavNode<'destination> list
           expanded:bool
+          expandedSignal:string option
           attributes:HtmlAttribute list }
 
+module internal SideNavNodes =
+    let create kind label destination children =
+        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A side-navigation label is required."
+        if kind <> SideNavNodeKind.Item && List.isEmpty children then
+            invalidArg (nameof children) "A navigation section or group requires at least one child."
+        { kind = kind; id = None; label = label; destination = destination
+          leading = None; badge = None; action = None; children = children
+          expanded = false; expandedSignal = None; attributes = [] }
+    let withId id (node:SideNavNode<'destination>) =
+        if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A navigation ID is required."
+        { node with id = Some id }
+
+/// <summary>Individual navigation destinations, without child guides.</summary>
 /// <category>side-nav</category>
 [<RequireQualifiedAccess>]
 module SideNavItem =
-    let private item label destination =
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A side-navigation item label is required."
-        { label = label
-          destination = destination
-          leading = None
-          badge = None
-          action = None
-          children = []
-          expanded = false
-          attributes = [] }
+    let create destination label = SideNavNodes.create SideNavNodeKind.Item label (Some destination) []
+    let unavailable<'destination> label : SideNavNode<'destination> = SideNavNodes.create SideNavNodeKind.Item label None []
+    let withId id node = SideNavNodes.withId id node
+    let withLeading leading (node:SideNavNode<'destination>) = { node with leading = Some leading }
+    let withBadge badge (node:SideNavNode<'destination>) = { node with badge = Some badge }
+    let withAction action (node:SideNavNode<'destination>) = { node with action = Some action }
+    let withAttributes attributes (node:SideNavNode<'destination>) = { node with attributes = attributes }
 
-    let create destination label = item label (Some destination)
-    let unavailable<'destination> label : SideNavItem<'destination> = item label None
-    let nested label children =
-        if List.isEmpty children then invalidArg (nameof children) "A nested navigation item requires at least one child."
-        { item label None with children = children }
-    let withLeading leading (item:SideNavItem<'destination>) = { item with leading = Some leading }
-    let withBadge badge (item:SideNavItem<'destination>) = { item with badge = Some badge }
-    let withAction action (item:SideNavItem<'destination>) = { item with action = Some action }
-    let expanded (item:SideNavItem<'destination>) = { item with expanded = true }
-    let withAttributes attributes (item:SideNavItem<'destination>) = { item with attributes = attributes }
-
-/// <category>side-nav</category>
-[<NoEquality; NoComparison>]
-type SideNavSection<'destination> =
-    private
-        { label:string option
-          items:SideNavItem<'destination> list }
-
+/// <summary>A small, non-collapsible label above unindented navigation children.</summary>
 /// <category>side-nav</category>
 [<RequireQualifiedAccess>]
 module SideNavSection =
-    let private requireItems (items:SideNavItem<'destination> list) =
-        if List.isEmpty items then invalidArg (nameof items) "A side-navigation section requires at least one item."
-        items
+    let create label children = SideNavNodes.create SideNavNodeKind.Section label None children
+    let withId id node = SideNavNodes.withId id node
 
-    let ungrouped items = { label = None; items = requireItems items }
-
-    let group label items =
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A side-navigation section label is required."
-        { label = Some label; items = requireItems items }
+/// <summary>A collapsible group with its child guide centered below the chevron.</summary>
+/// <category>side-nav</category>
+[<RequireQualifiedAccess>]
+module SideNavGroup =
+    let create label children = SideNavNodes.create SideNavNodeKind.Group label None children
+    let withId id node = SideNavNodes.withId id node
+    /// An existing host-owned expansion signal, without a leading dollar sign.
+    let withExpandedSignal (signal:string) (node:SideNavNode<'destination>) =
+        if not (System.Text.RegularExpressions.Regex.IsMatch(signal, "^[a-zA-Z_][a-zA-Z0-9_]*$")) then
+            invalidArg (nameof signal) "An expansion signal must be a valid Datastar identifier."
+        { node with expandedSignal = Some signal }
+    let withLeading leading node = SideNavItem.withLeading leading node
+    let withBadge badge node = SideNavItem.withBadge badge node
+    let withAction action node = SideNavItem.withAction action node
+    let withAttributes attributes node = SideNavItem.withAttributes attributes node
+    let expanded (node:SideNavNode<'destination>) = { node with expanded = true }
 
 /// <category>side-nav</category>
 [<RequireQualifiedAccess>]
@@ -89,10 +157,19 @@ type SideNavWidth =
     | Wide
 
 /// <category>side-nav</category>
+[<NoEquality; NoComparison>]
+type SideNavContentConfig<'destination> = private { items:SideNavNode<'destination> list }
+
+/// <summary>Ordered links, sections, and groups for the independently scrolling content slot.</summary>
+/// <category>side-nav</category>
 [<RequireQualifiedAccess>]
-type SideNavRegionLayout =
-    | Padded
-    | Flush
+module SideNavContent =
+    let create (items:SideNavNode<'destination> list) =
+        let rec destinationsFor (item:SideNavNode<'destination>) = [ yield! item.destination |> Option.toList; for child in item.children do yield! destinationsFor child ]
+        let destinations = items |> List.collect destinationsFor
+        if destinations.Length <> (destinations |> List.distinct |> List.length) then
+            invalidArg (nameof items) "Side-navigation destinations must be unique."
+        { items = items }
 
 /// <category>side-nav</category>
 [<NoEquality; NoComparison>]
@@ -100,26 +177,24 @@ type SideNavConfig<'destination when 'destination:equality> =
     private
         { id:string
           label:string
-          header:SideNavHeaderConfig
-          showHeader:bool
+          header:SideNavHeaderConfig option
           current:'destination option
-          sections:SideNavSection<'destination> list
+          content:SideNavContentConfig<'destination> option
           width:SideNavWidth
           context:HtmlElement option
           mobileContext:HtmlElement option
-          contextLayout:SideNavRegionLayout
           footer:HtmlElement option
-          compactFooter:HtmlElement option
-          footerLayout:SideNavRegionLayout }
+          compactFooter:HtmlElement option }
 
 module internal SideNavView =
     let id (config:SideNavConfig<'destination>) = config.id
     let label (config:SideNavConfig<'destination>) = config.label
-    let headerLabel (config:SideNavConfig<'destination>) = config.header.label
+    let headerLabel (config:SideNavConfig<'destination>) = config.header |> Option.map _.label |> Option.defaultValue config.label
+    let items (config:SideNavConfig<'destination>) = config.content |> Option.map _.items |> Option.defaultValue []
     let current (config:SideNavConfig<'destination>) = config.current
     let destinations (config:SideNavConfig<'destination>) =
         let rec collect item = [ yield! item.destination |> Option.toList; for child in item.children do yield! collect child ]
-        config.sections |> List.collect _.items |> List.collect collect
+        items config |> List.collect collect
     let width (config:SideNavConfig<'destination>) = config.width
     let mobileContext (config:SideNavConfig<'destination>) = config.mobileContext
 
@@ -128,11 +203,6 @@ module internal SideNavView =
         | SideNavWidth.Narrow -> "w-48"
         | SideNavWidth.Standard -> "w-60"
         | SideNavWidth.Wide -> "w-64"
-
-    let private regionClasses layout =
-        match layout with
-        | SideNavRegionLayout.Padded -> "px-4 py-3"
-        | SideNavRegionLayout.Flush -> ""
 
     let render
         (className:string)
@@ -145,20 +215,27 @@ module internal SideNavView =
             match collapsedExpression with
             | Some expression -> [ _dataClass ("hidden", expression) ]
             | None -> []
-        let rec containsCurrent (item:SideNavItem<'destination>) =
+        let rec containsCurrent (item:SideNavNode<'destination>) =
             (match config.current, item.destination with Some current, Some destination -> destination = current | _ -> false)
             || List.exists containsCurrent item.children
-        let leading (item:SideNavItem<'destination>) =
+        let rec hasLeading (item:SideNavNode<'destination>) = item.leading.IsSome || List.exists hasLeading item.children
+        let reserveLeading = items config |> List.exists hasLeading
+        let leading (item:SideNavNode<'destination>) =
             match item.leading with
             | Some content -> span { _ariaHidden true; _class "flex size-5 shrink-0 items-center justify-center"; content }
+            | None when reserveLeading ->
+                span {
+                    for attribute in hiddenWhenCollapsed do attribute
+                    _ariaHidden true; _class "size-5 shrink-0"
+                }
             | None -> empty
-        let label (item:SideNavItem<'destination>) =
+        let label (item:SideNavNode<'destination>) =
             span {
                 for attribute in hiddenWhenCollapsed do attribute
-                _class "min-w-0 flex-1 truncate"
+                _class "min-w-0 flex-1 whitespace-normal [overflow-wrap:anywhere]"
                 item.label
             }
-        let badge (item:SideNavItem<'destination>) =
+        let badge (item:SideNavNode<'destination>) =
             match item.badge with
             | Some content ->
                 span {
@@ -167,7 +244,7 @@ module internal SideNavView =
                     content
                 }
             | None -> empty
-        let action (item:SideNavItem<'destination>) =
+        let action (item:SideNavNode<'destination>) =
             match item.action with
             | Some content ->
                 span {
@@ -177,29 +254,34 @@ module internal SideNavView =
                     content
                 }
             | None -> empty
-        let itemClasses current =
+        let itemClasses kind current =
             ComponentHtml.classes [
-                "flex min-h-[var(--fve-navigation-min-height)] min-w-0 flex-1 items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-navigation-padding-block)] text-sm font-semibold no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]"
-                if current then "bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)]"
+                "flex min-h-[var(--fve-navigation-min-height)] min-w-0 flex-1 items-center gap-1 rounded-[var(--fve-radius-control)] pr-2.5 py-[var(--fve-navigation-padding-block)] text-sm leading-5 font-medium no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]"
+                if kind = SideNavNodeKind.Group then "pl-2" else "pl-3"
+                if current then "bg-[var(--fve-brand-subtle)] font-semibold text-[var(--fve-brand-text)]"
                 else "text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]" ]
-        let rec renderItem (item:SideNavItem<'destination>) =
+        let rec renderItem path (item:SideNavNode<'destination>) =
+            let itemId = item.id |> Option.defaultValue (config.id + "-item-" + path)
             let current =
                 match config.current, item.destination with
                 | Some current, Some destination -> destination = current
                 | _ -> false
             li {
-                if item.children.IsEmpty then
+                if item.kind = SideNavNodeKind.Section then _class "mt-5 first:mt-0"
+                match item.kind with
+                | SideNavNodeKind.Item ->
                     div {
                         _class "flex min-w-0 items-center gap-1"
                         match item.destination with
                         | Some destination ->
                             a {
+                                _id itemId
                                 _href (resolve destination)
                                 _ariaLabel item.label
                                 _title item.label
                                 if current then _ariaCurrent "page"
-                                _class (itemClasses current)
-                                for attribute in ComponentHtml.safeAttributes [ "href"; "aria-current"; "aria-label"; "title"; "class" ] item.attributes do attribute
+                                _class (itemClasses item.kind current)
+                                for attribute in ComponentHtml.safeAttributes [ "id"; "href"; "aria-current"; "aria-label"; "title"; "class" ] item.attributes do attribute
                                 leading item; label item; badge item
                             }
                         | None ->
@@ -207,33 +289,63 @@ module internal SideNavView =
                                 _ariaDisabled true
                                 _ariaLabel item.label
                                 _title item.label
-                                _class "flex min-h-[var(--fve-navigation-min-height)] min-w-0 flex-1 cursor-not-allowed items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-navigation-padding-block)] text-sm font-semibold text-[var(--fve-muted-text)] opacity-50"
+                                _class (itemClasses item.kind false + " cursor-not-allowed opacity-50")
                                 for attribute in ComponentHtml.safeAttributes [ "aria-disabled"; "aria-label"; "title"; "class"; "href" ] item.attributes do attribute
                                 leading item; label item; badge item
                             }
                         action item
                     }
-                else
+                | SideNavNodeKind.Section ->
+                    section {
+                        _id (itemId + "-section")
+                        h2 {
+                            _id itemId
+                            for attribute in hiddenWhenCollapsed do attribute
+                            _class "pl-3 pr-2.5 pb-2 text-xs font-medium text-[var(--fve-muted-text)]"
+                            item.label
+                        }
+                        ul {
+                            _id (itemId + "-children")
+                            _ariaLabel item.label
+                            _role "list"
+                            _class "grid min-w-0 gap-px"
+                            for index, child in List.indexed item.children do renderItem (path + "-" + string index) child
+                        }
+                    }
+                | SideNavNodeKind.Group ->
+                    let expanded = item.expanded || containsCurrent item
+                    let signal = item.expandedSignal |> Option.defaultValue ("_" + ComponentHtml.signalToken itemId + "_open")
                     details {
-                        if item.expanded || containsCurrent item then _open true
+                        if expanded then _open true
+                        _id (itemId + "-group")
+                        _ariaLabel item.label
+                        _attr ("data-signals__ifmissing", $"{{{signal}: {string expanded |> _.ToLowerInvariant()}}}")
+                        _dataAttr ("open", $"${signal}")
+                        _dataPreserveAttr "open"
                         _class "group/navigation-item"
                         summary {
-                            _ariaLabel item.label
+                            _id itemId
+                            _ariaLabel ("Toggle " + item.label + " section")
+                            _ariaControls (itemId + "-children")
+                            _dataAttr ("aria-expanded", $"${signal} ? 'true' : 'false'")
+                            _dataOn ("click", $"evt.preventDefault(); ${signal} = !${signal}")
                             _title item.label
-                            _class (itemClasses (containsCurrent item) + " cursor-pointer list-none [&::-webkit-details-marker]:hidden")
-                            leading item; label item; badge item; action item
+                            _class (itemClasses item.kind false + " cursor-pointer list-none [&::-webkit-details-marker]:hidden" + (if containsCurrent item then " font-semibold text-[var(--fve-text)]" else ""))
+                            for attribute in ComponentHtml.safeAttributes [ "id"; "aria-label"; "aria-expanded"; "aria-controls"; "title"; "class" ] item.attributes do attribute
                             span {
                                 for attribute in hiddenWhenCollapsed do attribute
                                 _ariaHidden true
-                                _class "ml-auto size-4 shrink-0 transition-transform group-open/navigation-item:rotate-90"
+                                _class "size-4 shrink-0 [[open]>summary>&]:rotate-90 [&>svg]:size-4"
                                 raw """<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.21 4.96a.75.75 0 0 1 1.06 0l4.51 4.51a.75.75 0 0 1 0 1.06l-4.51 4.51a.75.75 0 1 1-1.06-1.06L11.19 10 7.21 6.02a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
                             }
+                            leading item; label item; badge item; action item
                         }
                         ul {
+                            _id (itemId + "-children")
                             _role "list"
                             for attribute in hiddenWhenCollapsed do attribute
-                            _class "ml-5 mt-1 grid gap-1 border-l border-[var(--fve-border)] pl-2"
-                            for child in item.children do renderItem child
+                            _class "ml-[calc(1rem-0.5px)] mt-0.5 grid min-w-0 gap-px border-l border-[var(--fve-border)] pl-1"
+                            for index, child in List.indexed item.children do renderItem (path + "-" + string index) child
                         }
                     }
             }
@@ -245,7 +357,8 @@ module internal SideNavView =
             | Some expression -> _dataAttr ("data-fve-collapsed", $"{expression} ? 'true' : 'false'")
             | None -> ()
             for attribute in ComponentHtml.safeAttributes [ "id"; "class" ] attributes do attribute
-            if config.showHeader then
+            match config.header with
+            | Some header ->
                 div {
                     _attr ("data-fve-side-nav-header", "true")
                     _class "shrink-0 border-b border-[var(--fve-border)]"
@@ -255,54 +368,40 @@ module internal SideNavView =
                             _class "min-w-0 flex-1"
                             div {
                                 for attribute in hiddenWhenCollapsed do attribute
-                                config.header.content
+                                header.content
                             }
-                            match config.header.compactContent, collapsedExpression with
+                            match header.compactContent, collapsedExpression with
                             | Some content, Some expression -> div { _dataClass ("hidden", $"!({expression})"); _class "hidden"; content }
                             | _ -> ()
                         }
                         closeControl |> Option.defaultValue empty
                     }
                 }
+            | None -> ()
             match config.context with
             | Some context ->
                 div {
                     for attribute in hiddenWhenCollapsed do attribute
-                    _class (ComponentHtml.classes [ "shrink-0 border-b border-[var(--fve-border)]"; regionClasses config.contextLayout ])
+                    _attr ("data-fve-side-nav-context", "true")
+                    _class "shrink-0 border-b border-[var(--fve-border)]"
                     context
                 }
             | None -> ()
             nav {
                 _ariaLabel config.label
-                _class "min-h-0 flex-1 overflow-y-auto px-3 py-4"
-                for navigationSection in config.sections do
-                    match navigationSection.label with
-                    | Some label ->
-                        section {
-                            _ariaLabel label
-                            _class "mb-5 last:mb-0"
-                            h2 {
-                                for attribute in hiddenWhenCollapsed do attribute
-                                _class "px-3 pb-2 text-xs font-normal uppercase tracking-wider text-[var(--fve-muted-text)]"
-                                label
-                            }
-                            ul {
-                                _role "list"
-                                _class "grid gap-1"
-                                for item in navigationSection.items do renderItem item
-                            }
-                        }
-                    | None ->
-                        ul {
-                            _role "list"
-                            _class "mb-5 grid gap-1 last:mb-0"
-                            for item in navigationSection.items do renderItem item
-                        }
+                _attr ("data-fve-side-nav-content", "true")
+                _class (ComponentHtml.classes [ "min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"; if config.content.IsSome then "p-3" ])
+                ul {
+                    _role "list"
+                    _class "grid min-w-0 gap-px"
+                    for index, item in List.indexed (items config) do renderItem (string index) item
+                }
             }
             match config.footer with
             | Some footer ->
                 div {
-                    _class (ComponentHtml.classes [ "shrink-0 border-t border-[var(--fve-border)]"; regionClasses config.footerLayout ])
+                    _attr ("data-fve-side-nav-footer", "true")
+                    _class "shrink-0 border-t border-[var(--fve-border)]"
                     div {
                         for attribute in hiddenWhenCollapsed do attribute
                         footer
@@ -317,50 +416,38 @@ module internal SideNavView =
 /// <category>side-nav</category>
 [<RequireQualifiedAccess>]
 module SideNav =
-    let create id label header (sections:SideNavSection<'destination> list) =
+    let create id label =
         if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable side-navigation ID is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible side-navigation label is required."
-        if List.isEmpty sections then invalidArg (nameof sections) "At least one side-navigation section is required."
-
-        let rec destinationsFor item = [ yield! item.destination |> Option.toList; for child in item.children do yield! destinationsFor child ]
-        let destinations = sections |> List.collect _.items |> List.collect destinationsFor
-
-        if destinations.Length <> (destinations |> List.distinct |> List.length) then
-            invalidArg (nameof sections) "Side-navigation destinations must be unique."
-
         { id = id
           label = label
-          header = header
-          showHeader = true
+          header = None
           current = None
-          sections = sections
+          content = None
           width = SideNavWidth.Wide
           context = None
           mobileContext = None
-          contextLayout = SideNavRegionLayout.Padded
           footer = None
-          compactFooter = None
-          footerLayout = SideNavRegionLayout.Padded }
+          compactFooter = None }
+
+    let withHeader header (config:SideNavConfig<'destination>) = { config with header = Some header }
+    let withContent content (config:SideNavConfig<'destination>) = { config with content = Some content }
 
     let withCurrent current (config:SideNavConfig<'destination>) =
         let rec contains item = item.destination = Some current || List.exists contains item.children
-        let represented = config.sections |> List.collect _.items |> List.exists contains
+        let represented = SideNavView.items config |> List.exists contains
         if not represented then invalidArg (nameof current) "The current destination must exist in the side navigation."
         { config with current = Some current }
 
-    /// Omit duplicate branding when the owning shell supplies a full-width PageTopBar.
-    let withoutHeader (config:SideNavConfig<'destination>) = { config with showHeader = false }
     let withWidth width (config:SideNavConfig<'destination>) = { config with width = width }
-    let withContext context (config:SideNavConfig<'destination>) = { config with context = Some context }
+    let withContext (rows:HtmlElement list) (config:SideNavConfig<'destination>) = { config with context = if List.isEmpty rows then None else Some (fragment { for row in rows do yield row }) }
     let withMobileContext context (config:SideNavConfig<'destination>) = { config with mobileContext = Some context }
-    let withContextLayout layout (config:SideNavConfig<'destination>) = { config with contextLayout = layout }
-    let withFooter footer (config:SideNavConfig<'destination>) = { config with footer = Some footer }
+    let withFooter (rows:HtmlElement list) (config:SideNavConfig<'destination>) = { config with footer = if List.isEmpty rows then None else Some (fragment { for row in rows do yield row }) }
     let withCompactFooter footer (config:SideNavConfig<'destination>) = { config with compactFooter = Some footer }
-    let withFooterLayout layout (config:SideNavConfig<'destination>) = { config with footerLayout = layout }
 
     let render resolve config =
         SideNavView.render
-            (ComponentHtml.classes [ "flex h-full flex-col border-r border-[var(--fve-border)] bg-[var(--fve-background)] text-[var(--fve-text)]"; SideNavView.standaloneWidthClass config ])
+            (ComponentHtml.classes [ "flex h-full min-h-0 flex-col border-r border-[var(--fve-border)] bg-[var(--fve-background)] text-[var(--fve-text)]"; SideNavView.standaloneWidthClass config ])
             []
             None
             None

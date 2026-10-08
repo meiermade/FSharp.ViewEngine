@@ -255,6 +255,26 @@ module Components =
             |> ButtonGroup.render id
         }
 
+    let linkedButtonGroup =
+        ButtonGroup.create "Component destinations" [
+            ButtonGroupItem.link "/components/button" (ButtonContent.Text "Button")
+            ButtonGroupItem.link "/components/dropdown-menu" (ButtonContent.Text "Dropdown menu") ]
+        |> ButtonGroup.render id
+
+    let selectButtonGroup =
+        let format =
+            Select.create "groupExportFormat" "Export format" id [
+                SelectOption.create "csv" "CSV"
+                SelectOption.create "json" "JSON"
+                SelectOption.create "pdf" "PDF" ]
+            |> Select.withSelected "csv"
+            |> Select.withNativeFallback
+        ButtonGroup.create "Export options" [
+            ButtonGroupItem.label "Format"
+            ButtonGroupItem.select format
+            Button.create (ButtonContent.Text "Export") |> ButtonGroupItem.button ]
+        |> ButtonGroup.render id
+
     let verticalButtonGroup =
         ButtonGroup.create "Record view" [
             Button.create (ButtonContent.Text "Summary") |> ButtonGroupItem.button
@@ -1247,6 +1267,15 @@ module Components =
         |> Select.withSelected "daily"
         |> Select.render
 
+    let nativeFallbackSelect =
+        Select.create "nativeFrequency" "Update frequency" id [
+            SelectOption.create "daily" "Daily"
+            SelectOption.create "weekly" "Weekly"
+            SelectOption.create "monthly" "Monthly" ]
+        |> Select.withSelected "weekly"
+        |> Select.withNativeFallback
+        |> Select.render
+
     let basicSelect =
         Select.create "updateFrequency" "Update frequency" id [
             SelectOption.create "daily" "Daily"
@@ -1804,6 +1833,12 @@ module Components =
                 DropdownMenuItem.action "$menuActivations++" "Record secondary action" ] ]
         |> DropdownMenu.render destinationUrl
 
+    let outlinedDropdownMenu =
+        DropdownMenu.create "components-menu-outline" "More page actions"
+        |> DropdownMenu.withTrigger (DropdownMenuTrigger.icon menuOverflowIcon |> DropdownMenuTrigger.withVariant ButtonVariant.Outline)
+        |> DropdownMenu.withContent [DropdownMenuItem.link "/components/dropdown-menu" "Read menu guidance"; DropdownMenuItem.link "/components/button" "Read button guidance"]
+        |> DropdownMenu.render id
+
     let dropdownMenuRegion refreshed =
         div {
             _id "components-dropdown-menu-region"
@@ -2005,6 +2040,7 @@ module Components =
         |> Drawer.withFooter accountEditorFooter
         |> Drawer.withInitialFocus "account-editor-name"
         |> Drawer.withSize DrawerSize.Large
+        |> Drawer.withAttributes [ _style "width:min(32rem,100vw)" ]
 
     let filterDrawerConfig =
         Drawer.create "account-filters-drawer" "Account filters" (
@@ -2283,10 +2319,10 @@ module Components =
         | Settings -> "/components/theming"
 
     let defaultSideNav =
-        SideNav.create "default-side-navigation" "Primary navigation" (SideNavHeader.create "Workspace") [
-            SideNavSection.ungrouped [
-                SideNavItem.create Overview "Overview"
-                SideNavItem.create Settings "Settings" ] ]
+        SideNav.create "default-side-navigation" "Primary navigation"
+        |> SideNav.withContent (SideNavContent.create [
+            SideNavItem.create Overview "Overview"
+            SideNavItem.create Settings "Settings" ])
         |> SideNav.render defaultSideNavUrl
 
     // Resolve your destination values to URLs.
@@ -2299,6 +2335,66 @@ module Components =
         |> Breadcrumbs.render resolve
 
     let defaultSideNavPreview = div { defaultSideNav } |> themedSurface
+
+    let sideNavStructureExample =
+        SideNav.create "structure-navigation" "Navigation structure"
+        |> SideNav.withContent (SideNavContent.create [
+            SideNavItem.create "/examples/application" "Home"
+            SideNavSection.create "Accounting" [
+                SideNavItem.create "/examples/application/accounts" "Accounts"
+                SideNavItem.create "/examples/application/transactions" "Transactions" ]
+            SideNavGroup.create "Documentation" [
+                SideNavItem.create "/examples/specification" "Specification"
+                SideNavGroup.create "Components" [
+                    SideNavItem.create "/components/button" "Button"
+                    SideNavItem.create "/components/table" "Table" ]
+                |> SideNavGroup.expanded ]
+            |> SideNavGroup.expanded ])
+        |> SideNav.withCurrent "/examples/application/accounts"
+        |> SideNav.render id
+
+    let sideNavStructurePreview = div { sideNavStructureExample } |> themedSurface
+
+    let sideNavRowIcon data =
+        svg { _viewBox "0 0 24 24"; _fill "none"; _stroke "currentColor"; _strokeWidth "1.5"; path { _strokeLinecap "round"; _strokeLinejoin "round"; _d data } }
+
+    let sideNavSlotsExample =
+        let workspaceMenu =
+            DropdownMenu.create "slot-workspace" "Choose workspace"
+            |> DropdownMenu.withAlignment DropdownMenuAlignment.Start
+            |> DropdownMenu.withContent [
+                DropdownMenuItem.link "/examples/application?ledger=alex" "Alex"
+                DropdownMenuItem.link "/examples/application?ledger=jordan" "Jordan"
+                DropdownMenuItem.separator
+                DropdownMenuItem.link "/examples/application/settings/organizations" "Organizations" ]
+        SideNav.create "slot-navigation" "Application navigation"
+        |> SideNav.withHeader (SideNavHeader.create "Ledger" |> SideNavHeader.withContent (
+            a { _href "/examples/application"; _class "flex items-center gap-3 text-sm font-semibold"; ledgerMark; "Ledger" }))
+        |> SideNav.withContext [
+            SideNavRow.menu workspaceMenu "Alex"
+            |> SideNavRow.withLeading (sideNavRowIcon "M3.75 3.75h6v6h-6zm10.5 0h6v6h-6zm-10.5 10.5h6v6h-6zm10.5 0h6v6h-6z")
+            |> SideNavRow.render id ]
+        |> SideNav.withContent (SideNavContent.create [
+            SideNavItem.create "/examples/application" "Home"
+            SideNavSection.create "Accounting" [
+                SideNavItem.create "/examples/application/accounts" "Accounts"
+                SideNavItem.create "/examples/application/transactions" "Transactions"] ])
+        |> SideNav.withCurrent "/examples/application/accounts"
+        |> SideNav.withFooter [
+            SideNavRow.link "/examples/application/settings" "Settings"
+            |> SideNavRow.withLeading (sideNavRowIcon "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.281a6.52 6.52 0 0 1 1.94 1.12l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827a6.759 6.759 0 0 1 0 2.24l1.003.827c.424.35.534.954.26 1.43l-1.296 2.247a1.125 1.125 0 0 1-1.37.491l-1.217-.456a6.57 6.57 0 0 1-1.94 1.12l-.213 1.281c-.09.543-.56.94-1.11.94h-2.592c-.55 0-1.02-.397-1.11-.94l-.213-1.281a6.52 6.52 0 0 1-1.94-1.12l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.296-2.247a1.125 1.125 0 0 1 .26-1.431l1.003-.827a6.932 6.932 0 0 1 0-2.24l-1.003-.827a1.125 1.125 0 0 1-.26-1.43l1.296-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456a6.52 6.52 0 0 1 1.94-1.12l.213-1.281ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z")
+            |> SideNavRow.render id
+            Separator.create () |> Separator.render
+            SideNavRow.link "/examples/application/profile" "Andy Meier"
+            |> SideNavRow.withLeading (sideNavRowIcon "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.12a7.5 7.5 0 0 1 15 0")
+            |> SideNavRow.render id ]
+        |> SideNav.render id
+
+    let sideNavSlotsPreview =
+        div {
+            _class (ComponentsTheme.sky |> ComponentsTheme.withDensity Density.Compact |> ComponentsTheme.className)
+            div { _class "h-96 overflow-hidden rounded-xl ring-1 ring-[var(--fve-border)]"; sideNavSlotsExample }
+        }
 
     let breadcrumbsPreview =
         div {
@@ -2345,31 +2441,30 @@ module Components =
                 })
             |> SideNavHeader.withCompactContent compactBrand
         let accountAction = Button.create (ButtonContent.Icon ("Pin Accounts", raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path d="M7 2.75A.75.75 0 0 1 7.75 2h4.5a.75.75 0 0 1 .75.75v4.69l1.78 1.78a.75.75 0 0 1-.53 1.28h-3.5v6.75a.75.75 0 0 1-1.5 0V10.5h-3.5a.75.75 0 0 1-.53-1.28L7 7.44V2.75Z"/></svg>""")) |> Button.withVariant ButtonVariant.Ghost |> Button.withSize ControlSize.Small |> Button.withAttributes [ _dataOn ("click", "el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') != 'true' ? 'true' : 'false')"); _ariaPressed false ] |> Button.render
-        SideNav.create "ledger-side-navigation" "Ledger primary navigation" navigationHeader [
-            SideNavSection.group "Manage" [
+        SideNav.create "ledger-side-navigation" "Ledger primary navigation"
+        |> SideNav.withHeader navigationHeader
+        |> SideNav.withContent (SideNavContent.create [
+            SideNavSection.create "Manage" [
                 shellItem LedgerHome "Dashboard"
                 shellItem LedgerAccounts "Accounts"
                 |> SideNavItem.withBadge (Badge.create "6" |> Badge.withColor BadgeColor.Neutral |> Badge.render)
                 |> SideNavItem.withAction accountAction ]
-            SideNavSection.group "Analyze" [
-                SideNavItem.nested "Reporting" [ shellItem LedgerReports "Reports" ]
-                |> SideNavItem.withLeading navigationGlyph
-                |> SideNavItem.expanded ]
-            SideNavSection.group "Configure" [ shellItem LedgerSettings "Settings" ] ]
+            SideNavSection.create "Analyze" [
+                SideNavGroup.create "Reporting" [ shellItem LedgerReports "Reports" ]
+                |> SideNavGroup.withLeading navigationGlyph
+                |> SideNavGroup.expanded ]
+            SideNavSection.create "Configure" [ shellItem LedgerSettings "Settings" ] ])
         |> fun navigation ->
             match current with
             | LedgerTransaction _ -> navigation
             | _ -> SideNav.withCurrent navigationCurrent navigation
         |> SideNav.withWidth SideNavWidth.Standard
-        |> SideNav.withContext workspace
+        |> SideNav.withContext [div { _class "px-4 py-3"; workspace }]
         |> (if showMobileWorkspace then SideNav.withMobileContext workspace else id)
-        |> SideNav.withFooter (
-            a {
-                _href (shellDestinationUrl LedgerSettings)
-                _class "flex min-h-[var(--fve-control-min-height)] items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-navigation-padding-block)] text-sm font-semibold text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
-                span { _ariaHidden true; _class "flex size-8 items-center justify-center rounded-full bg-[var(--fve-brand-subtle)] text-xs text-[var(--fve-brand-text)]"; "AM" }
-                span { _class "min-w-0 truncate"; "Andy Meier" }
-            })
+        |> SideNav.withFooter [
+            SideNavRow.link LedgerSettings "Andy Meier"
+            |> SideNavRow.withLeading (span { _class "flex size-5 items-center justify-center rounded-full bg-[var(--fve-brand-subtle)] text-xs text-[var(--fve-brand-text)]"; "AM" })
+            |> SideNavRow.render shellDestinationUrl ]
         |> SideNav.withCompactFooter (
             a { _href (shellDestinationUrl LedgerSettings); _ariaLabel "Andy Meier profile"; _class "flex size-8 items-center justify-center rounded-full bg-[var(--fve-brand-subtle)] text-xs font-semibold text-[var(--fve-brand-text)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"; "AM" })
 
@@ -2465,10 +2560,10 @@ module Components =
                 _class "flex min-h-32"
                 div {
                     _class "hidden w-60 shrink-0 @3xl/fve-shell:block"
-                    SideNav.create "shell-top-bar-navigation" "Ledger" (SideNavHeader.create "Ledger") [
-                        SideNavSection.ungrouped [ SideNavItem.create "/examples/application" "Home"; SideNavItem.create "/examples/application/accounts" "Accounts" ] ]
+                    SideNav.create "shell-top-bar-navigation" "Ledger"
+                    |> SideNav.withContent (SideNavContent.create [
+                        SideNavItem.create "/examples/application" "Home"; SideNavItem.create "/examples/application/accounts" "Accounts" ])
                     |> SideNav.withWidth SideNavWidth.Standard
-                    |> SideNav.withoutHeader
                     |> SideNav.render id
                 }
                 div { _class "min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-8"; p { _class "text-sm text-[var(--fve-muted-text)]"; "Page region" } }
@@ -2512,22 +2607,23 @@ module Components =
                     span { _ariaHidden true; _class "flex size-8 shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] text-white"; treasuryMark }
                     strong { _class "truncate text-base font-semibold"; "Treasury" }
                 })
-        SideNav.create "treasury-side-navigation" "Treasury primary navigation" navigationHeader [
-            SideNavSection.ungrouped [
-                shellItem TreasuryHome "Overview"
-                shellItem TreasuryTransactions "Transactions"
-                shellItem TreasuryPayees "Payees"
-                shellItem TreasuryAccounts "Accounts" ] ]
+        SideNav.create "treasury-side-navigation" "Treasury primary navigation"
+        |> SideNav.withHeader navigationHeader
+        |> SideNav.withContent (SideNavContent.create [
+            shellItem TreasuryHome "Overview"
+            shellItem TreasuryTransactions "Transactions"
+            shellItem TreasuryPayees "Payees"
+            shellItem TreasuryAccounts "Accounts" ])
         |> SideNav.withCurrent navigationCurrent
         |> SideNav.withWidth SideNavWidth.Narrow
-        |> SideNav.withContext workspace
+        |> SideNav.withContext [div { _class "px-4 py-3"; workspace }]
         |> SideNav.withMobileContext workspace
-        |> SideNav.withFooter (
+        |> SideNav.withFooter [
             div {
                 _class "flex min-w-0 items-center gap-3 px-3 py-2"
                 span { _ariaHidden true; _class "flex size-8 items-center justify-center rounded-full bg-[var(--fve-brand-subtle)] text-xs text-[var(--fve-brand-text)]"; "AM" }
                 span { _class "min-w-0 truncate text-sm font-semibold"; "Andy Meier" }
-            })
+            } ]
 
     let private upcomingPayments =
         let actions =
@@ -3014,6 +3110,7 @@ module Components =
     let radioGroupRegistration = registration "components-radio-group" "/components/radio-group" "Radio group" "Radio group"
     let choiceCardsRegistration = registration "components-choice-cards" "/components/choice-cards" "Choice cards" "Choice cards"
     let dropdownMenuRegistration = registration "components-dropdown-menu" "/components/dropdown-menu" "Dropdown menu" "Dropdown menu"
+    let themeSwitcherRegistration = registration "components-theme-switcher" "/components/theme-switcher" "Theme switcher" "Theme switcher"
     let commandRegistration = registration "components-command" "/components/command" "Command" "Command"
     let dialogRegistration = registration "components-dialog" "/components/dialog" "Dialog" "Dialog"
     let drawerRegistration = registration "components-drawer" "/components/drawer" "Drawer" "Drawer"
@@ -3046,7 +3143,7 @@ module Components =
     let customizationRegistration = packageRegistration "components-customization" "/components/customization" "Customization" "Customization"
     let versioningRegistration = packageRegistration "components-versioning" "/components/versioning" "Versioning" "Versioning"
 
-    let actionRegistrations = [ buttonRegistration; buttonGroupRegistration; dropdownMenuRegistration; toggleButtonRegistration; toggleGroupRegistration ]
+    let actionRegistrations = [ buttonRegistration; buttonGroupRegistration; dropdownMenuRegistration; themeSwitcherRegistration; toggleButtonRegistration; toggleGroupRegistration ]
     let feedbackRegistrations = [ badgeRegistration; noticeRegistration; notificationRegistration; loadingIndicatorRegistration; progressRegistration; emptyStateRegistration; skeletonRegistration ]
     let dataDisplayRegistrations = [ tableRegistration; descriptionListRegistration; metricRegistration; avatarRegistration; copyRevealRegistration; dayCalendarRegistration; weekCalendarRegistration; monthCalendarRegistration; yearCalendarRegistration; itemRegistration; kbdRegistration; separatorRegistration ]
     let formControlRegistrations =
@@ -3195,6 +3292,14 @@ div {
 --fve-color-focus"""
 
     let basicButton = Button.create (ButtonContent.Text "Continue") |> Button.render
+
+    let nativeButtonLinks =
+        div {
+            _class "flex flex-wrap gap-3"
+            Button.create (ButtonContent.Text "View account") |> Button.renderLink "/examples/application/accounts/101"
+            Button.create (ButtonContent.Text "Create account") |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid
+            |> Button.renderLink "/examples/application/accounts/new"
+        }
 
     let buttonColorExamples =
         div {
@@ -3760,8 +3865,9 @@ div {
     let private componentDescription (registration:DocPage) =
         match componentKey registration with
         | "button" -> "Trigger actions and submit forms with explicit text, icon, color, variant, size, and pending content."
-        | "button-group" -> "Join related buttons and menu triggers into one compact horizontal or vertical control group."
+        | "button-group" -> "Join related buttons, native links, Select controls, menu triggers and muted text segments. Each control keeps its own semantics and keyboard behavior; labels are noninteractive, not disabled buttons. Native links retain real destinations."
         | "dropdown-menu" -> "Present contextual actions and typed choices in an accessible dismissible menu."
+        | "theme-switcher" -> "Choose System, Light or Dark from an icon menu, sharing one persisted document preference across application and specification controls."
         | "badge" -> "Label compact metadata and semantic states with typed colors and presentation variants."
         | "notice" -> "Present persistent contextual guidance with independent color, visual treatment, and accessible announcement policy."
         | "notification" -> "Present ephemeral, optionally actionable feedback in an accessible bottom-end stack."
@@ -3788,7 +3894,7 @@ div {
         | "file-selection" -> "Collect one or more files with accessible native selection and validation."
         | "tag-input" -> "Add and remove a bounded set of submitted text tags with validation."
         | "error-summary" -> "Summarize validation errors and link users to the affected fields."
-        | "select" -> "Choose typed single or multiple values with search, keyboard, form, and positioning behavior."
+        | "select" -> "Choose typed single or multiple values with search, keyboard, form and positioning behavior. Single selections update their named value input and emit a bubbling change event. Ordinary single selects can opt into a styled native fallback before Datastar initializes; only the active control submits a value."
         | "date-picker" -> "Combine a labelled date field, popover, and compact Month calendar into one form control."
         | "checkbox" -> "Submit an explicit checked or unchecked value with complete field semantics."
         | "switch" -> "Toggle an immediate binary setting with accessible checked and unavailable states."
@@ -3797,7 +3903,7 @@ div {
         | "radio-group" -> "Choose one submitted value from an accessible typed radio group."
         | "choice-cards" -> "Choose one rich option from labelled cards with descriptions and supporting content."
         | "breadcrumbs" -> "Show the current hierarchy with semantic links and responsive overflow."
-        | "side-nav" -> "Navigate nested application destinations with groups, badges, actions, and current state."
+        | "side-nav" -> "Compose optional header, context, scrolling content and footer slots. Use SideNavItem for links, SideNavSection for static headings, and SideNavGroup for collapsible groups; plain links share one chevron-aligned inset at every depth, sections use small, muted labels without indentation, and groups guide nested children with chevron-aligned vertical lines."
         | "tabs" -> "Switch between labelled local panels with orientation-aware keyboard navigation."
         | "pagination" -> "Navigate bounded result pages with current, previous, next, and compact range items."
         | "command" -> "Search grouped destinations and actions with ranked matching, keyboard navigation, and an optional dialog palette."
@@ -4515,13 +4621,14 @@ div {
         let layoutLabel = if bottomNavigation then "Full-width workspace" else "Constrained workspace"
         let header = SideNavHeader.create "Workspace" |> SideNavHeader.withCompactContent (span { _ariaHidden true; _class "font-semibold"; "W" })
         let navigation =
-            SideNav.create (id + "-navigation") (layoutLabel + " navigation") header [
-                SideNavSection.ungrouped [
-                    SideNavItem.create Dashboard "Dashboard" |> SideNavItem.withLeading navigationGlyph
-                    SideNavItem.create Projects "Projects" |> SideNavItem.withLeading navigationGlyph
-                    SideNavItem.create Preferences "Settings" |> SideNavItem.withLeading navigationGlyph ] ]
+            SideNav.create (id + "-navigation") (layoutLabel + " navigation")
+            |> SideNav.withHeader header
+            |> SideNav.withContent (SideNavContent.create [
+                SideNavItem.create Dashboard "Dashboard" |> SideNavItem.withLeading navigationGlyph
+                SideNavItem.create Projects "Projects" |> SideNavItem.withLeading navigationGlyph
+                SideNavItem.create Preferences "Settings" |> SideNavItem.withLeading navigationGlyph ])
             |> SideNav.withCurrent current
-            |> SideNav.withFooter (a { _href (shellLayoutUrl Preferences); _class "block px-3 py-2 text-sm font-semibold"; "Andy Meier" })
+            |> SideNav.withFooter [SideNavRow.link Preferences "Andy Meier" |> SideNavRow.render shellLayoutUrl]
             |> SideNav.withCompactFooter (a { _href (shellLayoutUrl Preferences); _ariaLabel "Andy Meier profile"; _class "flex size-8 items-center justify-center rounded-full bg-[var(--fve-brand-subtle)] text-xs font-semibold"; "AM" })
         let content =
             Page.create (PageHeader.create (shellLayoutLabel current)) (
@@ -4599,9 +4706,15 @@ div {
           sample "table-hierarchy" "Hierarchical accounts and aggregates" [ "HierarchyAccount"; "money"; "hierarchyAccounts"; "hierarchicalAccountTable" ] (detailsSurface hierarchicalAccountTable)
           sample "table-empty" "Empty state" [ "TeamMember"; "teamColumns"; "emptyTeamTable" ] (detailsSurface emptyTeamTable) ]
 
+    // Include themeSwitcherHead once in your document head, before the stylesheet.
+    let themeSwitcherHead = ThemeSwitcher.assets "your-product-appearance" ColorMode.System
+    let themeSwitcherExample = ThemeSwitcher.create "theme-switcher-example" "Choose color theme" |> ThemeSwitcher.render
+
     let examplesFor = function
         | "button" -> [
             sample "button-basic" "Default" [ "basicButton" ] (centered basicButton)
+            sample "button-links" "Native destination links" [ "nativeButtonLinks" ] (centered nativeButtonLinks)
+            |> note "Button.renderLink preserves a native href with shared Button colors, sizing and appearance. Use Button.render for form submission or commands; links do not support disabled or pending behavior."
             sample "button-colors" "Colors" [ "buttonColorExamples" ] (centered buttonColorExamples)
             sample "button-content" "Content modes" [ "plusIcon"; "refreshIcon"; "buttonContentExamples" ] (centered buttonContentExamples)
             sample "button-variants" "Variants" [ "buttonVariantExamples" ] (centered buttonVariantExamples)
@@ -4620,6 +4733,8 @@ div {
         | "button-group" -> [
             sample "button-group-default" "Default" [ "defaultButtonGroup" ] (centered defaultButtonGroup)
             sample "button-group" "Grouped actions" [ "backIcon"; "moreActionsIcon"; "buttonGroupExample" ] (centered buttonGroupExample)
+            sample "button-group-links" "Native link segments" [ "linkedButtonGroup" ] (centered linkedButtonGroup)
+            sample "button-group-select" "Label and Select segments" [ "selectButtonGroup" ] (centered selectButtonGroup)
             sample "button-group-vertical" "Vertical orientation" [ "verticalButtonGroup" ] (centered verticalButtonGroup) ]
         | "badge" -> [
             sample "badge" "Default" [ "badgeExample" ] (centered badgeExample)
@@ -4749,6 +4864,7 @@ div {
             sample "notification-timing" "Custom lifetime" [ "timedNotificationExample" ] (overlaySurface timedNotificationExample) ]
         | "select" -> [
             sample "select-default" "Default" [ "defaultSelect" ] (fieldSurface defaultSelect)
+            sample "select-native-fallback" "Native fallback" [ "nativeFallbackSelect" ] (fieldSurface nativeFallbackSelect)
             sample "select" "Selected-item alignment (default)" [ "basicSelect" ] (fieldSurface basicSelect)
             sample "select-help" "With help text" [ "selectWithHelp" ] (fieldSurface selectWithHelp)
             sample "select-edge" "Explicit trigger-edge position" [ "edgeAlignedSelect" ] (fieldSurface edgeAlignedSelect)
@@ -4834,8 +4950,12 @@ div {
             sample "choice-cards-validation" "Validation" [ "invalidChoiceCards" ] (detailsSurface invalidChoiceCards) ]
         | "dropdown-menu" -> [
             sample "dropdown-menu" "Basic menu" [ "basicDropdownMenu" ] (centered basicDropdownMenu)
+            sample "dropdown-menu-outline" "Outlined page action" [ "menuOverflowIcon"; "outlinedDropdownMenu" ] (centered outlinedDropdownMenu)
             sample "dropdown-menu-full-row" "Full context row and supporting descriptions" [ "menuTrailingChevron"; "fullRowDropdownMenu" ] (centered fullRowDropdownMenu)
             sample "dropdown-menu-advanced" "Grouped states and server refresh" [ "Destination"; "destinationUrl"; "menuLeadingIcon"; "dropdownMenuItems"; "actionMenu"; "menuOverflowIcon"; "moreActionsMenu"; "dropdownMenuRegion" ] (fieldSurface (dropdownMenuRegion false)) ]
+        | "theme-switcher" -> [
+            sample "theme-switcher" "System, Light and Dark" ["themeSwitcherHead";"themeSwitcherExample"] (centered themeSwitcherExample)
+            |> note "Include ThemeSwitcher.assets once in the document head before the stylesheet, and load Datastar for the menu. Choose your own storage key and use it across product/Spec documents. Multiple switchers, Profile preferences, system changes and other browser tabs share window.fveColorMode and the fve-color-mode event. ComponentsTheme still owns brand and semantic colors." ]
         | "command" -> [
             sample "command-default" "Default" [ "defaultCommand" ] (fieldSurface defaultCommand)
             sample "command-groups" "Groups, icons and shortcuts" [ "commandDocumentIcon"; "commandGroups"; "groupedCommand" ] (fieldSurface groupedCommand)
@@ -4863,6 +4983,8 @@ div {
             sample "breadcrumbs-visible" "Visible item count" [ "breadcrumbTrail"; "visibleBreadcrumbsExample" ] (themedSurface visibleBreadcrumbsExample) ]
         | "side-nav" -> [
             sample "side-nav-default" "Default" [ "DefaultSideNavDestination"; "defaultSideNavUrl"; "defaultSideNav" ] defaultSideNavPreview
+            sample "side-nav-structure" "Sections and collapsible groups" [ "sideNavStructureExample" ] sideNavStructurePreview
+            sample "side-nav-slots" "Header, context, content and footer" [ "ledgerMark"; "sideNavRowIcon"; "sideNavSlotsExample" ] sideNavSlotsPreview
             sample "side-nav" "Nested navigation with badges and actions" sideNavSource sideNavigationPreview ]
         | "page-top-bar" -> [ sample "page-top-bar" "With breadcrumbs" [ "pageTopBarExample"; "renderPageTopBar" ] pageTopBarPreview
                               sample "page-top-bar-shell" "Full-width shell bar" [ "shellTopBarExample" ] (shellTopBarExample |> themedSurface) ]
@@ -5027,6 +5149,7 @@ div {
     let radioGroupPage = gallery radioGroupRegistration (examplesFor "radio-group")
     let choiceCardsPage = gallery choiceCardsRegistration (examplesFor "choice-cards")
     let dropdownMenuPage = gallery dropdownMenuRegistration (examplesFor "dropdown-menu")
+    let themeSwitcherPage = gallery themeSwitcherRegistration (examplesFor "theme-switcher")
     let commandPage = gallery commandRegistration (examplesFor "command")
     let dialogPage = gallery dialogRegistration (examplesFor "dialog")
     let drawerPage = gallery drawerRegistration (examplesFor "drawer")
@@ -5154,6 +5277,7 @@ div {
           radioGroupRegistration.path, radioGroupPage
           choiceCardsRegistration.path, choiceCardsPage
           dropdownMenuRegistration.path, dropdownMenuPage
+          themeSwitcherRegistration.path, themeSwitcherPage
           commandRegistration.path, commandPage
           dialogRegistration.path, dialogPage
           drawerRegistration.path, drawerPage

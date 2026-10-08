@@ -26,7 +26,7 @@ test('examples expose only preview and code, copy complete source and preserve e
   await expect(full).toBeFocused()
 
   // Two-tab examples also work after enhanced navigation, not only direct load.
-  await page.getByRole('button', { name: 'Toggle Navigation section', exact: true }).click()
+  await page.getByLabel('Toggle Navigation section', { exact: true }).click()
   await page.getByRole('link', { name: 'Breadcrumbs', exact: true }).click()
   const breadcrumbStep = page.locator('#components-breadcrumbs-visible')
   await expect(breadcrumbStep.getByRole('tab')).toHaveText(['Preview', 'Code'])
