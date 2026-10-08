@@ -127,8 +127,8 @@ export const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                         ],
                         envFrom: [{ secretRef: { name: cloudflaredSecret.metadata.name } }],
                         resources: {
-                            requests: { cpu: '10m', memory: '32Mi' },
-                            limits: { cpu: '100m', memory: '128Mi' },
+                            requests: { cpu: '100m', memory: '128Mi' },
+                            limits: { memory: '128Mi' },
                         },
                         startupProbe: {
                             httpGet: { path: '/ready', port: 2000 },
