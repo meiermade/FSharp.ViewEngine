@@ -94,8 +94,8 @@ export const deployment = new k8s.apps.v1.Deployment(config.identifier, {
                         // The public runtime hit memory kills and 1s health-probe deadlines.
                         // Staging uses the same budget to exercise the promotion target.
                         resources: {
-                            requests: { cpu: '250m', memory: '256Mi' },
-                            limits: { cpu: '1000m', memory: '512Mi' },
+                            requests: { cpu: '250m', memory: '512Mi' },
+                            limits: { memory: '512Mi' },
                         },
                         startupProbe: {
                             httpGet: { path: '/health', port: 5000 },
