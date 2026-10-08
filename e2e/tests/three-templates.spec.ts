@@ -8,6 +8,7 @@ test('gallery opens isolated templates with source download and native history',
   await expect(app.getByRole('heading', { name: 'Home', exact: true, level: 1 })).toBeVisible()
   expect(await app.evaluate(() => window.opener)).toBeNull()
   await app.locator('#template-desktop-navigation').getByRole('link', { name: 'Accounts', exact: true }).click()
+  await expect(app.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
   await expect(app.getByRole('navigation', { name: 'Example view' })).toHaveCount(0)
   const download = app.waitForEvent('download')
   await app.getByRole('link', { name: 'Download example source ZIP', exact: true }).click()
