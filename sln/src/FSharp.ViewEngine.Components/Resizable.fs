@@ -67,8 +67,8 @@ module Resizable =
     let withOrientation orientation (config:ResizableConfig) = { config with orientation = orientation }
     let withAttributes attributes (config:ResizableConfig) = { config with attributes = attributes }
 
-    // The catalog shell reuses panel behavior with unframed, responsive presentation.
-    let internal renderWithClasses (rootClasses:string) (leadingClasses:string) (trailingClasses:string) (handleClasses:string) (config:ResizableConfig) =
+    /// Reuse panel behavior with consumer-owned unframed, responsive presentation.
+    let renderWithClasses (rootClasses:string) (leadingClasses:string) (trailingClasses:string) (handleClasses:string) (config:ResizableConfig) =
         let signal = $"_{ComponentHtml.signalToken config.id}_size"
         let isHorizontal = config.orientation = ResizableOrientation.Horizontal
         let coordinate = if isHorizontal then "clientX" else "clientY"
@@ -98,6 +98,7 @@ module Resizable =
             for attribute in ComponentHtml.safeAttributes [ "class"; "aria-label" ] config.attributes do attribute
             div {
                 _class leadingClasses
+                _style ("flex-basis:" + string config.leading.initialSize + "%")
                 _dataAttr ("style", $"'flex-basis:' + ${signal} + '%%' ")
                 config.leading.content
             }

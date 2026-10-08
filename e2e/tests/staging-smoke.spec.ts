@@ -74,7 +74,7 @@ test.describe('protected staging smoke', () => {
     await expect(panel.getByRole('option', { name: 'Daily', exact: true, selected: true })).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(trigger).toBeFocused()
-    await page.getByRole('button', { name: 'Toggle Actions section', exact: true }).click()
+    await page.getByLabel('Toggle Actions section', { exact: true }).click()
     await page.getByRole('link', { name: 'Button', exact: true }).first().click()
     await expect(page).toHaveURL(/\/components\/button$/)
     await expect(page.getByRole('heading', { name: 'Button', level: 1, exact: true })).toBeVisible()

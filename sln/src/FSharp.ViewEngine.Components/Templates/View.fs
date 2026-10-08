@@ -197,8 +197,6 @@ module private ViewHelpers =
 
 module private ViewStyles =
     let iconButton = "grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-transparent bg-transparent p-1.5 text-[var(--fve-muted-text)] no-underline hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&>svg]:size-[1.125rem]"
-    let navItem = "flex min-h-7 w-full min-w-0 cursor-pointer items-center gap-1.5 rounded-md border-0 bg-transparent px-2.5 py-1 text-left text-sm leading-5 font-medium text-[var(--fve-muted-text)] no-underline hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)]"
-    let navList = "m-0 min-w-0 list-none p-0 [&>li+li]:mt-px"
     let sectionContent = "flex flex-col gap-4 text-[var(--fve-text)]"
     let codeSurface = "bg-[var(--fve-docs-code-surface,var(--fve-background))] text-[var(--fve-text)]"
     let tocLinks = "flex min-w-0 flex-col gap-2 [&>a]:min-w-0 [&>a]:whitespace-normal [&>a]:[overflow-wrap:anywhere] [&>a]:text-sm [&>a]:leading-5 [&>a]:text-[var(--fve-muted-text)] [&>a]:no-underline [&>a:hover]:text-[var(--fve-brand-text)] [&>a[aria-current=location]]:font-semibold [&>a[aria-current=location]]:text-[var(--fve-brand-text)]"
@@ -226,23 +224,8 @@ module private DocsSectionView =
         }
 
 module private ColorModeView =
-    let render defaultMode =
-        let icon =
-            raw """<svg class="size-4 shrink-0 dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/></svg><svg class="hidden size-4 shrink-0 dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 2.25 12c0 5.385 4.365 9.75 9.75 9.75a9.753 9.753 0 0 0 9.752-6.748Z"/></svg>"""
-        let items : FSharp.ViewEngine.Components.DropdownMenuItem<unit> list =
-            [ for mode, label in [ System, "System"; Light, "Light"; Dark, "Dark" ] do
-                let value = DocsColorMode.value mode
-                FSharp.ViewEngine.Components.DropdownMenuItem.radio $"$colorMode = '{value}'" label
-                |> FSharp.ViewEngine.Components.DropdownMenuItem.withChecked (mode = defaultMode)
-                |> FSharp.ViewEngine.Components.DropdownMenuItem.withCheckedExpression $"$colorMode == '{value}'" ]
-        div {
-            _class "relative shrink-0"
-            _data("on:fsharpdocs:colormode__window", "$colorMode = window.fsharpDocsColorMode.current()")
-            FSharp.ViewEngine.Components.DropdownMenu.create "docs-color-mode" "Choose color theme"
-            |> FSharp.ViewEngine.Components.DropdownMenu.withTrigger (FSharp.ViewEngine.Components.DropdownMenuTrigger.icon icon)
-            |> FSharp.ViewEngine.Components.DropdownMenu.withContent items
-            |> FSharp.ViewEngine.Components.DropdownMenu.render (fun () -> "")
-        }
+    let mode = function DocsColorMode.System -> ColorMode.System | DocsColorMode.Light -> ColorMode.Light | DocsColorMode.Dark -> ColorMode.Dark
+    let render defaultMode = ThemeSwitcher.create "docs-color-mode" "Choose color theme" |> ThemeSwitcher.withDefaultMode (mode defaultMode) |> ThemeSwitcher.render
 
 module private RepositoryView =
     let render = function
@@ -264,160 +247,79 @@ module private RepositoryView =
 module private NavigationView =
     open ViewHelpers
 
-    let rec node activeId (navNode:NavNode<'destination>) =
-        let isActive = NavNode.id navNode = activeId
-        li {
-            match navNode with
-            | NavNode.Group group ->
-                let signal = signalName group.id
-                let containsActive = NavNode.containsActive activeId navNode
-                button {
-                    _id $"nav-{group.id}"
-                    _type "button"
-                    _ariaLabel $"Toggle {group.label} section"
-                    _ariaControls $"nav-children-{group.id}"
-                    _data("attr:aria-expanded", $"${signal} ? 'true' : 'false'")
-                    _data("on:click", $"${signal} = !${signal}")
-                    _data("active", containsActive.ToString().ToLowerInvariant())
-                    _class $"{ViewStyles.navItem} data-[active=true]:font-semibold data-[active=true]:text-[var(--fve-text)]"
-                    span {
-                        _class "grid size-4 shrink-0 place-items-center text-[var(--fve-muted-text)] transition-transform data-[open=true]:rotate-90 [&>svg]:size-4"
-                        _data("attr:data-open", $"${signal} ? 'true' : 'false'")
-                        Icons.chevron
-                    }
-                    span { _class "min-w-0 flex-1 whitespace-normal [overflow-wrap:anywhere]"; group.label }
-                }
-                ul {
-                    _id $"nav-children-{group.id}"
-                    _class (ViewStyles.navList + " mt-0.5 ml-3 w-[calc(100%-0.75rem)] border-l border-[var(--fve-border)]")
-                    _data("show", $"${signal}")
-                    // After initial rendering, the expansion signal owns visibility across morphs.
-                    _dataPreserveAttr "style"
-                    if not (group.defaultOpen || containsActive) then _style "display:none"
-                    for child in group.children do node activeId child
-                }
-            | NavNode.Page page ->
-                a {
-                    _id $"nav-{page.id}"
-                    _href page.href
-                    _data("docs-nav-link", "true")
-                    _data("selected", isActive.ToString().ToLowerInvariant())
-                    if isActive then _ariaCurrent "page"
-                    _class $"{ViewStyles.navItem} data-[selected=true]:bg-[var(--fve-brand-subtle)] data-[selected=true]:font-semibold data-[selected=true]:text-[var(--fve-brand-text)]"
-                    span { _class "grid size-4 shrink-0 place-items-center"; _ariaHidden "true" }
-                    span { _class "min-w-0 flex-1 whitespace-normal [overflow-wrap:anywhere]"; page.label }
-                }
-        }
-
     let sideNav (site:DocsSite<'destination>) (items:NavNode<'destination> list) activeId =
-        aside {
-            _id "side-nav"
-            _class "fixed inset-y-0 left-0 z-50 hidden h-dvh w-[min(18rem,calc(100vw-3rem))] border-r border-[var(--fve-border)] bg-[var(--fve-background)] shadow-xl lg:relative lg:block lg:h-full lg:w-full lg:shadow-none"
-            _ariaLabel "Documentation navigation"
-            _data("class:hidden", "!$sideNavOpen")
-            _data("docs-side-nav", "true")
-            div {
-                _class "flex h-full min-h-0 flex-col"
-                div {
-                    _class "flex h-12 shrink-0 items-center gap-2.5 border-b border-[var(--fve-border)] px-4"
-                    div { _class "flex size-7 items-center justify-center [&>img]:max-h-full [&>img]:max-w-full [&>svg]:max-h-full [&>svg]:max-w-full"; site.brandMark }
-                    div { _class "min-w-0 truncate text-sm font-semibold"; site.name }
-                    div { _class "flex-1" }
-                    button {
-                        _type "button"
-                        _ariaLabel "Close navigation"
-                        _class $"{ViewStyles.iconButton} lg:hidden"
-                        _data("docs-nav-close", "true")
-                        _data("on:click", "$sideNavOpen = false; window.fsharpDocsMobileNav.close()")
-                        Icons.close
-                    }
-                }
-                nav {
-                    _ariaLabel "Documentation"
-                    _class "min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto p-3"
-                    ul { _class (ViewStyles.navList + " w-full"); for section in items do node activeId section }
-                }
-            }
+        let rec item = function
+            | NavNode.Page page ->
+                SideNavItem.create page.href page.label
+                |> SideNavItem.withId $"nav-{page.id}"
+                |> SideNavItem.withAttributes [_data("docs-nav-link", "true"); _data("selected", string (page.id = activeId) |> _.ToLowerInvariant())]
+            | NavNode.Group group ->
+                let config =
+                    SideNavGroup.create group.label (List.map item group.children)
+                    |> SideNavGroup.withId $"nav-{group.id}"
+                    |> SideNavGroup.withExpandedSignal (signalName group.id)
+                if group.defaultOpen then config |> SideNavGroup.expanded else config
+        let header =
+            SideNavHeader.create site.name
+            |> SideNavHeader.withContent (div {
+                _class "flex min-w-0 items-center gap-2.5"
+                div { _class "flex size-7 shrink-0 items-center justify-center [&>img]:max-h-full [&>img]:max-w-full [&>svg]:max-h-full [&>svg]:max-w-full"; site.brandMark }
+                span { _class "min-w-0 truncate text-sm font-semibold"; site.name }
+            })
+        let nodes = List.map item items
+        let config =
+            SideNav.create "side-nav" "Documentation"
+            |> SideNav.withHeader header
+            |> SideNav.withContent (SideNavContent.create nodes)
+        let config =
+            match items |> NavNode.collectPages |> List.tryFind (NavNode.id >> (=) activeId) |> Option.bind NavNode.href with
+            | Some href -> config |> SideNav.withCurrent href
+            | None -> config
+        let close = button {
+            _type "button"
+            _ariaLabel "Close navigation"
+            _class $"{ViewStyles.iconButton} lg:hidden"
+            _data("docs-nav-close", "true")
+            _data("on:click", "$sideNavOpen = false; window.fsharpDocsMobileNav.close()")
+            Icons.close
         }
+        SideNavView.render
+            "fixed inset-y-0 left-0 z-50 hidden h-dvh w-[min(18rem,calc(100vw-3rem))] flex-col border-r border-[var(--fve-border)] bg-[var(--fve-background)] shadow-xl lg:relative lg:flex lg:h-full lg:w-full lg:shadow-none"
+            [_ariaLabel "Documentation navigation"; _data("class:hidden", "!$sideNavOpen"); _data("docs-side-nav", "true")]
+            (Some close) None id config
 
     let topNav (site:DocsSite<'destination>) (breadcrumbs:Breadcrumb list) =
-        let hiddenCount = if breadcrumbs.Length > 2 then breadcrumbs.Length - 1 else 0
-        let hiddenBreadcrumbs = breadcrumbs |> List.take hiddenCount
-
-        header {
-            _class "relative z-30 flex h-12 shrink-0 items-center justify-between gap-3 border-b border-[var(--fve-border)] bg-[color-mix(in_srgb,var(--fve-background)_96%,transparent)] px-4 backdrop-blur-lg sm:pr-2.5 lg:px-8"
-            _data("docs-top-nav", "true")
-            div {
-                _class "flex min-w-0 flex-1 items-center gap-3"
-                button {
-                    _type "button"
-                    _ariaLabel "Open navigation"
-                    _ariaControls "side-nav"
-                    _data("attr:aria-expanded", "$sideNavOpen ? 'true' : 'false'")
-                    _class $"{ViewStyles.iconButton} lg:hidden"
-                    _data("on:click", "$sideNavOpen = true; window.fsharpDocsMobileNav.open(evt.currentTarget)")
-                    Icons.menu
-                }
-                nav {
-                    _ariaLabel "Breadcrumb"
-                    _class "min-w-0"
-                    ol {
-                        _role "list"
-                        _class "m-0 flex min-w-0 list-none items-center gap-1.5 p-0 text-sm"
-                        if not hiddenBreadcrumbs.IsEmpty then
-                            li {
-                                _class "relative sm:hidden"
-                                button {
-                                    _type "button"
-                                    _ariaLabel "Show hidden breadcrumbs"
-                                    _ariaControls "docs-breadcrumb-menu"
-                                    _data("attr:aria-expanded", "$breadcrumbMenuOpen ? 'true' : 'false'")
-                                    _data("on:click", "$breadcrumbMenuOpen = !$breadcrumbMenuOpen")
-                                    _class ViewStyles.iconButton
-                                    Icons.ellipsis
-                                }
-                                div {
-                                    _id "docs-breadcrumb-menu"
-                                    _class "absolute top-full left-0 z-60 mt-2 w-56 overflow-hidden rounded-lg border border-[var(--fve-border)] bg-[var(--fve-surface)] py-1 shadow-xl [&>a]:block [&>a]:overflow-hidden [&>a]:px-3 [&>a]:py-2 [&>a]:text-ellipsis [&>a]:whitespace-nowrap [&>a]:text-[var(--fve-muted-text)] [&>a]:no-underline [&>a:hover]:bg-[var(--fve-surface-hover)] [&>a:hover]:text-[var(--fve-text)] [&>span]:block [&>span]:overflow-hidden [&>span]:px-3 [&>span]:py-2 [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:text-[var(--fve-muted-text)]"
-                                    _data("show", "$breadcrumbMenuOpen")
-                                    _style "display:none"
-                                    for crumb in hiddenBreadcrumbs do
-                                        match crumb.href with
-                                        | Some href -> a { _href href; crumb.label }
-                                        | None -> span { crumb.label }
-                                }
-                            }
-                        for index, crumb in List.indexed breadcrumbs do
-                            let isCurrent = index = breadcrumbs.Length - 1
-                            let hiddenOnMobile = index < hiddenCount
-                            if index > 0 then
-                                li {
-                                    _class (if hiddenOnMobile then "shrink-0 text-[var(--fve-muted-text)] max-sm:hidden [&>svg]:size-4" else "shrink-0 text-[var(--fve-muted-text)] [&>svg]:size-4")
-                                    Icons.breadcrumbChevron
-                                }
-                            li {
-                                _class (if hiddenOnMobile then "min-w-0 max-sm:hidden [&>a]:block [&>a]:overflow-hidden [&>a]:text-ellipsis [&>a]:whitespace-nowrap [&>a]:text-[var(--fve-muted-text)] [&>a]:no-underline [&>a:hover]:text-[var(--fve-text)] [&>span]:block [&>span]:overflow-hidden [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:text-[var(--fve-muted-text)] [&>[aria-current=page]]:font-semibold [&>[aria-current=page]]:text-[var(--fve-text)]" else "min-w-0 [&>a]:block [&>a]:overflow-hidden [&>a]:text-ellipsis [&>a]:whitespace-nowrap [&>a]:text-[var(--fve-muted-text)] [&>a]:no-underline [&>a:hover]:text-[var(--fve-text)] [&>span]:block [&>span]:overflow-hidden [&>span]:text-ellipsis [&>span]:whitespace-nowrap [&>span]:text-[var(--fve-muted-text)] [&>[aria-current=page]]:font-semibold [&>[aria-current=page]]:text-[var(--fve-text)]")
-                                match crumb.href with
-                                | Some href when not isCurrent -> a { _href href; crumb.label }
-                                | _ ->
-                                    span {
-                                        if isCurrent then _ariaCurrent "page"
-                                        crumb.label
-                                    }
-                            }
-                    }
-                }
+        let items = breadcrumbs |> List.map (fun crumb ->
+            match crumb.href with
+            | Some href -> BreadcrumbItem.create href crumb.label
+            | None -> BreadcrumbItem.unlinked crumb.label)
+        PageTopBar.create ()
+        |> PageTopBar.withAttributes [_data("docs-top-nav", "true")]
+        |> PageTopBar.withContent (div {
+            _class "flex min-w-0 items-center gap-3"
+            button {
+                _type "button"
+                _ariaLabel "Open navigation"
+                _ariaControls "side-nav"
+                _data("attr:aria-expanded", "$sideNavOpen ? 'true' : 'false'")
+                _class $"{ViewStyles.iconButton} lg:hidden"
+                _data("on:click", "$sideNavOpen = true; window.fsharpDocsMobileNav.open(evt.currentTarget)")
+                Icons.menu
             }
-            div {
-                _class (FSharp.ViewEngine.Components.ComponentsTheme.sky |> FSharp.ViewEngine.Components.ComponentsTheme.withDensity FSharp.ViewEngine.Components.Density.Compact |> FSharp.ViewEngine.Components.ComponentsTheme.withControlSize FSharp.ViewEngine.Components.ControlSize.Small |> FSharp.ViewEngine.Components.ComponentsTheme.className |> fun theme -> theme + " flex shrink-0 items-center gap-1.5 max-sm:gap-0.5")
-                _data("docs-top-actions", "true")
-                if not site.search.IsEmpty then SearchView.render site.search
-                ColorModeView.render site.defaultColorMode
-                match site.repository with
-                | Some repository -> RepositoryView.render repository
-                | None -> ()
-            }
-        }
+            Breadcrumbs.create "docs-breadcrumbs" "Breadcrumb" items
+            |> Breadcrumbs.withMaxVisibleItems (max 2 items.Length)
+            |> Breadcrumbs.render id
+        })
+        |> PageTopBar.withActions (div {
+            _class "flex shrink-0 items-center gap-1.5 max-sm:gap-0.5"
+            _data("docs-top-actions", "true")
+            if not site.search.IsEmpty then SearchView.render site.search
+            ColorModeView.render site.defaultColorMode
+            match site.repository with
+            | Some repository -> RepositoryView.render repository
+            | None -> ()
+        })
+        |> PageTopBar.render
 
 type private TocItem =
     { level:int
@@ -697,7 +599,7 @@ module DocsView =
                 _dataOn ("resize__window", "el.fveMeasureDock?.()")
                 _dataAttr ("data-fve-app-dock", "$appModeDockTop ? 'top' : 'bottom'")
                 _dataAttr ("data-fve-color-mode", "($colorMode == 'dark' || ($colorMode == 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) ? 'light' : 'dark'")
-                _data("on:fsharpdocs:colormode__window", "document.getElementById('fve-app-mode-controls')?.setAttribute('data-fve-color-mode', document.documentElement.classList.contains('dark') ? 'light' : 'dark')")
+                _data("on:fve-color-mode__window", "document.getElementById('fve-app-mode-controls')?.setAttribute('data-fve-color-mode', document.documentElement.classList.contains('dark') ? 'light' : 'dark')")
                 _ariaLabel "App mode controls"
                 let hasWorkflow = Fixture.previous fixture |> Option.isSome || Fixture.next fixture |> Option.isSome
                 if hasWorkflow then
@@ -786,9 +688,8 @@ module DocsView =
             |> List.map (fun node -> $"${signalName (NavNode.id node)} = true")
         let initialize =
             [ "$sideNavOpen = false"
-              "$breadcrumbMenuOpen = false"
               yield! activeGroupSignals
-              "window.fsharpDocsColorMode?.apply(window.fsharpDocsColorMode.current())"
+              "window.fveColorMode?.refresh()"
               "window.initializeDocsToc?.()"
               "window.fsharpDocsFragments?.show(window.location.hash)" ]
             |> String.concat "; "
@@ -813,7 +714,7 @@ module DocsView =
                 let containsActive = NavNode.containsActive docPage.activeId node
                 $"{signal}: window.fsharpDocsNav.initial({jsString (NavNode.id node)}, {shouldOpen.ToString().ToLowerInvariant()}, {containsActive.ToString().ToLowerInvariant()})")
 
-        let signals = "{ sideNavOpen: false, breadcrumbMenuOpen: false, appModeDockTop: false, navigationPending: false, navigationTarget: '', colorMode: window.fsharpDocsColorMode.current()" + (if navSignals.IsEmpty then "" else ", " + String.concat ", " navSignals) + " }"
+        let signals = "{ sideNavOpen: false, appModeDockTop: false, navigationPending: false, navigationTarget: '', colorMode: window.fveColorMode.current()" + (if navSignals.IsEmpty then "" else ", " + String.concat ", " navSignals) + " }"
         let activeAppMode =
             match renderMode with
             | Embedded -> None
@@ -830,59 +731,10 @@ module DocsView =
         let mermaidSecurity = jsString site.assets.mermaidSecurityLevel
         let mermaidScript = site.assets.mermaidScript |> Option.map jsString |> Option.defaultValue "null"
         let storageKey = jsString site.storageKey
-        let colorModeStorageKey = jsString $"{site.storageKey}-color-mode"
-        let defaultColorMode = site.defaultColorMode |> DocsColorMode.value |> jsString
         let prismStylesheet = site.assets.prismStylesheet |> Option.map jsString |> Option.defaultValue "null"
         let prismScripts = site.assets.prismScripts |> List.map jsString |> String.concat ", " |> fun sources -> $"[{sources}]"
         let assetNonce = site.assets.nonce |> Option.map jsString |> Option.defaultValue "null"
-        let colorModeScript =
-            """
-(() => {
-  const validModes = new Set(['system', 'light', 'dark']);
-  const media = window.matchMedia('(prefers-color-scheme: dark)');
-  window.fsharpDocsColorMode = {
-    storageKey: __STORAGE_KEY__,
-    defaultMode: __DEFAULT_MODE__,
-    current() {
-      try {
-        // Same-origin document previews inherit the host mode before their first paint.
-        if (window.parent !== window && window.parent.location.origin === window.location.origin && window.frameElement?.hasAttribute('data-docs-preview-src')) {
-          return window.parent.document.documentElement.classList.contains('dark') ? 'dark' : 'light';
-        }
-        const stored = window.localStorage.getItem(this.storageKey);
-        return validModes.has(stored) ? stored : this.defaultMode;
-      } catch { return this.defaultMode; }
-    },
-    apply(mode) {
-      const selected = validModes.has(mode) ? mode : this.defaultMode;
-      const dark = selected === 'dark' || (selected === 'system' && media.matches);
-      document.documentElement.classList.toggle('dark', dark);
-      document.documentElement.dataset.colorMode = selected;
-      return selected;
-    },
-    set(mode) {
-      const selected = this.apply(mode);
-      try { window.localStorage.setItem(this.storageKey, selected); } catch {}
-      window.dispatchEvent(new CustomEvent('fsharpdocs:colormode', { detail: { mode: selected } }));
-      return selected;
-    }
-  };
-  window.fsharpDocsColorMode.apply(window.fsharpDocsColorMode.current());
-  media.addEventListener?.('change', () => {
-    if (window.fsharpDocsColorMode.current() === 'system') {
-      window.fsharpDocsColorMode.apply('system');
-      window.dispatchEvent(new CustomEvent('fsharpdocs:colormode', { detail: { mode: 'system' } }));
-    }
-  });
-  window.addEventListener('storage', event => {
-    if (event.key === window.fsharpDocsColorMode.storageKey) {
-      window.fsharpDocsColorMode.apply(window.fsharpDocsColorMode.current());
-      window.dispatchEvent(new CustomEvent('fsharpdocs:colormode'));
-    }
-  });
-})();
-            """
-            |> fun source -> source.Replace("__STORAGE_KEY__", colorModeStorageKey).Replace("__DEFAULT_MODE__", defaultColorMode)
+        let colorMode = ColorModeView.mode site.defaultColorMode
 
         let mermaidInitialization =
             """
@@ -971,7 +823,7 @@ window.renderMermaid = (el, pendingOnly = false) => {
   mermaidRenderQueue = mermaidRenderQueue.then(render, render);
   return mermaidRenderQueue;
 };
-window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(document));
+window.addEventListener('fve-color-mode', () => window.renderMermaid?.(document));
             """
             |> fun source ->
                 source
@@ -1051,11 +903,11 @@ window.fsharpDocsPreviewColorMode = window.fsharpDocsPreviewColorMode ?? {
   apply(frame) {
     try {
       const preview = frame.contentWindow;
-      if (!preview || preview.location.origin !== window.location.origin || !preview.fsharpDocsColorMode) return;
+      if (!preview || preview.location.origin !== window.location.origin || !preview.fveColorMode) return;
       const mode = this.resolved();
       const root = preview.document.documentElement;
       if (root.dataset.colorMode === mode && root.classList.contains('dark') === (mode === 'dark')) return;
-      preview.fsharpDocsColorMode.set(mode);
+      preview.fveColorMode.set(mode);
     } catch {}
   },
   wire(frame) {
@@ -1069,7 +921,7 @@ window.fsharpDocsPreviewColorMode = window.fsharpDocsPreviewColorMode ?? {
     for (const frame of root?.querySelectorAll?.('iframe[data-docs-preview-src]') ?? []) this.wire(frame);
   }
 };
-window.addEventListener('fsharpdocs:colormode', () => window.fsharpDocsPreviewColorMode.sync(document));
+window.addEventListener('fve-color-mode', () => window.fsharpDocsPreviewColorMode.sync(document));
 window.renderDocsPreview = (el, pendingOnly = false) => {
   for (const frame of el?.querySelectorAll?.('iframe[data-docs-preview-src]') ?? []) {
     window.fsharpDocsPreviewColorMode.wire(frame);
@@ -1242,7 +1094,7 @@ window.fsharpDocsMobileNav = {
                 meta { _name "viewport"; _content "width=device-width, initial-scale=1" }
                 meta { _name "theme-color"; _content site.theme.themeColor }
                 documentMetadata site docPage
-                script { nonceAttribute (); raw colorModeScript }
+                ThemeSwitcher.assetsWithNonce $"{site.storageKey}-color-mode" colorMode site.assets.nonce
                 match site.assets.prismStylesheet with
                 | Some stylesheet -> link { _rel "stylesheet"; _href stylesheet }
                 | None -> ()
@@ -1262,7 +1114,7 @@ window.fsharpDocsMobileNav = {
             body {
                 _class (FSharp.ViewEngine.Components.ComponentsTheme.sky |> FSharp.ViewEngine.Components.ComponentsTheme.withDensity FSharp.ViewEngine.Components.Density.Compact |> FSharp.ViewEngine.Components.ComponentsTheme.className |> fun theme -> theme + " m-0 [--fve-docs-code-surface:color-mix(in_oklch,var(--fve-background)_72%,var(--fve-surface-subtle))] bg-[var(--fve-background)] font-sans text-[var(--fve-text)] antialiased")
                 _data("signals", signals)
-                _data("effect", "window.fsharpDocsColorMode.set($colorMode)")
+                _data("on:fve-color-mode__window", "$colorMode = window.fveColorMode.current()")
                 _data("on-signal-patch", $"window.fsharpDocsNav.save({navState})")
                 match site.assets.navigation with
                 | Some enhancement ->
@@ -1278,7 +1130,7 @@ window.fsharpDocsMobileNav = {
                 | Some (request, _), None ->
                     _attr ("data-fve-app-mode-frame", AppMode.frameId request)
                 | None, _ ->
-                    _data("on:keydown__window", "evt.key == 'Escape' ? ($sideNavOpen = false, $breadcrumbMenuOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)")
+                    _data("on:keydown__window", "evt.key == 'Escape' ? ($sideNavOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)")
                 match site.assets.navigation with
                 | Some _ ->
                     div {

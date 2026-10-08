@@ -430,7 +430,7 @@ module Table =
                                                 let key, label, _, level, hasChildren = hierarchyRows[index]
                                                 span {
                                                     _class "inline-flex items-center gap-2"
-                                                    _style ("padding-inline-start:" + string (float level * 1.0) + "rem")
+                                                    _style ("padding-inline-start:" + string (float level * 0.5) + "rem")
                                                     if hasChildren then
                                                         button {
                                                             _type "button"

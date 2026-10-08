@@ -16,9 +16,10 @@ module ApiDocumentation =
           "/examples/api-documentation/update-account", "Update account"
           "/examples/api-documentation/delete-account", "Delete account"
           "/examples/api-documentation/list-transactions", "List transactions"
-          "/examples/api-documentation/get-transaction", "Get transaction" ]
+          "/examples/api-documentation/get-transaction", "Get transaction"
+          "/examples/api-documentation/delete-transaction", "Delete transaction" ]
     let title = function
-        | "list-accounts" -> "List accounts" | "create-account" -> "Create account" | "update-account" -> "Update account" | "delete-account" -> "Delete account" | "list-transactions" -> "List transactions" | "get-transaction" -> "Get transaction" | _ -> "Ledger API reference"
+        | "list-accounts" -> "List accounts" | "create-account" -> "Create account" | "update-account" -> "Update account" | "delete-account" -> "Delete account" | "list-transactions" -> "List transactions" | "get-transaction" -> "Get transaction" | "delete-transaction" -> "Delete transaction" | _ -> "Ledger API reference"
     let private pretty (source:string) =
         use document = JsonDocument.Parse source
         JsonSerializer.Serialize(document.RootElement,JsonSerializerOptions(WriteIndented=true))
@@ -38,10 +39,12 @@ module ApiDocumentation =
             Badge.create method' |> Badge.withColor (if method'="DELETE" then BadgeColor.Error elif method'="GET" then BadgeColor.Success else BadgeColor.Info) |> Badge.withVariant BadgeVariant.Soft |> Badge.render
             code { _class "break-all font-mono text-sm"; path }
         }
+    let private pageHeading page =
+        h1 { _class "m-0 text-2xl leading-8 font-semibold tracking-tight [overflow-wrap:anywhere]"; title page }
     let private split (narrative:HtmlElement) (examples:HtmlElement) =
         div {
             _class "grid min-w-0 xl:grid-cols-2"
-            article { _class "min-w-0 px-4 py-8 sm:px-6 lg:px-8 xl:py-10"; div { _class "mx-auto grid max-w-2xl gap-8"; narrative } }
+            article { _class "min-w-0 px-4 py-4 sm:px-6 lg:px-8"; div { _class "mx-auto grid max-w-2xl gap-8"; narrative } }
             aside {
                 _ariaLabel "Request and response examples"
                 _style "--fve-docs-code-surface:var(--fve-background)"
@@ -52,7 +55,11 @@ module ApiDocumentation =
     let private operation page method' path (description:string) request requestFields (returns:string) (responses:(string*string*string) list) =
         let narrative = div {
             _class "grid gap-8"
-            header { _class "grid gap-4"; p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; description }; methodPath method' path }
+            header {
+                _class "grid gap-4"
+                div { _class "grid gap-2"; pageHeading page; methodPath method' path }
+                p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; description }
+            }
             Layout.section "Parameters" (if List.isEmpty requestFields then p { _class "text-base text-[var(--fve-muted-text)]"; "No parameters." } else parameters requestFields)
             Layout.section "Returns" (p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; returns })
             Layout.section "Response codes" (dl {
@@ -71,7 +78,6 @@ module ApiDocumentation =
             section {
                 _ariaLabel "cURL request"; _class "grid gap-4"
                 div { _class "flex items-center justify-between gap-3"; h2 { _class "text-sm font-semibold"; "Request" }; span { _class "rounded-md bg-[var(--fve-surface-subtle)] px-2 py-1 font-mono text-xs"; "cURL" } }
-                methodPath method' path
                 CodeBlock.create "shell" request |> CodeBlock.render
             }
             section {
@@ -82,7 +88,7 @@ module ApiDocumentation =
             }
         }
         split narrative examples
-    let render page =
+    let renderWithActions (actions:HtmlElement list) page =
         let account = accounts.Head
         let transaction = transactions.Head
         let nameFields = ["name","string · required","Unique without regard to case. Must contain 1–80 characters."; "accountType","enum · required","One of Asset, Liability, Equity, Revenue or Expense. Reporting currency is USD."]
@@ -102,12 +108,14 @@ module ApiDocumentation =
                 operation page "DELETE" "/api/accounts/105" "Deletes an unused account. An account must have a zero balance and no transactions before it can be deleted." "curl -X DELETE \"$API_ORIGIN/api/accounts/105\"" ["id","integer · path · required","The identifier of an existing account. Unassigned expense (105) is the eligible seeded example."] "No response body on success. An unknown ID returns 404; an account with financial dependencies returns 409." ["204","Account deleted. No response body.",""; "404","Unknown account",missing; "409","Account has transactions or a non-zero balance","{\"error\":\"account_has_dependencies\"}"]
             | "list-transactions" ->
                 operation page "GET" "/api/transactions" "Returns dated financial activity. Optionally narrow the collection to one account to reconcile its balance and inspect verification state." "curl \"$API_ORIGIN/api/transactions?accountId=101\"" ["accountId","integer · query · optional","Restricts results to transactions for an existing account. Omit to return all transactions."] "An array of transaction objects with a date, signed USD amount, account ID and verification status." ["200","Transactions for the requested account",collection transactionPayload (transactions |> List.filter (fun row -> row.accountId=101))]
+            | "delete-transaction" ->
+                operation page "DELETE" "/api/transactions/203" "Deletes an existing transaction after confirmation. This illustrative contract does not impose a verification-status restriction." "curl -X DELETE \"$API_ORIGIN/api/transactions/203\"" ["id","integer · path · required","The identifier of the transaction to delete."] "No response body on success. An unknown transaction returns 404." ["204","Transaction deleted. No response body.",""; "404","Unknown transaction",missing]
             | "get-transaction" ->
                 operation page "GET" "/api/transactions/201" "Retrieves one transaction by its stable identifier, including its associated account and verification state." "curl \"$API_ORIGIN/api/transactions/201\"" ["id","integer · path · required","The identifier of an existing transaction."] "The matching transaction object, or a not-found error. Dates use YYYY-MM-DD and amounts are signed decimal USD values." ["200","Transaction details",transactionPayload transaction; "404","Unknown transaction",missing]
             | _ ->
                 split (div {
                     _class "grid gap-8"
-                    header { _class "grid gap-4"; p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; "Accounts and transactions over JSON. Explore resource definitions, request parameters and response states alongside copyable cURL examples." } }
+                    header { _class "grid gap-4"; pageHeading page; p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; "Accounts and transactions over JSON. Explore resource definitions, request parameters and response states alongside copyable cURL examples." } }
                     Layout.section "Getting started" (div { _class "grid gap-4 text-base leading-7 text-[var(--fve-muted-text)]"; p { "These pages describe an API you can implement using the same financial model as the Application and Specification." }; p { "Set "; code { "$API_ORIGIN" }; " to your backend's origin before using the requests. This catalog does not expose a financial API, issue credentials or run requests." } })
                     Layout.section "Resources" (div {
                         _class "grid gap-5"
@@ -127,4 +135,6 @@ module ApiDocumentation =
                 })
         let current = if page="" then "/examples/api-documentation" else "/examples/api-documentation/"+page
         let groups = ["",[navigation.Head];"Accounts",navigation |> List.skip 1 |> List.take 4;"Transactions",navigation |> List.skip 5]
-        Layout.shell "Ledger API" current groups (title page) "Accounts and transactions · JSON contract" (Layout.link "/examples/specification" "Read specification") content
+        Layout.shell "Ledger API" current groups (title page) (fragment { Layout.secondaryLink "/examples/specification" "Read specification"; yield! actions }) content
+
+    let render page = renderWithActions [] page

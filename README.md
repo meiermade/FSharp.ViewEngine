@@ -47,7 +47,7 @@ dotnet fve add button input --config src/Acme.Components/fve.json
 
 `fve` copies independently installable Components and genuine helpers in deterministic F# compile order. Controls, feedback, tables, calendars, menus, overlays, headers, Card, and documentation controls share one consumer-selected namespace. Consumers own and commit the source; `fve diff` never silently replaces edits. See the [Components source documentation](./sln/src/FSharp.ViewEngine.Components/README.md).
 
-Page and site assembly is ordinary copyable F# source. Exactly three full-page templates share a small financial Account/Transaction model: Application, Specification, and API documentation. The Examples gallery opens each template outside the library shell with a compact Preview/Code bar. Its source viewer includes genuine Domain/Application libraries, the Server host, layout, pages, projects, and setup files; catalog viewer chrome is excluded. The Specification groups named resource workflows and provides clickable System context → Solution → project contracts.
+Page and site assembly is ordinary copyable F# source. Exactly three full-page templates share a small financial Account/Transaction model: Specification, Application, and API documentation. The Examples gallery opens each template in a new tab outside the library shell, without an extra viewer bar. A download icon in each example's top bar supplies a source ZIP containing genuine Domain/Application libraries, the Server host, layout, pages, projects, setup, Tailwind input, and pinned browser assets/fonts. Download links are catalog-owned top-bar actions and are omitted by the standalone host. The Specification groups named resource workflows and provides clickable System context → Solution → project contracts.
 
 ## Local catalog development
 
@@ -58,7 +58,7 @@ cd sln
 ./fake.sh WatchDocs --single-target
 ```
 
-The watcher serves F# changes and compiles CSS from the common `sln/src` source root, including Components and the authored templates, at the stable review URL `http://127.0.0.1:5054`. Starting it replaces only the previous FSharp.ViewEngine Docs watcher, including across worktrees; it never takes an unrelated listener. Override the local origin only when necessary with `DOCS_SERVER_URL=http://127.0.0.1:6054 ./fake.sh WatchDocs --single-target`. Package publication and sibling application changes are not needed. After adding/removing project references or compile items, restart this candidate's watcher so it reloads the project graph; ordinary edits stay in the same loop.
+The watcher serves F# changes and compiles CSS from the common `sln/src` source root, including Components and the authored templates, at the stable review URL `http://127.0.0.1:5054`. Starting it replaces only the previous FSharp.ViewEngine Docs watcher, including across worktrees; it never takes an unrelated listener. `WatchDocs` pins both the listener and public origin to this URL, ignoring inherited URL overrides and launch profiles. Package publication and sibling application changes are not needed. After adding/removing project references or compile items, restart this candidate's watcher so it reloads the project graph; ordinary edits stay in the same loop.
 
 - `/components` — independently installable controls, display, navigation, overlays, layout blocks, code, and diagrams, with shared guides.
 - `/components/card`, `/components/page-header`, `/components/section-header` — generic surfaces and optional reusable headings.

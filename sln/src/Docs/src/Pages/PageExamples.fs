@@ -213,12 +213,12 @@ module PageExamples =
             SideNav.create
                 (slug page + "-nav")
                 (product + " navigation")
-                (SideNavHeader.create product)
-                [ SideNavSection.ungrouped items ]
+            |> SideNav.withHeader (SideNavHeader.create product)
+            |> SideNav.withContent (SideNavContent.create items)
             |> SideNav.withCurrent page
             |> SideNav.withWidth SideNavWidth.Narrow
-            |> SideNav.withContext (sideNavWorkspace workspaceName)
-            |> SideNav.withFooter (
+            |> SideNav.withContext [sideNavWorkspace workspaceName]
+            |> SideNav.withFooter [
                 div {
                     _class "flex min-w-0 items-center gap-3"
                     Avatar.create "Andy Meier" "AM" |> Avatar.render
@@ -228,7 +228,7 @@ module PageExamples =
                         "Andy Meier"
                     }
                 }
-            )
+            ]
 
         let header =
             PageHeader.create heading
@@ -1191,14 +1191,14 @@ module PageExamples =
             SideNav.create
                 "gather-conversations"
                 "Conversations"
-                (SideNavHeader.create "Gather")
-                [ SideNavSection.group
+            |> SideNav.withHeader (SideNavHeader.create "Gather")
+            |> SideNav.withContent (SideNavContent.create [ SideNavSection.create
                       "Messages"
-                      [ for conversation in conversations -> SideNavItem.create conversation.id conversation.name ] ]
+                      [ for conversation in conversations -> SideNavItem.create conversation.id conversation.name ] ])
             |> SideNav.withCurrent current.id
             |> SideNav.withWidth SideNavWidth.Wide
-            |> SideNav.withContext (sideNavWorkspace "Northwind Outdoor")
-            |> SideNav.withFooter (
+            |> SideNav.withContext [sideNavWorkspace "Northwind Outdoor"]
+            |> SideNav.withFooter [
                 div {
                     _class "flex items-center gap-3"
                     Avatar.create "Andy Meier" "AM" |> Avatar.render
@@ -1208,7 +1208,7 @@ module PageExamples =
                         "Andy Meier"
                     }
                 }
-            )
+            ]
 
         let content =
             Html.section {

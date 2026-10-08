@@ -199,6 +199,10 @@ test('Representative Components pages provide focused examples, navigation, inte
     if (path === '/components/month-calendar') {
       await expect(surface.getByRole('combobox', { name: 'Month', exact: true })).toHaveCount(1)
       await expect(surface.getByRole('combobox', { name: 'Year', exact: true })).toHaveCount(1)
+    } else if (path === '/components/select') {
+      await expect(surface.locator('select')).toHaveCount(1)
+      await expect(surface.locator('select')).toBeHidden()
+      await expect(surface.locator('select')).toBeDisabled()
     } else {
       await expect(surface.locator('select')).toHaveCount(0)
     }
@@ -210,8 +214,8 @@ test('Representative Components pages provide focused examples, navigation, inte
   }
 
   await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
-  await expect(page.getByRole('button', { name: 'Toggle Components section', exact: true })).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.getByRole('button', { name: 'Toggle Form controls section', exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByLabel('Toggle Components section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.getByLabel('Toggle Form controls section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
   await expect(page.locator('#nav-components-select')).toHaveAttribute('data-selected', 'true')
 
   const resolvedBackground = (root: Locator, variable: string) =>
@@ -269,9 +273,9 @@ test('Representative Components pages provide focused examples, navigation, inte
     const navigationItem = page.locator('#nav-home')
     const restingBackground = await navigationItem.evaluate(element => getComputedStyle(element).backgroundColor)
     await navigationItem.hover()
-    const hoverBackground = await navigationItem.evaluate(element => getComputedStyle(element).backgroundColor)
-    expect(hoverBackground).toBe(await resolvedBackground(docsRoot, '--fve-surface-hover'))
-    expect(hoverBackground).not.toBe(restingBackground)
+    const expectedHover = await resolvedBackground(docsRoot, '--fve-surface-hover')
+    await expect.poll(() => navigationItem.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(expectedHover)
+    expect(expectedHover).not.toBe(restingBackground)
     await page.locator('main h1').first().hover()
   }
 
@@ -1128,7 +1132,7 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
   expect(mobileDrawerBox!.x + mobileDrawerBox!.width).toBeLessThanOrEqual(390)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   await attachScreenshot('components-drawer-mobile-light-end')
-  await page.mouse.click(10, 400)
+  await page.keyboard.press('Escape')
   await expect(mobileDrawer).toBeHidden()
   await expect(mobileDrawerTrigger).toBeFocused()
   expect(browserErrors).toEqual([])
@@ -1305,7 +1309,7 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   await expect(page.locator('#page-content')).toHaveAttribute('inert', '')
 
   await close.press('Shift+Tab')
-  await expect(drawer.locator('#nav-project')).toBeFocused()
+  await expect(drawer.getByRole('link', { name: 'Examples', exact: true })).toBeFocused()
   await page.keyboard.press('Tab')
   await expect(close).toBeFocused()
 

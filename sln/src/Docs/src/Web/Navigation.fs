@@ -173,7 +173,7 @@ $navigationTarget = '';
 document.getElementById('docs-navigation-root')?.removeAttribute('aria-busy');
 const navigationStatus = document.getElementById('docs-navigation-status');
 if (navigationStatus) {{ navigationStatus.hidden = true; navigationStatus.textContent = ''; }}
-window.fsharpDocsColorMode?.apply(window.fsharpDocsColorMode.current());
+window.fveColorMode?.refresh();
 window.initializeDocsToc?.();
 window.fsharpDocsFragments?.show(window.location.hash);
 const returnFocus = {encodedFocus};

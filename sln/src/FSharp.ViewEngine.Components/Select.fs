@@ -55,6 +55,7 @@ type SelectConfig<'value, 'mode when 'value:equality> =
           selected:'value option
           label:string
           labelVisuallyHidden:bool
+          nativeFallback:bool
           description:string option
           placeholder:string option
           validation:string option
@@ -97,6 +98,7 @@ module Select =
           selected = None
           label = label
           labelVisuallyHidden = false
+          nativeFallback = false
           description = None
           placeholder = None
           validation = None
@@ -125,6 +127,7 @@ module Select =
           selected = None
           label = config.label
           labelVisuallyHidden = config.labelVisuallyHidden
+          nativeFallback = false
           description = config.description
           placeholder = config.placeholder
           validation = config.validation
@@ -149,7 +152,14 @@ module Select =
     let withDescription description (config:SelectConfig<'value, 'mode>) = { config with description = Some description }
     let withPlaceholder placeholder (config:SelectConfig<'value, 'mode>) = { config with placeholder = Some placeholder }
     let withValidation message (config:SelectConfig<'value, 'mode>) = { config with validation = Some message }
-    let withSearch search (config:SelectConfig<'value, 'mode>) = { config with search = Some search }
+    let withSearch search (config:SelectConfig<'value, 'mode>) =
+        if config.nativeFallback then invalidArg (nameof config) "Native fallback is available only for ordinary single selects."
+        { config with search = Some search }
+    /// Adds a styled native select until Datastar initializes. Only the active control submits a value.
+    /// Available for ordinary single selects; enhanced selection emits a bubbling change event from the value input.
+    let withNativeFallback (config:SelectConfig<'value>) =
+        if config.search.IsSome then invalidArg (nameof config) "Native fallback is available only for ordinary single selects."
+        { config with nativeFallback = true }
     /// Echo the requested query when rendering remote results, so older matches cannot be selected.
     let withQuery query (config:SelectConfig<'value, 'mode>) = { config with query = Some query }
     let withOptions options (config:SelectConfig<'value, 'mode>) =
@@ -240,7 +250,32 @@ module Select =
         };
         """
 
-    let private renderPlain config =
+    let private notifyChange fieldId valueSignal =
+        $"if (previousValue !== ${valueSignal}) {{ const field = document.getElementById('{fieldId}-value'); field.value = ${valueSignal}; field.dispatchEvent(new Event('change', {{bubbles: true}})); }}"
+
+    let private renderNative labelId fieldId describedBy classes (config:SelectConfig<'value, 'mode>) =
+        div {
+            _class "relative"
+            _dataShow "false"
+            select {
+                _id (fieldId + "-native")
+                _name config.name
+                _ariaLabelledby labelId
+                if describedBy <> "" then _ariaDescribedby describedBy
+                _ariaInvalid config.validation.IsSome
+                _required config.isRequired
+                _disabled (config.isDisabled || config.isPending)
+                _dataAttr ("disabled", "true")
+                _class (classes + " appearance-none pr-9")
+                if config.selected.IsNone then
+                    option { _value ""; _selected true; _disabled true; config.placeholder |> Option.defaultValue "Select an option" }
+                for choice in config.options do
+                    option { _value (config.encode choice.value); _selected (config.selected = Some choice.value); _disabled choice.disabled; choice.label }
+            }
+            raw """<svg viewBox="0 0 20 20" fill="currentColor" class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fve-muted-text)]" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 0 1 1.06 0l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
+        }
+
+    let private renderPlain outerClass groupClass config =
         let instanceId = config.id |> Option.defaultValue config.name |> ComponentHtml.signalToken
         let fieldId = $"fve-select-{instanceId}"
         let labelId = $"{fieldId}-label"
@@ -330,18 +365,24 @@ module Select =
             ComponentHtml.classes [
                 ComponentHtml.popupFieldClasses
                 "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] ring-1 ring-inset outline-none hover:bg-[var(--fve-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                if config.validation.IsSome then "ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)]" ]
+                (if config.validation.IsSome then "ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)]")
+                groupClass ]
         div {
-            _class (ComponentHtml.classes [ ComponentHtml.controlSizeClass config.size; "relative grid min-w-0 grid-cols-1 content-start gap-1.5" ])
-            let initialSignals = $"{{{openSignal}: false, {valueSignal}: {ComponentHtml.javascriptString selectedValue}, {labelSignal}: {ComponentHtml.javascriptString selectedLabel}, {activeSignal}: '', {typeaheadSignal}: '', {typeaheadTimeSignal}: 0}}"
+            _class (ComponentHtml.classes [ ComponentHtml.controlSizeClass config.size; "relative grid min-w-0 grid-cols-1 content-start gap-1.5"; outerClass ])
+            let initialValue = if config.nativeFallback then $"document.getElementById('{fieldId}-native').value" else ComponentHtml.javascriptString selectedValue
+            let initialLabel = if config.nativeFallback then $"document.getElementById('{fieldId}-native').selectedOptions[0]?.text || {ComponentHtml.javascriptString selectedLabel}" else ComponentHtml.javascriptString selectedLabel
+            let initialSignals = $"{{{openSignal}: false, {valueSignal}: {initialValue}, {labelSignal}: {initialLabel}, {activeSignal}: '', {typeaheadSignal}: '', {typeaheadTimeSignal}: 0}}"
             if not config.isMultiple then _dataSignals initialSignals
+            if config.nativeFallback then
+                _dataInit $"const previousValue = {ComponentHtml.javascriptString selectedValue}; const nativeFocused = document.activeElement?.id === '{fieldId}-native'; queueMicrotask(() => {{ if (!el.isConnected) return; if (nativeFocused) document.getElementById('{triggerId}').focus(); {notifyChange fieldId valueSignal} }});"
             if config.isMultiple then
                 _attr ("data-signals__ifmissing", initialSignals.TrimEnd('}') + $", {selectionSignal}: {ChoiceSelection.json initialSelection}}}")
                 let allowed = config.options |> List.map (fun choice -> config.encode choice.value) |> System.Text.Json.JsonSerializer.Serialize
                 _dataEffect $"const allowed = {allowed}; const kept = ${selectionSignal}.filter(item => allowed.includes(item.value)); if (kept.length !== ${selectionSignal}.length) ${selectionSignal} = kept"
             label {
                 _id labelId
-                _for triggerId
+                _for (if config.nativeFallback then fieldId + "-native" else triggerId)
+                if config.nativeFallback then _dataAttr ("for", ComponentHtml.javascriptString triggerId)
                 _class (if config.labelVisuallyHidden then "sr-only" else "text-sm font-medium text-[var(--fve-text)]")
                 config.label
                 if config.isRequired then
@@ -351,14 +392,17 @@ module Select =
                         " *"
                     }
             }
+            if config.nativeFallback then renderNative labelId fieldId describedBy triggerClasses config
             if config.isMultiple then
                 ChoiceSelection.render config.name selectionSignal initialSelection unavailable
             else
                 input {
+                    _id (fieldId + "-value")
                     _type "hidden"
                     _name config.name
                     _value selectedValue
-                    _disabled unavailable
+                    _disabled (unavailable || config.nativeFallback)
+                    if config.nativeFallback then _dataAttr ("disabled", if unavailable then "true" else "false")
                     _dataBind valueSignal
                 }
             button {
@@ -383,6 +427,9 @@ module Select =
                 elif String.IsNullOrEmpty describedBy |> not then _ariaDescribedby describedBy
                 _dataOn ("click", [ "prevent"; "stop" ], $"document.getElementById('{triggerId}').focus(); ${openSignal} = !${openSignal}")
                 _dataOn ("keydown", keydown)
+                if config.nativeFallback then
+                    _style "display:none"
+                    _dataShow "true"
                 _class triggerClasses
                 for attribute in ComponentHtml.safeAttributes [ "id"; "type"; "name"; "value"; "disabled"; "role"; "aria-haspopup"; "aria-controls"; "aria-labelledby"; "aria-expanded"; "aria-activedescendant"; "aria-describedby"; "aria-required"; "aria-disabled"; "aria-invalid"; "aria-busy"; "data-bind:"; "data-attr:"; "data-on:"; "class" ] config.attributes do attribute
                 span {
@@ -460,7 +507,7 @@ module Select =
                                 if config.isMultiple then
                                     _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; {ChoiceSelection.toggle selectionSignal encodedValue choice.label}; ${typeaheadSignal} = ''; {listboxElement}.focus()")
                                 else
-                                    _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; ${valueSignal} = {ComponentHtml.javascriptString encodedValue}; ${labelSignal} = {ComponentHtml.javascriptString choice.label}; ${typeaheadSignal} = ''; ${openSignal} = false; document.getElementById('{triggerId}').focus()")
+                                    _dataOn ("click", $"const previousValue = ${valueSignal}; ${activeSignal} = {ComponentHtml.javascriptString choiceId}; ${valueSignal} = {ComponentHtml.javascriptString encodedValue}; ${labelSignal} = {ComponentHtml.javascriptString choice.label}; ${typeaheadSignal} = ''; ${openSignal} = false; document.getElementById('{triggerId}').focus(); {notifyChange fieldId valueSignal}")
                             _class (ComponentHtml.classes [ ComponentHtml.popupItemClasses; "fve-popup-item flex w-full items-center justify-between gap-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50"; if selectedItemPosition then "px-2" else "px-4" ])
                             span { _class "min-w-0 [overflow-wrap:anywhere]"; choice.label }
                             span {
@@ -661,7 +708,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                                 if config.isMultiple then
                                     _dataOn ("click", $"if ({ready}) {{ ${activeSignal} = {ComponentHtml.javascriptString choiceId}; {ChoiceSelection.toggle selectionSignal encodedValue choice.label}; document.getElementById('{searchId}').focus(); }}")
                                 else
-                                    _dataOn ("click", $"${activeSignal} = {ComponentHtml.javascriptString choiceId}; ${valueSignal} = {ComponentHtml.javascriptString encodedValue}; ${labelSignal} = {ComponentHtml.javascriptString choice.label}; ${querySignal} = ''; ${openSignal} = false; document.getElementById('{searchId}').focus()")
+                                    _dataOn ("click", $"const previousValue = ${valueSignal}; ${activeSignal} = {ComponentHtml.javascriptString choiceId}; ${valueSignal} = {ComponentHtml.javascriptString encodedValue}; ${labelSignal} = {ComponentHtml.javascriptString choice.label}; ${querySignal} = ''; ${openSignal} = false; document.getElementById('{searchId}').focus(); {notifyChange fieldId valueSignal}")
                             _class (ComponentHtml.classes [ ComponentHtml.popupItemClasses; "fve-popup-item flex w-full items-center justify-between gap-3 px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] disabled:cursor-not-allowed disabled:opacity-50" ])
                             span { _class "min-w-0 [overflow-wrap:anywhere]"; choice.label }
                             span {
@@ -712,7 +759,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                 }
         }
 
-    let private renderSearchable config =
+    let private renderSearchable outerClass groupClass config =
         let instanceId = config.id |> Option.defaultValue config.name |> ComponentHtml.signalToken
         let search = config.search |> Option.defaultValue SelectSearch.Static
         let fieldId = $"fve-select-{instanceId}"
@@ -765,9 +812,10 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
             ComponentHtml.classes [
                 ComponentHtml.popupFieldClasses
                 "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] ring-1 ring-inset outline-none hover:bg-[var(--fve-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"
-                if config.validation.IsSome then "ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)]" ]
+                (if config.validation.IsSome then "ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)]")
+                groupClass ]
         div {
-            _class (ComponentHtml.classes [ ComponentHtml.controlSizeClass config.size; "relative grid min-w-0 grid-cols-1 content-start gap-1.5" ])
+            _class (ComponentHtml.classes [ ComponentHtml.controlSizeClass config.size; "relative grid min-w-0 grid-cols-1 content-start gap-1.5"; outerClass ])
             if config.isMultiple then _id (fieldId + "-field")
             let initialSignals = $"{{{openSignal}: false, {querySignal}: '', {valueSignal}: {ComponentHtml.javascriptString selectedValue}, {labelSignal}: {ComponentHtml.javascriptString selectedLabel}, {activeSignal}: '', {requestPendingSignal}: false}}"
             if config.isMultiple then
@@ -821,6 +869,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
                 ChoiceSelection.announcement selectionSignal initialSelection
             else
                 input {
+                    _id (fieldId + "-value")
                     _type "hidden"
                     _name config.name
                     _value selectedValue
@@ -843,7 +892,14 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
         }
 
 
+    let internal renderGrouped outerClass groupClass config =
+        let config = config |> withVisuallyHiddenLabel
+        match config.search with
+        | Some _ -> renderSearchable outerClass groupClass config
+        | None -> renderPlain outerClass groupClass config
+
+    /// Renders the select. Single-value changes update the named value input before emitting a bubbling change event.
     let render config =
         match config.search with
-        | Some _ -> renderSearchable config
-        | None -> renderPlain config
+        | Some _ -> renderSearchable "" "" config
+        | None -> renderPlain "" "" config

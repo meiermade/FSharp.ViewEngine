@@ -13,7 +13,7 @@ open Model
 open Ledger.Domain
 open Ledger.Operations
 
-// Standalone template host. Catalog Preview/Code chrome is not part of this source.
+// Standalone template host. Catalog-only source downloads are not part of this host.
 let private query (context:HttpContext) =
     let value name = context.Request.Query[name].ToString()
     queryFromValues value
@@ -22,12 +22,12 @@ let private pages : HttpHandler =
     fun next context ->
         let path = context.Request.Path.ToString()
         match Routing.applicationPage path, Routing.specificationPage path, Routing.apiPage path with
-        | Some page,_,_ -> render (Application.title page) (Application.render page (query context)) next context
+        | Some page,_,_ -> render (Application.pageTitle page (query context)) (Application.render page (query context)) next context
         | _,Some page,_ -> render (Specification.title page) (Specification.render page (query context)) next context
         | _,_,Some page -> render (ApiDocumentation.title page) (ApiDocumentation.render page) next context
         | _ -> (setStatusCode 404 >=> text "Example page not found.") next context
 
-let private submit : HttpHandler =
+let private submit renderDocument topBarActions : HttpHandler =
     fun next context -> task {
         let expected = context.Request.Scheme+"://"+context.Request.Host.Value
         let origin = context.Request.Headers.Origin.ToString()
@@ -46,39 +46,53 @@ let private submit : HttpHandler =
             try
                 let! form = context.Request.ReadFormAsync(context.RequestAborted)
                 let value name = form[name].ToString().Trim()
-                let submittedContext = queryFromValues (fun name -> if form.ContainsKey name then value name else context.Request.Query[name].ToString())
+                let submittedContext = queryFromValues (fun name -> if name="accountType" && form.ContainsKey "filterAccountType" then value "filterAccountType" elif form.ContainsKey name then value name else context.Request.Query[name].ToString())
                 let outcome =
                     match applicationPage with
                     | Some(ApplicationPage.CreateAccount) | Some(ApplicationPage.EditAccount _) as matched ->
                         let existing = match matched with Some(ApplicationPage.EditAccount id) -> Some id | _ -> None
-                        let result = validateAccount { existingAccountId=existing; name=value "name"; accountType=value "accountType"; parentType=value "parentType"; currency=value "currency"; subtype=value "subtype"; observedBalance=value "observedBalance" }
+                        let request = { existingAccountId=existing; name=form["name"].ToString(); accountType=value "accountType"; parentType=value "parentType"; currency=value "currency"; subtype=value "subtype"; observedBalance=value "observedBalance" }
+                        let result = validateAccount request
                         let state =
                             match result with
                             | Ok _ -> "validated"
                             | Error ValidateAccountError.InvalidType -> "invalid-type"
                             | Error ValidateAccountError.InvalidDetails -> "invalid-details"
                             | Error _ -> "invalid"
-                        Some(path,state)
+                        Some(path,state,if Result.isError result then Some request else None)
                     | Some(ApplicationPage.Accounts) when value "action"="review-selected" ->
                         let result = reviewSelection {resource=SelectionResource.Accounts;keys=form["accountIds"] |> Seq.toList}
-                        Some(path, if Result.isOk result then "selection-valid" else "selection-invalid")
+                        Some(path, (if Result.isOk result then "selection-valid" else "selection-invalid"), None)
                     | Some(ApplicationPage.Transactions) when value "action"="review-selected" ->
                         let result = reviewSelection {resource=SelectionResource.Transactions;keys=form["transactionIds"] |> Seq.toList}
-                        Some(path, if Result.isOk result then "selection-valid" else "selection-invalid")
+                        Some(path, (if Result.isOk result then "selection-valid" else "selection-invalid"), None)
                     | Some(ApplicationPage.DeleteAccount id) when value "action"="delete" ->
-                        Some(path, if validateDeletion {accountId=id} |> Result.isOk then "deleted" else "delete-blocked")
+                        Some(path, (if validateDeletion {accountId=id} |> Result.isOk then "deleted" else "delete-blocked"), None)
+                    | Some(ApplicationPage.DeleteTransaction id) when value "action"="delete" ->
+                        Some(path, (if validateTransactionDeletion {transactionId=id} |> Result.isOk then "deleted" else "delete-blocked"), None)
                     | Some(ApplicationPage.Settings) | Some(ApplicationPage.SettingsSection "organizations") ->
-                        Some(path, if validateOrganization {name=value "workspace";currency=value "currency"} |> Result.isOk then "validated" else "invalid")
+                        Some(path, (if validateOrganization {name=value "workspace";currency=value "currency"} |> Result.isOk then "validated" else "invalid"), None)
                     | Some(ApplicationPage.Profile) ->
-                        Some(path, if validateProfile {name=value "name";email=value "email";timeZone=value "timezone"} |> Result.isOk then "validated" else "invalid")
+                        Some(path, (if validateProfile {name=value "name";email=value "email";timeZone=value "timezone"} |> Result.isOk then "validated" else "invalid"), None)
                     | _ -> None
                 match outcome with
-                | Some(destination,state) ->
+                | Some(_,state,Some draft) ->
                     context.Response.Headers.CacheControl <- "private, no-store"
-                    // All outcomes are finite authored states. Submitted values are never retained in URLs, cookies or storage.
+                    let page = applicationPage |> Option.get
+                    let workflow,variant,resource = specificationDestination page state
+                    let responseQuery = {submittedContext with state=state;specState=variant;resource=resource;accountDraft=Some draft;topBarActions=topBarActions}
+                    // Error values live only in this no-store response, never a URL, cookie or durable store.
+                    match Routing.specificationPage path with
+                    | Some _ -> return! (renderDocument context (Specification.title workflow) (Specification.render workflow responseQuery) |> Render.toHtmlDocString |> htmlString) next context
+                    | None -> return! (renderDocument context (Application.pageTitle page responseQuery) (Application.render page responseQuery) |> Render.toHtmlDocString |> htmlString) next context
+                | Some(destination,state,None) ->
+                    context.Response.Headers.CacheControl <- "private, no-store"
+                    // Successful submissions and non-editor outcomes use finite states, without private submitted values.
                     let collectionContext =
                         match applicationPage with
-                        | Some ApplicationPage.Accounts | Some ApplicationPage.Transactions -> querySuffix (collectionQueryPairs submittedContext)
+                        | Some ApplicationPage.Accounts | Some ApplicationPage.Transactions
+                        | Some ApplicationPage.CreateAccount | Some (ApplicationPage.EditAccount _) | Some (ApplicationPage.DeleteAccount _) | Some (ApplicationPage.DeleteTransaction _) ->
+                            querySuffix (collectionQueryPairs submittedContext @ [if submittedContext.overlayFrom<>"" then "from",submittedContext.overlayFrom])
                         | _ -> ""
                     let destination =
                         if Routing.specificationPage path |> Option.isSome then
@@ -92,7 +106,10 @@ let private submit : HttpHandler =
             | :? BadHttpRequestException as error -> return! (setStatusCode error.StatusCode >=> text "Invalid example form.") next context
             | :? InvalidDataException -> return! (setStatusCode 400 >=> text "Invalid example form.") next context
     }
-let routes : HttpHandler = choose [POST >=> submit; GET >=> pages]
+// The embedding host owns document identity and assets, including response-only validation errors.
+let routesWithDocument renderDocument topBarActions : HttpHandler = choose [POST >=> submit renderDocument topBarActions; GET >=> pages]
+let routesWithActions topBarActions : HttpHandler = routesWithDocument (fun _ title content -> Layout.document title content) topBarActions
+let routes : HttpHandler = routesWithActions []
 
 let main (args:string array) =
     let builder = WebApplication.CreateBuilder(args)

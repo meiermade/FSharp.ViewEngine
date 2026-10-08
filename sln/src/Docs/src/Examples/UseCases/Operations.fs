@@ -45,6 +45,15 @@ module Operations =
         | Some _ when not (canDeleteAccount request.accountId) -> Error ValidateDeletionError.HasActivity
         | Some _ -> Ok {accountId=request.accountId}
 
+    type ValidateTransactionDeletionRequest = { transactionId:int }
+    type ValidateTransactionDeletionResponse = { transactionId:int }
+    [<RequireQualifiedAccess>]
+    type ValidateTransactionDeletionError = NotFound
+    let validateTransactionDeletion (request:ValidateTransactionDeletionRequest) : Result<ValidateTransactionDeletionResponse,ValidateTransactionDeletionError> =
+        match tryTransaction request.transactionId with
+        | None -> Error ValidateTransactionDeletionError.NotFound
+        | Some _ -> Ok {transactionId=request.transactionId}
+
     type ValidateOrganizationRequest = { name:string; currency:string }
     type ValidateOrganizationResponse = { accepted:bool }
     [<RequireQualifiedAccess>]

@@ -16,10 +16,10 @@ module Registry =
           { label = "Components"
             pages = [ Components.overviewRegistration; Components.installationRegistration ]
             sections = [ { label = "Guides"; pages = Components.guideRegistrations; sections = [] } ] @ Catalog.navigation } ]
-        @ [ { label = "Examples"; pages = [ Examples.registration ]; sections = [] }
-            { label = "Project"
+        @ [ { label = "Project"
               pages = [ Benchmarks.page; Changelog.page ]
-              sections = [] } ]
+              sections = [] }
+            { label = "Examples"; pages = [ Examples.registration ]; sections = [] } ]
 
     let rec private sectionPages section =
         section.pages @ (section.sections |> List.collect sectionPages)

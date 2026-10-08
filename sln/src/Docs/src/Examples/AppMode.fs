@@ -28,23 +28,14 @@ module AppMode =
             match destination with
             | Some(name,href) -> a { _href href; _ariaLabel (label+": "+name); _title (label+": "+name); _class iconLinkClass; graphic }
             | None -> span { _ariaDisabled true; _ariaLabel ("No "+label.ToLowerInvariant()+" workflow"); _class "grid size-8 shrink-0 place-items-center text-[var(--fve-muted-text)]"; graphic }
-        let themeIcon = fragment {
-            span { _dataShow "$_example_app_appearance == 'system'"; icon "M9 17.25v3m6-3v3M6 20.25h12M4.5 3.75h15A1.5 1.5 0 0 1 21 5.25v10.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 15.75V5.25a1.5 1.5 0 0 1 1.5-1.5Z" }
-            span { _dataShow "$_example_app_appearance == 'light'"; _style "display:none"; icon "M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" }
-            span { _dataShow "$_example_app_appearance == 'dark'"; _style "display:none"; icon "M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 2.25 12c0 5.385 4.365 9.75 9.75 9.75a9.753 9.753 0 0 0 9.752-6.748Z" }
-        }
         let dockTop = if query.dock="top" then "true" else "false"
-        let themes : DropdownMenuItem<unit> list = [
-            for mode,name in ["system","System";"light","Light";"dark","Dark"] do
-                let choose = $"localStorage.setItem('financial-example-appearance', '{mode}'); const root = document.documentElement; const dark = '{mode}' == 'dark' || ('{mode}' == 'system' && matchMedia('(prefers-color-scheme: dark)').matches); root.classList.toggle('dark', dark); root.style.colorScheme = dark ? 'dark' : 'light'; root.dataset.colorMode = '{mode}'; window.dispatchEvent(new CustomEvent('financial-example-color-mode', {{detail: '{mode}'}}))"
-                DropdownMenuItem.radio choose name |> DropdownMenuItem.withCheckedExpression $"$_example_app_appearance == '{mode}'" ]
         let controls =
             nav {
                 _id "spec-app-controls"; _ariaLabel "App mode controls"; _attr("data-example-app-controls","true")
                 _attr("data-fve-app-dock",query.dock); _attr("data-fve-color-mode","dark")
-                _dataSignals $"{{_example_app_dock_top: {dockTop}, _example_app_appearance: 'system', _example_app_dark: false}}"
-                _dataInit "queueMicrotask(() => { $_example_app_appearance = document.documentElement.dataset.colorMode ?? 'system'; $_example_app_dark = document.documentElement.classList.contains('dark') })"
-                _dataOn("financial-example-color-mode__window", "$_example_app_appearance = evt.detail; $_example_app_dark = evt.detail == 'dark' || (evt.detail == 'system' && matchMedia('(prefers-color-scheme: dark)').matches)")
+                _dataSignals $"{{_example_app_dock_top: {dockTop}, _example_app_dark: false}}"
+                _dataInit "$_example_app_dark = document.documentElement.classList.contains('dark'); const reserveDock = () => document.documentElement.style.setProperty('--example-app-dock-space', 'calc(' + el.getBoundingClientRect().height + 'px + max(0.5rem, env(safe-area-inset-top), env(safe-area-inset-bottom)) + 0.5rem)'); new ResizeObserver(reserveDock).observe(el); reserveDock()"
+                _dataOn("fve-color-mode__window", "$_example_app_dark = document.documentElement.classList.contains('dark')")
                 _dataAttr("data-fve-app-dock", "$_example_app_dock_top ? 'top' : 'bottom'")
                 _dataAttr("data-fve-color-mode", "$_example_app_dark ? 'light' : 'dark'")
                 _class ((Layout.theme |> ComponentsTheme.withDensity Density.Compact |> ComponentsTheme.withControlSize ControlSize.Small |> ComponentsTheme.className)+" fixed right-[max(0.75rem,env(safe-area-inset-right))] bottom-[max(0.5rem,env(safe-area-inset-bottom))] z-[110] flex min-h-10 max-w-[calc(100vw-1rem)] flex-wrap items-center justify-end gap-0.5 rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[color-mix(in_srgb,var(--fve-surface)_92%,transparent)] p-1 text-sm text-[var(--fve-text)] shadow-xl backdrop-blur-sm data-[fve-app-dock=top]:top-[max(0.5rem,env(safe-area-inset-top))] data-[fve-app-dock=top]:bottom-auto")
@@ -55,7 +46,7 @@ module AppMode =
                 |> DropdownMenu.render id
                 direction "Next" (icon "m9 6 6 6-6 6") next
                 span { _ariaHidden true; _class "mx-1 h-5 w-px shrink-0 bg-[var(--fve-border)]" }
-                DropdownMenu.create "spec-app-theme" "Choose theme" |> DropdownMenu.withTrigger (DropdownMenuTrigger.icon themeIcon) |> DropdownMenu.withContent themes |> DropdownMenu.render (fun () -> "")
+                ThemeSwitcher.create "spec-app-theme" "Choose theme" |> ThemeSwitcher.render
                 Button.create (ButtonContent.Icon ("Move App mode controls to top", fragment {
                     span { _dataShow "!$_example_app_dock_top"; icon "M12 19.5v-15m-6 6 6-6 6 6" }
                     span { _dataShow "$_example_app_dock_top"; _style "display:none"; icon "M12 4.5v15m6-6-6 6-6-6" } }))
@@ -70,7 +61,7 @@ module AppMode =
             }
         div {
             _id "spec-app-mode-root"; _attr("data-spec-app-mode","true"); _attr("data-example-native-navigation","true")
-            _class "min-h-dvh bg-[var(--fve-background)] text-[var(--fve-text)] [--example-chrome-height:0px]"
+            _class "min-h-dvh bg-[var(--fve-background)] text-[var(--fve-text)]"
             // Only the dock preference changes client-side; every page/state destination is ordinary server navigation.
             _dataOn("click__capture__window", "const link = evt.target.closest?.('a[href]'); if (link) { const url = new URL(link.href); if (url.origin == location.origin && url.pathname.startsWith('/examples/specification')) { url.searchParams.set('fveAppDock', new URL(location.href).searchParams.get('fveAppDock') ?? 'bottom'); link.href = url.href } }")
             _dataOn("submit__capture__window", "const dock = evt.target.querySelector('input[name=fveAppDock]'); if (dock) dock.value = new URL(location.href).searchParams.get('fveAppDock') ?? 'bottom'")

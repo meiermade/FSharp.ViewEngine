@@ -32,7 +32,6 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Tabs.fs" FveFile="Tabs.fs" FveName="tabs" FveDependencies="foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)RadioGroup.fs" FveFile="RadioGroup.fs" FveName="radio-group" FveDependencies="foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)CalendarRendering.fs" FveFile="CalendarRendering.fs" FveName="calendar-rendering" FveDependencies="foundation" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)SideNav.fs" FveFile="SideNav.fs" FveName="side-nav" FveDependencies="foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Resizable.fs" FveFile="Resizable.fs" FveName="resizable" FveDependencies="foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)BottomNavigation.fs" FveFile="BottomNavigation.fs" FveName="bottom-navigation" FveDependencies="foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Steps.fs" FveFile="Steps.fs" FveName="steps" FveDependencies="foundation" />
@@ -49,6 +48,8 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Notification.fs" FveFile="Notification.fs" FveName="notification" FveDependencies="foundation;field-foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)ToggleGroup.fs" FveFile="ToggleGroup.fs" FveName="toggle-group" FveDependencies="foundation;choice-selection" />
     <FveComponent Include="$(MSBuildThisFileDirectory)DropdownMenu.fs" FveFile="DropdownMenu.fs" FveName="dropdown-menu" FveDependencies="foundation;button" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)SideNav.fs" FveFile="SideNav.fs" FveName="side-nav" FveDependencies="foundation;dropdown-menu" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ThemeSwitcher.fs" FveFile="ThemeSwitcher.fs" FveName="theme-switcher" FveDependencies="dropdown-menu" />
     <FveComponent Include="$(MSBuildThisFileDirectory)FloatingPanel.fs" FveFile="FloatingPanel.fs" FveName="floating-panel" FveDependencies="foundation;field-foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Tooltip.fs" FveFile="Tooltip.fs" FveName="tooltip" FveDependencies="foundation;field-foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Popover.fs" FveFile="Popover.fs" FveName="popover" FveDependencies="foundation;field-foundation" />
@@ -64,7 +65,7 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Field.fs" FveFile="Field.fs" FveName="field" FveDependencies="field-foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)InputGroup.fs" FveFile="InputGroup.fs" FveName="input-group" FveDependencies="foundation;kbd;field-foundation;field;input" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Select.fs" FveFile="Select.fs" FveName="select" FveDependencies="foundation;choice-selection;field-foundation;input" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)ButtonGroup.fs" FveFile="ButtonGroup.fs" FveName="button-group" FveDependencies="foundation;button;dropdown-menu" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ButtonGroup.fs" FveFile="ButtonGroup.fs" FveName="button-group" FveDependencies="foundation;button;dropdown-menu;select" />
     <FveComponent Include="$(MSBuildThisFileDirectory)YearCalendar.fs" FveFile="YearCalendar.fs" FveName="year-calendar" FveDependencies="month-calendar" />
     <FveComponent Include="$(MSBuildThisFileDirectory)DatePicker.fs" FveFile="DatePicker.fs" FveName="date-picker" FveDependencies="foundation;field-foundation;popover;month-calendar" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Breadcrumbs.fs" FveFile="Breadcrumbs.fs" FveName="breadcrumbs" FveDependencies="foundation;dropdown-menu" />

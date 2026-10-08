@@ -31,20 +31,25 @@ type DropdownMenuTrigger =
           iconOnly:bool
           fullRow:bool
           attributes:HtmlAttribute list
-          groupClass:string option }
+          groupClass:string option
+          variant:ButtonVariant option }
 
 /// <category>dropdown-menu</category>
 [<RequireQualifiedAccess>]
 module DropdownMenuTrigger =
     let text label =
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A visible menu-trigger label is required."
-        { body = Html.text label; iconOnly = false; fullRow = false; attributes = []; groupClass = None }
+        { body = Html.text label; iconOnly = false; fullRow = false; attributes = []; groupClass = None; variant = None }
 
-    let content content : DropdownMenuTrigger = { body = content; iconOnly = false; fullRow = false; attributes = []; groupClass = None }
-    let icon icon : DropdownMenuTrigger = { body = icon; iconOnly = true; fullRow = false; attributes = []; groupClass = None }
+    let content content : DropdownMenuTrigger = { body = content; iconOnly = false; fullRow = false; attributes = []; groupClass = None; variant = None }
+    /// A ghost icon button with the menu's accessible label and shared Button states.
+    let icon icon : DropdownMenuTrigger = { body = icon; iconOnly = true; fullRow = false; attributes = []; groupClass = None; variant = None }
     /// A square-edged, full-width trigger for an owning navigation/context row.
     let asFullRow (trigger:DropdownMenuTrigger) = { trigger with fullRow = true; iconOnly = false }
     let withAttributes attributes (trigger:DropdownMenuTrigger) = { trigger with attributes = attributes }
+    /// Opt into shared Button presentation, such as Outline for a page-header secondary action.
+    /// Full context rows retain their owning row presentation.
+    let withVariant variant (trigger:DropdownMenuTrigger) = { trigger with variant = Some variant }
 
 [<NoEquality; NoComparison>]
 type private MenuItemContent =
@@ -259,7 +264,7 @@ module DropdownMenu =
         let itemClasses unavailable =
             ComponentHtml.classes [
                 ComponentHtml.popupItemClasses
-                "fve-popup-item flex w-full items-center gap-3 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-color-text)]"
+                "fve-popup-item flex w-full items-center gap-3 rounded-none px-3 py-[var(--fve-control-padding-block)] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-color-text)]"
                 if unavailable then
                     "cursor-not-allowed opacity-50" ]
         let rec renderEntry path item =
@@ -358,14 +363,19 @@ module DropdownMenu =
                 _ariaControls menuId
                 _dataOn ("click", [ "prevent" ], $"${typeaheadSignal} = ''; {toggleAndFocus}")
                 _dataOn ("keydown", triggerKeydown)
+                if trigger.iconOnly || trigger.variant.IsSome then _style (ComponentColors.style ComponentColors.neutral trigger.attributes)
                 _class (
                     if trigger.fullRow then
-                        ComponentHtml.classes [ ComponentHtml.popupControlClasses; "fve-popup-control flex min-h-[var(--fve-shell-bar-min-height)] w-full items-center rounded-none px-4 py-3 text-left text-sm font-semibold text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]"; trigger.groupClass |> Option.defaultValue "" ]
-                    elif trigger.iconOnly then
-                        ComponentHtml.classes [ ComponentHtml.popupControlClasses; "fve-popup-control inline-flex size-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] p-0 text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]"; trigger.groupClass |> Option.defaultValue "" ]
+                        ComponentHtml.classes [ ComponentHtml.popupControlClasses; "fve-popup-control flex min-h-10 w-full items-center rounded-none px-4 py-2 text-left text-sm leading-5 font-semibold text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]"; trigger.groupClass |> Option.defaultValue "" ]
+                    elif trigger.iconOnly || trigger.variant.IsSome then
+                        ComponentHtml.classes [ ComponentHtml.popupControlClasses; ButtonStyles.baseClasses
+                                                (if trigger.iconOnly then ComponentHtml.iconButtonSizeClasses None else ComponentHtml.sizeClasses None)
+                                                Button.variantClasses (trigger.variant |> Option.defaultValue ButtonVariant.Ghost); ComponentColors.focus
+                                                "fve-popup-control"; trigger.groupClass |> Option.defaultValue "" ]
                     else
                         ComponentHtml.classes [ ComponentHtml.popupControlClasses; "fve-popup-control inline-flex min-h-[var(--fve-control-min-height)] items-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]"; trigger.groupClass |> Option.defaultValue "" ])
-                for attribute in ComponentHtml.safeAttributes [ "id"; "type"; "role"; "tabindex"; "popovertarget"; "aria-haspopup"; "aria-expanded"; "aria-label"; "aria-controls"; "class"; "data-on:"; "data-attr:"; "data-signals"; "data-init" ] trigger.attributes do attribute
+                let protectedAttributes = [ "id"; "type"; "role"; "tabindex"; "popovertarget"; "aria-haspopup"; "aria-expanded"; "aria-label"; "aria-controls"; "class"; "data-on:"; "data-attr:"; "data-signals"; "data-init"; if trigger.iconOnly || trigger.variant.IsSome then "style" ]
+                for attribute in ComponentHtml.safeAttributes protectedAttributes trigger.attributes do attribute
                 if trigger.iconOnly then
                     span { _ariaHidden true; _class "inline-flex size-4 items-center justify-center"; trigger.body }
                 else
@@ -386,7 +396,7 @@ module DropdownMenu =
                 _attr ("data-fve-position-area", positionArea)
                 _dataPreserveAttr "data-fve-pointer-x data-fve-pointer-y"
                 _style $"inset: auto; margin: 0.5rem 0; position-area: {positionArea}; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: min(16rem, calc(100vw - 2rem))"
-                _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] p-1 shadow-lg" ])
+                _class (ComponentHtml.classes [ ComponentHtml.popupClasses; "fve-popup fixed z-30 overflow-hidden rounded-[var(--fve-radius-control)] border-0 bg-[var(--fve-surface)] py-1 shadow-lg" ])
                 for index, item in config.items |> List.indexed do
                     renderEntry (string index) item
             }

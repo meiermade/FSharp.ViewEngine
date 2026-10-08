@@ -174,7 +174,7 @@ module ComponentsTheme =
     let withDensity density theme =
         let densityClass =
             match density with
-            | Density.Compact -> "fve-density-compact [--fve-navigation-padding-block:0.375rem] [--fve-navigation-min-height:2rem] [--fve-shell-bar-min-height:3rem]"
+            | Density.Compact -> "fve-density-compact [--fve-navigation-padding-block:0.25rem] [--fve-navigation-min-height:1.75rem] [--fve-shell-bar-min-height:3rem]"
             | Density.Comfortable -> comfortableDensity
         { theme with densityClass = densityClass }
 
