@@ -64,6 +64,7 @@ module Model =
         let pairs =
             [ yield "specState",state
               if query.resource<>"" then yield "resource",query.resource
+              if query.overlayFrom<>"" then yield "from",query.overlayFrom
               if query.appMode then yield "appMode","1"
               yield "fveAppDock",query.dock ]
         workspaceUrl ("/examples/specification"+(if workflow="" then "" else "/"+workflow)) query.workspace + querySuffix pairs
@@ -77,7 +78,7 @@ module Model =
         [ "search",query.search; "accountType",query.accountType; "status",query.status
           "account",query.account; "sort",query.sort; "filters",String.concat "," query.filters ]
     let collectionHref (query:Query) page =
-        applicationHref query page + querySuffix (collectionQueryPairs query @ [if query.overlayFrom<>"" then "from",query.overlayFrom])
+        applicationHref query page + querySuffix (collectionQueryPairs query @ [if not query.specification && query.overlayFrom<>"" then "from",query.overlayFrom])
 
     let private jsonOptions = System.Text.Json.JsonSerializerOptions(WriteIndented=true)
     let accountPayload (account:Account) =

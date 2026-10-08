@@ -92,7 +92,7 @@ let private submit renderDocument topBarActions : HttpHandler =
                         match applicationPage with
                         | Some ApplicationPage.Accounts | Some ApplicationPage.Transactions
                         | Some ApplicationPage.CreateAccount | Some (ApplicationPage.EditAccount _) | Some (ApplicationPage.DeleteAccount _) | Some (ApplicationPage.DeleteTransaction _) ->
-                            querySuffix (collectionQueryPairs submittedContext @ [if submittedContext.overlayFrom<>"" then "from",submittedContext.overlayFrom])
+                            querySuffix (collectionQueryPairs submittedContext @ [if (Routing.specificationPage path |> Option.isNone) && submittedContext.overlayFrom<>"" then "from",submittedContext.overlayFrom])
                         | _ -> ""
                     let destination =
                         if Routing.specificationPage path |> Option.isSome then

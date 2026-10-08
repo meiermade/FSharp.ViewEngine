@@ -148,7 +148,7 @@ module Specification =
             let product = Application.render (resourcePage requested state) {productQuery requested state with previewId=fixtureId workflow state;topBarActions=[]}
             let href = currentUrl workflow state requested true
             let addressQuery = {productQuery requested state with specification=false}
-            let address = applicationHref addressQuery (resourcePage requested state) + querySuffix (collectionQueryPairs addressQuery @ ["state",addressQuery.state;"range",addressQuery.range;"comparison",addressQuery.comparison])
+            let address = collectionHref addressQuery (resourcePage requested state) + querySuffix ["state",addressQuery.state;"range",addressQuery.range;"comparison",addressQuery.comparison]
             let preview = Browser.create (div { _class "h-[40rem]"; product }) |> Browser.withAddress address |> Browser.render |> AppMode.fixture (workflow.label+" · "+state.label) href
             TabItem.create (fixtureId workflow state) state.label preview)
         div {

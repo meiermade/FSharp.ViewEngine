@@ -65,6 +65,47 @@ test('spec App mode follows an exact account through validation cancel and curre
   await expect(page.getByRole('heading', { name: 'View account', exact: true, level: 1 })).toBeVisible()
 })
 
+for (const scenario of [
+  { collection: 'accounts', record: 'Operating checking', action: 'Edit account', dialog: 'Edit account', workflow: 'accounts/update-account', resource: '101', background: 'Accounts' },
+  { collection: 'accounts', record: 'Unassigned expense', action: 'Delete account', dialog: 'Delete Unassigned expense?', workflow: 'accounts/delete-account', resource: '105', background: 'Accounts' },
+  { collection: 'transactions', record: 'Client payment', action: 'Delete transaction', dialog: 'Delete Client payment?', workflow: 'transactions/delete-transaction', resource: '201', background: 'Transactions' },
+]) {
+  test(`collection-origin ${scenario.action} survives App-mode exit, expansion and state URLs @cross-browser`, async ({ page }) => {
+    await page.goto(`/examples/specification/${scenario.collection}/view-${scenario.collection}?appMode=1`)
+    await page.getByRole('button', { name: `Actions for ${scenario.record}`, exact: true }).click()
+    await page.getByRole('menuitem', { name: scenario.action, exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: scenario.dialog, exact: true })
+    await expect(dialog).toBeVisible()
+    const assertOrigin = (href: string) => {
+      const url = new URL(href, page.url())
+      expect(url.searchParams.getAll('from')).toEqual([scenario.collection])
+      return url
+    }
+    assertOrigin(page.url())
+    await expect(page.getByRole('heading', { name: scenario.background, exact: true, level: 1 })).toBeVisible()
+    const controls = dialog.getByRole('navigation', { name: 'App mode controls' })
+    await controls.getByRole('button', { name: /^Review state:/ }).click()
+    for (const link of await controls.getByRole('menuitem').all()) assertOrigin((await link.getAttribute('href'))!)
+    await page.keyboard.press('Escape')
+    await controls.getByRole('link', { name: 'Exit App mode', exact: true }).click()
+    const exited = assertOrigin(page.url())
+    expect(exited.pathname).toBe(`/examples/specification/${scenario.workflow}`)
+    expect(exited.searchParams.get('resource')).toBe(scenario.resource)
+    expect(exited.searchParams.has('appMode')).toBe(false)
+    const fixture = page.getByRole('tabpanel')
+    await expect(fixture.getByRole('heading', { name: scenario.background, exact: true, level: 1 })).toBeVisible()
+    await fixture.getByRole('link', { name: /in App mode$/ }).click()
+    assertOrigin(page.url())
+    await expect(dialog).toBeVisible()
+    await expect(page.getByRole('heading', { name: scenario.background, exact: true, level: 1 })).toBeVisible()
+    await dialog.getByRole('button', { name: scenario.action === 'Edit account' ? 'Update' : 'Delete', exact: true }).click()
+    assertOrigin(page.url())
+    const acknowledgement = dialog.locator(scenario.action === 'Edit account' ? '#template-account-valid' : '#template-delete-valid')
+    await expect(acknowledgement).toContainText(scenario.action === 'Edit account' ? 'Account validated' : 'Deletion validated')
+    await expect(page.getByRole('heading', { name: scenario.background, exact: true, level: 1 })).toBeVisible()
+  })
+}
+
 test('workspace menu and appearance preferences survive App mode document navigation', async ({ page }) => {
   await page.goto('/examples/specification/home?appMode=1')
   const controls = page.getByRole('navigation', { name: 'App mode controls' })
