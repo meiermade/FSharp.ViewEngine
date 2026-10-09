@@ -426,9 +426,9 @@ let tests =
 
         test "Versioned changelog entries follow verified package releases" {
             let build = repositoryFile "sln/src/Build/Program.fs"
-            let readme = repositoryFile "README.md"
+            let releaseGuide = repositoryFile ".github/RELEASING.md"
             Expect.isFalse (build.Contains("validateChangelog")) "release preparation does not require a future changelog entry"
-            Expect.stringContains readme "after the package is published and verified" "release documentation records the post-release changelog step"
+            Expect.stringContains releaseGuide "only after publication, verification, and GitHub release reconciliation" "release documentation records the post-release changelog step"
         }
 
         test "Package discovery matches exact package identities" {
