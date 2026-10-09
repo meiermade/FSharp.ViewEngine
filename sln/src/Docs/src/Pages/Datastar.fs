@@ -43,7 +43,7 @@ module Datastar =
           CodeBlock("fsharp", source) ]
 
     let private nodes =
-        [ [ Paragraph [ Text "FSharp.ViewEngine covers all 31 attributes in the stable "; Link("Datastar 1.0.2 reference", "https://data-star.dev/reference/attributes"); Text " through the "; InlineContent.Code "Datastar"; Text " type." ] ];
+        [ [ Paragraph [ Text "FSharp.ViewEngine exposes 31 typed attribute helpers through the "; InlineContent.Code "Datastar"; Text " type. The canonical examples use the pinned "; Link("Datastar 1.0.4 runtime", "https://github.com/starfederation/datastar/releases/tag/v1.0.4"); Text ". Rocket-only attributes require the corresponding official bundle." ] ];
           section "setup" "Setup";
           [ Paragraph [ Text "Open the "; InlineContent.Code "Datastar"; Text " type to access Datastar attributes:" ];
             CodeBlock("fsharp", """open FSharp.ViewEngine
@@ -155,6 +155,21 @@ div { _dataScrollIntoView [ "smooth"; "vcenter"; "focus" ] }""";
 
           section "trusted-expressions" "Trusted Expressions";
           [ Paragraph [ Text "Datastar expressions can execute JavaScript and backend actions. Attribute values are HTML-encoded by FSharp.ViewEngine, but encoding does not make untrusted expressions safe. Build expressions from trusted application code and never interpolate untrusted input into them." ] ];
+
+          section "content-security-policy" "Content Security Policy";
+          [ Paragraph [ Text "Use Datastar's supported nonce CSP mode to retain expressions without unsafe-eval. Generate a cryptographically random nonce on the server for every full-page response, authorize it in the HTTP script-src policy, and put the same value in data-nonce on the html element. Datastar consumes the attribute and reuses that document nonce for expression compilation and scripts in element patches; patches do not need a new nonce." ];
+            CodeBlock("fsharp", """html {
+    _lang "en"
+    _attr ("data-nonce", pageNonce)
+    head {
+        script { _type "module"; _src "/scripts/datastar.1.0.4.js" }
+    }
+    body {
+        button { _dataOn ("click", "$count++"); "Increment" }
+    }
+}""");
+            Paragraph [ Text "The matching HTTP directive is script-src 'self' 'nonce-{pageNonce}', with connect-src 'self' for same-origin backend actions. Allow required consumer asset origins explicitly. A nonce does not authorize onclick attributes; use data-on instead. Components currently emit inline CSS variables and positioning, so the demonstrated style policy is style-src 'self' 'unsafe-inline', separate from the nonce-only script policy." ];
+            Paragraph [ Text "Nonces do not sanitize expressions. Keep expressions static and developer-controlled; serialize user values as data, never interpolate them into executable expressions. Signals are public and client-controlled, so avoid leaking secrets and validate all values and authorization on the server. Sanitize intentionally allowed user HTML; data-ignore can disable Datastar processing but is not an HTML sanitizer. See "; Link("Datastar security guidance", "https://data-star.dev/reference/security"); Text " and the complete source ZIP host for a working integration." ] ];
 
           section "complete-example" "Complete Example";
           [ Paragraph [ Text "An active search form using signals, binding, modifiers, an indicator, and a backend action:" ];

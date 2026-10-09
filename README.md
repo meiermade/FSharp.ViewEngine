@@ -69,7 +69,9 @@ The watcher serves F# changes and compiles CSS from the common `sln/src` source 
 - `/examples/specification` — wide workflow canvases with shared Application HTML states, copyable App-mode composition, sequence diagrams, bullet rules and architecture.
 - `/examples/api-documentation` — account CRUD and transaction operations, requests, responses, payloads, and validation.
 
-Every reusable component has its own route, navigation entry, installation selector, and compiling source. Templates are consumer-authored pages rather than framework APIs. Demo forms validate finite server-rendered states without cookies, persistence, private-value retention, or financial effects. API operations are illustrative contracts, not live endpoints. Existing bookmarked framework-index URLs redirect to their owning component or template destination; compatibility fixtures are not additional top-level gallery entries.
+Every reusable component has its own route, navigation entry, installation selector, and compiling source. Templates are consumer-authored pages rather than framework APIs. Canonical compositions use official Datastar 1.0.4 with host-issued nonce CSP: no unsafe-eval or unrestricted inline scripts, same-origin backend actions, and an explicit separate allowance for component inline styling. The complete source ZIP demonstrates the policy and authorized asset initialization. See the [Datastar security integration](https://fve.meiermade.com/extensions/datastar#content-security-policy).
+
+Demo forms validate finite server-rendered states without cookies, persistence, private-value retention, or financial effects. API operations are illustrative contracts, not live endpoints. Existing bookmarked framework-index URLs redirect to their owning component or template destination; compatibility fixtures are not additional top-level gallery entries.
 
 In another terminal at the checkout root, run focused catalog checks:
 

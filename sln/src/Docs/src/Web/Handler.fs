@@ -51,7 +51,7 @@ module Handler =
         let mode = appMode context
         respond
             intent
-            (View.documentWithPageFor mode Registry.navigation registration page)
+            (View.documentWithPageForAndNonce (Docs.Examples.Hosting.nonce context) mode Registry.navigation registration page)
             (View.navigationPageWithPage mode Registry.navigation registration page)
 
     let render (page:DocPage) : HttpHandler =
@@ -65,7 +65,7 @@ module Handler =
                 else
                     respond
                         intent
-                        (View.documentFor mode Registry.navigation page)
+                        (View.documentForWithNonce (Docs.Examples.Hosting.nonce context) mode Registry.navigation page)
                         (View.navigationPage mode Registry.navigation page)
             response next context
 
@@ -450,10 +450,11 @@ module Handler =
             | Some(site, page) ->
                 let site = { site with assets = { site.assets with navigation = Some Navigation.enhancement } }
                 let breadcrumbs = FSharp.ViewEngine.Components.Templates.Navigation.breadcrumbs site.navigation site.homeId page.activeId
-                let document = Document.create site page |> Document.render
                 let root = DocsView.navigationRootWithNavigation site breadcrumbs site.navigation Embedded page
                 let metadata = DocsView.documentMetadata site page
                 route path >=> fun next context ->
+                    let site = { site with assets = { site.assets with nonce = Docs.Examples.Hosting.nonce context } }
+                    let document = Document.create site page |> Document.render
                     respond (Navigation.tryIntent context) document (root, metadata) next context)
 
     let postRoutes : HttpHandler =

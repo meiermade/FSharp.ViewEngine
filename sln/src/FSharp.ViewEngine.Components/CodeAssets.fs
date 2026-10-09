@@ -5,7 +5,7 @@ open FSharp.ViewEngine
 open type Html
 
 module internal CodeAssets =
-    let render (stylesheet:string option) (scripts:string list) =
+    let renderWithNonce (stylesheet:string option) (scripts:string list) (nonce:string option) =
         let source =
             """
 (() => {
@@ -101,5 +101,10 @@ window.fsharpDocsCopy = async button => {
             """
                 .Replace("__PRISM_STYLESHEET__", JsonSerializer.Serialize stylesheet)
                 .Replace("__PRISM_SCRIPTS__", JsonSerializer.Serialize scripts)
-                .Replace("__ASSET_NONCE__", "null")
-        script { raw source }
+                .Replace("__ASSET_NONCE__", nonce |> Option.map JsonSerializer.Serialize |> Option.defaultValue "null")
+        script {
+            match nonce with Some value -> _attr("nonce", value) | None -> ()
+            raw source
+        }
+
+    let render stylesheet scripts = renderWithNonce stylesheet scripts None

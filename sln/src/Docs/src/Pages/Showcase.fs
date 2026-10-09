@@ -280,7 +280,9 @@ module Showcase =
         renderDocument exampleSite page
         |> isolatedDocument title canonicalUrl
 
-    let private isolatedPage = renderIsolatedPage isolatedDocument
+    let private isolatedPage title canonicalUrl page =
+        registerPreviewPage ($"/docs/previews/{previewToken title}") exampleSite page
+        renderIsolatedPage isolatedDocument title canonicalUrl page
 
     let private productView (instanceId:string) (state:string) =
         let hasValidation = state = "validation"
@@ -347,6 +349,7 @@ module Showcase =
             |> Document.render
             |> Render.toHtmlDocString
         // docs-example:end document
+        registerPreviewPage "/docs/previews/complete-documentation-shell" site documentPage
 
         // docs-example:start article
         let articlePage =
@@ -498,14 +501,16 @@ module Showcase =
                 Nav.page "install" "Installation" "/installation" "/installation" ] ]
 
         let navigationSite = { exampleSite with navigation = navigation }
-        let navigationPreview =
+        let navigationPreviewPage =
             DocumentationPage.create "install" "Installation"
             |> DocumentationPage.withDescription "Install the package."
             |> DocumentationPage.withSections []
-            |> fun page -> Document.create navigationSite page
+        let navigationPreview =
+            Document.create navigationSite navigationPreviewPage
             |> Document.render
             |> Render.toHtmlDocString
         // docs-example:end navigation-tree
+        registerPreviewPage "/docs/previews/navigation-tree" navigationSite navigationPreviewPage
 
         // docs-example:start page-pager
         let pagerPage =
@@ -527,6 +532,7 @@ module Showcase =
             |> Document.render
             |> Render.toHtmlDocString
         // docs-example:end site-actions
+        registerPreviewPage "/docs/previews/theme-and-repository-actions" siteWithActions pagerPage
 
         componentPage navigationRegistration "Discoverable navigation for the complete documentation journey." "navigation" "documentation"
             ("navigation-tree", "Navigation, breadcrumbs, and table of contents", isolatedDocument "Navigation tree" (publicUrl $"{navigationRegistration.path}#navigation-tree") navigationPreview) [

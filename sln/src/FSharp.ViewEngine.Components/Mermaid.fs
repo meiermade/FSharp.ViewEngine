@@ -40,6 +40,9 @@ module Mermaid =
     /// Include once in the document head. The consumer supplies the Mermaid script URL.
     let assets scriptPath = MermaidAssets.render scriptPath
 
+    /// Authorize initialization and the lazy-loaded runtime with the current document's CSP nonce.
+    let assetsWithNonce scriptPath nonce = MermaidAssets.renderWithNonce scriptPath nonce
+
     let create source : MermaidConfig =
         if String.IsNullOrWhiteSpace source then invalidArg (nameof source) "Mermaid source cannot be empty."
         { source = source; c4 = false }

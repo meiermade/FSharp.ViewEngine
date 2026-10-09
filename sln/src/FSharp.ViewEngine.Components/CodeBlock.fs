@@ -59,6 +59,9 @@ module CodeBlock =
     /// Include once in the document head. URLs point to consumer-owned Prism assets.
     let assets stylesheet scripts = CodeAssets.render stylesheet scripts
 
+    /// Authorize initialization and lazy-loaded assets with the current document's CSP nonce.
+    let assetsWithNonce stylesheet scripts nonce = CodeAssets.renderWithNonce stylesheet scripts nonce
+
     let create language source : CodeBlockConfig =
         if String.IsNullOrWhiteSpace source then invalidArg (nameof source) "Code source cannot be empty."
         { language = if String.IsNullOrWhiteSpace language then "text" else language.Trim().ToLowerInvariant()

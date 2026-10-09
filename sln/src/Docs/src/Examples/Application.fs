@@ -367,8 +367,6 @@ module Application =
     let private profile (query:Query) =
         let appearanceId = elementId query "template-appearance"
         let appearanceSignal = appearanceId.Replace('-', '_')+"_value"
-        let applyAppearance = "window.fveColorMode.set(mode)"
-        let activateAppearance = $"const input = event.target; if (input instanceof HTMLInputElement && input.type == 'radio' && input.checked) {{ const mode = input.value; {applyAppearance} }}"
         div {
             _class "grid max-w-4xl gap-8"
             if query.state="validated" then notice query "template-profile-valid" "Profile values validated" "No identity values were saved or retained." NoticeColor.Success
@@ -392,9 +390,7 @@ module Application =
                 div {
                     _dataInit $"queueMicrotask(() => {{ ${appearanceSignal} = window.fveColorMode.current() }})"
                     _dataOn("fve-color-mode__window", $"${appearanceSignal} = window.fveColorMode.current()")
-                    _onclick activateAppearance
-                    // Chromium does not click an already-checked radio when Space is pressed.
-                    _onkeydown $"if (event.key == ' ') {{ {activateAppearance} }}"
+                    for attribute in ThemeSwitcher.nativeChoiceAttributes do attribute
                     RadioGroup.create (elementId query "appearance") "Appearance" id [RadioGroupOption.create "system" "System";RadioGroupOption.create "light" "Light";RadioGroupOption.create "dark" "Dark"]
                     |> RadioGroup.withId appearanceId |> RadioGroup.withSelected "system" |> RadioGroup.render
                 }

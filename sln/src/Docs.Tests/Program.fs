@@ -718,7 +718,7 @@ let tests =
             Expect.stringContains renderingHtml "fragment {" "fragment computation-expression guidance"
             Expect.stringContains renderingHtml "Html.fragment nodes" "fragment migration guidance"
             Expect.stringContains renderingHtml "titleBuilder" "title migration guidance"
-            Expect.stringContains datastarHtml "Datastar 1.0.2" "pinned Datastar reference"
+            Expect.stringContains datastarHtml "Datastar 1.0.4" "pinned Datastar reference"
         }
 
         test "Rendered pages contain no Markdown fences" {
@@ -767,7 +767,7 @@ let tests =
 
         test "Docs use only the pinned self-hosted Datastar runtime" {
             let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "/scripts/datastar.1.0.2.js" "pinned Datastar script"
+            Expect.stringContains html "/scripts/datastar.1.0.4.js" "pinned Datastar script"
             Expect.stringContains html "type=\"module\"" "Datastar module script"
             Expect.isFalse (html.Contains("alpinejs")) "Alpine runtime removed"
             Expect.isFalse (html.Contains(" x-data=")) "Alpine directives removed"
@@ -1350,7 +1350,7 @@ after"""
             use archive = new System.IO.Compression.ZipArchive(context.Response.Body,System.IO.Compression.ZipArchiveMode.Read)
             let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
             for file in Examples.sourceFiles do Expect.isTrue (entries.Contains file) ("complete source: "+file)
-            for file in ["wwwroot/scripts/datastar.1.0.2.js";"wwwroot/scripts/mermaid.11.16.0.min.js";"wwwroot/css/prism-tomorrow.1.29.0.min.css"] do
+            for file in ["wwwroot/scripts/datastar.1.0.4.js";"wwwroot/scripts/mermaid.11.16.0.min.js";"wwwroot/css/prism-tomorrow.1.29.0.min.css"] do
                 Expect.isTrue (entries.Contains file) ("pinned runtime asset: "+file)
             for entry in archive.Entries |> Seq.filter (fun entry -> entry.FullName.EndsWith ".fs") do
                 use reader = new StreamReader(entry.Open())

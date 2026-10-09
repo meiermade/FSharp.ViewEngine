@@ -390,7 +390,7 @@ let tests =
 
             Expect.isFalse (rendered.Contains("<style")) "the package emits no style element requiring a nonce"
             Expect.stringContains rendered "<script nonce=\"request-nonce\">" "inline script nonce"
-            Expect.stringContains rendered "type=\"module\" src=\"/scripts/datastar.1.0.2.js\" nonce=\"request-nonce\"" "external runtime nonce"
+            Expect.stringContains rendered "type=\"module\" src=\"/scripts/datastar.1.0.4.js\" nonce=\"request-nonce\"" "external runtime nonce"
         }
 
         test "Assets and Mermaid behavior are configurable" {

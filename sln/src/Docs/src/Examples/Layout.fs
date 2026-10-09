@@ -4,6 +4,7 @@ open FSharp.ViewEngine
 open FSharp.ViewEngine.Components
 open type Html
 open type Svg
+open type Datastar
 open Model
 open Ledger.Domain
 
@@ -161,7 +162,7 @@ module Layout =
                 if mobile then
                     Button.create (ButtonContent.Icon ("Close navigation", icon "m6 6 12 12M6 18 18 6"))
                     |> Button.withVariant ButtonVariant.Ghost
-                    |> Button.withAttributes [_onclick "document.getElementById('template-navigation-dialog').close()"] |> Button.render
+                    |> Button.withAttributes [_dataOn("click", "document.getElementById('template-navigation-dialog').close()")] |> Button.render
             })
             SideNav.create navId "Documentation"
             |> SideNav.withHeader header
@@ -180,7 +181,7 @@ module Layout =
                           _class "lg:hidden"
                           Button.create (ButtonContent.Icon ("Open navigation", icon "M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"))
                           |> Button.withVariant ButtonVariant.Ghost
-                          |> Button.withAttributes [_ariaControls "template-navigation-dialog"; _onclick "document.getElementById('template-navigation-dialog').showModal()"] |> Button.render
+                          |> Button.withAttributes [_ariaControls "template-navigation-dialog"; _dataOn("click", "document.getElementById('template-navigation-dialog').showModal()")] |> Button.render
                       }
                       Breadcrumbs.create "template-document-breadcrumbs" "Breadcrumb" crumbs
                       |> Breadcrumbs.withMaxVisibleItems (max 2 crumbs.Length) |> Breadcrumbs.render id
@@ -267,20 +268,23 @@ module Layout =
         applicationFrame query.previewId (fun navId -> appNavigation navId page current query settingsKey) bar title actions collection body
 
     /// Complete standalone host document; no catalog-only viewer chrome is required.
-    let document (title:string) (content:HtmlElement) =
+    let documentWithNonce (nonce:string option) (title:string) (content:HtmlElement) =
         html {
             _lang "en"
+            match nonce with Some value -> _attr("data-nonce", value) | None -> ()
             head {
                 meta { _charset "utf-8" }; meta { _name "viewport"; _content "width=device-width, initial-scale=1" }
                 Html.title { title }
-                ThemeSwitcher.assets "financial-example-appearance" ColorMode.System
+                ThemeSwitcher.assetsWithNonce "financial-example-appearance" ColorMode.System nonce
                 Html.link { _rel "stylesheet"; _href "/css/output.css" }
-                CodeBlock.assets (Some "/css/prism-tomorrow.1.29.0.min.css") ["/scripts/prism.1.29.0.min.js";"/scripts/prism-fsharp.1.29.0.min.js";"/scripts/prism-sql.1.29.0.min.js";"/scripts/prism-bash.1.29.0.min.js";"/scripts/prism-json.1.29.0.min.js"]
-                Mermaid.assets "/scripts/mermaid.11.16.0.min.js"
-                script { _type "module"; _src "/scripts/datastar.1.0.2.js" }
+                CodeBlock.assetsWithNonce (Some "/css/prism-tomorrow.1.29.0.min.css") ["/scripts/prism.1.29.0.min.js";"/scripts/prism-fsharp.1.29.0.min.js";"/scripts/prism-sql.1.29.0.min.js";"/scripts/prism-bash.1.29.0.min.js";"/scripts/prism-json.1.29.0.min.js"] nonce
+                Mermaid.assetsWithNonce "/scripts/mermaid.11.16.0.min.js" nonce
+                script { _type "module"; _src "/scripts/datastar.1.0.4.js" }
             }
             body {
                 _class "m-0 bg-[var(--fve-background)] font-sans text-sm text-[var(--fve-text)] antialiased"
                 content
             }
         }
+
+    let document title content = documentWithNonce None title content
