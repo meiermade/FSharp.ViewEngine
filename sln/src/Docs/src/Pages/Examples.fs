@@ -36,7 +36,7 @@ module Examples =
                         div { _class "grid gap-2"; h2 { _class "text-lg font-semibold text-[var(--fve-text)]"; template.name }; p { _class "text-sm leading-relaxed text-[var(--fve-muted-text)]"; template.description }; span { _class "text-sm font-semibold text-[var(--fve-brand-text)]"; "Open example →" } }
                     }
             } ]]
-    let sourceFiles = ["Domain/Domain.fs"; "Domain/Ledger.Domain.fsproj"; "UseCases/Operations.fs"; "UseCases/Ledger.Application.fsproj"; "Model.fs"; "Layout.fs"; "AppMode.fs"; "Application.fs"; "Architecture.fs"; "Specification.fs"; "ApiDocumentation.fs"; "Routing.fs"; "Hosting.fs"; "Program.fs"; "Example.fsproj"; "input.css"; "Setup.md"]
+    let sourceFiles = ["Domain/Domain.fs"; "Domain/Ledger.Domain.fsproj"; "UseCases/Operations.fs"; "UseCases/Ledger.Application.fsproj"; "Model.fs"; "Layout.fs"; "AppMode.fs"; "Application.fs"; "Architecture.fs"; "Specification.fs"; "ApiDocumentation.fs"; "Routing.fs"; "Hosting.fs"; "Program.fs"; "Example.fsproj"; "input.css"; "README.md"]
     let source file =
         if not (List.contains file sourceFiles) then invalidArg (nameof file) "Choose a template source file."
         SourceRegion.readEmbedded typeof<DocPage>.Assembly ("Docs.Examples."+file.Replace('/', '.'))

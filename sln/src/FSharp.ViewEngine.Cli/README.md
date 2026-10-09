@@ -8,7 +8,7 @@ Pin it in a repository-local tool manifest:
 dotnet new tool-manifest
 dotnet tool install FSharp.ViewEngine.Cli
 dotnet fve init src/MyApp.Components/MyApp.Components.fsproj --namespace MyApp.Components
-dotnet fve add button text-field --config src/MyApp.Components/fve.json
+dotnet fve add button input --config src/MyApp.Components/fve.json
 ```
 
 A global installation is also supported:
@@ -26,4 +26,4 @@ Commit the generated project, `fve.json`, and source files. `fve` copies no CSS.
 @source "./**/*.fs";
 ```
 
-The configuration records the registry version and checksums. Use `dotnet fve diff --config src/MyApp.Components/fve.json` before changing the pinned tool version. Modified or missing files are reported and never silently replaced; `fve add --overwrite` is the explicit replacement path. See the [canonical setup and migration guide](https://github.com/meiermade/FSharp.ViewEngine/tree/main/sln/src/FSharp.ViewEngine.Components#readme) for the complete consumer workflow.
+The configuration records the registry version and checksums. Use `dotnet fve diff --config src/MyApp.Components/fve.json` before changing the pinned tool version. Modified or missing files are reported and never silently replaced; `fve add --overwrite` is the explicit replacement path. See the [component setup guide](https://github.com/meiermade/FSharp.ViewEngine/tree/main/sln/src/FSharp.ViewEngine.Components#readme) for the complete consumer workflow.

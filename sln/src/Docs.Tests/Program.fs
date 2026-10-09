@@ -1349,6 +1349,7 @@ after"""
             context.Response.Body.Position <- 0L
             use archive = new System.IO.Compression.ZipArchive(context.Response.Body,System.IO.Compression.ZipArchiveMode.Read)
             let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
+            Expect.isTrue (entries.Contains "README.md") "download includes an entry-point README"
             for file in Examples.sourceFiles do Expect.isTrue (entries.Contains file) ("complete source: "+file)
             for file in ["wwwroot/scripts/datastar.1.0.4.js";"wwwroot/scripts/mermaid.11.16.0.min.js";"wwwroot/css/prism-tomorrow.1.29.0.min.css"] do
                 Expect.isTrue (entries.Contains file) ("pinned runtime asset: "+file)
