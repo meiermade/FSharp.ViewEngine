@@ -34,6 +34,10 @@ module ThemeSwitcher =
     /// Initial radio state before hydration; use the same default in the document assets.
     let withDefaultMode defaultMode config = { config with defaultMode = defaultMode }
 
+    /// Mark native radio choices whose values are system/light/dark. Delegated activation handling
+    /// applies the preference even before Datastar initializes; labels and layout remain consumer-owned.
+    let nativeChoiceAttributes = [ _attr("data-fve-color-mode-choice", "true") ]
+
     let assetsWithNonce storageKey defaultMode nonce =
         if String.IsNullOrWhiteSpace storageKey then invalidArg (nameof storageKey) "A product-owned preference storage key is required."
         let source = """
@@ -71,6 +75,13 @@ module ThemeSwitcher =
     }
   };
   window.fveColorMode.apply(window.fveColorMode.current());
+  const applyNativeChoice = event => {
+    const input = event.target;
+    if (input instanceof HTMLInputElement && input.type === 'radio' && input.checked && input.closest('[data-fve-color-mode-choice]') && valid.has(input.value)) window.fveColorMode.set(input.value);
+  };
+  document.addEventListener('change', applyNativeChoice);
+  document.addEventListener('click', applyNativeChoice);
+  document.addEventListener('keydown', event => { if (event.key === ' ') applyNativeChoice(event); });
   media.addEventListener('change', () => { if (window.fveColorMode.current() === 'system') window.fveColorMode.refresh(); });
   window.addEventListener('storage', event => { if (event.key === null || event.key === window.fveColorMode.storageKey) window.fveColorMode.refresh(); });
 })();

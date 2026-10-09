@@ -28,7 +28,7 @@ module ExampleView =
                 "fonts/noto-sans-latin.woff2"; "fonts/noto-sans-latin-italic.woff2"
                 "fonts/noto-sans-mono-latin.woff2"; "fonts/OFL.txt"
                 "css/prism-tomorrow.1.29.0.min.css"
-                "scripts/datastar.1.0.2.js"; "scripts/mermaid.11.16.0.min.js"
+                "scripts/datastar.1.0.4.js"; "scripts/mermaid.11.16.0.min.js"
                 "scripts/prism.1.29.0.min.js"; "scripts/prism-fsharp.1.29.0.min.js"
                 "scripts/prism-sql.1.29.0.min.js"; "scripts/prism-bash.1.29.0.min.js"
                 "scripts/prism-json.1.29.0.min.js" ] do
@@ -87,7 +87,7 @@ module ExampleView =
                     context.Response.Headers.CacheControl <- "private, no-store"
                     match Navigation.tryIntent context with
                     | Some intent -> Navigation.respond intent (Render.toString root) (View.contentMetadata Registry.navigation registration page |> Render.toString) next context
-                    | None -> (View.documentWithContent Registry.navigation registration page root |> Render.toHtmlDocString |> htmlString) next context
+                    | None -> (View.documentWithContentAndNonce (Docs.Examples.Hosting.nonce context) Registry.navigation registration page root |> Render.toHtmlDocString |> htmlString) next context
                 | _ when path.StartsWith("/examples/",StringComparison.Ordinal) -> (setStatusCode 404 >=> Giraffe.Core.text "Example page not found.") next context
                 | _ -> skipPipeline
 
@@ -100,7 +100,7 @@ module ExampleView =
                     | Some template ->
                         let registration = { Examples.registration with id="example-"+path.Replace('/','-'); path=path; title=title; browserTitle=title+" · "+template.name+" example" }
                         let page = DocumentationPage.create registration.id title |> DocumentationPage.withMetadata {DocsPageMetadata.defaults with browserTitle=Some registration.browserTitle}
-                        View.documentWithContent Registry.navigation registration page (root context template title content)
-                    | None -> Docs.Examples.Layout.document title content
+                        View.documentWithContentAndNonce (Docs.Examples.Hosting.nonce context) Registry.navigation registration page (root context template title content)
+                    | None -> Docs.Examples.Layout.documentWithNonce (Docs.Examples.Hosting.nonce context) title content
                 Docs.Examples.Hosting.routesWithDocument renderDocument [downloadSource] next context
             else skipPipeline

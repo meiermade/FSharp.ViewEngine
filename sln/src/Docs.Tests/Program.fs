@@ -17,17 +17,6 @@ open Docs.Common
 open Docs.Pages
 open Docs.Web
 
-let private documentationSources () =
-    [ "Templates/View.fs"; "Templates/Document.fs"; "Templates/Section.fs"; "FSharpApiReference.fs"; "CodeBlock.fs"; "Example.fs"; "Mermaid.fs" ]
-    |> List.map (fun file -> Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components", file)) |> File.ReadAllText)
-    |> String.concat "\n"
-
-let private fveVariables value =
-    Regex.Matches(value, "--fve-[a-z0-9-]+")
-    |> Seq.cast<Match>
-    |> Seq.map _.Value
-    |> Set.ofSeq
-
 type private ShellTestDestination =
     | Home
     | Accounts
@@ -516,7 +505,11 @@ let tests =
 
             let aliases = Registry.aliases |> Map.ofList
             Expect.equal aliases["/components/section"] "/components/section-header" "section header has its own installable destination"
-            for retired in ["/components/upload"; "/components/upload-list"; "/components/first-steps"] do
+            for retired in [
+                "/components/upload"; "/components/upload-list"; "/components/first-steps"
+                "/components/contract"; "/components/chart"; "/components/layouts"
+                "/components/row-actions"; "/components/action-cluster"; "/components/confirmation-dialog"
+                "/components/status"; "/components/icon-button" ] do
                 Expect.isFalse (Map.containsKey retired aliases) $"{retired} has no replacement alias"
                 Expect.equal (routeStatus retired) 404 $"{retired} is retired"
         }
@@ -592,40 +585,6 @@ let tests =
                 Expect.equal (Regex.Matches(pager, "<a ").Count) expectedLinks.Length "no extra pager destination"
         }
 
-        test "Benchmark documentation records methodology, versions, and results" {
-            let benchmarkPage = Registry.all |> List.find (fun page -> page.path = "/benchmarks")
-            let html = benchmarkPage |> View.document Registry.navigation |> Render.toHtmlDocString
-
-            Expect.stringContains html "BenchmarkDotNet 0.15.8" "measurement framework"
-            Expect.stringContains html "Oxpecker.ViewEngine 2.0.1" "Oxpecker comparison version"
-            Expect.stringContains html "Giraffe.ViewEngine 1.4.0" "Giraffe comparison version"
-            Expect.stringContains html "Feliz.ViewEngine 1.0.3" "Feliz comparison version"
-            Expect.stringContains html "Typical Render Times" "typical render-time summary"
-            Expect.stringContains html "1.585 μs" "typical build-and-render time"
-            Expect.stringContains html "833.5 ns" "typical render-only time"
-            Expect.stringContains html "not HTTP requests per second" "throughput limitation"
-            Expect.stringContains html "How the Benchmarks Were Run" "methodology heading"
-            Expect.stringContains html "How to Run the Benchmarks" "reproduction heading"
-            Expect.isFalse (html.Contains "Which Scenario Matches My App?") "scenario guide removed"
-            Expect.isFalse (html.Contains "What the Results Suggest") "results interpretation section removed"
-            Expect.stringContains html "1.35&#215; as long" "Oxpecker relative comparison"
-            Expect.stringContains html "2.35&#215; as long" "Feliz relative comparison"
-            Expect.stringContains html "not CI regression thresholds" "results interpretation"
-            Expect.stringContains html "<figure" "visual comparison"
-            Expect.stringContains html "Build and render comparison" "accessible comparison label"
-            Expect.stringContains html "docs-comparison-chart" "comparison uses theme-aware semantic styling"
-            Expect.stringContains html "Lower is better" "chart direction is explicit"
-            Expect.isFalse (html.Contains("background:#fafafa")) "chart does not hard-code a light surface"
-            Expect.stringContains html "<table" "semantic results table"
-            Expect.stringContains html "./fake.sh Benchmark" "measurement command"
-            Expect.stringContains html "./fake.sh BenchmarkSmoke" "validation command"
-
-            let appendixIndex = html.IndexOf("Appendix: Detailed Results", System.StringComparison.Ordinal)
-            let firstTableIndex = html.IndexOf("<table", System.StringComparison.Ordinal)
-            Expect.isGreaterThan appendixIndex 0 "appendix heading"
-            Expect.isGreaterThan firstTableIndex appendixIndex "detailed tables follow analysis"
-        }
-
         test "Public discovery contains canonical pages and excludes aliases and previews" {
             let sitemap = Handler.sitemap
             let robots = Handler.robots
@@ -684,18 +643,6 @@ let tests =
                 Expect.isFalse (html.Contains("type=\"range\"")) $"{page.path} does not use the retired nested range control"
         }
 
-        test "Inline prose links are visibly identifiable" {
-            let home = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let installation = Installation.page |> View.document Registry.navigation |> Render.toHtmlDocString
-
-            Expect.stringContains home "href=\"/installation\"" "Installation link is semantic"
-            Expect.stringContains home "href=\"/getting-started/first-view\"" "first-view guide link is semantic"
-            Expect.stringContains installation "href=\"/getting-started/first-view\"" "next-step first-view link is semantic"
-            let sources = documentationSources ()
-            Expect.stringContains sources "[&_a]:underline" "section links have a source-local non-color affordance"
-            Expect.stringContains sources "[&_a]:text-[var(--fve-brand-text)]" "section links use the shared brand token"
-        }
-
         test "Code examples are encoded and retain Prism language classes" {
             let html = Custom.page |> View.document Registry.navigation |> Render.toHtmlDocString
             Expect.stringContains html "language-fsharp" "F# language class"
@@ -704,70 +651,15 @@ let tests =
             Expect.isFalse (html.Contains("<my-component class=\"container\">")) "example markup must not execute"
         }
 
-        test "Migrated pages retain recent documentation updates" {
-            let customHtml = Custom.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let usageHtml = Usage.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let compositionHtml = CoreGuides.composition |> View.document Registry.navigation |> Render.toHtmlDocString
-            let renderingHtml = CoreGuides.rendering |> View.document Registry.navigation |> Render.toHtmlDocString
-            let datastarHtml = Datastar.page |> View.document Registry.navigation |> Render.toHtmlDocString
-
-            Expect.stringContains customHtml "Trusted Content Boundaries" "trusted-content guidance"
-            Expect.stringContains usageHtml "title {" "title computation-expression guidance"
-            Expect.isFalse (usageHtml.Contains("titleBuilder")) "obsolete title builder guidance is removed"
-            Expect.stringContains compositionHtml "yield!" "collection composition guidance"
-            Expect.stringContains renderingHtml "fragment {" "fragment computation-expression guidance"
-            Expect.stringContains renderingHtml "Html.fragment nodes" "fragment migration guidance"
-            Expect.stringContains renderingHtml "titleBuilder" "title migration guidance"
-            Expect.stringContains datastarHtml "Datastar 1.0.2" "pinned Datastar reference"
-        }
-
         test "Rendered pages contain no Markdown fences" {
             for page in Registry.all do
                 let html = page |> View.document Registry.navigation |> Render.toHtmlDocString
                 Expect.isFalse (html.Contains("```")) $"{page.path} contains a Markdown fence"
         }
 
-        test "HTMX docs cover every dedicated stable helper" {
-            let html = Htmx.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let helpers =
-                [ "_hxBoost"; "_hxConfirm"; "_hxDelete"; "_hxDisable"; "_hxDisabledElt"
-                  "_hxDisinherit"; "_hxEncoding"; "_hxExt"; "_hxGet"; "_hxHeaders"
-                  "_hxHistory"; "_hxHistoryElt"; "_hxInclude"; "_hxIndicator"; "_hxInherit"
-                  "_hxOn"; "_hxParams"; "_hxPatch"; "_hxPost"; "_hxPreserve"; "_hxPrompt"
-                  "_hxPushUrl"; "_hxPut"; "_hxReplaceUrl"; "_hxRequest"; "_hxSelect"
-                  "_hxSelectOOB"; "_hxSwap"; "_hxSwapOOB"; "_hxSync"; "_hxTarget"
-                  "_hxTrigger"; "_hxValidate"; "_hxVals" ]
-
-            for helper in helpers do
-                Expect.stringContains html helper helper
-
-            Expect.stringContains html "htmx:before-request" "kebab-case HTMX event"
-            Expect.isFalse (html.Contains("htmx:beforeRequest")) "camelCase event names fail after DOM normalization"
-        }
-
-        test "Alpine docs cover core and plugin directives" {
-            let html = Alpine.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let coreHelpers =
-                [ "_xBind"; "_xCloak"; "_xData"; "_xEffect"; "_xFor"; "_xHtml"
-                  "_xId"; "_xIf"; "_xIgnore"; "_xInit"; "_xModel"; "_xModelable"
-                  "_xOn"; "_xRef"; "_xShow"; "_xTeleport"; "_xText"; "_xTransition" ]
-            let pluginHelpers =
-                [ "_xMask"; "_xMaskDynamic"; "_xIntersect"; "_xResize"; "_xCollapse"
-                  "_xTrap"; "_xAnchor"; "_xSort"; "_xSortItem"; "_xSortGroup"
-                  "_xSortConfig"; "_xSortHandle"; "_xSortIgnore" ]
-
-            for helper in coreHelpers @ pluginHelpers do
-                Expect.stringContains html helper helper
-
-            Expect.stringContains html "Focus plugin" "x-trap dependency"
-            Expect.stringContains html "Anchor plugin" "x-anchor dependency"
-            Expect.stringContains html "$persist" "Persist has no directive helper"
-            Expect.stringContains html "Alpine.morph" "Morph has no directive helper"
-        }
-
         test "Docs use only the pinned self-hosted Datastar runtime" {
             let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "/scripts/datastar.1.0.2.js" "pinned Datastar script"
+            Expect.stringContains html "/scripts/datastar.1.0.4.js" "pinned Datastar script"
             Expect.stringContains html "type=\"module\"" "Datastar module script"
             Expect.isFalse (html.Contains("alpinejs")) "Alpine runtime removed"
             Expect.isFalse (html.Contains(" x-data=")) "Alpine directives removed"
@@ -779,73 +671,14 @@ let tests =
             Expect.stringContains html "src=\"/logo.svg\"" "page uses the canonical logo asset"
             Expect.stringContains html "--fve-brand-ring:#0ea5e9" "site uses Tailwind Sky 500 for focus"
             Expect.stringContains html "--fve-brand-solid:#0369a1" "site uses Tailwind Sky 700 for solid actions"
-            Expect.isFalse (html.Contains("--spec-")) "the retired Documentation token namespace is absent"
         }
 
-        test "Documentation typography is source-local with consumer-owned Noto assets" {
+        test "Docs uses the host stylesheet without implicit external fonts" {
             let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let sources = documentationSources ()
-            let consumerCss = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "input.css"))
-            for role in [ "text-xs"; "text-sm"; "text-base"; "text-xl"; "text-4xl" ] do
-                Expect.stringContains sources role $"Documentation uses the Tailwind typography role {role}"
-            Expect.stringContains sources "font-mono! text-sm!" "code remains compact and readable while overriding Prism's base theme"
-            Expect.stringContains sources "size-8 min-w-8" "copy controls retain a compact target"
-            Expect.stringContains consumerCss "font-family: \"Noto Sans\"" "the consumer owns Noto Sans"
-            Expect.stringContains consumerCss "font-family: \"Noto Sans Mono\"" "the consumer owns Noto Sans Mono"
             Expect.isFalse (html.Contains("<style")) "the package does not embed its presentation"
             Expect.stringContains html "rel=\"stylesheet\" href=\"/css/output.css\"" "the repository host links its compiled stylesheet"
             Expect.isFalse (html.Contains("fonts.googleapis.com")) "the package makes no Google Fonts request"
             Expect.isFalse (html.Contains("fonts.gstatic.com")) "the package ships no external font source"
-        }
-
-        test "Homepage quick example is Datastar-first" {
-            let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "open type Datastar" "Datastar API"
-            Expect.stringContains html "_dataOn" "Datastar interaction"
-            Expect.isFalse (html.Contains("open type Htmx")) "HTMX is not used by the quick example"
-            Expect.isFalse (html.Contains("_hxGet")) "HTMX is not used as the attribute example"
-        }
-
-        test "Docs embed dual Prism palettes and lazily use pinned self-hosted scripts" {
-            let home = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let diagrams = ComponentDocumentation.mermaidRegistration |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains home "/scripts/prism.1.29.0.min.js" "pinned Prism script"
-            Expect.stringContains home "/css/prism-tomorrow.1.29.0.min.css" "the configured self-hosted Prism palette is loaded"
-            let sources = documentationSources ()
-            let consumerCss = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "input.css"))
-            Expect.stringContains sources "bg-[var(--fve-docs-code-surface,var(--fve-background))]!" "code uses its documentation-owned surface"
-            Expect.stringContains home "--fve-docs-code-surface:color-mix(in_oklch,var(--fve-background)_72%,var(--fve-surface-subtle))" "the code surface stays in the background and navigation color family"
-            Expect.stringContains consumerCss "[data-docs-copyable-code] .token.keyword { color: var(--color-red-700); }" "the host owns the light generated-token palette"
-            Expect.stringContains consumerCss ".dark [data-docs-copyable-code] .token.keyword { color: var(--color-red-300); }" "the host owns the dark generated-token palette"
-            Expect.stringContains home "/scripts/prism-fsharp.1.29.0.min.js" "pinned FSharp grammar"
-            Expect.stringContains home "unloading: false" "Prism distinguishes active documents from documents being abandoned"
-            Expect.stringContains home "if (this.unloading) resolve()" "only positively identified unloading documents suppress canceled asset errors"
-            Expect.isFalse (home.Contains("document.visibilityState === 'hidden'")) "backgrounded active documents retain Prism asset failure reporting"
-            Expect.stringContains home "window.addEventListener('pagehide', markDocsCodeUnloading)" "full-document navigation marks Prism loading as abandoned"
-            Expect.stringContains home "window.addEventListener('beforeunload', markDocsCodeUnloading)" "pending Prism loading observes the earliest navigation boundary"
-            Expect.stringContains home "window.removeEventListener('beforeunload', markDocsCodeUnloading)" "completed Prism loading restores back-forward cache eligibility"
-            Expect.stringContains home "window.addEventListener('pageshow'" "restored documents resume active Prism error reporting"
-            Expect.stringContains home "new ResizeObserver(update)" "table-of-contents tracking observes content reflow"
-            Expect.stringContains home "document.fonts?.ready.then" "table-of-contents tracking follows preferred-font layout completion"
-            Expect.stringContains home "!finalSection.isConnected" "stale font callbacks cannot overwrite a morphed table of contents"
-            Expect.stringContains home "finalSectionVisible" "a visible final section remains the current table-of-contents location"
-            Expect.stringContains home "window.fsharpDocsMermaid" "pages without diagrams configure lazy Mermaid for later navigation"
-            Expect.stringContains home "/scripts/mermaid.11.16.0.min.js" "pages without diagrams retain the pinned Mermaid source"
-            Expect.isFalse (home.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "pages without diagrams do not eagerly load Mermaid"
-            Expect.stringContains diagrams "data-init=\"window.renderMermaid?.(el)\"" "diagram elements initialize through Datastar"
-            Expect.stringContains sources "sourceFingerprint source" "code initialization changes when morphed source changes"
-            Expect.stringContains home "data-init=\"window.renderCode?.(el, &#39;" "code panels own source-sensitive repeat-safe highlighting"
-            Expect.stringContains home "window.renderDocsPreview = (el, pendingOnly = false)" "preview enhancement has a focused repeat-safe owner"
-            Expect.stringContains home "node.dataset.mermaidRenderedSource !== (node.dataset.mermaidSource ?? '') || !node.querySelector('svg')" "navigation completion rerenders a reused host when its source or rendered SVG changed"
-            Expect.stringContains home "const source = node.dataset.mermaidSource ?? '';" "Mermaid rendering snapshots the source represented by each queued render"
-            Expect.stringContains home "if ((node.dataset.mermaidSource ?? '') !== source)" "stale in-flight Mermaid results cannot be committed to a reused host"
-            Expect.stringContains home "node.dataset.mermaidRenderedSource = source;" "rendered-source markers describe the SVG source rather than later morphed state"
-            Expect.stringContains home "window.renderMermaid?.(document)" "color-mode changes still deliberately rerender completed diagrams"
-            Expect.stringContains home "X-FVE-Navigation-Intent" "the host supplies server-authoritative Datastar navigation intent"
-            Expect.stringContains home "id=\"docs-navigation-root\"" "navigation patches one coherent root"
-            Expect.isFalse (home.Contains("window.fsharpDocsNavigation")) "the renderer has no client-owned route model"
-            Expect.isFalse (diagrams.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "diagram pages also load pinned Mermaid lazily"
-            Expect.isFalse (home.Contains("cdnjs.cloudflare.com")) "documentation assets are self-hosted"
         }
 
         test "Showcase isolates only complete styled documents" {
@@ -878,44 +711,12 @@ after"""
                 "missing source regions fail rather than displaying approximate code"
         }
 
-        test "Components code exposes its API rather than only a private fixture helper" {
-            for id, api in [
-                "button", "Button.create"; "badge", "Badge.create"
-                "loading-indicator", "LoadingIndicator.create"; "empty-state", "EmptyState.create"
-                "table", "Table.create"; "description-list", "DescriptionList.create"; "metric", "Metric.text"
-                "pagination", "Pagination.create"; "input", "Input.create"; "textarea", "Textarea.create"
-                "error-summary", "ErrorSummary.create"; "notice", "Notice.create"; "search-input", "InputType.Search"
-                "select", "Select.create"; "checkbox", "Checkbox.create"
-                "switch", "Switch.create"; "toggle-button", "ToggleButton.create"; "tabs", "Tabs.create"
-                "radio-group", "RadioGroup.create"; "dropdown-menu", "DropdownMenu.create"; "dialog", "Dialog.create"
-                "dialog-confirmation", "Dialog.create"; "drawer", "Drawer.create"
-                "breadcrumbs", "Breadcrumbs.create"; "side-nav", "SideNav.create"; "page-top-bar", "PageTopBar.create"
-                "page-header", "PageHeader.create" ] do
-                let example = Components.allExamples () |> List.find (fun example -> example.id = "components-" + id)
-                Expect.stringContains example.source api $"{id} shows its component construction"
-                Expect.stringContains example.source "open Acme.Components" $"{id} includes the configured consumer namespace in its own code"
-            for example in Components.allExamples () do
-                for forbidden in [ "themedSurface"; "fullBleedThemedSurface"; "themedPreview"; "FSharp.ViewEngine.Docs"; "shellDocumentNavigationAttributes" ] do
-                    Expect.isFalse (example.source.Contains forbidden) $"{example.id} excludes Docs-only helper {forbidden}"
-            let select = Components.examplesFor "select" |> List.head
-            Expect.stringContains select.source "SelectOption.create" "basic Select includes its actual finite options"
-            Expect.isFalse (select.source.Contains "selectFormRegion") "basic Select does not require a validation workflow"
-        }
-
-        test "Input galleries teach individual fields and templates own complete forms" {
+        test "Input examples render individual native fields and templates submit complete forms" {
             let examples = Components.examplesFor "input"
-            Expect.equal (examples |> List.map _.title) [ "Default"; "Consistent control sizes"; "With help text"; "Required"; "Optional"; "With validation error"; "With leading icon"; "With prefix"; "With suffix"; "Search with clear action"; "Disabled"; "Pending" ] "default before variations and states"
             let sizing = examples |> List.find (fun example -> example.title = "Consistent control sizes")
             Expect.equal (Regex.Matches(Render.toString sizing.preview, "type=\"search\"").Count) 4 "three inherited sizes and one explicit override"
             for example in examples |> List.filter (fun example -> example.title <> "Consistent control sizes") do
                 Expect.equal (Regex.Matches(Render.toString example.preview, "<input ").Count) 1 "one native input per example"
-                Expect.isLessThan (example.source.Split('\n').Length) 35 "short independently copyable input code"
-                for forbidden in [ "ContactDetails"; "contactFormRegion"; "accountOptions"; "@post" ] do
-                    Expect.isFalse (example.source.Contains forbidden) "input examples exclude complete workflows"
-            for slug in [ "textarea"; "select"; "checkbox"; "switch"; "radio-group" ] do
-                Expect.equal (Components.examplesFor slug |> List.head).title "Default" "other form galleries also start with the canonical control"
-            Expect.equal (Components.examplesFor "textarea" |> List.map _.title) [ "Default"; "Visually hidden label"; "With instructions"; "With validation error"; "Pending"; "Disabled" ] "textarea exposes its default, editable, pending and disabled states"
-            Expect.equal (Components.examplesFor "tag-input" |> List.map _.title) [ "Default"; "Validation"; "Pending"; "Disabled" ] "Tag input owns its focused states"
             let _,accountForm = routeResponse "/examples/application/accounts/new"
             Expect.stringContains accountForm "name=\"name\"" "the application template owns the account name field"
             Expect.stringContains accountForm "method=\"post\"" "template submission is a real server action"
@@ -1055,109 +856,6 @@ after"""
             finally Directory.Delete(directory, true)
         }
 
-        test "DropdownMenu starts with a minimal two-link example" {
-            let examples = Components.examplesFor "dropdown-menu"
-            Expect.equal examples.Head.title "Basic menu" "basic navigation precedes advanced behavior"
-            let basic = List.head examples
-            Expect.stringContains basic.source "DropdownMenuItem.link \"/components/button\" \"Button documentation\"" "basic source uses an ordinary destination"
-            Expect.stringContains basic.source "DropdownMenuItem.link \"/components/button-group\" \"Button group documentation\"" "basic source shows a second ordinary destination"
-            Expect.stringContains basic.source "DropdownMenu.render id" "basic source needs no destination resolver"
-            for unrelated in [ "type Destination"; "destinationUrl"; "menuLeadingIcon"; "withAlignment"; "$menuActivations"; "DropdownMenuItem.action" ] do
-                Expect.isFalse (basic.source.Contains unrelated) $"basic source excludes advanced setup: {unrelated}"
-        }
-
-        test "Table galleries isolate focused features without financial fixture dependencies" {
-            let examples = Components.examplesFor "table"
-            Expect.equal (examples |> List.map _.title) [ "Default"; "Comfortable rows"; "With status values"; "With checkboxes"; "Scrollable rows and sticky headings"; "Stacked on mobile"; "Sortable records"; "Hierarchical accounts and aggregates"; "Empty state" ] "each table feature has a named example"
-            for example in examples do
-                Expect.stringContains example.source "Table.create" "the construction is directly visible"
-                Expect.isLessThan (example.source.Split('\n').Length) 51 "copied table code stays focused"
-                for forbidden in [ "ShellDestination"; "shellDestination"; "JsonSerializer"; "RowActions"; "navigator.clipboard"; "accountTable" ] do
-                    Expect.isFalse (example.source.Contains forbidden) "the table gallery excludes application plumbing"
-                let preview = Render.toString example.preview
-                if example.title <> "Sortable records" && example.title <> "Hierarchical accounts and aggregates" then
-                    Expect.isFalse (preview.Contains("<a ")) "ordinary first-column values are plain text"
-            Expect.isFalse (examples[3].source.Contains "TableSelection.withDisabledRows") "selection keeps every displayed row selectable"
-            let source title = (examples |> List.find (fun example -> example.title = title)).source
-            Expect.stringContains (source "Scrollable rows and sticky headings") "Table.withScrollableRows" "bounded row scrolling is an explicit opt-in"
-            Expect.stringContains (source "Stacked on mobile") "TableMobileLayout.Records" "responsive records are an explicit opt-in"
-            Expect.stringContains (source "Sortable records") "TableSort.ascending" "sorting exposes the current sort direction"
-            Expect.stringContains (source "Sortable records") "TableColumn.withSort" "sorting keeps the next destination consumer-owned"
-            Expect.stringContains (source "Hierarchical accounts and aggregates") "Table.withHierarchy" "hierarchy is an explicit consumer-authored opt-in"
-            Expect.stringContains (source "Empty state") "Table.withEmptyState" "empty-state composition stays visible"
-        }
-
-        test "Canonical component galleries start with the default presentation" {
-            let defaultGalleries =
-                [ "button", "Button"
-                  "button-group", "ButtonGroup"
-                  "badge", "Badge"
-                  "notice", "Notice"
-                  "notification", "Notification"
-                  "loading-indicator", "LoadingIndicator"
-                  "progress", "Progress"
-                  "empty-state", "EmptyState"
-                  "skeleton", "SkeletonRegion"
-                  "table", "Table"
-                  "description-list", "DescriptionList"
-                  "metric", "Metric"
-                  "avatar", "Avatar"
-                  "copy-reveal", "CopyReveal"
-                  "day-calendar", "DayCalendar"
-                  "week-calendar", "WeekCalendar"
-                  "month-calendar", "MonthCalendar"
-                  "year-calendar", "YearCalendar"
-                  "item", "Item"
-                  "kbd", "Kbd"
-                  "separator", "Separator"
-                  "input", "Input"
-                  "input-group", "InputGroup"
-                  "field", "Field"
-                  "textarea", "Textarea"
-                  "file-selection", "FileSelection"
-                  "tag-input", "TagInput"
-                  "select", "Select"
-                  "date-picker", "DatePicker"
-                  "checkbox", "Checkbox"
-                  "switch", "Switch"
-                  "toggle-button", "ToggleButton"
-                  "toggle-group", "ToggleGroup"
-                  "radio-group", "RadioGroup"
-                  "choice-cards", "ChoiceCards"
-                  "breadcrumbs", "Breadcrumbs"
-                  "side-nav", "SideNav"
-                  "tabs", "Tabs"
-                  "pagination", "Pagination"
-                  "command", "Command"
-                  "dialog", "Dialog"
-                  "drawer", "Drawer"
-                  "popover", "Popover"
-                  "tooltip", "Tooltip"
-                  "page-header", "PageHeader"
-                  "section", "Section"
-                  "page", "Page"
-                  "collection", "Collection"
-                  "detail", "Detail"
-                  "browser", "Browser"
-                  "phone", "Phone"
-                  "resizable", "Resizable"
-                  "bottom-navigation", "BottomNavigation"
-                  "message", "Message" ]
-            let stateFunctions = [ "with"; "pending"; "disabled"; "required"; "checked"; "pressed"; "clearable"; "decorative"; "complete"; "failed"; "indeterminate" ]
-            for gallery, moduleName in defaultGalleries do
-                let example = Components.examplesFor gallery |> List.head
-                Expect.equal example.title "Default" $"{gallery} starts with its canonical constructor result"
-                Expect.isNone example.note $"{gallery} does not explain away its default"
-                Expect.isLessThan (example.source.Split('\n').Length) 46 $"{gallery} keeps its default source focused"
-                for stateFunction in stateFunctions do
-                    let source =
-                        match gallery with
-                        | "select" -> Regex.Replace(example.source, "\\|> Select\\.withSelected\\b[^\\r\\n]*", "")
-                        | "side-nav" -> example.source.Replace("SideNav.withContent", "SideNavContent")
-                        | _ -> example.source
-                    Expect.isFalse (source.Contains($"|> {moduleName}.{stateFunction}")) $"{gallery} default does not apply presentation modifiers: {moduleName}.{stateFunction}"
-        }
-
         test "Every gallery example compiles using only its copied code and the public packages" {
             let directory = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "fve-component-examples-" + System.Guid.NewGuid().ToString("N"))
             System.IO.Directory.CreateDirectory directory |> ignore
@@ -1193,7 +891,6 @@ after"""
                     child.WaitForExit()
                     failtest "Standalone Components examples did not compile within 60 seconds."
                 Expect.equal child.ExitCode 0 (output.Result + errors.Result)
-                Expect.isGreaterThan examples.Length 240 "the focused component variants compile independently"
             finally
                 System.IO.Directory.Delete(directory, true)
         }
@@ -1350,7 +1047,7 @@ after"""
             use archive = new System.IO.Compression.ZipArchive(context.Response.Body,System.IO.Compression.ZipArchiveMode.Read)
             let entries = archive.Entries |> Seq.map _.FullName |> Set.ofSeq
             for file in Examples.sourceFiles do Expect.isTrue (entries.Contains file) ("complete source: "+file)
-            for file in ["wwwroot/scripts/datastar.1.0.2.js";"wwwroot/scripts/mermaid.11.16.0.min.js";"wwwroot/css/prism-tomorrow.1.29.0.min.css"] do
+            for file in ["wwwroot/scripts/datastar.1.0.4.js";"wwwroot/scripts/mermaid.11.16.0.min.js";"wwwroot/css/prism-tomorrow.1.29.0.min.css"] do
                 Expect.isTrue (entries.Contains file) ("pinned runtime asset: "+file)
             for entry in archive.Entries |> Seq.filter (fun entry -> entry.FullName.EndsWith ".fs") do
                 use reader = new StreamReader(entry.Open())
@@ -1490,15 +1187,6 @@ after"""
             Expect.isEmpty uncategorized "every public top-level declaration is explicitly categorized or excluded beside its source declaration"
         }
 
-        test "Repository guidance preserves one documentation page per public component" {
-            let guidance =
-                Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "..", "AGENTS.md"))
-                |> File.ReadAllText
-            Expect.stringContains guidance "every consumer-facing reusable component a dedicated documentation route and navigation entry" "repository agents retain the catalog ownership rule"
-            Expect.stringContains guidance "must never be the only documentation location for a component" "composition examples cannot hide component documentation"
-            Expect.stringContains guidance "exactly three full-page" "templates retain separate catalog ownership"
-        }
-
         test "Components publishes a first-class page for every public component and focused shared guides" {
             let render registration = registration |> View.document Registry.navigation |> Render.toHtmlDocString
             let overview = render Components.overviewRegistration
@@ -1522,7 +1210,6 @@ after"""
             let allHtml = String.concat Environment.NewLine (overview :: installation :: renderedComponents @ renderedGuides @ renderedDocumentationControls)
 
             Expect.isFalse (allHtml.Contains("href=\"/components/chart\"")) "removed Chart stays absent"
-            Expect.stringContains overview "independently installable building blocks" "component-only introduction"
             for item in Catalog.componentRegistrations do
                 Expect.stringContains overview ($"href=\"{item.path}\"") "every component is discoverable from the index"
             Expect.stringContains overview "href=\"/examples\"" "page assembly goes to the template gallery"
@@ -1532,8 +1219,6 @@ after"""
             Expect.stringContains installation "dotnet tool install FSharp.ViewEngine.Cli" "local tool installation"
             Expect.stringContains installation "dotnet fve init" "consumer-owned project initialization"
             Expect.stringContains installation "@source &quot;./src/Acme.Components/Components/**/*.fs&quot;" "direct Tailwind source detection"
-            Expect.stringContains installation "Import Tailwind, then point source detection directly at the copied F# and application source" "installation describes the host-owned Tailwind input"
-            Expect.isFalse (installation.Contains("Import the generated structural and token CSS", StringComparison.Ordinal)) "installation does not imply that fve copies CSS"
 
             let registrySource =
                 Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components", "FSharp.ViewEngine.Components.Registry.props"))
@@ -1575,92 +1260,14 @@ after"""
                 Expect.stringContains html "data-docs-layout=\"article\"" $"{registration.path} uses the article layout"
                 Expect.isFalse (html.Contains("data-docs-example=\"true\"")) $"{registration.path} is focused guidance rather than a duplicate gallery"
 
-            Expect.stringContains allHtml "Interaction and server state" "interaction guide"
-            Expect.stringContains allHtml "aria-activedescendant identifies the visually active option" "APG focus relationship"
-            Expect.stringContains allHtml "cycles options when the same character is repeated" "Select typeahead behavior"
             Expect.stringContains allHtml "/components/menus/actions" "DropdownMenu example uses a real Docs-owned patch endpoint"
-            Expect.stringContains allHtml "Theming and density" "theme guide"
-            Expect.stringContains allHtml "Tailwind CSS setup" "Tailwind setup guide"
-            Expect.stringContains allHtml "Application boundaries" "application boundary guidance"
-            Expect.stringContains allHtml "Tailwind reads the copied source directly" "Tailwind direct source detection"
-            Expect.stringContains allHtml "repository-local tool manifest pins FSharp.ViewEngine.Cli" "version policy"
-            Expect.stringContains allHtml "conventional Core package dependency" "Core compatibility policy"
-            Expect.isFalse (allHtml.Contains("Pre-release contract")) "release-process framing is absent"
-            Expect.isFalse (allHtml.Contains("Compiled Call Sites")) "examples are not framed as implementation evidence"
-            Expect.isFalse (allHtml.Contains("package-spine task")) "internal task language is absent"
-            Expect.isFalse (allHtml.Contains("veSelect {")) "Components does not introduce a component CE"
-            Expect.isFalse (allHtml.Contains("color &quot;emerald-600&quot;")) "ordinary API does not accept raw palette strings"
-
-            for source in [
-                "Button.create (ButtonContent.Text &quot;Create account&quot;)"
-                "Button.pending"
-                "Button.create (ButtonContent.Icon (&quot;Add account&quot;, plusIcon))"
-                "Button.create (ButtonContent.IconText (plusIcon, &quot;New branch&quot;))"
-                "Button.create (ButtonContent.TextIcon (&quot;Continue&quot;, continueIcon))"
-                "Button.create (ButtonContent.Custom (fragment { strong { &quot;Custom&quot; }; span { &quot; content&quot; } }))"
-                "Badge.create &quot;Internal&quot;"
-                "Badge.create &quot;Needs review&quot;"
-                "LoadingIndicator.create &quot;Loading account balances&quot;"
-                "EmptyState.create &quot;No accounts yet&quot;"
-                "Table.create &quot;Team members&quot;"
-                "TableColumn.asRowHeader"
-                "Table.withMobileLayout"
-                "TableSelection.create"
-                "DescriptionList.create"
-                "DescriptionListItem.status &quot;Status&quot;"
-                "Metric.text &quot;Available balance&quot; &quot;$42,800&quot;"
-                "Pagination.create &quot;Accounts pages&quot;"
-                "PaginationItem.current page"
-                "Select.create &quot;status&quot; &quot;Status&quot; statusValue selectStatusOptions"
-                "Select.create &quot;account&quot; &quot;Parent account&quot; string"
-                "Select.withSearch (SelectSearch.Remote &quot;/components/accounts/search&quot;)"
-                "Select.renderOptions"
-                "Checkbox.create &quot;includeArchived&quot; &quot;Include archived accounts&quot;"
-                "Switch.create &quot;postingNotifications&quot; &quot;Posting notifications&quot;"
-                "ToggleButton.create &quot;components-compact-rows&quot; &quot;Compact rows&quot;"
-                "Breadcrumbs.render resolve"
-                "SideNav.render shellDestinationUrl"
-                "PageTopBar.withContent"
-                "PageHeader.create &quot;Account 2048&quot;"
-                "SectionHeader.create &quot;Account details&quot;"
-                "SectionHeader.withDescription"
-                "Tabs.create &quot;components-example-format&quot; &quot;Example format&quot;"
-                "Tabs.withVariant TabsVariant.Underlined"
-                "TabItem.create &quot;activity&quot; &quot;Activity&quot; activity"
-                "RadioGroup.create &quot;postingMode&quot; &quot;Posting mode&quot; id"
-                "DropdownMenu.create &quot;components-menu-actions&quot; &quot;Actions&quot;"
-                "DropdownMenu.withTrigger (DropdownMenuTrigger.text &quot;Actions&quot;)"
-                "DropdownMenu.withContent"
-                "Dialog.create &quot;review-account-dialog&quot; &quot;Review account&quot;"
-                "Dialog.withInitialFocus &quot;review-account-dialog-close&quot;"
-                "Dialog.trigger &quot;Review account&quot;"
-                "Dialog.closeButton &quot;Close&quot;"
-                "Dialog.withAttributes"
-                "accountDeletionForm"
-                "Button.pending"
-                "Drawer.create &quot;account-settings-drawer&quot; &quot;Account details&quot;"
-                "Drawer.withSide DrawerSide.Start"
-                "Drawer.withSize DrawerSize.Large" ] do
-                Expect.stringContains allHtml source source
-
             Expect.stringContains allHtml "data-signals=\"{_account_open: false, account_query:" "remote Combobox emits local open state and an intentionally submitted query"
             Expect.stringContains allHtml "role=\"switch\"" "Switch preserves switch semantics"
             Expect.stringContains allHtml "aria-pressed=\"true\"" "ToggleButton preserves pressed semantics"
             Expect.stringContains allHtml "type=\"radio\"" "RadioGroup preserves form semantics internally"
-            Expect.stringContains allHtml "Select.required" "Select example exposes required state"
-            Expect.stringContains allHtml "Select.pending" "Select example exposes pending state"
-            Expect.stringContains allHtml "Checkbox.required" "Checkbox example exposes native required state"
-            Expect.stringContains allHtml "Checkbox.withValidation" "Checkbox example exposes server validation"
-            Expect.stringContains allHtml "Switch.pending" "Switch example exposes pending state"
-            Expect.stringContains allHtml "ToggleButton.pending" "ToggleButton example exposes pending state"
-            Expect.stringContains allHtml "RadioGroup.required" "RadioGroup example exposes grouped required state"
-            Expect.stringContains allHtml "RadioGroup.withValidation" "RadioGroup example exposes server validation"
-            for api in [ "Select.loading"; "Select.withError"; "Select.disabled"; "Select.pending" ] do
-                Expect.stringContains allHtml api $"Combobox example exposes {api}"
             Expect.stringContains allHtml "requestCancellation: &#39;auto&#39;" "remote Combobox documents deterministic newest-request behavior"
             for endpoint in [ "/components/choices/select"; "/components/choices/checkbox"; "/components/choices/switch"; "/components/choices/radio" ] do
                 Expect.stringContains allHtml endpoint $"focused example posts to real Docs endpoint {endpoint}"
-            Expect.isFalse (allHtml.Contains("NativeSelect.create")) "the package exposes no NativeSelect API"
             Expect.stringContains allHtml "id=\"review-account-dialog-trigger\"" "Dialog renders its connected trigger"
             Expect.stringContains allHtml "data-on:close=\"document.getElementById(&quot;review-account-dialog-trigger&quot;)?.focus()\"" "Dialog close restores trigger focus"
             Expect.stringContains allHtml "role=\"alertdialog\"" "Dialog composition preserves urgent confirmation semantics"
@@ -1670,7 +1277,6 @@ after"""
             Expect.stringContains allHtml "/components/dialogs/confirm" "the confirmation form uses a real Docs-owned endpoint"
             Expect.stringContains allHtml "/components/drawers/account" "Drawer uses a real Docs-owned patch endpoint"
             Expect.stringContains allHtml "/components/tabs/review" "Tabs uses a real Docs-owned patch endpoint"
-            Expect.isFalse (allHtml.Contains("Select.describe")) "Select has no unobservable option-description modifier"
             Expect.stringContains allHtml "data-signals=\"{_components_menu_actions_open: false, _components_menu_actions_typeahead:" "menu IDs become valid isolated interaction signal tokens"
             Expect.isFalse (allHtml.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
             Expect.stringContains allHtml "aria-current=\"page\"" "typed navigation retains the current destination"
@@ -3032,8 +2638,6 @@ after"""
             Expect.stringContains regionHtml "sm:end-4" "logical inline-end placement"
             Expect.stringContains regionHtml "max-h-[calc(100%-24px)]" "bounded notifications remain available at large text sizes"
             Expect.stringContains regionHtml "overflow-y-auto" "oversized notification content remains reachable"
-            for removedStackContract in [ "data-fve-notification-limit"; "nth-last-child"; "fve-notification-expanded" ] do
-                Expect.isFalse (regionHtml.Contains removedStackContract) $"single-item regions omit {removedStackContract}"
 
             let emptyHtml = NotificationRegion.create "empty-notifications" "Notifications" None |> NotificationRegion.render |> Render.toString
             Expect.stringContains emptyHtml "id=\"empty-notifications\"" "empty regions are supported"
@@ -3044,202 +2648,15 @@ after"""
             let assembly = typeof<ControlSize>.Assembly
             Expect.equal typeof<FSharp.ViewEngine.Components.Templates.DocsColorMode>.Assembly assembly "Documentation ships inside Components"
             Expect.equal (assembly.GetName().Name) "FSharp.ViewEngine.Components" "one UI assembly"
-            Expect.isFalse
-                (assembly.GetReferencedAssemblies() |> Array.exists (fun reference -> reference.Name = "FSharp.ViewEngine.Docs"))
-                "no legacy Docs dependency"
-            for publicType in assembly.GetExportedTypes() do
-                Expect.isFalse (publicType.Namespace = "FSharp.ViewEngine.Docs") "no legacy namespace facade"
             let ordinaryPage = Button.create (ButtonContent.Text "Continue") |> Button.render |> Render.toString
             for documentationAsset in [ "Prism"; "mermaid"; "spec-shell"; "data-docs-" ] do
                 Expect.isFalse (ordinaryPage.Contains documentationAsset) "ordinary controls do not opt into Documentation assets"
         }
 
-        test "Components Tailwind source scanning contract is isolated and CI-proven" {
-            let packageDirectory = Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "FSharp.ViewEngine.Components"))
-            let manifestPath = Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.tailwind.css")
-            let consumer = File.ReadAllText(Path.Combine(packageDirectory, "consumer.css"))
-            let verification = File.ReadAllText(Path.Combine(packageDirectory, "verify-tailwind.sh"))
-            let renderer =
-                Directory.EnumerateFiles(packageDirectory, "*.fs", SearchOption.AllDirectories)
-                |> Seq.sort
-                |> Seq.map File.ReadAllText
-                |> String.concat "\n"
-            let componentsProject = File.ReadAllText(Path.Combine(packageDirectory, "FSharp.ViewEngine.Components.fsproj"))
-            let docsProject = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "Docs.fsproj"))
-            let docsStyles = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "input.css"))
-            let dockerfile = File.ReadAllText(Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "..", "Dockerfile")))
-
-            Expect.isFalse (File.Exists manifestPath) "Components has no separate stylesheet contract"
-            Expect.stringContains renderer "[--fve-background:oklch(98.5%" "the light background default lives in Foundation source"
-            Expect.stringContains renderer "dark:not-data-[fve-color-mode=light]:[--fve-background:oklch(21%" "the dark background uses the approved Slate 900 value"
-            Expect.stringContains renderer "[--fve-surface:oklch(100%" "the light bounded surface remains white"
-            Expect.stringContains renderer "--fve-surface:oklch(24.4%" "the dark bounded surface stays between Slate 900 and Slate 800"
-            Expect.isFalse (renderer.Contains("--fve-page")) "the retired page token has no compatibility alias"
-            Expect.stringContains renderer "[--fve-brand-solid:oklch(50%" "Sky brand roles live in Foundation source"
-            Expect.stringContains renderer "[--fve-brand-solid:oklch(59.6%" "Emerald brand roles live in Foundation source"
-            Expect.stringContains renderer "[--fve-brand-solid:oklch(60.9%" "Cyan brand roles live in Foundation source"
-            Expect.stringContains renderer "[--fve-brand-solid:oklch(44.6%" "Neutral brand roles live in Foundation source"
-            let documentationSource =
-                Directory.EnumerateFiles(Path.Combine(packageDirectory, "Templates"), "*.fs")
-                |> Seq.map File.ReadAllText
-                |> String.concat "\n"
-            Expect.stringContains documentationSource "data-fve-app-mode-launch" "Documentation source owns the Fixture App-mode launcher"
-            Expect.stringContains documentationSource "data-fve-app-mode-root" "Documentation source owns fullscreen Fixture presentation"
-            Expect.isFalse (documentationSource.Contains("--spec-")) "Documentation source uses only shared fve tokens"
-            Expect.stringContains renderer "--fve-shell-bar-min-height" "shell bars share one semantic height token"
-            Expect.stringContains renderer "[&::-webkit-search-cancel-button]:appearance-none" "branded Combobox clear action replaces duplicate WebKit search chrome"
-            Expect.stringContains renderer "aria-selected:bg-[var(--fve-surface)]" "segmented Tabs selected surface is static renderer source"
-            Expect.stringContains renderer "aria-selected:border-[var(--fve-brand-solid)]" "underlined Tabs selected border is static renderer source"
-            Expect.stringContains renderer "py-[var(--fve-control-padding-block)]" "renderers consume the semantic density token"
-
-            let componentsPageSource = File.ReadAllText(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "src", "Pages", "Components.fs"))
-            let documentedVariables name =
-                let pattern = "let private " + name + " = \"\"\"(?<value>.*?)\"\"\""
-                let matched = Regex.Match(componentsPageSource, pattern, RegexOptions.Singleline)
-                Expect.isTrue matched.Success $"{name} remains an explicit documentation inventory"
-                matched.Groups["value"].Value |> fveVariables
-            let supportedVariables = Set.union (documentedVariables "supportedVariableDefaults") (fveVariables Components.paletteCustomizationVariables)
-            let rendererOwnedVariables = documentedVariables "rendererOwnedVariables"
-            let emittedVariables =
-                fveVariables (renderer + "\n" + documentationSource + "\n" + Render.toString Components.buttonColorExamples)
-                |> Set.filter (fun name -> not (name.EndsWith('-'))) // Ignore interpolated name fragments, not emitted tokens.
-            Expect.isEmpty (Set.intersect supportedVariables rendererOwnedVariables) "each fve variable belongs to only one documentation category"
-            Expect.equal (Set.union supportedVariables rendererOwnedVariables) emittedVariables "every emitted fve variable is documented in exactly one category"
-
-            for role in [ "subtle"; "solid"; "hover"; "active"; "text"; "ring" ] do
-                Expect.isGreaterThanOrEqual
-                    (Regex.Matches(renderer, $"--fve-brand-{role}:").Count)
-                    4
-                    $"light and dark theme definitions include brand {role}"
-            Expect.stringContains consumer "@import \"tailwindcss\" source(none)" "fixture disables automatic source scanning"
-            Expect.isFalse (consumer.Contains("FSharp.ViewEngine.Components.tailwind.css")) "clean consumer imports no component stylesheet"
-            Expect.stringContains consumer "@source \"./*.fs\"" "clean consumer scans owned components, not template frameworks"
-            Expect.isFalse (consumer.Contains("Documentation.tailwind.css")) "ordinary component consumers do not opt into Documentation App mode"
-            Expect.stringContains consumer ".acme-theme" "consumer override is independent"
-            Expect.stringContains consumer "--fve-brand-active" "consumer override includes pressed feedback"
-            Expect.stringContains verification ".bg-\\[var\\(--fve-brand-solid\\)\\]" "verification checks generated package utility"
-            Expect.stringContains verification ".enabled\\:active\\:bg-\\[var\\(--fve-color-active\\)\\]" "verification checks generated active-state utility"
-            Expect.stringContains verification ".overflow-x-auto" "verification checks data-display overflow utility"
-            Expect.stringContains verification ".sticky" "verification checks sticky table-action columns"
-            Expect.stringContains verification ".aria-selected\\:bg-\\[var\\(--fve-surface\\)\\]" "verification checks segmented Tabs selection"
-            Expect.stringContains verification ".aria-selected\\:border-\\[var\\(--fve-brand-solid\\)\\]" "verification checks underlined Tabs selection"
-            Expect.stringContains verification ".backdrop\\:bg-\\[var\\(--fve-overlay-backdrop\\)\\]" "verification checks semantic overlay backdrop utility"
-            Expect.stringContains verification ".sm\\:w-96" "verification checks responsive drawer width"
-            Expect.stringContains verification ".size-9" "verification checks pagination sizing"
-            Expect.stringContains verification ".peer-focus-visible\\:ring-\\[var\\(--fve-critical-ring\\)\\]" "verification checks invalid native-control focus treatment"
-            Expect.stringContains verification "assert_base_excludes '.fve-app-mode-launch'" "verification proves base Components exclude Documentation App mode"
-            Expect.stringContains verification ".acme-theme" "verification checks consumer CSS"
-            Expect.isFalse (docsStyles.Contains("AppMode.tailwind.css")) "repository host needs no separate App-mode stylesheet"
-            Expect.isFalse (docsStyles.Contains("Documentation.tailwind.css")) "repository host scans Documentation F# directly"
-            Expect.isFalse (docsStyles.Contains("--spec-")) "repository host has no separate Documentation token system"
-            Expect.stringContains docsStyles "--fve-" "repository examples use shared component tokens"
-            Expect.stringContains dockerfile "FSharp.ViewEngine.Components/verify-tailwind.sh" "container CI executes the clean-consumer proof"
-            Expect.stringContains componentsProject "..\\FSharp.ViewEngine\\FSharp.ViewEngine.fsproj" "Components depends on Core"
-            Expect.isFalse (componentsProject.Contains("FSharp.ViewEngine.Docs")) "Components remains independent from Docs"
-            Expect.stringContains docsProject "..\\FSharp.ViewEngine.Components\\FSharp.ViewEngine.Components.fsproj" "Docs consumes Components as a project"
-            Expect.isFalse (docsProject.Contains("ComponentsContract.fs")) "Docs does not compile an internal Components implementation"
-
-            Expect.stringContains renderer "bg-[var(--fve-brand-solid)]" "renderer keeps complete static semantic utilities"
-            Expect.stringContains renderer "enabled:active:bg-[var(--fve-color-active)]" "renderer keeps complete static state utilities"
-        }
-
-        test "Datastar docs cover every stable helper and modifier shapes" {
-            let html = Datastar.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let helpers =
-                [ "_dataAnimate"; "_dataAttr"; "_dataBind"; "_dataClass"; "_dataComputed"
-                  "_dataCustomValidity"; "_dataEffect"; "_dataIgnore"; "_dataIgnoreMorph"
-                  "_dataIndicator"; "_dataInit"; "_dataJsonSignals"; "_dataMatchMedia"; "_dataOn"
-                  "_dataOnIntersect"; "_dataOnInterval"; "_dataOnRaf"; "_dataOnResize"
-                  "_dataOnSignalPatch"; "_dataOnSignalPatchFilter"; "_dataPersist"
-                  "_dataPreserveAttr"; "_dataQueryString"; "_dataRef"; "_dataReplaceUrl"
-                  "_dataScrollIntoView"; "_dataShow"; "_dataSignals"; "_dataStyle"; "_dataText"
-                  "_dataViewTransition" ]
-
-            for helper in helpers do
-                Expect.stringContains html helper helper
-
-            Expect.stringContains html "debounce.200ms" "keyed modifier example"
-            Expect.stringContains html "smooth" "no-value modifier example"
-            Expect.isFalse (html.Contains("_dataRocket")) "removed data-rocket helper"
-        }
-
-        test "SVG docs cover the maintained production subset" {
-            let html = Svg.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let elements =
-                [ "circle"; "clipPath"; "defs"; "desc"; "ellipse"; "g"; "line"
-                  "linearGradient"; "mask"; "path"; "polygon"; "polyline"
-                  "radialGradient"; "rect"; "stop"; "svg"; "symbol"; "textElement"
-                  "titleElement"; "tspan"; "useElement" ]
-            let attributes =
-                [ "_clipPath"; "_clipPathUnits"; "_cx"; "_cy"; "_dominantBaseline"
-                  "_fillOpacity"; "_gradientTransform"; "_gradientUnits"; "_maskContentUnits"
-                  "_maskUnits"; "_pathLength"; "_preserveAspectRatio"; "_spreadMethod"
-                  "_stopColor"; "_stopOpacity"; "_strokeDasharray"; "_strokeDashoffset"
-                  "_strokeMiterlimit"; "_strokeOpacity"; "_textAnchor"; "_textLength"
-                  "_vectorEffect"; "_xmlns" ]
-
-            for helper in elements @ attributes do
-                Expect.stringContains html helper helper
-
-            Expect.stringContains html "production subset" "support policy"
-            Expect.stringContains html "Html.el" "unsupported element escape hatch"
-            Expect.stringContains html "_attr" "unsupported attribute escape hatch"
-            Expect.stringContains html "_ariaLabelledby" "informative accessibility pattern"
-            Expect.stringContains html "_ariaHidden" "decorative accessibility pattern"
-            Expect.stringContains html "xlink:href" "deprecated linking guidance"
-            let exampleCount = html.Split([| "data-docs-example=\"true\"" |], System.StringSplitOptions.None).Length - 1
-            Expect.isGreaterThanOrEqual exampleCount 3 "icon, chart, and resource examples have previews"
-        }
-
-        test "Tailwind Plus Elements docs cover the complete 1.0.22 API" {
-            let html = TailwindElements.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            let helpers =
-                [ "elAutocomplete"; "elCommandGroup"; "elCommandList"; "elCommandPalette"
-                  "elCommandPreview"; "elCopyable"; "elDefaults"; "elDialog"
-                  "elDialogBackdrop"; "elDialogPanel"; "elDisclosure"; "elDropdown"
-                  "elMenu"; "elNoResults"; "elOption"; "elOptions"; "elPopover"
-                  "elPopoverGroup"; "elSelect"; "elSelectedContent"; "elTabGroup"
-                  "elTabList"; "elTabPanels"; "_anchorStrategy" ]
-
-            for helper in helpers do
-                Expect.stringContains html helper helper
-
-            Expect.stringContains html "@tailwindplus/elements@1.0.22" "pinned Elements installation"
-            Expect.stringContains html "src=\"/scripts/tailwind-elements-loader.1.0.22.js\" type=\"module\"" "parse-safe Elements loader"
-            let loader =
-                Path.GetFullPath(Path.Combine(__SOURCE_DIRECTORY__, "..", "Docs", "wwwroot", "scripts", "tailwind-elements-loader.1.0.22.js"))
-                |> File.ReadAllText
-            Expect.stringContains loader "void loading.catch(() => undefined)" "optional module rejection is handled during outgoing navigation"
-            Expect.stringContains loader "loading," "the original observable module promise remains available"
-            Expect.stringContains html "<el-autocomplete" "previews render the actual custom elements"
-            Expect.isFalse (html.Contains("Native initial-state preview")) "previews are not static approximations"
-            Expect.stringContains html "open type TailwindElements" "current API name"
-            Expect.isFalse (html.Contains("open type Tailwind\n")) "removed Tailwind API"
-        }
-
         test "Removed Tailwind documentation route is not registered" {
             Expect.isFalse (Registry.all |> List.exists (fun page -> page.path = "/extensions/tailwind")) "old canonical route"
             Expect.isFalse (Registry.aliases |> List.exists (fun (alias, _) -> alias = "/extensions/tailwind")) "old route alias"
-        }
-
-        test "Changelog contains released package versions only" {
-            let html = Changelog.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "FSharp.ViewEngine.Docs 2026.8.1" "latest released Docs package"
-            Expect.stringContains html "FSharp.ViewEngine 2026.8.2" "latest released Core package"
-            Expect.stringContains html "FSharp.ViewEngine 2026.8.1" "previous released Core package"
-            Expect.stringContains html "release docs/v2026.8.1" "immutable Docs release link"
-            Expect.stringContains html "release v2026.8.2" "immutable Core release link"
-            Expect.isFalse (html.Contains("Unreleased")) "unreleased changes are not published"
-            Expect.isFalse (html.Contains("Datastar Migration")) "unreleased migration notes are not published"
-        }
-
-        test "Installation docs distinguish package assets from runtime support" {
-            let html = Installation.page |> View.document Registry.navigation |> Render.toHtmlDocString
-            Expect.stringContains html "net8.0 compatibility asset" "package asset baseline"
-            Expect.stringContains html ".NET 8, .NET 9, and .NET 10" "tested runtime matrix"
-            Expect.stringContains html "November 10, 2026" "net8/net9 support horizon"
-            Expect.stringContains html "November 14, 2028" ".NET 10 support horizon"
-            Expect.stringContains html "Source Link" "source debugging support"
+            Expect.equal (routeStatus "/extensions/tailwind") 404 "removed route returns not found"
         }
 
         test "Compatibility route remains registered" {

@@ -5,7 +5,7 @@ open FSharp.ViewEngine
 open type Html
 
 module internal MermaidAssets =
-    let render (scriptPath:string) =
+    let renderWithNonce (scriptPath:string) (nonce:string option) =
         let source =
             """
 (() => {
@@ -101,5 +101,10 @@ window.addEventListener('fsharpdocs:colormode', () => window.renderMermaid?.(doc
             """
                 .Replace("__MERMAID_SCRIPT__", JsonSerializer.Serialize scriptPath)
                 .Replace("__SECURITY__", "\"antiscript\"")
-                .Replace("__ASSET_NONCE__", "null")
-        script { raw source }
+                .Replace("__ASSET_NONCE__", nonce |> Option.map JsonSerializer.Serialize |> Option.defaultValue "null")
+        script {
+            match nonce with Some value -> _attr("nonce", value) | None -> ()
+            raw source
+        }
+
+    let render scriptPath = renderWithNonce scriptPath None

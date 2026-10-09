@@ -90,7 +90,7 @@ template_dir="$output_dir/templates-net10.0"
 example_sources="$sln_dir/src/Docs/src/Examples"
 mkdir -p "$template_dir/Domain" "$template_dir/UseCases"
 cp "$output_dir/net10.0/global.json" "$template_dir/global.json"
-for relative in '*.fs' '*.fsproj' Setup.md 'Domain/*.fs' 'Domain/*.fsproj' 'UseCases/*.fs' 'UseCases/*.fsproj'; do
+for relative in '*.fs' '*.fsproj' README.md 'Domain/*.fs' 'Domain/*.fsproj' 'UseCases/*.fs' 'UseCases/*.fsproj'; do
   # Expand relative globs under the authored example tree rather than copying bin/obj outputs.
   for source in "$example_sources"/$relative; do
     target="$template_dir/${source#"$example_sources/"}"
@@ -102,8 +102,8 @@ done
   dotnet fve init Components/Acme.Components.fsproj --namespace Acme.Components
   # Exercise the install command consumers are given; missing declared components must fail this build.
   selectors=()
-  while IFS= read -r selector; do selectors+=("$selector"); done < <(awk '/^dotnet fve add / { for (i=4;i<=NF && $i!="--config";i++) print $i }' Setup.md)
-  [[ ${#selectors[@]} -gt 0 ]] || { echo 'Setup component selectors are missing.' >&2; exit 1; }
+  while IFS= read -r selector; do selectors+=("$selector"); done < <(awk '/^dotnet fve add / { for (i=4;i<=NF && $i!="--config";i++) print $i }' README.md)
+  [[ ${#selectors[@]} -gt 0 ]] || { echo 'README component selectors are missing.' >&2; exit 1; }
   dotnet fve add "${selectors[@]}" --config Components/fve.json
   restore_build Example.fsproj
 )

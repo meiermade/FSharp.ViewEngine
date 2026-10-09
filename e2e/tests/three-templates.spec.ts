@@ -149,7 +149,7 @@ for (const { saved, choice, activation } of [
     }, saved)
     let release!: () => void
     const moduleReady = new Promise<void>(resolve => { release = resolve })
-    await page.route('**/scripts/datastar.1.0.2.js', async route => {
+    await page.route('**/scripts/datastar.1.0.4.js', async route => {
       await moduleReady
       await route.continue()
     })

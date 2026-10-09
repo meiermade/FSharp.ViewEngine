@@ -47,7 +47,7 @@ module DocsAssets =
               "/scripts/prism-fsharp.1.29.0.min.js"
               "/scripts/prism-sql.1.29.0.min.js" ]
           mermaidScript = Some "/scripts/mermaid.11.16.0.min.js"
-          datastarScript = Some "/scripts/datastar.1.0.2.js"
+          datastarScript = Some "/scripts/datastar.1.0.4.js"
           mermaidSecurityLevel = "antiscript"
           nonce = None
           additionalHead = []
@@ -1088,6 +1088,7 @@ window.fsharpDocsMobileNav = {
 
         html {
             _lang "en"
+            match site.assets.nonce with Some nonce -> _attr("data-nonce", nonce) | None -> ()
             _style (themeStyle site.theme)
             head {
                 meta { _charset "utf-8" }

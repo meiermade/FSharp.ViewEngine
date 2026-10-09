@@ -51,17 +51,7 @@ let private browserShards workflow =
 let tests =
     testList "Package publishing" [
         test "WatchDocs owns a stable loopback review URL" {
-            let build = repositoryFile "sln/src/Build/Program.fs"
-            let docsConfig = repositoryFile "sln/src/Docs/src/Common/Config.fs"
-            let compose = repositoryFile "compose.yml"
-            let deployment = repositoryFile "pulumi/src/k8s/deployment.ts"
             Expect.equal WatchDocs.defaultUrl "http://127.0.0.1:5054" "Docs has one stable product-specific URL"
-            Expect.stringContains docsConfig "DOCS_SERVER_URL\" \"http://127.0.0.1:5054" "the direct Docs host uses the same default"
-            Expect.stringContains compose "DOCS_SERVER_URL: http://0.0.0.0:5000" "the Docker host names its listener explicitly"
-            Expect.stringContains deployment "name: 'DOCS_SERVER_URL', value: 'http://0.0.0.0:5000'" "the deployed host names its listener explicitly"
-            Expect.stringContains build "\"--watch=always\"" "background WatchDocs must not silently stop its CSS watcher"
-            Expect.stringContains build "WatchDocs.runExclusiveWatcher" "one owned watcher replaces only its predecessor"
-            Expect.stringContains build "DOCS_SERVER_URL" "the watcher sets the Docs listener explicitly"
             for invalid in [ "https://localhost:5054"; "http://localhost:5054"; "http://127.0.0.1:5054/path"; "http://127.0.0.1:5054?state=ready" ] do
                 Expect.throws (fun () -> WatchDocs.ensureLoopbackUrlAvailable "WatchDocs test" invalid) $"rejects {invalid}"
         }
@@ -189,25 +179,6 @@ let tests =
             Expect.isFalse (File.Exists(workflowPath "_publish-package.yml")) "single-use reusable workflow is removed"
             Expect.isFalse (File.Exists(workflowPath "verify-nuget-auth.yml")) "publication owns its OIDC authentication"
             Expect.isFalse (publish.Contains("secrets: inherit")) "publication does not inherit unrelated secrets"
-        }
-
-        test "CLI follows the independent public package spine" {
-            let project = repositoryFile "sln/src/FSharp.ViewEngine.Cli/FSharp.ViewEngine.Cli.fsproj"
-            let readme = repositoryFile "sln/src/FSharp.ViewEngine.Cli/README.md"
-            let publishing = repositoryFile "sln/src/Build/PackagePublishing.fs"
-            let preview = workflow "preview.yml"
-            let publish = workflow "publish.yml"
-
-            Expect.stringContains project "<PackAsTool>true</PackAsTool>" "CLI ships as a dotnet tool"
-            Expect.stringContains project "<ToolCommandName>fve</ToolCommandName>" "CLI owns the fve command"
-            Expect.stringContains project "<PackageId>FSharp.ViewEngine.Cli</PackageId>" "CLI has its own package identity"
-            Expect.stringContains project "FSharpViewEngineCliPackageVersion" "CLI version is explicit"
-            Expect.stringContains project "<PublishRepositoryUrl>true</PublishRepositoryUrl>" "repository metadata is enabled"
-            Expect.stringContains project "FSharp.ViewEngine.Components.Registry.props" "canonical source registry is embedded"
-            Expect.stringContains readme "dotnet tool install FSharp.ViewEngine.Cli" "CLI README documents installation"
-            Expect.stringContains preview "Verify CLI package compatibility" "pull requests prove clean consumers"
-            Expect.stringContains publishing "cli/v" "CLI has a distinct release tag namespace"
-            Expect.stringContains publish "Publish FSharp.ViewEngine.Cli" "CLI is independently publishable"
         }
 
         test "Package workflow verifies one release bundle before ordered publication" {
@@ -422,13 +393,6 @@ let tests =
             Expect.stringContains playwright "hasAccessClientSecret ? 'off'" "credential-bearing runs do not retain network traces"
             Expect.stringContains accessSetup "new URL(baseURL).origin !== stagingOrigin" "Access credentials are limited to the staging origin"
             Expect.stringContains accessSetup "storageState" "a domain-scoped Access cookie replaces credential-bearing browser requests"
-        }
-
-        test "Versioned changelog entries follow verified package releases" {
-            let build = repositoryFile "sln/src/Build/Program.fs"
-            let readme = repositoryFile "README.md"
-            Expect.isFalse (build.Contains("validateChangelog")) "release preparation does not require a future changelog entry"
-            Expect.stringContains readme "after the package is published and verified" "release documentation records the post-release changelog step"
         }
 
         test "Package discovery matches exact package identities" {

@@ -4708,7 +4708,18 @@ div {
 
     // Include themeSwitcherHead once in your document head, before the stylesheet.
     let themeSwitcherHead = ThemeSwitcher.assets "your-product-appearance" ColorMode.System
+    let themeSwitcherNonceHead pageNonce = ThemeSwitcher.assetsWithNonce "your-product-appearance" ColorMode.System (Some pageNonce)
     let themeSwitcherExample = ThemeSwitcher.create "theme-switcher-example" "Choose color theme" |> ThemeSwitcher.render
+    let nativeAppearanceExample = div {
+        _dataInit "queueMicrotask(() => { $native_appearance_example_value = window.fveColorMode.current() })"
+        _dataOn("fve-color-mode__window", "$native_appearance_example_value = window.fveColorMode.current()")
+        for attribute in ThemeSwitcher.nativeChoiceAttributes do attribute
+        RadioGroup.create "native-appearance-example" "Appearance" id [
+            RadioGroupOption.create "system" "System"
+            RadioGroupOption.create "light" "Light"
+            RadioGroupOption.create "dark" "Dark" ]
+        |> RadioGroup.render
+    }
 
     let examplesFor = function
         | "button" -> [
@@ -4954,8 +4965,10 @@ div {
             sample "dropdown-menu-full-row" "Full context row and supporting descriptions" [ "menuTrailingChevron"; "fullRowDropdownMenu" ] (centered fullRowDropdownMenu)
             sample "dropdown-menu-advanced" "Grouped states and server refresh" [ "Destination"; "destinationUrl"; "menuLeadingIcon"; "dropdownMenuItems"; "actionMenu"; "menuOverflowIcon"; "moreActionsMenu"; "dropdownMenuRegion" ] (fieldSurface (dropdownMenuRegion false)) ]
         | "theme-switcher" -> [
-            sample "theme-switcher" "System, Light and Dark" ["themeSwitcherHead";"themeSwitcherExample"] (centered themeSwitcherExample)
-            |> note "Include ThemeSwitcher.assets once in the document head before the stylesheet, and load Datastar for the menu. Choose your own storage key and use it across product/Spec documents. Multiple switchers, Profile preferences, system changes and other browser tabs share window.fveColorMode and the fve-color-mode event. ComponentsTheme still owns brand and semantic colors." ]
+            sample "theme-switcher" "System, Light and Dark" ["themeSwitcherHead";"themeSwitcherNonceHead";"themeSwitcherExample"] (centered themeSwitcherExample)
+            |> note "Include ThemeSwitcher.assets once before the stylesheet, or assetsWithNonce with a fresh server-issued document nonce under Datastar nonce CSP mode. Choose one product/Spec storage key. Multiple switchers, Profile preferences, system changes and other tabs share window.fveColorMode and the fve-color-mode event. ComponentsTheme owns brand and semantic colors."
+            sample "theme-switcher-native" "Native appearance choices before enhancement" ["nativeAppearanceExample"] nativeAppearanceExample
+            |> note "Also install radio-group for this composition. ThemeSwitcher.nativeChoiceAttributes marks native system/light/dark radios for the authorized theme bootstrap's delegated click/change/Space handling before delayed Datastar initialization. Normal enhanced synchronization remains Datastar-owned; no inline onclick attributes or competing theme runtime are required." ]
         | "command" -> [
             sample "command-default" "Default" [ "defaultCommand" ] (fieldSurface defaultCommand)
             sample "command-groups" "Groups, icons and shortcuts" [ "commandDocumentIcon"; "commandGroups"; "groupedCommand" ] (fieldSurface groupedCommand)

@@ -215,8 +215,9 @@ module View =
         let renderMode = appMode |> Option.map Fullscreen |> Option.defaultValue Embedded
         site, sideNavItems, breadcrumbs, renderMode, docsPage
 
-    let private renderResolvedPage appMode sections registration docsPage =
+    let private renderResolvedPage nonce appMode sections registration docsPage =
         let site, sideNavItems, breadcrumbs, renderMode, docsPage = prepareResolvedPage appMode sections registration docsPage
+        let site = { site with assets = { site.assets with nonce = nonce } }
         DocsView.documentWithNavigation site breadcrumbs sideNavItems renderMode docsPage
 
     let private renderResolvedNavigation appMode sections registration docsPage =
@@ -225,7 +226,7 @@ module View =
         DocsView.documentMetadata site docsPage
 
     let renderPage sections registration =
-        renderResolvedPage None sections registration (resolvePage registration)
+        renderResolvedPage None None sections registration (resolvePage registration)
 
     let navigationPage appMode sections registration =
         renderResolvedNavigation appMode sections registration (resolvePage registration)
@@ -233,15 +234,21 @@ module View =
     let navigationPageWithPage appMode sections registration docsPage =
         renderResolvedNavigation appMode sections registration docsPage
 
-    let documentWithContent sections registration page root =
+    let documentWithContentAndNonce nonce sections registration page root =
         let site,_,_,_,page = prepareResolvedPage None sections registration page
+        let site = { site with assets = { site.assets with nonce = nonce } }
         DocsView.documentWithContent site page root
+
+    let documentWithContent sections registration page root =
+        documentWithContentAndNonce None sections registration page root
 
     let contentMetadata sections registration page =
         let site,_,_,_,page = prepareResolvedPage None sections registration page
         DocsView.documentMetadata site page
 
     let document sections page = renderPage sections page
-    let documentFor appMode sections page = renderResolvedPage appMode sections page (resolvePage page)
-    let documentWithPage sections registration docsPage = renderResolvedPage None sections registration docsPage
-    let documentWithPageFor appMode sections registration docsPage = renderResolvedPage appMode sections registration docsPage
+    let documentForWithNonce nonce appMode sections page = renderResolvedPage nonce appMode sections page (resolvePage page)
+    let documentFor appMode sections page = documentForWithNonce None appMode sections page
+    let documentWithPage sections registration docsPage = renderResolvedPage None None sections registration docsPage
+    let documentWithPageForAndNonce nonce appMode sections registration docsPage = renderResolvedPage nonce appMode sections registration docsPage
+    let documentWithPageFor appMode sections registration docsPage = documentWithPageForAndNonce None appMode sections registration docsPage

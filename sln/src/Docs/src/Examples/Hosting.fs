@@ -2,6 +2,7 @@ module Docs.Examples.Hosting
 
 open System
 open System.IO
+open System.Security.Cryptography
 open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
@@ -14,17 +15,34 @@ open Ledger.Domain
 open Ledger.Operations
 
 // Standalone template host. Catalog-only source downloads are not part of this host.
+// Headers and nonce lifetime belong to the host, not to reusable controls or domain state.
+let nonce (context:HttpContext) =
+    match context.Items.TryGetValue "fve-csp-nonce" with
+    | true, (:? string as value) -> Some value
+    | _ -> None
+
+let securityHeaders (additionalScriptSources:string list) : HttpHandler =
+    fun next context ->
+        let value = Convert.ToBase64String(RandomNumberGenerator.GetBytes 32)
+        context.Items["fve-csp-nonce"] <- value
+        let scriptSources = String.concat " " additionalScriptSources
+        context.Response.Headers.ContentSecurityPolicy <- $"default-src 'self'; script-src 'self' 'nonce-{value}' {scriptSources}; script-src-attr 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'self'"
+        context.Response.Headers.CacheControl <- "private, no-store"
+        context.Response.Headers["X-Content-Type-Options"] <- "nosniff"
+        context.Response.Headers["Referrer-Policy"] <- "same-origin"
+        next context
+
 let private query (context:HttpContext) =
     let value name = context.Request.Query[name].ToString()
     queryFromValues value
-let private render title content = content |> Layout.document title |> Render.toHtmlDocString |> htmlString
+let private render context title content = content |> Layout.documentWithNonce (nonce context) title |> Render.toHtmlDocString |> htmlString
 let private pages : HttpHandler =
     fun next context ->
         let path = context.Request.Path.ToString()
         match Routing.applicationPage path, Routing.specificationPage path, Routing.apiPage path with
-        | Some page,_,_ -> render (Application.pageTitle page (query context)) (Application.render page (query context)) next context
-        | _,Some page,_ -> render (Specification.title page) (Specification.render page (query context)) next context
-        | _,_,Some page -> render (ApiDocumentation.title page) (ApiDocumentation.render page) next context
+        | Some page,_,_ -> render context (Application.pageTitle page (query context)) (Application.render page (query context)) next context
+        | _,Some page,_ -> render context (Specification.title page) (Specification.render page (query context)) next context
+        | _,_,Some page -> render context (ApiDocumentation.title page) (ApiDocumentation.render page) next context
         | _ -> (setStatusCode 404 >=> text "Example page not found.") next context
 
 let private submit renderDocument topBarActions : HttpHandler =
@@ -108,7 +126,7 @@ let private submit renderDocument topBarActions : HttpHandler =
     }
 // The embedding host owns document identity and assets, including response-only validation errors.
 let routesWithDocument renderDocument topBarActions : HttpHandler = choose [POST >=> submit renderDocument topBarActions; GET >=> pages]
-let routesWithActions topBarActions : HttpHandler = routesWithDocument (fun _ title content -> Layout.document title content) topBarActions
+let routesWithActions topBarActions : HttpHandler = routesWithDocument (fun context title content -> Layout.documentWithNonce (nonce context) title content) topBarActions
 let routes : HttpHandler = routesWithActions []
 
 let main (args:string array) =
@@ -116,6 +134,6 @@ let main (args:string array) =
     builder.Services.AddGiraffe() |> ignore
     let app = builder.Build()
     app.UseStaticFiles() |> ignore
-    app.UseGiraffe routes
+    app.UseGiraffe (securityHeaders [] >=> routes)
     app.Run()
     0

@@ -27,6 +27,9 @@ module ComponentDocumentation =
     let fields =
         FieldGroup.create "Delivery preferences" (div { _class "grid gap-3"; Checkbox.create "emailReceipt" "Email receipt" |> Checkbox.render; Checkbox.create "paperReceipt" "Paper receipt" |> Checkbox.render })
         |> FieldGroup.withDescription "Choose how to receive your receipt." |> FieldGroup.render
+    let codeBlockHead pageNonce =
+        CodeBlock.assetsWithNonce (Some "/css/prism-tomorrow.1.29.0.min.css") ["/scripts/prism.1.29.0.min.js"; "/scripts/prism-fsharp.1.29.0.min.js"] (Some pageNonce)
+    let mermaidHead pageNonce = Mermaid.assetsWithNonce "/scripts/mermaid.11.16.0.min.js" (Some pageNonce)
     let codeBlock = CodeBlock.create "fsharp" "open FSharp.ViewEngine\nopen type Html\n\nlet greeting = p { \"Hello, F#\" }\nlet html = Render.toString greeting" |> CodeBlock.render
     let callout = Callout.create "Note" [p { "Use ordinary HTML for the content. This label introduces supporting information." }] |> Callout.render
     let mermaid = Mermaid.create "flowchart LR\n  Input[Input] --> Validate[Validate]\n  Validate --> Result[Result]" |> Mermaid.render
@@ -58,9 +61,9 @@ module ComponentDocumentation =
         | "card" -> [sample "card" "Default" card; sample "cardWithParts" "Header and footer" cardWithParts; sample "mediaCard" "Consumer-authored media" mediaCard]
         | "section-header" -> [sample "sectionHeader" "Default" sectionHeader; sample "sectionHeaderWithActions" "Description, actions and divider" sectionHeaderWithActions]
         | "field-group" -> [sample "fields" "Related fields" fields]
-        | "code-block" -> [sample "codeBlock" "Copyable highlighted source" codeBlock]
+        | "code-block" -> [sampleNames ["codeBlockHead";"codeBlock"] "codeBlock" "Copyable highlighted source" codeBlock]
         | "callout" -> [sample "callout" "Supporting information" callout]
-        | "mermaid" -> [sample "mermaid" "Flowchart" mermaid; sample "sequence" "Sequence constructors" sequence]
+        | "mermaid" -> [sampleNames ["mermaidHead";"mermaid"] "mermaid" "Flowchart" mermaid; sample "sequence" "Sequence constructors" sequence]
         | "example" -> [sample "example" "Preview and code" example]
         | "fsharp-api-reference" -> [sample "fsharpReference" "Compiled declarations" fsharpReference]
         | _ -> []
@@ -81,9 +84,9 @@ module ComponentDocumentation =
                 if key="card" || key="section-header" then
                     p { "The action variants additionally compose Button. Install button when copying those examples; the component itself accepts ordinary consumer-authored HTML." }
                 if key="code-block" || key="example" then
-                    p { "Include CodeBlock.assets once in your document head with the URLs of your Prism stylesheet and language scripts. Layout.fs in each template demonstrates the complete setup." }
+                    p { "Include CodeBlock.assets once in your document head with consumer-owned Prism URLs, or assetsWithNonce using your server-issued document nonce. Initialization and lazy assets share that nonce. Layout.fs and Hosting.fs in the source ZIP demonstrate enforced Datastar nonce CSP; inline CSS remains a separate style-policy allowance." }
                 if key="mermaid" then
-                    p { "Include Mermaid.assets once in your document head with your Mermaid script URL. Sequence constructors belong to this component." } ]
+                    p { "Include Mermaid.assets once in your document head with your consumer-owned script URL, or assetsWithNonce using your server-issued document nonce. Initialization and the lazy runtime share that nonce. Sequence constructors belong to this component. Only render trusted diagrams; CSP does not sanitize source or authorize arbitrary URLs." } ]
             for item in items.Tail do DocumentationSection.create item.id item.title [Example.gallery item.id item.title "fsharp" item.source (surface item.preview)]
             DocumentationSection.create "api-reference" "API reference" [FSharpApiReference.forCategory key typeof<CardConfig> |> FSharpApiReference.render] ]
     let page registration = pageWithExamples registration (examples (registration.path.Substring("/components/".Length)))

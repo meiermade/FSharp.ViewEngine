@@ -21,6 +21,7 @@ module Custom =
                 [ InlineContent.Code "Html.el"; Text ", "; InlineContent.Code "Html.elVoid"; Text ", and the name passed to "; InlineContent.Code "_attr"; Text " are emitted as markup names without validation." ]
             ];
             Paragraph [ Text "Keep user-controlled data in normal text nodes and attribute "; Strong [ Text "values" ]; Text ", where it will be encoded. Do not use user input as raw markup, JavaScript, element names, or attribute names." ];
+            Paragraph [ Text "The inline-handler snippets below demonstrate the Core API, not the canonical nonce CSP policy. Nonces do not authorize onclick attributes. For nonce-CSP applications, use Datastar data-on expressions or host-authorized scripts; see "; Link("the Datastar security integration", "/extensions/datastar#content-security-policy"); Text ". Keep those expressions developer-controlled too." ];
             Heading { id = "custom-elements"; title = "Custom Elements"; level = 2 };
             Heading { id = "el"; title = "el"; level = 3 };
             Paragraph [ Text "Use "; InlineContent.Code "Html.el"; Text " to create a custom element with children. This is useful for web components:" ];

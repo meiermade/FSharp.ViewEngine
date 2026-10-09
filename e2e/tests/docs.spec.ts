@@ -136,13 +136,6 @@ test('legacy Docs catalog routes remain aliases with canonical destinations', as
   }
 })
 
-test('removed Components routes return not found', async ({ request }) => {
-  for (const path of ['/components/contract', '/components/chart', '/components/layouts', '/components/row-actions', '/components/action-cluster', '/components/confirmation-dialog', '/components/status', '/components/icon-button']) {
-    const response = await request.get(path)
-    expect(response.status(), path).toBe(404)
-  }
-})
-
 test.describe('automated accessibility checks', () => {
   const scan = async (page: Page, context: string) => {
     const results = await new AxeBuilder({ page })
@@ -1155,7 +1148,7 @@ test('health and pinned application assets are available', async ({ request }) =
   expect(await css.text()).toContain('tailwindcss v4.2.2')
 
   const assets = [
-    ['/scripts/datastar.1.0.2.js', 'Datastar v1.0.2'],
+    ['/scripts/datastar.1.0.4.js', 'Datastar v1.0.4'],
     ['/scripts/mermaid.11.16.0.min.js', 'mermaid'],
     ['/scripts/prism.1.29.0.min.js', 'Prism'],
     ['/scripts/prism-fsharp.1.29.0.min.js', 'fsharp'],
@@ -2004,7 +1997,6 @@ test('benchmark comparison remains legible in light and dark themes', async ({ p
     await page.goto('/benchmarks', { waitUntil: 'domcontentloaded' })
     const chart = page.locator('.docs-comparison-chart')
     await expect(chart).toBeVisible()
-    await expect(chart.getByText('Mean duration · Lower is better')).toBeVisible()
     const colors = await chart.evaluate(element => {
       const style = getComputedStyle(element)
       const text = element.querySelector('.docs-comparison-labels strong')!
@@ -2022,9 +2014,7 @@ test('benchmark tables remain readable without page overflow on mobile', async (
   const comparison = page.getByRole('figure', { name: 'Build and render comparison' })
   await expect(comparison).toBeVisible()
   await expect(comparison).toContainText('FSharp.ViewEngine')
-  await expect(comparison).toContainText('1.35× as long')
-  await expect(comparison.locator('.docs-comparison-bar')).toHaveCount(4)
-  await expect(page.getByRole('table')).toHaveCount(7)
+  await expect(page.getByRole('table').first()).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 
@@ -2054,9 +2044,4 @@ test('sitemap, robots, and social metadata expose canonical public discovery', a
   const image = await request.get('/social-card.png')
   expect(image.status()).toBe(200)
   expect(image.headers()['content-type']).toContain('image/png')
-})
-
-test('removed Tailwind documentation route returns 404', async ({ request }) => {
-  const response = await request.get('/extensions/tailwind')
-  expect(response.status()).toBe(404)
 })

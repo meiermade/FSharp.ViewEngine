@@ -11,7 +11,8 @@ open Serilog.Sinks.OpenTelemetry
 open StarFederation.Datastar.DependencyInjection
 
 let webApp (config:Config) =
-    choose [
+    Docs.Examples.Hosting.securityHeaders ["https://cdn.jsdelivr.net"]
+    >=> choose [
         GET >=> choose [
             route "/health" >=> json {|
                 status = "ok"
