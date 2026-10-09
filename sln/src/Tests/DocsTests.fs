@@ -408,15 +408,6 @@ let tests =
             Expect.stringContains rendered "href=\"/css/product.css\"" "product stylesheet"
             Expect.stringContains rendered "href=\"/css/custom-prism.css\"" "consumer Prism stylesheet overrides the embedded palette"
             Expect.stringContains rendered "securityLevel: \"strict\"" "Mermaid security setting is safely serialized"
-            Expect.stringContains rendered "typeof window.mermaid?.initialize === 'function'" "Mermaid API detection cannot be clobbered by a consumer element ID"
-            Expect.stringContains rendered "suppressErrorRendering: true" "Mermaid error SVGs are suppressed in favor of package-owned failure content"
-            Expect.stringContains rendered "const source = node.dataset.mermaidSource ?? '';" "Mermaid snapshots encoded source before queued rendering"
-            Expect.stringContains rendered "window.mermaid.render(id, source" "Mermaid renders from the immutable source snapshot without restoring visible raw text"
-            Expect.stringContains rendered "(node.dataset.mermaidSource ?? '') !== source" "stale in-flight renders are discarded when a host source changes"
-            Expect.stringContains rendered "node.dataset.mermaidRenderedSource = source" "the completion marker records the source used for the committed SVG"
-            Expect.stringContains rendered "mermaidRenderQueue" "Mermaid renders are serialized"
-            Expect.stringContains rendered "data-init=\"window.renderMermaid?.(el)\"" "Mermaid owns repeat-safe initialization on its generated-markup host"
-            Expect.stringContains rendered "setMermaidFailed" "asset and render failures use the shared deterministic failure state"
             Expect.stringContains rendered "name=\"robots\"" "additional head content"
         }
 

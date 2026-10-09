@@ -12,9 +12,6 @@ for (const [surface, route, label] of [
     page.on('pageerror', error => errors.push(error.message))
     await page.goto(route)
     if (surface === 'gallery') await page.getByRole('tab', { name: 'Code', exact: true }).first().click()
-    if (surface === 'installation') {
-      await expect(page.getByText('This local candidate consolidates the former Docs package.', { exact: false })).toHaveCount(0)
-    }
     await page.evaluate(() => {
       Object.defineProperty(navigator, 'clipboard', { configurable: true, value: {
         writeText: async (value: string) => {

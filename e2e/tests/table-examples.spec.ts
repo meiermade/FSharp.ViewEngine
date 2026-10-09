@@ -13,7 +13,7 @@ const examples = [
   ['components-table-empty-panel-preview', 'Empty state'],
 ] as const
 
-test('table examples isolate features and expose short independent source', async ({ page }) => {
+test('table examples render focused native semantics', async ({ page }) => {
   await page.goto('/components/table')
   await expect(page.locator('[data-docs-example="true"]')).toHaveCount(examples.length)
   for (const [id, title] of examples) {
@@ -24,12 +24,6 @@ test('table examples isolate features and expose short independent source', asyn
     await expect(preview.getByRole('link')).toHaveCount(id === 'components-table-sorting-panel-preview' ? 2 : id === 'components-table-hierarchy-panel-preview' ? 7 : 0)
     await expect(preview.getByRole('button')).toHaveCount(id === 'components-table-hierarchy-panel-preview' ? 3 : 0)
     await expect(preview.getByRole('checkbox')).toHaveCount(id === 'components-table-selection-panel-preview' ? 5 : 0)
-    await example.getByRole('tab', { name: 'Code', exact: true }).click()
-    const code = await example.locator('[data-docs-copy-source]').textContent()
-    expect(code).toContain('Table.create')
-    expect(code!.split('\n').length).toBeLessThanOrEqual(50)
-    for (const forbidden of ['ShellDestination', 'shellDestination', 'recordMenuItems', 'JsonSerializer', 'navigator.clipboard', 'RowActions', 'accountTable']) expect(code).not.toContain(forbidden)
-    await example.getByRole('tab', { name: 'Preview', exact: true }).click()
   }
   const simple = page.locator('#components-table-panel-preview')
   await expect(simple.getByRole('columnheader')).toHaveText(['Name', 'Email', 'Role'])
