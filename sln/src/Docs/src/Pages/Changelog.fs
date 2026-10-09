@@ -15,12 +15,20 @@ module Changelog =
             Paragraph [
                 Text "Released changes to the ";
                 InlineContent.Code "FSharp.ViewEngine";
-                Text " and ";
+                Text " Core library and ";
+                InlineContent.Code "FSharp.ViewEngine.Cli";
+                Text " source-installation CLI are recorded here. Each package follows its own calendar-oriented version sequence. Historical ";
                 InlineContent.Code "FSharp.ViewEngine.Docs";
-                Text " NuGet packages are recorded here. Each package follows its own calendar-oriented version sequence. Documentation-site and infrastructure deployments are not package releases."
+                Text " releases remain below. Documentation-site and infrastructure deployments are not package releases."
             ];
             Heading { id = "released"; title = "Released packages"; level = 2 };
             Paragraph [ Text "Published artifacts and complete commit histories are available from "; Link("GitHub Releases", "https://github.com/meiermade/FSharp.ViewEngine/releases"); Text "." ];
+            Heading { id = "fsharp-viewengine-cli-2026-10-2"; title = "FSharp.ViewEngine.Cli 2026.10.2 · October 9, 2026"; level = 3 };
+            UnorderedList [
+                [ Text "Added nonce-aware ThemeSwitcher, CodeBlock and Mermaid assets, plus native theme-choice support, for host-owned CSP integration. See the "; Link("Datastar nonce CSP guide", "/extensions/datastar#content-security-policy"); Text "." ];
+                [ Text "Compatible with FSharp.ViewEngine 2026.8.2; Core was not released again." ];
+                [ Text "See "; Link("release cli/v2026.10.2", "https://github.com/meiermade/FSharp.ViewEngine/releases/tag/cli%2Fv2026.10.2"); Text " for the immutable source and artifacts." ]
+            ];
             Heading { id = "fsharp-viewengine-docs-2026-8-1"; title = "FSharp.ViewEngine.Docs 2026.8.1 · August 18, 2026"; level = 3 };
             UnorderedList [
                 [ Text "Migrated the reusable documentation components and examples to wrapper-free fragments and standardized title computation expressions." ];
