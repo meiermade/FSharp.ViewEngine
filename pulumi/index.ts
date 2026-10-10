@@ -16,7 +16,6 @@ export const coreVersion = config.releaseMetadata.coreVersion
 export const coreTag = config.releaseMetadata.coreTag
 export const cliVersion = config.releaseMetadata.cliVersion
 export const cliTag = config.releaseMetadata.cliTag
-export const legacyRedirectEnabled = config.legacyRedirectEnabled
 export const accessAudience = access.application?.aud ?? ''
 export const ciAccessClientId = pulumi.secret(access.ciServiceToken?.clientId ?? '')
 export const ciAccessClientSecret = pulumi.secret(access.ciServiceToken?.clientSecret ?? '')

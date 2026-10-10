@@ -74,9 +74,8 @@ test('retains the established production identities and public hostname', () => 
     assert.equal(record.inputs.name, 'fve')
     assert.equal(record.inputs.zoneId, 'production-zone-id')
 
-    const legacyRecord = resource('cloudflare:index/dnsRecord:DnsRecord', 'fsharpviewengine')
-    assert.equal(legacyRecord.inputs.name, 'fsharpviewengine')
-    assert.equal(legacyRecord.inputs.proxied, true)
+    assert.equal(record.inputs.proxied, true)
+    assert.equal(resourcesOfType('cloudflare:index/dnsRecord:DnsRecord').length, 1)
 
     const tunnelConfig = resource(
         'cloudflare:index/zeroTrustTunnelCloudflaredConfig:ZeroTrustTunnelCloudflaredConfig',
@@ -85,9 +84,12 @@ test('retains the established production identities and public hostname', () => 
     assert.equal(tunnelConfig.inputs.config.ingresses[0].hostname, 'fve.meiermade.com')
     assert.equal(tunnelConfig.inputs.config.ingresses[0].originRequest, undefined)
     assert.deepEqual(tunnelConfig.inputs.config.ingresses[1], { service: 'http_status:404' })
+    assert.equal(tunnelConfig.inputs.config.ingresses.length, 2)
+    assert.equal(resourcesOfType('cloudflare:index/workersScript:WorkersScript').length, 0)
+    assert.equal(resourcesOfType('cloudflare:index/workersRoute:WorkersRoute').length, 0)
 })
 
-test('promotes exact release metadata and redirects the legacy hostname at the edge', () => {
+test('promotes exact release metadata on the canonical hostname', () => {
     const deployment = resource('kubernetes:apps/v1:Deployment', 'fsharpviewengine')
     const env = deployment.inputs.spec.template.spec.containers[0].env
     const value = (name: string) => env.find((item: any) => item.name === name)?.value
@@ -98,17 +100,6 @@ test('promotes exact release metadata and redirects the legacy hostname at the e
     assert.equal(value('CLI_PACKAGE_VERSION'), '2026.9.0')
     assert.equal(value('CORE_PACKAGE_TAG'), 'v2026.8.2')
     assert.equal(value('CLI_PACKAGE_TAG'), 'cli/v2026.9.0')
-
-    const redirectScript = resource('cloudflare:index/workersScript:WorkersScript', 'fsharpviewengine-legacy-redirect')
-    assert.equal(redirectScript.inputs.scriptName, 'fsharpviewengine-legacy-redirect')
-    assert.match(redirectScript.inputs.content, /target\.protocol = 'https:'/)
-    assert.match(redirectScript.inputs.content, /target\.hostname = 'fve\.meiermade\.com'/)
-    assert.match(redirectScript.inputs.content, /Response\.redirect\(target\.toString\(\), 301\)/)
-
-    const redirectRoute = resource('cloudflare:index/workersRoute:WorkersRoute', 'fsharpviewengine-legacy-redirect-route')
-    assert.equal(redirectRoute.inputs.zoneId, 'production-zone-id')
-    assert.equal(redirectRoute.inputs.pattern, 'fsharpviewengine.meiermade.com/*')
-    assert.equal(redirectRoute.inputs.script, 'fsharpviewengine-legacy-redirect')
 })
 
 test('does not add staging Access resources to production', () => {

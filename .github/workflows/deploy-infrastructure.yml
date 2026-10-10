@@ -1,0 +1,116 @@
+name: Deploy production infrastructure
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Share the release lock: maintenance must never race image promotion or rollback.
+concurrency:
+  group: fsharp-viewengine-release
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Maintain infrastructure without changing the production release
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment:
+      name: production
+      url: https://fve.meiermade.com
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: pulumi/package-lock.json
+      - name: Install GKE auth plugin
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+      - name: Install Pulumi packages
+        run: npm ci
+        working-directory: ./pulumi
+      - name: Authenticate Pulumi
+        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        with:
+          organization: meiermade
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:meiermade
+      - name: Setup Pulumi CLI
+        uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
+        with:
+          pulumi-version: 3.261.0
+      - name: Read current production release
+        id: previous
+        working-directory: ./pulumi
+        run: |
+          pulumi stack output --json --stack meiermade/fsharp-view-engine/prod | jq -er '
+            if (.imageDigest | test("@sha256:[a-f0-9]{64}$"))
+              and (.releaseCommit | test("^[a-f0-9]{40}$"))
+              and (.coreVersion | test("^[0-9]{4}\\.[0-9]{1,2}\\.[0-9]+$"))
+              and (.cliVersion | test("^[0-9]{4}\\.[0-9]{1,2}\\.[0-9]+$"))
+              and .origin == "https://fve.meiermade.com"
+            then "image=\(.imageDigest)\ncommit=\(.releaseCommit)\ncore=\(.coreVersion)\ncli=\(.cliVersion)"
+            else error("Production release metadata is incomplete") end
+          ' >> "$GITHUB_OUTPUT"
+      - name: Check healthy canonical release before maintenance
+        env:
+          EXPECTED_IMAGE: ${{ steps.previous.outputs.image }}
+          EXPECTED_COMMIT: ${{ steps.previous.outputs.commit }}
+          EXPECTED_CORE: ${{ steps.previous.outputs.core }}
+          EXPECTED_CLI: ${{ steps.previous.outputs.cli }}
+        run: |
+          curl --fail --silent --show-error --max-time 30 https://fve.meiermade.com/health | jq -e \
+            --arg image "$EXPECTED_IMAGE" --arg commit "$EXPECTED_COMMIT" \
+            --arg core "$EXPECTED_CORE" --arg cli "$EXPECTED_CLI" '
+              .status == "ok" and .environment == "production" and .origin == "https://fve.meiermade.com"
+              and .image == $image and .commit == $commit
+              and .packages.core.version == $core and .packages.cli.version == $cli
+            '
+          curl --fail --silent --show-error --max-time 30 https://fve.meiermade.com/components/button >/dev/null
+      - name: Apply reviewed infrastructure with unchanged release identity
+        id: deploy
+        timeout-minutes: 20
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        env:
+          DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}
+          RELEASE_COMMIT: ${{ steps.previous.outputs.commit }}
+          CORE_PACKAGE_VERSION: ${{ steps.previous.outputs.core }}
+          CLI_PACKAGE_VERSION: ${{ steps.previous.outputs.cli }}
+        with:
+          work-dir: ./pulumi
+          command: up
+          stack-name: meiermade/fsharp-view-engine/prod
+      - name: Confirm canonical release remains unchanged
+        env:
+          EXPECTED_IMAGE: ${{ steps.previous.outputs.image }}
+          EXPECTED_COMMIT: ${{ steps.previous.outputs.commit }}
+          EXPECTED_CORE: ${{ steps.previous.outputs.core }}
+          EXPECTED_CLI: ${{ steps.previous.outputs.cli }}
+          DEPLOYED_IMAGE: ${{ steps.deploy.outputs.imageDigest }}
+          DEPLOYED_COMMIT: ${{ steps.deploy.outputs.releaseCommit }}
+          DEPLOYED_CORE: ${{ steps.deploy.outputs.coreVersion }}
+          DEPLOYED_CLI: ${{ steps.deploy.outputs.cliVersion }}
+          DEPLOYED_ORIGIN: ${{ steps.deploy.outputs.origin }}
+        run: |
+          test "$DEPLOYED_IMAGE" = "$EXPECTED_IMAGE"
+          test "$DEPLOYED_COMMIT" = "$EXPECTED_COMMIT"
+          test "$DEPLOYED_CORE" = "$EXPECTED_CORE"
+          test "$DEPLOYED_CLI" = "$EXPECTED_CLI"
+          test "$DEPLOYED_ORIGIN" = 'https://fve.meiermade.com'
+          curl --fail --silent --show-error --max-time 30 https://fve.meiermade.com/health | jq -e \
+            --arg image "$EXPECTED_IMAGE" --arg commit "$EXPECTED_COMMIT" \
+            --arg core "$EXPECTED_CORE" --arg cli "$EXPECTED_CLI" '
+              .status == "ok" and .environment == "production" and .origin == "https://fve.meiermade.com"
+              and .image == $image and .commit == $commit
+              and .packages.core.version == $core and .packages.cli.version == $cli
+            '
+          curl --fail --silent --show-error --max-time 30 https://fve.meiermade.com/components/button >/dev/null

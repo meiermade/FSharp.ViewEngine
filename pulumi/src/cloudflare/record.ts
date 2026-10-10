@@ -16,12 +16,6 @@ const dnsRecord = (name: string, dnsName: string, protect: boolean) => new cloud
     protect,
 })
 
-// Preserve the existing production record identity so the legacy hostname stays
-// proxied while the canonical hostname is introduced and accepted.
-export const legacyRecord = config.isStaging
-    ? undefined
-    : dnsRecord(config.identifier, 'fsharpviewengine', false)
-
 export const record = config.isStaging
     ? dnsRecord(config.identifier, config.appConfig.dnsName, true)
     : dnsRecord(`${config.identifier}-canonical`, config.appConfig.dnsName, false)

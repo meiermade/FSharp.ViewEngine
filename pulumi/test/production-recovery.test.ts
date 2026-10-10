@@ -17,7 +17,6 @@ process.env.DEPLOY_IMAGE = imageRef
 process.env.CORE_PACKAGE_VERSION = '2026.8.2'
 process.env.CLI_PACKAGE_VERSION = 'unreleased'
 process.env.ALLOW_UNRELEASED_PACKAGE_SNAPSHOT = 'true'
-process.env.DISABLE_LEGACY_REDIRECT = 'true'
 process.env.PULUMI_CONFIG = JSON.stringify({
     'docker:registryUri': 'us-east1-docker.pkg.dev/meiermade/fsharpviewengine',
     'docker:registryAccessToken': 'registry-token',
@@ -51,18 +50,20 @@ const resource = (type: string, name: string): RegisteredResource => {
     return match
 }
 
-test('keeps the legacy hostname serving while canonical production is accepted', () => {
+test('restores an older image without restoring retired hostname infrastructure', () => {
     const tunnelConfig = resource(
         'cloudflare:index/zeroTrustTunnelCloudflaredConfig:ZeroTrustTunnelCloudflaredConfig',
         'fsharpviewengine',
     )
     assert.equal(tunnelConfig.inputs.config.ingresses[0].hostname, 'fve.meiermade.com')
-    assert.equal(tunnelConfig.inputs.config.ingresses[1].hostname, 'fsharpviewengine.meiermade.com')
-    assert.deepEqual(tunnelConfig.inputs.config.ingresses[2], { service: 'http_status:404' })
-    assert.equal(
-        resources.some(candidate => candidate.name === 'fsharpviewengine-legacy-redirect'),
-        false,
-    )
+    assert.deepEqual(tunnelConfig.inputs.config.ingresses[1], { service: 'http_status:404' })
+    assert.equal(tunnelConfig.inputs.config.ingresses.length, 2)
+    assert.deepEqual(resources.filter(candidate => candidate.type === 'cloudflare:index/dnsRecord:DnsRecord')
+        .map(candidate => candidate.inputs.name), ['fve'])
+    assert.equal(resources.some(candidate => candidate.type.includes('workersScript') || candidate.type.includes('workersRoute')), false)
+    assert.equal(resources.some(candidate => candidate.type === 'docker-build:index:Image'), false)
+    const deployment = resource('kubernetes:apps/v1:Deployment', 'fsharpviewengine')
+    assert.equal(deployment.inputs.spec.template.spec.containers[0].image, imageRef)
 })
 
 test('represents the explicit pre-CLI recovery snapshot without candidate metadata', () => {

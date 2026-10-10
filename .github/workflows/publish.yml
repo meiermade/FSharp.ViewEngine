@@ -434,10 +434,12 @@ jobs:
       id-token: write
     # Bound individual operations so failure and cancellation recovery can still run.
     steps:
+      # Infrastructure follows the release workflow revision, not the accepted image's source.
+      # An older accepted image must not recreate retired hostname infrastructure.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 5
         with:
-          ref: ${{ needs.candidate.outputs.commit }}
+          ref: ${{ github.sha }}
       - name: Setup Node
         timeout-minutes: 5
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -486,26 +488,22 @@ jobs:
           commit="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].env[] | select(.name == "RELEASE_COMMIT") | .value][0] // empty' "$RUNNER_TEMP/production-state.json")"
           core="$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
           cli="$(pulumi stack output cliVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
-          redirect="$(pulumi stack output legacyRedirectEnabled --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
           test -n "$image"
           test -n "$commit"
           cli="${cli:-$LEGACY_PRODUCTION_CLI_VERSION}"
-          if [[ -z "$core" || -z "$redirect" ]]; then
+          if [[ -z "$core" ]]; then
             test "$commit" = "$LEGACY_PRODUCTION_COMMIT"
-            core="${core:-$LEGACY_PRODUCTION_CORE_VERSION}"
-            redirect="${redirect:-false}"
+            core="$LEGACY_PRODUCTION_CORE_VERSION"
           fi
           test -n "$core"
           test -n "$cli"
-          test -n "$redirect"
           {
             echo "image=$image"
             echo "commit=$commit"
             echo "core=$core"
             echo "cli=$cli"
-            echo "redirect=$redirect"
           } >> "$GITHUB_OUTPUT"
-      - name: Promote exact accepted image without enabling the first redirect
+      - name: Promote exact accepted image
         id: deploy
         timeout-minutes: 20
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
@@ -514,7 +512,6 @@ jobs:
           RELEASE_COMMIT: ${{ needs.candidate.outputs.commit }}
           CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
           CLI_PACKAGE_VERSION: ${{ inputs.cliVersion }}
-          DISABLE_LEGACY_REDIRECT: ${{ steps.previous.outputs.redirect != 'true' && 'true' || 'false' }}
         with:
           work-dir: ./pulumi
           command: up
@@ -550,32 +547,6 @@ jobs:
           CLI_PACKAGE_VERSION: ${{ inputs.cliVersion }}
           E2E_CROSS_BROWSER_MODE: focused
         run: bash scripts/test-published-ci.sh tests/production-smoke.spec.ts
-      - name: Enable permanent legacy redirect after canonical acceptance
-        id: redirect
-        if: ${{ steps.previous.outputs.redirect != 'true' }}
-        timeout-minutes: 15
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
-        env:
-          DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}
-          RELEASE_COMMIT: ${{ needs.candidate.outputs.commit }}
-          CORE_PACKAGE_VERSION: ${{ inputs.coreVersion }}
-          CLI_PACKAGE_VERSION: ${{ inputs.cliVersion }}
-        with:
-          work-dir: ./pulumi
-          command: up
-          stack-name: meiermade/fsharp-view-engine/prod
-      - name: Verify permanent path-and-query-preserving edge redirect
-        timeout-minutes: 3
-        run: |
-          node --input-type=module <<'NODE'
-          const legacy = 'https://fsharpviewengine.meiermade.com/components/button?view=code&theme=dark'
-          const expected = 'https://fve.meiermade.com/components/button?view=code&theme=dark'
-          const response = await fetch(legacy, { redirect: 'manual' })
-          if (response.status !== 301) throw new Error(`Expected 301, found ${response.status}`)
-          if (response.headers.get('location') !== expected) {
-            throw new Error(`Expected ${expected}, found ${response.headers.get('location')}`)
-          }
-          NODE
       - name: Record retired package follow-up
         if: ${{ (inputs.packages == 'cli' || inputs.packages == 'both') && success() }}
         run: |
@@ -609,7 +580,6 @@ jobs:
           CORE_PACKAGE_VERSION: ${{ steps.previous.outputs.core }}
           CLI_PACKAGE_VERSION: ${{ steps.previous.outputs.cli }}
           ALLOW_UNRELEASED_PACKAGE_SNAPSHOT: ${{ steps.previous.outputs.core == 'unreleased' || steps.previous.outputs.cli == 'unreleased' }}
-          DISABLE_LEGACY_REDIRECT: ${{ steps.previous.outputs.redirect != 'true' && 'true' || 'false' }}
         with:
           work-dir: ./pulumi
           command: up
@@ -623,16 +593,10 @@ jobs:
           EXPECTED_COMMIT: ${{ steps.previous.outputs.commit }}
           EXPECTED_CORE_VERSION: ${{ steps.previous.outputs.core }}
           EXPECTED_CLI_VERSION: ${{ steps.previous.outputs.cli }}
-          EXPECTED_REDIRECT: ${{ steps.previous.outputs.redirect }}
         run: |
           test "$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_IMAGE"
           test "$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_COMMIT"
           test "$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_CORE_VERSION"
           test "$(pulumi stack output cliVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_CLI_VERSION"
-          test "$(pulumi stack output legacyRedirectEnabled --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_REDIRECT"
-          if [[ "$EXPECTED_REDIRECT" == 'true' ]]; then
-            health_origin='https://fve.meiermade.com'
-          else
-            health_origin='https://fsharpviewengine.meiermade.com'
-          fi
-          curl --fail --silent --show-error --max-time 30 "$health_origin/health" >/dev/null
+          test "$(pulumi stack output origin --stack meiermade/fsharp-view-engine/prod)" = 'https://fve.meiermade.com'
+          curl --fail --silent --show-error --max-time 30 'https://fve.meiermade.com/health' >/dev/null
