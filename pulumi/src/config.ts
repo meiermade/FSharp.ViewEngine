@@ -40,7 +40,6 @@ if (origin !== expectedOrigin) {
     throw new Error(`${stack} must use ${expectedOrigin}`)
 }
 
-export const legacyProductionHostname = 'fsharpviewengine.meiermade.com'
 export const appConfig = {
     origin,
     hostname: parsedOrigin.hostname,
@@ -67,8 +66,6 @@ export const releaseMetadata = {
     cliVersion,
     cliTag: cliVersion === 'unreleased' ? 'unreleased' : `cli/v${cliVersion}`,
 }
-
-export const legacyRedirectEnabled = !isStaging && process.env.DISABLE_LEGACY_REDIRECT !== 'true'
 
 const rawDockerConfig = new pulumi.Config('docker')
 export const dockerConfig = {

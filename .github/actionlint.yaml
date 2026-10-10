@@ -6,3 +6,6 @@ paths:
   .github/workflows/publish.yml:
     ignore:
       - 'unexpected key "queue" for "concurrency" section'
+  .github/workflows/deploy-infrastructure.yml:
+    ignore:
+      - 'unexpected key "queue" for "concurrency" section'

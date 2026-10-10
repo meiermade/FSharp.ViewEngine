@@ -276,12 +276,26 @@ jobs:
           upsert: true
           diff: true
           comment-on-pr: true
+      - name: Read retained production release
+        id: production
+        working-directory: ./pulumi
+        run: |
+          pulumi stack output --json --stack meiermade/fsharp-view-engine/prod | jq -er '
+            if (.imageDigest | test("@sha256:[a-f0-9]{64}$"))
+              and (.releaseCommit | test("^[a-f0-9]{40}$"))
+              and (.coreVersion | test("^[0-9]{4}\\.[0-9]{1,2}\\.[0-9]+$"))
+              and (.cliVersion | test("^[0-9]{4}\\.[0-9]{1,2}\\.[0-9]+$"))
+              and .origin == "https://fve.meiermade.com"
+            then "image=\(.imageDigest)\ncommit=\(.releaseCommit)\ncore=\(.coreVersion)\ncli=\(.cliVersion)"
+            else error("Production release metadata is incomplete") end
+          ' >> "$GITHUB_OUTPUT"
       - name: Preview retained production boundary
         uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
         env:
-          RELEASE_COMMIT: ${{ github.event.pull_request.head.sha }}
-          CORE_PACKAGE_VERSION: 2099.1.0
-          CLI_PACKAGE_VERSION: 2099.1.0
+          DEPLOY_IMAGE: ${{ steps.production.outputs.image }}
+          RELEASE_COMMIT: ${{ steps.production.outputs.commit }}
+          CORE_PACKAGE_VERSION: ${{ steps.production.outputs.core }}
+          CLI_PACKAGE_VERSION: ${{ steps.production.outputs.cli }}
         with:
           work-dir: ./pulumi
           command: preview

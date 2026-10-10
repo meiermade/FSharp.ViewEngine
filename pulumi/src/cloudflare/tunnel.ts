@@ -31,9 +31,6 @@ const applicationIngress = (hostname: string) => ({
 
 const ingresses = [
     applicationIngress(config.appConfig.hostname),
-    ...(!config.isStaging && !config.legacyRedirectEnabled
-        ? [applicationIngress(config.legacyProductionHostname)]
-        : []),
     { service: 'http_status:404' },
 ]
 
