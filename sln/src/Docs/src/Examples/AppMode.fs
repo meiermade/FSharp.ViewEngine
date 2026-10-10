@@ -13,7 +13,6 @@ module AppMode =
         raw $"<svg class=\"size-4 shrink-0\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"{path}\"/></svg>"
     let fixture label href (content:HtmlElement) =
         div {
-            _attr("data-example-native-navigation","true")
             _class "relative"
             a {
                 _href href; _ariaLabel ("Open "+label+" in App mode"); _title ("Open "+label+" in App mode")
@@ -60,9 +59,9 @@ module AppMode =
                 noscript { for name,href,_ in states do a { _href href; _class "px-2 text-sm underline"; name } }
             }
         div {
-            _id "spec-app-mode-root"; _attr("data-spec-app-mode","true"); _attr("data-example-native-navigation","true")
+            _id "spec-app-mode-root"; _attr("data-spec-app-mode","true")
             _class "min-h-dvh bg-[var(--fve-background)] text-[var(--fve-text)]"
-            // Only the dock preference changes client-side; every page/state destination is ordinary server navigation.
+            // Destination state remains server-owned; the navigation boundary enhances real links.
             _dataOn("click__capture__window", "const link = evt.target.closest?.('a[href]'); if (link) { const url = new URL(link.href); if (url.origin == location.origin && url.pathname.startsWith('/examples/specification')) { url.searchParams.set('fveAppDock', new URL(location.href).searchParams.get('fveAppDock') ?? 'bottom'); link.href = url.href } }")
             _dataOn("submit__capture__window", "const dock = evt.target.querySelector('input[name=fveAppDock]'); if (dock) dock.value = new URL(location.href).searchParams.get('fveAppDock') ?? 'bottom'")
             // The product can include the strip in an initially open native editor dialog rather than leaving it inert outside.

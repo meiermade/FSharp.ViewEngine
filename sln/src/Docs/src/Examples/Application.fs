@@ -14,6 +14,7 @@ module Application =
     let navigation =
         [ "/examples/application", "Home"; "/examples/application/accounts", "Accounts"; "/examples/application/transactions", "Transactions"
           "/examples/application/settings", "Settings"; "/examples/application/profile", "Profile"
+          "/examples/application/profile/organizations", "Organizations"
           yield! settingsSections |> List.map (fun (key,label) -> "/examples/application/settings/"+key,label) ]
     let title = function
         | ApplicationPage.Home -> "Home" | ApplicationPage.Accounts -> "Accounts" | ApplicationPage.CreateAccount -> "Create account"
@@ -21,8 +22,9 @@ module Application =
         | ApplicationPage.DeleteAccount id -> "Delete "+(findAccount id).name
         | ApplicationPage.Transactions -> "Transactions" | ApplicationPage.Transaction id -> (findTransaction id).description
         | ApplicationPage.DeleteTransaction id -> "Delete "+(findTransaction id).description
-        | ApplicationPage.Settings -> "Organizations" | ApplicationPage.SettingsSection key -> settingsSections |> List.find (fst >> (=) key) |> snd
-        | ApplicationPage.Profile -> "Profile"
+        | ApplicationPage.Settings -> "General" | ApplicationPage.SettingsSection key -> settingsSections |> List.find (fst >> (=) key) |> snd
+        | ApplicationPage.EditOrganization -> "Edit organization"
+        | ApplicationPage.Profile -> "Profile" | ApplicationPage.EditProfile -> "Edit profile" | ApplicationPage.ProfileOrganizations -> "Organizations"
     let pageTitle page query = title (backgroundPage query page)
     let private hidden name value = input { _type "hidden"; _name name; _value value }
     let private contextFields (query:Query) =
@@ -31,6 +33,7 @@ module Application =
             hidden "organization" query.workspace.organization.id
             hidden "environment" query.workspace.environment.id
             hidden "ledger" query.workspace.ledger.id
+            for name,value in returnWorkspacePairs query do hidden name value
             if query.overlayFrom<>"" then hidden "from" query.overlayFrom
             if query.embedded then hidden "embedded" "1"
             if query.specification then
@@ -82,7 +85,7 @@ module Application =
     let private selectionFeedback (query:Query) =
         div {
             _class "contents"
-            if query.state="selection-valid" then notice query "template-selection-valid" "Selected records checked" "The selected rows are available in the example. No financial changes were made." NoticeColor.Success
+            if query.state="selection-valid" then notice query "template-selection-valid" "Selected records checked" "The selected records are available." NoticeColor.Success
             if query.state="selection-invalid" then notice query "template-selection-invalid" "Choose records" "Select at least one available record before reviewing the selection." NoticeColor.Error
         }
     // This collection composition belongs to Ledger, not the installed Components library.
@@ -108,6 +111,15 @@ module Application =
             _class "group/collection flex min-h-0 flex-1 flex-col"
             _attr("data-signals__ifmissing",$"{{{countSignal}:0}}")
             _dataOn("fve-table-selection-change",$"${countSignal} = evt.detail.keys.length")
+            _dataOn("fve-navigation-complete", ["window"], """
+if (evt.detail.intent !== 'navigate') return;
+const previous = new URL(evt.detail.previousHref), current = new URL(evt.detail.href);
+if (previous.pathname !== current.pathname) return;
+const before = (previous.searchParams.get('filters') || '').split(',');
+const added = (current.searchParams.get('filters') || '').split(',').find(name => name && !before.includes(name));
+const control = [...el.querySelectorAll('[data-ledger-filter]')].find(control => control.dataset.ledgerFilter === added);
+if (control?.getClientRects().length) control.click();
+            """)
             _dataOn("click",$"const link = evt.target.closest('a[href]'); if (link?.closest('[data-ledger-applied-filters]') && evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey) document.getElementById('{selectionId}')?.dispatchEvent(new CustomEvent('fve-selection-clear'))")
             div {
                 _attr("data-ledger-collection-toolbar","true")
@@ -169,6 +181,7 @@ module Application =
                                     Select.create filter.name (filter.label+" filter") id (filter.options |> List.map (fun (value,label) -> SelectOption.create value label))
                                     |> Select.withId (elementId query ("template-"+kind+"-filter-"+filter.name))
                                     |> Select.withSelected filter.value
+                                    |> Select.withAttributes [_attr("data-ledger-filter",filter.name)]
                                     |> Select.withNativeFallback
                                 ButtonGroup.create (filter.label+" filter") [
                                     ButtonGroupItem.label filter.label
@@ -210,13 +223,13 @@ module Application =
             div { _class "flex flex-wrap items-start justify-between gap-3"; div { p { _class "text-xs text-[var(--fve-muted-text)]"; "Balance · "+selected.name }; p { _class "mt-1 text-2xl font-semibold tabular-nums"; money (balance selected) } }; div { _class "flex gap-4 text-xs text-[var(--fve-muted-text)]"; span { _class "text-[var(--fve-brand-text)]"; "━ Actual" }; span { "┄ "+(match query.comparison with "optimistic" -> "Optimistic" | "pessimistic" -> "Pessimistic" | _ -> "Expected")+" scenario" } } }
             svg {
                 _viewBox "0 0 800 240"; _role "img"; _ariaLabel ("Actual and illustrative scenario balances for "+selected.name); _class "h-56 w-full"
-                Svg.titleElement { "Actual balances from seeded transactions; dashed values are an authored scenario, not a financial forecast." }
+                Svg.titleElement { "Actual balances and an illustrative scenario, not a financial forecast." }
                 for y in [40;125;210] do line { _x1 "40"; _x2 "760"; _y1 (string y); _y2 (string y); _stroke "var(--fve-border)" }
                 polyline { _points (points scenario); _fill "none"; _stroke "var(--fve-muted-text)"; _strokeWidth "2"; _strokeDasharray "6 5" }
                 polyline { _points (points actual); _fill "none"; _stroke "var(--fve-brand-solid)"; _strokeWidth "3" }
             }
             div { _class "flex justify-between text-xs text-[var(--fve-muted-text)]"; span { date startDate }; span { date endDate } }
-            p { _class "text-xs text-[var(--fve-muted-text)]"; "Actual balances use seeded opening balances and transactions. The dashed scenario is illustrative, not a prediction." }
+            p { _class "text-xs text-[var(--fve-muted-text)]"; "The dashed scenario is illustrative, not a prediction." }
         }) |> Card.render
     let private home (query:Query) =
         let selected = accounts |> List.tryFind (fun account -> string account.id=query.account) |> Option.defaultValue accounts.Head
@@ -269,20 +282,20 @@ module Application =
         let account = findAccount id
         div {
             _class "grid gap-6"
-            DescriptionList.create [DescriptionListItem.text "Type" (string account.accountType);DescriptionListItem.text "Commodity" "USD";DescriptionListItem.text "Parent account" (groupLabel account.accountType);DescriptionListItem.text "Source" "Created in the example";DescriptionListItem.text "Month-end observed balance" "Not required";DescriptionListItem.text "Balance" (money (balance account))] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
+            DescriptionList.create [DescriptionListItem.text "Type" (string account.accountType);DescriptionListItem.text "Commodity" "USD";DescriptionListItem.text "Parent account" (groupLabel account.accountType);DescriptionListItem.text "Source" "Manual";DescriptionListItem.text "Month-end observed balance" "Not required";DescriptionListItem.text "Balance" (money (balance account))] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
             chart {query with account=string id}
             Layout.section "Transactions" (transactionTable query (account.name+" transactions") (transactions |> List.filter (fun transaction -> transaction.accountId=id)) false)
         }
     let private cancelLink query page id =
         Button.create (ButtonContent.Text "Cancel") |> Button.withAttributes [_id id]
-        |> Button.renderLink (collectionHref {query with overlayFrom="";state="";accountDraft=None} (backgroundPage query page))
+        |> Button.renderLink (collectionHref {query with overlayFrom="";state="";editorDraft=None} (backgroundPage query page))
     let private accountForm (query:Query) existing suffix =
         let account = existing |> Option.map findAccount
         let page = existing |> Option.map ApplicationPage.EditAccount |> Option.defaultValue ApplicationPage.CreateAccount
         let invalid = query.state="invalid"
         let seededName = account |> Option.map _.name |> Option.defaultValue ""
         let kind = account |> Option.map (fun item -> string item.accountType) |> Option.defaultValue "Asset"
-        let draft = query.accountDraft
+        let draft = match query.editorDraft with Some(EditorDraft.Account draft) -> Some draft | _ -> None
         let name = Input.create "name" "Name" |> Input.withId (elementId query ("template-account-name"+suffix)) |> Input.withValue (draft |> Option.map _.name |> Option.defaultValue seededName) |> Input.required |> Input.withAttributes [_maxlength "80"]
         let name = if invalid then name |> Input.withValidation "Use a unique name between 1 and 80 characters." else name
         let editorSelect name label selected options validation =
@@ -292,7 +305,7 @@ module Application =
             |> (match validation with Some message -> Select.withValidation message | None -> id) |> Select.render
         div {
             _class "grid gap-5"
-            if query.state="validated" then notice query ("template-account-valid"+suffix) "Account validated" "Example data unchanged." NoticeColor.Success
+            if query.state="validated" then notice query ("template-account-valid"+suffix) "Account validated" "The account details are valid." NoticeColor.Success
             if query.state="invalid-type" then notice query ("template-account-invalid"+suffix) "Check account type" "Choose an available account type." NoticeColor.Error
             if query.state="invalid-details" then notice query ("template-account-details-invalid"+suffix) "Check account details" "The parent account must match the account type." NoticeColor.Error
             form {
@@ -328,110 +341,150 @@ module Application =
         let account = findAccount transaction.accountId
         div {
             _class "grid max-w-3xl gap-6"
-            DescriptionList.create [DescriptionListItem.text "Date" (date transaction.date);DescriptionListItem.create "Account" (Layout.link (applicationHref query (ApplicationPage.Account account.id)) account.name);DescriptionListItem.text "Amount (USD)" (money transaction.amount);DescriptionListItem.create "Verification" (statusBadge transaction.status);DescriptionListItem.text "Source" "Seeded example";DescriptionListItem.text "Comment" "No supporting comment in this record"] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
+            DescriptionList.create [DescriptionListItem.text "Date" (date transaction.date);DescriptionListItem.create "Account" (Layout.link (applicationHref query (ApplicationPage.Account account.id)) account.name);DescriptionListItem.text "Amount (USD)" (money transaction.amount);DescriptionListItem.create "Verification" (statusBadge transaction.status);DescriptionListItem.text "Source" "Manual";DescriptionListItem.text "Comment" "No supporting comment in this record"] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
             Layout.link (applicationHref query ApplicationPage.Transactions) "Back to transactions"
         }
     let private settings (query:Query) key =
-        let url = applicationHref query
         let table caption columns rows = Table.create caption columns rows |> Table.withMobileLayout TableMobileLayout.Records |> Table.render
         div {
             _class "grid max-w-4xl gap-6"
             match key with
             | "environments" ->
-                table "Organization environments" [TableColumn.create "Name" (fun (environment:Environment) -> Layout.link (applicationHref {query with workspace={query.workspace with environment=environment}} ApplicationPage.Home) environment.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Type" (fun environment -> text (if environment.sandbox then "Sandbox" else "Production"));TableColumn.create "Status" (fun _ -> Badge.create "Ready" |> Badge.withColor BadgeColor.Success |> Badge.render)] environments
-                p { _class "text-sm text-[var(--fve-muted-text)]"; "Choose an environment to open its server-rendered application context. All environments use the same resettable fixtures." }
+                table "Organization environments" [TableColumn.create "Name" (fun (environment:Environment) -> Layout.link (applicationHref {query with workspace={query.workspace with environment=environment};returnWorkspace=None} ApplicationPage.Home) environment.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Type" (fun environment -> text (if environment.sandbox then "Sandbox" else "Production"));TableColumn.create "Status" (fun _ -> Badge.create "Ready" |> Badge.withColor BadgeColor.Success |> Badge.render)] environments
             | "users" ->
-                table "Organization users" [TableColumn.create "Name" (fun (name,_,_) -> Layout.link (url ApplicationPage.Profile) name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Email" (fun (_,email,_) -> text email);TableColumn.create "Role" (fun (_,_,role) -> text role)] ["Andrew Meier","andrew@meiermade.com",query.workspace.organization.role]
+                table "Organization users" [TableColumn.create "Name" (fun (name,_,_) -> Layout.link (applicationHref query ApplicationPage.Profile) name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Email" (fun (_,email,_) -> text email);TableColumn.create "Role" (fun (_,_,role) -> text role)] ["Andrew Meier","andrew@meiermade.com",query.workspace.organization.role]
             | "api-clients" ->
-                EmptyState.create "No API clients" "This resettable example does not issue secrets or configure integrations." |> EmptyState.render
+                EmptyState.create "No API clients" "There are no API clients for this organization." |> EmptyState.render
                 Layout.link "/examples/api-documentation" "Read the API documentation"
             | "ledgers" ->
                 let available = ledgers |> List.filter (fun ledger -> ledger.organizationId=query.workspace.organization.id)
-                table "Organization ledgers" [TableColumn.create "Name" (fun (ledger:Ledger) -> Layout.link (applicationHref {query with workspace={query.workspace with ledger=ledger}} ApplicationPage.Home) ledger.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Reporting commodity" (fun _ -> text "USD");TableColumn.create "Selected" (fun ledger -> text (if ledger.id=query.workspace.ledger.id then "Current ledger" else "Available"))] available
+                table "Organization ledgers" [TableColumn.create "Name" (fun (ledger:Ledger) -> Layout.link (applicationHref {query with workspace={query.workspace with ledger=ledger};returnWorkspace=None} ApplicationPage.Home) ledger.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Reporting commodity" (fun _ -> text "USD")] available
             | "billing" ->
-                DescriptionList.create [DescriptionListItem.text "Plan" "Example workspace";DescriptionListItem.text "Billing" "Not connected";DescriptionListItem.text "Payment method" "None";DescriptionListItem.text "Invoices" "No invoices"] |> DescriptionList.render
-                notice query "template-billing" "No live billing" "No subscription, checkout, payment method, or billing provider is connected to this template." NoticeColor.Info
+                DescriptionList.create [DescriptionListItem.text "Subscription" "No subscription";DescriptionListItem.text "Payment method" "None";DescriptionListItem.text "Invoices" "No invoices"] |> DescriptionList.render
             | _ ->
-                if query.state="validated" then notice query "template-settings-valid" "Organization values validated" "The form passed validation. No organization settings were changed or retained." NoticeColor.Success
-                if query.state="invalid" then notice query "template-settings-invalid" "Check organization values" "Enter a name between 1 and 80 characters and USD as the reporting commodity." NoticeColor.Error
-                table "Organizations" [TableColumn.create "Name" (fun (organization:Organization) -> Layout.link (applicationHref {query with workspace=workspaceFromStrings organization.id "production" ""} ApplicationPage.Settings) organization.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Role" (fun organization -> text organization.role);TableColumn.create "Status" (fun organization -> text (if organization.id=query.workspace.organization.id then "Current organization" else "Available"))] organizations
-                Layout.section "Organization details" (form {
-                    _method "post"; _action (url ApplicationPage.Settings); _ariaLabel "Organization settings"; _class "grid max-w-xl gap-4"
-                    contextFields query
-                    Input.create "workspace" "Name" |> Input.withId (elementId query "template-workspace-name") |> Input.withValue query.workspace.organization.name |> Input.withAttributes [_required true;_maxlength "80"] |> Input.render
-                    DescriptionList.create [DescriptionListItem.text "Environment" query.workspace.environment.name;DescriptionListItem.text "Current ledger" query.workspace.ledger.name;DescriptionListItem.text "Access" query.workspace.organization.role] |> DescriptionList.render
-                    select query "currency" "Reporting commodity" "USD" ["USD","US dollar (USD)"]
-                    submit "Validate settings"
-                })
+                Layout.section "Organization details" (DescriptionList.create [DescriptionListItem.text "Name" query.workspace.organization.name;DescriptionListItem.text "Reporting commodity" "US dollar (USD)";DescriptionListItem.text "Your role" query.workspace.organization.role] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render)
         }
+    let private profileOrganizations (query:Query) =
+        Table.create "Your organizations" [
+            TableColumn.create "Organization" (fun (organization:Organization) -> Layout.link (applicationHref (organizationQuery query organization.id) (ApplicationPage.SettingsSection "general")) organization.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary
+            TableColumn.create "Your role" (fun organization -> text organization.role)
+            TableColumn.create "Settings" (fun organization -> Layout.secondaryLink (applicationHref (organizationQuery query organization.id) (ApplicationPage.SettingsSection "general")) "Open settings") ] organizations
+        |> Table.withMobileLayout TableMobileLayout.Records |> Table.render
     let private profile (query:Query) =
         let appearanceId = elementId query "template-appearance"
         let appearanceSignal = appearanceId.Replace('-', '_')+"_value"
         div {
-            _class "grid max-w-4xl gap-8"
-            if query.state="validated" then notice query "template-profile-valid" "Profile values validated" "No identity values were saved or retained." NoticeColor.Success
-            if query.state="invalid" then notice query "template-profile-invalid" "Check profile values" "Enter a name between 1 and 80 characters, a valid email and an available time zone." NoticeColor.Error
-            Layout.section "Identity" (div {
-                _class "grid gap-5 sm:grid-cols-[auto_1fr]"
+            _class "grid max-w-3xl gap-8"
+            Layout.section "Personal details" (div {
+                _class "grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5"
                 Avatar.create "Andrew Meier" "AM" |> Avatar.render
-                form {
-                    _method "post"; _action (applicationHref query ApplicationPage.Profile); _ariaLabel "Profile values"; _class "grid max-w-xl gap-4"
-                    contextFields query
-                    Input.create "name" "Name" |> Input.withId (elementId query "template-profile-name") |> Input.withValue "Andrew Meier" |> Input.withAttributes [_required true;_maxlength "80"] |> Input.render
-                    Input.create "email" "Email" |> Input.withId (elementId query "template-profile-email") |> Input.withType InputType.Email |> Input.withValue "andrew@meiermade.com" |> Input.withAttributes [_required true;_maxlength "254"] |> Input.render
-                    select query "timezone" "Time zone" "America/Chicago" ["America/Chicago","America/Chicago";"America/New_York","America/New_York";"UTC","UTC"]
-                    submit "Validate profile"
-                }
+                DescriptionList.create [DescriptionListItem.text "Name" "Andrew Meier";DescriptionListItem.text "Email" "andrew@meiermade.com";DescriptionListItem.text "Time zone" "America/Chicago"] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
             })
-            Layout.section "Authentication" (DescriptionList.create [DescriptionListItem.text "Session" "Authored example identity";DescriptionListItem.text "Provider" "Not connected";DescriptionListItem.text "Account management" "No live authentication or password changes"] |> DescriptionList.render)
-            Layout.section "Organization access" (Table.create "Profile organization access" [TableColumn.create "Organization" (fun (organization:Organization) -> Layout.link (applicationHref {query with workspace=workspaceFromStrings organization.id "production" ""} ApplicationPage.Settings) organization.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Role" (fun organization -> text organization.role)] organizations |> Table.withMobileLayout TableMobileLayout.Records |> Table.render)
-            Layout.section "Preferences" (div {
-                _class "grid max-w-xl gap-4"
+            fieldset {
+                _role "radiogroup"; _ariaLabelledby (appearanceId+"-label")
+                _attr("data-signals__ifmissing",$"{{{appearanceSignal}: 'system'}}")
+                _dataInit $"queueMicrotask(() => {{ ${appearanceSignal} = window.fveColorMode.current() }})"
+                _dataOn("fve-color-mode__window", $"${appearanceSignal} = window.fveColorMode.current()")
+                for attribute in ThemeSwitcher.nativeChoiceAttributes do attribute
+                legend { _id (appearanceId+"-label"); _class "mb-3 text-sm font-semibold"; "Appearance" }
                 div {
-                    _dataInit $"queueMicrotask(() => {{ ${appearanceSignal} = window.fveColorMode.current() }})"
-                    _dataOn("fve-color-mode__window", $"${appearanceSignal} = window.fveColorMode.current()")
-                    for attribute in ThemeSwitcher.nativeChoiceAttributes do attribute
-                    RadioGroup.create (elementId query "appearance") "Appearance" id [RadioGroupOption.create "system" "System";RadioGroupOption.create "light" "Light";RadioGroupOption.create "dark" "Dark"]
-                    |> RadioGroup.withId appearanceId |> RadioGroup.withSelected "system" |> RadioGroup.render
+                    _class "inline-flex max-w-full gap-1 rounded-lg bg-[var(--fve-surface-hover)] p-1"
+                    for value,label in ["system","System";"light","Light";"dark","Dark"] do
+                        Html.label {
+                            _class "flex min-h-8 cursor-pointer items-center justify-center rounded-md px-3 text-sm font-medium text-[var(--fve-muted-text)] has-[:checked]:bg-[var(--fve-surface)] has-[:checked]:text-[var(--fve-text)] has-[:checked]:shadow-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--fve-brand-ring)]"
+                            input { _type "radio"; _name (elementId query "appearance"); _value value; _checked (value.Equals "system"); _class "sr-only"; _dataBind appearanceSignal }
+                            label
+                        }
                 }
-                p { _class "text-xs text-[var(--fve-muted-text)]"; "Appearance changes this local browser view. Profile submission only validates the authored form." }
-            })
+            }
         }
-    let private accountEditor (query:Query) existing (reviewControls:HtmlElement) =
-        let page = existing |> Option.map ApplicationPage.EditAccount |> Option.defaultValue ApplicationPage.CreateAccount
-        // Hidden specification tabs use a bounded inline form, never a document-wide modal.
+    // All contextual editors share the same dismissal/navigation guard and bounded-preview behavior.
+    let private editorDrawer (query:Query) (id:string) (label:string) (focusId:string) (initial:(string*string) list) (body:HtmlElement) (actions:HtmlElement) (reviewControls:HtmlElement) =
         if query.previewId<>"" then
             section {
-                _ariaLabel (title page); _class "absolute inset-y-0 right-0 z-30 flex w-full max-w-lg flex-col border-l border-[var(--fve-border)] bg-[var(--fve-surface)]"
-                h2 { _class "shrink-0 border-b border-[var(--fve-border)] p-5 text-lg font-semibold"; title page }
-                div { _class "min-h-0 flex-1 overflow-y-auto p-5"; accountForm query existing "" }
-                div { _class "flex shrink-0 justify-end gap-3 border-t border-[var(--fve-border)] p-5"; accountFormActions query existing "" }
+                _ariaLabel label
+                _class ((if query.previewId="native" then "fixed z-50" else "absolute z-30")+" inset-y-0 right-0 flex w-full max-w-lg flex-col border-l border-[var(--fve-border)] bg-[var(--fve-surface)]")
+                h2 { _class "shrink-0 border-b border-[var(--fve-border)] p-5 text-lg font-semibold"; label }
+                div { _class "min-h-0 flex-1 overflow-y-auto p-5"; body }
+                div { _class "flex shrink-0 justify-end gap-3 border-t border-[var(--fve-border)] p-5"; actions }
             }
         else
-            let seeded = existing |> Option.map findAccount
-            let kind = seeded |> Option.map (fun account -> string account.accountType) |> Option.defaultValue "Asset"
-            let initial = System.Text.Json.JsonSerializer.Serialize [|[|"name";seeded |> Option.map _.name |> Option.defaultValue ""|];[|"parentType";kind|];[|"accountType";kind|]|]
-            let dirty = "const form = el.querySelector('form'); const dirty = form && JSON.stringify([...new FormData(form)].filter(([name]) => ['name','parentType','accountType'].includes(name))) !== el.dataset.initial;"
-            let dismiss = dirty+" if (!dirty || window.confirm('Discard unsaved changes?')) { el.dataset.discarding = 'true'; el.close() }"
-            Drawer.create "template-account-editor" (if existing.IsSome then "Edit account" else "Create account") (accountForm query existing "")
-            |> Drawer.withInitialFocus "template-account-name"
-            |> Drawer.withFooter (fragment { accountFormActions query existing ""; reviewControls })
+            let values = System.Text.Json.JsonSerializer.Serialize (initial |> List.map (fun (name,value) -> [|name;value|]))
+            let names = System.Text.Json.JsonSerializer.Serialize (initial |> List.map fst)
+            let dirty = $"const form = el.querySelector('form'); const dirty = form && JSON.stringify([...new FormData(form)].filter(([name]) => {names}.includes(name))) !== el.dataset.initial;"
+            let dismiss = dirty + $" if (!dirty || window.confirm('Discard unsaved changes?')) {{ el.dataset.discarding = 'true'; document.getElementById('{id}-cancel').click() }}"
+            let dismissClick = $"if (!el.dataset.discarding && (evt.target === el || evt.target.closest('#{id}-close, #{id}-cancel'))) {{ evt.preventDefault(); evt.stopImmediatePropagation(); " + dismiss + " }"
+            Drawer.create id label body
+            |> Drawer.withInitialFocus focusId
+            |> Drawer.withFooter (fragment { actions; reviewControls })
             |> Drawer.withAttributes [
                 _style ("width:min(32rem,100vw);max-width:100vw" + (if query.specification && query.appMode then (if query.dock="top" then ";padding-top:var(--example-app-dock-space,3.5rem)" else ";padding-bottom:var(--example-app-dock-space,3.5rem)") else ""))
                 if query.specification && query.appMode then _dataAttr ("style", "'width:min(32rem,100vw);max-width:100vw;' + ($_example_app_dock_top ? 'padding-top:var(--example-app-dock-space,3.5rem)' : 'padding-bottom:var(--example-app-dock-space,3.5rem)')")
-                _dataInit ($"el.dataset.initial = JSON.stringify({initial}); queueMicrotask(() => {{ if (el.isConnected && !el.open) {{ el.showModal(); document.getElementById('template-account-name')?.focus() }} }})")
-                _dataOn ("click", ["capture"], "if (evt.target === el || evt.target.closest('#template-account-editor-close, #template-account-editor-cancel')) { evt.preventDefault(); evt.stopImmediatePropagation(); "+dismiss+" }")
+                _dataInit ($"el.dataset.initial = JSON.stringify({values}); queueMicrotask(() => {{ if (el.isConnected && !el.open) {{ el.showModal(); document.getElementById('{focusId}')?.focus() }} }})")
+                _dataOn ("click", ["capture"], dismissClick)
+                _dataOn ("input", "delete el.dataset.discarding")
+                _dataOn ("change", "delete el.dataset.discarding")
+                _dataOn ("datastar-fetch__window", "if (evt.detail?.type === 'error' || evt.detail?.type === 'retries-failed') delete el.dataset.discarding")
                 _dataOn ("submit", "el.dataset.submitting = 'true'")
                 _dataOn ("cancel", "evt.preventDefault(); "+dismiss)
-                _dataOn ("close", ["capture"], "window.location.assign(document.getElementById('template-account-editor-cancel').href)")
+                _dataOn ("close", ["capture"], $"if (el.isConnected && !el.dataset.submitting) document.getElementById('{id}-cancel')?.click()")
+                _dataOn ("fve-before-navigate__window", dirty+" if (dirty && !el.dataset.submitting && !el.dataset.discarding && !window.confirm('Discard unsaved changes?')) evt.preventDefault()")
                 _dataOn ("beforeunload__window", dirty+" if (dirty && !el.dataset.submitting && !el.dataset.discarding) { evt.preventDefault(); evt.returnValue = '' }") ]
             |> Drawer.render
+    let private accountEditor (query:Query) existing reviewControls =
+        let seeded = existing |> Option.map findAccount
+        let kind = seeded |> Option.map (fun account -> string account.accountType) |> Option.defaultValue "Asset"
+        let initial = ["name",seeded |> Option.map _.name |> Option.defaultValue "";"parentType",kind;"accountType",kind]
+        editorDrawer query "template-account-editor" (if existing.IsSome then "Edit account" else "Create account") "template-account-name" initial (accountForm query existing "") (accountFormActions query existing "") reviewControls
+    let private detailEditor (query:Query) page reviewControls =
+        let organization = page=ApplicationPage.EditOrganization
+        let editorId = if organization then "template-organization-editor" else "template-profile-editor"
+        let formId = elementId query (editorId+"-form")
+        let initial = if organization then ["workspace",query.workspace.organization.name;"currency","USD"] else ["name","Andrew Meier";"email","andrew@meiermade.com";"timezone","America/Chicago"]
+        let body = div {
+            _class "grid gap-5"
+            if query.state="validated" then notice query (editorId+"-valid") (if organization then "Organization details checked" else "Profile details checked") "These details are valid." NoticeColor.Success
+            form {
+                _id formId; _method "post"; _action (applicationHref query page); _ariaLabel (title page)
+                _class "grid gap-5 [--fve-control-min-height:2.5rem] [--fve-control-font-size:1rem]"
+                contextFields query
+                if organization then
+                    let request : Ledger.Operations.ValidateOrganizationRequest =
+                        match query.editorDraft with Some(EditorDraft.Organization draft) -> draft | _ -> {name=(if query.state="invalid" then "" else query.workspace.organization.name);currency="USD"}
+                    let error = if query.state="invalid" then Some(Ledger.Operations.validateOrganization request) else None
+                    Input.create "workspace" "Name" |> Input.withId (elementId query "template-workspace-name") |> Input.withValue request.name |> Input.required |> Input.withAttributes [_maxlength "80"]
+                    |> (if error=Some(Error Ledger.Operations.ValidateOrganizationError.InvalidName) then Input.withValidation "Enter a name between 1 and 80 characters." else id) |> Input.render
+                    let options = if request.currency="USD" then ["USD","US dollar (USD)"] else [request.currency,"Unavailable commodity";"USD","US dollar (USD)"]
+                    Select.create "currency" "Reporting commodity" id (options |> List.map (fun (value,label) -> SelectOption.create value label))
+                    |> Select.withId (elementId query "template-organization-currency") |> Select.withSelected request.currency |> Select.withNativeFallback
+                    |> (if error=Some(Error Ledger.Operations.ValidateOrganizationError.InvalidCurrency) then Select.withValidation "Choose US dollar (USD)." else id) |> Select.render
+                else
+                    let request : Ledger.Operations.ValidateProfileRequest =
+                        match query.editorDraft with Some(EditorDraft.Profile draft) -> draft | _ -> {name="Andrew Meier";email=(if query.state="invalid" then "not-an-email" else "andrew@meiermade.com");timeZone="America/Chicago"}
+                    let error = if query.state="invalid" then Some(Ledger.Operations.validateProfile request) else None
+                    Input.create "name" "Name" |> Input.withId (elementId query "template-profile-name") |> Input.withValue request.name |> Input.required |> Input.withAttributes [_maxlength "80"]
+                    |> (if error=Some(Error Ledger.Operations.ValidateProfileError.InvalidName) then Input.withValidation "Enter a name between 1 and 80 characters." else id) |> Input.render
+                    Input.create "email" "Email" |> Input.withId (elementId query "template-profile-email") |> Input.withValue request.email |> Input.withType InputType.Email |> Input.required |> Input.withAttributes [_maxlength "254"]
+                    |> (if error=Some(Error Ledger.Operations.ValidateProfileError.InvalidEmail) then Input.withValidation "Enter a valid email address." else id) |> Input.render
+                    let options = ["America/Chicago","America/Chicago";"America/New_York","America/New_York";"UTC","UTC"]
+                    let options = if options |> List.exists (fst >> (=) request.timeZone) then options else (request.timeZone,"Unavailable time zone")::options
+                    Select.create "timezone" "Time zone" id (options |> List.map (fun (value,label) -> SelectOption.create value label))
+                    |> Select.withId (elementId query "template-profile-timezone") |> Select.withSelected request.timeZone |> Select.withNativeFallback
+                    |> (if error=Some(Error Ledger.Operations.ValidateProfileError.InvalidTimeZone) then Select.withValidation "Choose an available time zone." else id) |> Select.render
+            }
+        }
+        let actions = fragment {
+            cancelLink query page (elementId query (editorId+"-cancel"))
+            Button.create (ButtonContent.Text "Update") |> Button.asSubmit |> Button.withAttributes [_attr("form",formId)]
+            |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid |> Button.render
+        }
+        editorDrawer query editorId (title page) (if organization then "template-workspace-name" else "template-profile-name") initial body actions reviewControls
     let private deletionConfirmation query page label (details:HtmlElement) eligible (reviewControls:HtmlElement) =
         let overlayId = elementId query "template-delete-record"
         let formId = overlayId+"-form"
         let cancelId = overlayId+"-cancel"
         let body = fragment {
-            if query.state="deleted" then yield notice query "template-delete-valid" "Deletion validated" "Example data unchanged." NoticeColor.Success
+            if query.state="deleted" then yield notice query "template-delete-valid" "Deletion validated" "This record can be deleted." NoticeColor.Success
             if not eligible || query.state="delete-blocked" then yield notice query "template-delete-blocked" "Account cannot be deleted" "It has a balance or recorded transactions." NoticeColor.Error
             yield details
             yield form { _id formId; _method "post"; _action (collectionHref query page); editorContextFields query; hidden "action" "delete" }
@@ -468,18 +521,22 @@ module Application =
             | ApplicationPage.Home -> home query | ApplicationPage.Accounts -> accountsPage query
             | ApplicationPage.Account id -> accountDetail query id
             | ApplicationPage.Transactions -> transactionsPage query | ApplicationPage.Transaction id -> transactionDetail query id
-            | ApplicationPage.Settings -> settings query "organizations" | ApplicationPage.SettingsSection key -> settings query key | ApplicationPage.Profile -> profile query
+            | ApplicationPage.Settings -> settings query "general" | ApplicationPage.SettingsSection key -> settings query key
+            | ApplicationPage.Profile -> profile query | ApplicationPage.ProfileOrganizations -> profileOrganizations query
             | _ -> text ""
         let actions =
             match background with
             | ApplicationPage.Accounts -> Layout.primaryLink (collectionHref {query with overlayFrom="accounts"} ApplicationPage.CreateAccount) "Create account"
             | ApplicationPage.Account id -> recordActions {query with overlayFrom=""} (Some (ApplicationPage.EditAccount id)) (ApplicationPage.DeleteAccount id)
             | ApplicationPage.Transaction id -> recordActions {query with overlayFrom=""} None (ApplicationPage.DeleteTransaction id)
+            | ApplicationPage.Profile -> Layout.secondaryLink (url ApplicationPage.EditProfile) "Edit profile"
+            | ApplicationPage.Settings | ApplicationPage.SettingsSection "general" -> Layout.secondaryLink (url ApplicationPage.EditOrganization) "Edit organization"
             | _ -> text ""
         let overlay =
             match page with
             | ApplicationPage.CreateAccount -> accountEditor query None reviewControls
             | ApplicationPage.EditAccount id -> accountEditor query (Some id) reviewControls
+            | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> detailEditor query page reviewControls
             | ApplicationPage.DeleteAccount id -> deletionConfirmation query page (findAccount id).name (text "") (canDeleteAccount id) reviewControls
             | ApplicationPage.DeleteTransaction id ->
                 let transaction = findTransaction id
@@ -500,6 +557,7 @@ module Application =
                             div { _class "min-h-0 flex-1 overflow-y-auto p-5"; accountForm query existing "-native" }
                             div { _class "flex shrink-0 justify-end gap-3 border-t border-[var(--fve-border)] p-5"; accountFormActions query existing "-native" }
                         }
+                    | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> detailEditor {query with previewId="native"} page (text "")
                     | _ -> deletionConfirmation {query with previewId="native"} page (match page with ApplicationPage.DeleteAccount id -> (findAccount id).name | ApplicationPage.DeleteTransaction id -> (findTransaction id).description | _ -> "record") (text "") (match page with ApplicationPage.DeleteAccount id -> canDeleteAccount id | _ -> true) (text "")
                 }
             })

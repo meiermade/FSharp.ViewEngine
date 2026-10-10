@@ -5,7 +5,9 @@
     <ProjectReference Include="Components/Acme.Components.fsproj" />
     <ProjectReference Include="UseCases/Ledger.Application.fsproj" />
     <PackageReference Include="Giraffe" Version="8.3.0" />
+    <PackageReference Include="StarFederation.Datastar" Version="1.4.0" />
     <Compile Include="Model.fs" />
+    <Compile Include="Navigation.fs" />
     <Compile Include="Layout.fs" />
     <Compile Include="AppMode.fs" />
     <Compile Include="Application.fs" />

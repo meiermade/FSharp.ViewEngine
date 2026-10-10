@@ -57,19 +57,22 @@ module Operations =
     type ValidateOrganizationRequest = { name:string; currency:string }
     type ValidateOrganizationResponse = { accepted:bool }
     [<RequireQualifiedAccess>]
-    type ValidateOrganizationError = InvalidOrganization
+    type ValidateOrganizationError = InvalidName | InvalidCurrency
     let validateOrganization (request:ValidateOrganizationRequest) : Result<ValidateOrganizationResponse,ValidateOrganizationError> =
-        if request.name.Trim().Length<1 || request.name.Trim().Length>80 || request.currency<>"USD" then Error ValidateOrganizationError.InvalidOrganization
+        if request.name.Trim().Length<1 || request.name.Trim().Length>80 then Error ValidateOrganizationError.InvalidName
+        elif request.currency<>"USD" then Error ValidateOrganizationError.InvalidCurrency
         else Ok {accepted=true}
 
     type ValidateProfileRequest = { name:string; email:string; timeZone:string }
     type ValidateProfileResponse = { accepted:bool }
     [<RequireQualifiedAccess>]
-    type ValidateProfileError = InvalidProfile
+    type ValidateProfileError = InvalidName | InvalidEmail | InvalidTimeZone
     let validateProfile (request:ValidateProfileRequest) : Result<ValidateProfileResponse,ValidateProfileError> =
         let validEmail =
             match System.Net.Mail.MailAddress.TryCreate(request.email) with
             | true,address -> address.Address=request.email && address.Address.Contains('@')
             | _ -> false
-        if request.name.Trim().Length<1 || request.name.Trim().Length>80 || not validEmail || not (List.contains request.timeZone ["America/Chicago";"America/New_York";"UTC"]) then Error ValidateProfileError.InvalidProfile
+        if request.name.Trim().Length<1 || request.name.Trim().Length>80 then Error ValidateProfileError.InvalidName
+        elif not validEmail then Error ValidateProfileError.InvalidEmail
+        elif not (List.contains request.timeZone ["America/Chicago";"America/New_York";"UTC"]) then Error ValidateProfileError.InvalidTimeZone
         else Ok {accepted=true}

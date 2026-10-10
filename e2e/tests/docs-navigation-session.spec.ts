@@ -183,6 +183,20 @@ test('sidebar preserves expanded groups and scroll during navigation morphs @cro
   await page.goForward()
   await expect(page).toHaveURL('/components/browser')
   await expect.poll(async () => Math.abs(await nav.evaluate(el => el.scrollTop) - scrollBeforeHistory)).toBeLessThan(2)
+
+  await page.reload()
+  await expect.poll(async () => Math.abs(await nav.evaluate(el => el.scrollTop) - scrollBeforeHistory)).toBeLessThan(2)
+  for (const name of expandedGroups) {
+    await expect(sidebar.getByLabel(`Toggle ${name} section`, { exact: true })).toHaveAttribute('aria-expanded', 'true')
+  }
+  // An active destination must not override an explicit choice to collapse its group.
+  await sidebar.getByLabel('Toggle Form controls section', { exact: true }).click()
+  await page.goto('/components/input')
+  await expect(page.getByRole('heading', { level: 1, name: 'Input', exact: true })).toBeVisible()
+  await expect(sidebar.getByLabel('Toggle Form controls section', { exact: true })).toHaveAttribute('aria-expanded', 'false')
+  await page.reload()
+  await expect(sidebar.getByLabel('Toggle Form controls section', { exact: true })).toHaveAttribute('aria-expanded', 'false')
+  await expect(sidebar.getByLabel('Toggle Feedback section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
 })
 
 test('rapid navigation keeps the latest server-rendered destination', async ({ page }) => {

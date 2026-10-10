@@ -66,7 +66,7 @@ Use the .NET 10 SDK and Tailwind CSS CLI v4.2.2 on `PATH`:
 cd sln
 dotnet tool restore
 dotnet paket restore
-./fake.sh WatchDocs --single-target
+./fake.sh WatchDocs
 ```
 
 The catalog runs at `http://127.0.0.1:5054`. Run one watcher; starting it replaces the previous Docs watcher across worktrees without taking unrelated listeners. Restart after changing project references or compile items.

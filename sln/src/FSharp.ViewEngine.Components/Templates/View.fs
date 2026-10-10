@@ -182,14 +182,6 @@ module private Icons =
         raw """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a.75.75 0 0 1 0 1.06l-8 8a.75.75 0 0 1-1.06 0l-4-4A.75.75 0 0 1 4.7 9.3l3.47 3.47 7.47-7.47a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
 
 module private ViewHelpers =
-    let signalName (id:string) =
-        let token =
-            id
-            |> Seq.map (fun character -> if Char.IsLetterOrDigit character then character else '_')
-            |> Seq.toArray
-            |> String
-        token + "Open"
-
     let jsString (value:string) = JsonSerializer.Serialize(value)
 
     let themeStyle theme =
@@ -257,7 +249,6 @@ module private NavigationView =
                 let config =
                     SideNavGroup.create group.label (List.map item group.children)
                     |> SideNavGroup.withId $"nav-{group.id}"
-                    |> SideNavGroup.withExpandedSignal (signalName group.id)
                 if group.defaultOpen then config |> SideNavGroup.expanded else config
         let header =
             SideNavHeader.create site.name
@@ -269,6 +260,7 @@ module private NavigationView =
         let nodes = List.map item items
         let config =
             SideNav.create "side-nav" "Documentation"
+            |> SideNav.withPersistenceKey site.storageKey
             |> SideNav.withHeader header
             |> SideNav.withContent (SideNavContent.create nodes)
         let config =
@@ -681,20 +673,15 @@ module DocsView =
         }
 
     let navigationRootWithNavigation (site:DocsSite<'destination>) (breadcrumbs:Breadcrumb list) (sideNavItems:NavNode<'destination> list) (renderMode:FixtureRenderMode) (docPage:DocumentationPageConfig) =
-        let activeGroupSignals =
-            sideNavItems
-            |> NavNode.collectGroups
-            |> List.filter (NavNode.containsActive docPage.activeId)
-            |> List.map (fun node -> $"${signalName (NavNode.id node)} = true")
         let initialize =
             [ "$sideNavOpen = false"
-              yield! activeGroupSignals
               "window.fveColorMode?.refresh()"
               "window.initializeDocsToc?.()"
               "window.fsharpDocsFragments?.show(window.location.hash)" ]
             |> String.concat "; "
         div {
             _id "docs-navigation-root"
+            _attr("data-fve-navigation-root", "true")
             _data("init", initialize)
             match renderMode with
             | Fullscreen request ->
@@ -705,16 +692,7 @@ module DocsView =
         }
 
     let private documentWithRoot (site:DocsSite<'destination>) (breadcrumbs:Breadcrumb list) (sideNavItems:NavNode<'destination> list) (renderMode:FixtureRenderMode) (docPage:DocumentationPageConfig) (customRoot:HtmlElement option) =
-        let navGroups = NavNode.collectGroups sideNavItems
-        let navSignals =
-            navGroups
-            |> List.map (fun node ->
-                let signal = signalName (NavNode.id node)
-                let shouldOpen = NavNode.defaultOpen node || NavNode.containsActive docPage.activeId node
-                let containsActive = NavNode.containsActive docPage.activeId node
-                $"{signal}: window.fsharpDocsNav.initial({jsString (NavNode.id node)}, {shouldOpen.ToString().ToLowerInvariant()}, {containsActive.ToString().ToLowerInvariant()})")
-
-        let signals = "{ sideNavOpen: false, appModeDockTop: false, navigationPending: false, navigationTarget: '', colorMode: window.fveColorMode.current()" + (if navSignals.IsEmpty then "" else ", " + String.concat ", " navSignals) + " }"
+        let signals = "{ sideNavOpen: false, appModeDockTop: false, navigationPending: false, navigationTarget: '', colorMode: window.fveColorMode.current() }"
         let activeAppMode =
             match renderMode with
             | Embedded -> None
@@ -722,15 +700,8 @@ module DocsView =
                 docPage.fixtures
                 |> List.tryFind (fun fixture -> Fixture.id fixture = AppMode.frameId request)
                 |> Option.map (fun fixture -> request, fixture)
-        let navState =
-            navGroups
-            |> List.map (fun node -> $"{jsString (NavNode.id node)}: ${signalName (NavNode.id node)}")
-            |> String.concat ", "
-            |> fun properties -> $"{{ {properties} }}"
-
         let mermaidSecurity = jsString site.assets.mermaidSecurityLevel
         let mermaidScript = site.assets.mermaidScript |> Option.map jsString |> Option.defaultValue "null"
-        let storageKey = jsString site.storageKey
         let prismStylesheet = site.assets.prismStylesheet |> Option.map jsString |> Option.defaultValue "null"
         let prismScripts = site.assets.prismScripts |> List.map jsString |> String.concat ", " |> fun sources -> $"[{sources}]"
         let assetNonce = site.assets.nonce |> Option.map jsString |> Option.defaultValue "null"
@@ -956,25 +927,6 @@ window.fsharpDocsCopy = async button => {
     delete button.dataset.copyError;
   }, 1600);
 };
-window.fsharpDocsNav = {
-  storageKey: __STORAGE_KEY__,
-  read() {
-    try {
-      const value = window.localStorage.getItem(this.storageKey);
-      return value === null ? null : new Set(JSON.parse(value));
-    } catch { return null; }
-  },
-  initial(id, fallback, containsActive) {
-    const stored = this.read();
-    return stored === null ? fallback : containsActive || stored.has(id);
-  },
-  save(state) {
-    try {
-      const expanded = Object.entries(state).filter(([, value]) => value).map(([id]) => id);
-      window.localStorage.setItem(this.storageKey, JSON.stringify(expanded));
-    } catch {}
-  }
-};
 window.fsharpDocsFragments = {
   setCurrent(id) {
     for (const link of document.querySelectorAll('[data-docs-toc] a[href^="#"]')) {
@@ -1076,7 +1028,6 @@ window.fsharpDocsMobileNav = {
             """
             |> fun source ->
                 source
-                    .Replace("__STORAGE_KEY__", storageKey)
                     .Replace("__PRISM_STYLESHEET__", prismStylesheet)
                     .Replace("__PRISM_SCRIPTS__", prismScripts)
                     .Replace("__ASSET_NONCE__", assetNonce)
@@ -1116,7 +1067,6 @@ window.fsharpDocsMobileNav = {
                 _class (FSharp.ViewEngine.Components.ComponentsTheme.sky |> FSharp.ViewEngine.Components.ComponentsTheme.withDensity FSharp.ViewEngine.Components.Density.Compact |> FSharp.ViewEngine.Components.ComponentsTheme.className |> fun theme -> theme + " m-0 [--fve-docs-code-surface:color-mix(in_oklch,var(--fve-background)_72%,var(--fve-surface-subtle))] bg-[var(--fve-background)] font-sans text-[var(--fve-text)] antialiased")
                 _data("signals", signals)
                 _data("on:fve-color-mode__window", "$colorMode = window.fveColorMode.current()")
-                _data("on-signal-patch", $"window.fsharpDocsNav.save({navState})")
                 match site.assets.navigation with
                 | Some enhancement ->
                     _data("on:click", enhancement.clickAction)

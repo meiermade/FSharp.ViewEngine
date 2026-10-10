@@ -1321,6 +1321,12 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   await expect(drawer).toBeHidden()
   await expect(opener).toBeFocused()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+  await opener.click()
+  await drawer.getByRole('link', { name: 'Installation', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Installation', exact: true })).toBeVisible()
+  await expect(drawer).toBeHidden()
+  await expect(page.locator('#page-content')).not.toHaveAttribute('inert', '')
 })
 
 test('component pages lead with an example, then installation, usage, variants, and API navigation @cross-browser', crossBrowser, async ({ page }) => {

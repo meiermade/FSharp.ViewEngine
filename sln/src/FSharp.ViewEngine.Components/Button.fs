@@ -71,8 +71,10 @@ module internal ButtonStyles =
         | ButtonType.Submit -> "submit"
         | ButtonType.Reset -> "reset"
 
+    let iconClasses = "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0"
+
     let baseClasses =
-        "inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium shadow-xs outline-none transition-[color,background-color,border-color,box-shadow,translate] duration-100 motion-reduce:transition-none motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup]):not([data-fve-keyboard-pressed])]:active:translate-y-px motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup])]:data-[fve-keyboard-pressed=true]:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        iconClasses + " inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium shadow-xs outline-none transition-[color,background-color,border-color,box-shadow,translate] duration-100 motion-reduce:transition-none motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup]):not([data-fve-keyboard-pressed])]:active:translate-y-px motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup])]:data-[fve-keyboard-pressed=true]:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
 
     let loadingGlyph size =
         span {

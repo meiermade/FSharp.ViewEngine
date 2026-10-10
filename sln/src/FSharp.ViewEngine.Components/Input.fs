@@ -55,7 +55,7 @@ module Input =
             match config.leadingIcon with
             | None when search ->
                 // Heroicons magnifying-glass (decorative; the label names the field).
-                Some (raw """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-5"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.197 5.197a7.5 7.5 0 0 0 10.606 10.606Z"/></svg>""")
+                Some (raw """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-[var(--fve-control-icon-size,1rem)]"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.197 5.197a7.5 7.5 0 0 0 10.606 10.606Z"/></svg>""")
             | icon -> icon
         let decorated = leadingIcon.IsSome || config.prefix.IsSome || config.suffix.IsSome
         let control =

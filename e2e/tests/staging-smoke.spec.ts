@@ -81,13 +81,14 @@ test.describe('protected staging smoke', () => {
   })
 
   test('protected stateless financial form validates without retaining values', async ({ page }) => {
-    await page.goto('/examples/application/settings/organizations')
-    const form = page.getByRole('form', { name: 'Organization settings' })
+    await page.goto('/examples/application/settings/general')
+    await page.getByRole('link', { name: 'Edit organization', exact: true }).click()
+    const form = page.getByRole('dialog', { name: 'Edit organization', exact: true })
     const name = form.getByRole('textbox', { name: 'Name', exact: true })
     const seededName = await name.inputValue()
     await name.fill('Staging smoke workspace')
-    await form.getByRole('button', { name: 'Validate settings', exact: true }).click()
-    await expect(page.getByText('Organization values validated', { exact: true })).toBeVisible()
+    await form.getByRole('button', { name: 'Update', exact: true }).click()
+    await expect(page.getByText('Organization details checked', { exact: true })).toBeVisible()
     await expect(name).toHaveValue(seededName)
   })
 })

@@ -92,9 +92,9 @@ type ControlSize =
 module ControlSize =
     /// Apply to a region to size its controls independently of layout density.
     let className = function
-        | ControlSize.Small -> "fve-control-small [--fve-control-min-height:2rem] [--fve-control-padding-block:0.375rem] [--fve-control-font-size:0.875rem] [--fve-control-line-height:1.25rem]"
-        | ControlSize.Medium -> "fve-control-medium [--fve-control-min-height:2.5rem] [--fve-control-padding-block:0.5rem] [--fve-control-font-size:1rem] [--fve-control-line-height:1.5rem]"
-        | ControlSize.Large -> "fve-control-large [--fve-control-min-height:3rem] [--fve-control-padding-block:0.75rem] [--fve-control-font-size:1rem] [--fve-control-line-height:1.5rem]"
+        | ControlSize.Small -> "fve-control-small [--fve-control-min-height:2rem] [--fve-control-icon-size:0.875rem] [--fve-control-padding-block:0.375rem] [--fve-control-font-size:0.875rem] [--fve-control-line-height:1.25rem]"
+        | ControlSize.Medium -> "fve-control-medium [--fve-control-min-height:2.5rem] [--fve-control-icon-size:1rem] [--fve-control-padding-block:0.5rem] [--fve-control-font-size:1rem] [--fve-control-line-height:1.5rem]"
+        | ControlSize.Large -> "fve-control-large [--fve-control-min-height:3rem] [--fve-control-icon-size:1.25rem] [--fve-control-padding-block:0.75rem] [--fve-control-font-size:1rem] [--fve-control-line-height:1.5rem]"
 
 /// <category>theming</category>
 [<RequireQualifiedAccess>]

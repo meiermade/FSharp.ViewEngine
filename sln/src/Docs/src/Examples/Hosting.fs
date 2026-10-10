@@ -7,6 +7,7 @@ open Microsoft.AspNetCore.Builder
 open Microsoft.AspNetCore.Hosting
 open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
+open StarFederation.Datastar.DependencyInjection
 open Giraffe
 open FSharp.ViewEngine
 open Docs.Examples
@@ -35,7 +36,10 @@ let securityHeaders (additionalScriptSources:string list) : HttpHandler =
 let private query (context:HttpContext) =
     let value name = context.Request.Query[name].ToString()
     queryFromValues value
-let private render context title content = content |> Layout.documentWithNonce (nonce context) title |> Render.toHtmlDocString |> htmlString
+let private render context title content =
+    match Navigation.tryIntent context with
+    | Some intent -> Navigation.respond intent (Layout.navigationRoot content |> Render.toString) (Layout.documentTitle title |> Render.toString)
+    | None -> content |> Layout.documentWithNonce (nonce context) title |> Render.toHtmlDocString |> htmlString
 let private pages : HttpHandler =
     fun next context ->
         let path = context.Request.Path.ToString()
@@ -77,7 +81,7 @@ let private submit renderDocument topBarActions : HttpHandler =
                             | Error ValidateAccountError.InvalidType -> "invalid-type"
                             | Error ValidateAccountError.InvalidDetails -> "invalid-details"
                             | Error _ -> "invalid"
-                        Some(path,state,if Result.isError result then Some request else None)
+                        Some(path,state,if Result.isError result then Some(EditorDraft.Account request) else None)
                     | Some(ApplicationPage.Accounts) when value "action"="review-selected" ->
                         let result = reviewSelection {resource=SelectionResource.Accounts;keys=form["accountIds"] |> Seq.toList}
                         Some(path, (if Result.isOk result then "selection-valid" else "selection-invalid"), None)
@@ -88,17 +92,21 @@ let private submit renderDocument topBarActions : HttpHandler =
                         Some(path, (if validateDeletion {accountId=id} |> Result.isOk then "deleted" else "delete-blocked"), None)
                     | Some(ApplicationPage.DeleteTransaction id) when value "action"="delete" ->
                         Some(path, (if validateTransactionDeletion {transactionId=id} |> Result.isOk then "deleted" else "delete-blocked"), None)
-                    | Some(ApplicationPage.Settings) | Some(ApplicationPage.SettingsSection "organizations") ->
-                        Some(path, (if validateOrganization {name=value "workspace";currency=value "currency"} |> Result.isOk then "validated" else "invalid"), None)
-                    | Some(ApplicationPage.Profile) ->
-                        Some(path, (if validateProfile {name=value "name";email=value "email";timeZone=value "timezone"} |> Result.isOk then "validated" else "invalid"), None)
+                    | Some ApplicationPage.EditOrganization ->
+                        let request = {name=form["workspace"].ToString();currency=form["currency"].ToString()}
+                        let valid = validateOrganization request |> Result.isOk
+                        Some(path, (if valid then "validated" else "invalid"), if valid then None else Some(EditorDraft.Organization request))
+                    | Some ApplicationPage.EditProfile ->
+                        let request = {name=form["name"].ToString();email=form["email"].ToString();timeZone=form["timezone"].ToString()}
+                        let valid = validateProfile request |> Result.isOk
+                        Some(path, (if valid then "validated" else "invalid"), if valid then None else Some(EditorDraft.Profile request))
                     | _ -> None
                 match outcome with
                 | Some(_,state,Some draft) ->
                     context.Response.Headers.CacheControl <- "private, no-store"
                     let page = applicationPage |> Option.get
                     let workflow,variant,resource = specificationDestination page state
-                    let responseQuery = {submittedContext with state=state;specState=variant;resource=resource;accountDraft=Some draft;topBarActions=topBarActions}
+                    let responseQuery = {submittedContext with state=state;specState=variant;resource=resource;editorDraft=Some draft;topBarActions=topBarActions}
                     // Error values live only in this no-store response, never a URL, cookie or durable store.
                     match Routing.specificationPage path with
                     | Some _ -> return! (renderDocument context (Specification.title workflow) (Specification.render workflow responseQuery) |> Render.toHtmlDocString |> htmlString) next context
@@ -117,7 +125,11 @@ let private submit renderDocument topBarActions : HttpHandler =
                             let page = applicationPage |> Option.get
                             let workflow,variant,resource = specificationDestination page state
                             specificationHref workflow variant {submittedContext with resource=resource;specification=true}+querySuffix ["state",state]+collectionContext
-                        else workspaceUrl destination submittedContext.workspace+querySuffix [ yield "state",state; if submittedContext.embedded then yield "embedded","1" ]+collectionContext
+                        else
+                            workspaceUrl destination submittedContext.workspace + querySuffix [
+                                yield "state",state
+                                if submittedContext.embedded then yield "embedded","1"
+                                yield! returnWorkspacePairs submittedContext ] + collectionContext
                     return! redirectTo false destination next context
                 | None -> return! (setStatusCode 404 >=> text "Example action not found.") next context
             with
@@ -131,7 +143,7 @@ let routes : HttpHandler = routesWithActions []
 
 let main (args:string array) =
     let builder = WebApplication.CreateBuilder(args)
-    builder.Services.AddGiraffe() |> ignore
+    builder.Services.AddGiraffe().AddDatastar() |> ignore
     let app = builder.Build()
     app.UseStaticFiles() |> ignore
     app.UseGiraffe (securityHeaders [] >=> routes)
