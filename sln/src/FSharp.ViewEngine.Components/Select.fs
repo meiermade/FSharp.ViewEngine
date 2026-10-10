@@ -425,7 +425,10 @@ module Select =
                     _dataAttr ("aria-activedescendant", $"${openSignal} && document.getElementById(${activeSignal}) ? ${activeSignal} : null")
                 if config.isMultiple then _ariaDescribedby (String.concat " " ([ triggerId + "-selection" ] @ (if describedBy = "" then [] else [ describedBy ])))
                 elif String.IsNullOrEmpty describedBy |> not then _ariaDescribedby describedBy
-                _dataOn ("click", [ "prevent"; "stop" ], $"document.getElementById('{triggerId}').focus(); ${openSignal} ? (${openSignal} = false) : ({openAt selectedOrFirst})")
+                if config.isMultiple then
+                    _dataOn ("click", [ "prevent"; "stop" ], $"${openSignal} = !${openSignal}")
+                else
+                    _dataOn ("click", [ "prevent"; "stop" ], $"document.getElementById('{triggerId}').focus(); ${openSignal} ? (${openSignal} = false) : ({openAt selectedOrFirst})")
                 _dataOn ("keydown", keydown)
                 if config.nativeFallback then
                     _style "display:none"

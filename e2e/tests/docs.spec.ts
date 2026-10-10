@@ -187,6 +187,12 @@ test('Representative Components pages provide focused examples, navigation, inte
 
   const openPreview = (path: string, heading: string) => openComponentGallery(page, path, heading)
 
+  await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
+  const formControls = page.getByLabel('Toggle Form controls section', { exact: true })
+  await expect(formControls).toHaveAttribute('aria-expanded', 'true')
+  await formControls.click()
+  await expect(formControls).toHaveAttribute('aria-expanded', 'false')
+
   for (const [path, heading] of componentRoutes) {
     const surface = await openPreview(path, heading)
     if (path === '/components/month-calendar') {
@@ -208,7 +214,7 @@ test('Representative Components pages provide focused examples, navigation, inte
 
   await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
   await expect(page.getByLabel('Toggle Components section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.getByLabel('Toggle Form controls section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(formControls).toHaveAttribute('aria-expanded', 'false')
   await expect(page.locator('#nav-components-select')).toHaveAttribute('data-selected', 'true')
 
   const resolvedBackground = (root: Locator, variable: string) =>
