@@ -89,6 +89,37 @@ jobs:
           work-dir: ./pulumi
           command: up
           stack-name: meiermade/fsharp-view-engine/prod
+      - name: Confirm retired resources are absent in Cloudflare
+        timeout-minutes: 3
+        working-directory: ./pulumi
+        run: |
+          export CF_ACCOUNT_ID="$(pulumi config get cloudflare:accountId --stack meiermade/fsharp-view-engine/prod)"
+          export CF_ZONE_ID="$(pulumi config get cloudflare:zoneId --stack meiermade/fsharp-view-engine/prod)"
+          export CF_API_TOKEN="$(pulumi config get cloudflare:apiToken --stack meiermade/fsharp-view-engine/prod)"
+          node --input-type=module <<'NODE'
+          import assert from 'node:assert/strict'
+          const { CF_ACCOUNT_ID: account, CF_ZONE_ID: zone, CF_API_TOKEN: token } = process.env
+          assert.ok(account && zone && token, 'Cloudflare configuration is required')
+          const list = async path => {
+            const response = await fetch(`https://api.cloudflare.com/client/v4/${path}`, {
+              headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(30000),
+            })
+            assert.ok(response.ok, `Cloudflare verification failed: HTTP ${response.status}`)
+            const body = await response.json()
+            assert.equal(body.success, true, 'Cloudflare verification request was unsuccessful')
+            assert.ok(Array.isArray(body.result), 'Expected a Cloudflare resource list')
+            return body.result
+          }
+          const worker = 'fsharpviewengine-legacy-redirect'
+          const hostname = 'fsharpviewengine.meiermade.com'
+          const scripts = await list(`accounts/${account}/workers/scripts`)
+          assert.equal(scripts.some(script => script.id === worker), false, 'Retired Worker remains')
+          const routes = await list(`zones/${zone}/workers/routes`)
+          assert.equal(routes.some(route => route.script === worker || route.pattern === `${hostname}/*`), false, 'Retired Worker route remains')
+          const records = await list(`zones/${zone}/dns_records?name.exact=${hostname}`)
+          assert.equal(records.length, 0, 'Retired DNS record remains')
+          console.log('Cloudflare confirms the retired Worker, route and DNS record are absent')
+          NODE
       - name: Confirm canonical release remains unchanged
         env:
           EXPECTED_IMAGE: ${{ steps.previous.outputs.image }}
