@@ -10,7 +10,7 @@ Requires the .NET 10 SDK and Node.js/npm. Use the CLI release matching this exam
 dotnet new tool-manifest
 dotnet tool install FSharp.ViewEngine.Cli
 dotnet fve init Components/Acme.Components.fsproj --namespace Acme.Components
-dotnet fve add card page-top-bar page-header section-header side-nav breadcrumbs table description-list avatar input select radio-group badge button button-group dropdown-menu theme-switcher resizable dialog drawer notice empty-state tabs browser code-block mermaid --config Components/fve.json
+dotnet fve add card page-top-bar page-header section-header side-nav breadcrumbs table description-list avatar input select badge button button-group dropdown-menu theme-switcher resizable dialog drawer notice empty-state tabs browser code-block mermaid --config Components/fve.json
 npm install --save-dev tailwindcss @tailwindcss/cli @tailwindcss/typography
 npx @tailwindcss/cli -i input.css -o wwwroot/css/output.css --minify
 dotnet run --project Example.fsproj
@@ -40,7 +40,9 @@ ApiDocumentation.fs      API reference
 Hosting.fs, Program.fs   Request adaptation and executable host
 ```
 
-Project references follow Server → Application → Domain, with Server also referencing Components. Replace the identity, navigation, fixtures, and use cases with your own. Component APIs and interactions are documented in the [component catalog](https://fve.meiermade.com/components), not duplicated here. Catalog download controls are host-owned and are not included in the standalone pages.
+Project references follow Server → Application → Domain, with Server also referencing Components. `Navigation.fs` enhances ordinary internal links and GET forms with Datastar, keeping the document, theme and sidebar in place. After a successful patch it emits `fve-navigation-complete` with the previous/current URLs and navigation intent; the collection uses this to open a newly added filter without reopening it on refresh or history restoration. `Hosting.fs` returns either complete documents or coherent element patches; real links, downloads, modified clicks and unavailable JavaScript retain native behavior. Replace the identity, navigation, fixtures, and use cases with your own. Component APIs and interactions are documented in the [component catalog](https://fve.meiermade.com/components), not duplicated here. Catalog download controls are host-owned and are not included in the standalone pages.
+
+Profile is a personal shell containing Profile and Organizations; Settings belongs to one selected organization. Detail pages open contextual edit Drawers using the same dirty-dismissal guards as account editors. System, Light and Dark appearance choices apply immediately on Profile. Changing organizations in Settings retains the section and the prior Ledger workspace for the return link. These compositions and native forms are shared by the Application and Specification, not catalog-only behavior.
 
 ## Boundaries
 

@@ -177,6 +177,7 @@ type SideNavConfig<'destination when 'destination:equality> =
     private
         { id:string
           label:string
+          persistenceKey:string
           header:SideNavHeaderConfig option
           current:'destination option
           content:SideNavContentConfig<'destination> option
@@ -260,6 +261,9 @@ module internal SideNavView =
                 if kind = SideNavNodeKind.Group then "pl-2" else "pl-3"
                 if current then "bg-[var(--fve-brand-subtle)] font-semibold text-[var(--fve-brand-text)]"
                 else "text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]" ]
+        let storagePrefix = "fve-side-nav:" + config.persistenceKey
+        let scrollKey = ComponentHtml.javascriptString (storagePrefix + ":scroll")
+        let saveScroll = $"if (el.clientHeight > 0) {{ try {{ sessionStorage.setItem({scrollKey}, String(el.scrollTop)); }} catch {{}} }}"
         let rec renderItem path (item:SideNavNode<'destination>) =
             let itemId = item.id |> Option.defaultValue (config.id + "-item-" + path)
             let current =
@@ -313,13 +317,23 @@ module internal SideNavView =
                         }
                     }
                 | SideNavNodeKind.Group ->
-                    let expanded = item.expanded || containsCurrent item
-                    let signal = item.expandedSignal |> Option.defaultValue ("_" + ComponentHtml.signalToken itemId + "_open")
+                    let expanded = string (item.expanded || containsCurrent item) |> _.ToLowerInvariant()
+                    let groupKey = item.id |> Option.defaultValue (path + ":" + item.label)
+                    let key = storagePrefix + ":group:" + groupKey
+                    let storageKey = ComponentHtml.javascriptString key
+                    let signal = item.expandedSignal |> Option.defaultValue ("_side_nav_" + ComponentHtml.optionToken key)
+                    // Host-owned signals keep their existing initialization and persistence policy.
+                    let initial =
+                        if item.expandedSignal.IsSome then expanded
+                        else $"(() => {{ try {{ const saved = sessionStorage.getItem({storageKey}); const value = saved === 'true' ? true : saved === 'false' ? false : {expanded}; sessionStorage.setItem({storageKey}, String(value)); return value; }} catch {{ return {expanded}; }} }})()"
+                    let toggle =
+                        $"evt.preventDefault(); ${signal} = !${signal}"
+                        + (if item.expandedSignal.IsSome then "" else $"; try {{ sessionStorage.setItem({storageKey}, String(${signal})); }} catch {{}}")
                     details {
-                        if expanded then _open true
+                        if item.expanded || containsCurrent item then _open true
                         _id (itemId + "-group")
                         _ariaLabel item.label
-                        _attr ("data-signals__ifmissing", $"{{{signal}: {string expanded |> _.ToLowerInvariant()}}}")
+                        _attr ("data-signals__ifmissing", $"{{{signal}: {initial}}}")
                         _dataAttr ("open", $"${signal}")
                         _dataPreserveAttr "open"
                         _class "group/navigation-item"
@@ -328,7 +342,7 @@ module internal SideNavView =
                             _ariaLabel ("Toggle " + item.label + " section")
                             _ariaControls (itemId + "-children")
                             _dataAttr ("aria-expanded", $"${signal} ? 'true' : 'false'")
-                            _dataOn ("click", $"evt.preventDefault(); ${signal} = !${signal}")
+                            _dataOn ("click", toggle)
                             _title item.label
                             _class (itemClasses item.kind false + " cursor-pointer list-none [&::-webkit-details-marker]:hidden" + (if containsCurrent item then " font-semibold text-[var(--fve-text)]" else ""))
                             for attribute in ComponentHtml.safeAttributes [ "id"; "aria-label"; "aria-expanded"; "aria-controls"; "title"; "class" ] item.attributes do attribute
@@ -390,6 +404,10 @@ module internal SideNavView =
             nav {
                 _ariaLabel config.label
                 _attr ("data-fve-side-nav-content", "true")
+                // Restore only when visible, including a mobile panel first opened after load.
+                _attr ("data-on-intersect__once", $"try {{ const saved = Number(sessionStorage.getItem({scrollKey})); if (Number.isFinite(saved) && saved >= 0) el.scrollTop = saved; }} catch {{}}")
+                _dataOn ("scroll", ["passive"], saveScroll)
+                _dataOn ("click", ["capture"], saveScroll)
                 _class (ComponentHtml.classes [ "min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"; if config.content.IsSome then "p-3" ])
                 ul {
                     _role "list"
@@ -421,6 +439,7 @@ module SideNav =
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible side-navigation label is required."
         { id = id
           label = label
+          persistenceKey = id
           header = None
           current = None
           content = None
@@ -429,6 +448,12 @@ module SideNav =
           mobileContext = None
           footer = None
           compactFooter = None }
+
+    /// Per-tab preference scope. Defaults to the stable navigation ID; use a distinct key
+    /// for unrelated trees, or the same key for responsive presentations of one tree.
+    let withPersistenceKey key (config:SideNavConfig<'destination>) =
+        if String.IsNullOrWhiteSpace key then invalidArg (nameof key) "A navigation persistence key is required."
+        { config with persistenceKey = key }
 
     let withHeader header (config:SideNavConfig<'destination>) = { config with header = Some header }
     let withContent content (config:SideNavConfig<'destination>) = { config with content = Some content }

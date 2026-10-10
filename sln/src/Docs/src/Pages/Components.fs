@@ -2338,6 +2338,7 @@ module Components =
 
     let sideNavStructureExample =
         SideNav.create "structure-navigation" "Navigation structure"
+        |> SideNav.withPersistenceKey "structure-navigation-preferences"
         |> SideNav.withContent (SideNavContent.create [
             SideNavItem.create "/examples/application" "Home"
             SideNavSection.create "Accounting" [
@@ -2348,7 +2349,9 @@ module Components =
                 SideNavGroup.create "Components" [
                     SideNavItem.create "/components/button" "Button"
                     SideNavItem.create "/components/table" "Table" ]
+                |> SideNavGroup.withId "structure-components"
                 |> SideNavGroup.expanded ]
+            |> SideNavGroup.withId "structure-documentation"
             |> SideNavGroup.expanded ])
         |> SideNav.withCurrent "/examples/application/accounts"
         |> SideNav.render id
@@ -2366,7 +2369,7 @@ module Components =
                 DropdownMenuItem.link "/examples/application?ledger=alex" "Alex"
                 DropdownMenuItem.link "/examples/application?ledger=jordan" "Jordan"
                 DropdownMenuItem.separator
-                DropdownMenuItem.link "/examples/application/settings/organizations" "Organizations" ]
+                DropdownMenuItem.link "/examples/application/profile/organizations" "Organizations" ]
         SideNav.create "slot-navigation" "Application navigation"
         |> SideNav.withHeader (SideNavHeader.create "Ledger" |> SideNavHeader.withContent (
             a { _href "/examples/application"; _class "flex items-center gap-3 text-sm font-semibold"; ledgerMark; "Ledger" }))
@@ -3957,6 +3960,11 @@ div {
                 for item in variants do
                     DocumentationSection.create item.id item.title [
                         Example.gallery item.id item.title "fsharp" item.source item.preview ]
+                if registration.id = sideNavRegistration.id then
+                    titledSection "expansion-and-scroll" "Expansion and scroll" [
+                        prose "Groups stay independently open or closed during navigation, history and refresh. Their initial state opens the active branch; remembered choices take precedence, including an explicit collapse of that branch. Content scroll is also remembered for the current browser tab."
+                        prose "Preferences use sessionStorage and default to the stable SideNav ID. Use withPersistenceKey to separate unrelated navigation trees that reuse an ID, or to share preferences between responsive presentations of one tree. Give groups stable withId values when their order changes; otherwise their structural position and label identify them."
+                        prose "withExpandedSignal keeps the host responsible for initializing and persisting that group's state. When storage is unavailable, toggles still work in the current document. Without Datastar, native links and details/summary remain usable, but cross-document preferences are not restored." ]
                 if registration.id = appShellRegistration.id then
                     titledSection "complete-pages" "Complete page examples" [
                         p {
@@ -4728,6 +4736,7 @@ div {
             |> note "Button.renderLink preserves a native href with shared Button colors, sizing and appearance. Use Button.render for form submission or commands; links do not support disabled or pending behavior."
             sample "button-colors" "Colors" [ "buttonColorExamples" ] (centered buttonColorExamples)
             sample "button-content" "Content modes" [ "plusIcon"; "refreshIcon"; "buttonContentExamples" ] (centered buttonContentExamples)
+            |> note "SVG icons follow the inherited control size: 14px for Small, 16px for Medium and 20px for Large at the default root size. Icon-only controls keep their full square hit area."
             sample "button-variants" "Variants" [ "buttonVariantExamples" ] (centered buttonVariantExamples)
             sample "button-icon-variants" "Icon-only variants" [ "refreshIcon"; "iconOnlyButtonVariantExamples" ] (centered iconOnlyButtonVariantExamples)
             sample "button-custom" "Custom palette" [ "customButtonPalette"; "customPaletteButtons" ] (centered customPaletteButtons)
@@ -4750,6 +4759,7 @@ div {
         | "badge" -> [
             sample "badge" "Default" [ "badgeExample" ] (centered badgeExample)
             sample "badge-colors" "Colors" [ "badgeColorExamples" ] (centered badgeColorExamples)
+            |> note "Soft semantic badges blend their fill and text with the surrounding theme for quieter status cues. Neutral and Custom palettes retain their supplied colors; Solid, Outline and Ghost are unchanged."
             sample "badge-variants" "Variants" [ "badgeVariantExamples" ] (centered badgeVariantExamples) ]
         | "kbd" -> [
             sample "kbd" "Default" [ "keyboardKey" ] (centered keyboardKey)

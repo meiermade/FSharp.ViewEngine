@@ -64,7 +64,10 @@ module Badge =
                 "inline-flex items-center gap-1.5 rounded-[var(--fve-radius-control)] px-2 py-1 text-xs font-medium"
                 match config.variant with
                 | BadgeVariant.Solid -> ComponentColors.solid
-                | BadgeVariant.Soft -> ComponentColors.soft
+                | BadgeVariant.Soft ->
+                    match config.color with
+                    | BadgeColor.Custom _ | BadgeColor.Neutral -> ComponentColors.soft
+                    | _ -> "bg-[color-mix(in_oklab,var(--fve-color-soft)_45%,var(--fve-surface))] text-[color-mix(in_oklab,var(--fve-color-text)_65%,var(--fve-text))]"
                 | BadgeVariant.Outline -> ComponentColors.outline
                 | BadgeVariant.Ghost -> ComponentColors.ghost ])
             for attribute in ComponentHtml.safeAttributes [ "class"; "style" ] config.attributes do attribute

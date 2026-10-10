@@ -187,6 +187,12 @@ test('Representative Components pages provide focused examples, navigation, inte
 
   const openPreview = (path: string, heading: string) => openComponentGallery(page, path, heading)
 
+  await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
+  const formControls = page.getByLabel('Toggle Form controls section', { exact: true })
+  await expect(formControls).toHaveAttribute('aria-expanded', 'true')
+  await formControls.click()
+  await expect(formControls).toHaveAttribute('aria-expanded', 'false')
+
   for (const [path, heading] of componentRoutes) {
     const surface = await openPreview(path, heading)
     if (path === '/components/month-calendar') {
@@ -208,7 +214,7 @@ test('Representative Components pages provide focused examples, navigation, inte
 
   await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
   await expect(page.getByLabel('Toggle Components section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
-  await expect(page.getByLabel('Toggle Form controls section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(formControls).toHaveAttribute('aria-expanded', 'false')
   await expect(page.locator('#nav-components-select')).toHaveAttribute('data-selected', 'true')
 
   const resolvedBackground = (root: Locator, variable: string) =>
@@ -1321,6 +1327,12 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   await expect(drawer).toBeHidden()
   await expect(opener).toBeFocused()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+
+  await opener.click()
+  await drawer.getByRole('link', { name: 'Installation', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Installation', exact: true })).toBeVisible()
+  await expect(drawer).toBeHidden()
+  await expect(page.locator('#page-content')).not.toHaveAttribute('inert', '')
 })
 
 test('component pages lead with an example, then installation, usage, variants, and API navigation @cross-browser', crossBrowser, async ({ page }) => {

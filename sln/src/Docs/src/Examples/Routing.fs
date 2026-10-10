@@ -19,8 +19,11 @@ module Routing =
         | [""; "examples"; "application"; "transactions"; id] -> idFrom id tryTransaction |> Option.map ApplicationPage.Transaction
         | [""; "examples"; "application"; "transactions"; id; "delete"] -> idFrom id tryTransaction |> Option.map ApplicationPage.DeleteTransaction
         | [""; "examples"; "application"; "settings"] -> Some ApplicationPage.Settings
+        | [""; "examples"; "application"; "settings"; "general"; "edit"] -> Some ApplicationPage.EditOrganization
         | [""; "examples"; "application"; "settings"; key] when settingsSections |> List.exists (fst >> (=) key) -> Some (ApplicationPage.SettingsSection key)
         | [""; "examples"; "application"; "profile"] -> Some ApplicationPage.Profile
+        | [""; "examples"; "application"; "profile"; "edit"] -> Some ApplicationPage.EditProfile
+        | [""; "examples"; "application"; "profile"; "organizations"] -> Some ApplicationPage.ProfileOrganizations
         | _ -> None
     let private documentPage prefix pages path =
         let path = (path:string).TrimEnd('/')

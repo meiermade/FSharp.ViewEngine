@@ -26,6 +26,8 @@ test('gallery opens isolated templates with source download and native history',
 })
 
 test('spec App mode follows an exact account through validation cancel and current-state exit @cross-browser', async ({ page }) => {
+  const pageErrors: string[] = []
+  page.on('pageerror', error => pageErrors.push(error.message))
   await page.goto('/examples/specification/accounts/view-accounts')
   await page.getByRole('tab', { name: 'Assets', exact: true }).click()
   const assets = page.getByRole('tabpanel', { name: 'Assets', exact: true })
@@ -61,9 +63,9 @@ test('spec App mode follows an exact account through validation cancel and curre
   await page.keyboard.press('Escape')
   await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1.*fveAppDock=top/)
   await page.getByRole('link', { name: 'Exit App mode', exact: true }).click()
-  await expect(page).toHaveURL(/accounts\/view-account.*resource=105/)
-  expect(new URL(page.url()).searchParams.has('appMode')).toBe(false)
+  await expect(page).toHaveURL(url => url.pathname.endsWith('/accounts/view-account') && url.searchParams.get('resource') === '105' && !url.searchParams.has('appMode'))
   await expect(page.getByRole('heading', { name: 'View account', exact: true, level: 1 })).toBeVisible()
+  expect(pageErrors).toEqual([])
 })
 
 for (const scenario of [
@@ -89,6 +91,7 @@ for (const scenario of [
     for (const link of await controls.getByRole('menuitem').all()) assertOrigin((await link.getAttribute('href'))!)
     await page.keyboard.press('Escape')
     await controls.getByRole('link', { name: 'Exit App mode', exact: true }).click()
+    await expect(page).toHaveURL(url => !url.searchParams.has('appMode'))
     const exited = assertOrigin(page.url())
     expect(exited.pathname).toBe(`/examples/specification/${scenario.workflow}`)
     expect(exited.searchParams.get('resource')).toBe(scenario.resource)
@@ -96,6 +99,7 @@ for (const scenario of [
     const fixture = page.getByRole('tabpanel')
     await expect(fixture.getByRole('heading', { name: scenario.background, exact: true, level: 1 })).toBeVisible()
     await fixture.getByRole('link', { name: /in App mode$/ }).click()
+    await expect(page).toHaveURL(url => url.searchParams.get('appMode') === '1')
     assertOrigin(page.url())
     await expect(dialog).toBeVisible()
     await expect(page.getByRole('heading', { name: scenario.background, exact: true, level: 1 })).toBeVisible()

@@ -48,6 +48,7 @@ module ExampleView =
     let private root (context:HttpContext) (template:Examples.ExampleTemplate) (title:string) (content:HtmlElement) =
         div {
             _id "docs-navigation-root"
+            _attr("data-fve-navigation-root","true")
             _attr("data-example-viewer",template.name)
             _attr("data-template-embedded",if context.Request.Query["embedded"].ToString()="1" then "true" else "false")
             _class "min-h-dvh bg-[var(--fve-background)] text-[var(--fve-text)]"

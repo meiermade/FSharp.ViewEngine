@@ -924,7 +924,7 @@ after"""
                 Expect.isFalse (source.Contains "data-example-viewer-bar") "catalog chrome stays out of copied templates"
             for invalid in ["/examples/source/../Program.fs"; "/examples/source/secrets.txt"; "/examples/application/accounts/999"; "/examples/application/accounts/101?view=code&file=secrets.txt"; "/api-reference/render-to-string"; "/specification/render-a-view"] do
                 Expect.equal (routeStatus invalid) 404 "unknown routes and source files fail closed"
-            for path in ["/examples/specification/accounts/view-accounts";"/examples/specification/accounts/create-account";"/examples/specification/architecture/solution/server"] do
+            for path in ["/examples/specification/accounts/view-accounts";"/examples/specification/accounts/create-account";"/examples/specification/architecture/solution/server";"/examples/application/profile/organizations";"/examples/application/settings/general";"/examples/application/profile/edit";"/examples/application/settings/general/edit"] do
                 Expect.equal (routeStatus path) 200 "named workflows and project contracts are public destinations"
             let _,preview = routeResponse "/examples/specification/accounts/create-account"
             let controlIds = Regex.Matches(preview,"<(?:input|button|select|dialog)[^>]* id=\"([^\"]+)\"") |> Seq.cast<Match> |> Seq.map (fun item -> item.Groups[1].Value) |> Seq.toList
@@ -957,12 +957,15 @@ after"""
                 "/examples/application/accounts",["action","review-selected"],"selection-invalid","Choose records"
                 "/examples/application/transactions",["action","review-selected";"transactionIds","201"],"selection-valid","Selected records checked"
                 "/examples/application/transactions",["action","review-selected";"transactionIds","999"],"selection-invalid","Choose records"
-                "/examples/application/settings/organizations",["workspace","Private workspace";"currency","USD"],"validated","Organization values validated"
-                "/examples/application/settings/organizations",["workspace","";"currency","USD"],"invalid","Check organization values"
-                "/examples/application/profile",["name","Private person";"email","private@example.invalid";"timezone","UTC"],"validated","Profile values validated"
-                "/examples/application/profile",["name","Private person";"email","not-an-email";"timezone","UTC"],"invalid","Check profile values" ] do
+                "/examples/application/settings/general/edit",["workspace","Private workspace";"currency","USD"],"validated","Organization details checked"
+                "/examples/application/settings/general/edit",["workspace","";"currency","USD"],"invalid","Enter a name between 1 and 80 characters."
+                "/examples/application/settings/general/edit",["workspace","Private workspace";"currency","EUR"],"invalid","Choose US dollar (USD)."
+                "/examples/application/profile/edit",["name","Private person";"email","private@example.invalid";"timezone","UTC"],"validated","Profile details checked"
+                "/examples/application/profile/edit",["name","Private person";"email","not-an-email";"timezone","UTC"],"invalid","Enter a valid email address."
+                "/examples/application/profile/edit",["name","";"email","private@example.invalid";"timezone","UTC"],"invalid","Enter a name between 1 and 80 characters."
+                "/examples/application/profile/edit",["name","Private person";"email","private@example.invalid";"timezone","unknown"],"invalid","Choose an available time zone." ] do
                 let status,location,cookies,body,cache = postFormResponse path fields
-                let editorFailure = path.Contains("/accounts/") && state.StartsWith("invalid", StringComparison.Ordinal)
+                let editorFailure = (path.Contains("/accounts/") || path.EndsWith("/edit",StringComparison.Ordinal)) && state.StartsWith("invalid", StringComparison.Ordinal)
                 Expect.equal status (if editorFailure then 200 else 302) path
                 Expect.equal cookies "" "submissions create no session cookies"
                 let html =

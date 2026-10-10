@@ -12,6 +12,7 @@
     <Compile Include="src\Common\Model.fs" />
     <Compile Include="src\Common\SourceRegion.fs" />
     <Compile Include="src\Examples\Model.fs" />
+    <Compile Include="src\Examples\Navigation.fs" />
     <Compile Include="src\Examples\Layout.fs" />
     <Compile Include="src\Examples\AppMode.fs" />
     <Compile Include="src\Examples\Application.fs" />

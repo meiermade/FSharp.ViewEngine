@@ -1,5 +1,9 @@
 # Repository Agent Instructions
 
+## Local Docs development
+
+- For local Docs development and review, run `./fake.sh WatchDocs` from the active worktree's `sln` directory. Use its single watcher at `http://127.0.0.1:5054`; do not start separate manual Docs hosts or use alternate ports. The target safely replaces the previous Docs watcher across worktrees.
+
 ## Component documentation
 
 - Give every consumer-facing reusable component a dedicated documentation route and navigation entry.

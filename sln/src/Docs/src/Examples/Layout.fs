@@ -44,17 +44,17 @@ module Layout =
                 for organization in organizations do
                     let selected = workspaceFromStrings organization.id "production" (if organization.id=workspace.organization.id then workspace.ledger.id else "")
                     a { _href (destination selected); _class "flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--fve-border)] p-3 hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; span { strong { _class "block text-sm"; organization.name }; span { _class "text-xs text-[var(--fve-muted-text)]"; organization.role+" · "+selected.ledger.name } }; if organization.id=workspace.organization.id then Badge.create "Current" |> Badge.render }
-                link (applicationHref query (ApplicationPage.SettingsSection "organizations")) "Manage organizations"
-            }) |> Dialog.withDescription "Choose an organization and its example ledger. No live memberships or financial data are changed."
+                link (applicationHref query ApplicationPage.ProfileOrganizations) "Manage organizations"
+            }) |> Dialog.withDescription "Choose an organization."
             |> Dialog.withFooter (Button.create (ButtonContent.Text "Cancel") |> Button.withAttributes [_data("on:click", $"document.getElementById('{navId}-organizations').close()")] |> Button.render)
             |> Dialog.withAttributes [_data("on:close__capture", $"document.getElementById('{navId}-workspace-trigger').focus()")]
         let environmentDialog =
             Dialog.create (navId+"-environments") "Change environment" (div {
                 _class "grid gap-3"
                 for environment in environments do
-                    a { _href (destination {workspace with environment=environment}); _class "flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--fve-border)] p-3 hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; span { strong { _class "block text-sm"; environment.name }; span { _class "text-xs text-[var(--fve-muted-text)]"; if environment.sandbox then "Sandbox · Seeded example data" else "Production context · Seeded example data" } }; if environment.id=workspace.environment.id then Badge.create "Current" |> Badge.render }
+                    a { _href (destination {workspace with environment=environment}); _class "flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--fve-border)] p-3 hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; span { strong { _class "block text-sm"; environment.name }; span { _class "text-xs text-[var(--fve-muted-text)]"; if environment.sandbox then "Sandbox" else "Production" } }; if environment.id=workspace.environment.id then Badge.create "Current" |> Badge.render }
                 link (applicationHref query (ApplicationPage.SettingsSection "environments")) "Manage environments"
-            }) |> Dialog.withDescription "Switch the server-rendered workspace context. Every environment in this template uses resettable example records."
+            }) |> Dialog.withDescription "Choose an environment."
             |> Dialog.withFooter (Button.create (ButtonContent.Text "Cancel") |> Button.withAttributes [_data("on:click", $"document.getElementById('{navId}-environments').close()")] |> Button.render)
             |> Dialog.withAttributes [_data("on:close__capture", $"document.getElementById('{navId}-workspace-trigger').focus()")]
         div {
@@ -76,38 +76,52 @@ module Layout =
             organizationDialog |> Dialog.render
             environmentDialog |> Dialog.render
         }
+    let private personalPage = function ApplicationPage.Profile | ApplicationPage.ProfileOrganizations -> true | _ -> false
+    let private organizationSelector navId page (query:Query) =
+        DropdownMenu.create (navId+"-organization") ("Change organization: "+query.workspace.organization.name)
+        |> DropdownMenu.withAlignment DropdownMenuAlignment.Start
+        |> DropdownMenu.withContent [
+            for organization in organizations do
+                DropdownMenuItem.link (applicationHref (organizationQuery query organization.id) page) organization.name
+                |> DropdownMenuItem.withDescription organization.role
+                |> (if organization.id=query.workspace.organization.id then DropdownMenuItem.withTrailing (icon "m4.5 12.75 6 6 9-13.5") else id) ]
+        |> fun menu -> SideNavRow.menu menu query.workspace.organization.name
+        |> SideNavRow.render id
     let private appNavigation navId page (current:string) (query:Query) (settingsKey:string option) =
         let url = applicationHref query
+        let personal = personalPage page
+        let label = if personal then "Profile" elif settingsKey.IsSome then "Settings" else "Ledger"
         let groups =
-            match settingsKey with
-            | Some _ -> settingsSections |> List.map (fun (key,label) -> SideNavItem.create (url (ApplicationPage.SettingsSection key)) label)
-            | None -> [SideNavItem.create (url ApplicationPage.Home) "Home"; SideNavSection.create "Accounting" [SideNavItem.create (url ApplicationPage.Accounts) "Accounts";SideNavItem.create (url ApplicationPage.Transactions) "Transactions"]]
-        let header =
-            SideNavHeader.create "Ledger" |> SideNavHeader.withContent (
-                match settingsKey with
-                | Some _ -> link (url ApplicationPage.Home) "← Ledger"
-                | None -> a { _href (url ApplicationPage.Home); _class "flex items-center gap-3 text-base font-semibold text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; span { _class "text-xl text-[var(--fve-brand-text)]"; "L" }; "Ledger" })
-        let nav =
-            SideNav.create navId (if settingsKey.IsSome then "Settings" else "Ledger")
-            |> SideNav.withHeader header
-            |> SideNav.withContent (SideNavContent.create groups)
-            |> SideNav.withWidth SideNavWidth.Standard
+            if personal then [SideNavItem.create (url ApplicationPage.Profile) "Profile";SideNavItem.create (url ApplicationPage.ProfileOrganizations) "Organizations"]
+            elif settingsKey.IsSome then settingsSections |> List.map (fun (key,label) -> SideNavItem.create (url (ApplicationPage.SettingsSection key)) label)
+            else [SideNavItem.create (url ApplicationPage.Home) "Home"; SideNavSection.create "Accounting" [SideNavItem.create (url ApplicationPage.Accounts) "Accounts";SideNavItem.create (url ApplicationPage.Transactions) "Transactions"]]
+        let header = SideNavHeader.create label |> SideNavHeader.withContent (
+            if personal || settingsKey.IsSome then link (applicationHref (ledgerReturnQuery query) ApplicationPage.Home) "← Ledger"
+            else a { _href (url ApplicationPage.Home); _class "flex items-center gap-3 text-base font-semibold text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; span { _class "text-xl text-[var(--fve-brand-text)]"; "L" }; "Ledger" })
         let currentNav =
             match page with
             | ApplicationPage.Account _ | ApplicationPage.CreateAccount | ApplicationPage.EditAccount _ | ApplicationPage.DeleteAccount _ -> url ApplicationPage.Accounts
             | ApplicationPage.Transaction _ -> url ApplicationPage.Transactions
             | _ -> current
-        // Profile is a footer destination, not an item in the primary navigation.
-        let nav = if current= url ApplicationPage.Profile then nav else nav |> SideNav.withCurrent currentNav
-        nav
-        |> SideNav.withContext [match settingsKey with Some _ -> div { _class "grid gap-1 p-4"; strong { _class "text-sm"; query.workspace.organization.name }; span { _class "text-xs text-[var(--fve-muted-text)]"; "Organization settings" } } | None -> workspaceSelector navId (current.Split('?')[0]) query]
+        SideNav.create navId label
+        |> SideNav.withPersistenceKey (if personal then "ledger-profile-navigation" elif settingsKey.IsSome then "ledger-settings-navigation" else "ledger-application-navigation")
+        |> SideNav.withHeader header
+        |> SideNav.withContent (SideNavContent.create groups)
+        |> SideNav.withWidth SideNavWidth.Standard
+        |> SideNav.withCurrent currentNav
+        |> SideNav.withContext [
+            if personal then
+                div { _class "flex min-w-0 items-center gap-3 p-4"; Avatar.create "Andrew Meier" "AM" |> Avatar.render; div { _class "min-w-0"; strong { _class "block truncate text-sm"; "Andrew Meier" }; span { _class "block truncate text-xs text-[var(--fve-muted-text)]"; "andrew@meiermade.com" } } }
+            elif settingsKey.IsSome then organizationSelector navId page query
+            else workspaceSelector navId (current.Split('?')[0]) query ]
         |> SideNav.withFooter [
-            if settingsKey.IsNone then
-                yield footerLink current (url ApplicationPage.Settings) "Settings" (icon "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.281 1.94 1.12 1.217-.456 1.37.49 1.296 2.247-.26 1.431-1.003.827v2.24l1.003.827.26 1.43-1.296 2.247-1.37.491-1.217-.456-1.94 1.12-.213 1.281-1.11.94h-2.592l-1.11-.94-.213-1.281-1.94-1.12-1.217.456-1.369-.49-1.296-2.247.26-1.43 1.003-.827v-2.24l-1.003-.827-.26-1.43 1.296-2.247 1.37-.491 1.216.456 1.94-1.12.213-1.281ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z")
-                yield div { _class "border-t border-[var(--fve-border)]" }
-            yield footerLink current (url ApplicationPage.Profile) "Andrew Meier" (icon "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.12a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75c-2.676 0-5.216-.584-7.5-1.63Z")
+            if not personal then
+                if settingsKey.IsNone then
+                    yield footerLink current (url ApplicationPage.Settings) "Settings" (icon "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.281 1.94 1.12 1.217-.456 1.37.49 1.296 2.247-.26 1.431-1.003.827v2.24l1.003.827.26 1.43-1.296 2.247-1.37.491-1.217-.456-1.94 1.12-.213 1.281-1.11.94h-2.592l-1.11-.94-.213-1.281-1.94-1.12-1.217.456-1.369-.49-1.296-2.247.26-1.43 1.003-.827v-2.24l-1.003-.827-.26-1.43 1.296-2.247 1.37-.491 1.216.456 1.94-1.12.213-1.281ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z")
+                    yield div { _class "border-t border-[var(--fve-border)]" }
+                yield footerLink current (url ApplicationPage.Profile) "Andrew Meier" (icon "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.12a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75c-2.676 0-5.216-.584-7.5-1.63Z")
         ] |> SideNav.render id
-    let private applicationFrame previewId (navigation:string -> HtmlElement) (bar:PageTopBarConfig) (title:string) (actions:HtmlElement) collection (content:HtmlElement) =
+    let private applicationFrame previewId (navigationLabel:string) (navigation:string -> HtmlElement) (bar:PageTopBarConfig) (title:string) (actions:HtmlElement) collection (content:HtmlElement) =
         let preview = previewId<>""
         let bounded = preview || collection
         let localId id = if preview then previewId+"-"+id else id
@@ -135,7 +149,7 @@ module Layout =
                 div { _class (if bounded then "shrink-0" else "sticky top-0 z-30 shrink-0"); bar |> PageTopBar.render }
                 details {
                     _class "shrink-0 border-b border-[var(--fve-border)] @3xl/fve-shell:hidden"
-                    summary { _class "cursor-pointer px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; "Ledger navigation" }
+                    summary { _class "cursor-pointer px-4 py-3 text-sm font-semibold focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; text (navigationLabel+" navigation") }
                     div { _class "h-[min(24rem,calc(100dvh-6rem))]"; navigation (localId "template-mobile-navigation") }
                 }
                 if preview then
@@ -165,6 +179,7 @@ module Layout =
                     |> Button.withAttributes [_dataOn("click", "document.getElementById('template-navigation-dialog').close()")] |> Button.render
             })
             SideNav.create navId "Documentation"
+            |> SideNav.withPersistenceKey (name + "-navigation")
             |> SideNav.withHeader header
             |> SideNav.withContent (SideNavContent.create sections)
             |> SideNav.withCurrent current
@@ -189,6 +204,7 @@ module Layout =
                   |> PageTopBar.withActions (fragment { actions; ThemeSwitcher.create "template-document-theme" "Choose color theme" |> ThemeSwitcher.render })
         let mainView = main {
             _id "main-content"; _tabindex -1
+            _attr("data-fve-page-scroll", "true")
             _class ("min-h-0 min-w-0 flex-1 overflow-y-auto px-4 outline-none sm:px-6 lg:px-10 "+(if heading.IsSome then "py-10" else "py-6"))
             div {
                 _class (if wide then "mx-auto grid min-w-0 gap-12" else "mx-auto grid min-w-0 max-w-4xl gap-12")
@@ -245,27 +261,36 @@ module Layout =
         shellWithNavigation name current sections (groups.Head |> snd |> List.head |> fst) title actions content
     let applicationShell page current (query:Query) (title:string) (actions:HtmlElement) (content:HtmlElement) =
         let url = applicationHref query
-        let settingsKey = match page with ApplicationPage.Settings -> Some "organizations" | ApplicationPage.SettingsSection key -> Some key | _ -> None
-        let current = if page=ApplicationPage.Settings then url (ApplicationPage.SettingsSection "organizations") else current
+        let settingsKey = match page with ApplicationPage.Settings -> Some "general" | ApplicationPage.SettingsSection key -> Some key | _ -> None
+        let personal = personalPage page
+        let current = if page=ApplicationPage.Settings then url (ApplicationPage.SettingsSection "general") else current
         let crumbs =
-            [ BreadcrumbItem.create (url ApplicationPage.Home) "Home"
-              if settingsKey.IsSome then BreadcrumbItem.create (url ApplicationPage.Settings) "Settings"
-              elif page<>ApplicationPage.Home && page<>ApplicationPage.Profile then
+            [ if personal then BreadcrumbItem.create (url ApplicationPage.Profile) "Profile"
+              elif settingsKey.IsSome then BreadcrumbItem.create (url ApplicationPage.Settings) "Settings"
+              else BreadcrumbItem.create (url ApplicationPage.Home) "Home"
+              if not personal && settingsKey.IsNone && page<>ApplicationPage.Home then
                   BreadcrumbItem.unlinked "Accounting"
                   match page with
                   | ApplicationPage.Account _ | ApplicationPage.CreateAccount | ApplicationPage.EditAccount _ | ApplicationPage.DeleteAccount _ -> BreadcrumbItem.create (url ApplicationPage.Accounts) "Accounts"
                   | ApplicationPage.Transaction _ -> BreadcrumbItem.create (url ApplicationPage.Transactions) "Transactions"
                   | _ -> ()
-              if page<>ApplicationPage.Home then BreadcrumbItem.create current title ]
+              if page<>ApplicationPage.Home && page<>ApplicationPage.Profile then BreadcrumbItem.create current title ]
         let bar = PageTopBar.create () |> PageTopBar.withContent (Breadcrumbs.create (elementId query "template-breadcrumbs") "Breadcrumb" crumbs |> Breadcrumbs.render id)
                   |> PageTopBar.withActions (fragment { yield! query.topBarActions; ThemeSwitcher.create (elementId query "template-theme") "Choose color theme" |> ThemeSwitcher.render })
         let collection = page=ApplicationPage.Accounts || page=ApplicationPage.Transactions
         let body = div {
             _class (if collection then "flex min-h-0 flex-1 flex-col gap-4" else "grid gap-6")
-            if query.workspace.environment.sandbox then Notice.create (elementId query "template-sandbox") ("Sandbox · "+query.workspace.environment.name) (p { "This template uses seeded records. No bank synchronization or money movement is performed." }) |> Notice.withColor NoticeColor.Warning |> Notice.render
+            if not personal && settingsKey.IsNone && query.workspace.environment.sandbox then Notice.create (elementId query "template-sandbox") ("Sandbox · "+query.workspace.environment.name) (p { "You are viewing a sandbox environment." }) |> Notice.withColor NoticeColor.Warning |> Notice.render
             content
         }
-        applicationFrame query.previewId (fun navId -> appNavigation navId page current query settingsKey) bar title actions collection body
+        applicationFrame query.previewId (if personal then "Profile" elif settingsKey.IsSome then "Settings" else "Ledger") (fun navId -> appNavigation navId page current query settingsKey) bar title actions collection body
+
+    let navigationRoot (content:HtmlElement) = div {
+        _id "example-navigation-root"
+        _attr("data-fve-navigation-root", "true")
+        content
+    }
+    let documentTitle (title:string) = Html.title { _id "docs-document-title"; title }
 
     /// Complete standalone host document; no catalog-only viewer chrome is required.
     let documentWithNonce (nonce:string option) (title:string) (content:HtmlElement) =
@@ -274,16 +299,25 @@ module Layout =
             match nonce with Some value -> _attr("data-nonce", value) | None -> ()
             head {
                 meta { _charset "utf-8" }; meta { _name "viewport"; _content "width=device-width, initial-scale=1" }
-                Html.title { title }
+                documentTitle title
                 ThemeSwitcher.assetsWithNonce "financial-example-appearance" ColorMode.System nonce
                 Html.link { _rel "stylesheet"; _href "/css/output.css" }
                 CodeBlock.assetsWithNonce (Some "/css/prism-tomorrow.1.29.0.min.css") ["/scripts/prism.1.29.0.min.js";"/scripts/prism-fsharp.1.29.0.min.js";"/scripts/prism-sql.1.29.0.min.js";"/scripts/prism-bash.1.29.0.min.js";"/scripts/prism-json.1.29.0.min.js"] nonce
                 Mermaid.assetsWithNonce "/scripts/mermaid.11.16.0.min.js" nonce
+                script {
+                    match nonce with Some value -> _attr("nonce", value) | None -> ()
+                    raw Navigation.enhancement.initialScript
+                }
                 script { _type "module"; _src "/scripts/datastar.1.0.4.js" }
             }
             body {
                 _class "m-0 bg-[var(--fve-background)] font-sans text-sm text-[var(--fve-text)] antialiased"
-                content
+                for attribute in Navigation.bodyAttributes do attribute
+                div {
+                    _id "docs-navigation-status"; _role "status"; _hidden true
+                    _class (ComponentsTheme.className theme + " fixed right-4 bottom-4 z-[120] max-w-sm rounded-lg border border-[var(--fve-critical-ring)] bg-[var(--fve-surface)] px-4 py-3 text-sm font-semibold text-[var(--fve-critical-text)] shadow-lg")
+                }
+                navigationRoot content
             }
         }
 

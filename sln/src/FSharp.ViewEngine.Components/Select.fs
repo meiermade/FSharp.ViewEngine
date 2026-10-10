@@ -290,8 +290,8 @@ module Select =
         let listboxElement = $"document.getElementById('{listboxId}')"
         let openFocus = if config.isMultiple then $", {listboxElement}.focus()" else ""
         let selectedItemPosition = not config.isMultiple && config.position = SelectPosition.SelectedItem
-        let alignSelected = $", requestAnimationFrame(() => {popupElement}.fvePosition?.())"
-        let synchronizePopup = $"${openSignal} ? ({popupIsOpen} || ({popupElement}.showPopover({{source: document.getElementById('{triggerId}')}}){openFocus}{alignSelected})) : ({popupIsOpen} && {popupElement}.hidePopover())"
+        let alignSelected = ", requestAnimationFrame(() => el.fvePosition?.())"
+        let synchronizePopup = $"el.isConnected && (${openSignal} ? (el.matches(':popover-open') || (el.showPopover({{source: document.getElementById('{triggerId}')}}){openFocus}{alignSelected})) : (el.matches(':popover-open') && el.hidePopover()))"
         let selectionSignal = $"{instanceId}_selected"
         let initialSelection = config.selectedMany |> List.map (fun choice -> { SelectedChoice.value = config.encode choice.value; label = choice.label })
         let valueSignal = $"{instanceId}_value"
@@ -369,8 +369,8 @@ module Select =
                 groupClass ]
         div {
             _class (ComponentHtml.classes [ ComponentHtml.controlSizeClass config.size; "relative grid min-w-0 grid-cols-1 content-start gap-1.5"; outerClass ])
-            let initialValue = if config.nativeFallback then $"document.getElementById('{fieldId}-native').value" else ComponentHtml.javascriptString selectedValue
-            let initialLabel = if config.nativeFallback then $"document.getElementById('{fieldId}-native').selectedOptions[0]?.text || {ComponentHtml.javascriptString selectedLabel}" else ComponentHtml.javascriptString selectedLabel
+            let initialValue = if config.nativeFallback then $"document.getElementById('{fieldId}-native')?.value ?? {ComponentHtml.javascriptString selectedValue}" else ComponentHtml.javascriptString selectedValue
+            let initialLabel = if config.nativeFallback then $"document.getElementById('{fieldId}-native')?.selectedOptions[0]?.text || {ComponentHtml.javascriptString selectedLabel}" else ComponentHtml.javascriptString selectedLabel
             let initialSignals = $"{{{openSignal}: false, {valueSignal}: {initialValue}, {labelSignal}: {initialLabel}, {activeSignal}: '', {typeaheadSignal}: '', {typeaheadTimeSignal}: 0}}"
             if not config.isMultiple then _dataSignals initialSignals
             if config.nativeFallback then
@@ -425,7 +425,10 @@ module Select =
                     _dataAttr ("aria-activedescendant", $"${openSignal} && document.getElementById(${activeSignal}) ? ${activeSignal} : null")
                 if config.isMultiple then _ariaDescribedby (String.concat " " ([ triggerId + "-selection" ] @ (if describedBy = "" then [] else [ describedBy ])))
                 elif String.IsNullOrEmpty describedBy |> not then _ariaDescribedby describedBy
-                _dataOn ("click", [ "prevent"; "stop" ], $"document.getElementById('{triggerId}').focus(); ${openSignal} = !${openSignal}")
+                if config.isMultiple then
+                    _dataOn ("click", [ "prevent"; "stop" ], $"${openSignal} = !${openSignal}")
+                else
+                    _dataOn ("click", [ "prevent"; "stop" ], $"document.getElementById('{triggerId}').focus(); ${openSignal} ? (${openSignal} = false) : ({openAt selectedOrFirst})")
                 _dataOn ("keydown", keydown)
                 if config.nativeFallback then
                     _style "display:none"
@@ -571,7 +574,7 @@ return @get({ComponentHtml.javascriptString endpoint}, {{requestCancellation: co
         let openSignal = $"_{instanceId}_open"
         let popupElement = $"document.getElementById('{popupId}')"
         let popupIsOpen = $"{popupElement}.matches(':popover-open')"
-        let synchronizePopup = $"${openSignal} ? ({popupIsOpen} || {popupElement}.showPopover({{source: document.getElementById('{fieldId}')}})) : ({popupIsOpen} && {popupElement}.hidePopover())"
+        let synchronizePopup = $"el.isConnected && (${openSignal} ? (el.matches(':popover-open') || el.showPopover({{source: document.getElementById('{fieldId}')}})) : (el.matches(':popover-open') && el.hidePopover()))"
         let querySignal =
             match search with
             | SelectSearch.Static -> $"_{instanceId}_query"
