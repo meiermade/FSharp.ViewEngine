@@ -59,7 +59,11 @@ module Handler =
             let intent = Navigation.tryIntent context
             let mode = appMode context
             let response =
-                if page.id = Components.tableRegistration.id then
+                if (page.id=Components.browserRegistration.id || page.id=Components.phoneRegistration.id) && context.Request.Query["expanded"].ToString()="1" then
+                    let docsPage = DocumentationPage.create page.id page.title
+                    let root = Components.expandedReviewFixture (page.id=Components.phoneRegistration.id)
+                    respond intent (View.documentWithContentAndNonce (Docs.Examples.Hosting.nonce context) Registry.navigation page docsPage root) (root, View.contentMetadata Registry.navigation page docsPage)
+                elif page.id = Components.tableRegistration.id then
                     let sort = Components.teamMemberSortFromQuery (context.Request.Query["sort"].ToString()) (context.Request.Query["direction"].ToString())
                     respondWithPage intent context page (Components.tablePageFor sort)
                 else
@@ -267,19 +271,19 @@ module Handler =
         setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
 
     let private componentDrawerPatch : HttpHandler =
-        let html = Components.patchedAccountDrawerContent |> Render.toString
+        let html = Components.patchedItemDrawerContent |> Render.toString
         setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
 
     let private componentTabsPatch : HttpHandler =
         let html = Components.reviewTabsRegion true |> Render.toString
         setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
 
-    let private componentAccountDeletion : HttpHandler =
+    let private componentItemDeletion : HttpHandler =
         fun next context ->
             task {
                 do! System.Threading.Tasks.Task.Delay 1500
                 let html =
-                    Components.accountDeletionContent (Some "Operating cannot be deleted while posted entries are assigned to its open period.")
+                    Components.itemDeletionContent (Some "This item is still in use. Remove its links before deleting it.")
                     |> Render.toString
                 return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
             }
@@ -356,7 +360,7 @@ module Handler =
     let private componentSelectChoice =
         componentChoicePatch (fun body ->
             match signalString "components_status_value" body with
-            | Some "active" -> Components.selectFormRegion (Some Components.AccountStatus.Active) None (Some "Accepted status: Active.")
+            | Some "active" -> Components.selectFormRegion (Some Components.ChoiceStatus.Active) None (Some "Accepted status: Active.")
             | Some "pending" -> Components.selectFormRegion (Some Components.Pending) None (Some "Accepted status: Pending.")
             | Some "scheduled" -> Components.selectFormRegion (Some Components.Scheduled) None (Some "Accepted status: Scheduled.")
             | _ -> Components.selectFormRegion None (Some "Choose an available status.") None)
@@ -364,22 +368,22 @@ module Handler =
     let private componentCheckboxChoice =
         componentChoicePatch (fun body ->
             if signalBool "components_confirm_archived_review_checked" body then
-                Components.checkboxFormRegion true None (Some "Archived-account review confirmed.")
+                Components.checkboxFormRegion true None (Some "Review confirmed.")
             else
-                Components.checkboxFormRegion false (Some "Confirm the archived-account review.") None)
+                Components.checkboxFormRegion false (Some "Confirm the review.") None)
 
     let private componentSwitchChoice =
         componentChoicePatch (fun body ->
-            let enabled = signalBool "components_posting_notifications_enabled" body
-            let result = if enabled then "Posting notifications enabled." else "Posting notifications disabled."
+            let enabled = signalBool "components_notifications_enabled" body
+            let result = if enabled then "Notifications enabled." else "Notifications disabled."
             Components.switchFormRegion enabled None (Some result))
 
     let private componentRadioChoice =
         componentChoicePatch (fun body ->
-            match signalString "components_posting_mode_value" body with
-            | Some "automatic" -> Components.radioGroupFormRegion (Some "automatic") None (Some "Accepted posting mode: Automatic.")
-            | Some "manual" -> Components.radioGroupFormRegion (Some "manual") None (Some "Accepted posting mode: Manual review.")
-            | _ -> Components.radioGroupFormRegion None (Some "Choose an available posting mode.") None)
+            match signalString "components_update_mode_value" body with
+            | Some "automatic" -> Components.radioGroupFormRegion (Some "automatic") None (Some "Accepted update mode: Automatic.")
+            | Some "manual" -> Components.radioGroupFormRegion (Some "manual") None (Some "Accepted update mode: Manual review.")
+            | _ -> Components.radioGroupFormRegion None (Some "Choose an available update mode.") None)
 
     let private componentNotification =
         componentChoicePatch (fun body ->
@@ -397,7 +401,7 @@ module Handler =
                     let known = requested |> List.filter (fun value -> List.contains value [ "alex"; "jamie"; "riley"; "taylor" ])
                     let valid = requested = known && known.Length >= 1 && known.Length <= 3
                     let validation = if valid then None else Some "Choose one to three available members."
-                    let result = if valid then Some $"Validated {known.Length} members. This example does not save your data." else None
+                    let result = if valid then Some $"Validated {known.Length} members." else None
                     let html = render known validation result |> Render.toString
                     return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
             }
@@ -411,20 +415,20 @@ module Handler =
             let html = (if wholeField then Components.remoteMembersField query else Components.remoteMembersOptions query retry) |> Render.toString
             (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
 
-    let private componentAccountSearchSettled : HttpHandler =
+    let private componentButtonSettled : HttpHandler =
         fun next context ->
             task {
                 do! System.Threading.Tasks.Task.Delay 1000
                 return! setStatusCode 204 next context
             }
 
-    let private componentAccountSearch : HttpHandler =
+    let private componentItemSearch : HttpHandler =
         fun next context ->
             task {
                 let query =
                     try
                         use signals = JsonDocument.Parse(context.Request.Query["datastar"].ToString())
-                        signals.RootElement.GetProperty("account_query").GetString()
+                        signals.RootElement.GetProperty("item_query").GetString()
                         |> Option.ofObj
                         |> Option.defaultValue ""
                     with
@@ -433,11 +437,11 @@ module Handler =
                     | :? System.Collections.Generic.KeyNotFoundException -> ""
                 let retry = String.Equals(context.Request.Query["retry"].ToString(), "true", StringComparison.OrdinalIgnoreCase)
                 let delay =
-                    if query.StartsWith("oper", StringComparison.OrdinalIgnoreCase) then 750
-                    elif query.StartsWith("tax", StringComparison.OrdinalIgnoreCase) then 50
+                    if query.StartsWith("proj", StringComparison.OrdinalIgnoreCase) then 750
+                    elif query.StartsWith("shared", StringComparison.OrdinalIgnoreCase) then 50
                     else 0
                 if delay > 0 then do! System.Threading.Tasks.Task.Delay delay
-                let html = Components.accountComboboxOptions query retry |> Render.toString
+                let html = Components.itemComboboxOptions query retry |> Render.toString
                 return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
             }
 
@@ -475,7 +479,7 @@ module Handler =
             route "/components/choices/switch" >=> componentSwitchChoice
             route "/components/choices/radio" >=> componentRadioChoice
             route "/components/notifications/show" >=> componentNotification
-            route "/components/dialogs/confirm" >=> componentAccountDeletion
+            route "/components/dialogs/confirm" >=> componentItemDeletion
         ]
 
     let private migrationRoutes =
@@ -514,9 +518,9 @@ module Handler =
             route "/docs/page-examples/documentation-site" >=> documentationSiteExample
             route "/docs/page-examples/api-reference" >=> apiReferenceExample
             route "/components/menus/actions" >=> componentDropdownMenuPatch
-            route "/components/drawers/account" >=> componentDrawerPatch
+            route "/components/drawers/item" >=> componentDrawerPatch
             route "/components/tabs/review" >=> componentTabsPatch
-            route "/components/accounts/search/settled" >=> componentAccountSearchSettled
-            route "/components/accounts/search" >=> componentAccountSearch
+            route "/components/button/settled" >=> componentButtonSettled
+            route "/components/items/search" >=> componentItemSearch
             choose (previewRoutes @ pageRoutes)
         ]

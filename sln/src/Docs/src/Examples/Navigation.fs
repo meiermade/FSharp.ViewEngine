@@ -36,7 +36,7 @@ module Navigation =
         "const fveScrollRoot = document.querySelector('[data-docs-main], [data-fve-page-scroll], [data-fve-app-mode-root]'); window.history.replaceState(Object.assign({}, window.history.state || {}, { fveDocsScroll: [fveScrollRoot?.scrollLeft ?? window.scrollX, fveScrollRoot?.scrollTop ?? window.scrollY] }), '', window.location.href);"
 
     let enhancement =
-        { initialScript = "window.history.scrollRestoration = 'manual'; document.addEventListener('DOMContentLoaded', () => { document.body.dataset.navigationClient = window.crypto.randomUUID(); document.body.dataset.navigationSequence = '0'; const root = document.querySelector('[data-fve-navigation-root]'); const documentToken = window.crypto.randomUUID(); if (root) root.dataset.navigationDocument = documentToken; window.history.replaceState(Object.assign({}, window.history.state || {}, { fveDocsDocument: documentToken, fveDocsIndex: window.history.state?.fveDocsIndex ?? 0, fveDocsScroll: [window.scrollX, window.scrollY] }), '', window.location.href); document.body.dataset.navigationIndex = String(window.history.state.fveDocsIndex); }, { once: true });"
+        { initialScript = "window.history.scrollRestoration = 'manual'; document.addEventListener('DOMContentLoaded', () => { document.body.dataset.navigationClient = window.crypto.randomUUID(); document.body.dataset.navigationSequence = '0'; const root = document.querySelector('[data-fve-navigation-root]'); const documentToken = window.crypto.randomUUID(); if (root) root.dataset.navigationDocument = documentToken; window.history.replaceState(Object.assign({}, window.history.state || {}, { fveDocsDocument: documentToken, fveDocsScroll: [window.scrollX, window.scrollY] }), '', window.location.href); }, { once: true });"
           clickAction =
             $"""
 const link = evt.target.closest?.('a[href]');
@@ -52,7 +52,6 @@ if (!evt.defaultPrevented && evt.button === 0 && !evt.metaKey && !evt.ctrlKey &&
       target.searchParams.set('fveAppFrame', frame);
     }}
     evt.preventDefault();
-    if (!window.dispatchEvent(new CustomEvent('fve-before-navigate', {{cancelable: true}}))) return;
     window.fveNavigationController?.abort(); window.fveNavigationController = new AbortController();
     {saveScroll}
     $navigationPending = true;
@@ -96,12 +95,6 @@ if (!$navigationPending && evt.state?.fveDocsDocument && evt.state.fveDocsDocume
   scrollRoot ? scrollRoot.scrollTo({{ left: restoredScroll[0], top: restoredScroll[1], behavior: 'instant' }}) : window.scrollTo({{ left: restoredScroll[0], top: restoredScroll[1], behavior: 'instant' }});
   window.fsharpDocsFragments?.show(window.location.hash);
 }} else {{
-  if (!window.dispatchEvent(new CustomEvent('fve-before-navigate', {{cancelable: true}}))) {{
-    const delta = Number(document.body.dataset.navigationIndex) - evt.state?.fveDocsIndex;
-    if (Number.isFinite(delta) && delta !== 0) window.history.go(delta);
-    else window.history.forward();
-    return;
-  }}
   window.fveNavigationController?.abort(); window.fveNavigationController = new AbortController();
   $navigationPending = true;
   root?.setAttribute('aria-busy', 'true');
@@ -113,6 +106,10 @@ if (!$navigationPending && evt.state?.fveDocsDocument && evt.state.fveDocsDocume
             "evt.detail?.el === document.body && ((evt.detail.type === 'error' && evt.detail.argsRaw?.status) || evt.detail.type === 'retries-failed') ? ($navigationPending = false, $navigationTarget = '', document.querySelector('[data-fve-navigation-root]')?.removeAttribute('aria-busy'), document.getElementById('docs-navigation-status').hidden = false, document.getElementById('docs-navigation-status').textContent = 'The page could not be loaded. Try the link again or refresh.') : null"
           appModeExitAction =
             "evt.key == 'Escape' && !evt.defaultPrevented && !document.querySelector(':popover-open, [data-fve-app-mode-root] button[aria-controls][aria-expanded=true], [data-fve-app-mode-root] dialog[open]') ? document.querySelector('[data-fve-app-mode-exit]')?.click() : null" }
+
+    // Native form submission remains the fallback; Datastar owns the in-flight indicator.
+    let editorSubmitAction pendingSignal =
+        $"if (!${pendingSignal}) {{ window.fveNavigationController?.abort(); window.fveNavigationController = new AbortController(); @post(el.action, {{ contentType: 'form', headers: {{ '{intentHeader}': 'push', '{clientHeader}': document.body.dataset.navigationClient, '{sequenceHeader}': (document.body.dataset.navigationSequence = String((Number(document.body.dataset.navigationSequence) || 0) + 1)) }}, requestCancellation: window.fveNavigationController, retry: 'never', retryMaxCount: 0 }}) }}"
 
     let bodyAttributes =
         [ _dataSignals "{sideNavOpen: false, navigationPending: false, navigationTarget: ''}"
@@ -165,7 +162,7 @@ if (!$navigationPending && evt.state?.fveDocsDocument && evt.state.fveDocsDocume
         let history, scroll =
             match intent with
             | Navigate ->
-                $"window.history.pushState({{ fveDocsDocument: {encodedDocumentToken}, fveDocsIndex: (Number(document.body.dataset.navigationIndex) || 0) + 1, fveDocsScroll: [0, 0] }}, '', {encodedHref});",
+                $"window.history.pushState({{ fveDocsDocument: {encodedDocumentToken}, fveDocsScroll: [0, 0] }}, '', {encodedHref});",
                 "for (const element of document.querySelectorAll('[data-docs-main], [data-fve-page-scroll], [data-docs-page-viewport], [data-docs-page-layout], [data-docs-custom-rail], [data-fve-app-mode-root]')) element.scrollTo({ top: 0, left: 0, behavior: 'instant' }); window.scrollTo({ top: 0, left: 0, behavior: 'instant' });"
             | Restore ->
                 $"window.history.replaceState(Object.assign({{}}, window.history.state || {{}}, {{ fveDocsDocument: {encodedDocumentToken} }}), '', window.location.href);",
@@ -174,7 +171,6 @@ if (!$navigationPending && evt.state?.fveDocsDocument && evt.state.fveDocsDocume
 (function() {{
 const previousHref = window.location.href;
 {history}
-document.body.dataset.navigationIndex = String(window.history.state?.fveDocsIndex ?? 0);
 const navigationRoot = document.querySelector('[data-fve-navigation-root]');
 if (navigationRoot) navigationRoot.dataset.navigationDocument = {encodedDocumentToken};
 {scroll}
@@ -188,7 +184,9 @@ window.initializeDocsToc?.();
 window.fsharpDocsFragments?.show(window.location.hash);
 const returnFocus = {encodedFocus};
 requestAnimationFrame(() => {{
-  (returnFocus ? document.getElementById(returnFocus) : document.getElementById('main-content') ?? document.getElementById('fve-app-mode-root'))?.focus?.({{ preventScroll: true }});
+  const focusTarget = returnFocus ? document.getElementById(returnFocus) : navigationRoot?.querySelector('[autofocus][aria-invalid=true]') ?? document.getElementById('main-content') ?? document.getElementById('fve-app-mode-root');
+  focusTarget?.focus?.({{ preventScroll: true }});
+  if (returnFocus) focusTarget?.scrollIntoView({{block: 'nearest', behavior: 'instant'}});
   navigationRoot?.dispatchEvent(new CustomEvent('fve-navigation-complete', {{ bubbles: true, detail: {{ intent: '{if intent = Navigate then "navigate" else "restore"}', previousHref, href: window.location.href }} }}));
 }});
 }})();

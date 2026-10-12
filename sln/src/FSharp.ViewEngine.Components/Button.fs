@@ -61,7 +61,7 @@ type ButtonConfig =
           size:ControlSize option
           buttonType:ButtonType
           disabled:bool
-          pending:bool
+          pendingSignal:string option
           className:string option
           attributes:HtmlAttribute list }
 
@@ -109,7 +109,7 @@ module Button =
           size = None
           buttonType = ButtonType.Button
           disabled = false
-          pending = false
+          pendingSignal = None
           className = None
           attributes = [] }
 
@@ -123,8 +123,11 @@ module Button =
     let asSubmit (config:ButtonConfig) = { config with buttonType = ButtonType.Submit }
     /// Makes the button unavailable without presenting work in progress.
     let disabled (config:ButtonConfig) = { config with disabled = true }
-    /// Makes the button busy and unavailable while retaining its form value.
-    let pending (config:ButtonConfig) = { config with pending = true }
+    /// A consumer-owned Datastar signal, without a leading dollar sign, drives the spinner and busy state.
+    let withPendingSignal (signal:string) (config:ButtonConfig) =
+        if String.IsNullOrWhiteSpace signal || not (System.Text.RegularExpressions.Regex.IsMatch(signal, "^[a-zA-Z_][a-zA-Z0-9_]*$")) then
+            invalidArg (nameof signal) "A pending signal must be a valid Datastar identifier."
+        { config with pendingSignal = Some signal }
     /// Adds consumer presentation classes without replacing component-owned classes.
     let withClass className (config:ButtonConfig) = { config with className = Some className }
     /// Adds safe consumer-authored HTML attributes.
@@ -147,10 +150,11 @@ module Button =
         | ButtonVariant.Outline -> ComponentColors.outline + " " + ComponentColors.softInteraction
         | ButtonVariant.Ghost -> ComponentColors.ghost + " " + ComponentColors.softInteraction
 
-    let private decorative (content:HtmlElement) : HtmlElement =
+    let private decorative pendingSignal (content:HtmlElement) : HtmlElement =
         span {
             _ariaHidden true
             _class "shrink-0"
+            match pendingSignal with Some signal -> _dataShow ($"!${signal}") | None -> ()
             content
         }
 
@@ -162,28 +166,20 @@ module Button =
         | ButtonContent.Icon _ -> true
         | _ -> false
 
-    let private renderAvailable (content:ButtonContent) : HtmlElement =
+    let private renderAvailable pendingSignal (content:ButtonContent) : HtmlElement =
         match content with
         | ButtonContent.Text text -> Html.text text
-        | ButtonContent.Icon (_, icon) -> decorative icon
+        | ButtonContent.Icon (_, icon) -> decorative pendingSignal icon
         | ButtonContent.IconText (icon, text) ->
             fragment {
-                decorative icon
+                decorative pendingSignal icon
                 text
             }
         | ButtonContent.TextIcon (text, icon) ->
             fragment {
                 text
-                decorative icon
+                decorative pendingSignal icon
             }
-        | ButtonContent.Custom content -> content
-
-    let private renderPending (content:ButtonContent) : HtmlElement =
-        match content with
-        | ButtonContent.Icon _ -> empty
-        | ButtonContent.Text text
-        | ButtonContent.IconText (_, text)
-        | ButtonContent.TextIcon (text, _) -> Html.text text
         | ButtonContent.Custom content -> content
 
     let private classesFor appearance (config:ButtonConfig) =
@@ -197,7 +193,7 @@ module Button =
     /// Renders a native destination link with Button presentation. Links cannot submit, be disabled or be pending.
     let renderLink href (config:ButtonConfig) =
         if String.IsNullOrWhiteSpace href then invalidArg (nameof href) "A native Button link requires a destination."
-        if config.disabled || config.pending || config.buttonType<>ButtonType.Button then
+        if config.disabled || config.pendingSignal.IsSome || config.buttonType<>ButtonType.Button then
             invalidArg (nameof config) "Native Button links do not support disabled, pending or form-submit behavior."
         let interaction =
             match config.variant with
@@ -211,19 +207,23 @@ module Button =
             _style (ComponentColors.style (palette config.color) config.attributes)
             _class (classesFor interaction config)
             for attribute in ComponentHtml.safeAttributes [ "href"; "type"; "aria-label"; "disabled"; "aria-busy"; "class"; "style" ] config.attributes do attribute
-            renderAvailable config.content
+            renderAvailable None config.content
         }
 
     let internal renderGroupedLink href groupClass config = config |> withGroupClass groupClass |> renderLink href
 
     /// Renders the configured native button.
     let render config =
-        let unavailable = config.disabled || config.pending
+        let unavailable = config.disabled
         button {
             _type (ButtonStyles.buttonTypeValue config.buttonType)
             match accessibleName config.content with Some name -> _ariaLabel name | None -> ()
             _disabled unavailable
-            if config.pending then _ariaBusy true
+            match config.pendingSignal with
+            | Some signal ->
+                _dataAttr ("disabled", if config.disabled then "true" else "$"+signal)
+                _dataAttr ("aria-busy", $"${signal} ? 'true' : null")
+            | None -> ()
             _style (ComponentColors.style (palette config.color) config.attributes)
             _class (classesFor (variantClasses config.variant) config)
             if not unavailable then
@@ -234,10 +234,17 @@ module Button =
                 _dataOn ("blur", [ "capture" ], "if (el.dataset.fveKeyboardPressed) el.dataset.fveKeyboardPressed = 'false'")
                 _dataOn ("blur", [ "window" ], "if (el.dataset.fveKeyboardPressed) el.dataset.fveKeyboardPressed = 'false'")
                 _dataOn ("pointerdown", [ "capture" ], "delete el.dataset.fveKeyboardPressed")
-            for attribute in ComponentHtml.safeAttributes [ "type"; "aria-label"; "disabled"; "aria-busy"; "class"; "style"; "data-fve-keyboard-pressed"; "data-on:keydown__capture"; "data-on:keyup__capture"; "data-on:blur__capture"; "data-on:blur__window"; "data-on:pointerdown__capture" ] config.attributes do attribute
-            if config.pending then
-                ButtonStyles.loadingGlyph (config.size |> Option.defaultValue ControlSize.Medium)
-                renderPending config.content
-            else
-                renderAvailable config.content
+            for attribute in ComponentHtml.safeAttributes ([ "type"; "aria-label"; "disabled"; "aria-busy"; "class"; "style"; "data-fve-keyboard-pressed"; "data-on:keydown__capture"; "data-on:keyup__capture"; "data-on:blur__capture"; "data-on:blur__window"; "data-on:pointerdown__capture" ]
+                @ (if config.pendingSignal.IsSome then ["data-attr:disabled"; "data-attr:aria-busy"] else [])) config.attributes do attribute
+            match config.pendingSignal with
+            | Some signal ->
+                span {
+                    _class "inline-flex"
+                    _ariaHidden true
+                    _dataShow ($"${signal}")
+                    _style "display:none"
+                    ButtonStyles.loadingGlyph (config.size |> Option.defaultValue ControlSize.Medium)
+                }
+            | None -> ()
+            renderAvailable config.pendingSignal config.content
         }

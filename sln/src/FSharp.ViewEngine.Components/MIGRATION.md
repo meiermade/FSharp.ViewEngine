@@ -2,6 +2,12 @@
 
 Run `dotnet fve diff --config ...` before updating the pinned CLI. Preserve local edits and migrate them manually before removing retired files, selectors, configuration entries, or compile items. `fve add --overwrite` explicitly replaces source; there are no compatibility aliases for retired selectors.
 
+## Button
+
+Replace `Button.pending` with `Button.withPendingSignal "_updating"` (a Datastar signal name without `$`). The consumer attaches `data-indicator` and the request action to its button or form using `withAttributes`; Button owns signal-driven spinner visibility, native disabled state and `aria-busy`. For native submit buttons, put the enhanced request and indicator on the form so keyboard submission and browser validation still work. Keep `Button.disabled` for actions that are unavailable independently of a request. There is no static pending alias.
+
+See [Button](https://fve.meiermade.com/components/button) for live request-driven examples.
+
 ## Side nav
 
 Replace required header/sections arguments with optional slots:

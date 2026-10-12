@@ -1170,7 +1170,7 @@ module PageExamples =
                     p {
                         _role "status"
                         _class "w-full text-xs text-[var(--fve-muted-text)]"
-                        "Demo message added. Submitted text is not saved."
+                        "Message added."
                     }
             }
         }

@@ -36,7 +36,7 @@ module Layout =
                        yield "specState",query.specState
                        if query.resource<>"" then yield "resource",query.resource
                        if query.appMode then yield "appMode","1"
-                       yield "fveAppDock",query.dock ]
+                       ]
                elif query.embedded then "&embedded=1" else "")
         let organizationDialog =
             Dialog.create (navId+"-organizations") "Change organization" (div {
@@ -121,9 +121,9 @@ module Layout =
                     yield div { _class "border-t border-[var(--fve-border)]" }
                 yield footerLink current (url ApplicationPage.Profile) "Andrew Meier" (icon "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.12a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75c-2.676 0-5.216-.584-7.5-1.63Z")
         ] |> SideNav.render id
-    let private applicationFrame previewId (navigationLabel:string) (navigation:string -> HtmlElement) (bar:PageTopBarConfig) (title:string) (actions:HtmlElement) collection (content:HtmlElement) =
+    let private applicationFrame previewId framed (navigationLabel:string) (navigation:string -> HtmlElement) (bar:PageTopBarConfig) (title:string) (actions:HtmlElement) collection (content:HtmlElement) =
         let preview = previewId<>""
-        let bounded = preview || collection
+        let bounded = preview || framed || collection
         let localId id = if preview then previewId+"-"+id else id
         let body = div {
             _class (if collection then "flex h-full min-h-0 flex-col" else "min-w-0")
@@ -139,7 +139,7 @@ module Layout =
         }
         div {
             _attr("data-template-shell", "true")
-            _class ((theme |> ComponentsTheme.withDensity Density.Compact |> ComponentsTheme.withControlSize ControlSize.Small |> ComponentsTheme.className)+" @container/fve-shell flex bg-[var(--fve-background)] text-[var(--fve-text)] "+(if preview then "h-full min-h-0" elif collection then "h-dvh min-h-0" else "min-h-dvh"))
+            _class ((theme |> ComponentsTheme.withDensity Density.Compact |> ComponentsTheme.withControlSize ControlSize.Small |> ComponentsTheme.className)+" @container/fve-shell flex bg-[var(--fve-background)] text-[var(--fve-text)] "+(if preview || framed then "h-full min-h-0" elif collection then "h-dvh min-h-0" else "min-h-dvh"))
             aside {
                 _class ("hidden min-h-0 w-60 shrink-0 @3xl/fve-shell:block "+(if bounded then "h-full" else "sticky top-0 h-dvh"))
                 navigation (localId "template-desktop-navigation")
@@ -153,9 +153,9 @@ module Layout =
                     div { _class "h-[min(24rem,calc(100dvh-6rem))]"; navigation (localId "template-mobile-navigation") }
                 }
                 if preview then
-                    Html.section { _ariaLabel title; _class (if collection then "min-h-0 min-w-0 flex-1 overflow-hidden outline-none" else "min-h-0 min-w-0 flex-1 overflow-y-auto outline-none"); body }
+                    Html.section { _ariaLabel title; _attr("data-fve-page-scroll", "true"); _class (if collection then "min-h-0 min-w-0 flex-1 overflow-hidden outline-none" else "min-h-0 min-w-0 flex-1 overflow-y-auto outline-none"); body }
                 else
-                    main { _id "main-content"; _tabindex -1; _class (if collection then "min-h-0 min-w-0 flex-1 overflow-hidden outline-none" else "min-w-0 flex-1 outline-none"); body }
+                    main { _id "main-content"; _tabindex -1; _class (if collection then "min-h-0 min-w-0 flex-1 overflow-hidden outline-none" elif framed then "min-h-0 min-w-0 flex-1 overflow-y-auto outline-none" else "min-w-0 flex-1 outline-none"); _attr("data-fve-page-scroll", "true"); body }
             }
         }
     let documentationSection id (title:string) (content:HtmlElement) =
@@ -283,7 +283,7 @@ module Layout =
             if not personal && settingsKey.IsNone && query.workspace.environment.sandbox then Notice.create (elementId query "template-sandbox") ("Sandbox · "+query.workspace.environment.name) (p { "You are viewing a sandbox environment." }) |> Notice.withColor NoticeColor.Warning |> Notice.render
             content
         }
-        applicationFrame query.previewId (if personal then "Profile" elif settingsKey.IsSome then "Settings" else "Ledger") (fun navId -> appNavigation navId page current query settingsKey) bar title actions collection body
+        applicationFrame query.previewId query.specification (if personal then "Profile" elif settingsKey.IsSome then "Settings" else "Ledger") (fun navId -> appNavigation navId page current query settingsKey) bar title actions collection body
 
     let navigationRoot (content:HtmlElement) = div {
         _id "example-navigation-root"

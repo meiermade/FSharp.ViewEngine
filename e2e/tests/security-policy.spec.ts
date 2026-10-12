@@ -45,8 +45,9 @@ test('nonce CSP permits canonical controls but blocks unauthorized scripts @cros
   await page.locator('#template-document-theme-trigger').click();
   await page.locator('#template-document-theme-menu').getByRole('menuitemradio', { name: 'Dark', exact: true }).click();
   await expect(page.locator('html')).toHaveClass(/dark/);
-  await page.getByRole('tab', { name: 'Type filter added', exact: true }).click();
-  await expect(page.getByRole('tabpanel', { name: 'Type filter added', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: /^Review state:/ }).click();
+  await page.getByRole('menuitem', { name: 'Type filter added', exact: true }).click();
+  await expect(page.locator('[data-review-fixture] [data-ledger-filter="accountType"]')).toBeVisible();
   const resize = page.getByRole('separator', { name: 'Resize Documentation navigation width', exact: true });
   const before = Number(await resize.getAttribute('aria-valuenow'));
   await resize.press('ArrowRight');

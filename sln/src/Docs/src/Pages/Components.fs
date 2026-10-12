@@ -11,7 +11,7 @@ open type Svg
 open type Datastar
 
 module Components =
-    type AccountStatus =
+    type ChoiceStatus =
         | Active
         | Pending
         | Suspended
@@ -63,13 +63,13 @@ module Components =
     let defaultAccountWorkspace =
         { workspaceName="Meier Made"; currency="USD"; emailUpdates=true; draftName=""; draftType="Asset"; feedback=""; searchQuery=""; filterType="all"; sortColumn="name"; sortDirection="asc"; page=1; visibleColumns=set [ "type"; "commodity"; "balance"; "total" ] }
 
-    type HierarchyAccount =
+    type HierarchyItem =
         { key:string
           ancestors:string list
           level:int
           name:string
-          accountType:string
-          total:decimal
+          kind:string
+          count:int
           hasChildren:bool }
 
     type TransactionStatus =
@@ -141,7 +141,7 @@ module Components =
 
     let private galleryDestinationAttributes =
         [ _attr ("data-fve-gallery-contained", "true")
-          _dataOn ("click", "const link = evt.target.closest?.('a[href]'); if (link && !link.hash && !link.hasAttribute('download') && !link.hasAttribute('data-fve-app-mode-launch') && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) evt.preventDefault()") ]
+          _dataOn ("click", "const link = evt.target.closest?.('a[href]'); if (link && !link.hash && !link.hasAttribute('download') && !link.hasAttribute('data-fve-app-mode-launch') && !link.hasAttribute('data-review-expand') && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) evt.preventDefault()") ]
 
     let private moreActionsIcon =
         raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path d="M3.75 10a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0ZM8.75 10a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0ZM13.75 10a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Z"/></svg>"""
@@ -183,14 +183,15 @@ module Components =
         }
 
     let pendingSyncButton =
-        Button.create (ButtonContent.Text "Sync accounts")
+        Button.create (ButtonContent.Text "Sync")
         |> Button.withColor ButtonColor.Primary
         |> Button.withVariant ButtonVariant.Solid
-        |> Button.pending
+        |> Button.withPendingSignal "_sync_pending"
+        |> Button.withAttributes [ _dataIndicator "_sync_pending"; _dataOn ("click", "@get('/components/button/settled', {filterSignals: {exclude: /.*/}, retry: 'never'})") ]
         |> Button.render
 
     let disabledDeleteButton =
-        Button.create (ButtonContent.Text "Delete account")
+        Button.create (ButtonContent.Text "Delete")
         |> Button.withColor ButtonColor.Error
         |> Button.withVariant ButtonVariant.Solid
         |> Button.disabled
@@ -205,20 +206,21 @@ module Components =
     let private removeIcon =
         raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M8.75 3.5a1.25 1.25 0 0 1 2.5 0V4h3a.75.75 0 0 1 0 1.5h-.44l-.55 9.08A2.25 2.25 0 0 1 11.02 16.7H8.98a2.25 2.25 0 0 1-2.24-2.12L6.19 5.5h-.44a.75.75 0 0 1 0-1.5h3v-.5Zm-1.06 2 .54 8.99a.75.75 0 0 0 .75.71h2.04a.75.75 0 0 0 .75-.71l.54-8.99H7.69Z" clip-rule="evenodd"/></svg>"""
 
-    let addAccountIconOnlyButton =
-        Button.create (ButtonContent.Icon ("Add account", plusIcon))
+    let createIconOnlyButton =
+        Button.create (ButtonContent.Icon ("Create", plusIcon))
         |> Button.withColor ButtonColor.Primary
         |> Button.withVariant ButtonVariant.Solid
         |> Button.render
 
     let refreshingIconOnlyButton =
-        Button.create (ButtonContent.Icon ("Refreshing accounts", refreshIcon))
+        Button.create (ButtonContent.Icon ("Refresh", refreshIcon))
         |> Button.withVariant ButtonVariant.Ghost
-        |> Button.pending
+        |> Button.withPendingSignal "_refresh_pending"
+        |> Button.withAttributes [ _dataIndicator "_refresh_pending"; _dataOn ("click", "@get('/components/button/settled', {filterSignals: {exclude: /.*/}, retry: 'never'})") ]
         |> Button.render
 
     let disabledRemoveIconOnlyButton =
-        Button.create (ButtonContent.Icon ("Remove account", removeIcon))
+        Button.create (ButtonContent.Icon ("Remove", removeIcon))
         |> Button.withColor ButtonColor.Error
         |> Button.withVariant ButtonVariant.Solid
         |> Button.disabled
@@ -312,7 +314,7 @@ module Components =
     let separatorExamples =
         div {
             _class "grid gap-5"
-            div { p { _class "mb-3 text-sm font-medium"; "Account details" }; Separator.create () |> Separator.semantic |> Separator.render; p { _class "mt-3 text-sm text-[var(--fve-muted-text)]"; "Contact and billing information" } }
+            div { p { _class "mb-3 text-sm font-medium"; "Profile details" }; Separator.create () |> Separator.semantic |> Separator.render; p { _class "mt-3 text-sm text-[var(--fve-muted-text)]"; "Contact information and preferences" } }
             div { _class "flex h-8 items-center gap-4"; span { "Profile" }; Separator.create () |> Separator.withOrientation SeparatorOrientation.Vertical |> Separator.render; span { "Security" } }
         }
 
@@ -357,19 +359,19 @@ module Components =
         |> SkeletonRegion.render
 
     let defaultItem =
-        ul { Item.create "Quarterly close" |> Item.render }
+        ul { Item.create "Project review" |> Item.render }
 
     let itemExample =
         ul {
             _class "grid max-w-xl gap-2"
-            Item.create "Quarterly close"
-            |> Item.withDescription (p { "Review reconciliation notes and unresolved balances." })
+            Item.create "Project review"
+            |> Item.withDescription (p { "Review the latest notes and outstanding tasks." })
             |> Item.withMetadata (time { _datetime "2026-09-30"; "Sep 30" })
             |> Item.withVariant ItemVariant.Outlined
-            |> Item.withLink "/components/page-examples/account-management"
+            |> Item.withLink "/components/item"
             |> Item.render
             Item.create "Export package"
-            |> Item.withDescription (p { "Prepared for the finance review." })
+            |> Item.withDescription (p { "Files are ready to download." })
             |> Item.withMetadata (Badge.create "Ready" |> Badge.withColor BadgeColor.Success |> Badge.render)
             |> Item.withActions (Button.create (ButtonContent.Text "Download") |> Button.withVariant ButtonVariant.Ghost |> Button.render)
             |> Item.withVariant ItemVariant.Muted
@@ -378,44 +380,38 @@ module Components =
 
     let linkedItemWithMetadata =
         let editor =
-            Popover.create "item-account-editor" "Edit" (span { "Edit" }) "Edit account name" (
+            Popover.create "item-name-editor" "Edit" (span { "Edit" }) "Edit item name" (
                 div {
                     _class "grid gap-3"
-                    Input.create "item-account-name" "Account name" |> Input.withValue "Operating account" |> Input.render
-                    p { _class "text-sm text-[var(--fve-muted-text)]"; "This local example does not save changes." }
+                    Input.create "item-name" "Item name" |> Input.withValue "Project notes" |> Input.render
                 })
             |> Popover.focusContentOnOpen
             |> Popover.render
         ul {
             _class "w-full max-w-xl"
-            Item.create "Operating account"
-            |> Item.withLink "/examples/application/accounts/101"
+            Item.create "Project notes"
+            |> Item.withLink "/components/item"
             |> Item.withMetadata editor
             |> Item.withVariant ItemVariant.Outlined
             |> Item.render
         }
 
     let defaultLoadingIndicator =
-        LoadingIndicator.create "Loading account balances"
+        LoadingIndicator.create "Loading"
         |> LoadingIndicator.render
     let visibleLoadingIndicator =
-        LoadingIndicator.create "Refreshing transactions"
+        LoadingIndicator.create "Refreshing items"
         |> LoadingIndicator.withSize ControlSize.Large
         |> LoadingIndicator.withVisibleLabel
         |> LoadingIndicator.render
     let defaultEmptyState =
-        EmptyState.create "No accounts yet" "Create an account to start tracking balances and entries."
+        EmptyState.create "No items yet" "Add your first item to get started."
         |> EmptyState.render
 
     let emptyStateExample =
-        EmptyState.create "No accounts yet" "Create an account to start tracking balances and entries."
+        EmptyState.create "No matching items" "Clear your filters to see all items."
         |> EmptyState.withIcon plusIcon
-        |> EmptyState.withActions (
-            a {
-                _href "/components/page-examples/account-management?destination=ledger-create-account"
-                _class "inline-flex items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] px-3 py-2 text-sm font-medium text-white hover:bg-[var(--fve-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
-                "Create account"
-            })
+        |> EmptyState.withActions (Button.create (ButtonContent.Text "Clear filters") |> Button.renderLink "/components/empty-state")
         |> EmptyState.render
     let private rows =
         [ { id = 101; name = "Assets"; accountType = "Asset"; commodity = "USD"; balance = 0M; totalBalance = 184230.19M }
@@ -495,28 +491,28 @@ module Components =
 
     let accountTable = accountTableConfig LedgerAccount shellDestinationUrl (fun _ -> []) |> Table.render |> recordActionFeedback "account"
 
-    let hierarchyAccounts =
-        [ { key = "assets"; ancestors = []; level = 0; name = "Assets"; accountType = "Aggregate"; total = 184230.19M; hasChildren = true }
-          { key = "cash"; ancestors = [ "assets" ]; level = 1; name = "Cash"; accountType = "Aggregate"; total = 96110.27M; hasChildren = true }
-          { key = "checking"; ancestors = [ "assets"; "cash" ]; level = 2; name = "Operating checking"; accountType = "Account"; total = 72104.18M; hasChildren = false }
-          { key = "savings"; ancestors = [ "assets"; "cash" ]; level = 2; name = "Tax savings"; accountType = "Account"; total = 24006.09M; hasChildren = false }
-          { key = "receivables"; ancestors = [ "assets" ]; level = 1; name = "Accounts receivable"; accountType = "Account"; total = 88119.92M; hasChildren = false }
-          { key = "liabilities"; ancestors = []; level = 0; name = "Liabilities"; accountType = "Aggregate"; total = -42118.44M; hasChildren = true }
-          { key = "card"; ancestors = [ "liabilities" ]; level = 1; name = "Business card"; accountType = "Account"; total = -42118.44M; hasChildren = false } ]
+    let hierarchyItems =
+        [ { key = "projects"; ancestors = []; level = 0; name = "Projects"; kind = "Folder"; count = 24; hasChildren = true }
+          { key = "website"; ancestors = [ "projects" ]; level = 1; name = "Website"; kind = "Folder"; count = 12; hasChildren = true }
+          { key = "notes"; ancestors = [ "projects"; "website" ]; level = 2; name = "Project notes"; kind = "Document"; count = 1; hasChildren = false }
+          { key = "design"; ancestors = [ "projects"; "website" ]; level = 2; name = "Design files"; kind = "Folder"; count = 11; hasChildren = false }
+          { key = "research"; ancestors = [ "projects" ]; level = 1; name = "Research"; kind = "Folder"; count = 12; hasChildren = false }
+          { key = "shared"; ancestors = []; level = 0; name = "Shared files"; kind = "Folder"; count = 8; hasChildren = true }
+          { key = "guide"; ancestors = [ "shared" ]; level = 1; name = "Team guide"; kind = "Document"; count = 1; hasChildren = false } ]
 
-    let hierarchicalAccountTable =
-        Table.create "Account hierarchy"
-            [ TableColumn.create "Account" (fun row -> a { _href "/components/collection"; _class "font-medium text-[var(--fve-brand-text)]"; row.name })
+    let hierarchicalItemTable =
+        Table.create "Item hierarchy"
+            [ TableColumn.create "Name" (fun (row:HierarchyItem) -> a { _href "/components/table"; _class "font-medium text-[var(--fve-brand-text)]"; row.name })
               |> TableColumn.asRowHeader
               |> TableColumn.asMobilePrimary
-              TableColumn.create "Type" (fun row -> text row.accountType)
-              TableColumn.create "Total balance (USD) · Current" (fun row -> text (money row.total))
+              TableColumn.create "Type" (fun row -> text row.kind)
+              TableColumn.create "Items" (fun row -> text (string row.count))
               |> TableColumn.alignEnd ]
-            hierarchyAccounts
+            hierarchyItems
         |> Table.withMobileLayout TableMobileLayout.Records
         |> Table.withHierarchy (
-            TableHierarchy.create "account-hierarchy" _.key (fun row -> row.name) _.ancestors _.level _.hasChildren
-            |> TableHierarchy.withExpandedKeys [ "assets"; "cash"; "liabilities" ])
+            TableHierarchy.create "item-hierarchy" _.key (fun row -> row.name) _.ancestors _.level _.hasChildren
+            |> TableHierarchy.withExpandedKeys [ "projects"; "website"; "shared" ])
         |> Table.render
 
     let private accountFilterExpression (row:AccountRow) =
@@ -688,67 +684,67 @@ module Components =
 
     let defaultDescriptionList =
         DescriptionList.create [
-            DescriptionListItem.text "Account type" "Asset"
-            DescriptionListItem.text "Currency" "USD" ]
+            DescriptionListItem.text "Name" "Project notes"
+            DescriptionListItem.text "Format" "Document" ]
         |> DescriptionList.render
 
-    let accountDetails =
+    let itemDetails =
         DescriptionList.create [
-            DescriptionListItem.text "Type" "Asset"
-            DescriptionListItem.text "Commodity" "USD"
-            DescriptionListItem.text "Parent account" "Current assets"
-            DescriptionListItem.text "Source" "Imported statement"
+            DescriptionListItem.text "Name" "Project notes"
+            DescriptionListItem.text "Format" "Document"
+            DescriptionListItem.text "Folder" "Shared files"
+            DescriptionListItem.text "Owner" "Alex Morgan"
             DescriptionListItem.status "Status" (Badge.create "Active" |> Badge.withColor BadgeColor.Success |> Badge.render)
-            DescriptionListItem.text "Balance" "$42,800"
+            DescriptionListItem.text "Size" "2.4 MB"
         ]
         |> DescriptionList.withColumns DescriptionListColumns.Three
         |> DescriptionList.render
 
-    let accountOverview =
+    let itemOverview =
         DescriptionList.create [
             DescriptionListItem.status "Status" (Badge.create "Active" |> Badge.withColor BadgeColor.Success |> Badge.render)
-            DescriptionListItem.status "Reconciliation" (Badge.create "Up to date" |> Badge.withColor BadgeColor.Success |> Badge.render)
-            DescriptionListItem.text "Account number" "1040"
-            DescriptionListItem.text "Currency" "USD"
-            DescriptionListItem.text "Account name" "Operating checking"
-            DescriptionListItem.text "Institution" "Example Bank"
-            DescriptionListItem.text "Statement date" "August 31, 2026"
-            DescriptionListItem.text "Balance" "$42,800"
+            DescriptionListItem.status "Review" (Badge.create "Up to date" |> Badge.withColor BadgeColor.Success |> Badge.render)
+            DescriptionListItem.text "Reference" "1040"
+            DescriptionListItem.text "Format" "Document"
+            DescriptionListItem.text "Name" "Project notes"
+            DescriptionListItem.text "Folder" "Shared files"
+            DescriptionListItem.text "Updated" "August 31, 2026"
+            DescriptionListItem.text "Size" "2.4 MB"
         ]
         |> DescriptionList.withColumns DescriptionListColumns.Four
         |> DescriptionList.render
 
-    let accountDetailsWithDescriptions =
+    let itemDetailsWithDescriptions =
         DescriptionList.create [
-            DescriptionListItem.text "Available balance" "$42,800"
-            |> DescriptionListItem.withDescription "Includes cleared entries through today."
-            DescriptionListItem.text "Statement reference" "statement-2026-08-31-operating-checking-1040"
-            |> DescriptionListItem.withDescription "Imported from the August bank statement."
+            DescriptionListItem.text "Files" "24"
+            |> DescriptionListItem.withDescription "Includes files added today."
+            DescriptionListItem.text "Reference" "project-notes-2026-08-31-team-review-1040"
+            |> DescriptionListItem.withDescription "Shared during the August project review."
         ]
         |> DescriptionList.withColumns DescriptionListColumns.Two
         |> DescriptionList.render
 
-    let defaultMetric = Metric.text "Available balance" "$42,800" |> Metric.render
+    let defaultMetric = Metric.text "Total items" "1,280" |> Metric.render
 
-    let availableBalanceMetric =
-        Metric.text "Available balance" "$42,800"
+    let totalItemsMetric =
+        Metric.text "Total items" "1,280"
         |> Metric.withTrend "Up 8% from last month"
-        |> Metric.withDescription "Operating and reserve accounts"
+        |> Metric.withDescription "Across all projects"
         |> Metric.withStatus (Badge.create "Current" |> Badge.withColor BadgeColor.Success |> Badge.render)
         |> Metric.render
 
-    let pendingEntriesMetric =
-        Metric.text "Pending entries" "14"
-        |> Metric.withDescription "Require review before posting"
+    let pendingItemsMetric =
+        Metric.text "Pending items" "14"
+        |> Metric.withDescription "Require review before publishing"
         |> Metric.withStatus (Badge.create "Needs review" |> Badge.withColor BadgeColor.Warning |> Badge.render)
         |> Metric.render
 
     let multipleMetrics =
         div {
             _role "group"
-            _ariaLabel "Monthly financial metrics"
+            _ariaLabel "Monthly activity metrics"
             _class "grid w-full min-w-0 max-w-4xl grid-cols-[repeat(auto-fit,minmax(min(100%,12rem),1fr))] justify-items-center gap-8"
-            for label, value in [ "Revenue", "$48,000"; "Expenses", "$31,200"; "Net income", "$16,800" ] do
+            for label, value in [ "Views", "48,000"; "Downloads", "3,120"; "Items", "1,280" ] do
                 Metric.text label value
                 |> Metric.withDescription "September 2026"
                 |> Metric.render
@@ -781,10 +777,10 @@ module Components =
         let firstResult = (currentPage - 1) * 25 + 1
         let lastResult = min 184 (currentPage * 25)
 
-        Pagination.create "Accounts pages" items
+        Pagination.create "Results pages" items
         |> (if currentPage > 1 then Pagination.withPrevious (PaginationPage(currentPage - 1)) else id)
         |> (if currentPage < 8 then Pagination.withNext (PaginationPage(currentPage + 1)) else id)
-        |> Pagination.withSummary (span { $"Showing {firstResult}–{lastResult} of 184 accounts" })
+        |> Pagination.withSummary (span { $"Showing {firstResult}–{lastResult} of 184 items" })
 
     let paginationPreview requestedPage =
         paginationConfig requestedPage |> Pagination.render paginationDestinationUrl
@@ -825,7 +821,7 @@ module Components =
             _id id
             _role "status"
             _class "block min-h-5 text-sm text-[var(--fve-muted-text)]"
-            defaultArg result "Submit this ordinary form to see the server-owned result."
+            defaultArg result "Submit the form to see the result."
         }
 
     type ContactDetails = { name:string; email:string; notes:string }
@@ -852,7 +848,7 @@ module Components =
             |> Input.withType InputType.Email
             |> Input.withValue details.email
             |> Input.required
-            |> Input.withDescription "Use the address where you receive account correspondence."
+            |> Input.withDescription "Use the address where you receive updates."
             |> Input.withAttributes [ _autocomplete "email" ]
             |> (match Map.tryFind "email" errors with Some error -> Input.withValidation error | None -> id)
         let identityFields =
@@ -881,7 +877,7 @@ module Components =
                 |> ErrorSummary.focusOnMount
                 |> ErrorSummary.render
             if accepted then
-                Notice.create (prefix + "result") "Details are valid" (p { "Validation succeeded. This example does not save your data." })
+                Notice.create (prefix + "result") "Details are valid" (p { "Validation succeeded." })
                 |> Notice.withColor NoticeColor.Success
                 |> Notice.withAnnouncement LiveAnnouncement.Polite
                 |> Notice.render
@@ -916,7 +912,7 @@ module Components =
     let inputWithHelp =
         Input.create "helpEmail" "Email"
         |> Input.withType InputType.Email
-        |> Input.withDescription "We will use this address for account updates."
+        |> Input.withDescription "We will use this address for updates."
         |> Input.withAttributes [ _placeholder "you@fve.meiermade.com"; _autocomplete "email" ]
         |> Input.render
     let requiredInput =
@@ -948,8 +944,8 @@ module Components =
         |> Input.withAttributes [ _placeholder "fve.meiermade.com"; _autocomplete "off" ]
         |> Input.render
     let inputWithSuffix =
-        Input.create "price" "Price"
-        |> Input.withSuffix "USD"
+        Input.create "distance" "Distance"
+        |> Input.withSuffix "km"
         |> Input.withAttributes [ _inputmode "decimal"; _placeholder "0.00" ]
         |> Input.render
     let disabledInput =
@@ -1003,7 +999,7 @@ module Components =
         }
 
     let tagInputExample =
-        TagInput.create "ledger-tags" "tags" "Tags" []
+        TagInput.create "item-tags" "tags" "Tags" []
         |> TagInput.render
     let invalidTagInputExample =
         TagInput.create "required-tags" "requiredTags" "Required tags" []
@@ -1034,15 +1030,15 @@ module Components =
         |> Textarea.withValidation "Enter a message before continuing."
         |> Textarea.render
     let editableInstructions =
-        Textarea.create "instructions" "Payment instructions"
+        Textarea.create "instructions" "Instructions"
         |> Textarea.withId "instructions-editable"
-        |> Textarea.withValue "Include the invoice number with your payment."
+        |> Textarea.withValue "Include the reference number when you reply."
         |> Textarea.withDescription "Maximum 400 characters."
         |> Textarea.withAttributes [ _maxlength 400 ]
         |> Textarea.render
     let pendingNotes =
         Textarea.create "pendingNotes" "Checking notes"
-        |> Textarea.withValue "Please quote invoice INV-2048."
+        |> Textarea.withValue "Please include reference ITEM-2048."
         |> Textarea.pending
         |> Textarea.render
     let unavailableNotes =
@@ -1072,13 +1068,13 @@ module Components =
         }
 
     let informationNotice =
-        Notice.create "notice-information" "Before you submit" (p { "Check the contact name and email address before sending account correspondence." })
+        Notice.create "notice-information" "Before you submit" (p { "Check the contact name and email address before sending." })
         |> Notice.render
     let noticeColorExamples =
         div {
             _class "grid w-full min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4"
             for label, color in [ "Primary", NoticeColor.Primary; "Secondary", NoticeColor.Secondary; "Success", NoticeColor.Success; "Warning", NoticeColor.Warning; "Error", NoticeColor.Error; "Info", NoticeColor.Info; "Neutral", NoticeColor.Neutral ] do
-                Notice.create ("notice-color-" + label.ToLowerInvariant()) label (p { "Review account details." })
+                Notice.create ("notice-color-" + label.ToLowerInvariant()) label (p { "Review your details before continuing." })
                 |> Notice.withColor color
                 |> Notice.render
         }
@@ -1086,7 +1082,7 @@ module Components =
         div {
             _class "grid w-full min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,20rem),1fr))] gap-4"
             for label, variant in [ "Solid", NoticeVariant.Solid; "Soft", NoticeVariant.Soft; "Outline", NoticeVariant.Outline; "Ghost", NoticeVariant.Ghost ] do
-                Notice.create ("notice-variant-" + label.ToLowerInvariant()) label (p { "Review account details." })
+                Notice.create ("notice-variant-" + label.ToLowerInvariant()) label (p { "Review your details before continuing." })
                 |> Notice.withVariant variant
                 |> Notice.withActions (a { _href "/components/notice"; _class "underline underline-offset-2"; "Read guidance" })
                 |> Notice.render
@@ -1094,10 +1090,10 @@ module Components =
     let successNotice =
         Notice.create "notice-success" "Export ready" (p { "Your export is ready to download." })
         |> Notice.withColor NoticeColor.Success
-        |> Notice.withActions (a { _href "data:text/csv;charset=utf-8,Account%2CBalance%0AOperating%2C42800"; _attr ("download", "accounts.csv"); _class "underline underline-offset-2"; "Download accounts" })
+        |> Notice.withActions (a { _href "data:text/csv;charset=utf-8,Name%2CStatus%0AProject%20notes%2CActive"; _attr ("download", "items.csv"); _class "underline underline-offset-2"; "Download" })
         |> Notice.render
     let warningNotice =
-        Notice.create "notice-warning" "Review required" (p { "Two transactions need an account before they can be posted." })
+        Notice.create "notice-warning" "Review required" (p { "Two items need review before they can be published." })
         |> Notice.withColor NoticeColor.Warning
         |> Notice.render
     let criticalNotice =
@@ -1382,7 +1378,7 @@ module Components =
         let config =
             Select.create "status" "Status" statusValue selectStatusOptions
             |> Select.withId "components-status"
-            |> Select.withDescription "Controls whether the account can receive entries."
+            |> Select.withDescription "Choose the availability of this item."
             |> Select.withPlaceholder "Choose a status"
             |> Select.required
             |> (match selected with Some value -> Select.withSelected value | None -> id)
@@ -1416,70 +1412,70 @@ module Components =
 
     let statusSelect = selectFormRegion None None None
 
-    let private accounts = [ 101, "Operating"; 102, "Tax reserve"; 103, "Payroll clearing" ]
-    let private accountOptions values =
+    let private searchItems = [ 101, "Project notes"; 102, "Shared files"; 103, "Archived files" ]
+    let private itemOptions values =
         values
         |> List.map (fun (value, label) ->
             SelectOption.create value label
             |> (if value = 103 then SelectOption.disabled else id))
 
-    let staticAccountCombobox =
-        Select.create "staticAccount" "Static account" string (accountOptions accounts)
-        |> Select.withId "components-static-account"
+    let staticItemCombobox =
+        Select.create "staticItem" "Search items" string (itemOptions searchItems)
+        |> Select.withId "components-static-item"
         |> Select.withSearch SelectSearch.Static
         |> Select.withSelected 101
-        |> Select.withDescription "Filter locally supplied typed options."
+        |> Select.withDescription "Type to filter the items."
         |> Select.render
 
-    let private accountComboboxConfig =
-        Select.create "account" "Parent account" string (accountOptions accounts)
-        |> Select.withPlaceholder "Search accounts"
-        |> Select.withDescription "Try Operating for a match, or error to test retry."
-        |> Select.withEmptyMessage "No matching accounts"
-        |> Select.withLoadingMessage "Loading accounts"
-        |> Select.withSearch (SelectSearch.Remote "/components/accounts/search")
+    let private itemComboboxConfig =
+        Select.create "item" "Choose an item" string (itemOptions searchItems)
+        |> Select.withPlaceholder "Search items"
+        |> Select.withDescription "Search for Project notes, or type error to try the retry action."
+        |> Select.withEmptyMessage "No matching items"
+        |> Select.withLoadingMessage "Loading items"
+        |> Select.withSearch (SelectSearch.Remote "/components/items/search")
 
-    let accountCombobox = accountComboboxConfig |> Select.render
+    let itemCombobox = itemComboboxConfig |> Select.render
 
-    let accountComboboxOptions query retry =
+    let itemComboboxOptions query retry =
         if String.Equals(query, "error", StringComparison.OrdinalIgnoreCase) && retry |> not then
-            accountComboboxConfig
-            |> Select.withSearch (SelectSearch.Remote "/components/accounts/search?retry=true")
-            |> Select.withError "Accounts could not be loaded."
+            itemComboboxConfig
+            |> Select.withSearch (SelectSearch.Remote "/components/items/search?retry=true")
+            |> Select.withError "Items could not be loaded."
             |> Select.renderOptions
         else
-            accounts
+            searchItems
             |> List.filter (fun (_, label) -> String.IsNullOrWhiteSpace query || label.Contains(query, StringComparison.OrdinalIgnoreCase))
-            |> accountOptions
-            |> fun options -> accountComboboxConfig |> Select.withOptions options |> Select.renderOptions
+            |> itemOptions
+            |> fun options -> itemComboboxConfig |> Select.withOptions options |> Select.renderOptions
 
-    let loadingAccountCombobox =
-        Select.create "loadingAccount" "Loading account" string []
-        |> Select.withId "components-loading-account"
-        |> Select.withSearch (SelectSearch.Remote "/components/accounts/search")
-        |> Select.withLoadingMessage "Loading accounts"
+    let loadingItemCombobox =
+        Select.create "loadingItem" "Loading items" string []
+        |> Select.withId "components-loading-item"
+        |> Select.withSearch (SelectSearch.Remote "/components/items/search")
+        |> Select.withLoadingMessage "Loading items"
         |> Select.loading
         |> Select.render
 
-    let validationAccountCombobox =
-        Select.create "validatedAccount" "Account with validation" string (accountOptions accounts)
-        |> Select.withId "components-validated-account"
+    let validationItemCombobox =
+        Select.create "validatedItem" "Item with validation" string (itemOptions searchItems)
+        |> Select.withId "components-validated-item"
         |> Select.withSearch SelectSearch.Static
-        |> Select.withDescription "Choose an account before continuing."
-        |> Select.withValidation "Choose an available account."
+        |> Select.withDescription "Choose an item before continuing."
+        |> Select.withValidation "Choose an available item."
         |> Select.render
 
-    let disabledAccountCombobox =
-        Select.create "disabledAccount" "Disabled account" string (accountOptions accounts)
-        |> Select.withId "components-disabled-account"
+    let disabledItemCombobox =
+        Select.create "disabledItem" "Unavailable item" string (itemOptions searchItems)
+        |> Select.withId "components-disabled-item"
         |> Select.withSearch SelectSearch.Static
         |> Select.withSelected 101
         |> Select.disabled
         |> Select.render
 
-    let pendingAccountCombobox =
-        Select.create "pendingAccount" "Updating account" string (accountOptions accounts)
-        |> Select.withId "components-pending-account"
+    let pendingItemCombobox =
+        Select.create "pendingItem" "Updating item" string (itemOptions searchItems)
+        |> Select.withId "components-pending-item"
         |> Select.withSearch SelectSearch.Static
         |> Select.withSelected 102
         |> Select.pending
@@ -1487,9 +1483,9 @@ module Components =
 
     let checkboxFormRegion confirmed validation result =
         let config =
-            Checkbox.create "confirmArchivedReview" "Confirm archived-account review"
+            Checkbox.create "confirmArchivedReview" "Confirm review"
             |> Checkbox.withId "components-confirm-archived-review"
-            |> Checkbox.withDescription "Required before archived accounts can be included."
+            |> Checkbox.withDescription "Required before continuing."
             |> Checkbox.required
             |> Checkbox.withChecked confirmed
             |> (match validation with Some message -> Checkbox.withValidation message | None -> id)
@@ -1508,13 +1504,13 @@ module Components =
         }
 
     let includeArchived =
-        Checkbox.create "includeArchived" "Include archived accounts"
-        |> Checkbox.withDescription "Archived accounts remain read-only."
+        Checkbox.create "includeArchived" "Include archived items"
+        |> Checkbox.withDescription "Archived items remain read-only."
         |> Checkbox.withChecked true
         |> Checkbox.render
 
     let pendingArchivedReview =
-        Checkbox.create "confirmArchivedReview" "Saving archived-account review"
+        Checkbox.create "confirmArchivedReview" "Saving review"
         |> Checkbox.withId "components-pending-archived-review"
         |> Checkbox.withChecked true
         |> Checkbox.pending
@@ -1528,9 +1524,9 @@ module Components =
 
     let switchFormRegion enabled validation result =
         let config =
-            Switch.create "postingNotifications" "Posting notifications"
-            |> Switch.withId "components-posting-notifications"
-            |> Switch.withDescription "Notify account owners after entries post."
+            Switch.create "notifications" "Notifications"
+            |> Switch.withId "components-notifications"
+            |> Switch.withDescription "Receive an update when new items are published."
             |> Switch.withChecked enabled
             |> (match validation with Some message -> Switch.withValidation message | None -> id)
 
@@ -1546,17 +1542,17 @@ module Components =
             choiceResult "components-switch-result" result
         }
 
-    let postingNotifications = switchFormRegion true None None
+    let notificationSetting = switchFormRegion true None None
 
     let pendingNotifications =
-        Switch.create "postingNotifications" "Saving notifications"
+        Switch.create "notifications" "Saving notifications"
         |> Switch.withId "components-pending-notifications"
         |> Switch.withChecked true
         |> Switch.pending
         |> Switch.render
 
     let invalidNotifications =
-        Switch.create "postingNotifications" "Notification service"
+        Switch.create "notifications" "Notification service"
         |> Switch.withId "components-invalid-notifications"
         |> Switch.withValidation "Notification preferences could not be saved."
         |> Switch.render
@@ -1571,7 +1567,7 @@ module Components =
 
     let stackedSwitch =
         Switch.create "automaticExports" "Automatic exports"
-        |> Switch.withDescription "Generate an export after each reconciliation closes."
+        |> Switch.withDescription "Generate an export when new files are published."
         |> Switch.withLayout SwitchLayout.Stacked
         |> Switch.render
 
@@ -1592,17 +1588,17 @@ module Components =
     let toggleButtonPresentation =
         div {
             _class "flex flex-wrap items-center gap-3"
-            ToggleButton.create "toggle-soft" "Add account"
+            ToggleButton.create "toggle-soft" "Add item"
             |> ToggleButton.withLeading plusIcon
             |> ToggleButton.withVariant ToggleButtonVariant.Soft
             |> ToggleButton.withSize ControlSize.Small
             |> ToggleButton.render
-            ToggleButton.create "toggle-outline" "Add account"
+            ToggleButton.create "toggle-outline" "Add item"
             |> ToggleButton.withLeading plusIcon
             |> ToggleButton.withVariant ToggleButtonVariant.Outline
             |> ToggleButton.pressed
             |> ToggleButton.render
-            ToggleButton.create "toggle-ghost" "Add account"
+            ToggleButton.create "toggle-ghost" "Add item"
             |> ToggleButton.withLeading plusIcon
             |> ToggleButton.withVariant ToggleButtonVariant.Ghost
             |> ToggleButton.withSize ControlSize.Large
@@ -1658,18 +1654,18 @@ module Components =
                         }
                     """)
                     _class "overflow-x-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-4 text-sm outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
-                    "Button.create (ButtonContent.Text \"Create account\") |> Button.render"
+                    "Button.create (ButtonContent.Text \"Create\") |> Button.render"
                 })
-            TabItem.create "preview" "Preview" (div { _class "rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] p-4"; Button.create (ButtonContent.Text "Create account") |> Button.render }) ]
+            TabItem.create "preview" "Preview" (div { _class "rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] p-4"; Button.create (ButtonContent.Text "Create") |> Button.render }) ]
         |> Tabs.render
 
     let verticalTabs =
         Tabs.create "components-vertical-tabs" "Workspace settings" [
             TabItem.create "profile" "Profile" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Update your name and profile image." })
             |> TabItem.withLeading plusIcon
-            TabItem.create "notifications" "Notifications" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Choose which account changes send alerts." })
+            TabItem.create "notifications" "Notifications" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Choose which updates send alerts." })
             |> TabItem.withLeading refreshIcon
-            TabItem.create "billing" "Billing" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Billing changes require administrator access." })
+            TabItem.create "administration" "Administration" (p { _class "text-sm text-[var(--fve-muted-text)]"; "These settings require administrator access." })
             |> TabItem.withLeading removeIcon
             |> TabItem.disabled ]
         |> Tabs.withOrientation TabsOrientation.Vertical
@@ -1689,27 +1685,27 @@ module Components =
                 }
             else
                 div {
-                    p { _class "text-sm text-[var(--fve-muted-text)]"; "Three account changes need review." }
+                    p { _class "text-sm text-[var(--fve-muted-text)]"; "Three items need review." }
                     refreshActivityButton
                 }
 
-        Tabs.create "components-review-tabs" "Account sections" [
-            TabItem.create "overview" "Overview" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Operating balance: $42,800" })
+        Tabs.create "components-review-tabs" "Item sections" [
+            TabItem.create "overview" "Overview" (p { _class "text-sm text-[var(--fve-muted-text)]"; "24 items updated this month" })
             TabItem.create "activity" "Activity" activity
-            TabItem.create "settings" "Settings" (a { _href "/components/theming"; _class "font-medium text-[var(--fve-brand-text)]"; "Review account theme settings" }) ]
+            TabItem.create "settings" "Settings" (a { _href "/components/theming"; _class "font-medium text-[var(--fve-brand-text)]"; "Review appearance settings" }) ]
         |> Tabs.withVariant TabsVariant.Underlined
         |> Tabs.render
 
-    let private postingModeOptions =
+    let private updateModeOptions =
         [ RadioGroupOption.create "automatic" "Automatic"
           RadioGroupOption.create "manual" "Manual review"
           RadioGroupOption.create "scheduled" "Scheduled" |> RadioGroupOption.disabled ]
 
     let radioGroupFormRegion selected validation result =
         let config =
-            RadioGroup.create "postingMode" "Posting mode" id postingModeOptions
-            |> RadioGroup.withId "components-posting-mode"
-            |> RadioGroup.withDescription "Choose how approved entries reach the ledger."
+            RadioGroup.create "updateMode" "Update mode" id updateModeOptions
+            |> RadioGroup.withId "components-update-mode"
+            |> RadioGroup.withDescription "Choose how updates are applied."
             |> RadioGroup.required
             |> (match selected with Some value -> RadioGroup.withSelected value | None -> id)
             |> (match validation with Some message -> RadioGroup.withValidation message | None -> id)
@@ -1722,23 +1718,23 @@ module Components =
                 _dataOn ("submit", "@post('/components/choices/radio')")
                 _class "grid gap-3"
                 config |> RadioGroup.render
-                choiceSubmitButton "components-radio-submit" "Validate posting mode"
+                choiceSubmitButton "components-radio-submit" "Validate choice"
             }
             choiceResult "components-radio-result" result
         }
 
-    let postingMode = radioGroupFormRegion None None None
+    let updateMode = radioGroupFormRegion None None None
 
-    let pendingPostingMode =
-        RadioGroup.create "postingMode" "Saving posting mode" id postingModeOptions
-        |> RadioGroup.withId "components-pending-posting-mode"
+    let pendingUpdateMode =
+        RadioGroup.create "updateMode" "Saving update mode" id updateModeOptions
+        |> RadioGroup.withId "components-pending-update-mode"
         |> RadioGroup.withSelected "automatic"
         |> RadioGroup.pending
         |> RadioGroup.render
 
-    let disabledPostingMode =
-        RadioGroup.create "postingMode" "Posting mode unavailable" id postingModeOptions
-        |> RadioGroup.withId "components-disabled-posting-mode"
+    let disabledUpdateMode =
+        RadioGroup.create "updateMode" "Update mode unavailable" id updateModeOptions
+        |> RadioGroup.withId "components-disabled-update-mode"
         |> RadioGroup.withSelected "manual"
         |> RadioGroup.disabled
         |> RadioGroup.render
@@ -1755,8 +1751,8 @@ module Components =
         |> DropdownMenu.render id
 
     let dropdownMenuItems refreshed =
-        [ DropdownMenuItem.group "Account" [
-              DropdownMenuItem.link DropdownMenuGuide "Dropdown menu guidance"
+        [ DropdownMenuItem.group "Item" [
+              DropdownMenuItem.link "/components/dropdown-menu#components-dropdown-menu" "Dropdown menu guidance"
               DropdownMenuItem.action "$menuActivations++" "Record review"
               |> DropdownMenuItem.withLeading menuLeadingIcon
               |> DropdownMenuItem.withShortcut "R" ]
@@ -1766,12 +1762,12 @@ module Components =
                   DropdownMenuItem.action "$menuActivations++" "Review refreshed actions"
               else
                   DropdownMenuItem.action "@get('/components/menus/actions')" "Refresh actions"
-              DropdownMenuItem.action "$menuActivations++" "Export statement"
+              DropdownMenuItem.action "$menuActivations++" "Export file"
               |> DropdownMenuItem.disabled
-              DropdownMenuItem.action "$menuActivations++" "Syncing ledger"
+              DropdownMenuItem.action "$menuActivations++" "Syncing"
               |> DropdownMenuItem.pending
               DropdownMenuItem.action "$menuActivations++" "Create report"
-              DropdownMenuItem.action "$menuActivations++" "Close period" ]
+              DropdownMenuItem.action "$menuActivations++" "Close item" ]
           DropdownMenuItem.separator
           DropdownMenuItem.group "Display" [
               DropdownMenuItem.checkbox "$menuCompact = !$menuCompact" "Compact rows"
@@ -1784,7 +1780,7 @@ module Components =
         |> DropdownMenu.withTrigger (DropdownMenuTrigger.text "Actions")
         |> DropdownMenu.withContent (dropdownMenuItems refreshed)
         |> DropdownMenu.withAlignment DropdownMenuAlignment.Start
-        |> DropdownMenu.render destinationUrl
+        |> DropdownMenu.render id
 
     let menuOverflowIcon =
         svg {
@@ -1829,9 +1825,9 @@ module Components =
         |> DropdownMenu.withTrigger (DropdownMenuTrigger.icon menuOverflowIcon)
         |> DropdownMenu.withContent [
             DropdownMenuItem.group "View" [
-                DropdownMenuItem.link DropdownMenuGuide "Read menu guidance"
+                DropdownMenuItem.link "/components/dropdown-menu#components-dropdown-menu" "Read menu guidance"
                 DropdownMenuItem.action "$menuActivations++" "Record secondary action" ] ]
-        |> DropdownMenu.render destinationUrl
+        |> DropdownMenu.render id
 
     let outlinedDropdownMenu =
         DropdownMenu.create "components-menu-outline" "More page actions"
@@ -1848,13 +1844,13 @@ module Components =
             p { _class "mt-4 text-sm text-[var(--fve-muted-text)]"; _dataText "'Completed menu actions: ' + $menuActivations"; "Completed menu actions: 0" }
             p { _class "mt-1 text-sm text-[var(--fve-critical-text)]"; _dataText "'Delete activations: ' + $menuDeletes"; "Delete activations: 0" }
             if refreshed then
-                p { _role "status"; _class "mt-1 text-sm text-[var(--fve-positive-text)]"; "Actions refreshed from the server." }
+                p { _role "status"; _class "mt-1 text-sm text-[var(--fve-positive-text)]"; "Actions refreshed." }
         }
 
     let patchedDropdownMenuRegion = dropdownMenuRegion true
 
     let defaultDrawer =
-        Drawer.create "default-drawer" "Account details" (p { "Operating checking · USD" })
+        Drawer.create "default-drawer" "Item details" (p { "Project notes · Document" })
 
     let defaultDrawerExample =
         div {
@@ -1863,7 +1859,7 @@ module Components =
         }
 
     let defaultDialog =
-        Dialog.create "default-dialog" "Review account" (p { "Confirm the account settings before they are applied." })
+        Dialog.create "default-dialog" "Review changes" (p { "Check your changes before continuing." })
 
     let defaultDialogExample =
         div {
@@ -1871,32 +1867,65 @@ module Components =
             defaultDialog |> Dialog.render
         }
 
+    let containedDrawerConfig =
+        Drawer.create "contained-drawer" "Item details" (p { "Project notes · Document" })
+        |> Drawer.withContainer "contained-drawer-background"
+        |> Drawer.withInitialFocus "contained-drawer-close"
+        |> Drawer.withFooter (Button.create (ButtonContent.Text "Done") |> Button.withAttributes [_dataOn("click", "document.getElementById('contained-drawer').close()")] |> Button.render)
+
+    let containedDrawerExample =
+        div {
+            _class "relative h-80 overflow-hidden rounded-lg border border-[var(--fve-border)]"
+            div {
+                _id "contained-drawer-background"; _class "h-full p-5"
+                p { _class "mb-4 text-sm"; "Open the drawer to review the item." }
+                containedDrawerConfig |> Drawer.trigger "Open contained drawer"
+            }
+            containedDrawerConfig |> Drawer.render
+        }
+
+    let containedDialogConfig =
+        Dialog.create "contained-dialog" "Review changes" (p { "Check your changes before continuing." })
+        |> Dialog.withContainer "contained-dialog-background"
+        |> Dialog.withInitialFocus "contained-dialog-close"
+        |> Dialog.dismissOnBackdrop
+
+    let containedDialogExample =
+        div {
+            _class "relative h-80 overflow-hidden rounded-lg border border-[var(--fve-border)]"
+            div {
+                _id "contained-dialog-background"; _class "h-full p-5"
+                p { _class "mb-4 text-sm"; "Surrounding documentation stays available." }
+                containedDialogConfig |> Dialog.trigger "Open contained dialog"
+            }
+            containedDialogConfig |> Dialog.withFooter (containedDialogConfig |> Dialog.closeButton "Cancel") |> Dialog.render
+        }
+
     let dialogConfig =
-        Dialog.create "review-account-dialog" "Review account" (
-            p { "Confirm the account settings before they are applied." })
-        |> Dialog.withDescription "The dialog returns focus to its trigger when it closes."
-        |> Dialog.withInitialFocus "review-account-dialog-close"
+        Dialog.create "review-changes-dialog" "Review changes" (
+            p { "Check your changes before continuing." })
+        |> Dialog.withDescription "You can close this dialog to make further changes."
+        |> Dialog.withInitialFocus "review-changes-dialog-close"
         |> Dialog.dismissOnBackdrop
 
     let reviewDialogTrigger =
         dialogConfig
-        |> Dialog.trigger "Review account"
+        |> Dialog.trigger "Review changes"
 
     let reviewDialog =
         dialogConfig
         |> Dialog.withFooter (dialogConfig |> Dialog.closeButton "Close")
         |> Dialog.render
 
-    let accountDeletionForm (dialogId:string) isPending (validation:string option) =
+    let itemDeletionForm (dialogId:string) (validation:string option) =
         let pendingSignal = "_" + dialogId.Replace('-', '_') + "_pending"
-        let pendingExpression = if isPending then "true" else "$" + pendingSignal
+        let pendingExpression = "$" + pendingSignal
         form {
             _id $"{dialogId}-content"
             _method "post"
             _action "/components/dialogs/confirm"
             _dataIndicator pendingSignal
             _dataOn ("submit", $"!({pendingExpression}) && @post('/components/dialogs/confirm').then(() => document.getElementById('{dialogId}-confirm')?.focus())")
-            _ariaBusy isPending
             _dataAttr ("aria-busy", $"{pendingExpression} ? 'true' : 'false'")
             match validation with
             | Some message ->
@@ -1912,159 +1941,147 @@ module Components =
                 _tabindex -1
                 _role "status"
                 _dataShow pendingExpression
-                if not isPending then _style "display:none"
+                _style "display:none"
                 _class "mt-4 text-sm text-[var(--fve-muted-text)]"
                 "Confirmation in progress."
             }
             div {
                 _class "mt-6 flex flex-wrap justify-end gap-3"
-                Button.create (ButtonContent.Text "Keep account")
-                |> (if isPending then Button.disabled else id)
+                Button.create (ButtonContent.Text "Cancel")
                 |> Button.withAttributes [
                     _id $"{dialogId}-cancel"
                     _dataAttr ("disabled", pendingExpression)
                     _dataOn ("click", "el.closest('dialog').close()") ]
                 |> Button.render
-                Button.create (ButtonContent.Text "Delete account")
+                Button.create (ButtonContent.Text "Delete")
                 |> Button.withColor ButtonColor.Error
                 |> Button.withVariant ButtonVariant.Solid
                 |> Button.asSubmit
-                |> (if isPending then Button.pending else id)
-                |> Button.withAttributes [
-                    _id $"{dialogId}-confirm"
-                    _dataAttr ("disabled", pendingExpression)
-                    _dataAttr ("aria-busy", $"{pendingExpression} ? 'true' : null") ]
+                |> Button.withPendingSignal pendingSignal
+                |> Button.withAttributes [ _id $"{dialogId}-confirm" ]
                 |> Button.render
             }
         }
 
-    let accountDeletionContent validation =
-        accountDeletionForm "delete-account-confirmation" false validation
+    let itemDeletionContent validation =
+        itemDeletionForm "delete-item-confirmation" validation
 
-    let accountDeletionDialog =
-        Dialog.create "delete-account-confirmation" "Delete account?" (accountDeletionContent None)
-        |> Dialog.withDescription "Deleting Operating removes its draft entries. Posted entries remain in the audit history."
-        |> Dialog.withInitialFocus "delete-account-confirmation-cancel"
+    let itemDeletionDialog =
+        Dialog.create "delete-item-confirmation" "Delete item?" (itemDeletionContent None)
+        |> Dialog.withDescription "Delete Project notes? This action cannot be undone."
+        |> Dialog.withInitialFocus "delete-item-confirmation-cancel"
         |> Dialog.withAttributes [
             _role "alertdialog"
-            _dataSignals "{_delete_account_confirmation_pending: false}"
-            _dataOn ("cancel", "$_delete_account_confirmation_pending && evt.preventDefault()") ]
+            _dataSignals "{_delete_item_confirmation_pending: false}"
+            _dataOn ("cancel", "$_delete_item_confirmation_pending && evt.preventDefault()") ]
 
-    let pendingDeletionDialog =
-        Dialog.create "pending-account-confirmation" "Delete account?" (accountDeletionForm "pending-account-confirmation" true None)
-        |> Dialog.withDescription "The account deletion is already being checked."
-        |> Dialog.withInitialFocus "pending-account-confirmation-status"
-        |> Dialog.withAttributes [ _role "alertdialog"; _dataOn ("cancel", "evt.preventDefault()") ]
-
-    let accountDrawerContent refreshed =
+    let itemDrawerContent refreshed =
         div {
-            _id "account-drawer-content"
+            _id "item-drawer-content"
             _class "grid gap-5"
             DescriptionList.create [
-                DescriptionListItem.text "Account name" "Operating checking"
-                DescriptionListItem.text "Type" "Asset"
-                DescriptionListItem.text "Currency" "USD"
+                DescriptionListItem.text "Name" "Project notes"
+                DescriptionListItem.text "Type" "Document"
+                DescriptionListItem.text "Size" "2.4 MB"
                 DescriptionListItem.status "Status" (Badge.create "Active" |> Badge.withColor BadgeColor.Success |> Badge.render)
             ]
             |> DescriptionList.render
-            p { _class "text-sm text-[var(--fve-muted-text)]"; "Last reconciled September 15, 2026 by Andy Meier." }
+            p { _class "text-sm text-[var(--fve-muted-text)]"; "Last updated September 15, 2026 by Alex Morgan." }
             Button.create (ButtonContent.Text "Refresh details")
-            |> Button.withAttributes [ _id "account-drawer-refresh"; _dataOn ("click", "@get('/components/drawers/account').then(() => document.getElementById('account-drawer-refresh')?.focus())") ]
+            |> Button.withAttributes [ _id "item-drawer-refresh"; _dataOn ("click", "@get('/components/drawers/item').then(() => document.getElementById('item-drawer-refresh')?.focus())") ]
             |> Button.render
             if refreshed then
-                p { _role "status"; _class "text-sm text-[var(--fve-positive-text)]"; "Account details refreshed from the server." }
+                p { _role "status"; _class "text-sm text-[var(--fve-positive-text)]"; "Details refreshed." }
         }
 
-    let accountDrawerConfig =
-        Drawer.create "account-settings-drawer" "Account details" (accountDrawerContent false)
-        |> Drawer.withDescription "Review the selected account without leaving the current page."
-        |> Drawer.withInitialFocus "account-drawer-refresh"
+    let itemDrawerConfig =
+        Drawer.create "item-details-drawer" "Item details" (itemDrawerContent false)
+        |> Drawer.withDescription "Review the selected item."
+        |> Drawer.withInitialFocus "item-drawer-refresh"
 
-    let accountEditorBody =
+    let itemEditorBody =
         form {
-            _id "account-editor-form"
+            _id "item-editor-form"
             _class "grid gap-6"
             section {
-                _ariaLabelledby "account-editor-basics"
+                _ariaLabelledby "item-editor-basics"
                 _class "grid gap-4"
-                h3 { _id "account-editor-basics"; _class "text-base font-semibold"; "Account basics" }
-                Input.create "accountName" "Account name"
-                |> Input.withId "account-editor-name"
-                |> Input.withValue "Operating checking"
-                |> Input.withDescription "Use the name shown throughout reporting and reconciliation."
+                h3 { _id "item-editor-basics"; _class "text-base font-semibold"; "Details" }
+                Input.create "itemName" "Name"
+                |> Input.withId "item-editor-name"
+                |> Input.withValue "Project notes"
+                |> Input.withDescription "Choose a name that is easy to find."
                 |> Input.render
-                Select.create "accountType" "Account type" id [
-                    SelectOption.create "asset" "Asset"
-                    SelectOption.create "liability" "Liability"
-                    SelectOption.create "equity" "Equity"
-                    SelectOption.create "revenue" "Revenue"
-                    SelectOption.create "expense" "Expense"
+                Select.create "itemType" "Type" id [
+                    SelectOption.create "document" "Document"
+                    SelectOption.create "image" "Image"
+                    SelectOption.create "folder" "Folder"
                 ]
-                |> Select.withId "account-editor-type"
-                |> Select.withSelected "asset"
+                |> Select.withId "item-editor-type"
+                |> Select.withSelected "document"
                 |> Select.render
-                Input.create "accountNumber" "Account number"
+                Input.create "reference" "Reference"
                 |> Input.withValue "1040"
                 |> Input.render
             }
             section {
-                _ariaLabelledby "account-editor-reporting"
+                _ariaLabelledby "item-editor-organization"
                 _class "grid gap-4 border-t border-[var(--fve-border)] pt-6"
-                h3 { _id "account-editor-reporting"; _class "text-base font-semibold"; "Reporting" }
-                Input.create "reportingGroup" "Reporting group"
-                |> Input.withValue "Cash and cash equivalents"
+                h3 { _id "item-editor-organization"; _class "text-base font-semibold"; "Organization" }
+                Input.create "folder" "Folder"
+                |> Input.withValue "Shared files"
                 |> Input.render
-                Textarea.create "accountNotes" "Internal notes"
+                Textarea.create "notes" "Internal notes"
                 |> Textarea.withRows 5
-                |> Textarea.withValue "Primary operating account for Northwind Outdoor."
+                |> Textarea.withValue "Notes from the latest project review."
                 |> Textarea.withDescription "Only workspace members can read these notes."
                 |> Textarea.render
             }
         }
 
-    let accountEditorFooter =
+    let itemEditorFooter =
         div {
             _class "flex flex-wrap justify-end gap-3"
             Button.create (ButtonContent.Text "Cancel")
-            |> Button.withAttributes [ _dataOn ("click", "document.getElementById('account-editor-drawer')?.close()") ]
+            |> Button.withAttributes [ _dataOn ("click", "document.getElementById('item-editor-drawer')?.close()") ]
             |> Button.render
             Button.create (ButtonContent.Text "Save changes")
             |> Button.asSubmit
-            |> Button.withAttributes [ _attr ("form", "account-editor-form") ]
+            |> Button.withAttributes [ _attr ("form", "item-editor-form") ]
             |> Button.render
         }
 
-    let accountEditorDrawerConfig =
-        Drawer.create "account-editor-drawer" "Edit account" accountEditorBody
-        |> Drawer.withDescription "Update the account fields used by reporting and reconciliation."
-        |> Drawer.withFooter accountEditorFooter
-        |> Drawer.withInitialFocus "account-editor-name"
+    let itemEditorDrawerConfig =
+        Drawer.create "item-editor-drawer" "Edit item" itemEditorBody
+        |> Drawer.withDescription "Update the item details."
+        |> Drawer.withFooter itemEditorFooter
+        |> Drawer.withInitialFocus "item-editor-name"
         |> Drawer.withSize DrawerSize.Large
         |> Drawer.withAttributes [ _style "width:min(32rem,100vw)" ]
 
     let filterDrawerConfig =
-        Drawer.create "account-filters-drawer" "Account filters" (
+        Drawer.create "item-filters-drawer" "Filters" (
             nav {
-                _ariaLabel "Account filters"
+                _ariaLabel "Item filters"
                 _class "grid gap-3"
-                a { _href "/components/drawer#active"; "Active accounts" }
-                a { _href "/components/drawer#archived"; "Archived accounts" }
+                a { _href "/components/drawer#components-drawer"; "Active items" }
+                a { _href "/components/drawer#components-drawer-wide"; "Archived items" }
             })
         |> Drawer.withSide DrawerSide.Start
 
     let topDrawerConfig =
-        Drawer.create "account-summary-drawer" "Account summary" (div { _class "grid gap-2 text-sm"; p { "Operating balance: $42,800" }; p { _class "text-[var(--fve-muted-text)]"; "Reconciled through September 28." } })
+        Drawer.create "item-summary-drawer" "Summary" (div { _class "grid gap-2 text-sm"; p { "24 items in Shared files" }; p { _class "text-[var(--fve-muted-text)]"; "Updated September 28." } })
         |> Drawer.withDescription "A horizontal drawer for a compact review task."
         |> Drawer.withSide DrawerSide.Top
 
     let bottomDrawerConfig =
-        Drawer.create "account-history-drawer" "Account history" (ol { _class "grid gap-4 text-sm"; for index in 1..12 do li { $"Activity entry {index}" } })
+        Drawer.create "item-history-drawer" "Activity history" (ol { _class "grid gap-4 text-sm"; for index in 1..12 do li { $"Activity entry {index}" } })
         |> Drawer.withDescription "Long content scrolls while the heading and actions remain reachable."
         |> Drawer.withSide DrawerSide.Bottom
         |> Drawer.withSize DrawerSize.Large
-        |> Drawer.withFooter (Button.create (ButtonContent.Text "Done") |> Button.withAttributes [ _dataOn ("click", "document.getElementById('account-history-drawer')?.close()") ] |> Button.render)
+        |> Drawer.withFooter (Button.create (ButtonContent.Text "Done") |> Button.withAttributes [ _dataOn ("click", "document.getElementById('item-history-drawer')?.close()") ] |> Button.render)
 
-    let patchedAccountDrawerContent = accountDrawerContent true
+    let patchedItemDrawerContent = itemDrawerContent true
 
     let private accountTypeFilter =
         Select.create "accountTypeFilter" "Filter by account type" id [
@@ -2160,23 +2177,36 @@ module Components =
             "New account"
         }
 
-    let defaultPageHeader = PageHeader.create "Account overview" |> PageHeader.render
+    let defaultPageHeader = PageHeader.create "Project overview" |> PageHeader.render
 
     let defaultSection =
-        Section.create (SectionHeader.create "Account details") (p { "Operating checking · USD" })
+        Section.create (SectionHeader.create "Item details") (p { "Project notes · Document" })
         |> Section.render
 
     let defaultPage =
-        Page.create (PageHeader.create "Account overview") (p { "Review balances and recent activity." })
+        Page.create (PageHeader.create "Project overview") (p { "Review items and recent activity." })
         |> Page.render
 
     let defaultCollection =
-        Collection.create "Accounts" (ul { li { "Operating checking" }; li { "Reserve savings" } })
+        Collection.create "Items" (ul { li { "Project notes" }; li { "Team guide" } })
         |> Collection.render
 
     let defaultDetail =
-        Detail.create "Operating checking" [ p { "Asset · USD" } ]
+        Detail.create "Project notes" [ p { "Document · Updated today" } ]
         |> Detail.render
+
+    let pageHeaderLayoutExample =
+        div {
+            _dataSignals "{itemRefreshes: 0}"
+            PageHeader.create "Project notes"
+            |> PageHeader.withSubtitle "Updated moments ago"
+            |> PageHeader.withActions (
+                Button.create (ButtonContent.Icon ("Refresh", refreshIcon))
+                |> Button.withAttributes [ _dataOn ("click", "$itemRefreshes++") ]
+                |> Button.render)
+            |> PageHeader.render
+            output { _role "status"; _class "sr-only"; _dataText "'Refreshes: ' + $itemRefreshes"; "Refreshes: 0" }
+        }
 
     // Supply ordinary HTML for your table, filter controls, and actions.
     let collectionExample actions toolbar table =
@@ -2326,11 +2356,11 @@ module Components =
         |> SideNav.render defaultSideNavUrl
 
     // Resolve your destination values to URLs.
-    let breadcrumbsExample resolve home accounts account =
-        Breadcrumbs.create "ledger-breadcrumbs" "Breadcrumb" [
+    let breadcrumbsExample resolve home collection detail =
+        Breadcrumbs.create "item-breadcrumbs" "Breadcrumb" [
             BreadcrumbItem.create home "Home"
-            BreadcrumbItem.create accounts "Accounts"
-            BreadcrumbItem.create account "Operating checking"
+            BreadcrumbItem.create collection "Items"
+            BreadcrumbItem.create detail "Project notes"
         ]
         |> Breadcrumbs.render resolve
 
@@ -2340,10 +2370,10 @@ module Components =
         SideNav.create "structure-navigation" "Navigation structure"
         |> SideNav.withPersistenceKey "structure-navigation-preferences"
         |> SideNav.withContent (SideNavContent.create [
-            SideNavItem.create "/examples/application" "Home"
-            SideNavSection.create "Accounting" [
-                SideNavItem.create "/examples/application/accounts" "Accounts"
-                SideNavItem.create "/examples/application/transactions" "Transactions" ]
+            SideNavItem.create "/components" "Home"
+            SideNavSection.create "Workspace" [
+                SideNavItem.create "/components/table#components-table-hierarchy" "Items"
+                SideNavItem.create "/components/month-calendar" "Calendar" ]
             SideNavGroup.create "Documentation" [
                 SideNavItem.create "/examples/specification" "Specification"
                 SideNavGroup.create "Components" [
@@ -2353,7 +2383,7 @@ module Components =
                 |> SideNavGroup.expanded ]
             |> SideNavGroup.withId "structure-documentation"
             |> SideNavGroup.expanded ])
-        |> SideNav.withCurrent "/examples/application/accounts"
+        |> SideNav.withCurrent "/components/table#components-table-hierarchy"
         |> SideNav.render id
 
     let sideNavStructurePreview = div { sideNavStructureExample } |> themedSurface
@@ -2366,23 +2396,23 @@ module Components =
             DropdownMenu.create "slot-workspace" "Choose workspace"
             |> DropdownMenu.withAlignment DropdownMenuAlignment.Start
             |> DropdownMenu.withContent [
-                DropdownMenuItem.link "/examples/application?ledger=alex" "Alex"
-                DropdownMenuItem.link "/examples/application?ledger=jordan" "Jordan"
+                DropdownMenuItem.link "/components/side-nav?workspace=alex" "Alex"
+                DropdownMenuItem.link "/components/side-nav?workspace=jordan" "Jordan"
                 DropdownMenuItem.separator
                 DropdownMenuItem.link "/examples/application/profile/organizations" "Organizations" ]
         SideNav.create "slot-navigation" "Application navigation"
-        |> SideNav.withHeader (SideNavHeader.create "Ledger" |> SideNavHeader.withContent (
-            a { _href "/examples/application"; _class "flex items-center gap-3 text-sm font-semibold"; ledgerMark; "Ledger" }))
+        |> SideNav.withHeader (SideNavHeader.create "Workspace" |> SideNavHeader.withContent (
+            a { _href "/components"; _class "flex items-center gap-3 text-sm font-semibold"; "Workspace" }))
         |> SideNav.withContext [
             SideNavRow.menu workspaceMenu "Alex"
             |> SideNavRow.withLeading (sideNavRowIcon "M3.75 3.75h6v6h-6zm10.5 0h6v6h-6zm-10.5 10.5h6v6h-6zm10.5 0h6v6h-6z")
             |> SideNavRow.render id ]
         |> SideNav.withContent (SideNavContent.create [
-            SideNavItem.create "/examples/application" "Home"
-            SideNavSection.create "Accounting" [
-                SideNavItem.create "/examples/application/accounts" "Accounts"
-                SideNavItem.create "/examples/application/transactions" "Transactions"] ])
-        |> SideNav.withCurrent "/examples/application/accounts"
+            SideNavItem.create "/components" "Home"
+            SideNavSection.create "Workspace" [
+                SideNavItem.create "/components/table#components-table-hierarchy" "Items"
+                SideNavItem.create "/components/month-calendar" "Calendar"] ])
+        |> SideNav.withCurrent "/components/table#components-table-hierarchy"
         |> SideNav.withFooter [
             SideNavRow.link "/examples/application/settings" "Settings"
             |> SideNavRow.withLeading (sideNavRowIcon "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.281a6.52 6.52 0 0 1 1.94 1.12l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827a6.759 6.759 0 0 1 0 2.24l1.003.827c.424.35.534.954.26 1.43l-1.296 2.247a1.125 1.125 0 0 1-1.37.491l-1.217-.456a6.57 6.57 0 0 1-1.94 1.12l-.213 1.281c-.09.543-.56.94-1.11.94h-2.592c-.55 0-1.02-.397-1.11-.94l-.213-1.281a6.52 6.52 0 0 1-1.94-1.12l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.296-2.247a1.125 1.125 0 0 1 .26-1.431l1.003-.827a6.932 6.932 0 0 1 0-2.24l-1.003-.827a1.125 1.125 0 0 1-.26-1.43l1.296-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456a6.52 6.52 0 0 1 1.94-1.12l.213-1.281ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z")
@@ -2401,7 +2431,7 @@ module Components =
 
     let breadcrumbsPreview =
         div {
-            breadcrumbsExample shellDestinationUrl LedgerHome LedgerAccounts (LedgerAccount 2048)
+            breadcrumbsExample id "/components" "/components/table" "/components/item"
         }
         |> themedSurface
 
@@ -2473,10 +2503,33 @@ module Components =
 
     let groupedLedgerNavigation = ledgerNavigation true LedgerAccounts
 
+    let nestedSideNav =
+        let action =
+            Button.create (ButtonContent.Icon ("Pin items", raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path d="M7 2.75A.75.75 0 0 1 7.75 2h4.5a.75.75 0 0 1 .75.75v4.69l1.78 1.78a.75.75 0 0 1-.53 1.28h-3.5v6.75a.75.75 0 0 1-1.5 0V10.5h-3.5a.75.75 0 0 1-.53-1.28L7 7.44V2.75Z"/></svg>"""))
+            |> Button.withVariant ButtonVariant.Ghost
+            |> Button.withAttributes [ _ariaPressed false; _dataOn ("click", "el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') !== 'true' ? 'true' : 'false')") ]
+            |> Button.render
+        SideNav.create "nested-item-navigation" "Workspace navigation"
+        |> SideNav.withHeader (SideNavHeader.create "Workspace")
+        |> SideNav.withContent (SideNavContent.create [
+            SideNavItem.create "/components" "Home"
+            SideNavItem.create "/components/table#components-table-hierarchy" "Items"
+            |> SideNavItem.withBadge (Badge.create "24" |> Badge.render)
+            |> SideNavItem.withAction action
+            SideNavGroup.create "Documentation" [
+                SideNavItem.create "/components/button" "Button"
+                SideNavGroup.create "Content" [
+                    SideNavItem.create "/components/table" "Table"
+                    SideNavItem.create "/components/card" "Card" ]
+                |> SideNavGroup.withId "nested-content" ]
+            |> SideNavGroup.withId "nested-documentation"
+            |> SideNavGroup.expanded ])
+        |> SideNav.withCurrent "/components/table#components-table-hierarchy"
+
     let sideNavigationPreview =
         div {
             _class "h-[36rem] overflow-hidden rounded-xl ring-1 ring-[var(--fve-border)]"
-            groupedLedgerNavigation |> SideNav.render shellDestinationUrl
+            nestedSideNav |> SideNav.render id
         }
         |> themedSurface
 
@@ -2545,7 +2598,11 @@ module Components =
 
     let pageTopBarPreview =
         div {
-            renderPageTopBar shellDestinationUrl (ledgerBreadcrumbs (LedgerAccount 2048))
+            Breadcrumbs.create "page-bar-breadcrumbs" "Breadcrumb" [
+                BreadcrumbItem.create "/components" "Home"
+                BreadcrumbItem.create "/components/table" "Items"
+                BreadcrumbItem.create "/components/item" "Project notes" ]
+            |> renderPageTopBar id
         }
         |> themedSurface
 
@@ -2553,19 +2610,19 @@ module Components =
         div {
             _class "@container/fve-shell"
             PageTopBar.create ()
-            |> PageTopBar.withBrand (strong { _class "text-base font-semibold"; "Ledger" })
+            |> PageTopBar.withBrand (strong { _class "text-base font-semibold"; "Workspace" })
             |> PageTopBar.withContent (Breadcrumbs.create "shell-bar-breadcrumbs" "Shell breadcrumb" [
-                BreadcrumbItem.create "/examples/application" "Home"
-                BreadcrumbItem.create "/examples/application/accounts" "Accounts" ] |> Breadcrumbs.render id)
+                BreadcrumbItem.create "/components" "Home"
+                BreadcrumbItem.create "/components/table" "Items" ] |> Breadcrumbs.render id)
             |> PageTopBar.withActions (a { _href "/examples/application/profile"; _class "whitespace-nowrap text-sm font-medium"; "View profile" })
             |> PageTopBar.render
             div {
                 _class "flex min-h-32"
                 div {
                     _class "hidden w-60 shrink-0 @3xl/fve-shell:block"
-                    SideNav.create "shell-top-bar-navigation" "Ledger"
+                    SideNav.create "shell-top-bar-navigation" "Workspace"
                     |> SideNav.withContent (SideNavContent.create [
-                        SideNavItem.create "/examples/application" "Home"; SideNavItem.create "/examples/application/accounts" "Accounts" ])
+                        SideNavItem.create "/components" "Home"; SideNavItem.create "/components/table" "Items" ])
                     |> SideNav.withWidth SideNavWidth.Standard
                     |> SideNav.render id
                 }
@@ -2684,23 +2741,23 @@ module Components =
         let graph =
             div {
                 _role "region"
-                _ariaLabel "Posting flow canvas"
+                _ariaLabel "Workflow canvas"
                 _tabindex 0
                 _class "h-full overflow-auto"
-                _dataSignals "{postingZoom: 1}"
+                _dataSignals "{canvasZoom: 1}"
                 div {
                     _class "flex items-center gap-2 p-3"
-                    Button.create (ButtonContent.Text "Zoom in") |> Button.withAttributes [ _dataOn ("click", "$postingZoom = Math.min(2, $postingZoom + 0.25)") ] |> Button.render
-                    Button.create (ButtonContent.Text "Zoom out") |> Button.withAttributes [ _dataOn ("click", "$postingZoom = Math.max(0.5, $postingZoom - 0.25)") ] |> Button.render
-                    output { _ariaLabel "Zoom level"; _dataText "Math.round($postingZoom * 100) + '%'"; "100%" }
+                    Button.create (ButtonContent.Text "Zoom in") |> Button.withAttributes [ _dataOn ("click", "$canvasZoom = Math.min(2, $canvasZoom + 0.25)") ] |> Button.render
+                    Button.create (ButtonContent.Text "Zoom out") |> Button.withAttributes [ _dataOn ("click", "$canvasZoom = Math.max(0.5, $canvasZoom - 0.25)") ] |> Button.render
+                    output { _ariaLabel "Zoom level"; _dataText "Math.round($canvasZoom * 100) + '%'"; "100%" }
                 }
                 div {
                     _style "width:1000px;height:600px;transform-origin:top left"
-                    _dataAttr ("style", "'width:' + (1000 * $postingZoom) + 'px;height:' + (600 * $postingZoom) + 'px'")
-                    raw """<svg role="img" aria-label="Posting flow from receivables through operating checking to payroll" viewBox="0 0 1000 600" width="100%" height="100%"><path d="M260 230H390M610 230H740" stroke="var(--fve-border)" stroke-width="3"/><g fill="var(--fve-surface)" stroke="var(--fve-border)"><rect x="40" y="190" width="220" height="80" rx="8"/><rect x="390" y="190" width="220" height="80" rx="8"/><rect x="740" y="190" width="220" height="80" rx="8"/></g><g fill="var(--fve-text)" font-size="16" text-anchor="middle"><text x="150" y="236">Receivables</text><text x="500" y="236">Operating checking</text><text x="850" y="236">Payroll</text></g></svg>"""
+                    _dataAttr ("style", "'width:' + (1000 * $canvasZoom) + 'px;height:' + (600 * $canvasZoom) + 'px'")
+                    raw """<svg role="img" aria-label="Workflow from draft through review to publish" viewBox="0 0 1000 600" width="100%" height="100%"><path d="M260 230H390M610 230H740" stroke="var(--fve-border)" stroke-width="3"/><g fill="var(--fve-surface)" stroke="var(--fve-border)"><rect x="40" y="190" width="220" height="80" rx="8"/><rect x="390" y="190" width="220" height="80" rx="8"/><rect x="740" y="190" width="220" height="80" rx="8"/></g><g fill="var(--fve-text)" font-size="16" text-anchor="middle"><text x="150" y="236">Draft</text><text x="500" y="236">Review</text><text x="850" y="236">Publish</text></g></svg>"""
                 }
             }
-        Page.create (PageHeader.create "Posting flow") graph
+        Page.create (PageHeader.create "Workflow") graph
         |> Page.withBodyLayout PageBodyLayout.Canvas
 
     let treasuryTransactionsPage = transactionsPage (pageTopBar (treasuryBreadcrumbs TreasuryTransactions)) transactionTabs
@@ -3299,9 +3356,9 @@ div {
     let nativeButtonLinks =
         div {
             _class "flex flex-wrap gap-3"
-            Button.create (ButtonContent.Text "View account") |> Button.renderLink "/examples/application/accounts/101"
-            Button.create (ButtonContent.Text "Create account") |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid
-            |> Button.renderLink "/examples/application/accounts/new"
+            Button.create (ButtonContent.Text "View examples") |> Button.renderLink "/examples"
+            Button.create (ButtonContent.Text "Read documentation") |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid
+            |> Button.renderLink "/components"
         }
 
     let buttonColorExamples =
@@ -3349,10 +3406,11 @@ div {
         }
 
     let pendingErrorButton =
-        Button.create (ButtonContent.Text "Deleting account")
+        Button.create (ButtonContent.Text "Delete")
         |> Button.withColor ButtonColor.Error
         |> Button.withVariant ButtonVariant.Solid
-        |> Button.pending
+        |> Button.withPendingSignal "_delete_pending"
+        |> Button.withAttributes [ _dataIndicator "_delete_pending"; _dataOn ("click", "@get('/components/button/settled', {filterSignals: {exclude: /.*/}, retry: 'never'})") ]
         |> Button.render
 
     let iconOnlyButtonVariantExamples =
@@ -3380,7 +3438,7 @@ div {
         div {
             _class "flex flex-wrap items-center justify-center gap-4"
             for size in [ ControlSize.Small; ControlSize.Medium; ControlSize.Large ] do
-                Button.create (ButtonContent.Text "Create account")
+                Button.create (ButtonContent.Text "Create")
                 |> Button.withColor ButtonColor.Primary
                 |> Button.withVariant ButtonVariant.Solid
                 |> Button.withSize size
@@ -3409,7 +3467,7 @@ div {
         div {
             _class "flex flex-wrap items-center justify-center gap-4"
             for size in [ ControlSize.Small; ControlSize.Medium; ControlSize.Large ] do
-                Button.create (ButtonContent.Text "Delete account")
+                Button.create (ButtonContent.Text "Delete")
                 |> Button.withColor ButtonColor.Error
                 |> Button.withVariant ButtonVariant.Solid
                 |> Button.withSize size
@@ -3418,23 +3476,18 @@ div {
 
     let confirmationExample =
         div {
-            accountDeletionDialog |> Dialog.trigger "Delete account"
-            accountDeletionDialog |> Dialog.render
+            itemDeletionDialog |> Dialog.trigger "Delete"
+            itemDeletionDialog |> Dialog.render
         }
-    let pendingConfirmationExample =
+    let itemDrawerExample =
         div {
-            pendingDeletionDialog |> Dialog.trigger "Open pending confirmation"
-            pendingDeletionDialog |> Dialog.render
+            itemDrawerConfig |> Drawer.trigger "Open item details"
+            itemDrawerConfig |> Drawer.render
         }
-    let accountDrawerExample =
+    let itemEditorDrawerExample =
         div {
-            accountDrawerConfig |> Drawer.trigger "Open account details"
-            accountDrawerConfig |> Drawer.render
-        }
-    let accountEditorDrawerExample =
-        div {
-            accountEditorDrawerConfig |> Drawer.trigger "Edit account"
-            accountEditorDrawerConfig |> Drawer.render
+            itemEditorDrawerConfig |> Drawer.trigger "Edit item"
+            itemEditorDrawerConfig |> Drawer.render
         }
     let filterDrawerExample =
         div {
@@ -3449,7 +3502,7 @@ div {
             topDrawerConfig |> Drawer.render
             bottomDrawerConfig |> Drawer.render
         }
-    let sideNavExample = groupedLedgerNavigation |> SideNav.render shellDestinationUrl
+    let sideNavExample = nestedSideNav |> SideNav.render id
     let pageHeaderExample =
         div {
             _dataSignals "{ledgerRefreshes: 0}"
@@ -3457,7 +3510,7 @@ div {
             output { _class "sr-only"; _role "status"; _dataText "'Balance refreshes: ' + $ledgerRefreshes"; "Balance refreshes: 0" }
         }
     let periodNote =
-        Section.withoutHeader "Period note" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Amounts reflect the current accounting period." })
+        Section.withoutHeader "Supporting note" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Items are shown in the order they were added." })
         |> Section.render
 
     let responsiveActionsExample =
@@ -3471,18 +3524,18 @@ div {
 
     let bottomNavigationExample =
         BottomNavigation.create "example-bottom-navigation" "Primary navigation" [
-            BottomNavigationItem.create "/components/application" "Home"
-            BottomNavigationItem.create "/components/collection" "Accounts"
-            BottomNavigationItem.create "/components/metric" "Reports"
+            BottomNavigationItem.create "/components" "Home"
+            BottomNavigationItem.create "/components/table" "Items"
+            BottomNavigationItem.create "/components/metric" "Activity"
             BottomNavigationItem.create "/components/theming" "Settings" ]
-        |> BottomNavigation.withCurrent "/components/collection"
+        |> BottomNavigation.withCurrent "/components/table"
         |> BottomNavigation.render id
 
     let compactBottomNavigationExample =
         BottomNavigation.create "compact-bottom-navigation" "Workspace navigation" [
-            BottomNavigationItem.create "/components/application" "Home"
+            BottomNavigationItem.create "/components" "Home"
             BottomNavigationItem.create "/components/month-calendar" "Schedule"
-            BottomNavigationItem.create "/components/media-library" "Media" ]
+            BottomNavigationItem.create "/components/page-examples/media-management" "Media" ]
         |> BottomNavigation.withCurrent "/components/month-calendar"
         |> BottomNavigation.render id
 
@@ -3553,11 +3606,11 @@ div {
 
     let resizablePanels =
         let navigationPanel =
-            ResizablePanel.create (aside { _class "h-full bg-[var(--fve-surface-subtle)] p-4"; strong { "Accounts" }; p { _class "mt-2 text-sm text-[var(--fve-muted-text)]"; "Operating\nSavings\nTax reserve" } })
+            ResizablePanel.create (aside { _class "h-full bg-[var(--fve-surface-subtle)] p-4"; strong { "Items" }; p { _class "mt-2 text-sm text-[var(--fve-muted-text)]"; "Project notes\nShared files\nTeam guide" } })
             |> ResizablePanel.withInitialSize 34
             |> ResizablePanel.withBounds 20 60
             |> ResizablePanel.collapsible 0
-        Resizable.create "account-workspace-panels" "Account workspace panels" navigationPanel (div { _class "h-full p-4"; h3 { _class "font-semibold"; "Operating account" }; p { _class "mt-2 text-sm text-[var(--fve-muted-text)]"; "Resize the supporting list without changing the route or persisting a layout preference." } })
+        Resizable.create "item-workspace-panels" "Workspace panels" navigationPanel (div { _class "h-full p-4"; h3 { _class "font-semibold"; "Project notes" }; p { _class "mt-2 text-sm text-[var(--fve-muted-text)]"; "Drag the divider to resize the supporting list." } })
         |> Resizable.render
 
     let verticalResizablePanels =
@@ -3570,14 +3623,14 @@ div {
         |> Resizable.render
 
     let basicTooltip =
-        Tooltip.create "archive-tooltip" "Moves the account out of active lists." (fun descriptionId ->
+        Tooltip.create "archive-tooltip" "Moves the item out of active lists." (fun descriptionId ->
             Button.create (ButtonContent.Text "Archive")
             |> Button.withAttributes [ _ariaDescribedby descriptionId ]
             |> Button.render)
         |> Tooltip.render
 
     let bottomTooltip =
-        Tooltip.create "bottom-placement-tooltip" "Moves the account out of active lists." (fun descriptionId ->
+        Tooltip.create "bottom-placement-tooltip" "Moves the item out of active lists." (fun descriptionId ->
             Button.create (ButtonContent.Text "Archive")
             |> Button.withAttributes [ _ariaDescribedby descriptionId ]
             |> Button.withVariant ButtonVariant.Outline
@@ -3589,8 +3642,8 @@ div {
     let describedTooltip =
         div {
             _class "grid gap-3"
-            p { _id "archive-description"; _class "text-sm text-[var(--fve-muted-text)]"; "Archived accounts remain searchable." }
-            Tooltip.create "described-archive-tooltip" "Moves the account out of active lists." (fun descriptionId ->
+            p { _id "archive-description"; _class "text-sm text-[var(--fve-muted-text)]"; "Archived items remain searchable." }
+            Tooltip.create "described-archive-tooltip" "Moves the item out of active lists." (fun descriptionId ->
                 Button.create (ButtonContent.Text "Archive")
                 |> Button.withAttributes [ _ariaDescribedby ("archive-description " + descriptionId) ]
                 |> Button.render)
@@ -3598,7 +3651,7 @@ div {
         }
 
     let profilePopover =
-        Popover.create "profile-popover" "Account details" (span { "Account details" }) "Account details" (p { "Signed in as Alex Morgan." })
+        Popover.create "profile-popover" "Profile details" (span { "Profile details" }) "Profile details" (p { "Signed in as Alex Morgan." })
         |> Popover.render
 
     let focusedProfilePopover =
@@ -3606,14 +3659,13 @@ div {
             div {
                 _class "grid gap-4"
                 Input.create "displayName" "Display name" |> Input.withValue "Alex Morgan" |> Input.render
-                p { _class "text-sm text-[var(--fve-muted-text)]"; "This local example does not save changes." }
             }
         Popover.create "focused-profile-popover" "Edit profile" (span { "Edit profile" }) "Edit profile" content
         |> Popover.focusContentOnOpen
         |> Popover.render
 
     let alignedPopover =
-        Popover.create "filter-popover" "Open filter details" (span { "Filter details" }) "Filter details" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Showing active accounts with balances above zero." })
+        Popover.create "filter-popover" "Open filter details" (span { "Filter details" }) "Filter details" (p { _class "text-sm text-[var(--fve-muted-text)]"; "Showing active items updated this month." })
         |> Popover.withAlignment PopoverAlignment.End
         |> Popover.withSide PopoverSide.Top
         |> Popover.render
@@ -3623,14 +3675,14 @@ div {
         |> MonthCalendar.renderSelection
 
     let monthSelectionSingle =
-        MonthCalendar.createSelection "settlement-month-calendar" "Settlement date" "settlementDate" (MonthCalendarSelection.Single(Some(DateOnly(2026, 9, 18))))
+        MonthCalendar.createSelection "selected-month-calendar" "Selected date" "selectedDate" (MonthCalendarSelection.Single(Some(DateOnly(2026, 9, 18))))
         |> MonthCalendar.withDisplayMonth (DateOnly(2026, 9, 1))
         |> MonthCalendar.clearable
         |> MonthCalendar.renderSelection
 
     let monthSelectionRange =
-        MonthCalendar.createSelection "reporting-range-calendar" "Reporting range" "reportingStart" (MonthCalendarSelection.Range(Some(DateOnly(2026, 9, 14)), Some(DateOnly(2026, 9, 18))))
-        |> MonthCalendar.withRangeEndName "reportingEnd"
+        MonthCalendar.createSelection "date-range-calendar" "Date range" "rangeStart" (MonthCalendarSelection.Range(Some(DateOnly(2026, 9, 14)), Some(DateOnly(2026, 9, 18))))
+        |> MonthCalendar.withRangeEndName "rangeEnd"
         |> MonthCalendar.withDisplayMonth (DateOnly(2026, 9, 1))
         |> MonthCalendar.withWeekStart MonthCalendarWeekStart.Monday
         |> MonthCalendar.renderSelection
@@ -3658,17 +3710,17 @@ div {
         |> MonthCalendar.renderSelection
 
     let defaultDatePicker =
-        DatePicker.create "default-invoice-date" "defaultInvoiceDate" "Invoice date" (MonthCalendarSelection.Single None)
+        DatePicker.create "default-selected-date" "defaultSelectedDate" "Date" (MonthCalendarSelection.Single None)
         |> DatePicker.render
 
     let basicDatePicker =
-        DatePicker.create "invoice-date" "invoiceDate" "Invoice date" (MonthCalendarSelection.Single(Some(DateOnly(2026, 9, 18))))
+        DatePicker.create "selected-date" "selectedDate" "Date" (MonthCalendarSelection.Single(Some(DateOnly(2026, 9, 18))))
         |> DatePicker.withDescription "Uses a canonical date-only form value."
         |> DatePicker.clearable
         |> DatePicker.render
 
     let rangeDatePicker =
-        DatePicker.create "reporting-period" "periodStart" "Reporting period" (MonthCalendarSelection.Range(Some(DateOnly(2026, 9, 14)), Some(DateOnly(2026, 9, 18))))
+        DatePicker.create "date-range" "periodStart" "Date range" (MonthCalendarSelection.Range(Some(DateOnly(2026, 9, 14)), Some(DateOnly(2026, 9, 18))))
         |> DatePicker.withRangeEndName "periodEnd"
         |> DatePicker.withWeekStart MonthCalendarWeekStart.Monday
         |> DatePicker.render
@@ -3688,9 +3740,9 @@ div {
         |> DatePicker.render
 
     let invalidDatePicker =
-        DatePicker.create "closing-date" "closingDate" "Closing date" (MonthCalendarSelection.Single None)
+        DatePicker.create "required-date" "requiredDate" "Date" (MonthCalendarSelection.Single None)
         |> DatePicker.withDisplayMonth (DateOnly(2026, 9, 1))
-        |> DatePicker.withValidation "Choose a date in the open accounting period."
+        |> DatePicker.withValidation "Choose an available date."
         |> DatePicker.render
 
     let pendingDatePicker =
@@ -3712,14 +3764,14 @@ div {
                 _class "min-h-[var(--fve-control-min-height)] w-full rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] px-3 focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
             })
 
-    let customCurrencyField =
-        Field.create "adjustment-amount" "Adjustment amount"
-        |> Field.withDescription "Enter the amount before fees."
+    let customQuantityField =
+        Field.create "item-quantity" "Quantity"
+        |> Field.withDescription "Enter the number of items."
         |> Field.required
         |> Field.render (fun attributes ->
             input {
                 for attribute in attributes do attribute
-                _name "adjustmentAmount"
+                _name "quantity"
                 _type "number"
                 _step "0.01"
                 _class "min-h-[var(--fve-control-min-height)] w-full rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] px-3 focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
@@ -3730,33 +3782,33 @@ div {
             _class "grid gap-4"
             Field.create "legal-name" "Legal name"
             |> Field.withLayout FieldLayout.Responsive
-            |> Field.withDescription "Matches the account owner record."
+            |> Field.withDescription "Use the name on your profile."
             |> Field.render (fun attributes -> input { for attribute in attributes do attribute; _name "legalName"; _class "min-h-10 w-full rounded-md border border-[var(--fve-border)] bg-[var(--fve-surface)] px-3" })
-            Field.create "tax-reference" "Tax reference"
+            Field.create "item-reference" "Reference"
             |> Field.withLayout FieldLayout.Responsive
             |> Field.withValidation "Enter the nine-character reference."
-            |> Field.render (fun attributes -> input { for attribute in attributes do attribute; _name "taxReference"; _class "min-h-10 w-full rounded-md border border-[var(--fve-critical-ring)] bg-[var(--fve-surface)] px-3" })
+            |> Field.render (fun attributes -> input { for attribute in attributes do attribute; _name "itemReference"; _class "min-h-10 w-full rounded-md border border-[var(--fve-critical-ring)] bg-[var(--fve-surface)] px-3" })
         }
 
     let groupedFields =
-        FieldGroup.create "Delivery preferences" (div { _class "grid gap-3"; Checkbox.create "emailDelivery" "Email receipt" |> Checkbox.withChecked true |> Checkbox.render; Checkbox.create "paperDelivery" "Paper receipt" |> Checkbox.render })
+        FieldGroup.create "Delivery preferences" (div { _class "grid gap-3"; Checkbox.create "emailDelivery" "Email updates" |> Checkbox.withChecked true |> Checkbox.render; Checkbox.create "paperDelivery" "Printed updates" |> Checkbox.render })
         |> FieldGroup.withDescription "Choose one or both delivery methods."
         |> FieldGroup.render
 
     let defaultInputGroup =
-        InputGroup.create "account-reference" "accountReference" "Account reference"
+        InputGroup.create "item-reference" "itemReference" "Reference"
         |> InputGroup.render
 
-    let currencyInputGroup =
-        InputGroup.create "budget-amount" "budgetAmount" "Budget"
-        |> InputGroup.withValue "1250"
-        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "$")
-        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Trailing "USD")
-        |> InputGroup.withDescription "Whole dollars or decimals are accepted."
+    let weightInputGroup =
+        InputGroup.create "package-weight" "packageWeight" "Weight"
+        |> InputGroup.withValue "12.5"
+        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "Approx.")
+        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Trailing "kg")
+        |> InputGroup.withDescription "Whole numbers or decimals are accepted."
         |> InputGroup.render
 
     let searchInputGroup =
-        InputGroup.create "account-search" "query" "Search accounts"
+        InputGroup.create "item-search" "query" "Search items"
         |> InputGroup.withInputType InputType.Search
         |> InputGroup.withAddon (InputGroupAddon.icon InputGroupPosition.Leading (raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M9 3.5a5.5 5.5 0 1 0 0 11 5.5 5.5 0 0 0 0-11ZM2 9a7 7 0 1 1 12.95 3.69l3.18 3.18a.75.75 0 1 1-1.06 1.06l-3.18-3.18A7 7 0 0 1 2 9Z" clip-rule="evenodd"/></svg>"""))
         |> InputGroup.withAddon (InputGroupAddon.keyboard InputGroupPosition.Trailing "⌘ K")
@@ -3765,14 +3817,14 @@ div {
     let textareaInputGroup =
         InputGroup.create "message-draft" "message" "Message"
         |> InputGroup.asTextarea 4
-        |> InputGroup.withValue "The September close is ready for review."
+        |> InputGroup.withValue "The latest project notes are ready for review."
         |> InputGroup.withFooter (div { _class "contents"; span { _class "text-xs text-[var(--fve-muted-text)]"; "48 / 2,000" }; Button.create (ButtonContent.Text "Send") |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid |> Button.withSize ControlSize.Small |> Button.render })
         |> InputGroup.render
 
     let invalidInputGroup =
-        InputGroup.create "routing-number" "routingNumber" "Routing number"
-        |> InputGroup.withValidation "Enter a nine-digit routing number."
-        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "US")
+        InputGroup.create "item-reference-code" "referenceCode" "Reference"
+        |> InputGroup.withValidation "Enter a nine-digit reference."
+        |> InputGroup.withAddon (InputGroupAddon.text InputGroupPosition.Leading "ID")
         |> InputGroup.render
 
     let pendingInputGroup =
@@ -3783,17 +3835,17 @@ div {
         |> InputGroup.render
 
     let defaultMessage =
-        Message.create "Jordan Lee" (p { "Can you review the September close?" })
+        Message.create "Jordan Lee" (p { "Can you review the latest project notes?" })
         |> Message.render
 
     let messageRows =
         div {
             _class "grid gap-5"
-            Message.create "Jordan Lee" (p { "Can you review the September close before lunch?" })
+            Message.create "Jordan Lee" (p { "Can you review the project notes before lunch?" })
             |> Message.withAvatar (Avatar.create "Jordan Lee" "JL" |> Avatar.withSize AvatarSize.Small |> Avatar.render)
             |> Message.withMetadata "09:12"
             |> Message.render
-            Message.create "Andy Meier" (p { "Yes. I’ll add notes to the two entries that need attention." })
+            Message.create "Andy Meier" (p { "Yes. I’ll add comments to the two items that need attention." })
             |> Message.withSide MessageSide.Sender
             |> Message.withMetadata "09:14"
             |> Message.withStatus "Delivered"
@@ -3801,7 +3853,7 @@ div {
         }
 
     let messageWithoutAvatar =
-        Message.create "Support bot" (p { _class "whitespace-pre-wrap"; "The export is ready.\nIt contains 184 account records." })
+        Message.create "Support bot" (p { _class "whitespace-pre-wrap"; "The export is ready.\nIt contains 184 items." })
         |> Message.withMetadata "Just now"
         |> Message.withActions (Button.create (ButtonContent.Text "Download") |> Button.withVariant ButtonVariant.Ghost |> Button.withSize ControlSize.Small |> Button.render)
         |> Message.render
@@ -3824,6 +3876,50 @@ div {
                 p { _class "text-sm text-[var(--fve-muted-text)]"; "Confirm arrival time." }
             })
         |> Phone.render
+
+    // Host-owned review links; installed frames supply slots and viewport presentation only.
+    let fixtureWindowControl (path:string) (id:string) (expanded:bool) =
+        let label = (if expanded then "Restore " else "Expand ") + (if id="browser-review" then "Browser fixture" else "Phone fixture")
+        a {
+            _id ("fve-fixture-"+id+(if expanded then "-restorer" else "-launcher"))
+            _href (if expanded then path+"?fveAppReturn="+id else path+"?expanded=1")
+            _ariaLabel label; _title label
+            if expanded then _data("fve-app-mode-exit", "true")
+            else
+                _data("review-expand", "true")
+                _dataInit ("if (new URL(location.href).searchParams.get('fveAppReturn') === " + System.Text.Json.JsonSerializer.Serialize id + ") { el.focus({preventScroll:true}); el.scrollIntoView({block:'center'}) }")
+            _class "grid size-8 shrink-0 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+            span {
+                _ariaHidden true
+                _class ("grid size-3.5 place-items-center rounded-full " + (if expanded then "bg-[#febc2e] text-[#995700]" else "bg-[#28c840] text-[#0b6523]"))
+                if expanded then raw """<svg class="size-2.5" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 5h6"/></svg>"""
+                else raw """<svg class="size-2.5" viewBox="0 0 10 10" fill="currentColor"><path d="M1 1h6L1 7zm8 8H3l6-6Z"/></svg>"""
+            }
+        }
+
+    let browserReviewFrame expanded =
+        Browser.create (div { _class "grid min-h-64 content-center gap-3 p-6 text-center"; strong { _class "text-lg"; "Content preview" }; p { "One frame at either size." } })
+        |> Browser.withAddress "/components/browser"
+        |> Browser.withWindowControls (fixtureWindowControl "/components/browser" "browser-review" expanded)
+        |> Browser.withToolbarActions (ThemeSwitcher.create "browser-review-theme" "Choose fixture theme" |> ThemeSwitcher.render)
+        |> Browser.withExpanded expanded
+        |> Browser.render
+
+    let browserWithControls = browserReviewFrame false
+
+    let phoneReviewFrame expanded =
+        Phone.create (div { _class "flex h-full min-h-0 flex-col"; div { _class "shrink-0 border-b border-[var(--fve-border)] p-4 text-center font-semibold"; "Messages" }; div { _class "min-h-0 flex-1 overflow-auto p-4"; p { _class "rounded-lg bg-[var(--fve-surface-hover)] p-3 text-base"; "Confirm arrival time." } }; div { _class "shrink-0 border-t border-[var(--fve-border)] p-4 text-sm text-[var(--fve-muted-text)]"; "Message preview" } })
+        |> Phone.withToolbar (div { _class "flex min-w-0 flex-wrap items-center gap-3"; fixtureWindowControl "/components/phone" "phone-review" expanded; span { _class "min-w-0 flex-1 text-sm font-medium"; "Phone preview" }; ThemeSwitcher.create "phone-review-theme" "Choose fixture theme" |> ThemeSwitcher.render })
+        |> Phone.withExpanded expanded
+        |> Phone.render
+
+    let phoneWithControls = phoneReviewFrame false
+
+    let expandedReviewFixture phone = div {
+        _id "docs-navigation-root"; _data("fve-navigation-root", "true"); _data("fve-app-mode-root", "true")
+        _dataOn("keydown__window", Docs.Examples.Navigation.enhancement.appModeExitAction)
+        main { _id "main-content"; _tabindex -1; _class "outline-none"; if phone then phoneReviewFrame true else browserReviewFrame true }
+    }
 
     let private detailsSurface (content:HtmlElement) =
         gallerySurface (div { _class "p-4 sm:p-6"; content })
@@ -3956,10 +4052,17 @@ div {
                         a { _href installationRegistration.path; _class "font-semibold text-[var(--fve-brand-text)] underline underline-offset-2"; "Installation" }
                         " for project initialization and Tailwind source detection."
                     } ]
-                titledSection "usage" "Usage" [ code "fsharp" lead.source ]
+                titledSection "usage" "Usage" [
+                    code "fsharp" lead.source
+                    if registration.id = buttonRegistration.id then
+                        prose "Button.withPendingSignal reads a request signal and controls the spinner, disabled state, and aria-busy. Supply the request action and data-indicator yourself. For submit buttons, place the action and indicator on the form to preserve Enter submission and native validation."
+                    if registration.id = themeSwitcherRegistration.id then
+                        prose "Include ThemeSwitcher.assets once before the stylesheet, or assetsWithNonce with a fresh document nonce under nonce CSP. Use one storage key for the product. Multiple switchers and native choices share window.fveColorMode and the fve-color-mode event."
+                        prose "Install radio-group for the native-choice example. ThemeSwitcher.nativeChoiceAttributes supports native radios before Datastar initializes; enhanced synchronization remains Datastar-owned." ]
                 for item in variants do
-                    DocumentationSection.create item.id item.title [
-                        Example.gallery item.id item.title "fsharp" item.source item.preview ]
+                    DocumentationSection.create item.id item.title (
+                        [ Example.gallery item.id item.title "fsharp" item.source item.preview ]
+                        @ (item.note |> Option.map prose |> Option.toList))
                 if registration.id = sideNavRegistration.id then
                     titledSection "expansion-and-scroll" "Expansion and scroll" [
                         prose "Groups stay independently open or closed during navigation, history and refresh. Their initial state opens the active branch; remembered choices take precedence, including an explicit collapse of that branch. Content scroll is also remembered for the current browser tab."
@@ -3969,7 +4072,7 @@ div {
                     titledSection "complete-pages" "Complete page examples" [
                         p {
                             "For populated pages and a connected workflow, explore "
-                            a { _href accountManagementRegistration.path; "Account management" }
+                            a { _href "/examples/application"; "Application" }
                             ". These shell examples intentionally show only the layout."
                         } ]
                 match apiOwner registration with
@@ -4037,12 +4140,12 @@ div {
 
     let floatingPanelChecklistExample =
         FloatingPanel.create "component-checklist" "Setup checklist" floatingPanelChecklistContent
-        |> FloatingPanel.withDescription "The consumer owns the checklist, progress, and destinations."
+        |> FloatingPanel.withDescription "Two steps to get started."
         |> FloatingPanel.withinContainer
         |> FloatingPanel.render
 
     let notificationLeadItem sequence =
-        Notification.create $"saved-notification-{sequence}" "Changes saved" (p { $"Server-confirmed notification {sequence} is ready." })
+        Notification.create $"saved-notification-{sequence}" "Changes saved" (p { "Your changes are ready." })
 
     let notificationLeadRegion sequence =
         let notification = if sequence > 0 then Some(notificationLeadItem sequence) else None
@@ -4079,7 +4182,7 @@ div {
         |> NotificationRegion.render
 
     let timedNotificationExample =
-        Notification.create "review-notification" "Review needed" (p { "Two unmatched transactions still need an account." })
+        Notification.create "review-notification" "Review needed" (p { "Two items still need your attention." })
         |> Notification.withColor NotificationColor.Warning
         |> Notification.withTtl 8000
         |> Some
@@ -4088,45 +4191,45 @@ div {
         |> NotificationRegion.render
 
     let operationalProgressExample =
-        Progress.create "Statement import" 68 100
+        Progress.create "File upload" 68 100
         |> Progress.render
 
     let indeterminateProgressExample =
-        Progress.indeterminate "Preparing statement import"
+        Progress.indeterminate "Preparing files"
         |> Progress.withValueText "Checking source files"
         |> Progress.withDetail "No completion percentage is available yet."
         |> Progress.render
 
     let completedProgressExample =
-        Progress.create "Statement import" 100 100
+        Progress.create "File upload" 100 100
         |> Progress.withValueText "100%"
         |> Progress.complete
         |> Progress.render
 
     let failedProgressExample =
-        Progress.create "Statement import" 68 100
+        Progress.create "File upload" 68 100
         |> Progress.withValueText "Stopped at 68%"
-        |> Progress.withDetail "The application can provide a retry action beside the progress component."
+        |> Progress.withDetail "The upload stopped. Try again."
         |> Progress.failed
         |> Progress.render
 
     let defaultFileSelection =
-        FileSelection.create "statement-file" "statementFile" "Statement"
+        FileSelection.create "selected-file" "selectedFile" "File"
         |> FileSelection.render
 
     let fileSelectionExample =
-        FileSelection.create "statement-files" "statements" "Statements"
-        |> FileSelection.withDescription "Choose one or more CSV or OFX statements. Each file remains a native form value."
-        |> FileSelection.withAccept ".csv,.ofx,text/csv"
+        FileSelection.create "selected-files" "selectedFiles" "Files"
+        |> FileSelection.withDescription "Choose one or more CSV files."
+        |> FileSelection.withAccept ".csv,text/csv"
         |> FileSelection.multiple
         |> FileSelection.render
 
     let invalidFileSelectionExample =
-        FileSelection.create "receipt-file" "receipt" "Receipt"
-        |> FileSelection.withDescription "Choose one PDF receipt."
+        FileSelection.create "required-file" "requiredFile" "Document"
+        |> FileSelection.withDescription "Choose one PDF document."
         |> FileSelection.withAccept ".pdf,application/pdf"
         |> FileSelection.required
-        |> FileSelection.withValidation "Choose a PDF receipt before continuing."
+        |> FileSelection.withValidation "Choose a PDF document before continuing."
         |> FileSelection.render
 
     let pendingFileSelectionExample =
@@ -4136,20 +4239,20 @@ div {
         |> FileSelection.pending
         |> FileSelection.render
 
-    let periodCloseStepsExample =
+    let setupStepsExample =
         div {
             _dataSignals "{stepnote: '', stepattempted: false}"
             _class "grid gap-4"
-            Steps.create "Period close progress"
-                [ Step.create "Review balances" StepState.Complete
-                  |> Step.withDestination "/components/collection"
-                  Step.create "Reconcile statements" StepState.Current
-                  |> Step.withDescription "Resolve the remaining statement differences."
-                  Step.create "Post adjustments" StepState.Available
-                  |> Step.withDestination "/components/detail"
-                  Step.create "Close period" StepState.Unavailable ]
+            Steps.create "Setup progress"
+                [ Step.create "Choose items" StepState.Complete
+                  |> Step.withDestination "/components/table"
+                  Step.create "Review details" StepState.Current
+                  |> Step.withDescription "Check the selected items before continuing."
+                  Step.create "Publish" StepState.Available
+                  |> Step.withDestination "/components/description-list"
+                  Step.create "Finish" StepState.Unavailable ]
             |> Steps.render id
-            Input.create "reconciliationNote" "Reconciliation note"
+            Input.create "reviewNote" "Review note"
             |> Input.withAttributes [ _dataBind "stepnote" ]
             |> Input.required
             |> Input.render
@@ -4162,13 +4265,13 @@ div {
                 _dataShow "$stepattempted && !$stepnote.trim()"
                 _role "alert"
                 _class "text-sm text-[var(--fve-critical-text)]"
-                "Enter a reconciliation note before continuing. The current step has not changed."
+                "Enter a review note before continuing."
             }
             p {
                 _dataShow "$stepattempted && $stepnote.trim()"
                 _role "status"
                 _class "text-sm text-[var(--fve-positive-text)]"
-                "Reconciliation is ready for server validation."
+                "Ready to continue."
             }
         }
 
@@ -4189,7 +4292,7 @@ div {
         |> Avatar.render
 
     let decorativeAvatarExample =
-        Avatar.create "Decorative account mark" "AM"
+        Avatar.create "Decorative profile mark" "AM"
         |> Avatar.decorative
         |> Avatar.render
 
@@ -4229,7 +4332,7 @@ div {
             CommandItem.link "/components/month-calendar" "Month calendar" |> CommandItem.withKeywords [ "dates"; "schedule" ] ]
         CommandGroup.create "Page examples" [
             CommandItem.link "/components/page-examples/scheduling" "Scheduling" |> CommandItem.withShortcut "⌘S"
-            CommandItem.link "/components/page-examples/account-management" "Account management" ] ]
+            CommandItem.link "/components/page-examples/media-management" "Media management" ] ]
 
     let groupedCommand =
         Command.create "command-groups" "Search components and examples" commandGroups
@@ -4243,8 +4346,7 @@ div {
             Command.create "command-actions" "Choose a local action" [
                 CommandGroup.create "Actions" [
                     CommandItem.action "$commandFeedback = 'Display settings selected.'" "Display settings"
-                    |> CommandItem.withDescription "A local selection; no settings are saved."
-                    CommandItem.action "$commandFeedback = 'Account settings selected.'" "Account settings"
+                    CommandItem.action "$commandFeedback = 'Profile settings selected.'" "Profile settings"
                     CommandItem.action "$commandFeedback = 'Unavailable action.'" "Unavailable action" |> CommandItem.disabled ] ]
             |> Command.render id
             p { _role "status"; _class "text-sm text-[var(--fve-muted-text)]"; _dataText "$commandFeedback" }
@@ -4367,7 +4469,7 @@ div {
     let defaultBottomNavigation =
         BottomNavigation.create "default-bottom-navigation" "Default primary navigation" [
             BottomNavigationItem.create "/components" "Home"
-            BottomNavigationItem.create "/components/collection" "Accounts" ]
+            BottomNavigationItem.create "/components/table" "Items" ]
         |> BottomNavigation.render id
 
     let mediaLibraryExample =
@@ -4600,9 +4702,9 @@ div {
 
     let private shellSource = [ "ShellDestination"; "shellDestinationKey"; "shellDestinationUrl" ]
     let private formSource = [ "choiceSubmitButton"; "choiceResult" ]
-    let private selectSource = [ "AccountStatus"; "statusValue"; "selectStatusOptions" ]
-    let private comboboxSource = [ "accounts"; "accountOptions" ]
-    let private sideNavSource = shellSource @ [ "ledgerMark"; "navigationGlyph"; "shellItem"; "ledgerNavigation"; "groupedLedgerNavigation"; "sideNavExample" ]
+    let private selectSource = [ "ChoiceStatus"; "statusValue"; "selectStatusOptions" ]
+    let private comboboxSource = [ "searchItems"; "itemOptions" ]
+    let private sideNavSource = [ "nestedSideNav"; "sideNavExample" ]
 
     let paginationExamples requestedPage =
         [ sample "pagination" "Page navigation" [ "PaginationDestination"; "paginationDestinationUrl"; "paginationConfig"; "paginationPreview" ] (centered (paginationPreviewRegion requestedPage))
@@ -4711,7 +4813,7 @@ div {
           sample "table-scrollable" "Scrollable rows and sticky headings" [ "TeamMember"; "teamMembers"; "teamColumns"; "scrollableTeamTable" ] (detailsSurface scrollableTeamTable)
           sample "table-mobile" "Stacked on mobile" [ "TeamMember"; "teamMembers"; "mobileTeamTable" ] (detailsSurface mobileTeamTable)
           sample "table-sorting" "Sortable records" [ "TeamMember"; "teamMembers"; "TeamMemberSort"; "teamMemberSortUrl"; "documentSort"; "sortFor"; "sortableTeamTable" ] (detailsSurface (sortableTeamTablePreview current))
-          sample "table-hierarchy" "Hierarchical accounts and aggregates" [ "HierarchyAccount"; "money"; "hierarchyAccounts"; "hierarchicalAccountTable" ] (detailsSurface hierarchicalAccountTable)
+          sample "table-hierarchy" "Hierarchical items" [ "HierarchyItem"; "hierarchyItems"; "hierarchicalItemTable" ] (detailsSurface hierarchicalItemTable)
           sample "table-empty" "Empty state" [ "TeamMember"; "teamColumns"; "emptyTeamTable" ] (detailsSurface emptyTeamTable) ]
 
     // Include themeSwitcherHead once in your document head, before the stylesheet.
@@ -4732,6 +4834,8 @@ div {
     let examplesFor = function
         | "button" -> [
             sample "button-basic" "Default" [ "basicButton" ] (centered basicButton)
+            sample "button-pending" "Pending" [ "pendingSyncButton" ] (centered pendingSyncButton)
+            |> note "Click Sync to see its loading state."
             sample "button-links" "Native destination links" [ "nativeButtonLinks" ] (centered nativeButtonLinks)
             |> note "Button.renderLink preserves a native href with shared Button colors, sizing and appearance. Use Button.render for form submission or commands; links do not support disabled or pending behavior."
             sample "button-colors" "Colors" [ "buttonColorExamples" ] (centered buttonColorExamples)
@@ -4744,11 +4848,12 @@ div {
             sample "button-secondary" "Secondary buttons" [ "secondaryButtons" ] (centered secondaryButtons)
             sample "button-ghost" "Ghost buttons" [ "ghostButtons" ] (centered ghostButtons)
             sample "button-destructive" "Destructive buttons" [ "destructiveButtons" ] (centered destructiveButtons)
-            sample "button-pending" "Pending buttons" [ "pendingSyncButton" ] (centered pendingSyncButton)
-            sample "button-error-pending" "Pending error-colored action" [ "pendingErrorButton" ] (centered pendingErrorButton)
+            sample "button-error-pending" "Destructive pending" [ "pendingErrorButton" ] (centered pendingErrorButton)
+            |> note "Click Delete to see its loading state."
             sample "button-disabled" "Disabled buttons" [ "disabledDeleteButton" ] (centered disabledDeleteButton)
-            sample "button-icon-primary" "Primary icon-only" [ "plusIcon"; "addAccountIconOnlyButton" ] (centered addAccountIconOnlyButton)
+            sample "button-icon-primary" "Primary icon-only" [ "plusIcon"; "createIconOnlyButton" ] (centered createIconOnlyButton)
             sample "button-icon-pending" "Pending icon-only" [ "refreshIcon"; "refreshingIconOnlyButton" ] (centered refreshingIconOnlyButton)
+            |> note "Click the button to see its loading state."
             sample "button-icon-disabled" "Disabled icon-only" [ "removeIcon"; "disabledRemoveIconOnlyButton" ] (centered disabledRemoveIconOnlyButton) ]
         | "button-group" -> [
             sample "button-group-default" "Default" [ "defaultButtonGroup" ] (centered defaultButtonGroup)
@@ -4806,13 +4911,13 @@ div {
         | "table" -> tableExamples NameAscending
         | "description-list" -> [
             sample "description-list-default" "Default" [ "defaultDescriptionList" ] (detailsSurface defaultDescriptionList)
-            sample "description-list" "Three-column details" [ "accountDetails" ] (detailsSurface accountDetails)
-            sample "description-list-four-columns" "Four-column details" [ "accountOverview" ] (detailsSurface accountOverview)
-            sample "description-list-supporting-text" "With supporting text" [ "accountDetailsWithDescriptions" ] (detailsSurface accountDetailsWithDescriptions) ]
+            sample "description-list" "Three-column details" [ "itemDetails" ] (detailsSurface itemDetails)
+            sample "description-list-four-columns" "Four-column details" [ "itemOverview" ] (detailsSurface itemOverview)
+            sample "description-list-supporting-text" "With supporting text" [ "itemDetailsWithDescriptions" ] (detailsSurface itemDetailsWithDescriptions) ]
         | "metric" -> [
             sample "metric-default" "Default" [ "defaultMetric" ] (centered defaultMetric)
-            sample "metric" "With trend and status" [ "availableBalanceMetric" ] (centered availableBalanceMetric)
-            sample "metric-pending" "With review status" [ "pendingEntriesMetric" ] (centered pendingEntriesMetric)
+            sample "metric" "With trend and status" [ "totalItemsMetric" ] (centered totalItemsMetric)
+            sample "metric-pending" "With review status" [ "pendingItemsMetric" ] (centered pendingItemsMetric)
             sample "metric-multiple" "Multiple metrics" [ "multipleMetrics" ] (centered multipleMetrics) ]
         | "pagination" -> paginationGalleryExamples 2
         | "avatar" -> [
@@ -4839,12 +4944,12 @@ div {
             sample "input-pending" "Pending" [ "pendingInput" ] (fieldSurface pendingInput) ]
         | "field" -> [
             sample "field-default" "Default" [ "defaultField" ] (fieldSurface defaultField)
-            sample "field" "Custom control" [ "customCurrencyField" ] (fieldSurface customCurrencyField)
+            sample "field" "Custom control" [ "customQuantityField" ] (fieldSurface customQuantityField)
             sample "field-responsive" "Responsive label and control rows" [ "responsiveFieldRows" ] (fieldSurface responsiveFieldRows)
             sample "field-group" "Semantic fieldset" [ "groupedFields" ] (fieldSurface groupedFields) ]
         | "input-group" -> [
             sample "input-group-default" "Default" [ "defaultInputGroup" ] (fieldSurface defaultInputGroup)
-            sample "input-group" "Text addons" [ "currencyInputGroup" ] (fieldSurface currencyInputGroup)
+            sample "input-group" "Text addons" [ "weightInputGroup" ] (fieldSurface weightInputGroup)
             sample "input-group-search" "Icon and keyboard hint" [ "searchInputGroup" ] (fieldSurface searchInputGroup)
             sample "input-group-textarea" "Textarea footer" [ "textareaInputGroup" ] (fieldSurface textareaInputGroup)
             sample "input-group-validation" "Validation" [ "invalidInputGroup" ] (fieldSurface invalidInputGroup)
@@ -4897,12 +5002,12 @@ div {
             sample "select-multiple-validation" "Multiple selection with validation" (formSource @ [ "memberOptions"; "multipleSelectForm" ]) (fieldSurface (multipleSelectForm [] None None))
             sample "select-multiple-disabled" "Multiple selection, disabled" [ "memberOptions"; "disabledMembersSelect" ] (fieldSurface disabledMembersSelect)
             sample "select-multiple-pending" "Multiple selection, pending" [ "memberOptions"; "pendingMembersSelect" ] (fieldSurface pendingMembersSelect)
-            sample "select-search" "Searchable" (comboboxSource @ [ "staticAccountCombobox" ]) (fieldSurface staticAccountCombobox)
-            sample "select-search-remote" "Searchable with remote results" (comboboxSource @ [ "accountComboboxConfig"; "accountCombobox"; "accountComboboxOptions" ]) (fieldSurface accountCombobox)
-            sample "select-search-validation" "Searchable with validation" (comboboxSource @ [ "validationAccountCombobox" ]) (fieldSurface validationAccountCombobox)
-            sample "select-search-loading" "Searchable, loading" [ "loadingAccountCombobox" ] (fieldSurface loadingAccountCombobox)
-            sample "select-search-disabled" "Searchable, disabled" (comboboxSource @ [ "disabledAccountCombobox" ]) (fieldSurface disabledAccountCombobox)
-            sample "select-search-pending" "Searchable, pending" (comboboxSource @ [ "pendingAccountCombobox" ]) (fieldSurface pendingAccountCombobox)
+            sample "select-search" "Searchable" (comboboxSource @ [ "staticItemCombobox" ]) (fieldSurface staticItemCombobox)
+            sample "select-search-remote" "Searchable with remote results" (comboboxSource @ [ "itemComboboxConfig"; "itemCombobox"; "itemComboboxOptions" ]) (fieldSurface itemCombobox)
+            sample "select-search-validation" "Searchable with validation" (comboboxSource @ [ "validationItemCombobox" ]) (fieldSurface validationItemCombobox)
+            sample "select-search-loading" "Searchable, loading" [ "loadingItemCombobox" ] (fieldSurface loadingItemCombobox)
+            sample "select-search-disabled" "Searchable, disabled" (comboboxSource @ [ "disabledItemCombobox" ]) (fieldSurface disabledItemCombobox)
+            sample "select-search-pending" "Searchable, pending" (comboboxSource @ [ "pendingItemCombobox" ]) (fieldSurface pendingItemCombobox)
             sample "select-search-multiple" "Searchable multiple selection" [ "memberOptions"; "multipleMembersCombobox" ] (fieldSurface multipleMembersCombobox)
             sample "select-search-multiple-remote" "Searchable multiple selection with remote results" [ "memberOptions"; "remoteMembersConfig"; "remoteMembersCombobox"; "searchMemberOptions"; "remoteMembersField"; "remoteMembersOptions" ] (fieldSurface remoteMembersCombobox)
             sample "select-search-multiple-validation" "Searchable multiple selection with validation" (formSource @ [ "memberOptions"; "multipleComboboxForm" ]) (fieldSurface (multipleComboboxForm [] None None))
@@ -4938,7 +5043,7 @@ div {
         | "switch" -> [
             sample "switch" "Default" [ "basicSwitch" ] (fieldSurface basicSwitch)
             sample "switch-help" "With help text" [ "switchWithHelp" ] (fieldSurface switchWithHelp)
-            sample "switch-submission" "Setting with submission" (formSource @ [ "switchFormRegion"; "postingNotifications" ]) (fieldSurface postingNotifications)
+            sample "switch-submission" "Setting with submission" (formSource @ [ "switchFormRegion"; "notificationSetting" ]) (fieldSurface notificationSetting)
             sample "switch-pending" "Pending" [ "pendingNotifications" ] (fieldSurface pendingNotifications)
             sample "switch-validation" "Validation error" [ "invalidNotifications" ] (fieldSurface invalidNotifications)
             sample "switch-sizes" "Sizes" [ "switchSizes" ] (fieldSurface switchSizes)
@@ -4961,9 +5066,9 @@ div {
             sample "radio-group" "Default" [ "basicRadioGroup" ] (fieldSurface basicRadioGroup)
             sample "radio-group-help" "Option descriptions" [ "radioGroupWithHelp" ] (fieldSurface radioGroupWithHelp)
             sample "radio-group-horizontal" "Horizontal orientation" [ "horizontalRadioGroup" ] (fieldSurface horizontalRadioGroup)
-            sample "radio-group-validation" "Required choice with validation" (formSource @ [ "postingModeOptions"; "radioGroupFormRegion"; "postingMode" ]) (fieldSurface postingMode)
-            sample "radio-group-pending" "Pending" [ "postingModeOptions"; "pendingPostingMode" ] (fieldSurface pendingPostingMode)
-            sample "radio-group-disabled" "Disabled" [ "postingModeOptions"; "disabledPostingMode" ] (fieldSurface disabledPostingMode) ]
+            sample "radio-group-validation" "Required choice with validation" (formSource @ [ "updateModeOptions"; "radioGroupFormRegion"; "updateMode" ]) (fieldSurface updateMode)
+            sample "radio-group-pending" "Pending" [ "updateModeOptions"; "pendingUpdateMode" ] (fieldSurface pendingUpdateMode)
+            sample "radio-group-disabled" "Disabled" [ "updateModeOptions"; "disabledUpdateMode" ] (fieldSurface disabledUpdateMode) ]
         | "choice-cards" -> [
             sample "choice-cards-default" "Default" [ "defaultChoiceCards" ] (detailsSurface defaultChoiceCards)
             sample "choice-cards" "Single choice" [ "richChoiceCards" ] (detailsSurface richChoiceCards)
@@ -4973,12 +5078,12 @@ div {
             sample "dropdown-menu" "Basic menu" [ "basicDropdownMenu" ] (centered basicDropdownMenu)
             sample "dropdown-menu-outline" "Outlined page action" [ "menuOverflowIcon"; "outlinedDropdownMenu" ] (centered outlinedDropdownMenu)
             sample "dropdown-menu-full-row" "Full context row and supporting descriptions" [ "menuTrailingChevron"; "fullRowDropdownMenu" ] (centered fullRowDropdownMenu)
-            sample "dropdown-menu-advanced" "Grouped states and server refresh" [ "Destination"; "destinationUrl"; "menuLeadingIcon"; "dropdownMenuItems"; "actionMenu"; "menuOverflowIcon"; "moreActionsMenu"; "dropdownMenuRegion" ] (fieldSurface (dropdownMenuRegion false)) ]
+            sample "dropdown-menu-advanced" "Grouped states and refresh" [ "menuLeadingIcon"; "dropdownMenuItems"; "actionMenu"; "menuOverflowIcon"; "moreActionsMenu"; "dropdownMenuRegion" ] (fieldSurface (dropdownMenuRegion false)) ]
         | "theme-switcher" -> [
             sample "theme-switcher" "System, Light and Dark" ["themeSwitcherHead";"themeSwitcherNonceHead";"themeSwitcherExample"] (centered themeSwitcherExample)
-            |> note "Include ThemeSwitcher.assets once before the stylesheet, or assetsWithNonce with a fresh server-issued document nonce under Datastar nonce CSP mode. Choose one product/Spec storage key. Multiple switchers, Profile preferences, system changes and other tabs share window.fveColorMode and the fve-color-mode event. ComponentsTheme owns brand and semantic colors."
+            |> note "Choose System, Light, or Dark to change the page appearance."
             sample "theme-switcher-native" "Native appearance choices before enhancement" ["nativeAppearanceExample"] nativeAppearanceExample
-            |> note "Also install radio-group for this composition. ThemeSwitcher.nativeChoiceAttributes marks native system/light/dark radios for the authorized theme bootstrap's delegated click/change/Space handling before delayed Datastar initialization. Normal enhanced synchronization remains Datastar-owned; no inline onclick attributes or competing theme runtime are required." ]
+            |> note "Choose a theme using the radio buttons." ]
         | "command" -> [
             sample "command-default" "Default" [ "defaultCommand" ] (fieldSurface defaultCommand)
             sample "command-groups" "Groups, icons and shortcuts" [ "commandDocumentIcon"; "commandGroups"; "groupedCommand" ] (fieldSurface groupedCommand)
@@ -4988,18 +5093,21 @@ div {
         | "dialog" -> [
             sample "dialog-default" "Default" [ "defaultDialog"; "defaultDialogExample" ] (centered defaultDialogExample)
             sample "dialog" "Modal dialog" [ "dialogConfig"; "reviewDialogTrigger"; "reviewDialog" ] (centered (div { reviewDialogTrigger; reviewDialog }))
-            sample "dialog-confirmation" "Server-validated confirmation" [ "accountDeletionForm"; "accountDeletionContent"; "accountDeletionDialog"; "confirmationExample" ] (centered confirmationExample)
-            sample "dialog-pending" "Pending confirmation" [ "accountDeletionForm"; "pendingDeletionDialog"; "pendingConfirmationExample" ] (centered pendingConfirmationExample) ]
+            sample "dialog-confirmation" "Server-validated confirmation" [ "itemDeletionForm"; "itemDeletionContent"; "itemDeletionDialog"; "confirmationExample" ] (centered confirmationExample)
+            sample "dialog-contained" "App-contained dialog" [ "containedDialogConfig"; "containedDialogExample" ] (themedSurface containedDialogExample)
+            |> note "withContainer keeps the dialog in a positioned app viewport rather than the document top layer. The component owns the backdrop, app-background inertness, Escape and focus return; review chrome remains usable. withOpen true supports server-rendered open states; mark the background inert in that native state too." ]
         | "drawer" -> [
             sample "drawer-default" "Default" [ "defaultDrawer"; "defaultDrawerExample" ] (centered defaultDrawerExample)
-            sample "drawer" "Standard detail drawer" [ "accountDrawerContent"; "accountDrawerConfig"; "accountDrawerExample" ] (centered accountDrawerExample)
-            sample "drawer-wide" "Wide editing form" [ "accountEditorBody"; "accountEditorFooter"; "accountEditorDrawerConfig"; "accountEditorDrawerExample" ] (centered accountEditorDrawerExample)
+            sample "drawer" "Standard detail drawer" [ "itemDrawerContent"; "itemDrawerConfig"; "itemDrawerExample" ] (centered itemDrawerExample)
+            sample "drawer-wide" "Wide editing form" [ "itemEditorBody"; "itemEditorFooter"; "itemEditorDrawerConfig"; "itemEditorDrawerExample" ] (centered itemEditorDrawerExample)
             sample "drawer-start" "Start-side filters" [ "filterDrawerConfig"; "filterDrawerExample" ] (centered filterDrawerExample)
-            sample "drawer-horizontal" "Top and bottom edges" [ "topDrawerConfig"; "bottomDrawerConfig"; "horizontalDrawerExamples" ] (centered horizontalDrawerExamples) ]
+            sample "drawer-horizontal" "Top and bottom edges" [ "topDrawerConfig"; "bottomDrawerConfig"; "horizontalDrawerExamples" ] (centered horizontalDrawerExamples)
+            sample "drawer-contained" "App-contained drawer" [ "containedDrawerConfig"; "containedDrawerExample" ] (themedSurface containedDrawerExample)
+            |> note "Render beside the named app background in a relative, bounded viewport. withContainer uses show(), not showModal(): only that app background becomes inert. withOpen true supports route-owned native open states; mark the background inert in that native state too. The default standalone Drawer remains document-modal." ]
         | "floating-panel" -> [
             sample "floating-panel" "Open non-modal panel" [ "floatingPanelContent"; "floatingPanelExample" ] (overlaySurface floatingPanelExample)
             sample "floating-panel-minimized" "Minimized with restore" [ "floatingPanelContent"; "minimizedFloatingPanelExample" ] (overlaySurface minimizedFloatingPanelExample)
-            sample "floating-panel-checklist" "Consumer-authored checklist" [ "floatingPanelChecklistContent"; "floatingPanelChecklistExample" ] (overlaySurface floatingPanelChecklistExample) ]
+            sample "floating-panel-checklist" "Checklist" [ "floatingPanelChecklistContent"; "floatingPanelChecklistExample" ] (overlaySurface floatingPanelChecklistExample) ]
         | "breadcrumbs" -> [
             sample "breadcrumbs" "Default" [ "breadcrumbsExample" ] breadcrumbsPreview
             sample "breadcrumbs-middle" "Middle overflow" [ "breadcrumbTrail"; "middleBreadcrumbsExample" ] (themedSurface middleBreadcrumbsExample)
@@ -5007,40 +5115,40 @@ div {
         | "side-nav" -> [
             sample "side-nav-default" "Default" [ "DefaultSideNavDestination"; "defaultSideNavUrl"; "defaultSideNav" ] defaultSideNavPreview
             sample "side-nav-structure" "Sections and collapsible groups" [ "sideNavStructureExample" ] sideNavStructurePreview
-            sample "side-nav-slots" "Header, context, content and footer" [ "ledgerMark"; "sideNavRowIcon"; "sideNavSlotsExample" ] sideNavSlotsPreview
+            sample "side-nav-slots" "Header, context, content and footer" [ "sideNavRowIcon"; "sideNavSlotsExample" ] sideNavSlotsPreview
             sample "side-nav" "Nested navigation with badges and actions" sideNavSource sideNavigationPreview ]
         | "page-top-bar" -> [ sample "page-top-bar" "With breadcrumbs" [ "pageTopBarExample"; "renderPageTopBar" ] pageTopBarPreview
                               sample "page-top-bar-shell" "Full-width shell bar" [ "shellTopBarExample" ] (shellTopBarExample |> themedSurface) ]
         | "page-header" -> [
             sample "page-header-default" "Default" [ "defaultPageHeader" ] (detailsSurface defaultPageHeader)
-            sample "page-header" "Title and page actions" (shellSource @ [ "refreshIcon"; "refreshBalancesAction"; "pageAction"; "accountPageHeader"; "pageHeaderExample" ]) pageHeaderPreview ]
+            sample "page-header" "Title and page actions" [ "refreshIcon"; "pageHeaderLayoutExample" ] (themedSurface pageHeaderLayoutExample) ]
         | "section" -> [
             sample "section-default" "Default" [ "defaultSection" ] (detailsSurface defaultSection)
-            sample "section" "With heading and actions" (shellSource @ [ "pageAction"; "moreActionsIcon"; "upcomingPayments" ]) (detailsSurface upcomingPayments)
             sample "section-headerless" "Without a visible heading" [ "periodNote" ] (detailsSurface periodNote) ]
         | "browser" -> [
             sample "browser-default" "Default" [ "defaultBrowser" ] (centered defaultBrowser)
-            sample "browser" "With an address bar" [ "browserWithAddress" ] (centered browserWithAddress) ]
+            sample "browser" "With an address bar" [ "browserWithAddress" ] (centered browserWithAddress)
+            sample "browser-review" "Review controls and expansion" [ "fixtureWindowControl"; "browserReviewFrame"; "browserWithControls" ] (themedSurface browserWithControls)
+            |> note "Also install theme-switcher. withWindowControls and withToolbarActions accept host-owned links/controls; withExpanded fills the viewport without dropping the address bar. Your host owns the expanded URL, review state, journey and documentation visibility. See the Specification page example for the complete review composition." ]
         | "phone" -> [
             sample "phone-default" "Default" [ "defaultPhone" ] (centered defaultPhone)
-            sample "phone" "With screen content" [ "phoneWithContent" ] (centered phoneWithContent) ]
+            sample "phone" "With screen content" [ "phoneWithContent" ] (centered phoneWithContent)
+            sample "phone-review" "Review controls and expansion" [ "fixtureWindowControl"; "phoneReviewFrame"; "phoneWithControls" ] (themedSurface phoneWithControls)
+            |> note "Also install theme-switcher. withToolbar places consumer-owned review controls above the device. withExpanded retains desktop proportions and presents edge-to-edge content on narrow or short screens, without a fabricated browser address. Controls and destinations remain host-owned." ]
         | "page" -> [
             sample "page-default" "Default" [ "defaultPage" ] (fullBleedThemedSurface defaultPage)
-            sample "page" "With local navigation" [ "transactionsPage"; "renderTransactionsPage" ] transactionsPagePreview
             sample "page-canvas" "Remaining-height canvas" [ "canvasPage" ] canvasPagePreview ]
         | "collection" -> [
-            sample "collection-default" "Default" [ "defaultCollection" ] (detailsSurface defaultCollection)
-            sample "collection" "Collection with record actions" [ "collectionExample" ] collectionPreview ]
+            sample "collection-default" "Default" [ "defaultCollection" ] (detailsSurface defaultCollection) ]
         | "detail" -> [
-            sample "detail-default" "Default" [ "defaultDetail" ] (detailsSurface defaultDetail)
-            sample "detail" "Detail with related records" [ "detailExample" ] detailPreview ]
+            sample "detail-default" "Default" [ "defaultDetail" ] (detailsSurface defaultDetail) ]
         | "app-shell" -> appShellExamples Dashboard
         | "page-examples/account-management" -> accountManagementExamples LedgerAccounts
         | "bottom-navigation" -> [
             sample "bottom-navigation-default" "Default" [ "defaultBottomNavigation" ] (detailsSurface defaultBottomNavigation)
             sample "bottom-navigation" "Four destinations" [ "bottomNavigationExample" ] (detailsSurface bottomNavigationExample)
             sample "bottom-navigation-compact" "Three destinations" [ "compactBottomNavigationExample" ] (detailsSurface compactBottomNavigationExample) ]
-        | "steps" -> [ sample "steps" "Period-close steps" [ "periodCloseStepsExample" ] (detailsSurface periodCloseStepsExample) ]
+        | "steps" -> [ sample "steps" "Step states" [ "setupStepsExample" ] (detailsSurface setupStepsExample) ]
         | "day-calendar" -> dayCalendarExamples
         | "week-calendar" -> weekCalendarExamples
         | "year-calendar" -> yearCalendarExamples

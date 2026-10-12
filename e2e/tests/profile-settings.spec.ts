@@ -1,7 +1,7 @@
 import { test, expect } from '../fixture'
 
 for (const surface of ['application', 'specification'] as const) {
-  test(`${surface} separates personal Profile and organization Settings with guarded detail drawers @cross-browser`, async ({ page }) => {
+  test(`${surface} separates personal Profile and organization Settings with contextual detail drawers @cross-browser`, async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
     const start = surface === 'application' ? '/examples/application/accounts' : '/examples/specification/accounts/view-accounts'
@@ -20,9 +20,6 @@ for (const surface of ['application', 'specification'] as const) {
     await expect(profile).toBeVisible()
     await expect(profile.getByRole('textbox', { name: /^Name/ })).toBeFocused()
     await profile.getByRole('textbox', { name: /^Name/ }).fill('Private person <draft>')
-    page.once('dialog', dialog => dialog.dismiss())
-    await page.keyboard.press('Escape')
-    await expect(profile).toBeVisible()
     const response = page.waitForResponse(response => response.request().method() === 'POST')
     await profile.getByRole('textbox', { name: /^Email/ }).fill('not-an-email')
     await profile.getByRole('form').evaluate((form: HTMLFormElement) => { form.noValidate = true })
@@ -30,9 +27,9 @@ for (const surface of ['application', 'specification'] as const) {
     expect((await response).headers()['cache-control']).toBe('private, no-store')
     await expect(profile.getByText('Enter a valid email address.', { exact: true })).toBeVisible()
     await expect(profile.getByRole('textbox', { name: /^Name/ })).toHaveValue('Private person <draft>')
+    await expect(profile.getByRole('button', { name: 'Update', exact: true })).toBeEnabled()
     expect(page.url()).not.toContain('Private')
     await expect(page.locator('html')).toHaveAttribute('data-color-mode', 'dark')
-    page.once('dialog', dialog => dialog.accept())
     await profile.getByRole('link', { name: 'Cancel', exact: true }).click()
     await expect(profile).toBeHidden()
     await nav.getByRole('link', { name: 'Organizations', exact: true }).click()
@@ -45,9 +42,6 @@ for (const surface of ['application', 'specification'] as const) {
     await expect(organization.getByRole('textbox', { name: /^Name/ })).toHaveValue('Client Organization')
     await organization.getByRole('textbox', { name: /^Name/ }).fill('Checked organization')
     await organization.getByRole('button', { name: 'Update', exact: true }).click()
-    await expect(organization.getByText('Organization details checked', { exact: true })).toBeVisible()
-    await expect(organization.getByRole('textbox', { name: /^Name/ })).toHaveValue('Client Organization')
-    await organization.getByRole('link', { name: 'Cancel', exact: true }).click()
     await expect(organization).toBeHidden()
     await nav.getByRole('link', { name: 'Billing', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Billing', exact: true, level: 1 })).toBeVisible()

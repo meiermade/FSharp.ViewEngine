@@ -13,17 +13,18 @@ module Specification =
     let private state key label page parameters = {key=key;label=label;page=page;parameters=parameters}
     let private readSequence endpoint lookup response =
         $"sequenceDiagram\n  actor Operator\n  participant Browser\n  participant Server as Ledger.Server\n  participant Domain as Ledger.Domain\n  Operator->>Browser: Open page or apply controls\n  Browser->>Server: GET {endpoint}\n  Server->>Domain: {lookup}\n  Domain-->>Server: Immutable financial fixtures\n  Server-->>Browser: 200 HTML — {response}"
-    let private validateSequence getEndpoint postEndpoint (operation:string) =
+    let private validateSequence (getEndpoint:string) postEndpoint (operation:string) =
+        let successEndpoint = if getEndpoint.EndsWith("/new", StringComparison.Ordinal) then getEndpoint.Substring(0,getEndpoint.Length-4) else getEndpoint.Substring(0,getEndpoint.Length-5)
         let invalidResponse =
             if ["validateAccount";"validateProfile";"validateOrganization"] |> List.exists (fun name -> operation.StartsWith(name,StringComparison.Ordinal)) then
                 "200 HTML — field errors and entered values (private, no-store)"
             else
                 $"302 Location {getEndpoint}?state=invalid\n    Browser->>Server: GET Location\n    Server-->>Browser: 200 HTML — validation outcome"
-        $"sequenceDiagram\n  actor Operator\n  participant Browser\n  participant Server as Ledger.Server\n  participant Application as Ledger.Application\n  Operator->>Browser: Open form\n  Browser->>Server: GET {getEndpoint}\n  Server-->>Browser: 200 HTML — labelled form\n  Operator->>Browser: Submit values\n  Browser->>Server: POST {postEndpoint} (URL-encoded)\n  Server->>Application: {operation}\n  alt Invalid values\n    Application-->>Server: Typed validation error\n    Server-->>Browser: {invalidResponse}\n  else Valid values\n    Application-->>Server: Validated response\n    Server-->>Browser: 302 Location {getEndpoint}?state=validated\n    Browser->>Server: GET Location\n    Server-->>Browser: 200 HTML — finite outcome (no persistence)\n  end"
+        $"sequenceDiagram\n  actor Operator\n  participant Browser\n  participant Server as Ledger.Server\n  participant Application as Ledger.Application\n  Operator->>Browser: Open form\n  Browser->>Server: GET {getEndpoint}\n  Server-->>Browser: 200 HTML — labelled form\n  Operator->>Browser: Submit values\n  Browser->>Server: POST {postEndpoint} (URL-encoded)\n  Server->>Application: {operation}\n  alt Invalid values\n    Application-->>Server: Typed validation error\n    Server-->>Browser: {invalidResponse}\n  else Valid values\n    Application-->>Server: Validated response\n    Server-->>Browser: 302 Location {successEndpoint}\n    Browser->>Server: GET Location\n    Server-->>Browser: 200 HTML — originating page, editor closed\n  end"
     let private selectionSequence endpoint response resource field =
         $"sequenceDiagram\n  actor Operator\n  participant Browser\n  participant Server as Ledger.Server\n  participant Application as Ledger.Application\n  participant Domain as Ledger.Domain\n  Browser->>Server: GET {endpoint}\n  Server->>Domain: Read immutable collection facts\n  Domain-->>Server: Financial fixtures\n  Server->>Server: Apply URL search, filters and sort\n  Server-->>Browser: 200 HTML — {response}\n  Operator->>Browser: Change filters or submit Search on Enter\n  Browser->>Server: GET {endpoint} with collection controls\n  Server-->>Browser: 200 HTML — updated rows and applied filter groups\n  Operator->>Browser: Select keyed rows\n  Browser->>Browser: Show count and bulk commands in the toolbar\n  Operator->>Browser: Review selected rows\n  Browser->>Server: POST {endpoint} (action=review-selected, {field})\n  Server->>Application: reviewSelection ({resource}, keys)\n  alt Empty or unknown keys\n    Application-->>Server: Typed selection error\n    Server-->>Browser: 302 Location {endpoint}?state=selection-invalid\n  else Available keys\n    Application-->>Server: Reviewed selection count\n    Server-->>Browser: 302 Location {endpoint}?state=selection-valid\n  end"
-    let private editorStates page = [state "default" "Editor" page [];state "invalid" "Name validation" page ["state","invalid"];state "invalid-type" "Type validation" page ["state","invalid-type"];state "invalid-details" "Details validation" page ["state","invalid-details"];state "validated" "Validated" page ["state","validated"]]
-    let private accountRules = ["Names SHALL contain 1–80 characters and be unique ignoring case, excluding the account being updated.";"Account type SHALL be one of Asset, Liability, Equity, Revenue or Expense; parent SHALL match that type root.";"Commodity SHALL be USD, subtype SHALL be Generic and month-end observation SHALL be not required.";"Native required validation SHALL precede submission; server validation SHALL reject invalid requests independently.";"A successful submission SHALL validate only: seeded accounts and submitted private values SHALL NOT be stored.";"Create and Edit SHALL use a single-column contextual Drawer with a scrolling body and fixed header/footer. Save and Update SHALL submit; Cancel, close, Escape and backdrop SHALL ask before discarding changed values.";"A failed submission SHALL return the entered values in that response only, with field errors. Submitted values SHALL NOT enter URLs, cookies or durable storage.";"Opening an overlay SHALL preserve its originating collection/detail title, breadcrumbs, workspace, search, filters and sorting."]
+    let private editorStates page = [state "default" "Editor" page [];state "duplicate-name" "Name already exists" page ["state","duplicate-name"]]
+    let private accountRules = ["Names SHALL contain 1–80 characters and be unique ignoring case, excluding the account being updated.";"Account type SHALL be one of Asset, Liability, Equity, Revenue or Expense; parent SHALL match that type root.";"Commodity SHALL be USD, subtype SHALL be Generic and month-end observation SHALL be not required.";"Native required validation SHALL precede submission; server validation SHALL reject invalid requests independently.";"Create and Edit SHALL use a single-column contextual Drawer with a scrolling body and fixed header/footer. Create and Update SHALL submit; the request SHALL drive the button spinner via a Datastar indicator signal, with a one-second example-only server delay. Successful submissions SHALL close the editor and return to the originating page; Cancel, close, Escape and backdrop SHALL return without submitting or asking to discard changes.";"A failed submission SHALL return the entered values in that response only, with field errors. Submitted values SHALL NOT enter URLs, cookies or durable storage.";"Opening an overlay SHALL preserve its originating collection/detail title, breadcrumbs, workspace, search, filters and sorting."]
     let private shellRules = [
         "Application, Specification and API documentation SHALL share the documentation's sky brand theme; success, warning and error colors SHALL remain semantic."
         "PageTopBar SHALL contain brand and breadcrumbs; a visible PageHeader SHALL contain the page title and page actions." ]
@@ -52,15 +53,15 @@ module Specification =
           {key="accounts/create-account";label="Create account";description="Enter a new account's name, type and details and validate them on the server."
            states=editorStates ApplicationPage.CreateAccount
            sequence=validateSequence "/examples/application/accounts/new" "/examples/application/accounts/new" "validateAccount (existingAccountId=None)"
-           rules=accountRules @ ["Cancel or Escape SHALL return to Accounts without submitting, after confirming any unsaved changes."]}
+           rules=accountRules @ ["Cancel or Escape SHALL return to Accounts without submitting or confirmation."]}
           {key="accounts/update-account";label="Update account";description="Edit an existing account's authored values and review finite validation outcomes."
            states=editorStates (ApplicationPage.EditAccount 101)
            sequence=validateSequence "/examples/application/accounts/101/edit" "/examples/application/accounts/101/edit" "validateAccount (existingAccountId=Some 101)"
-           rules=accountRules @ ["The editor SHALL begin with the exact account's seeded values.";"Cancel or Escape SHALL return to the originating collection or account detail without submitting, after confirming any unsaved changes."]}
+           rules=accountRules @ ["The editor SHALL begin with the exact account's seeded values.";"Cancel or Escape SHALL return to the originating collection or account detail without submitting or confirmation."]}
           {key="accounts/delete-account";label="Delete account";description="Confirm deletion eligibility, distinguishing an unused account from one with financial activity."
            states=[state "default" "Confirmation" (ApplicationPage.DeleteAccount 105) [];state "blocked" "Has activity" (ApplicationPage.DeleteAccount 101) ["state","delete-blocked"];state "validated" "Deletion validated" (ApplicationPage.DeleteAccount 105) ["state","deleted"]]
            sequence="sequenceDiagram\n  actor Operator\n  participant Browser\n  participant Server as Ledger.Server\n  participant Application as Ledger.Application\n  participant Domain as Ledger.Domain\n  Browser->>Server: GET /examples/application/accounts/105/delete\n  Server-->>Browser: 200 HTML — confirmation over account detail\n  Operator->>Browser: Confirm validation\n  Browser->>Server: POST /examples/application/accounts/105/delete (action=delete)\n  Server->>Application: validateDeletion (accountId=105)\n  Application->>Domain: Check balance and transaction history\n  alt Account has balance or transactions\n    Application-->>Server: HasActivity\n    Server-->>Browser: 302 Location /examples/application/accounts/105/delete?state=delete-blocked\n  else Zero balance and no transactions\n    Application-->>Server: Validated account ID\n    Server-->>Browser: 302 Location /examples/application/accounts/105/delete?state=deleted\n  end"
-           rules=["Deletion SHALL require confirmation, an existing account, zero balance and no transactions.";"An account with activity SHALL display the blocking reason and SHALL NOT offer a confirmation submission.";"Account 105 SHALL be the eligible fixture; account 101 SHALL demonstrate the blocked case.";"Successful validation SHALL NOT remove seeded records.";"Delete SHALL be last and separated in collection overflow menus; detail overflow SHALL expose the same destination.";"Confirmation SHALL focus Cancel and keep the originating page title and breadcrumbs unchanged.";"Cancel or Escape SHALL return to the originating collection or account detail."]}
+           rules=["Deletion SHALL require confirmation, an existing account, zero balance and no transactions.";"An account with activity SHALL display the blocking reason and SHALL NOT offer a confirmation submission.";"Account 105 SHALL be the eligible fixture; account 101 SHALL demonstrate the blocked case.";"Delete SHALL be last and separated in collection overflow menus; detail overflow SHALL expose the same destination.";"Confirmation SHALL focus Cancel and keep the originating page title and breadcrumbs unchanged.";"Cancel or Escape SHALL return to the originating collection or account detail."]}
           {key="transactions/view-transactions";label="View transactions";description="Find dated activity by account, verification status and search, then review a selection."
            states=[state "default" "All transactions" ApplicationPage.Transactions ["sort","date-desc"];state "filter-added" "Verification filter added" ApplicationPage.Transactions ["filters","status"];state "review" "Needs review" ApplicationPage.Transactions ["status","unverified";"filters","status"];state "account" "Operating checking" ApplicationPage.Transactions ["account","101";"filters","account"];state "combined" "Account and verification" ApplicationPage.Transactions ["account","101";"status","verified";"filters","account,status"];state "sorted" "Date ascending" ApplicationPage.Transactions ["sort","date-asc"];state "selected" "Rows selected" ApplicationPage.Transactions ["state","selected"];state "empty" "No matches" ApplicationPage.Transactions ["search","No matching transaction"];state "selection-invalid" "No selection" ApplicationPage.Transactions ["state","selection-invalid"];state "selection-valid" "Selection reviewed" ApplicationPage.Transactions ["state","selection-valid"]]
            sequence=selectionSequence "/examples/application/transactions" "matching transactions or empty state" "Transactions" "transactionIds"
@@ -71,8 +72,8 @@ module Specification =
            rules=["The resource ID SHALL select the matching transaction.";"Account links SHALL open that transaction's actual account.";"Date, amount and verification SHALL match the shared Domain fixture."]}
           {key="transactions/delete-transaction";label="Delete transaction";description="Confirm the exact transaction and validate deletion without changing fixture data."
            states=[state "default" "Confirmation" (ApplicationPage.DeleteTransaction 203) [];state "verified" "Verified transaction" (ApplicationPage.DeleteTransaction 201) [];state "validated" "Deletion validated" (ApplicationPage.DeleteTransaction 203) ["state","deleted"]]
-           sequence="sequenceDiagram\n  actor Operator\n  participant Browser\n  participant Server as Ledger.Server\n  participant Application as Ledger.Application\n  Browser->>Server: GET /examples/application/transactions/203/delete\n  Server-->>Browser: 200 HTML — confirmation over originating page\n  Operator->>Browser: Delete\n  Browser->>Server: POST /examples/application/transactions/203/delete (action=delete)\n  Server->>Application: validateTransactionDeletion (transactionId=203)\n  Application-->>Server: Validated transaction ID\n  Server-->>Browser: 302 Location with state=deleted\n  Browser->>Server: GET Location\n  Server-->>Browser: 200 HTML — deletion validated (fixtures unchanged)"
-           rules=["Transaction deletion SHALL identify an existing transaction and require a centered confirmation with Cancel initially focused and a destructive Delete button.";"Verification status SHALL NOT restrict deletion in this finite example.";"Deletion SHALL be last and separated in collection overflow menus; detail overflow SHALL expose the same destination.";"The originating page title, breadcrumbs, workspace and collection controls SHALL remain unchanged while confirmation is open.";"Cancel, Escape or backdrop SHALL return to the originating collection or detail.";"Successful validation SHALL NOT remove seeded transactions."]}
+           sequence="sequenceDiagram\n  actor Operator\n  participant Browser\n  participant Server as Ledger.Server\n  participant Application as Ledger.Application\n  Browser->>Server: GET /examples/application/transactions/203/delete\n  Server-->>Browser: 200 HTML — confirmation over originating page\n  Operator->>Browser: Delete\n  Browser->>Server: POST /examples/application/transactions/203/delete (action=delete)\n  Server->>Application: validateTransactionDeletion (transactionId=203)\n  Application-->>Server: Validated transaction ID\n  Server-->>Browser: 302 Location with state=deleted\n  Browser->>Server: GET Location\n  Server-->>Browser: 200 HTML — deletion validated"
+           rules=["Transaction deletion SHALL identify an existing transaction and require a centered confirmation with Cancel initially focused and a destructive Delete button.";"Verification status SHALL NOT restrict deletion.";"Deletion SHALL be last and separated in collection overflow menus; detail overflow SHALL expose the same destination.";"The originating page title, breadcrumbs, workspace and collection controls SHALL remain unchanged while confirmation is open.";"Cancel, Escape or backdrop SHALL return to the originating collection or detail."]}
           {key="workspace";label="Select workspace";description="Choose an organization, environment and ledger from the full sidebar context row."
            states=[state "default" "Current workspace" ApplicationPage.Home [];state "sandbox" "Staging" ApplicationPage.Home ["environment","staging"];state "ledger" "Jordan ledger" ApplicationPage.Home ["organization","example-household";"ledger","jordan"];state "organization" "Client organization" ApplicationPage.Home ["organization","client-organization";"ledger","operating-company"]]
            sequence="sequenceDiagram\n  actor Operator\n  participant Browser\n  participant Server as Ledger.Server\n  participant Domain as Ledger.Domain\n  Operator->>Browser: Choose ledger, organization or environment\n  Browser->>Server: GET /examples/application?organization=example-household&environment=staging&ledger=jordan\n  Server->>Domain: Resolve available workspace context\n  Domain-->>Server: Organization, environment and matching ledger\n  Server-->>Browser: 200 HTML — current workspace and sandbox notice"
@@ -82,13 +83,13 @@ module Specification =
                for key,label in settingsSections do yield state key label (ApplicationPage.SettingsSection key) []
                yield state "edit" "Edit organization" ApplicationPage.EditOrganization []
                yield state "invalid" "Name validation" ApplicationPage.EditOrganization ["state","invalid"]
-               yield state "validated" "Validated" ApplicationPage.EditOrganization ["state","validated"] ]
+               ]
            sequence=validateSequence "/examples/application/settings/general/edit" "/examples/application/settings/general/edit" "validateOrganization (name, currency)"
-           rules=["Settings SHALL belong to the selected organization; its selector SHALL retain the current settings section and change only the organization context.";"General SHALL show readable details; Edit organization SHALL open a Drawer with Update and Cancel.";"Organization memberships SHALL belong to Profile → Organizations, not organization Settings.";"Return to Ledger SHALL preserve the prior workspace, including after changing organizations in Settings.";"Organization name SHALL contain 1–80 characters; reporting commodity SHALL be USD.";"A submission SHALL validate without saving settings; invalid values SHALL remain only in the private, no-store response with field errors.";"Application UI SHALL use ordinary product copy without template commentary or invented live services."]}
+           rules=["Settings SHALL belong to the selected organization; its selector SHALL retain the current settings section and change only the organization context.";"General SHALL show readable details; Edit organization SHALL open a Drawer with Update and Cancel.";"Organization memberships SHALL belong to Profile → Organizations, not organization Settings.";"Return to Ledger SHALL preserve the prior workspace, including after changing organizations in Settings.";"Organization name SHALL contain 1–80 characters; reporting commodity SHALL be USD.";"Invalid values SHALL remain only in the private, no-store response with field errors.";"Application UI SHALL use ordinary product copy without template commentary or invented live services."]}
           {key="profile";label="View profile";description="Review identity and workspace access, validate profile fields and choose local appearance."
-           states=[state "default" "Profile" ApplicationPage.Profile [];state "organizations" "Organizations" ApplicationPage.ProfileOrganizations [];state "edit" "Edit profile" ApplicationPage.EditProfile [];state "invalid" "Validation" ApplicationPage.EditProfile ["state","invalid"];state "validated" "Validated" ApplicationPage.EditProfile ["state","validated"]]
+           states=[state "default" "Profile" ApplicationPage.Profile [];state "organizations" "Organizations" ApplicationPage.ProfileOrganizations [];state "edit" "Edit profile" ApplicationPage.EditProfile [];state "invalid" "Validation" ApplicationPage.EditProfile ["state","invalid"]]
            sequence=validateSequence "/examples/application/profile/edit" "/examples/application/profile/edit" "validateProfile (name, email, timeZone)" + "\n  Operator->>Browser: Choose System, Light or Dark\n  Browser->>Browser: Apply and store local appearance preference"
-           rules=["The complete Ledger footer row SHALL open a personal Profile shell containing only Profile and Organizations, with a return to the prior Ledger workspace.";"Profile SHALL show readable personal details; Edit profile SHALL open a Drawer with Update and Cancel.";"Appearance SHALL stay directly on Profile as compact System, Light and Dark radio choices styled like tabs, applying immediately and independently of the edit Drawer.";"Organization memberships and roles SHALL appear on Organizations, with real destinations for each organization's Settings.";"Name SHALL contain 1–80 characters; email SHALL be valid and time zone SHALL be available.";"Only appearance SHALL persist locally; profile submissions SHALL NOT retain private values outside a private, no-store field-error response.";"Dirty editor dismissal and navigation SHALL ask before discarding changes."]} ]
+           rules=["The complete Ledger footer row SHALL open a personal Profile shell containing only Profile and Organizations, with a return to the prior Ledger workspace.";"Profile SHALL show readable personal details; Edit profile SHALL open a Drawer with Update and Cancel.";"Appearance SHALL stay directly on Profile as compact System, Light and Dark radio choices styled like tabs, applying immediately and independently of the edit Drawer.";"Organization memberships and roles SHALL appear on Organizations, with real destinations for each organization's Settings.";"Name SHALL contain 1–80 characters; email SHALL be valid and time zone SHALL be available.";"Profile submissions SHALL NOT retain private values outside a private, no-store field-error response.";"Editor dismissal and navigation SHALL leave directly without unsaved-change prompts."]} ]
         |> List.map (fun workflow -> {workflow with rules=shellRules @ workflow.rules})
 
     let workflowPages = workflows |> List.map _.key
@@ -136,27 +137,46 @@ module Specification =
     let private diagram label source =
         div { _role "region"; _ariaLabel label; _tabindex 0; _class "min-w-0 overflow-x-auto focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; Mermaid.create source |> Mermaid.render }
     let private fixtureId (workflow:Workflow) (state:State) = "spec-"+workflow.key.Replace('/','-')+"-"+state.key
-    let private appMode (query:Query) (workflow:Workflow) (selected:State) =
-        let index = workflows |> List.findIndex (fun candidate -> candidate.key=workflow.key)
-        let destination index = let workflow = workflows[index] in workflow.label,specUrl workflow.key {query with resource=""} workflow.states.Head.key true
-        let previous = if index=0 then None else Some(destination (index-1))
-        let next = if index=workflows.Length-1 then None else Some(destination (index+1))
-        let states = workflow.states |> List.map (fun state -> state.label,specUrl workflow.key (if state.key=selected.key then query else {query with resource=""}) state.key true,state.key=selected.key)
-        AppMode.render query (workflow.label+" · "+selected.label) states previous next (currentUrl workflow selected query false) (fun controls -> Application.renderWithReviewControls controls (resourcePage query selected) (productQuery query selected))
     let private wireframe (query:Query) (workflow:Workflow) (selected:State) =
-        let items = workflow.states |> List.map (fun state ->
-            let requested = if state.key=selected.key then query else {defaultQuery with workspace=query.workspace;dock=query.dock}
-            let product = Application.render (resourcePage requested state) {productQuery requested state with previewId=fixtureId workflow state;topBarActions=[]}
-            let href = currentUrl workflow state requested true
-            let addressQuery = {productQuery requested state with specification=false}
-            let address = collectionHref addressQuery (resourcePage requested state) + querySuffix ["state",addressQuery.state;"range",addressQuery.range;"comparison",addressQuery.comparison]
-            let preview = Browser.create (div { _class "h-[40rem]"; product }) |> Browser.withAddress address |> Browser.render |> AppMode.fixture (workflow.label+" · "+state.label) href
-            TabItem.create (fixtureId workflow state) state.label preview)
-        div {
-            _class "min-w-0 max-w-full"
-            Tabs.create ("spec-"+workflow.key.Replace('/','-')+"-states") (workflow.label+" states") items |> Tabs.withVariant TabsVariant.Underlined |> Tabs.withSelected (fixtureId workflow selected) |> Tabs.render
-            noscript { nav { _ariaLabel "Open workflow states"; _class "flex flex-wrap gap-3"; for state in workflow.states do Layout.link (specUrl workflow.key {query with resource=""} state.key true) state.label } }
-        }
+        let id = "spec-"+workflow.key.Replace('/','-')
+        // This ordered journey is consumer-authored, not catalog page order or state order.
+        let journey = ["home";"accounts/view-accounts";"accounts/view-account";"accounts/update-account";"transactions/view-transactions";"transactions/view-transaction"]
+        let destination index =
+            let step = workflows |> List.find (fun candidate -> candidate.key=journey[index])
+            step.label,specUrl step.key {defaultQuery with workspace=query.workspace;returnWorkspace=query.returnWorkspace} step.states.Head.key query.appMode
+        let previous,next =
+            match journey |> List.tryFindIndex ((=) workflow.key) with
+            | Some index -> (if index=0 then None else Some(destination (index-1))), (if index=journey.Length-1 then None else Some(destination (index+1)))
+            | None -> None,None
+        let states = workflow.states |> List.map (fun state ->
+            let requested =
+                if state.key=selected.key then query
+                elif backgroundPage query state.page<>state.page then {query with state="";editorDraft=None;resource=(if state.page=selected.page then query.resource else "")}
+                else {defaultQuery with workspace=query.workspace;appMode=query.appMode;returnWorkspace=query.returnWorkspace;overlayFrom=query.overlayFrom}
+            state.label,currentUrl workflow state requested query.appMode,state.key=selected.key)
+        let label = workflow.label+" · "+selected.label
+        let toggleHref =
+            if query.appMode then currentUrl workflow selected query false + querySuffix ["fveAppReturn",id]
+            else currentUrl workflow selected query true
+        let window = AppMode.windowControl id label query.appMode toggleHref
+        let controls = AppMode.controls id label states previous next
+        let productPage = resourcePage query selected
+        let requested = productQuery query selected
+        let product = Application.render productPage {requested with previewId=(if query.appMode then "" else fixtureId workflow selected);topBarActions=[]}
+        let addressQuery = {requested with specification=false;appMode=false}
+        let address = applicationHref addressQuery productPage + querySuffix [
+            for key,value in collectionQueryPairs addressQuery do
+                if value<>"" && value<>"all" && not (key="sort" && value="name") then yield key,value
+            if addressQuery.state<>"" then yield "state",addressQuery.state
+            if addressQuery.range<>"90" then yield "range",addressQuery.range
+            if addressQuery.comparison<>"expected" then yield "comparison",addressQuery.comparison
+            if addressQuery.overlayFrom<>"" then yield "from",addressQuery.overlayFrom ]
+        Browser.create (div { _class (if query.appMode then "h-full min-h-0" else "h-[40rem] min-h-0 overflow-hidden"); product })
+        |> Browser.withAddress address
+        |> Browser.withExpanded query.appMode
+        |> Browser.withWindowControls (div { _class "flex min-w-0 max-w-full items-center gap-2"; window; controls })
+        |> Browser.render
+        |> AppMode.fixture id query.appMode query.restoreFixture
     let private sidebar query =
         let item key label = SideNavItem.create (workspaceUrl (if key="" then "/examples/specification" else "/examples/specification/"+key) query.workspace) label
         let group label children = SideNavGroup.create label (children |> List.map (fun (key,label) -> item key label))
@@ -179,7 +199,7 @@ module Specification =
     let render page (query:Query) =
         if List.contains page workflowPages && query.appMode then
             let workflow,selected = resolve page query
-            appMode query workflow selected
+            wireframe query workflow selected
         else
             let content =
                 if page.StartsWith("architecture",StringComparison.Ordinal) then Architecture.render page
@@ -188,7 +208,7 @@ module Specification =
                         _class "grid gap-12"
                         Layout.documentationSection "financial-workspace" "Financial workspace" (Layout.prose (div {
                             p { "Ledger is a financial application for reviewing account balances and transactions within an organization, environment and ledger." }
-                            p { "Choose a named workflow to review its Wireframe, Sequence and Rules. State tabs show variants of that one workflow; expand a preview to follow its connected product journey at full viewport size." } }))
+                            p { "Choose a named workflow to review its Wireframe, Sequence and Rules. The fixture toolbar selects states of that workflow; expand the same Browser frame to follow its connected product journey at full viewport size." } }))
                         Layout.documentationSection "start-here" "Start here" (div {
                             _class "grid gap-4 sm:grid-cols-2"
                             for workflow in workflows do
@@ -197,7 +217,7 @@ module Specification =
                                     p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; workflow.description }
                                 }
                         })
-                        Layout.documentationSection "system" "System" (Layout.prose (p { "Application, Specification and API reference share immutable USD fixtures. Native forms validate without saving financial or private submissions; appearance is the only locally persisted preference." }))
+                        Layout.documentationSection "system" "System" (Layout.prose (p { "Application, Specification and API reference share the same USD financial model." }))
                         Layout.link (Architecture.href "architecture") "Explore the system context"
                     }
                 else

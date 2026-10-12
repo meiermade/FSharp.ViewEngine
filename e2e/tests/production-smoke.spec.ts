@@ -63,6 +63,6 @@ test('stateless financial form accepts the public HTTPS origin without retaining
   const seededName = await name.inputValue()
   await name.fill('Production smoke workspace')
   await form.getByRole('button', { name: 'Update', exact: true }).click()
-  await expect(page.getByText('Organization details checked', { exact: true })).toBeVisible()
+  await expect(page.getByRole('dialog', { name: 'Edit organization', exact: true })).toBeHidden()
   await expect(name).toHaveValue(seededName)
 })

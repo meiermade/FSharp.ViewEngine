@@ -16,6 +16,8 @@ type DialogConfig =
           footer:HtmlElement option
           initialFocusId:string option
           dismissOnBackdrop:bool
+          container:string option
+          isOpen:bool
           attributes:HtmlAttribute list }
 
 /// <category>dialog</category>
@@ -31,6 +33,8 @@ module Dialog =
           footer = None
           initialFocusId = None
           dismissOnBackdrop = false
+          container = None
+          isOpen = false
           attributes = [] }
 
     let withDescription description (config:DialogConfig) =
@@ -47,25 +51,37 @@ module Dialog =
 
     let dismissOnBackdrop (config:DialogConfig) = { config with dismissOnBackdrop = true }
 
+    /// App-contained presentation; the named sibling background becomes inert while open.
+    let withContainer backgroundId (config:DialogConfig) =
+        NativeOverlay.requireText (nameof backgroundId) "A dialog background ID is required." backgroundId
+        { config with container=Some backgroundId }
+
+    /// Server-owned initial visibility for a contained dialog, including native fallback.
+    let withOpen isOpen (config:DialogConfig) = { config with isOpen=isOpen }
+
     let trigger label (config:DialogConfig) =
-        NativeOverlay.trigger config.id config.initialFocusId label
+        match config.container with
+        | Some _ -> NativeOverlay.containedTrigger config.id (config.initialFocusId |> Option.defaultValue (config.id+"-close")) label
+        | None -> NativeOverlay.trigger config.id config.initialFocusId label
 
     let closeButton label (config:DialogConfig) =
         NativeOverlay.closeButton config.id $"{config.id}-close" label
 
     let render config =
+        if config.isOpen && config.container.IsNone then invalidArg (nameof config) "withOpen requires withContainer; use the native trigger for a document-modal dialog."
         let titleId = $"{config.id}-title"
         let descriptionId = $"{config.id}-description"
-        dialog {
+        let content = dialog {
             _id config.id
             _ariaLabelledby titleId
-            _ariaModal true
+            _ariaModal config.container.IsNone
+            if config.container.IsSome then _open config.isOpen
             if config.description.IsSome then _ariaDescribedby descriptionId
             for attribute in ComponentHtml.safeAttributes [ "id"; "class"; "open"; "aria-labelledby"; "aria-describedby"; "aria-modal"; "data-on:close"; "data-on:click" ] config.attributes do attribute
             _dataOn ("close", NativeOverlay.restoreFocusExpression config.id)
             if config.dismissOnBackdrop then
                 _dataOn ("click", NativeOverlay.dismissOnBackdropExpression config.id)
-            _class "m-auto w-[min(32rem,calc(100%-2rem))] rounded-[var(--fve-radius-panel)] border-0 bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]"
+            _class ((if config.container.IsSome then "absolute inset-0 max-h-[calc(100%-2rem)] overflow-auto " else "")+"m-auto w-[min(32rem,calc(100%-2rem))] rounded-[var(--fve-radius-panel)] border-0 bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]")
             div {
                 _class "p-6"
                 h2 { _id titleId; _class "text-lg font-semibold"; config.title }
@@ -78,3 +94,6 @@ module Dialog =
                 | None -> ()
             }
         }
+        match config.container with
+        | Some background -> NativeOverlay.contained config.id background config.dismissOnBackdrop content
+        | None -> content

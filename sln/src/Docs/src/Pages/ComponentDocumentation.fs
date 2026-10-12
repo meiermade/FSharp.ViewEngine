@@ -8,30 +8,30 @@ open type Html
 
 /// Dedicated pages for general-purpose blocks formerly hidden in framework bundles.
 module ComponentDocumentation =
-    let card = Card.create (p { _class "text-sm"; "Consumer-authored content." }) |> Card.render
+    let card = Card.create (p { _class "text-sm"; "Project notes and supporting files." }) |> Card.render
     let cardWithParts =
-        Card.create (p { _class "text-sm text-[var(--fve-muted-text)]"; "Review the account before publishing the report." })
-        |> Card.withHeader (div { _class "grid gap-1"; h3 { _class "text-base font-semibold"; "Account review" }; p { _class "text-sm text-[var(--fve-muted-text)]"; "September close" } })
-        |> Card.withFooter (Button.create (ButtonContent.Text "Publish report") |> Button.disabled |> Button.render)
+        Card.create (p { _class "text-sm text-[var(--fve-muted-text)]"; "Review the selected items before publishing." })
+        |> Card.withHeader (div { _class "grid gap-1"; h3 { _class "text-base font-semibold"; "Project review" }; p { _class "text-sm text-[var(--fve-muted-text)]"; "Latest updates" } })
+        |> Card.withFooter (Button.create (ButtonContent.Text "Publish") |> Button.disabled |> Button.render)
         |> Card.render
     let mediaCard =
-        Card.create (p { _class "text-sm text-[var(--fve-muted-text)]"; "Repository-owned social artwork." })
+        Card.create (p { _class "text-sm text-[var(--fve-muted-text)]"; "Share this artwork with your team." })
         |> Card.withMedia (img { _src "/social-card.png"; _alt "FSharp.ViewEngine — Typed HTML views for F#"; _class "aspect-video w-full object-contain" })
         |> Card.withHeader (h3 { _class "text-base font-semibold"; "Social card" })
         |> Card.withSize CardSize.Small |> Card.render
-    let sectionHeader = SectionHeader.create "Account details" |> SectionHeader.render
+    let sectionHeader = SectionHeader.create "Item details" |> SectionHeader.render
     let sectionHeaderWithActions =
-        SectionHeader.create "Recent transactions" |> SectionHeader.withDescription "Activity in the current reporting period."
+        SectionHeader.create "Recent activity" |> SectionHeader.withDescription "Updates from this month."
         |> SectionHeader.withActions (Button.create (ButtonContent.Text "Export") |> Button.disabled |> Button.render)
         |> SectionHeader.withDivider |> SectionHeader.render
     let fields =
-        FieldGroup.create "Delivery preferences" (div { _class "grid gap-3"; Checkbox.create "emailReceipt" "Email receipt" |> Checkbox.render; Checkbox.create "paperReceipt" "Paper receipt" |> Checkbox.render })
-        |> FieldGroup.withDescription "Choose how to receive your receipt." |> FieldGroup.render
+        FieldGroup.create "Delivery preferences" (div { _class "grid gap-3"; Checkbox.create "emailUpdates" "Email updates" |> Checkbox.render; Checkbox.create "printedUpdates" "Printed updates" |> Checkbox.render })
+        |> FieldGroup.withDescription "Choose how to receive updates." |> FieldGroup.render
     let codeBlockHead pageNonce =
         CodeBlock.assetsWithNonce (Some "/css/prism-tomorrow.1.29.0.min.css") ["/scripts/prism.1.29.0.min.js"; "/scripts/prism-fsharp.1.29.0.min.js"] (Some pageNonce)
     let mermaidHead pageNonce = Mermaid.assetsWithNonce "/scripts/mermaid.11.16.0.min.js" (Some pageNonce)
     let codeBlock = CodeBlock.create "fsharp" "open FSharp.ViewEngine\nopen type Html\n\nlet greeting = p { \"Hello, F#\" }\nlet html = Render.toString greeting" |> CodeBlock.render
-    let callout = Callout.create "Note" [p { "Use ordinary HTML for the content. This label introduces supporting information." }] |> Callout.render
+    let callout = Callout.create "Note" [p { "Keep a copy of these instructions for future reference." }] |> Callout.render
     let mermaid = Mermaid.create "flowchart LR\n  Input[Input] --> Validate[Validate]\n  Validate --> Result[Result]" |> Mermaid.render
     let sequence =
         let user = SequenceDiagram.participant "user" "User"
@@ -58,7 +58,7 @@ module ComponentDocumentation =
     let private sample name label preview = sampleNames [name] name label preview
     let examples key =
         match key with
-        | "card" -> [sample "card" "Default" card; sample "cardWithParts" "Header and footer" cardWithParts; sample "mediaCard" "Consumer-authored media" mediaCard]
+        | "card" -> [sample "card" "Default" card; sample "cardWithParts" "Header and footer" cardWithParts; sample "mediaCard" "With media" mediaCard]
         | "section-header" -> [sample "sectionHeader" "Default" sectionHeader; sample "sectionHeaderWithActions" "Description, actions and divider" sectionHeaderWithActions]
         | "field-group" -> [sample "fields" "Related fields" fields]
         | "code-block" -> [sampleNames ["codeBlockHead";"codeBlock"] "codeBlock" "Copyable highlighted source" codeBlock]
