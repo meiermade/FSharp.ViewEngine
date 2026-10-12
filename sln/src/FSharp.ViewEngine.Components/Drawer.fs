@@ -31,6 +31,8 @@ type DrawerConfig =
           initialFocusId:string
           side:DrawerSide
           size:DrawerSize
+          container:string option
+          isOpen:bool
           attributes:HtmlAttribute list }
 
 /// <category>drawer</category>
@@ -47,6 +49,8 @@ module Drawer =
           initialFocusId = $"{id}-close"
           side = DrawerSide.End
           size = DrawerSize.Standard
+          container = None
+          isOpen = false
           attributes = [] }
 
     let withDescription description (config:DrawerConfig) =
@@ -66,13 +70,24 @@ module Drawer =
     /// Consumer-owned dimensions and route lifecycle; structural overlay attributes remain protected.
     let withAttributes attributes (config:DrawerConfig) = { config with attributes = config.attributes @ attributes }
 
+    /// Opt into an app-contained dialog. Render beside this background inside a positioned viewport.
+    let withContainer backgroundId (config:DrawerConfig) =
+        NativeOverlay.requireText (nameof backgroundId) "A drawer background ID is required." backgroundId
+        { config with container=Some backgroundId }
+
+    /// Server-owned initial visibility for a contained drawer (also available without JavaScript).
+    let withOpen isOpen (config:DrawerConfig) = { config with isOpen=isOpen }
+
     let trigger label (config:DrawerConfig) =
-        NativeOverlay.trigger config.id (Some config.initialFocusId) label
+        match config.container with
+        | Some _ -> NativeOverlay.containedTrigger config.id config.initialFocusId label
+        | None -> NativeOverlay.trigger config.id (Some config.initialFocusId) label
 
     let private closeButton label (config:DrawerConfig) =
         NativeOverlay.closeButton config.id $"{config.id}-close" label
 
     let render (config:DrawerConfig) =
+        if config.isOpen && config.container.IsNone then invalidArg (nameof config) "withOpen requires withContainer; use the native trigger for a document-modal drawer."
         let titleId = $"{config.id}-title"
         let descriptionId = $"{config.id}-description"
         let sideClasses =
@@ -87,18 +102,20 @@ module Drawer =
             | (DrawerSide.Start | DrawerSide.End), DrawerSize.Large -> "w-full max-w-full sm:w-[42rem]"
             | (DrawerSide.Top | DrawerSide.Bottom), DrawerSize.Standard -> "h-[min(20rem,calc(100%-3rem))]"
             | (DrawerSide.Top | DrawerSide.Bottom), DrawerSize.Large -> "h-[min(36rem,calc(100%-3rem))]"
-        dialog {
+        let content = dialog {
             _id config.id
             _ariaLabelledby titleId
-            _ariaModal true
+            _ariaModal config.container.IsNone
+            if config.container.IsSome then _open config.isOpen
             if config.description.IsSome then _ariaDescribedby descriptionId
             for attribute in ComponentHtml.safeAttributes [ "id"; "class"; "open"; "aria-labelledby"; "aria-describedby"; "aria-modal"; "data-on:close"; "data-on:click" ] config.attributes do attribute
             _dataOn ("click", NativeOverlay.dismissOnBackdropExpression config.id)
             _dataOn ("close", NativeOverlay.restoreFocusExpression config.id)
             _class (ComponentHtml.classes [
-                "fixed max-h-none rounded-none border-[var(--fve-border)] bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]"
+                (if config.container.IsSome then "absolute max-h-full" else "fixed max-h-none")
+                " rounded-none border-[var(--fve-border)] bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]"
                 sizeClasses
-                sideClasses ])
+                (if config.container.IsSome then sideClasses.Replace("h-dvh", "h-full") else sideClasses) ])
             div {
                 _class "flex h-full flex-col"
                 div {
@@ -118,3 +135,6 @@ module Drawer =
                 | None -> ()
             }
         }
+        match config.container with
+        | Some background -> NativeOverlay.contained config.id background true content
+        | None -> content

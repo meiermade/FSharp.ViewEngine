@@ -38,7 +38,7 @@ let private query (context:HttpContext) =
     queryFromValues value
 let private render context title content =
     match Navigation.tryIntent context with
-    | Some intent -> Navigation.respond intent (Layout.navigationRoot content |> Render.toString) (Layout.documentTitle title |> Render.toString)
+    | Some intent -> Navigation.respond (if HttpMethods.IsPost context.Request.Method then Navigation.Restore else intent) (Layout.navigationRoot content |> Render.toString) (Layout.documentTitle title |> Render.toString)
     | None -> content |> Layout.documentWithNonce (nonce context) title |> Render.toHtmlDocString |> htmlString
 let private pages : HttpHandler =
     fun next context ->
@@ -49,7 +49,7 @@ let private pages : HttpHandler =
         | _,_,Some page -> render context (ApiDocumentation.title page) (ApiDocumentation.render page) next context
         | _ -> (setStatusCode 404 >=> text "Example page not found.") next context
 
-let private submit renderDocument topBarActions : HttpHandler =
+let private submit renderResponse topBarActions : HttpHandler =
     fun next context -> task {
         let expected = context.Request.Scheme+"://"+context.Request.Host.Value
         let origin = context.Request.Headers.Origin.ToString()
@@ -68,6 +68,11 @@ let private submit renderDocument topBarActions : HttpHandler =
             try
                 let! form = context.Request.ReadFormAsync(context.RequestAborted)
                 let value name = form[name].ToString().Trim()
+                // An example-only delay makes the real request indicator observable; no client timer owns it.
+                match applicationPage with
+                | Some ApplicationPage.CreateAccount | Some (ApplicationPage.EditAccount _) | Some ApplicationPage.EditProfile | Some ApplicationPage.EditOrganization ->
+                    do! System.Threading.Tasks.Task.Delay(1000, context.RequestAborted)
+                | _ -> ()
                 let submittedContext = queryFromValues (fun name -> if name="accountType" && form.ContainsKey "filterAccountType" then value "filterAccountType" elif form.ContainsKey name then value name else context.Request.Query[name].ToString())
                 let outcome =
                     match applicationPage with
@@ -78,6 +83,7 @@ let private submit renderDocument topBarActions : HttpHandler =
                         let state =
                             match result with
                             | Ok _ -> "validated"
+                            | Error ValidateAccountError.DuplicateName -> "duplicate-name"
                             | Error ValidateAccountError.InvalidType -> "invalid-type"
                             | Error ValidateAccountError.InvalidDetails -> "invalid-details"
                             | Error _ -> "invalid"
@@ -104,13 +110,23 @@ let private submit renderDocument topBarActions : HttpHandler =
                 match outcome with
                 | Some(_,state,Some draft) ->
                     context.Response.Headers.CacheControl <- "private, no-store"
+                    // The SSE transport initializes no-cache headers; private drafts require no-store at flush.
+                    context.Response.OnStarting(fun () ->
+                        context.Response.Headers.CacheControl <- "private, no-store"
+                        System.Threading.Tasks.Task.CompletedTask)
                     let page = applicationPage |> Option.get
                     let workflow,variant,resource = specificationDestination page state
                     let responseQuery = {submittedContext with state=state;specState=variant;resource=resource;editorDraft=Some draft;topBarActions=topBarActions}
                     // Error values live only in this no-store response, never a URL, cookie or durable store.
                     match Routing.specificationPage path with
-                    | Some _ -> return! (renderDocument context (Specification.title workflow) (Specification.render workflow responseQuery) |> Render.toHtmlDocString |> htmlString) next context
-                    | None -> return! (renderDocument context (Application.pageTitle page responseQuery) (Application.render page responseQuery) |> Render.toHtmlDocString |> htmlString) next context
+                    | Some _ -> return! (renderResponse context (Specification.title workflow) (Specification.render workflow responseQuery)) next context
+                    | None -> return! (renderResponse context (Application.pageTitle page responseQuery) (Application.render page responseQuery)) next context
+                | Some(_,"validated",None) when applicationPage |> Option.exists (function ApplicationPage.CreateAccount | ApplicationPage.EditAccount _ | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> true | _ -> false) ->
+                    // Successful editors return to their origin; there is no validation-success interstitial.
+                    let page = applicationPage |> Option.get
+                    let origin = backgroundPage submittedContext page
+                    let destination = collectionHref {submittedContext with state="";editorDraft=None;overlayFrom="";specification=(Routing.specificationPage path |> Option.isSome)} origin
+                    return! redirectTo false destination next context
                 | Some(destination,state,None) ->
                     context.Response.Headers.CacheControl <- "private, no-store"
                     // Successful submissions and non-editor outcomes use finite states, without private submitted values.
@@ -135,10 +151,13 @@ let private submit renderDocument topBarActions : HttpHandler =
             with
             | :? BadHttpRequestException as error -> return! (setStatusCode error.StatusCode >=> text "Invalid example form.") next context
             | :? InvalidDataException -> return! (setStatusCode 400 >=> text "Invalid example form.") next context
+            | :? OperationCanceledException when context.RequestAborted.IsCancellationRequested -> return Some context
     }
 // The embedding host owns document identity and assets, including response-only validation errors.
-let routesWithDocument renderDocument topBarActions : HttpHandler = choose [POST >=> submit renderDocument topBarActions; GET >=> pages]
-let routesWithActions topBarActions : HttpHandler = routesWithDocument (fun context title content -> Layout.documentWithNonce (nonce context) title content) topBarActions
+let routesWithResponse renderResponse topBarActions : HttpHandler = choose [POST >=> submit renderResponse topBarActions; GET >=> pages]
+let routesWithDocument renderDocument topBarActions : HttpHandler =
+    routesWithResponse (fun context title content -> renderDocument context title content |> Render.toHtmlDocString |> htmlString) topBarActions
+let routesWithActions topBarActions : HttpHandler = routesWithResponse render topBarActions
 let routes : HttpHandler = routesWithActions []
 
 let main (args:string array) =

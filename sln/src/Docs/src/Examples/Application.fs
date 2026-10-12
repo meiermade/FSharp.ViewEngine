@@ -39,7 +39,6 @@ module Application =
             if query.specification then
                 hidden "specState" query.specState
                 if query.resource<>"" then hidden "resource" query.resource
-                hidden "fveAppDock" query.dock
             if query.appMode then hidden "appMode" "1"
         }
     let private editorContextFields query = fragment {
@@ -293,11 +292,23 @@ if (control?.getClientRects().length) control.click();
         let account = existing |> Option.map findAccount
         let page = existing |> Option.map ApplicationPage.EditAccount |> Option.defaultValue ApplicationPage.CreateAccount
         let invalid = query.state="invalid"
-        let seededName = account |> Option.map _.name |> Option.defaultValue ""
+        let duplicate = query.state="duplicate-name"
+        let seededName =
+            if duplicate then accounts |> List.find (fun item -> Some item.id<>existing) |> _.name
+            elif invalid then ""
+            else account |> Option.map _.name |> Option.defaultValue ""
         let kind = account |> Option.map (fun item -> string item.accountType) |> Option.defaultValue "Asset"
         let draft = match query.editorDraft with Some(EditorDraft.Account draft) -> Some draft | _ -> None
-        let name = Input.create "name" "Name" |> Input.withId (elementId query ("template-account-name"+suffix)) |> Input.withValue (draft |> Option.map _.name |> Option.defaultValue seededName) |> Input.required |> Input.withAttributes [_maxlength "80"]
-        let name = if invalid then name |> Input.withValidation "Use a unique name between 1 and 80 characters." else name
+        let enteredName = draft |> Option.map _.name |> Option.defaultValue seededName
+        let name = Input.create "name" "Name" |> Input.withId (elementId query ("template-account-name"+suffix)) |> Input.withValue enteredName |> Input.required |> Input.withAttributes [_maxlength "80"; _autofocus (invalid || duplicate)]
+        let name =
+            if duplicate then name |> Input.withValidation ($"An account named “{enteredName.Trim()}” already exists.")
+            elif invalid then name |> Input.withValidation "Enter a name between 1 and 80 characters."
+            else name
+        let invalidFixedDetails = draft |> Option.exists (fun value -> value.currency<>"USD" || value.subtype<>"Generic" || value.observedBalance<>"not-required")
+        let parentType =
+            draft |> Option.map _.parentType
+            |> Option.defaultWith (fun () -> if query.state="invalid-details" then accountTypes |> List.find (fun value -> string value<>kind) |> string else kind)
         let editorSelect name label selected options validation =
             let options = if options |> List.exists (fst >> (=) selected) then options else (selected,"Unavailable value")::options
             Select.create name label id (options |> List.map (fun (value,label) -> SelectOption.create value label))
@@ -305,16 +316,16 @@ if (control?.getClientRects().length) control.click();
             |> (match validation with Some message -> Select.withValidation message | None -> id) |> Select.render
         div {
             _class "grid gap-5"
-            if query.state="validated" then notice query ("template-account-valid"+suffix) "Account validated" "The account details are valid." NoticeColor.Success
-            if query.state="invalid-type" then notice query ("template-account-invalid"+suffix) "Check account type" "Choose an available account type." NoticeColor.Error
-            if query.state="invalid-details" then notice query ("template-account-details-invalid"+suffix) "Check account details" "The parent account must match the account type." NoticeColor.Error
+            if query.state="invalid-details" && invalidFixedDetails then notice query ("template-account-details-invalid"+suffix) "Check account details" "The submitted account details are unavailable. Reload the form and try again." NoticeColor.Error
             form {
                 _id (elementId query ("template-account-form"+suffix))
+                _dataIndicator "_example_account_pending"
+                _dataOn ("submit", Navigation.editorSubmitAction "_example_account_pending")
                 _method "post"; _action (collectionHref query page); _ariaLabel (if existing.IsSome then "Edit account" else "Create account")
                 _class "grid gap-5 [--fve-control-min-height:2.5rem] [--fve-control-font-size:1rem]"
                 editorContextFields query
                 Input.render name
-                editorSelect "parentType" "Parent account" (draft |> Option.map _.parentType |> Option.defaultValue kind) (accountTypes |> List.map (fun kind -> string kind,groupLabel kind)) (if query.state="invalid-details" then Some "Choose the root matching the account type." else None)
+                editorSelect "parentType" "Parent account" parentType (accountTypes |> List.map (fun kind -> string kind,groupLabel kind)) (if query.state="invalid-details" && not invalidFixedDetails then Some "Choose the root matching the account type." else None)
                 editorSelect "accountType" "Account type" (draft |> Option.map _.accountType |> Option.defaultValue kind) (accountTypes |> List.map (fun kind -> string kind,string kind)) (if query.state="invalid-type" then Some "Choose an available account type." else None)
                 hidden "subtype" "Generic"; hidden "currency" "USD"; hidden "observedBalance" "not-required"
                 DescriptionList.create [DescriptionListItem.text "Subtype" "Generic";DescriptionListItem.text "Commodity" "USD";DescriptionListItem.text "Month-end observed balance" "Not required"] |> DescriptionList.render
@@ -324,7 +335,8 @@ if (control?.getClientRects().length) control.click();
         let page = existing |> Option.map ApplicationPage.EditAccount |> Option.defaultValue ApplicationPage.CreateAccount
         fragment {
             cancelLink query page (elementId query ("template-account-editor-cancel"+suffix))
-            Button.create (ButtonContent.Text (if existing.IsSome then "Update" else "Save")) |> Button.asSubmit
+            Button.create (ButtonContent.Text (if existing.IsSome then "Update" else "Create")) |> Button.asSubmit
+            |> Button.withPendingSignal "_example_account_pending"
             |> Button.withAttributes [_attr("form",elementId query ("template-account-form"+suffix))]
             |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid |> Button.render
         }
@@ -342,7 +354,6 @@ if (control?.getClientRects().length) control.click();
         div {
             _class "grid max-w-3xl gap-6"
             DescriptionList.create [DescriptionListItem.text "Date" (date transaction.date);DescriptionListItem.create "Account" (Layout.link (applicationHref query (ApplicationPage.Account account.id)) account.name);DescriptionListItem.text "Amount (USD)" (money transaction.amount);DescriptionListItem.create "Verification" (statusBadge transaction.status);DescriptionListItem.text "Source" "Manual";DescriptionListItem.text "Comment" "No supporting comment in this record"] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
-            Layout.link (applicationHref query ApplicationPage.Transactions) "Back to transactions"
         }
     let private settings (query:Query) key =
         let table caption columns rows = Table.create caption columns rows |> Table.withMobileLayout TableMobileLayout.Records |> Table.render
@@ -398,54 +409,44 @@ if (control?.getClientRects().length) control.click();
                 }
             }
         }
-    // All contextual editors share the same dismissal/navigation guard and bounded-preview behavior.
-    let private editorDrawer (query:Query) (id:string) (label:string) (focusId:string) (initial:(string*string) list) (body:HtmlElement) (actions:HtmlElement) (reviewControls:HtmlElement) =
-        if query.previewId<>"" then
+    // Contextual editors validate only; dismissal returns directly to the originating page.
+    let private editorDrawer (query:Query) (baseId:string) (label:string) (baseFocusId:string) (body:HtmlElement) (actions:HtmlElement) =
+        let id = elementId query baseId
+        let focusId = elementId query baseFocusId
+        let openMethod = if query.specification then "show" else "showModal"
+        if query.previewId="native" then
             section {
                 _ariaLabel label
-                _class ((if query.previewId="native" then "fixed z-50" else "absolute z-30")+" inset-y-0 right-0 flex w-full max-w-lg flex-col border-l border-[var(--fve-border)] bg-[var(--fve-surface)]")
+                _class "fixed inset-y-0 right-0 z-50 flex w-full max-w-lg flex-col border-l border-[var(--fve-border)] bg-[var(--fve-surface)]"
                 h2 { _class "shrink-0 border-b border-[var(--fve-border)] p-5 text-lg font-semibold"; label }
                 div { _class "min-h-0 flex-1 overflow-y-auto p-5"; body }
                 div { _class "flex shrink-0 justify-end gap-3 border-t border-[var(--fve-border)] p-5"; actions }
             }
         else
-            let values = System.Text.Json.JsonSerializer.Serialize (initial |> List.map (fun (name,value) -> [|name;value|]))
-            let names = System.Text.Json.JsonSerializer.Serialize (initial |> List.map fst)
-            let dirty = $"const form = el.querySelector('form'); const dirty = form && JSON.stringify([...new FormData(form)].filter(([name]) => {names}.includes(name))) !== el.dataset.initial;"
-            let dismiss = dirty + $" if (!dirty || window.confirm('Discard unsaved changes?')) {{ el.dataset.discarding = 'true'; document.getElementById('{id}-cancel').click() }}"
-            let dismissClick = $"if (!el.dataset.discarding && (evt.target === el || evt.target.closest('#{id}-close, #{id}-cancel'))) {{ evt.preventDefault(); evt.stopImmediatePropagation(); " + dismiss + " }"
             Drawer.create id label body
             |> Drawer.withInitialFocus focusId
-            |> Drawer.withFooter (fragment { actions; reviewControls })
+            |> Drawer.withFooter actions
+            |> (if query.specification then Drawer.withContainer (elementId query "template-app-background") >> Drawer.withOpen true else (fun config -> config))
             |> Drawer.withAttributes [
-                _style ("width:min(32rem,100vw);max-width:100vw" + (if query.specification && query.appMode then (if query.dock="top" then ";padding-top:var(--example-app-dock-space,3.5rem)" else ";padding-bottom:var(--example-app-dock-space,3.5rem)") else ""))
-                if query.specification && query.appMode then _dataAttr ("style", "'width:min(32rem,100vw);max-width:100vw;' + ($_example_app_dock_top ? 'padding-top:var(--example-app-dock-space,3.5rem)' : 'padding-bottom:var(--example-app-dock-space,3.5rem)')")
-                _dataInit ($"el.dataset.initial = JSON.stringify({values}); queueMicrotask(() => {{ if (el.isConnected && !el.open) {{ el.showModal(); document.getElementById('{focusId}')?.focus() }} }})")
-                _dataOn ("click", ["capture"], dismissClick)
-                _dataOn ("input", "delete el.dataset.discarding")
-                _dataOn ("change", "delete el.dataset.discarding")
-                _dataOn ("datastar-fetch__window", "if (evt.detail?.type === 'error' || evt.detail?.type === 'retries-failed') delete el.dataset.discarding")
-                _dataOn ("submit", "el.dataset.submitting = 'true'")
-                _dataOn ("cancel", "evt.preventDefault(); "+dismiss)
-                _dataOn ("close", ["capture"], $"if (el.isConnected && !el.dataset.submitting) document.getElementById('{id}-cancel')?.click()")
-                _dataOn ("fve-before-navigate__window", dirty+" if (dirty && !el.dataset.submitting && !el.dataset.discarding && !window.confirm('Discard unsaved changes?')) evt.preventDefault()")
-                _dataOn ("beforeunload__window", dirty+" if (dirty && !el.dataset.submitting && !el.dataset.discarding) { evt.preventDefault(); evt.returnValue = '' }") ]
+                if not query.specification then _dataPreserveAttr "open"
+                _style "width:min(32rem,100%);max-width:100%"
+                _dataInit ($"queueMicrotask(() => {{ if (el.isConnected) {{ if (!el.open) el.{openMethod}(); document.getElementById('{focusId}')?.focus() }} }})")
+                _dataOn ("click", ["capture"], $"if (evt.target === el || evt.target.closest('#{id}-close')) {{ evt.preventDefault(); evt.stopImmediatePropagation(); document.getElementById('{id}-cancel')?.click() }}")
+                _dataOn ("cancel", $"evt.preventDefault(); document.getElementById('{id}-cancel')?.click()") ]
             |> Drawer.render
-    let private accountEditor (query:Query) existing reviewControls =
-        let seeded = existing |> Option.map findAccount
-        let kind = seeded |> Option.map (fun account -> string account.accountType) |> Option.defaultValue "Asset"
-        let initial = ["name",seeded |> Option.map _.name |> Option.defaultValue "";"parentType",kind;"accountType",kind]
-        editorDrawer query "template-account-editor" (if existing.IsSome then "Edit account" else "Create account") "template-account-name" initial (accountForm query existing "") (accountFormActions query existing "") reviewControls
-    let private detailEditor (query:Query) page reviewControls =
+    let private accountEditor (query:Query) (existing:int option) =
+        editorDrawer query "template-account-editor" (if existing.IsSome then "Edit account" else "Create account") "template-account-name" (accountForm query existing "") (accountFormActions query existing "")
+    let private detailEditor (query:Query) page =
         let organization = page=ApplicationPage.EditOrganization
         let editorId = if organization then "template-organization-editor" else "template-profile-editor"
         let formId = elementId query (editorId+"-form")
-        let initial = if organization then ["workspace",query.workspace.organization.name;"currency","USD"] else ["name","Andrew Meier";"email","andrew@meiermade.com";"timezone","America/Chicago"]
+        let pendingSignal = if organization then "_example_organization_pending" else "_example_profile_pending"
         let body = div {
             _class "grid gap-5"
-            if query.state="validated" then notice query (editorId+"-valid") (if organization then "Organization details checked" else "Profile details checked") "These details are valid." NoticeColor.Success
             form {
                 _id formId; _method "post"; _action (applicationHref query page); _ariaLabel (title page)
+                _dataIndicator pendingSignal
+                _dataOn ("submit", Navigation.editorSubmitAction pendingSignal)
                 _class "grid gap-5 [--fve-control-min-height:2.5rem] [--fve-control-font-size:1rem]"
                 contextFields query
                 if organization then
@@ -475,11 +476,12 @@ if (control?.getClientRects().length) control.click();
         }
         let actions = fragment {
             cancelLink query page (elementId query (editorId+"-cancel"))
-            Button.create (ButtonContent.Text "Update") |> Button.asSubmit |> Button.withAttributes [_attr("form",formId)]
+            Button.create (ButtonContent.Text "Update") |> Button.asSubmit |> Button.withPendingSignal pendingSignal |> Button.withAttributes [_attr("form",formId)]
             |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid |> Button.render
         }
-        editorDrawer query editorId (title page) (if organization then "template-workspace-name" else "template-profile-name") initial body actions reviewControls
-    let private deletionConfirmation query page label (details:HtmlElement) eligible (reviewControls:HtmlElement) =
+        editorDrawer query editorId (title page) (if organization then "template-workspace-name" else "template-profile-name") body actions
+    let private deletionConfirmation query page label (details:HtmlElement) eligible =
+        let openMethod = if query.specification then "show" else "showModal"
         let overlayId = elementId query "template-delete-record"
         let formId = overlayId+"-form"
         let cancelId = overlayId+"-cancel"
@@ -495,13 +497,14 @@ if (control?.getClientRects().length) control.click();
                 Button.create (ButtonContent.Text "Delete") |> Button.asSubmit |> Button.withAttributes [_attr("form",formId)]
                 |> Button.withColor ButtonColor.Error |> Button.withVariant ButtonVariant.Solid |> Button.render
         }
-        if query.previewId<>"" then Layout.section ("Delete "+label+"?") (fragment { body; div { _class "mt-5 flex justify-end gap-3"; actions } })
+        if query.previewId="native" then Layout.section ("Delete "+label+"?") (fragment { body; div { _class "mt-5 flex justify-end gap-3"; actions } })
         else
             Dialog.create overlayId ("Delete "+label+"?") body
-            |> Dialog.withFooter (fragment { actions; reviewControls }) |> Dialog.withInitialFocus cancelId |> Dialog.dismissOnBackdrop
+            |> Dialog.withFooter actions |> Dialog.withInitialFocus cancelId |> Dialog.dismissOnBackdrop
+            |> (if query.specification then Dialog.withContainer (elementId query "template-app-background") >> Dialog.withOpen true else id)
             |> Dialog.withAttributes [
                 _dataOn ("close", ["capture"], $"document.getElementById('{cancelId}').click()")
-                _dataInit ($"queueMicrotask(() => {{ if (el.isConnected && !el.open) {{ el.showModal(); document.getElementById('{cancelId}')?.focus() }} }})") ]
+                _dataInit ($"queueMicrotask(() => {{ if (el.isConnected) {{ if (!el.open) el.{openMethod}(); document.getElementById('{cancelId}')?.focus() }} }})") ]
             |> Dialog.render
     let private recordActions query editPage deletePage =
         div {
@@ -512,7 +515,7 @@ if (control?.getClientRects().length) control.click();
             |> DropdownMenu.withContent [DropdownMenuItem.link (collectionHref query deletePage) "Delete" |> DropdownMenuItem.withColor DropdownMenuItemColor.Error]
             |> DropdownMenu.render id
         }
-    let renderWithReviewControls (reviewControls:HtmlElement) page (query:Query) =
+    let render page (query:Query) =
         let query = if page=ApplicationPage.Transactions && query.sort="name" then {query with sort="date-desc"} else query
         let url = applicationHref query
         let background = backgroundPage query page
@@ -534,20 +537,17 @@ if (control?.getClientRects().length) control.click();
             | _ -> text ""
         let overlay =
             match page with
-            | ApplicationPage.CreateAccount -> accountEditor query None reviewControls
-            | ApplicationPage.EditAccount id -> accountEditor query (Some id) reviewControls
-            | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> detailEditor query page reviewControls
-            | ApplicationPage.DeleteAccount id -> deletionConfirmation query page (findAccount id).name (text "") (canDeleteAccount id) reviewControls
+            | ApplicationPage.CreateAccount -> accountEditor query None
+            | ApplicationPage.EditAccount id -> accountEditor query (Some id)
+            | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> detailEditor query page
+            | ApplicationPage.DeleteAccount id -> deletionConfirmation query page (findAccount id).name (text "") (canDeleteAccount id)
             | ApplicationPage.DeleteTransaction id ->
                 let transaction = findTransaction id
-                deletionConfirmation query page transaction.description (DescriptionList.create [DescriptionListItem.text "Date" (date transaction.date);DescriptionListItem.text "Amount (USD)" (money transaction.amount)] |> DescriptionList.render) true reviewControls
+                deletionConfirmation query page transaction.description (DescriptionList.create [DescriptionListItem.text "Date" (date transaction.date);DescriptionListItem.text "Amount (USD)" (money transaction.amount)] |> DescriptionList.render) true
             | _ -> text ""
-        fragment {
-            Layout.applicationShell background (url background) query (title background) actions (fragment {
-                if query.previewId<>"" && background<>page then
-                    div { _class "relative flex min-h-[28rem] min-w-0 flex-1 flex-col"; content; overlay }
-                else content
-                if query.previewId="" && background<>page then noscript {
+        let application = Layout.applicationShell background (url background) query (title background) actions (fragment {
+                content
+                if not query.specification && query.previewId="" && background<>page then noscript {
                     match page with
                     | ApplicationPage.CreateAccount | ApplicationPage.EditAccount _ ->
                         let existing = match page with ApplicationPage.EditAccount id -> Some id | _ -> None
@@ -557,11 +557,18 @@ if (control?.getClientRects().length) control.click();
                             div { _class "min-h-0 flex-1 overflow-y-auto p-5"; accountForm query existing "-native" }
                             div { _class "flex shrink-0 justify-end gap-3 border-t border-[var(--fve-border)] p-5"; accountFormActions query existing "-native" }
                         }
-                    | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> detailEditor {query with previewId="native"} page (text "")
-                    | _ -> deletionConfirmation {query with previewId="native"} page (match page with ApplicationPage.DeleteAccount id -> (findAccount id).name | ApplicationPage.DeleteTransaction id -> (findTransaction id).description | _ -> "record") (text "") (match page with ApplicationPage.DeleteAccount id -> canDeleteAccount id | _ -> true) (text "")
+                    | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> detailEditor {query with previewId="native"} page
+                    | _ -> deletionConfirmation {query with previewId="native"} page (match page with ApplicationPage.DeleteAccount id -> (findAccount id).name | ApplicationPage.DeleteTransaction id -> (findTransaction id).description | _ -> "record") (text "") (match page with ApplicationPage.DeleteAccount id -> canDeleteAccount id | _ -> true)
                 }
             })
+        if query.specification then
+            div {
+                _data("fve-app-viewport", "true")
+                _class ((Layout.theme |> ComponentsTheme.withDensity Density.Compact |> ComponentsTheme.withControlSize ControlSize.Small |> ComponentsTheme.className)+" relative isolate h-full min-h-0 overflow-hidden")
+                div { _id (elementId query "template-app-background"); _inert (background<>page); _class "h-full min-h-0"; application }
+                overlay
+            }
+        else fragment {
+            application
             if query.previewId="" then div { _class ((Layout.theme |> ComponentsTheme.withDensity Density.Compact |> ComponentsTheme.withControlSize ControlSize.Small |> ComponentsTheme.className)+" contents"); overlay }
-            if background=page || query.previewId<>"" then reviewControls
         }
-    let render page query = renderWithReviewControls (text "") page query

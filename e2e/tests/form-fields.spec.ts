@@ -42,13 +42,13 @@ test('Docs document history still fetches changed pages @cross-browser', async (
   await page.goto('/components/input')
   await page.getByRole('link', { name: 'Textarea', exact: true }).click()
   await expect(page).toHaveURL(/\/components\/textarea$/)
-  await expect(page.getByRole('textbox', { name: 'Payment instructions' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Instructions' })).toBeVisible()
   await page.goBack()
   await expect(page).toHaveURL(/\/components\/input$/)
   await expect(page.locator('#components-input-panel-preview').getByRole('textbox', { name: 'Email', exact: true })).toBeVisible()
   await page.goForward()
   await expect(page).toHaveURL(/\/components\/textarea$/)
-  await expect(page.getByRole('textbox', { name: 'Payment instructions' })).toBeVisible()
+  await expect(page.getByRole('textbox', { name: 'Instructions' })).toBeVisible()
 })
 
 test('financial account search clears without submitting or changing the current results @cross-browser', async ({ page }) => {
@@ -80,7 +80,7 @@ test('financial account search clears without submitting or changing the current
 
 test('native textarea editing states preserve successful values only @cross-browser', async ({ page }) => {
   await page.goto('/components/textarea')
-  const editable = page.getByRole('textbox', { name: 'Payment instructions' })
+  const editable = page.getByRole('textbox', { name: 'Instructions' })
   await expect(editable).toBeEditable()
   await expect(editable).toHaveAttribute('maxlength', '400')
   await editable.fill('Invoice INV-2048\nSecond line')
@@ -93,7 +93,7 @@ test('native textarea editing states preserve successful values only @cross-brow
     for (const field of element.querySelectorAll('textarea')) form.append(field.cloneNode(true))
     return Object.fromEntries(new FormData(form))
   })
-  expect(values).toMatchObject({ message: '', invalidMessage: '', instructions: 'Invoice INV-2048\nSecond line', pendingNotes: 'Please quote invoice INV-2048.' })
+  expect(values).toMatchObject({ message: '', invalidMessage: '', instructions: 'Invoice INV-2048\nSecond line', pendingNotes: 'Please include reference ITEM-2048.' })
   expect(values).not.toHaveProperty('unavailableNotes')
 })
 

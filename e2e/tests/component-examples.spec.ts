@@ -97,7 +97,7 @@ test('documentation preview frame tracks the pointer and starts structural examp
 
 test('Resizable panels support pointer and keyboard resizing @cross-browser', async ({ page }) => {
   await page.goto('/components/resizable')
-  const panels = page.locator('#account-workspace-panels')
+  const panels = page.locator('#item-workspace-panels')
   const leading = panels.locator(':scope > div').first()
   const handle = panels.locator('[data-fve-resize-handle="true"]')
   await expect(handle).toHaveAttribute('role', 'separator')
@@ -168,41 +168,41 @@ test('Rich choice cards retain native selection and disabled semantics @cross-br
 test('Hierarchical tables disclose only their matching descendants @cross-browser', async ({ page }) => {
   await page.goto('/components/table')
   const example = page.locator('#components-table-hierarchy-panel-preview')
-  const checking = example.getByRole('link', { name: 'Operating checking', exact: true })
+  const checking = example.getByRole('link', { name: 'Project notes', exact: true })
   await expect(checking).toBeVisible()
 
-  await example.getByRole('button', { name: 'Collapse Cash', exact: true }).click()
+  await example.getByRole('button', { name: 'Collapse Website', exact: true }).click()
   await expect(checking).toBeHidden()
-  await expect(example.getByRole('link', { name: 'Accounts receivable', exact: true })).toBeVisible()
+  await expect(example.getByRole('link', { name: 'Research', exact: true })).toBeVisible()
 
-  await example.getByRole('button', { name: 'Expand Cash', exact: true }).click()
+  await example.getByRole('button', { name: 'Expand Website', exact: true }).click()
   await expect(checking).toBeVisible()
 })
 
 test('Operational application examples preserve native input and recoverable actions @cross-browser', async ({ page }) => {
   await page.goto('/components/file-selection')
-  const file = page.locator('#statement-files')
+  const file = page.locator('#selected-files')
   await file.setInputFiles([
-    { name: 'checking.csv', mimeType: 'text/csv', buffer: Buffer.from('date,amount') },
-    { name: 'card.ofx', mimeType: 'application/x-ofx', buffer: Buffer.from('OFX') },
+    { name: 'items.csv', mimeType: 'text/csv', buffer: Buffer.from('name,status') },
+    { name: 'files.csv', mimeType: 'text/csv', buffer: Buffer.from('name,size') },
   ])
-  await expect(page.locator('#statement-files-selected')).toContainText('checking.csv')
-  await expect(page.locator('#statement-files-selected')).toContainText('card.ofx')
+  await expect(page.locator('#selected-files-selected')).toContainText('items.csv')
+  await expect(page.locator('#selected-files-selected')).toContainText('files.csv')
   await page.locator('#components-file-selection-panel-preview').getByRole('button', { name: 'Clear selected files', exact: true }).click()
   await expect(file).toHaveValue('')
 
   await page.goto('/components/progress')
-  await expect(page.getByRole('progressbar', { name: 'Statement import', exact: true }).first()).toHaveAttribute('value', '68')
+  await expect(page.getByRole('progressbar', { name: 'File upload', exact: true }).first()).toHaveAttribute('value', '68')
 
   await page.goto('/components/steps')
   const steps = page.locator('#components-steps-panel-preview')
-  await expect(steps.getByRole('navigation', { name: 'Period close progress', exact: true }).locator('[aria-current="step"]')).toContainText('Reconcile statements')
+  await expect(steps.getByRole('navigation', { name: 'Setup progress', exact: true }).locator('[aria-current="step"]')).toContainText('Review details')
   await steps.getByRole('button', { name: 'Continue', exact: true }).click()
-  await expect(steps.getByRole('alert')).toContainText('The current step has not changed.')
-  await expect(steps.getByRole('navigation', { name: 'Period close progress', exact: true }).locator('[aria-current="step"]')).toContainText('Reconcile statements')
-  await steps.getByRole('textbox', { name: 'Reconciliation note', exact: true }).fill('Statement totals agree.')
+  await expect(steps.getByRole('alert')).toHaveText('Enter a review note before continuing.')
+  await expect(steps.getByRole('navigation', { name: 'Setup progress', exact: true }).locator('[aria-current="step"]')).toContainText('Review details')
+  await steps.getByRole('textbox', { name: 'Review note', exact: true }).fill('The selected items are correct.')
   await steps.getByRole('button', { name: 'Continue', exact: true }).click()
-  await expect(steps.getByRole('status')).toHaveText('Reconciliation is ready for server validation.')
+  await expect(steps.getByRole('status')).toHaveText('Ready to continue.')
 
   await page.goto('/components/copy-reveal')
   const identity = page.locator('#components-copy-reveal-panel-preview')
@@ -230,7 +230,8 @@ test('Bottom navigation remains visible native link navigation @cross-browser', 
   await navigation.evaluate(element => element.scrollIntoView({ block: 'end' }))
   await expect(navigation).toBeVisible()
   await expect(navigation.getByRole('link')).toHaveCount(4)
-  await expect(navigation.getByRole('link', { name: 'Accounts', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(navigation.getByRole('link', { name: 'Items', exact: true })).toHaveAttribute('aria-current', 'page')
+  await expect(navigation.getByRole('link', { name: 'Items', exact: true })).toHaveAttribute('href', '/components/table')
   await expect(navigation.getByRole('tab')).toHaveCount(0)
   expect(await navigation.evaluate(element => {
     const bounds = element.getBoundingClientRect()
@@ -308,9 +309,9 @@ test('denied gallery copying reports failure without losing the source @cross-br
   await expect(copy).toHaveAttribute('data-copy-error', 'true')
   await expect(copy).toHaveText('Copy failed')
   await example.getByRole('tab', { name: 'Code', exact: true }).click()
-  await expect(example.locator('[data-docs-copy-source]')).toContainText('Button.create (ButtonContent.Text "Create account")')
+  await expect(example.locator('[data-docs-copy-source]')).toContainText('Button.create (ButtonContent.Text "Create")')
   await example.getByRole('tab', { name: 'Preview', exact: true }).click()
-  await expect(example.getByRole('button', { name: 'Create account', exact: true })).toHaveCount(3)
+  await expect(example.getByRole('button', { name: 'Create', exact: true })).toHaveCount(3)
 })
 
 test('gallery code switches preserve independent edited previews @cross-browser', async ({ page }) => {
@@ -337,12 +338,12 @@ test('Item metadata interaction stays independent of its stretched row link @cro
   const edit = preview.getByRole('button', { name: 'Edit', exact: true })
   expect(await edit.evaluate(element => element.closest('a') === null)).toBe(true)
   await edit.click()
-  const dialog = page.getByRole('dialog', { name: 'Edit account name', exact: true })
-  await expect(dialog.getByRole('textbox', { name: 'Account name', exact: true })).toBeFocused()
+  const dialog = page.getByRole('dialog', { name: 'Edit item name', exact: true })
+  await expect(dialog.getByRole('textbox', { name: 'Item name', exact: true })).toBeFocused()
   await expect(page).toHaveURL('/components/item')
   await page.keyboard.press('Escape')
   await expect(dialog).toBeHidden()
   await expect(edit).toBeFocused()
   // Component galleries deliberately suppress destination activation; copied Items retain this native link.
-  await expect(preview.getByRole('link', { name: 'Operating account', exact: true })).toHaveAttribute('href', '/examples/application/accounts/101')
+  await expect(preview.getByRole('link', { name: 'Project notes', exact: true })).toHaveAttribute('href', '/components/item')
 })

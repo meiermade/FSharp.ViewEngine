@@ -137,7 +137,7 @@ for (const kind of ['select']) {
     const name = kind === 'select' ? 'reviewerIds' : 'assigneeIds'
     expect(result.request().headers()['content-type']).toContain('application/x-www-form-urlencoded')
     expect(new URLSearchParams(body).getAll(name)).toEqual(['alex', 'jamie'])
-    await expect(page.locator(`#components-${kind === 'select' ? 'reviewers' : 'assignees'}-result`)).toHaveText('Validated 2 members. This example does not save your data.')
+    await expect(page.locator(`#components-${kind === 'select' ? 'reviewers' : 'assignees'}-result`)).toHaveText('Validated 2 members.')
     await expect(form.getByRole('alert')).toHaveCount(0)
     await expect.poll(() => values(form, name)).toEqual(['alex', 'jamie'])
     await control.click()

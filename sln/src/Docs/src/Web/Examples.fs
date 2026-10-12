@@ -95,13 +95,16 @@ module ExampleView =
     let postRoutes : HttpHandler =
         fun next context ->
             if context.Request.Path.ToString().StartsWith("/examples/application",StringComparison.Ordinal) || context.Request.Path.ToString().StartsWith("/examples/specification",StringComparison.Ordinal) then
-                let renderDocument (context:HttpContext) title content =
+                let renderResponse (context:HttpContext) title content =
                     let path = context.Request.Path.ToString()
                     match Examples.templateForPath path with
                     | Some template ->
                         let registration = { Examples.registration with id="example-"+path.Replace('/','-'); path=path; title=title; browserTitle=title+" · "+template.name+" example" }
                         let page = DocumentationPage.create registration.id title |> DocumentationPage.withMetadata {DocsPageMetadata.defaults with browserTitle=Some registration.browserTitle}
-                        View.documentWithContentAndNonce (Docs.Examples.Hosting.nonce context) Registry.navigation registration page (root context template title content)
-                    | None -> Docs.Examples.Layout.documentWithNonce (Docs.Examples.Hosting.nonce context) title content
-                Docs.Examples.Hosting.routesWithDocument renderDocument [downloadSource] next context
+                        let root = root context template title content
+                        match Navigation.tryIntent context with
+                        | Some _ -> Navigation.respond Docs.Examples.Navigation.Restore (Render.toString root) (View.contentMetadata Registry.navigation registration page |> Render.toString)
+                        | None -> View.documentWithContentAndNonce (Docs.Examples.Hosting.nonce context) Registry.navigation registration page root |> Render.toHtmlDocString |> htmlString
+                    | None -> Docs.Examples.Layout.documentWithNonce (Docs.Examples.Hosting.nonce context) title content |> Render.toHtmlDocString |> htmlString
+                Docs.Examples.Hosting.routesWithResponse renderResponse [downloadSource] next context
             else skipPipeline

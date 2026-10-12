@@ -537,6 +537,23 @@ let tests =
             Expect.stringContains tabs "role=\"tabpanel\"" "tab panel semantics"
         }
 
+        test "Browser and Phone accept host-owned review chrome without owning routes or navigation" {
+            let control = a { _href "/components/browser?expanded=1"; "Expand" }
+            let browser = Browser.create (p { "Product" }) |> Browser.withAddress "/components/browser"
+                          |> Browser.withWindowControls control |> Browser.withToolbarActions (span { "Review state" })
+                          |> Browser.withExpanded true |> Browser.render |> Render.toString
+            Expect.stringContains browser "data-fve-browser-expanded=\"true\"" "viewport presentation is explicit"
+            Expect.stringContains browser "data-fve-browser-address=\"true\"" "expansion retains address chrome"
+            Expect.stringContains browser "href=\"/components/browser?expanded=1\"" "native host-owned destination survives"
+            Expect.stringContains browser "Review state" "trailing controls render"
+            Expect.stringContains browser ">Product<" "product remains inside its frame"
+            Expect.isFalse (browser.Contains "data-on") "frame presentation installs no competing runtime"
+            let phone = Phone.create (p { "Messages" }) |> Phone.withToolbar control |> Phone.withExpanded true |> Phone.render |> Render.toString
+            Expect.stringContains phone "data-fve-phone-expanded=\"true\"" "Phone supports viewport presentation"
+            Expect.isLessThan (phone.IndexOf "data-fve-phone-toolbar") (phone.IndexOf "data-fve-phone-screen") "review toolbar is outside and above the simulated screen"
+            Expect.isFalse (phone.Contains "data-fve-browser-address") "native messages are not given a browser address"
+        }
+
         test "Small display primitives preserve semantic and interaction boundaries" {
             let shortcut = Kbd.shortcut [ "Control"; "K" ] |> Kbd.withLabel "Open search" |> Kbd.render |> Render.toString
             Expect.equal (shortcut.Split("<kbd", System.StringSplitOptions.None).Length - 1) 2 "each shortcut key is semantic kbd markup"

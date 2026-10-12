@@ -929,12 +929,12 @@ after"""
             let _,preview = routeResponse "/examples/specification/accounts/create-account"
             let controlIds = Regex.Matches(preview,"<(?:input|button|select|dialog)[^>]* id=\"([^\"]+)\"") |> Seq.cast<Match> |> Seq.map (fun item -> item.Groups[1].Value) |> Seq.toList
             Expect.equal controlIds.Length (controlIds |> List.distinct |> List.length) "inline states do not share control identities"
-            let launch = Regex.Matches(preview,"<a[^>]+href=\"([^\"]+)\"[^>]+aria-label=\"Open Create account[^\"]* in App mode\"") |> Seq.cast<Match> |> Seq.map (fun item -> WebUtility.HtmlDecode item.Groups[1].Value) |> Seq.toList
+            let launch = Regex.Matches(preview,"<a[^>]+href=\"([^\"]+)\"[^>]+aria-label=\"Expand Create account[^\"]*\"") |> Seq.cast<Match> |> Seq.map (fun item -> WebUtility.HtmlDecode item.Groups[1].Value) |> Seq.toList
             Expect.isNonEmpty launch "each preview has a real launch link"
             for href in launch do
                 let parameters = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery((Uri(Uri "https://fve.meiermade.com",href)).Query)
                 Expect.equal (string parameters["appMode"]) "1" "resource-less launch selects App mode"
-                Expect.equal (string parameters["fveAppDock"]) "bottom" "launch includes dock context"
+                Expect.isFalse (parameters.ContainsKey "fveAppDock") "expansion has no obsolete docking state"
                 let status,html = routeResponse href
                 Expect.equal status 200 "launch destination resolves"
                 Expect.stringContains html "aria-label=\"App mode controls\"" "launch renders operable review controls"
@@ -945,27 +945,28 @@ after"""
             let accountFields name kind = ["name",name;"accountType",kind;"parentType",kind;"currency","USD";"subtype","Generic";"observedBalance","not-required"]
             let before = routeResponse "/examples/application/accounts/105" |> snd
             for path,fields,state,message in [
-                "/examples/application/accounts/new",accountFields "Private reserve" "Asset","validated","Account validated"
-                "/examples/application/accounts/new",accountFields "Operating checking" "Asset","invalid","Use a unique name between 1 and 80 characters."
-                "/examples/application/accounts/new",accountFields "Private reserve" "unavailable","invalid-type","Check account type"
+                "/examples/application/accounts/new",accountFields "Private reserve" "Asset","success","Accounts"
+                "/examples/application/accounts/new",accountFields "Operating checking" "Asset","duplicate-name","already exists."
+                "/examples/application/accounts/new",accountFields "" "Asset","invalid","Enter a name between 1 and 80 characters."
+                "/examples/application/accounts/new",accountFields "Private reserve" "unavailable","invalid-type","Choose an available account type."
                 "/examples/application/accounts/new",accountFields "Private reserve" "Asset" |> List.map (fun (key,value) -> key,if key="currency" then "EUR" else value),"invalid-details","Check account details"
-                "/examples/application/accounts/101/edit",accountFields "Operating checking" "Asset","validated","Account validated"
-                "/examples/application/accounts/101/edit",accountFields "Tax reserve" "Asset","invalid","Use a unique name between 1 and 80 characters."
+                "/examples/application/accounts/101/edit",accountFields "Operating checking" "Asset","success","Operating checking"
+                "/examples/application/accounts/101/edit",accountFields "Tax reserve" "Asset","duplicate-name","already exists."
                 "/examples/application/accounts/101/delete",["action","delete"],"delete-blocked","Account cannot be deleted"
                 "/examples/application/accounts/105/delete",["action","delete"],"deleted","Deletion validated"
                 "/examples/application/accounts",["action","review-selected";"accountIds","105";"accountIds","group-Asset"],"selection-valid","Selected records checked"
                 "/examples/application/accounts",["action","review-selected"],"selection-invalid","Choose records"
                 "/examples/application/transactions",["action","review-selected";"transactionIds","201"],"selection-valid","Selected records checked"
                 "/examples/application/transactions",["action","review-selected";"transactionIds","999"],"selection-invalid","Choose records"
-                "/examples/application/settings/general/edit",["workspace","Private workspace";"currency","USD"],"validated","Organization details checked"
+                "/examples/application/settings/general/edit",["workspace","Private workspace";"currency","USD"],"success","General"
                 "/examples/application/settings/general/edit",["workspace","";"currency","USD"],"invalid","Enter a name between 1 and 80 characters."
                 "/examples/application/settings/general/edit",["workspace","Private workspace";"currency","EUR"],"invalid","Choose US dollar (USD)."
-                "/examples/application/profile/edit",["name","Private person";"email","private@example.invalid";"timezone","UTC"],"validated","Profile details checked"
+                "/examples/application/profile/edit",["name","Private person";"email","private@example.invalid";"timezone","UTC"],"success","Profile"
                 "/examples/application/profile/edit",["name","Private person";"email","not-an-email";"timezone","UTC"],"invalid","Enter a valid email address."
                 "/examples/application/profile/edit",["name","";"email","private@example.invalid";"timezone","UTC"],"invalid","Enter a name between 1 and 80 characters."
                 "/examples/application/profile/edit",["name","Private person";"email","private@example.invalid";"timezone","unknown"],"invalid","Choose an available time zone." ] do
                 let status,location,cookies,body,cache = postFormResponse path fields
-                let editorFailure = (path.Contains("/accounts/") || path.EndsWith("/edit",StringComparison.Ordinal)) && state.StartsWith("invalid", StringComparison.Ordinal)
+                let editorFailure = (path.Contains("/accounts/") || path.EndsWith("/edit",StringComparison.Ordinal)) && (state.StartsWith("invalid", StringComparison.Ordinal) || state="duplicate-name")
                 Expect.equal status (if editorFailure then 200 else 302) path
                 Expect.equal cookies "" "submissions create no session cookies"
                 let html =
@@ -975,11 +976,17 @@ after"""
                         body
                     else
                         let parameters = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery((Uri(Uri "https://fve.meiermade.com",location)).Query)
-                        Expect.equal (string parameters["state"]) state "authoritative finite outcome"
+                        if state="success" then Expect.isFalse (parameters.ContainsKey "state") "success has no validation interstitial"
+                        else Expect.equal (string parameters["state"]) state "authoritative finite outcome"
                         let renderStatus,html = routeResponse location
                         Expect.equal renderStatus 200 "redirect destination resolves"
                         html
                 Expect.stringContains html message "rendered feedback matches the outcome"
+                if state="duplicate-name" then
+                    let enteredName = fields |> List.find (fst >> (=) "name") |> snd
+                    Expect.stringContains html ("value=\""+WebUtility.HtmlEncode(enteredName)+"\"") "duplicate errors preserve entered values"
+                    Expect.stringContains html "aria-invalid=\"true\"" "duplicate errors are attached to the field"
+                    Expect.isFalse (html.Contains "data-fve-notice") "one field error has no duplicated form banner"
                 for privateValue in ["Private reserve";"Private workspace";"Private person";"private@example.invalid"] do
                     Expect.isFalse (location.Contains privateValue) "private values never enter URLs"
                     if not editorFailure then Expect.isFalse (html.Contains privateValue) "successful/non-editor submissions do not retain private values"
@@ -1005,11 +1012,11 @@ after"""
             let successStatus,redirect,_,_,_ = postFormResponse path success
             Expect.equal successStatus 302 "valid submission returns to the collection"
             let destination = Uri(Uri "https://fve.meiermade.com",redirect)
-            Expect.equal destination.AbsolutePath path "the finite result remains on the submitted editor route"
+            Expect.equal destination.AbsolutePath "/examples/application/accounts" "success closes the collection-origin editor"
             let resultTitle = Regex.Match(routeResponse redirect |> snd,"<title[^>]*>([^<]+)</title>").Groups[1].Value |> WebUtility.HtmlDecode
             Expect.equal resultTitle "Accounts · Application example" "the originating collection remains the background"
             let query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery destination.Query
-            for key,value in ["search","operating";"accountType","Expense";"sort","balance";"from","accounts"] do
+            for key,value in ["search","operating";"accountType","Expense";"sort","balance"] do
                 Expect.equal (string query[key]) value ("public context survives: "+key)
         }
 
@@ -1057,19 +1064,19 @@ after"""
                 Expect.isFalse (reader.ReadToEnd().Contains "FSharp.ViewEngine.Components.Templates") "copied source has no private Templates dependency"
         }
 
-        test "Specification form outcomes preserve exact resource and submitted workspace mode and dock" {
-            let path = "/examples/specification/accounts/update-account?resource=105&appMode=1&fveAppDock=bottom"
-            let fields = ["name","Unassigned expense";"accountType","Expense";"parentType","Expense";"currency","USD";"subtype","Generic";"observedBalance","not-required";"organization","client-organization";"environment","staging";"ledger","operating-company";"appMode","1";"fveAppDock","top"]
+        test "Specification form outcomes preserve exact resource and submitted workspace mode" {
+            let path = "/examples/specification/accounts/update-account?resource=105&appMode=1"
+            let fields = ["name","Unassigned expense";"accountType","Expense";"parentType","Expense";"currency","USD";"subtype","Generic";"observedBalance","not-required";"organization","client-organization";"environment","staging";"ledger","operating-company";"appMode","1"]
             let status,location,_,_ = postForm path fields
             Expect.equal status 302 "native form returns a finite destination"
             let destination = Uri(Uri "https://fve.meiermade.com",location)
-            Expect.equal destination.AbsolutePath "/examples/specification/accounts/update-account" "result remains in the current workflow"
+            Expect.equal destination.AbsolutePath "/examples/specification/accounts/view-account" "success returns to the account"
             let parameters = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery destination.Query
-            for key,value in ["resource","105";"appMode","1";"fveAppDock","top";"organization","client-organization";"environment","staging";"ledger","operating-company";"specState","validated"] do
+            for key,value in ["resource","105";"appMode","1";"organization","client-organization";"environment","staging";"ledger","operating-company";"specState","default"] do
                 Expect.equal (string parameters[key]) value ("redirect retains "+key)
             let status,html = routeResponse location
             Expect.equal status 200 "result resolves"
-            Expect.stringContains html "Account validated" "result renders the validation outcome"
+            Expect.isFalse (html.Contains "Account validated" || html.Contains "id=\"template-account-editor\"") "success closes the editor without a validation banner"
             Expect.stringContains html "Unassigned expense" "result is for the submitted resource, not the first account"
         }
 
@@ -1235,6 +1242,10 @@ after"""
                 else
                     Expect.stringContains html "id=\"installation\"" $"{registration.path} has component-specific installation"
                     Expect.stringContains html "id=\"usage\"" $"{registration.path} has copyable usage"
+                    for example in Components.examplesFor (registration.path.Substring("/components/".Length)) do
+                        let financialCopy = @"\b(accounts?|transactions?|ledger|treasury|balances?|reconciliation|reconcile|statements?|invoice|payroll|receivables|USD|finance|financial|tax)\b"
+                        let content = Render.toString example.preview + "\n" + example.source
+                        Expect.isFalse (Regex.IsMatch(content, financialCopy, RegexOptions.IgnoreCase)) $"{registration.path} keeps primitive previews and copied code generic"
                     Expect.stringContains html "data-docs-toc=\"true\"" $"{registration.path} has On this page navigation"
                     Expect.stringContains html "class=\"sr-only\" data-docs-example-title=\"true\"" $"{registration.path} leads with one unlisted canonical example"
                     let selectorMatch = Regex.Match(html, "dotnet fve add ([a-z0-9-]+) --config")
@@ -1264,21 +1275,21 @@ after"""
                 Expect.isFalse (html.Contains("data-docs-example=\"true\"")) $"{registration.path} is focused guidance rather than a duplicate gallery"
 
             Expect.stringContains allHtml "/components/menus/actions" "DropdownMenu example uses a real Docs-owned patch endpoint"
-            Expect.stringContains allHtml "data-signals=\"{_account_open: false, account_query:" "remote Combobox emits local open state and an intentionally submitted query"
+            Expect.stringContains allHtml "data-signals=\"{_item_open: false, item_query:" "remote Combobox emits local open state and an intentionally submitted query"
             Expect.stringContains allHtml "role=\"switch\"" "Switch preserves switch semantics"
             Expect.stringContains allHtml "aria-pressed=\"true\"" "ToggleButton preserves pressed semantics"
             Expect.stringContains allHtml "type=\"radio\"" "RadioGroup preserves form semantics internally"
             Expect.stringContains allHtml "requestCancellation: &#39;auto&#39;" "remote Combobox documents deterministic newest-request behavior"
             for endpoint in [ "/components/choices/select"; "/components/choices/checkbox"; "/components/choices/switch"; "/components/choices/radio" ] do
                 Expect.stringContains allHtml endpoint $"focused example posts to real Docs endpoint {endpoint}"
-            Expect.stringContains allHtml "id=\"review-account-dialog-trigger\"" "Dialog renders its connected trigger"
-            Expect.stringContains allHtml "data-on:close=\"document.getElementById(&quot;review-account-dialog-trigger&quot;)?.focus()\"" "Dialog close restores trigger focus"
+            Expect.stringContains allHtml "id=\"review-changes-dialog-trigger\"" "Dialog renders its connected trigger"
+            Expect.stringContains allHtml "data-on:close=\"document.getElementById(&quot;review-changes-dialog-trigger&quot;)?.focus()\"" "Dialog close restores trigger focus"
             Expect.stringContains allHtml "role=\"alertdialog\"" "Dialog composition preserves urgent confirmation semantics"
-            Expect.stringContains allHtml "data-indicator:_delete_account_confirmation_pending" "the confirmation form owns immediate duplicate-submit protection"
-            Expect.stringContains allHtml "id=\"account-settings-drawer\"" "Drawer renders a stable native dialog"
-            Expect.stringContains allHtml "Account details refreshed from the server." "Drawer preserves server-patched detail content"
+            Expect.stringContains allHtml "data-indicator:_delete_item_confirmation_pending" "the confirmation form owns immediate duplicate-submit protection"
+            Expect.stringContains allHtml "id=\"item-details-drawer\"" "Drawer renders a stable native dialog"
+            Expect.stringContains allHtml "Details refreshed." "Drawer preserves server-patched detail content"
             Expect.stringContains allHtml "/components/dialogs/confirm" "the confirmation form uses a real Docs-owned endpoint"
-            Expect.stringContains allHtml "/components/drawers/account" "Drawer uses a real Docs-owned patch endpoint"
+            Expect.stringContains allHtml "/components/drawers/item" "Drawer uses a real Docs-owned patch endpoint"
             Expect.stringContains allHtml "/components/tabs/review" "Tabs uses a real Docs-owned patch endpoint"
             Expect.stringContains allHtml "data-signals=\"{_components_menu_actions_open: false, _components_menu_actions_typeahead:" "menu IDs become valid isolated interaction signal tokens"
             Expect.isFalse (allHtml.Contains("_components-menu-actions-open")) "DOM IDs are not copied unsafely into expressions"
@@ -1644,20 +1655,18 @@ after"""
             Expect.stringContains dialogHtml "data-on:cancel=\"$saving &amp;&amp; evt.preventDefault()\"" "consumers can protect in-flight work"
             Expect.isFalse (dialogHtml.Contains "override") "attributes cannot replace dialog identity, labelling, presentation, or dismissal handlers"
 
-            let confirmationHtml = Components.accountDeletionDialog |> Dialog.render |> Render.toString
+            let confirmationHtml = Components.itemDeletionDialog |> Dialog.render |> Render.toString
             Expect.stringContains confirmationHtml "role=\"alertdialog\"" "the confirmation example composes alert-dialog semantics"
-            Expect.stringContains confirmationHtml "aria-describedby=\"delete-account-confirmation-description\"" "the confirmation message remains described"
-            Expect.stringContains confirmationHtml "data-indicator:_delete_account_confirmation_pending" "the native form request drives pending state"
-            Expect.stringContains confirmationHtml "data-attr:disabled=\"$_delete_account_confirmation_pending\"" "request pending prevents repeated activation"
-            Expect.stringContains confirmationHtml "id=\"delete-account-confirmation-cancel\"" "the least-destructive action is consumer-authored"
+            Expect.stringContains confirmationHtml "aria-describedby=\"delete-item-confirmation-description\"" "the confirmation message remains described"
+            Expect.stringContains confirmationHtml "data-indicator:_delete_item_confirmation_pending" "the native form request drives pending state"
+            Expect.stringContains confirmationHtml "data-attr:disabled=\"$_delete_item_confirmation_pending\"" "request pending prevents repeated activation"
+            Expect.stringContains confirmationHtml "id=\"delete-item-confirmation-cancel\"" "the least-destructive action is consumer-authored"
             Expect.stringContains confirmationHtml "var(--fve-error-solid," "the submit Button retains the Error palette"
 
-            let pendingHtml = Components.pendingDeletionDialog |> Dialog.render |> Render.toString
-            Expect.stringContains pendingHtml "aria-busy=\"true\"" "server-rendered pending state is perceivable"
-            Expect.stringContains pendingHtml "Confirmation in progress." "pending state retains explanatory text"
-            Expect.stringContains pendingHtml "disabled" "pending confirmation cannot submit twice"
+            Expect.stringContains confirmationHtml "Confirmation in progress." "request pending retains explanatory text"
+            Expect.stringContains confirmationHtml "data-show=\"$_delete_item_confirmation_pending\"" "pending presentation reads the real request signal"
 
-            let validationHtml = Components.accountDeletionContent (Some "The value is still referenced.") |> Render.toString
+            let validationHtml = Components.itemDeletionContent (Some "The value is still referenced.") |> Render.toString
             Expect.stringContains validationHtml "role=\"alert\"" "server validation is announced"
             Expect.stringContains validationHtml "The value is still referenced." "server validation remains visible"
 
@@ -1683,6 +1692,14 @@ after"""
             let bottomDrawerHtml = endDrawer |> Drawer.withSide DrawerSide.Bottom |> Drawer.withSize DrawerSize.Large |> Drawer.render |> Render.toString
             Expect.stringContains bottomDrawerHtml "inset-x-0 bottom-0" "Drawer supports the typed bottom edge"
             Expect.stringContains bottomDrawerHtml "h-[min(36rem,calc(100%-3rem))]" "horizontal drawers use typed heights"
+            let contained = endDrawer |> Drawer.withContainer "app-background" |> Drawer.withOpen true
+            let containedHtml = div { contained |> Drawer.trigger "Open settings"; contained |> Drawer.render } |> Render.toString
+            Expect.stringContains containedHtml "aria-modal=\"false\" open" "a server-owned contained state is natively open, not document-modal"
+            Expect.stringContains containedHtml "data-fve-overlay-background=\"app-background\"" "only the named app background is affected"
+            Expect.isFalse (containedHtml.Contains "showModal()") "contained triggers do not enter the document top layer"
+            let containedDialogHtml = Dialog.create "app-confirmation" "Confirm" (text "Continue?") |> Dialog.withContainer "app-background" |> Dialog.withOpen true |> Dialog.render |> Render.toString
+            Expect.stringContains containedDialogHtml "aria-modal=\"false\" open" "contained confirmation has the same native visibility contract"
+            Expect.throws (fun () -> endDrawer |> Drawer.withOpen true |> Drawer.render |> ignore) "initial contained visibility cannot silently degrade into a non-modal standalone drawer"
         }
 
         test "Components foundations preserve accessible names, honest states, and protected structure" {
@@ -1690,14 +1707,19 @@ after"""
 
             let pendingButton =
                 Button.create (ButtonContent.Text "Sync accounts")
-                |> Button.pending
-                |> Button.withAttributes [ _ariaBusy false; _attr "disabled"; _class "override" ]
+                |> Button.withPendingSignal "_sync_pending"
+                |> Button.withAttributes [ _ariaBusy false; _attr "disabled"; _class "override"; _dataOn ("click", "@post('/components/dialogs/confirm')"); _dataIndicator "_sync_pending" ]
                 |> Button.render
                 |> Render.toString
             Expect.stringContains pendingButton "disabled" "pending Button prevents activation"
-            Expect.stringContains pendingButton "aria-busy=\"true\"" "pending Button exposes busy state"
+            Expect.stringContains pendingButton "data-attr:aria-busy=\"$_sync_pending ? &#39;true&#39; : null\"" "signal drives busy state"
+            Expect.stringContains pendingButton "data-indicator:_sync_pending" "consumer indicator passes through"
+            Expect.stringContains pendingButton "data-on:click" "consumer action passes through"
+            Expect.stringContains pendingButton "data-show=\"$_sync_pending\" style=\"display:none\"" "spinner is initially hidden and signal-driven"
+            Expect.isFalse (pendingButton.Contains " disabled=") "pending is not permanently disabled"
+            Expect.throws (fun () -> Button.create (ButtonContent.Text "Update") |> Button.withPendingSignal "$bad" |> ignore) "signal names exclude expression syntax"
             Expect.stringContains pendingButton ">Sync accounts<" "pending Button retains its action label"
-            Expect.equal (Regex.Matches(pendingButton, " aria-busy=\"").Count) 1 "Button owns one busy state"
+            Expect.equal (Regex.Matches(pendingButton, " data-attr:aria-busy=\"").Count) 1 "Button owns one busy binding"
             Expect.isFalse (pendingButton.Contains("override")) "Button protects base presentation"
 
             let iconButton =
@@ -1718,17 +1740,17 @@ after"""
             let link = linkConfig |> Button.renderLink "/accounts/101/edit?from=accounts&sort=name" |> Render.toString
             Expect.stringContains link "<a href=\"/accounts/101/edit?from=accounts&amp;sort=name\"" "styled links keep an encoded native destination"
             Expect.isFalse (link.Contains "<button" || link.Contains "type=\"button\"" || link.Contains "override" || link.Contains "/wrong") "links retain anchor semantics and protect presentation/destination"
-            for modifier in [Button.asSubmit; Button.disabled; Button.pending] do
+            for modifier in [Button.asSubmit; Button.disabled; Button.withPendingSignal "_pending"] do
                 Expect.throws (fun () -> linkConfig |> modifier |> Button.renderLink "/accounts" |> ignore) "native links cannot claim button-only states"
 
             let pendingIconButton =
                 Button.create (ButtonContent.Icon ("Refresh accounts", icon))
-                |> Button.pending
+                |> Button.withPendingSignal "_icon_pending"
                 |> Button.withAttributes [ _ariaLabel "Override"; _ariaBusy false; _class "override" ]
                 |> Button.render
                 |> Render.toString
             Expect.stringContains pendingIconButton "aria-label=\"Refresh accounts\"" "pending icon-only Button retains its accessible name"
-            Expect.stringContains pendingIconButton "aria-busy=\"true\"" "pending icon-only Button exposes busy state"
+            Expect.stringContains pendingIconButton "data-attr:aria-busy=\"$_icon_pending ? &#39;true&#39; : null\"" "pending icon-only Button exposes busy state"
             Expect.stringContains pendingIconButton "disabled" "pending icon-only Button prevents activation"
             Expect.isFalse (pendingIconButton.Contains("Override")) "Button protects its accessible name"
             Expect.isFalse (pendingIconButton.Contains("override")) "Button protects base presentation"
@@ -1749,19 +1771,19 @@ after"""
 
             let pendingIconTextButton =
                 Button.create (ButtonContent.IconText (span { "Before" }, "Continue"))
-                |> Button.pending
+                |> Button.withPendingSignal "_icon_text_pending"
                 |> Button.render
                 |> Render.toString
             Expect.stringContains pendingIconTextButton ">Continue<" "pending IconText retains its action label"
-            Expect.isFalse (pendingIconTextButton.Contains("Before")) "pending IconText replaces its decorative icon with the spinner"
+            Expect.stringContains pendingIconTextButton "data-show=\"!$_icon_text_pending\"" "pending IconText hides its icon while the spinner is shown"
 
             let customButton =
                 Button.create (ButtonContent.Custom (fragment { strong { "Custom" }; span { " content" } }))
-                |> Button.pending
+                |> Button.withPendingSignal "_custom_pending"
                 |> Button.render
                 |> Render.toString
             Expect.stringContains customButton "<strong>Custom</strong><span> content</span>" "Custom content remains consumer-authored and visible while pending"
-            Expect.stringContains customButton "aria-busy=\"true\"" "Custom content retains standard pending semantics"
+            Expect.stringContains customButton "data-attr:aria-busy=\"$_custom_pending ? &#39;true&#39; : null\"" "Custom content retains standard pending semantics"
 
             for variant, activeClass in [
                 ButtonVariant.Solid, "enabled:active:bg-[var(--fve-color-active)]"
@@ -1854,7 +1876,7 @@ after"""
             Expect.stringContains custom "margin:1px;" "ordinary consumer styles survive palette composition"
             Expect.equal (Regex.Matches(custom, " style=\"").Count) 1 "the renderer emits one style attribute"
             Expect.stringContains custom "Save &lt;draft&gt;" "presentation does not bypass label encoding"
-            let pending = Button.create (ButtonContent.Text "Delete") |> Button.withColor ButtonColor.Error |> Button.pending |> render
+            let pending = Button.create (ButtonContent.Text "Delete") |> Button.withColor ButtonColor.Error |> Button.withPendingSignal "_delete_pending" |> render
             Expect.stringContains pending "border-current" "pending glyph follows its owning action foreground"
             Expect.isFalse (pending.Contains("border-t-[var(--fve-brand-solid)]")) "pending glyph does not assume brand color"
         }
@@ -2060,7 +2082,7 @@ after"""
                 Components.paginationPageFor 3
                 |> View.documentWithPage Registry.navigation Components.paginationRegistration
                 |> Render.toHtmlDocString
-            Expect.stringContains paginationPage3Html "Showing 51–75 of 184 accounts" "Docs pagination derives its summary from local query state"
+            Expect.stringContains paginationPage3Html "Showing 51–75 of 184 items" "Docs pagination derives its summary from local query state"
             Expect.stringContains paginationPage3Html "aria-current=\"page\" aria-label=\"Page 3, current page\"" "Docs pagination renders the requested current page"
             Expect.stringContains paginationPage3Html "href=\"/components/pagination/page?page=4\"" "Docs pagination links to a targeted local next page"
 
@@ -2068,7 +2090,7 @@ after"""
                 Components.paginationPageFor 99
                 |> View.documentWithPage Registry.navigation Components.paginationRegistration
                 |> Render.toHtmlDocString
-            Expect.stringContains paginationPage8Html "Showing 176–184 of 184 accounts" "Docs pagination clamps out-of-range requests"
+            Expect.stringContains paginationPage8Html "Showing 176–184 of 184 items" "Docs pagination clamps out-of-range requests"
             Expect.stringContains paginationPage8Html "aria-current=\"page\" aria-label=\"Page 8, current page\"" "Docs pagination clamps to the last page"
 
             for removedType in [ "FSharp.ViewEngine.Components.Chart"; "FSharp.ViewEngine.Components.ChartConfig"; "FSharp.ViewEngine.Components.Chart"; "FSharp.ViewEngine.Components.ChartConfig"; "FSharp.ViewEngine.Components.RowActions"; "FSharp.ViewEngine.Components.RowActionsConfig" ] do

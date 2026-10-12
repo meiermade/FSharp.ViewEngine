@@ -36,15 +36,15 @@ module Model =
         | Account of Ledger.Operations.ValidateAccountRequest
         | Profile of Ledger.Operations.ValidateProfileRequest
         | Organization of Ledger.Operations.ValidateOrganizationRequest
-    type Query = { search:string; accountType:string; filters:string list; sort:string; state:string; embedded:bool; workspace:Workspace; account:string; range:string; comparison:string; status:string; appMode:bool; specState:string; resource:string; dock:string; specification:bool; previewId:string; topBarActions:HtmlElement list; overlayFrom:string; editorDraft:EditorDraft option; returnWorkspace:Workspace option }
-    let defaultQuery = { search=""; accountType="all"; filters=[]; sort="name"; state=""; embedded=false; workspace=defaultWorkspace; account="all"; range="90"; comparison="expected"; status="all"; appMode=false; specState=""; resource=""; dock="bottom"; specification=false; previewId=""; topBarActions=[]; overlayFrom=""; editorDraft=None; returnWorkspace=None }
+    type Query = { search:string; accountType:string; filters:string list; sort:string; state:string; embedded:bool; workspace:Workspace; account:string; range:string; comparison:string; status:string; appMode:bool; specState:string; resource:string; restoreFixture:bool; specification:bool; previewId:string; topBarActions:HtmlElement list; overlayFrom:string; editorDraft:EditorDraft option; returnWorkspace:Workspace option }
+    let defaultQuery = { search=""; accountType="all"; filters=[]; sort="name"; state=""; embedded=false; workspace=defaultWorkspace; account="all"; range="90"; comparison="expected"; status="all"; appMode=false; specState=""; resource=""; restoreFixture=false; specification=false; previewId=""; topBarActions=[]; overlayFrom=""; editorDraft=None; returnWorkspace=None }
     let queryFromValues (value:string -> string) =
         let fallback key defaultValue = if value key="" then defaultValue else value key
         { search=value "search"; accountType=fallback "accountType" "all"
           filters=(value "filters").Split(',', StringSplitOptions.RemoveEmptyEntries) |> Array.toList |> List.distinct |> List.filter (fun name -> List.contains name ["accountType";"status";"account"])
           sort=fallback "sort" "name"; state=value "state"; embedded=value "embedded"="1"
           workspace=workspaceFromStrings (value "organization") (value "environment") (value "ledger")
-          account=fallback "account" "all"; range=fallback "range" "90"; comparison=fallback "comparison" "expected"; status=fallback "status" "all"; appMode=(value "appMode"="1" || value "fveAppMode"="app"); specState=value "specState"; resource=value "resource"; dock=(if value "fveAppDock"="top" then "top" else "bottom"); specification=false; previewId=""; topBarActions=[]; overlayFrom=(match value "from" with "accounts" -> "accounts" | "transactions" -> "transactions" | _ -> ""); editorDraft=None
+          account=fallback "account" "all"; range=fallback "range" "90"; comparison=fallback "comparison" "expected"; status=fallback "status" "all"; appMode=(value "appMode"="1" || value "fveAppMode"="app"); specState=value "specState"; resource=value "resource"; restoreFixture=value "fveAppReturn"<>""; specification=false; previewId=""; topBarActions=[]; overlayFrom=(match value "from" with "accounts" -> "accounts" | "transactions" -> "transactions" | _ -> ""); editorDraft=None
           returnWorkspace=(if value "returnOrganization"="" then None else Some(workspaceFromStrings (value "returnOrganization") (value "returnEnvironment") (value "returnLedger"))) }
     let backgroundPage (query:Query) = function
         | ApplicationPage.EditProfile -> ApplicationPage.Profile
@@ -62,17 +62,17 @@ module Model =
         | ApplicationPage.Home -> "home","default",""
         | ApplicationPage.Accounts -> "accounts/view-accounts",(if outcome="selection-valid" then "selection" elif outcome="selection-invalid" then "selection-invalid" else "default"),""
         | ApplicationPage.Account id -> "accounts/view-account","default",string id
-        | ApplicationPage.EditAccount id -> "accounts/update-account",(if List.contains outcome ["invalid";"invalid-type";"invalid-details";"validated"] then outcome else "default"),string id
+        | ApplicationPage.EditAccount id -> "accounts/update-account",(if List.contains outcome ["invalid";"duplicate-name";"invalid-type";"invalid-details"] then outcome else "default"),string id
         | ApplicationPage.DeleteAccount id -> "accounts/delete-account",(match outcome with "deleted" -> "validated" | "delete-blocked" -> "blocked" | _ -> "default"),string id
-        | ApplicationPage.CreateAccount -> "accounts/create-account",(if List.contains outcome ["invalid";"invalid-type";"invalid-details";"validated"] then outcome else "default"),""
+        | ApplicationPage.CreateAccount -> "accounts/create-account",(if List.contains outcome ["invalid";"duplicate-name";"invalid-type";"invalid-details"] then outcome else "default"),""
         | ApplicationPage.Transactions -> "transactions/view-transactions",(if List.contains outcome ["selection-invalid";"selection-valid"] then outcome else "default"),""
         | ApplicationPage.Transaction id -> "transactions/view-transaction","default",string id
         | ApplicationPage.DeleteTransaction id -> "transactions/delete-transaction",(if outcome="deleted" then "validated" else "default"),string id
         | ApplicationPage.Settings -> "settings","general",""
         | ApplicationPage.SettingsSection key -> "settings",key,""
-        | ApplicationPage.EditOrganization -> "settings",(if List.contains outcome ["invalid";"validated"] then outcome else "edit"),""
+        | ApplicationPage.EditOrganization -> "settings",(if List.contains outcome ["invalid"] then outcome else "edit"),""
         | ApplicationPage.Profile -> "profile","default",""
-        | ApplicationPage.EditProfile -> "profile",(if List.contains outcome ["invalid";"validated"] then outcome else "edit"),""
+        | ApplicationPage.EditProfile -> "profile",(if List.contains outcome ["invalid"] then outcome else "edit"),""
         | ApplicationPage.ProfileOrganizations -> "profile","organizations",""
     let returnWorkspacePairs (query:Query) =
         match query.returnWorkspace with
@@ -88,7 +88,6 @@ module Model =
               if query.resource<>"" then yield "resource",query.resource
               if query.overlayFrom<>"" then yield "from",query.overlayFrom
               if query.appMode then yield "appMode","1"
-              yield "fveAppDock",query.dock
               yield! returnWorkspacePairs query ]
         workspaceUrl ("/examples/specification"+(if workflow="" then "" else "/"+workflow)) query.workspace + querySuffix pairs
     let applicationHref (query:Query) page =

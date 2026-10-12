@@ -122,16 +122,16 @@ test('Metric previews center single content and reflow multiple metrics locally 
   await page.goto('/components/metric')
   const basic = page.locator('#components-metric-default-panel-preview')
   const frame = (await basic.boundingBox())!
-  const label = (await basic.getByText('Available balance', { exact: true }).boundingBox())!
+  const label = (await basic.getByText('Total items', { exact: true }).boundingBox())!
   expect(Math.abs(label.x + label.width / 2 - frame.x - frame.width / 2)).toBeLessThanOrEqual(2)
 
   const example = page.locator('#components-metric-multiple')
-  const group = example.getByRole('group', { name: 'Monthly financial metrics', exact: true })
-  const labels = ['Revenue', 'Expenses', 'Net income'].map(name => group.getByText(name, { exact: true }))
+  const group = example.getByRole('group', { name: 'Monthly activity metrics', exact: true })
+  const labels = ['Views', 'Downloads', 'Items'].map(name => group.getByText(name, { exact: true }))
   await expect(group.getByText('September 2026', { exact: true })).toHaveCount(3)
-  await expect(group.getByText('$48,000', { exact: true })).toBeVisible()
-  await expect(group.getByText('$31,200', { exact: true })).toBeVisible()
-  await expect(group.getByText('$16,800', { exact: true })).toBeVisible()
+  await expect(group.getByText('48,000', { exact: true })).toBeVisible()
+  await expect(group.getByText('3,120', { exact: true })).toBeVisible()
+  await expect(group.getByText('1,280', { exact: true })).toBeVisible()
   const desktop = await Promise.all(labels.map(el => el.boundingBox()))
   expect(Math.max(...desktop.map(box => box!.y)) - Math.min(...desktop.map(box => box!.y))).toBeLessThanOrEqual(1)
   await example.getByRole('button', { name: 'Mobile preview', exact: true }).click()
@@ -245,10 +245,12 @@ test('action palettes retain contrast, independent overrides and mode-aware cust
       }
     }
     const pending = page.locator('#components-button-error-pending-panel-preview').getByRole('button')
+    await pending.click()
     await expect(pending).toBeDisabled()
     await expect(pending).toHaveAttribute('aria-busy', 'true')
-    const glyph = await pending.locator('[aria-hidden="true"]').evaluate(el => ({ border: getComputedStyle(el).borderTopColor, text: getComputedStyle(el.parentElement!).color }))
+    const glyph = await pending.locator('.animate-spin').evaluate(el => ({ border: getComputedStyle(el).borderTopColor, text: getComputedStyle(el.parentElement!).color }))
     expect(glyph.border).toBe(glyph.text)
+    await expect(pending).toBeEnabled()
     await expect.poll(() => custom.first().evaluate(el => getComputedStyle(el).colorScheme)).toBe(dark ? 'dark' : 'light')
   }
 
@@ -391,8 +393,10 @@ test('button press feedback respects keyboard, reduced motion, unavailable contr
   await page.emulateMedia({ reducedMotion: 'no-preference' })
   for (const id of ['button-disabled', 'button-pending']) {
     const unavailable = page.locator(`#components-${id}-panel-preview`).getByRole('button')
+    if (id === 'button-pending') await unavailable.click()
     await expect(unavailable).toBeDisabled()
     expect(await translation(unavailable)).toBe('none')
+    if (id === 'button-pending') await expect(unavailable).toBeEnabled()
   }
 
   await button.hover()
@@ -401,7 +405,7 @@ test('button press feedback respects keyboard, reduced motion, unavailable contr
   await page.mouse.up()
   await expect.poll(() => translation(button)).toBe('none')
 
-  const icon = page.locator('#components-button-icon-primary-panel-preview').getByRole('button', { name: 'Add account', exact: true })
+  const icon = page.locator('#components-button-icon-primary-panel-preview').getByRole('button', { name: 'Create', exact: true })
   await icon.hover()
   await page.mouse.down()
   await expect.poll(() => translation(icon)).toBe('0px 1px')
