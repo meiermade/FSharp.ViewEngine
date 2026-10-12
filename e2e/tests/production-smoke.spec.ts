@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test'
+import { expect, test } from '../fixture'
 
 const expectedCommit = process.env.DOCS_EXPECTED_COMMIT ?? 'local'
 const expectedImage = process.env.DOCS_EXPECTED_IMAGE ?? 'local'
@@ -42,32 +42,35 @@ test('canonical discovery endpoints remain public', async ({ request }) => {
   expect(await robots.text()).toContain(`Sitemap: ${canonicalOrigin}/sitemap.xml`)
 })
 
-test('representative documentation surfaces render without browser errors', async ({ page }) => {
+test('essential rendered assets and critical read-only navigation work @cross-browser', async ({ page }) => {
   const pageErrors: Error[] = []
+  const writes: string[] = []
   page.on('pageerror', error => pageErrors.push(error))
+  page.on('request', request => {
+    if (!['GET', 'HEAD'].includes(request.method())) writes.push(`${request.method()} ${request.url()}`)
+  })
 
-  for (const path of ['/', '/components', '/examples/application', '/examples/specification', '/examples/api-documentation']) {
+  for (const path of ['/', '/components', '/examples/application', '/examples/api-documentation', '/examples/specification']) {
     const response = await page.goto(path)
     expect(response?.status(), path).toBe(200)
     await expect(page.locator('main')).toBeVisible()
+    if (path === '/') {
+      const paragraph = page.locator('[data-docs-section-content="true"] > p').first()
+      await expect(paragraph).toHaveCSS('font-size', '16px')
+      expect(await paragraph.evaluate(el => getComputedStyle(el).fontFamily)).toContain('Noto Sans')
+      await page.evaluate(() => document.fonts.ready)
+      expect(await page.evaluate(() => [...document.fonts].some(font => font.family.includes('Noto Sans') && font.status === 'loaded'))).toBe(true)
+      await expect(page.locator('.docs-home-logo img')).toBeVisible()
+      expect(await page.locator('.docs-home-logo img').evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0)).toBe(true)
+    }
   }
 
+  // A real GET journey exercises the deployed navigation runtime without review-state permutations or submissions.
+  await page.evaluate(() => { document.documentElement.dataset.smokeNavigation = 'retained' })
+  await page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link', { name: 'View profile', exact: true }).click()
+  await expect(page).toHaveURL(url => url.pathname === '/examples/specification/profile')
+  await expect(page.getByRole('heading', { name: 'Profile', exact: true, level: 1 })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-smoke-navigation', 'retained')
+  expect(writes).toEqual([])
   expect(pageErrors).toEqual([])
-})
-
-test('stateless financial form accepts the public HTTPS origin without retaining values', async ({ page }) => {
-  await page.goto('/examples/application/settings/general')
-  await page.getByRole('link', { name: 'Edit organization', exact: true }).click()
-  const form = page.getByRole('dialog', { name: 'Edit organization', exact: true })
-  const name = form.getByRole('textbox', { name: 'Name', exact: true })
-  const seededName = await name.inputValue()
-  await name.fill('Production smoke workspace')
-  await form.getByRole('button', { name: 'Update', exact: true }).click()
-  await expect(form).toHaveCount(0)
-  await expect(page).toHaveURL(url => url.pathname === '/examples/application/settings/general')
-  expect([...new URL(page.url()).searchParams.values()].join(' ')).not.toContain('Production smoke workspace')
-  await page.getByRole('link', { name: 'Edit organization', exact: true }).click()
-  await expect(name).toHaveValue(seededName)
-  await form.getByRole('link', { name: 'Cancel', exact: true }).click()
-  await expect(form).toHaveCount(0)
 })

@@ -941,6 +941,16 @@ after"""
                 Expect.isFalse (html.Contains "data-example-viewer-bar") "App mode excludes catalog chrome"
         }
 
+        test "Specification Profile renders the terminal journey affordance" {
+            for path in ["/examples/specification/profile"; "/examples/specification/profile?appMode=1"] do
+                let status,html = routeResponse path
+                Expect.equal status 200 "the real Profile destination resolves embedded and expanded"
+                let terminal = Regex.Match(html, "<span[^>]*aria-label=\"No next journey step\"[^>]*>")
+                Expect.isTrue terminal.Success "the terminal affordance is rendered"
+                Expect.stringContains terminal.Value "aria-disabled=\"true\"" "the terminal affordance itself is disabled"
+                Expect.isFalse (html.Contains "aria-label=\"Next:") "the terminal journey has no forward link"
+        }
+
         test "Template forms validate finite outcomes without retaining submissions or changing records" {
             let accountFields name kind = ["name",name;"accountType",kind;"parentType",kind;"currency","USD";"subtype","Generic";"observedBalance","not-required"]
             let before = routeResponse "/examples/application/accounts/105" |> snd

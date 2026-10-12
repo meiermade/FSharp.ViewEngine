@@ -1,5 +1,23 @@
 import { test, expect } from '../fixture'
 
+// Form submission remains PR/local/staging regression coverage, not production smoke.
+test('stateless financial form accepts the public HTTPS origin without retaining values', async ({ page }) => {
+  await page.goto('/examples/application/settings/general')
+  await page.getByRole('link', { name: 'Edit organization', exact: true }).click()
+  const form = page.getByRole('dialog', { name: 'Edit organization', exact: true })
+  const name = form.getByRole('textbox', { name: 'Name', exact: true })
+  const seededName = await name.inputValue()
+  await name.fill('Production smoke workspace')
+  await form.getByRole('button', { name: 'Update', exact: true }).click()
+  await expect(form).toHaveCount(0)
+  await expect(page).toHaveURL(url => url.pathname === '/examples/application/settings/general')
+  expect([...new URL(page.url()).searchParams.values()].join(' ')).not.toContain('Production smoke workspace')
+  await page.getByRole('link', { name: 'Edit organization', exact: true }).click()
+  await expect(name).toHaveValue(seededName)
+  await form.getByRole('link', { name: 'Cancel', exact: true }).click()
+  await expect(form).toHaveCount(0)
+})
+
 for (const surface of ['application', 'specification'] as const) {
   test(`${surface} separates personal Profile and organization Settings with contextual detail drawers @cross-browser`, async ({ page }) => {
     const errors: string[] = []
