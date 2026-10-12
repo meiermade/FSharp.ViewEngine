@@ -112,6 +112,8 @@ test('joined Select filters submit one value and retain other public controls @c
   await select.press('ArrowDown')
   await group.getByRole('option', { name: 'Asset', exact: true }).click()
   await expect(page).toHaveURL(url => url.searchParams.get('accountType') === 'Asset')
+  // Navigation updates history before its deferred focus step; wait before keyboard activation.
+  await expect(page.locator('#main-content')).toBeFocused()
   await group.getByRole('button', { name: 'Remove Type filter', exact: true }).press('Enter')
   await expect(group).toHaveCount(0)
   expect(new URL(page.url()).searchParams.get('search')).toBe('checking')
