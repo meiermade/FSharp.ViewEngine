@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test'
 for (const [context, path, label] of [
   ['catalog', '/components/button', 'Choose color theme'],
   ['Example viewer', '/examples/application/accounts', 'Choose color theme'],
-  ['App mode', '/examples/specification/home?appMode=1', 'Choose theme'],
+  ['App mode', '/examples/specification/home?appMode=1', 'Choose color theme'],
 ]) {
   test(`${context} theme menu retains keyboard selection and focus @cross-browser`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 900 })

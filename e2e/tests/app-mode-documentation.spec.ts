@@ -1,11 +1,17 @@
 import { test, expect } from '@playwright/test'
 
-// Fullscreen review belongs to the authored Specification; these presentation components stay static.
-test('Browser and Phone present caller content without adding fullscreen controls', async ({ page }) => {
+// Review controls are opt-in; default frames still present only caller content.
+test('Browser and Phone default previews do not add review controls', async ({ page }) => {
   await page.goto('/components/browser')
-  await expect(page.locator('[data-fve-browser-address="true"]')).toContainText('fve.meiermade.com/components/browser')
-  await expect(page.getByRole('link', { name: /in App mode$/ })).toHaveCount(0)
+  const browser = page.locator('#components-browser-panel-preview')
+  await expect(browser.locator('[data-fve-browser-address="true"]')).toContainText('fve.meiermade.com/components/browser')
+  await expect(browser.getByText('Content preview', { exact: true })).toBeVisible()
+  await expect(browser.getByRole('link')).toHaveCount(0)
+  await expect(browser.getByRole('button')).toHaveCount(0)
   await page.goto('/components/phone')
-  await expect(page.locator('#components-phone [data-fve-phone="true"]')).toBeVisible()
-  await expect(page.getByRole('link', { name: /in App mode$/ })).toHaveCount(0)
+  const phone = page.locator('#components-phone-panel-preview')
+  await expect(phone.locator('[data-fve-phone="true"]')).toBeVisible()
+  await expect(phone.getByText('Confirm arrival time.', { exact: true })).toBeVisible()
+  await expect(phone.getByRole('link')).toHaveCount(0)
+  await expect(phone.getByRole('button')).toHaveCount(0)
 })

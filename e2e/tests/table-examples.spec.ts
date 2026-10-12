@@ -9,7 +9,7 @@ const examples = [
   ['components-table-scrollable-panel-preview', 'Scrollable rows and sticky headings'],
   ['components-table-mobile-panel-preview', 'Stacked on mobile'],
   ['components-table-sorting-panel-preview', 'Sortable records'],
-  ['components-table-hierarchy-panel-preview', 'Hierarchical accounts and aggregates'],
+  ['components-table-hierarchy-panel-preview', 'Hierarchical items'],
   ['components-table-empty-panel-preview', 'Empty state'],
 ] as const
 
