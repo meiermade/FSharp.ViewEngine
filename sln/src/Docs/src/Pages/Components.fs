@@ -3001,7 +3001,7 @@ module Components =
         else
             Page.create pageHeader (
                 section {
-                    _class "border-y border-[var(--fve-border)] px-4 py-6 sm:px-6 lg:px-8"
+                    _class "border-b border-[var(--fve-border)] px-4 py-6 sm:px-6 lg:px-8"
                     match current with
                     | TreasuryAccounts -> accountTable
                     | TreasuryPayees ->

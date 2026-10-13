@@ -3,6 +3,9 @@ namespace Docs.Pages
 open Docs.Common
 
 module Registry =
+    let releasesUrl = "https://github.com/meiermade/FSharp.ViewEngine/releases"
+    let packagesUrl = "https://www.nuget.org/packages?q=FSharp.ViewEngine"
+
     let navigation =
         [ { label = "Getting started"
             pages = [ Home.page; Installation.page; CoreGuides.firstView ]
@@ -17,7 +20,7 @@ module Registry =
             pages = [ Components.overviewRegistration; Components.installationRegistration ]
             sections = [ { label = "Guides"; pages = Components.guideRegistrations; sections = [] } ] @ Catalog.navigation } ]
         @ [ { label = "Project"
-              pages = [ Benchmarks.page; Changelog.page ]
+              pages = [ Benchmarks.page ]
               sections = [] }
             { label = "Examples"; pages = [ Examples.registration ]; sections = [] } ]
 

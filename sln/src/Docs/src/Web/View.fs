@@ -103,7 +103,12 @@ module View =
                     section.pages
                     |> List.map (fun page -> Nav.page page.id page.navLabel page.path page.path)
                 let groups = section.sections |> List.map (group id)
-                Nav.group id section.label (section.label = "Getting started") (pages @ groups)
+                let links =
+                    if section.label = "Project" then
+                        [ Nav.externalLink "changelog" "Changelog" Registry.releasesUrl
+                          Nav.externalLink "packages" "Packages" Registry.packagesUrl ]
+                    else []
+                Nav.group id section.label (section.label = "Getting started") (pages @ groups @ links)
 
         sections |> List.map (group "")
 

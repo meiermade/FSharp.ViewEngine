@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: fsharp-viewengine-staging
+  group: fsharp-viewengine-delivery
   queue: max
   cancel-in-progress: false
 
@@ -117,9 +117,12 @@ jobs:
       - name: Test protected staging candidate
         timeout-minutes: 10
         working-directory: ./e2e
+        env:
+          EXPECTED_COMMIT: ${{ steps.source.outputs.commit }}
+          EXPECTED_IMAGE: ${{ steps.deploy.outputs.imageDigest }}
         run: >-
           pulumi env run meiermade/fsharpviewengine/e2e-dev --
-          bash scripts/test-published-ci.sh tests/staging-smoke.spec.ts
+          bash scripts/test-release-smoke.sh
       - name: Upload credential-free E2E diagnostics
         if: ${{ failure() || cancelled() }}
         timeout-minutes: 5

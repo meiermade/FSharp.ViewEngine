@@ -18,7 +18,60 @@ test('stateless financial form accepts the public HTTPS origin without retaining
   await expect(form).toHaveCount(0)
 })
 
+test('workspace selector releases modal interaction after environment and organization changes @cross-browser', async ({ page }) => {
+  await page.goto('/examples/application')
+  await page.evaluate(() => document.documentElement.dataset.workspaceSession = 'same-document')
+  for (const environment of ['Staging', 'Production']) {
+    await page.getByRole('button', { name: 'Open workspace menu: Alex', exact: true }).click()
+    await page.getByRole('menuitem', { name: /^Environment/ }).click()
+    await page.getByRole('dialog', { name: 'Change environment', exact: true }).getByRole('link', { name: new RegExp(`^${environment}`) }).click()
+    await expect(page).toHaveURL(url => url.searchParams.get('environment') === environment.toLowerCase())
+    await expect(page.locator('dialog:modal')).toHaveCount(0)
+  }
+  await page.getByRole('button', { name: 'Open workspace menu: Alex', exact: true }).click()
+  await page.getByRole('menuitem', { name: /^Organization/ }).click()
+  await page.getByRole('dialog', { name: 'Change organization', exact: true }).getByRole('link', { name: /^Client Organization/ }).click()
+  await expect(page).toHaveURL(url => url.searchParams.get('organization') === 'client-organization')
+  await expect(page.locator('dialog:modal')).toHaveCount(0)
+  await page.locator('#template-desktop-navigation').getByRole('link', { name: 'Accounts', exact: true }).click()
+  await expect(page.getByRole('heading', { name: 'Accounts', level: 1, exact: true })).toBeVisible()
+  await expect(page.locator('html')).toHaveAttribute('data-workspace-session', 'same-document')
+})
+
 for (const surface of ['application', 'specification'] as const) {
+  test(`${surface} environment settings open exact details and a name drawer without switching workspace @cross-browser`, async ({ page }) => {
+    const start = surface === 'application' ? '/examples/application/settings/environments' : '/examples/specification/settings'
+    await page.goto(`${start}?environment=production&ledger=jordan${surface === 'specification' ? '&specState=environments&appMode=1' : ''}`)
+    await page.getByRole('link', { name: 'Review testing', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Review testing', level: 1, exact: true })).toBeVisible()
+    await expect(page).toHaveURL(url => url.searchParams.get('environment') === 'production' && url.searchParams.get('ledger') === 'jordan')
+    const nav = page.locator('#template-desktop-navigation')
+    await expect(nav.getByRole('link', { name: 'Environments', exact: true })).toHaveAttribute('aria-current', 'page')
+    await page.getByRole('link', { name: 'Edit environment', exact: true }).click()
+    const editor = page.getByRole('dialog', { name: 'Edit environment', exact: true })
+    const name = editor.getByRole('textbox', { name: /^Name/ })
+    await expect(name).toHaveValue('Review testing')
+    await expect(name).toBeFocused()
+    await name.fill('Private environment <draft>')
+    await page.keyboard.press('Escape')
+    await expect(editor).toBeHidden()
+    await page.getByRole('link', { name: 'Edit environment', exact: true }).click()
+    await expect(name).toHaveValue('Review testing')
+    await name.fill('  ')
+    await editor.getByRole('button', { name: 'Update', exact: true }).click()
+    await expect(editor.getByText('Enter a name between 1 and 80 characters.', { exact: true })).toBeVisible()
+    await expect(name).toHaveValue('  ')
+    await expect(name).toBeFocused()
+    await name.fill('Private environment <draft>')
+    await editor.getByRole('button', { name: 'Update', exact: true }).click()
+    await expect(editor).toBeHidden()
+    await expect(page.getByRole('heading', { name: 'Review testing', level: 1, exact: true })).toBeVisible()
+    expect(page.url()).not.toContain('Private')
+    await nav.getByRole('link', { name: 'Environments', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Environments', level: 1, exact: true })).toBeVisible()
+    await expect(page).toHaveURL(url => url.searchParams.get('environment') === 'production' && url.searchParams.get('ledger') === 'jordan')
+  })
+
   test(`${surface} separates personal Profile and organization Settings with contextual detail drawers @cross-browser`, async ({ page }) => {
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))

@@ -9,7 +9,7 @@ function runSmoke(changes = {}, dockerStatus = 0) {
   const root = mkdtempSync(path.join(tmpdir(), 'fve-release-smoke-'))
   try {
     for (const directory of ['scripts', 'bin', '.auth']) mkdirSync(path.join(root, directory))
-    for (const script of ['test-release-candidate.sh', 'test-published-ci.sh']) {
+    for (const script of ['test-release-smoke.sh', 'test-published-ci.sh']) {
       copyFileSync(new URL(script, import.meta.url), path.join(root, 'scripts', script))
     }
     copyFileSync(new URL('../playwright-image.txt', import.meta.url), path.join(root, 'playwright-image.txt'))
@@ -17,7 +17,7 @@ function runSmoke(changes = {}, dockerStatus = 0) {
     writeFileSync(path.join(root, 'bin/docker'), `#!/usr/bin/env node
 require('fs').writeFileSync(process.env.ARGUMENTS, JSON.stringify(process.argv.slice(2))); process.exit(${dockerStatus})
 `, { mode: 0o755 })
-    const result = spawnSync('bash', ['scripts/test-release-candidate.sh'], {
+    const result = spawnSync('bash', ['scripts/test-release-smoke.sh'], {
       cwd: root, encoding: 'utf8', timeout: 10_000,
       env: {
         PATH: `${root}/bin:${process.env.PATH}`, ARGUMENTS: `${root}/arguments.json`,
@@ -44,7 +44,7 @@ test('release runner invokes only complete three-engine smoke, zero retries, and
   assert.equal(result.status, 0)
   const args = result.arguments
   assert.deepEqual(args.slice(args.indexOf('playwright') + 2), [
-    'tests/staging-smoke.spec.ts', '--project=chromium', '--project=firefox', '--project=webkit', '--retries=0',
+    'tests/release-smoke.spec.ts', '--project=chromium', '--project=firefox', '--project=webkit', '--retries=0',
   ])
   assert.ok(args.includes('E2E_CROSS_BROWSER_MODE=focused'))
   assert.ok(args.includes('CI=true'))
@@ -55,6 +55,25 @@ test('failed smoke propagates failure and still removes temporary auth', () => {
   const result = runSmoke({}, 17)
   assert.equal(result.status, 17)
   assert.equal(result.authRemoved, true)
+})
+
+test('production uses the same suite without Access credentials and rejects leaked credentials', () => {
+  const production = {
+    DOCS_EXPECTED_ENVIRONMENT: 'production', DOCS_E2E_BASE_URL: 'https://fve.meiermade.com',
+    CORE_PACKAGE_VERSION: '2026.10.0', CLI_PACKAGE_VERSION: '2026.10.4',
+    CF_ACCESS_CLIENT_ID: '', CF_ACCESS_CLIENT_SECRET: '',
+  }
+  const result = runSmoke(production)
+  assert.equal(result.status, 0)
+  assert.deepEqual(result.arguments.slice(result.arguments.indexOf('playwright') + 2), [
+    'tests/release-smoke.spec.ts', '--project=chromium', '--project=firefox', '--project=webkit', '--retries=0',
+  ])
+  assert.equal(result.authRemoved, true)
+  for (const credentials of [{ CF_ACCESS_CLIENT_ID: 'leak' }, { CF_ACCESS_CLIENT_SECRET: 'leak' }]) {
+    const rejected = runSmoke({ ...production, ...credentials })
+    assert.notEqual(rejected.status, 0)
+    assert.equal(rejected.arguments, null)
+  }
 })
 
 test('missing or partial Access credentials stop before browser invocation', () => {

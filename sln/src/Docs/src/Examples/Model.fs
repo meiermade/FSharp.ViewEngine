@@ -14,7 +14,7 @@ module Model =
     let workspaceUrl path workspace = path+"?"+workspaceQuery workspace
     let settingsSections = ["general","General";"environments","Environments";"users","Users";"api-clients","API clients";"ledgers","Ledgers";"billing","Billing"]
     [<RequireQualifiedAccess>]
-    type ApplicationPage = Home | Accounts | Account of int | CreateAccount | EditAccount of int | DeleteAccount of int | Transactions | Transaction of int | DeleteTransaction of int | Settings | SettingsSection of string | EditOrganization | Profile | EditProfile | ProfileOrganizations
+    type ApplicationPage = Home | Accounts | Account of int | CreateAccount | EditAccount of int | DeleteAccount of int | Transactions | Transaction of int | DeleteTransaction of int | Settings | SettingsSection of string | EditOrganization | Environment of string | EditEnvironment of string | Profile | EditProfile | ProfileOrganizations
     let applicationUrl = function
         | ApplicationPage.Home -> "/examples/application"
         | ApplicationPage.Accounts -> "/examples/application/accounts"
@@ -28,6 +28,8 @@ module Model =
         | ApplicationPage.Settings -> "/examples/application/settings"
         | ApplicationPage.SettingsSection key -> "/examples/application/settings/"+key
         | ApplicationPage.EditOrganization -> "/examples/application/settings/general/edit"
+        | ApplicationPage.Environment id -> "/examples/application/settings/environments/"+id
+        | ApplicationPage.EditEnvironment id -> "/examples/application/settings/environments/"+id+"/edit"
         | ApplicationPage.Profile -> "/examples/application/profile"
         | ApplicationPage.EditProfile -> "/examples/application/profile/edit"
         | ApplicationPage.ProfileOrganizations -> "/examples/application/profile/organizations"
@@ -36,6 +38,13 @@ module Model =
         | Account of Ledger.Operations.ValidateAccountRequest
         | Profile of Ledger.Operations.ValidateProfileRequest
         | Organization of Ledger.Operations.ValidateOrganizationRequest
+        | Environment of Ledger.Operations.ValidateEnvironmentRequest
+    // Collection choice values use comma-separated keys; an empty list (or legacy "all") is unrestricted.
+    let filterValues (value:string) =
+        value.Split(',', StringSplitOptions.RemoveEmptyEntries) |> Array.toList |> List.filter ((<>) "all") |> List.distinct
+    let filterMatches selected value =
+        let values = filterValues selected
+        values.IsEmpty || List.contains value values
     type Query = { search:string; accountType:string; filters:string list; sort:string; state:string; embedded:bool; workspace:Workspace; account:string; range:string; comparison:string; status:string; appMode:bool; specState:string; resource:string; restoreFixture:bool; specification:bool; previewId:string; topBarActions:HtmlElement list; overlayFrom:string; editorDraft:EditorDraft option; returnWorkspace:Workspace option }
     let defaultQuery = { search=""; accountType="all"; filters=[]; sort="name"; state=""; embedded=false; workspace=defaultWorkspace; account="all"; range="90"; comparison="expected"; status="all"; appMode=false; specState=""; resource=""; restoreFixture=false; specification=false; previewId=""; topBarActions=[]; overlayFrom=""; editorDraft=None; returnWorkspace=None }
     let queryFromValues (value:string -> string) =
@@ -49,6 +58,7 @@ module Model =
     let backgroundPage (query:Query) = function
         | ApplicationPage.EditProfile -> ApplicationPage.Profile
         | ApplicationPage.EditOrganization -> ApplicationPage.SettingsSection "general"
+        | ApplicationPage.EditEnvironment id -> ApplicationPage.Environment id
         | ApplicationPage.CreateAccount -> ApplicationPage.Accounts
         | ApplicationPage.EditAccount _ | ApplicationPage.DeleteAccount _ when query.overlayFrom="accounts" -> ApplicationPage.Accounts
         | ApplicationPage.EditAccount id | ApplicationPage.DeleteAccount id -> ApplicationPage.Account id
@@ -71,6 +81,8 @@ module Model =
         | ApplicationPage.Settings -> "settings","general",""
         | ApplicationPage.SettingsSection key -> "settings",key,""
         | ApplicationPage.EditOrganization -> "settings",(if List.contains outcome ["invalid"] then outcome else "edit"),""
+        | ApplicationPage.Environment id -> "settings","environment",id
+        | ApplicationPage.EditEnvironment id -> "settings",(if outcome="invalid" then "environment-invalid" else "environment-edit"),id
         | ApplicationPage.Profile -> "profile","default",""
         | ApplicationPage.EditProfile -> "profile",(if List.contains outcome ["invalid"] then outcome else "edit"),""
         | ApplicationPage.ProfileOrganizations -> "profile","organizations",""

@@ -7,6 +7,7 @@ open System.IO.Compression
 open System.Net
 open System.Net.Http
 open System.Security.Cryptography
+open System.Text.Json
 open System.Text.RegularExpressions
 
 [<RequireQualifiedAccess>]
@@ -101,26 +102,75 @@ let validateSelection selection coreVersion cliVersion =
     | value -> invalidArg (nameof selection) $"Unsupported package selection: {value}"
 
 let validateCoherence (selection:SelectionInputs) coreState cliState =
-    let validate package advertisedVersion (state:PackageState) selected =
-        match state.changedSinceLatest, selected with
-        | true, false -> invalidOp $"{package} changed since its latest package tag and must be selected."
-        | false, true -> invalidOp $"{package} has not changed since its latest package tag and must not be republished."
-        | _ -> ()
-
+    let validate package version (state:PackageState) selected =
+        if selected && not state.changedSinceLatest then
+            invalidOp $"{package} has not changed since its latest package tag and must not be republished."
         match selected, state.latestVersion with
-        | false, Some latestVersion when advertisedVersion <> latestVersion ->
-            invalidOp $"{package} must advertise its latest tagged version {latestVersion}, found {advertisedVersion}."
-        | false, None ->
-            invalidOp $"{package} has no published package tag and must be selected before it can be advertised."
-        | true, Some latestVersion when Version(advertisedVersion) <= Version(latestVersion) ->
-            invalidOp $"{package} selected version {advertisedVersion} must be newer than {latestVersion}."
+        | false, Some latestVersion when version <> latestVersion ->
+            invalidOp $"{package} must retain its latest tagged version {latestVersion}, found {version}."
+        | false, None -> invalidOp $"{package} has no published package tag."
+        | true, Some latestVersion when Version(version) <= Version(latestVersion) ->
+            invalidOp $"{package} selected version {version} must be newer than {latestVersion}."
         | _ -> ()
-
     validate "FSharp.ViewEngine" selection.coreVersion coreState selection.core.IsSome
     validate "FSharp.ViewEngine.Cli" selection.cliVersion cliState selection.cli.IsSome
 
-    if selection.name = "docs" && (coreState.changedSinceLatest || cliState.changedSinceLatest) then
-        invalidOp "A Docs-only release cannot advertise unpublished package contract changes."
+/// Package versions and Docs snapshot identity are intentionally separate.
+type ReleasePlan =
+    { commit:string
+      image:string
+      requested:string
+      packages:string
+      coreVersion:string
+      cliVersion:string
+      docsCoreVersion:string
+      docsCliVersion:string
+      promoteDocs:bool }
+
+let planRelease requested commit image (now:DateTimeOffset) coreState cliState docsChanged coreVersions cliVersions =
+    let core,cli,promoteDocs =
+        match requested with
+        | "auto" -> coreState.changedSinceLatest, cliState.changedSinceLatest, docsChanged
+        | "core" -> coreState.changedSinceLatest, false, false
+        | "cli" -> false, cliState.changedSinceLatest, false
+        | "both" -> coreState.changedSinceLatest, cliState.changedSinceLatest, false
+        | "docs" -> false, false, true
+        | value -> invalidArg (nameof requested) $"Unsupported release selection: {value}"
+    if not (core || cli || promoteDocs) then invalidOp "No selected projects have changed."
+    let packageVersion selected (state:PackageState) published =
+        if selected then Release.nextVersion now (Seq.append (Option.toList state.latestVersion) published)
+        else state.latestVersion |> Option.defaultWith (fun () -> invalidOp "An unselected package has no published tag.")
+    let coreVersion = packageVersion core coreState coreVersions
+    let cliVersion = packageVersion cli cliState cliVersions
+    let packages = match core,cli with true,true -> "both" | true,false -> "core" | false,true -> "cli" | _ -> "docs"
+    validateCoherence (validateSelection packages coreVersion cliVersion) coreState cliState
+    let snapshot selected state version = if selected || not state.changedSinceLatest then version else "unreleased"
+    { commit = commit; image = image; requested = requested; packages = packages
+      coreVersion = coreVersion; cliVersion = cliVersion
+      docsCoreVersion = snapshot core coreState coreVersion
+      docsCliVersion = snapshot cli cliState cliVersion
+      promoteDocs = promoteDocs }
+
+let private planJsonOptions = JsonSerializerOptions(WriteIndented = true)
+
+let writePlan path (plan:ReleasePlan) =
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath path)) |> ignore
+    File.WriteAllText(path, JsonSerializer.Serialize(plan, planJsonOptions) + Environment.NewLine)
+
+let readPlan path = JsonSerializer.Deserialize<ReleasePlan>(File.ReadAllText path, planJsonOptions)
+
+let validatePinnedPlan requested commit (plan:ReleasePlan) =
+    if plan.requested <> requested || plan.commit <> commit then
+        invalidOp "Pinned release transaction does not match the requested selection/source."
+    if not (Regex.IsMatch(plan.commit, "^[a-f0-9]{40}$")) || not (Regex.IsMatch(plan.image, "@sha256:[a-f0-9]{64}$")) then
+        invalidOp "Pinned release transaction requires an exact commit and immutable image."
+    validateSelection plan.packages plan.coreVersion plan.cliVersion |> ignore
+    for snapshot,version in [plan.docsCoreVersion,plan.coreVersion; plan.docsCliVersion,plan.cliVersion] do
+        if snapshot <> "unreleased" && snapshot <> version then invalidOp "Pinned Docs snapshot differs from its package version."
+    if plan.requested = "docs" && (plan.packages <> "docs" || not plan.promoteDocs) then
+        invalidOp "Docs-only transactions cannot publish packages."
+    if plan.requested <> "auto" && plan.requested <> "docs" && plan.promoteDocs then
+        invalidOp "Package-only transactions cannot promote Docs."
 
 let validateLocalPackage (package:Package) version (packagePath:string) =
     let version = requireStableVersion "Minimum dependency version" version
@@ -251,6 +301,39 @@ let packageStateSinceLatestTag repository tagPattern tagPrefix paths =
         { latestVersion = Some version
           changedSinceLatest = changed }
 
+let publishedVersions (package:Package) =
+    use client = new HttpClient(Timeout = TimeSpan.FromSeconds 30.)
+    let slug = package.Id.ToLowerInvariant()
+    use response = client.GetAsync($"https://api.nuget.org/v3-flatcontainer/{slug}/index.json").GetAwaiter().GetResult()
+    if response.StatusCode = HttpStatusCode.NotFound then []
+    else
+        response.EnsureSuccessStatusCode() |> ignore
+        use document = JsonDocument.Parse(response.Content.ReadAsStringAsync().GetAwaiter().GetResult())
+        document.RootElement.GetProperty("versions").EnumerateArray()
+        |> Seq.map _.GetString()
+        |> Seq.filter stableVersionPattern.IsMatch
+        |> Seq.toList
+
+let validateCandidate (acceptedCommit:string) (commit:string) (image:string) origin ready =
+    if not (Regex.IsMatch(commit, "^[a-f0-9]{40}$")) || not (Regex.IsMatch(image, "@sha256:[a-f0-9]{64}$")) then
+        invalidOp "Staging must report an exact source commit and immutable image."
+    if origin <> "https://fve.meiermade.net" || not ready || commit <> acceptedCommit then
+        invalidOp "Staging identity must match the latest successful main deployment and be ready."
+
+let acceptedCandidate repository githubRepository =
+    let state = runProcess true "pulumi" ["-C"; Path.Combine(repository, "pulumi"); "stack"; "output"; "--json"; "--stack"; "meiermade/fsharp-view-engine/dev"]
+    use document = JsonDocument.Parse state
+    let root = document.RootElement
+    let commit = root.GetProperty("releaseCommit").GetString()
+    let image = root.GetProperty("imageDigest").GetString()
+    let accepted = runProcess true "gh" ["run"; "list"; "--repo"; githubRepository; "--workflow"; "deploy.yml"; "--branch"; "main"; "--status"; "success"; "--limit"; "1"; "--json"; "headSha"; "--jq"; ".[0].headSha"]
+    validateCandidate accepted commit image (root.GetProperty("origin").GetString()) (root.GetProperty("e2eReady").GetBoolean())
+    commit,image
+
+let runArtifactNames githubRepository runId =
+    runProcess true "gh" ["api"; $"repos/{githubRepository}/actions/runs/{runId}/artifacts"; "--paginate"; "--jq"; ".artifacts[] | select(.expired == false) | .name"]
+    |> fun value -> value.Split('\n', StringSplitOptions.RemoveEmptyEntries) |> Set.ofArray
+
 let private tryDownload (client:HttpClient) (url:string) (outputPath:string) =
     use response = client.GetAsync(url).GetAwaiter().GetResult()
     if response.StatusCode = HttpStatusCode.NotFound then false
@@ -338,7 +421,7 @@ let reconcileGitHubRelease repository packageId version tag previousTag markLate
         let notes =
             match previousTag with
             | Some previous -> [ "--generate-notes"; "--notes-start-tag"; previous ]
-            | None -> [ "--notes"; $"Initial {packageId} package release. See https://fve.meiermade.com/changelog for release details." ]
+            | None -> [ "--notes"; $"Initial {packageId} package release." ]
 
         runProcess false "gh" (
             [ "release"; "create"; tag ]

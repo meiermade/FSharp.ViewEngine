@@ -24,6 +24,8 @@ module Application =
         | ApplicationPage.DeleteTransaction id -> "Delete "+(findTransaction id).description
         | ApplicationPage.Settings -> "General" | ApplicationPage.SettingsSection key -> settingsSections |> List.find (fst >> (=) key) |> snd
         | ApplicationPage.EditOrganization -> "Edit organization"
+        | ApplicationPage.Environment id -> (findEnvironment id).name
+        | ApplicationPage.EditEnvironment _ -> "Edit environment"
         | ApplicationPage.Profile -> "Profile" | ApplicationPage.EditProfile -> "Edit profile" | ApplicationPage.ProfileOrganizations -> "Organizations"
     let pageTitle page query = title (backgroundPage query page)
     let private hidden name value = input { _type "hidden"; _name name; _value value }
@@ -97,7 +99,7 @@ module Application =
         | _ -> query
     let private collection (query:Query) kind (filters:CollectionFilter list) (rows:HtmlElement) =
         let page = if kind="accounts" then ApplicationPage.Accounts else ApplicationPage.Transactions
-        let active = filters |> List.filter (fun filter -> List.contains filter.name query.filters || filter.value<>"all")
+        let active = filters |> List.filter (fun filter -> List.contains filter.name query.filters || not (filterValues filter.value).IsEmpty)
         let query = {query with filters=active |> List.map _.name}
         let available = filters |> List.filter (fun filter -> not (List.contains filter.name query.filters))
         let selectionId = elementId query ("template-"+kind+"-selection")
@@ -107,6 +109,9 @@ module Application =
         let clearFilters = active |> List.fold (fun query filter -> filterQuery filter.name "all" query) {query with filters=[];state=""}
         div {
             _attr("data-ledger-collection",kind)
+            _dataPreserveAttr "data-ledger-editing-filter data-ledger-filter-focus"
+            _dataOn("keydown", "if (evt.key === 'Escape' || evt.key === 'Tab') { delete el.dataset.ledgerEditingFilter; delete el.dataset.ledgerFilterFocus }")
+            _dataOn("pointerdown", ["window"], "if (el.dataset.ledgerEditingFilter && evt.target.closest('[data-ledger-filter-group]')?.dataset.ledgerFilterGroup !== el.dataset.ledgerEditingFilter) { delete el.dataset.ledgerEditingFilter; delete el.dataset.ledgerFilterFocus }")
             _class "group/collection flex min-h-0 flex-1 flex-col"
             _attr("data-signals__ifmissing",$"{{{countSignal}:0}}")
             _dataOn("fve-table-selection-change",$"${countSignal} = evt.detail.keys.length")
@@ -116,13 +121,21 @@ const previous = new URL(evt.detail.previousHref), current = new URL(evt.detail.
 if (previous.pathname !== current.pathname) return;
 const before = (previous.searchParams.get('filters') || '').split(',');
 const added = (current.searchParams.get('filters') || '').split(',').find(name => name && !before.includes(name));
-const control = [...el.querySelectorAll('[data-ledger-filter]')].find(control => control.dataset.ledgerFilter === added);
-if (control?.getClientRects().length) control.click();
+const editing = el.dataset.ledgerEditingFilter;
+const focusId = el.dataset.ledgerFilterFocus;
+delete el.dataset.ledgerEditingFilter;
+delete el.dataset.ledgerFilterFocus;
+const control = [...el.querySelectorAll('[data-ledger-filter]')].find(control => control.dataset.ledgerFilter === (editing || added));
+if (control?.getClientRects().length) {
+  const menu = document.getElementById(control.getAttribute('aria-controls'));
+  if ((added || editing) && !menu.matches(':popover-open')) control.click();
+  (document.getElementById(focusId) || menu).focus({preventScroll: true});
+} else if (focusId) document.getElementById(focusId)?.focus({preventScroll: true});
             """)
             _dataOn("click",$"const link = evt.target.closest('a[href]'); if (link?.closest('[data-ledger-applied-filters]') && evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey) document.getElementById('{selectionId}')?.dispatchEvent(new CustomEvent('fve-selection-clear'))")
             div {
                 _attr("data-ledger-collection-toolbar","true")
-                _class "shrink-0 border-b border-[var(--fve-border)] bg-[var(--fve-background)] pb-4"
+                _class "shrink-0 bg-[var(--fve-background)] pb-4"
                 selectionFeedback query
                 form {
                     _method "get"; _action (applicationHref query page); _ariaLabel (if kind="accounts" then "Account filters" else "Transaction filters")
@@ -170,27 +183,75 @@ if (control?.getClientRects().length) control.click();
                                 contextFields {removed with specState="default";resource=""}
                                 for name,value in collectionQueryPairs removed do hidden name value
                             }
-                            form {
-                                _method "get"; _action (applicationHref query page); _ariaLabel (filter.label+" filter values")
-                                _class "flex min-w-0 max-w-full flex-wrap items-center gap-2"
-                                _dataOn("change", "el.requestSubmit()")
-                                contextFields {query with state="";specState="default";resource=""}
-                                for name,value in collectionQueryPairs query do if name<>filter.name then hidden name value
-                                let choice =
-                                    Select.create filter.name (filter.label+" filter") id (filter.options |> List.map (fun (value,label) -> SelectOption.create value label))
-                                    |> Select.withId (elementId query ("template-"+kind+"-filter-"+filter.name))
-                                    |> Select.withSelected filter.value
-                                    |> Select.withAttributes [_attr("data-ledger-filter",filter.name)]
-                                    |> Select.withNativeFallback
+                            let selected = filterValues filter.value
+                            let labels = filter.options |> List.choose (fun (value,label) -> if List.contains value selected then Some label else None)
+                            let summary = if labels.IsEmpty then "Any" elif labels.Length > 2 then $"{labels.Length} selected" else String.concat ", " labels
+                            let menuId = elementId query ("template-"+kind+"-filter-"+filter.name)
+                            let filterFormId = menuId+"-form"
+                            let apply values keepOpen =
+                                let focus = if keepOpen then "el.id" else "'"+menuId+"-trigger'"
+                                let editing = if keepOpen then "root.dataset.ledgerEditingFilter = '"+filter.name+"';" else "delete root.dataset.ledgerEditingFilter;"
+                                $"""
+const root = el.closest('[data-ledger-collection]');
+const form = document.getElementById('{filterFormId}');
+const field = form.elements.namedItem('{filter.name}');
+{values};
+root.dataset.ledgerFilterFocus = {focus};
+{editing}
+document.getElementById('{selectionId}')?.dispatchEvent(new CustomEvent('fve-selection-clear'));
+form.requestSubmit();
+                                """
+                            div {
+                                _style "display:none"
+                                _dataShow "true"
+                                _attr("data-ledger-filter-group",filter.name)
+                                _class ("min-w-0 max-w-full [&_[role=group]>div]:min-w-24 [&_.fve-popup-control]:min-w-0 [&_.fve-popup-control]:w-full [&_.fve-popup-control]:max-w-full [&_[role=menu]>:first-child]:text-xs [&_[role=menu]>:first-child]:text-[var(--fve-muted-text)]" + (if selected.IsEmpty then " [&_.fve-popup-control]:text-[var(--fve-muted-text)]" else " [&_.fve-popup-control]:bg-[var(--fve-brand-subtle)] [&_.fve-popup-control]:text-[var(--fve-brand-text)] [&_.fve-popup-control]:ring-[var(--fve-brand-ring)]"))
+                                form {
+                                    _id filterFormId; _method "get"; _action (applicationHref query page); _class "hidden"
+                                    contextFields {query with state="";specState="default";resource=""}
+                                    for name,value in collectionQueryPairs query do hidden name value
+                                }
+                                let menu =
+                                    DropdownMenu.create menuId (filter.label+" filter values")
+                                    |> DropdownMenu.withAlignment DropdownMenuAlignment.Start
+                                    |> DropdownMenu.withTrigger (DropdownMenuTrigger.content (span {
+                                        _class "inline-flex min-w-0 max-w-[min(18rem,60vw)] items-center gap-2"
+                                        span { _class "truncate"; summary }
+                                        Layout.icon "m19.5 8.25-7.5 7.5-7.5-7.5"
+                                    }) |> DropdownMenuTrigger.withAttributes [_attr("data-ledger-filter",filter.name)])
+                                    |> DropdownMenu.withContent [
+                                        DropdownMenuItem.action (apply "field.value = 'all'" false) "Clear selection" |> (if selected.IsEmpty then DropdownMenuItem.disabled else id)
+                                        DropdownMenuItem.separator
+                                        for value,label in filter.options do
+                                            let encoded = System.Text.Json.JsonSerializer.Serialize value
+                                            let toggle = $"const values = field.value.split(',').filter(value => value && value !== 'all'); field.value = (values.includes({encoded}) ? values.filter(value => value !== {encoded}) : values.concat({encoded})).join(',') || 'all'"
+                                            DropdownMenuItem.checkbox (apply toggle true) label |> DropdownMenuItem.withChecked (List.contains value selected) ]
                                 ButtonGroup.create (filter.label+" filter") [
                                     ButtonGroupItem.label filter.label
-                                    ButtonGroupItem.select choice
+                                    ButtonGroupItem.menu menu
                                     Button.create (ButtonContent.Icon ("Remove "+filter.label+" filter", Layout.icon "m6 6 12 12M6 18 18 6"))
-                                    |> Button.asSubmit
-                                    |> Button.withAttributes [_attr("form",removeId)]
-                                    |> ButtonGroupItem.button ]
+                                    |> Button.asSubmit |> Button.withClass "shrink-0" |> Button.withAttributes [_attr("form",removeId)] |> ButtonGroupItem.button ]
                                 |> ButtonGroup.render id
-                                noscript { Button.create (ButtonContent.Text ("Apply "+filter.label+" filter")) |> Button.asSubmit |> Button.render }
+                            }
+                            div {
+                                _dataShow "false"
+                                form {
+                                    _method "get"; _action (applicationHref query page)
+                                    _class "flex flex-wrap items-center gap-3"
+                                    contextFields {query with state="";specState="default";resource=""}
+                                    for name,value in collectionQueryPairs query do if name<>filter.name then hidden name value
+                                    fieldset {
+                                        legend { filter.label }
+                                        for value,optionLabel in filter.options do
+                                            label {
+                                                _class "inline-flex items-center gap-2 text-sm"
+                                                input { _type "checkbox"; _name filter.name; _value value; _checked (List.contains value selected); _class "size-4 accent-[var(--fve-brand-solid)]" }
+                                                text optionLabel
+                                            }
+                                    }
+                                    Button.create (ButtonContent.Text ("Apply "+filter.label+" filter")) |> Button.asSubmit |> Button.render
+                                    Layout.link (collectionHref removed page) ("Remove "+filter.label+" filter")
+                                }
                             }
                         Layout.link (collectionHref clearFilters page) "Clear all"
                     }
@@ -250,7 +311,7 @@ if (control?.getClientRects().length) control.click();
     let private rowKey = function Group kind -> "group-"+string kind | Record account -> string account.id
     let private accountTable (query:Query) (rows:Account list) =
         let url = applicationHref query
-        let values = [ for kind in accountTypes do if query.accountType="all" || query.accountType=string kind then yield Group kind; yield! rows |> List.filter (fun account -> account.accountType=kind) |> List.map Record ]
+        let values = [ for kind in accountTypes do if filterMatches query.accountType (string kind) then yield Group kind; yield! rows |> List.filter (fun account -> account.accountType=kind) |> List.map Record ]
         let hierarchy = TableHierarchy.create (elementId query "template-account-hierarchy") rowKey (function Group kind -> groupLabel kind | Record account -> account.name) (function Group _ -> [] | Record account -> ["group-"+string account.accountType]) (function Group _ -> 0 | Record _ -> 1) (function Group kind -> rows |> List.exists (fun account -> account.accountType=kind) | Record _ -> false) |> TableHierarchy.withExpandedKeys (accountTypes |> List.map (fun kind -> "group-"+string kind))
         let actions (account:Account) =
             DropdownMenu.create (elementId query ("template-account-actions-"+string account.id)) ("Actions for "+account.name)
@@ -272,9 +333,9 @@ if (control?.getClientRects().length) control.click();
         |> Table.withMobileLayout TableMobileLayout.Scroll |> Table.withScrollableRows |> Table.render
     let private accountsPage (query:Query) =
         let query = if List.contains query.sort ["name";"name-desc";"balance";"balance-asc"] then query else {query with sort="name"}
-        let rows = accounts |> List.filter (fun account -> account.name.Contains(query.search,StringComparison.OrdinalIgnoreCase) && (query.accountType="all" || string account.accountType=query.accountType))
+        let rows = accounts |> List.filter (fun account -> account.name.Contains(query.search,StringComparison.OrdinalIgnoreCase) && filterMatches query.accountType (string account.accountType))
         let rows = match query.sort with "balance" -> List.sortByDescending balance rows | "balance-asc" -> List.sortBy balance rows | "name-desc" -> List.sortByDescending _.name rows | _ -> List.sortBy _.name rows
-        let filters = [{name="accountType";label="Type";value=query.accountType;options=("all","All types")::(accountTypes |> List.map (fun kind -> string kind,string kind))}]
+        let filters = [{name="accountType";label="Type";value=query.accountType;options=accountTypes |> List.map (fun kind -> string kind,string kind)}]
         let content = if rows.IsEmpty then EmptyState.create "No matching accounts" "Try a different search or account type." |> EmptyState.render else accountTable query rows
         collection query "accounts" filters content
     let private accountDetail (query:Query) id =
@@ -342,10 +403,10 @@ if (control?.getClientRects().length) control.click();
         }
     let private transactionsPage (query:Query) =
         let query = if List.contains query.sort ["date-asc";"date-desc"] then query else {query with sort="date-desc"}
-        let rows = transactions |> List.filter (fun transaction -> transaction.description.Contains(query.search,StringComparison.OrdinalIgnoreCase) && (query.status="all" || (query.status="verified" && transaction.status=TransactionStatus.Verified) || (query.status="unverified" && transaction.status=TransactionStatus.NeedsReview)) && (query.account="all" || string transaction.accountId=query.account)) |> (if query.sort="date-asc" then List.sortBy _.date else List.sortByDescending _.date)
+        let rows = transactions |> List.filter (fun transaction -> transaction.description.Contains(query.search,StringComparison.OrdinalIgnoreCase) && filterMatches query.status (if transaction.status=TransactionStatus.Verified then "verified" else "unverified") && filterMatches query.account (string transaction.accountId)) |> (if query.sort="date-asc" then List.sortBy _.date else List.sortByDescending _.date)
         let filters = [
-            {name="status";label="Verification";value=query.status;options=["all","All statuses";"verified","Verified";"unverified","Unverified"]}
-            {name="account";label="Account";value=query.account;options=("all","All accounts")::(accounts |> List.map (fun account -> string account.id,account.name))} ]
+            {name="status";label="Verification";value=query.status;options=["verified","Verified";"unverified","Unverified"]}
+            {name="account";label="Account";value=query.account;options=accounts |> List.map (fun account -> string account.id,account.name)} ]
         let content = if rows.IsEmpty then EmptyState.create "No matching transactions" "Adjust the search, account, or verification filter." |> EmptyState.render else transactionTable query "Transactions" rows true
         collection query "transactions" filters content
     let private transactionDetail (query:Query) id =
@@ -361,12 +422,11 @@ if (control?.getClientRects().length) control.click();
             _class "grid max-w-4xl gap-6"
             match key with
             | "environments" ->
-                table "Organization environments" [TableColumn.create "Name" (fun (environment:Environment) -> Layout.link (applicationHref {query with workspace={query.workspace with environment=environment};returnWorkspace=None} ApplicationPage.Home) environment.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Type" (fun environment -> text (if environment.sandbox then "Sandbox" else "Production"));TableColumn.create "Status" (fun _ -> Badge.create "Ready" |> Badge.withColor BadgeColor.Success |> Badge.render)] environments
+                table "Organization environments" [TableColumn.create "Name" (fun (environment:Environment) -> Layout.link (applicationHref query (ApplicationPage.Environment environment.id)) environment.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Type" (fun environment -> text (if environment.sandbox then "Sandbox" else "Production"));TableColumn.create "Status" (fun _ -> Badge.create "Ready" |> Badge.withColor BadgeColor.Success |> Badge.render)] environments
             | "users" ->
                 table "Organization users" [TableColumn.create "Name" (fun (name,_,_) -> Layout.link (applicationHref query ApplicationPage.Profile) name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Email" (fun (_,email,_) -> text email);TableColumn.create "Role" (fun (_,_,role) -> text role)] ["Andrew Meier","andrew@meiermade.com",query.workspace.organization.role]
             | "api-clients" ->
                 EmptyState.create "No API clients" "There are no API clients for this organization." |> EmptyState.render
-                Layout.link "/examples/api-documentation" "Read the API documentation"
             | "ledgers" ->
                 let available = ledgers |> List.filter (fun ledger -> ledger.organizationId=query.workspace.organization.id)
                 table "Organization ledgers" [TableColumn.create "Name" (fun (ledger:Ledger) -> Layout.link (applicationHref {query with workspace={query.workspace with ledger=ledger};returnWorkspace=None} ApplicationPage.Home) ledger.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Reporting commodity" (fun _ -> text "USD")] available
@@ -375,6 +435,13 @@ if (control?.getClientRects().length) control.click();
             | _ ->
                 Layout.section "Organization details" (DescriptionList.create [DescriptionListItem.text "Name" query.workspace.organization.name;DescriptionListItem.text "Reporting commodity" "US dollar (USD)";DescriptionListItem.text "Your role" query.workspace.organization.role] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render)
         }
+    let private environmentDetail id =
+        let environment = findEnvironment id
+        DescriptionList.create [
+            DescriptionListItem.text "Name" environment.name
+            DescriptionListItem.text "Type" (if environment.sandbox then "Sandbox" else "Production")
+            DescriptionListItem.create "Status" (Badge.create "Ready" |> Badge.withColor BadgeColor.Success |> Badge.render) ]
+        |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
     let private profileOrganizations (query:Query) =
         Table.create "Your organizations" [
             TableColumn.create "Organization" (fun (organization:Organization) -> Layout.link (applicationHref (organizationQuery query organization.id) (ApplicationPage.SettingsSection "general")) organization.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary
@@ -438,9 +505,11 @@ if (control?.getClientRects().length) control.click();
         editorDrawer query "template-account-editor" (if existing.IsSome then "Edit account" else "Create account") "template-account-name" (accountForm query existing "") (accountFormActions query existing "")
     let private detailEditor (query:Query) page =
         let organization = page=ApplicationPage.EditOrganization
-        let editorId = if organization then "template-organization-editor" else "template-profile-editor"
+        let environment = match page with ApplicationPage.EditEnvironment id -> Some(findEnvironment id) | _ -> None
+        let editorId = if organization then "template-organization-editor" elif environment.IsSome then "template-environment-editor" else "template-profile-editor"
+        let focusId = if organization then "template-workspace-name" elif environment.IsSome then "template-environment-name" else "template-profile-name"
         let formId = elementId query (editorId+"-form")
-        let pendingSignal = if organization then "_example_organization_pending" else "_example_profile_pending"
+        let pendingSignal = if organization then "_example_organization_pending" elif environment.IsSome then "_example_environment_pending" else "_example_profile_pending"
         let body = div {
             _class "grid gap-5"
             form {
@@ -459,6 +528,13 @@ if (control?.getClientRects().length) control.click();
                     Select.create "currency" "Reporting commodity" id (options |> List.map (fun (value,label) -> SelectOption.create value label))
                     |> Select.withId (elementId query "template-organization-currency") |> Select.withSelected request.currency |> Select.withNativeFallback
                     |> (if error=Some(Error Ledger.Operations.ValidateOrganizationError.InvalidCurrency) then Select.withValidation "Choose US dollar (USD)." else id) |> Select.render
+                elif environment.IsSome then
+                    let environment = environment.Value
+                    let request : Ledger.Operations.ValidateEnvironmentRequest =
+                        match query.editorDraft with Some(EditorDraft.Environment draft) -> draft | _ -> {environmentId=environment.id;name=(if query.state="invalid" then "" else environment.name)}
+                    let error = if query.state="invalid" then Some(Ledger.Operations.validateEnvironment request) else None
+                    Input.create "name" "Name" |> Input.withId (elementId query focusId) |> Input.withValue request.name |> Input.required |> Input.withAttributes [_maxlength "80"; _autofocus (Option.isSome error)]
+                    |> (if error=Some(Error Ledger.Operations.ValidateEnvironmentError.InvalidName) then Input.withValidation "Enter a name between 1 and 80 characters." else id) |> Input.render
                 else
                     let request : Ledger.Operations.ValidateProfileRequest =
                         match query.editorDraft with Some(EditorDraft.Profile draft) -> draft | _ -> {name="Andrew Meier";email=(if query.state="invalid" then "not-an-email" else "andrew@meiermade.com");timeZone="America/Chicago"}
@@ -479,7 +555,7 @@ if (control?.getClientRects().length) control.click();
             Button.create (ButtonContent.Text "Update") |> Button.asSubmit |> Button.withPendingSignal pendingSignal |> Button.withAttributes [_attr("form",formId)]
             |> Button.withColor ButtonColor.Primary |> Button.withVariant ButtonVariant.Solid |> Button.render
         }
-        editorDrawer query editorId (title page) (if organization then "template-workspace-name" else "template-profile-name") body actions
+        editorDrawer query editorId (title page) focusId body actions
     let private deletionConfirmation query page label (details:HtmlElement) eligible =
         let openMethod = if query.specification then "show" else "showModal"
         let overlayId = elementId query "template-delete-record"
@@ -525,6 +601,7 @@ if (control?.getClientRects().length) control.click();
             | ApplicationPage.Account id -> accountDetail query id
             | ApplicationPage.Transactions -> transactionsPage query | ApplicationPage.Transaction id -> transactionDetail query id
             | ApplicationPage.Settings -> settings query "general" | ApplicationPage.SettingsSection key -> settings query key
+            | ApplicationPage.Environment id -> environmentDetail id
             | ApplicationPage.Profile -> profile query | ApplicationPage.ProfileOrganizations -> profileOrganizations query
             | _ -> text ""
         let actions =
@@ -532,14 +609,19 @@ if (control?.getClientRects().length) control.click();
             | ApplicationPage.Accounts -> Layout.primaryLink (collectionHref {query with overlayFrom="accounts"} ApplicationPage.CreateAccount) "Create account"
             | ApplicationPage.Account id -> recordActions {query with overlayFrom=""} (Some (ApplicationPage.EditAccount id)) (ApplicationPage.DeleteAccount id)
             | ApplicationPage.Transaction id -> recordActions {query with overlayFrom=""} None (ApplicationPage.DeleteTransaction id)
+            | ApplicationPage.Environment id -> Layout.secondaryLink (url (ApplicationPage.EditEnvironment id)) "Edit environment"
             | ApplicationPage.Profile -> Layout.secondaryLink (url ApplicationPage.EditProfile) "Edit profile"
             | ApplicationPage.Settings | ApplicationPage.SettingsSection "general" -> Layout.secondaryLink (url ApplicationPage.EditOrganization) "Edit organization"
+            | ApplicationPage.SettingsSection "api-clients" ->
+                Button.create (ButtonContent.TextIcon ("API Docs", Layout.icon "M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-7.5M21 3v7.5"))
+                |> Button.withAttributes [_target "_blank"; _rel "noopener"; _title "Opens in a new tab"]
+                |> Button.renderLink "/examples/api-documentation"
             | _ -> text ""
         let overlay =
             match page with
             | ApplicationPage.CreateAccount -> accountEditor query None
             | ApplicationPage.EditAccount id -> accountEditor query (Some id)
-            | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> detailEditor query page
+            | ApplicationPage.EditProfile | ApplicationPage.EditOrganization | ApplicationPage.EditEnvironment _ -> detailEditor query page
             | ApplicationPage.DeleteAccount id -> deletionConfirmation query page (findAccount id).name (text "") (canDeleteAccount id)
             | ApplicationPage.DeleteTransaction id ->
                 let transaction = findTransaction id
@@ -557,7 +639,7 @@ if (control?.getClientRects().length) control.click();
                             div { _class "min-h-0 flex-1 overflow-y-auto p-5"; accountForm query existing "-native" }
                             div { _class "flex shrink-0 justify-end gap-3 border-t border-[var(--fve-border)] p-5"; accountFormActions query existing "-native" }
                         }
-                    | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> detailEditor {query with previewId="native"} page
+                    | ApplicationPage.EditProfile | ApplicationPage.EditOrganization | ApplicationPage.EditEnvironment _ -> detailEditor {query with previewId="native"} page
                     | _ -> deletionConfirmation {query with previewId="native"} page (match page with ApplicationPage.DeleteAccount id -> (findAccount id).name | ApplicationPage.DeleteTransaction id -> (findTransaction id).description | _ -> "record") (text "") (match page with ApplicationPage.DeleteAccount id -> canDeleteAccount id | _ -> true)
                 }
             })

@@ -59,6 +59,19 @@ let private knownTags (repository:string) (tagPrefix:string) =
 
 let private versionKey (version:CalendarVersion) = version.year, version.month, version.minor
 
+/// Allocate one independent package stream using the UTC release month.
+let nextVersion (now:DateTimeOffset) (existingVersions:string seq) =
+    let utc = now.UtcDateTime
+    let versions = existingVersions |> Seq.map parseVersion |> Seq.toList
+    if versions |> List.exists (fun version -> (version.year, version.month) > (utc.Year, utc.Month)) then
+        invalidOp "Published versions are ahead of the UTC release month. Check the release clock."
+    let minor =
+        versions
+        |> List.filter (fun version -> version.year = utc.Year && version.month = utc.Month)
+        |> List.map _.minor
+        |> function | [] -> 0 | values -> (List.max values) + 1
+    { year = utc.Year; month = utc.Month; minor = minor }.ToString()
+
 let private resolveMetadata (repository:string) (tagPrefix:string) (requestedVersion:string) =
     if String.IsNullOrWhiteSpace tagPrefix then
         invalidArg (nameof tagPrefix) "Release tag prefix cannot be empty."

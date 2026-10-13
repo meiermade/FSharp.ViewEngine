@@ -70,7 +70,7 @@ let private submit renderResponse topBarActions : HttpHandler =
                 let value name = form[name].ToString().Trim()
                 // An example-only delay makes the real request indicator observable; no client timer owns it.
                 match applicationPage with
-                | Some ApplicationPage.CreateAccount | Some (ApplicationPage.EditAccount _) | Some ApplicationPage.EditProfile | Some ApplicationPage.EditOrganization ->
+                | Some ApplicationPage.CreateAccount | Some (ApplicationPage.EditAccount _) | Some ApplicationPage.EditProfile | Some ApplicationPage.EditOrganization | Some(ApplicationPage.EditEnvironment _) ->
                     do! System.Threading.Tasks.Task.Delay(1000, context.RequestAborted)
                 | _ -> ()
                 let submittedContext = queryFromValues (fun name -> if name="accountType" && form.ContainsKey "filterAccountType" then value "filterAccountType" elif form.ContainsKey name then value name else context.Request.Query[name].ToString())
@@ -102,6 +102,10 @@ let private submit renderResponse topBarActions : HttpHandler =
                         let request = {name=form["workspace"].ToString();currency=form["currency"].ToString()}
                         let valid = validateOrganization request |> Result.isOk
                         Some(path, (if valid then "validated" else "invalid"), if valid then None else Some(EditorDraft.Organization request))
+                    | Some(ApplicationPage.EditEnvironment id) ->
+                        let request = {environmentId=id;name=form["name"].ToString()}
+                        let valid = validateEnvironment request |> Result.isOk
+                        Some(path, (if valid then "validated" else "invalid"), if valid then None else Some(EditorDraft.Environment request))
                     | Some ApplicationPage.EditProfile ->
                         let request = {name=form["name"].ToString();email=form["email"].ToString();timeZone=form["timezone"].ToString()}
                         let valid = validateProfile request |> Result.isOk
@@ -121,7 +125,7 @@ let private submit renderResponse topBarActions : HttpHandler =
                     match Routing.specificationPage path with
                     | Some _ -> return! (renderResponse context (Specification.title workflow) (Specification.render workflow responseQuery)) next context
                     | None -> return! (renderResponse context (Application.pageTitle page responseQuery) (Application.render page responseQuery)) next context
-                | Some(_,"validated",None) when applicationPage |> Option.exists (function ApplicationPage.CreateAccount | ApplicationPage.EditAccount _ | ApplicationPage.EditProfile | ApplicationPage.EditOrganization -> true | _ -> false) ->
+                | Some(_,"validated",None) when applicationPage |> Option.exists (function ApplicationPage.CreateAccount | ApplicationPage.EditAccount _ | ApplicationPage.EditProfile | ApplicationPage.EditOrganization | ApplicationPage.EditEnvironment _ -> true | _ -> false) ->
                     // Successful editors return to their origin; there is no validation-success interstitial.
                     let page = applicationPage |> Option.get
                     let origin = backgroundPage submittedContext page

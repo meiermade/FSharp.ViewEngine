@@ -83,27 +83,18 @@ for (const [browser, shardCount, completeSelection] of [
   }
 }
 
-const releaseSmoke = listSelected(['tests/staging-smoke.spec.ts'])
-for (const [browser, count] of [['chromium', 5], ['firefox', 1], ['webkit', 1]]) {
-  if (releaseSmoke.get(browser).length !== count) fail(`${browser} release smoke must select ${count} intentional checks`)
+const releaseSmoke = listSelected(['tests/release-smoke.spec.ts'])
+for (const [browser, count] of [['chromium', 4], ['firefox', 1], ['webkit', 1]]) {
+  if (releaseSmoke.get(browser).length !== count) fail(`${browser} shared smoke must select ${count} intentional checks`)
+  if (releaseSmoke.get(browser).some(name => !selected.get(browser).includes(name))) {
+    fail(`${browser} shared smoke is missing from PR coverage`)
+  }
 }
 if (JSON.stringify(releaseSmoke.get('firefox')) !== JSON.stringify(releaseSmoke.get('webkit'))) {
   fail('Release compatibility smoke selections differ')
 }
 
-const productionSmoke = listSelected(['tests/production-smoke.spec.ts'])
-for (const [browser, count] of [['chromium', 3], ['firefox', 1], ['webkit', 1]]) {
-  if (productionSmoke.get(browser).length !== count) fail(`${browser} production smoke must select ${count} intentional checks`)
-  if (productionSmoke.get(browser).some(name => !selected.get(browser).includes(name))) {
-    fail(`${browser} production smoke is missing from PR coverage`)
-  }
-}
-if (JSON.stringify(productionSmoke.get('firefox')) !== JSON.stringify(productionSmoke.get('webkit'))) {
-  fail('Production compatibility smoke selections differ')
-}
-
 if (!process.exitCode) {
   console.log(`PR E2E selection verified: Chromium ${chromium.length}, Firefox ${firefox.length}, WebKit ${webkit.length}`)
-  console.log('Release smoke selection verified: Chromium 5, Firefox 1, WebKit 1')
-  console.log('Production smoke selection verified: Chromium 3, Firefox 1, WebKit 1')
+  console.log('Shared smoke selection verified: Chromium 4, Firefox 1, WebKit 1; Access check applies only to staging')
 }

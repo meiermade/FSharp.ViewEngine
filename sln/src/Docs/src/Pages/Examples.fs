@@ -49,6 +49,9 @@ module Examples =
               yield Docs.Examples.Model.applicationUrl (Docs.Examples.Model.ApplicationPage.Account account.id)
               yield Docs.Examples.Model.applicationUrl (Docs.Examples.Model.ApplicationPage.EditAccount account.id)
               yield Docs.Examples.Model.applicationUrl (Docs.Examples.Model.ApplicationPage.DeleteAccount account.id)
+          for environment in Ledger.Domain.environments do
+              yield Docs.Examples.Model.applicationUrl (Docs.Examples.Model.ApplicationPage.Environment environment.id)
+              yield Docs.Examples.Model.applicationUrl (Docs.Examples.Model.ApplicationPage.EditEnvironment environment.id)
           yield Docs.Examples.Model.applicationUrl Docs.Examples.Model.ApplicationPage.CreateAccount
           for transaction in Ledger.Domain.transactions do yield Docs.Examples.Model.applicationUrl (Docs.Examples.Model.ApplicationPage.Transaction transaction.id)
           yield! Docs.Examples.Specification.navigation |> List.map fst |> List.filter ((<>) "/examples/specification")

@@ -20,6 +20,8 @@ module Routing =
         | [""; "examples"; "application"; "transactions"; id; "delete"] -> idFrom id tryTransaction |> Option.map ApplicationPage.DeleteTransaction
         | [""; "examples"; "application"; "settings"] -> Some ApplicationPage.Settings
         | [""; "examples"; "application"; "settings"; "general"; "edit"] -> Some ApplicationPage.EditOrganization
+        | [""; "examples"; "application"; "settings"; "environments"; id] when tryEnvironment id |> Option.isSome -> Some (ApplicationPage.Environment id)
+        | [""; "examples"; "application"; "settings"; "environments"; id; "edit"] when tryEnvironment id |> Option.isSome -> Some (ApplicationPage.EditEnvironment id)
         | [""; "examples"; "application"; "settings"; key] when settingsSections |> List.exists (fst >> (=) key) -> Some (ApplicationPage.SettingsSection key)
         | [""; "examples"; "application"; "profile"] -> Some ApplicationPage.Profile
         | [""; "examples"; "application"; "profile"; "edit"] -> Some ApplicationPage.EditProfile

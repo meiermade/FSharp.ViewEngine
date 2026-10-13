@@ -98,6 +98,21 @@ let tests =
                 "breadcrumbs use configured group destinations"
         }
 
+        test "External navigation is not a registered page and opens in a new tab" {
+            let link = Nav.externalLink "releases" "Releases" "https://github.com/meiermade/FSharp.ViewEngine/releases"
+            let nodes = navigation @ [link]
+            Expect.isEmpty (Navigation.validate nodes) "external HTTPS navigation is valid"
+            Expect.equal (NavNode.collectPages nodes |> List.length) 4 "external links do not enter the page registry"
+            Expect.isNone (NavNode.destination link) "no typed application destination"
+            let page = DocumentationPage.create "home" "Home"
+            let html = DocsView.document { site with navigation = nodes } page |> Render.toString
+            Expect.stringContains html "target=\"_blank\" rel=\"noopener\" aria-describedby=\"nav-releases-hint\"" "safe external tab with accessible hint"
+            Expect.stringContains html "id=\"nav-releases\"" "stable navigation identity"
+            Expect.isFalse (html.Contains("id=\"nav-releases\" data-docs-nav-link")) "external links are not enhanced application navigation"
+            let invalid = Nav.externalLink "unsafe" "Unsafe" "javascript:alert(1)"
+            Expect.isNonEmpty (Navigation.validate [invalid]) "executable URLs are rejected"
+        }
+
         test "Whole-site validation checks registered routes, reachability, aliases, pagers, and metadata" {
             let guide = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Guide description" |> DocumentationPage.withSections [] |> DocumentationPage.withPager (DocsPager.create None (Some(DocsPageLink.create "Missing" "/missing")))
             let orphan = DocumentationPage.create "orphan" "Orphan" |> DocumentationPage.withDescription "" |> DocumentationPage.withSections []

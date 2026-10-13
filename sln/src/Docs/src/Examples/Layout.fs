@@ -47,7 +47,7 @@ module Layout =
                 link (applicationHref query ApplicationPage.ProfileOrganizations) "Manage organizations"
             }) |> Dialog.withDescription "Choose an organization."
             |> Dialog.withFooter (Button.create (ButtonContent.Text "Cancel") |> Button.withAttributes [_data("on:click", $"document.getElementById('{navId}-organizations').close()")] |> Button.render)
-            |> Dialog.withAttributes [_data("on:close__capture", $"document.getElementById('{navId}-workspace-trigger').focus()")]
+            |> Dialog.withAttributes [_data("fve-navigation-dialog", "true"); _data("on:close__capture", $"document.getElementById('{navId}-workspace-trigger')?.focus()")]
         let environmentDialog =
             Dialog.create (navId+"-environments") "Change environment" (div {
                 _class "grid gap-3"
@@ -56,7 +56,7 @@ module Layout =
                 link (applicationHref query (ApplicationPage.SettingsSection "environments")) "Manage environments"
             }) |> Dialog.withDescription "Choose an environment."
             |> Dialog.withFooter (Button.create (ButtonContent.Text "Cancel") |> Button.withAttributes [_data("on:click", $"document.getElementById('{navId}-environments').close()")] |> Button.render)
-            |> Dialog.withAttributes [_data("on:close__capture", $"document.getElementById('{navId}-workspace-trigger').focus()")]
+            |> Dialog.withAttributes [_data("fve-navigation-dialog", "true"); _data("on:close__capture", $"document.getElementById('{navId}-workspace-trigger')?.focus()")]
         div {
             _class "w-full"
             DropdownMenu.create (navId+"-workspace") ("Open workspace menu: "+workspace.ledger.name)
@@ -94,7 +94,7 @@ module Layout =
         let groups =
             if personal then [SideNavItem.create (url ApplicationPage.Profile) "Profile";SideNavItem.create (url ApplicationPage.ProfileOrganizations) "Organizations"]
             elif settingsKey.IsSome then settingsSections |> List.map (fun (key,label) -> SideNavItem.create (url (ApplicationPage.SettingsSection key)) label)
-            else [SideNavItem.create (url ApplicationPage.Home) "Home"; SideNavSection.create "Accounting" [SideNavItem.create (url ApplicationPage.Accounts) "Accounts";SideNavItem.create (url ApplicationPage.Transactions) "Transactions"]]
+            else [SideNavItem.create (url ApplicationPage.Home) "Home"; SideNavItem.create (url ApplicationPage.Accounts) "Accounts"; SideNavItem.create (url ApplicationPage.Transactions) "Transactions"]
         let header = SideNavHeader.create label |> SideNavHeader.withContent (
             if personal || settingsKey.IsSome then link (applicationHref (ledgerReturnQuery query) ApplicationPage.Home) "← Ledger"
             else a { _href (url ApplicationPage.Home); _class "flex items-center gap-3 text-base font-semibold text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"; span { _class "text-xl text-[var(--fve-brand-text)]"; "L" }; "Ledger" })
@@ -102,6 +102,7 @@ module Layout =
             match page with
             | ApplicationPage.Account _ | ApplicationPage.CreateAccount | ApplicationPage.EditAccount _ | ApplicationPage.DeleteAccount _ -> url ApplicationPage.Accounts
             | ApplicationPage.Transaction _ -> url ApplicationPage.Transactions
+            | ApplicationPage.Environment _ -> url (ApplicationPage.SettingsSection "environments")
             | _ -> current
         SideNav.create navId label
         |> SideNav.withPersistenceKey (if personal then "ledger-profile-navigation" elif settingsKey.IsSome then "ledger-settings-navigation" else "ledger-application-navigation")
@@ -240,6 +241,7 @@ module Layout =
             a { _href "#main-content"; _class "fixed top-2 left-2 z-100 -translate-y-[200%] rounded-md bg-[var(--fve-surface)] px-3 py-2 font-semibold focus:translate-y-0"; "Skip to main content" }
             dialog {
                 _id "template-navigation-dialog"; _ariaLabel "Documentation navigation"; _ariaModal true
+                _data("fve-navigation-dialog", "true")
                 _class "fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-[min(18rem,calc(100vw-3rem))] max-w-none border-0 bg-[var(--fve-background)] p-0 shadow-xl backdrop:bg-black/50 [&>aside]:w-full"
                 navigation "template-mobile-navigation" true
             }
@@ -261,7 +263,7 @@ module Layout =
         shellWithNavigation name current sections (groups.Head |> snd |> List.head |> fst) title actions content
     let applicationShell page current (query:Query) (title:string) (actions:HtmlElement) (content:HtmlElement) =
         let url = applicationHref query
-        let settingsKey = match page with ApplicationPage.Settings -> Some "general" | ApplicationPage.SettingsSection key -> Some key | _ -> None
+        let settingsKey = match page with ApplicationPage.Settings -> Some "general" | ApplicationPage.SettingsSection key -> Some key | ApplicationPage.Environment _ -> Some "environments" | _ -> None
         let personal = personalPage page
         let current = if page=ApplicationPage.Settings then url (ApplicationPage.SettingsSection "general") else current
         let crumbs =
@@ -269,11 +271,13 @@ module Layout =
               elif settingsKey.IsSome then BreadcrumbItem.create (url ApplicationPage.Settings) "Settings"
               else BreadcrumbItem.create (url ApplicationPage.Home) "Home"
               if not personal && settingsKey.IsNone && page<>ApplicationPage.Home then
-                  BreadcrumbItem.unlinked "Accounting"
                   match page with
                   | ApplicationPage.Account _ | ApplicationPage.CreateAccount | ApplicationPage.EditAccount _ | ApplicationPage.DeleteAccount _ -> BreadcrumbItem.create (url ApplicationPage.Accounts) "Accounts"
                   | ApplicationPage.Transaction _ -> BreadcrumbItem.create (url ApplicationPage.Transactions) "Transactions"
                   | _ -> ()
+              match page with
+              | ApplicationPage.Environment _ -> BreadcrumbItem.create (url (ApplicationPage.SettingsSection "environments")) "Environments"
+              | _ -> ()
               if page<>ApplicationPage.Home && page<>ApplicationPage.Profile then BreadcrumbItem.create current title ]
         let bar = PageTopBar.create () |> PageTopBar.withContent (Breadcrumbs.create (elementId query "template-breadcrumbs") "Breadcrumb" crumbs |> Breadcrumbs.render id)
                   |> PageTopBar.withActions (fragment { yield! query.topBarActions; ThemeSwitcher.create (elementId query "template-theme") "Choose color theme" |> ThemeSwitcher.render })

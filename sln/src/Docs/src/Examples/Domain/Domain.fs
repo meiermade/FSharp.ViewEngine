@@ -35,6 +35,8 @@ module Domain =
     type Workspace = { organization:Organization; environment:Environment; ledger:Ledger }
     let organizations = [{id="example-household";name="Example Household";role="Admin"};{id="client-organization";name="Client Organization";role="Member"}]
     let environments = [{id="production";name="Production";sandbox=false};{id="staging";name="Staging";sandbox=true};{id="review-testing";name="Review testing";sandbox=true}]
+    let tryEnvironment id = environments |> List.tryFind (fun environment -> environment.id=id)
+    let findEnvironment id = tryEnvironment id |> Option.get
     let ledgers =
         [ for id,name in ["example-household","Example Household";"alex","Alex";"jordan","Jordan";"casey","Casey";"riley","Riley";"example-business","Example Business, LLC"] do
               yield {id=id;name=name;organizationId="example-household"}
