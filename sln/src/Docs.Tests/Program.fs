@@ -585,6 +585,27 @@ let tests =
                 Expect.equal (Regex.Matches(pager, "<a ").Count) expectedLinks.Length "no extra pager destination"
         }
 
+        test "Catalog release discovery uses external links without maintained history" {
+            let html = View.document Registry.navigation Home.page |> Render.toString
+            for id,label,href in ["changelog","Changelog",Registry.releasesUrl; "packages","Packages",Registry.packagesUrl] do
+                let link = Regex.Match(html, $"<a\\b[^>]*id=\"nav-{id}\"[^>]*>.*?</a>", RegexOptions.Singleline).Value
+                Expect.stringContains link $"href=\"{WebUtility.HtmlEncode href}\"" "genuine external destination"
+                Expect.stringContains link "target=\"_blank\"" "new tab"
+                Expect.stringContains link "rel=\"noopener\"" "safe opener"
+                Expect.stringContains link "title=\"Opens in a new tab\"" "new-tab hint"
+                Expect.stringContains link label "visible label"
+                Expect.stringContains link "<svg" "external-link icon"
+                Expect.isFalse (link.Contains "data-docs-nav-link") "not intercepted by internal navigation"
+            Expect.isFalse (expectedPaths.Contains "/changelog") "maintained history is retired"
+            let context = DefaultHttpContext()
+            context.Request.Method <- HttpMethods.Get
+            context.Request.Path <- PathString "/changelog"
+            let next : HttpFunc = fun current -> task { return Some current }
+            Handler.routes next context |> Async.AwaitTask |> Async.RunSynchronously |> ignore
+            Expect.equal context.Response.StatusCode 301 "old links remain usable"
+            Expect.equal (context.Response.Headers.Location.ToString()) Registry.releasesUrl "old history points to the source of truth"
+        }
+
         test "Public discovery contains canonical pages and excludes aliases and previews" {
             let sitemap = Handler.sitemap
             let robots = Handler.robots
@@ -915,16 +936,17 @@ after"""
                 Expect.isFalse (html.Contains "data-docs-sidebar") "no outer library documentation shell"
                 Expect.isFalse (html.Contains "data-example-viewer-bar") "no duplicate preview/code chrome"
                 Expect.stringContains html "href=\"/examples/source.zip\"" "complete source is downloadable from the host top bar"
-            Expect.equal (Regex.Matches(gallery,"target=\"_blank\" rel=\"noopener\"").Count) 3 "each template opens in an isolated new tab"
+            for template in Examples.templates do
+                Expect.stringContains gallery $"href=\"{template.path}\" target=\"_blank\" rel=\"noopener\"" "each template opens in an isolated new tab"
             for file in Examples.sourceFiles do
                 let status,source = routeResponse ("/examples/source/"+file)
                 Expect.equal status 200 file
                 Expect.isFalse (String.IsNullOrWhiteSpace source) "complete authored source"
                 Expect.isFalse (source.Contains "FSharp.ViewEngine.Components.Templates") "no framework dependency"
                 Expect.isFalse (source.Contains "data-example-viewer-bar") "catalog chrome stays out of copied templates"
-            for invalid in ["/examples/source/../Program.fs"; "/examples/source/secrets.txt"; "/examples/application/accounts/999"; "/examples/application/accounts/101?view=code&file=secrets.txt"; "/api-reference/render-to-string"; "/specification/render-a-view"] do
+            for invalid in ["/examples/source/../Program.fs"; "/examples/source/secrets.txt"; "/examples/application/accounts/999"; "/examples/application/settings/environments/unknown"; "/examples/application/settings/environments/unknown/edit"; "/examples/application/accounts/101?view=code&file=secrets.txt"; "/api-reference/render-to-string"; "/specification/render-a-view"] do
                 Expect.equal (routeStatus invalid) 404 "unknown routes and source files fail closed"
-            for path in ["/examples/specification/accounts/view-accounts";"/examples/specification/accounts/create-account";"/examples/specification/architecture/solution/server";"/examples/application/profile/organizations";"/examples/application/settings/general";"/examples/application/profile/edit";"/examples/application/settings/general/edit"] do
+            for path in ["/examples/specification/accounts/view-accounts";"/examples/specification/accounts/create-account";"/examples/specification/architecture/solution/server";"/examples/application/profile/organizations";"/examples/application/settings/general";"/examples/application/profile/edit";"/examples/application/settings/general/edit";"/examples/application/settings/environments/production";"/examples/application/settings/environments/staging/edit";"/examples/application/settings/environments/review-testing"] do
                 Expect.equal (routeStatus path) 200 "named workflows and project contracts are public destinations"
             let _,preview = routeResponse "/examples/specification/accounts/create-account"
             let controlIds = Regex.Matches(preview,"<(?:input|button|select|dialog)[^>]* id=\"([^\"]+)\"") |> Seq.cast<Match> |> Seq.map (fun item -> item.Groups[1].Value) |> Seq.toList
@@ -968,6 +990,10 @@ after"""
                 "/examples/application/accounts",["action","review-selected"],"selection-invalid","Choose records"
                 "/examples/application/transactions",["action","review-selected";"transactionIds","201"],"selection-valid","Selected records checked"
                 "/examples/application/transactions",["action","review-selected";"transactionIds","999"],"selection-invalid","Choose records"
+                "/examples/application/settings/environments/staging/edit",["name","Private environment"],"success","Staging"
+                "/examples/application/settings/environments/staging/edit",["name",String.replicate 80 "a"],"success","Staging"
+                "/examples/application/settings/environments/staging/edit",["name",String.replicate 81 "a"],"invalid","Enter a name between 1 and 80 characters."
+                "/examples/application/settings/environments/staging/edit",["name","  "],"invalid","Enter a name between 1 and 80 characters."
                 "/examples/application/settings/general/edit",["workspace","Private workspace";"currency","USD"],"success","General"
                 "/examples/application/settings/general/edit",["workspace","";"currency","USD"],"invalid","Enter a name between 1 and 80 characters."
                 "/examples/application/settings/general/edit",["workspace","Private workspace";"currency","EUR"],"invalid","Choose US dollar (USD)."
@@ -997,7 +1023,7 @@ after"""
                     Expect.stringContains html ("value=\""+WebUtility.HtmlEncode(enteredName)+"\"") "duplicate errors preserve entered values"
                     Expect.stringContains html "aria-invalid=\"true\"" "duplicate errors are attached to the field"
                     Expect.isFalse (html.Contains "data-fve-notice") "one field error has no duplicated form banner"
-                for privateValue in ["Private reserve";"Private workspace";"Private person";"private@example.invalid"] do
+                for privateValue in ["Private reserve";"Private workspace";"Private environment";"Private person";"private@example.invalid"] do
                     Expect.isFalse (location.Contains privateValue) "private values never enter URLs"
                     if not editorFailure then Expect.isFalse (html.Contains privateValue) "successful/non-editor submissions do not retain private values"
             Expect.equal (routeResponse "/examples/application/accounts/105" |> snd) before "eligible deletion does not mutate the record"

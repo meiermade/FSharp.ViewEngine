@@ -63,6 +63,15 @@ module Operations =
         elif request.currency<>"USD" then Error ValidateOrganizationError.InvalidCurrency
         else Ok {accepted=true}
 
+    type ValidateEnvironmentRequest = { environmentId:string; name:string }
+    type ValidateEnvironmentResponse = { environmentId:string }
+    [<RequireQualifiedAccess>]
+    type ValidateEnvironmentError = NotFound | InvalidName
+    let validateEnvironment (request:ValidateEnvironmentRequest) : Result<ValidateEnvironmentResponse,ValidateEnvironmentError> =
+        if tryEnvironment request.environmentId |> Option.isNone then Error ValidateEnvironmentError.NotFound
+        elif request.name.Trim().Length<1 || request.name.Trim().Length>80 then Error ValidateEnvironmentError.InvalidName
+        else Ok {environmentId=request.environmentId}
+
     type ValidateProfileRequest = { name:string; email:string; timeZone:string }
     type ValidateProfileResponse = { accepted:bool }
     [<RequireQualifiedAccess>]

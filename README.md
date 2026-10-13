@@ -84,4 +84,4 @@ The [benchmark documentation](https://fve.meiermade.com/benchmarks) contains rep
 
 ## Release
 
-Merges deploy staging. Production releases run through the [release workflow](.github/workflows/publish.yml). Core and CLI version independently.
+Merges deploy staging. The [release workflow](.github/workflows/publish.yml) defaults to changed projects; Core, CLI, Both, and Docs can also release independently. CI pins the accepted image and independent package versions; Docs promotion has no version of its own.

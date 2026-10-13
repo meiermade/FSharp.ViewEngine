@@ -175,7 +175,6 @@ const navigationRoot = document.querySelector('[data-fve-navigation-root]');
 if (navigationRoot) navigationRoot.dataset.navigationDocument = {encodedDocumentToken};
 {scroll}
 window.fsharpDocsMobileNav?.close();
-document.getElementById('template-navigation-dialog')?.close();
 navigationRoot?.removeAttribute('aria-busy');
 const navigationStatus = document.getElementById('docs-navigation-status');
 if (navigationStatus) {{ navigationStatus.hidden = true; navigationStatus.textContent = ''; }}
@@ -184,7 +183,7 @@ window.initializeDocsToc?.();
 window.fsharpDocsFragments?.show(window.location.hash);
 const returnFocus = {encodedFocus};
 requestAnimationFrame(() => {{
-  const focusTarget = returnFocus ? document.getElementById(returnFocus) : navigationRoot?.querySelector('[autofocus][aria-invalid=true]') ?? document.getElementById('main-content') ?? document.getElementById('fve-app-mode-root');
+  const focusTarget = returnFocus ? document.getElementById(returnFocus) : navigationRoot?.querySelector('dialog[open] [autofocus][aria-invalid=true]') ?? navigationRoot?.querySelector('[autofocus][aria-invalid=true]') ?? document.getElementById('main-content') ?? document.getElementById('fve-app-mode-root');
   focusTarget?.focus?.({{ preventScroll: true }});
   if (returnFocus) focusTarget?.scrollIntoView({{block: 'nearest', behavior: 'instant'}});
   navigationRoot?.dispatchEvent(new CustomEvent('fve-navigation-complete', {{ bubbles: true, detail: {{ intent: '{if intent = Navigate then "navigate" else "restore"}', previousHref, href: window.location.href }} }}));
@@ -205,6 +204,11 @@ requestAnimationFrame(() => {{
                     match context.Request.Query.TryGetValue "fveAppReturn" with
                     | true, value when not (String.IsNullOrWhiteSpace(string value)) -> Some("fve-fixture-" + string value + "-launcher")
                     | _ -> None
+                // Removing open during a morph does not release a native dialog's modal state.
+                // Close only navigation dialogs, after success and before their attributes are patched.
+                do! service.ExecuteScriptAsync(
+                    "for (const dialog of document.querySelectorAll('dialog[data-fve-navigation-dialog][open]')) dialog.close();",
+                    ExecuteScriptOptions(AutoRemove = true), context.RequestAborted)
                 do! service.PatchElementsAsync(rootHtml, cancellationToken = context.RequestAborted)
                 do! service.PatchElementsAsync(metadataHtml, cancellationToken = context.RequestAborted)
                 do! service.ExecuteScriptAsync(

@@ -118,7 +118,75 @@ let tests =
             ]
             for invalid in invalidCases do Expect.throws invalid "invalid package selection"
 
-        test "Release coherence publishes exactly changed contracts and pins unselected public versions" {
+        test "UTC calendar versions advance independent streams and reset each month" {
+            let now = DateTimeOffset(2026,10,1,0,30,0,TimeSpan.Zero)
+            Expect.equal (Release.nextVersion now ["2026.8.2"]) "2026.10.0" "first release of the month starts at zero"
+            Expect.equal (Release.nextVersion now ["2026.10.0";"2026.10.4";"2026.9.20"]) "2026.10.5" "largest published month counter wins"
+            Expect.equal (Release.nextVersion (now.ToOffset(TimeSpan.FromHours -7.)) ["2026.9.9"]) "2026.10.0" "local September clock still allocates October UTC"
+            Expect.equal (Release.nextVersion (DateTimeOffset(2027,1,1,0,0,0,TimeSpan.Zero)) ["2026.12.8"]) "2027.1.0" "new year starts a new counter"
+            Expect.throws (fun () -> Release.nextVersion now ["2026.11.0"] |> ignore) "a clock behind published versions cannot allocate"
+        }
+
+        test "Automatic and explicit releases keep package publication separate from Docs promotion" {
+            let state version changed : PackagePublishing.PackageState = { latestVersion=Some version; changedSinceLatest=changed }
+            let core = state "2026.8.2" true
+            let cli = state "2026.10.4" true
+            let now = DateTimeOffset(2026,10,13,0,0,0,TimeSpan.Zero)
+            let plan requested docsChanged core cli =
+                PackagePublishing.planRelease requested (String.replicate 40 "a") ("registry/image@sha256:"+String.replicate 64 "b") now core cli docsChanged ["2026.10.1"] ["2026.10.5"]
+            let automatic = plan "auto" true core cli
+            Expect.equal (automatic.packages,automatic.coreVersion,automatic.cliVersion,automatic.promoteDocs) ("both","2026.10.2","2026.10.6",true) "changed projects use independent tag/NuGet counters"
+            let coreOnly = plan "core" true core cli
+            Expect.equal (coreOnly.packages,coreOnly.cliVersion,coreOnly.promoteDocs) ("core","2026.10.4",false) "pending CLI and Docs changes do not force publication/promotion"
+            let cliOnly = plan "cli" true core cli
+            Expect.equal (cliOnly.packages,cliOnly.coreVersion,cliOnly.promoteDocs) ("cli","2026.8.2",false) "Core is independent"
+            let docs = plan "docs" true core cli
+            Expect.equal (docs.packages,docs.promoteDocs,docs.docsCoreVersion,docs.docsCliVersion) ("docs",true,"unreleased","unreleased") "Docs promotion cannot claim unpublished source is released"
+            let unchangedCore = { core with changedSinceLatest=false }
+            let unchangedCli = { cli with changedSinceLatest=false }
+            let both = plan "both" true unchangedCore cli
+            Expect.equal (both.packages,both.coreVersion,both.promoteDocs) ("cli","2026.8.2",false) "Both does not republish unchanged Core"
+            let automaticCli = plan "auto" false unchangedCore cli
+            Expect.equal (automaticCli.packages,automaticCli.promoteDocs) ("cli",false) "CLI-only changes do not force Docs promotion"
+            let docsOnly = plan "auto" true unchangedCore unchangedCli
+            Expect.equal (docsOnly.packages,docsOnly.docsCoreVersion,docsOnly.docsCliVersion) ("docs","2026.8.2","2026.10.4") "unchanged public package identities remain traceable"
+            Expect.throws (fun () -> plan "auto" false unchangedCore unchangedCli |> ignore) "nothing changed"
+            Expect.throws (fun () -> plan "core" true unchangedCore cli |> ignore) "unchanged requested Core is not republished"
+        }
+
+        test "Pinned transaction round-trips without reallocating versions or source" {
+            let directory = Path.Combine(Path.GetTempPath(), $"fve-plan.{Guid.NewGuid():N}")
+            let path = Path.Combine(directory,"transaction.json")
+            try
+                let state : PackagePublishing.PackageState = { latestVersion=Some "2026.10.4"; changedSinceLatest=true }
+                let commit = String.replicate 40 "a"
+                let plan = PackagePublishing.planRelease "cli" commit ("registry/image@sha256:"+String.replicate 64 "b") (DateTimeOffset(2026,10,13,0,0,0,TimeSpan.Zero)) state state true [] []
+                PackagePublishing.writePlan path plan
+                let pinned = PackagePublishing.readPlan path
+                PackagePublishing.validatePinnedPlan "cli" commit pinned
+                Expect.equal pinned plan "retry consumes the complete original plan, including image/versions/promotion choice"
+                Expect.throws (fun () -> PackagePublishing.validatePinnedPlan "docs" commit pinned) "selection cannot change on retry"
+                Expect.throws (fun () -> PackagePublishing.validatePinnedPlan "cli" (String.replicate 40 "c") pinned) "source cannot change on retry"
+                Expect.throws (fun () -> PackagePublishing.validatePinnedPlan "cli" commit {pinned with image="registry/image:latest"}) "mutable image cannot enter the transaction"
+                Expect.throws (fun () -> PackagePublishing.validatePinnedPlan "cli" commit {pinned with promoteDocs=true}) "package-only retry cannot silently promote Docs"
+            finally
+                if Directory.Exists directory then Directory.Delete(directory,true)
+        }
+
+        test "Accepted candidate identity is exact, protected, ready and successfully deployed" {
+            let commit = String.replicate 40 "a"
+            let image = "registry/image@sha256:"+String.replicate 64 "b"
+            PackagePublishing.validateCandidate commit commit image "https://fve.meiermade.net" true
+            for accepted,source,digest,origin,ready in [
+                String.replicate 40 "c",commit,image,"https://fve.meiermade.net",true
+                commit,"main",image,"https://fve.meiermade.net",true
+                commit,commit,"registry/image:latest","https://fve.meiermade.net",true
+                commit,commit,image,"https://fve.meiermade.com",true
+                commit,commit,image,"https://fve.meiermade.net",false ] do
+                Expect.throws (fun () -> PackagePublishing.validateCandidate accepted source digest origin ready) "unaccepted or drifted identity fails closed"
+        }
+
+        test "Independent selection pins unselected public package versions" {
             let state latestVersion changedSinceLatest : PackagePublishing.PackageState =
                 { latestVersion = latestVersion
                   changedSinceLatest = changedSinceLatest }
@@ -126,9 +194,7 @@ let tests =
             let cliUnpublished = state None true
             let cli = PackagePublishing.validateSelection "cli" "2026.8.2" "2026.9.0"
             PackagePublishing.validateCoherence cli coreUnchanged cliUnpublished
-            Expect.throws
-                (fun () -> PackagePublishing.validateCoherence cli (state (Some "2026.8.2") true) cliUnpublished)
-                "changed Core cannot remain unpublished"
+            PackagePublishing.validateCoherence cli (state (Some "2026.8.2") true) cliUnpublished
             Expect.throws
                 (fun () -> PackagePublishing.validateCoherence cli coreUnchanged (state (Some "2026.8.4") false))
                 "unchanged CLI cannot be republished"
@@ -141,9 +207,7 @@ let tests =
                     PackagePublishing.validateSelection "docs" "2099.1.0" "2026.8.4"
                     |> fun selection -> PackagePublishing.validateCoherence selection coreUnchanged cliUnchanged)
                 "Docs-only cannot advertise an arbitrary Core version"
-            Expect.throws
-                (fun () -> PackagePublishing.validateCoherence docs coreUnchanged (state (Some "2026.8.4") true))
-                "Docs-only cannot carry unpublished CLI changes"
+            PackagePublishing.validateCoherence docs coreUnchanged (state (Some "2026.8.4") true)
         }
 
         test "Local selected package identity is exact" {
@@ -165,16 +229,15 @@ let tests =
             Expect.stringContains publish "type: choice" "package selection is a choice"
             for selection in [ "core"; "cli"; "both"; "docs" ] do
                 Expect.stringContains publish $"- {selection}" $"{selection} selection"
-            Expect.stringContains publish "candidateCommit:" "release authorization selects an exact commit"
-            Expect.stringContains publish "candidateImage:" "release authorization selects an exact digest"
-            Expect.stringContains publish "coreVersion:" "the public Core version is explicit"
-            Expect.stringContains publish "cliVersion:" "the public CLI version is explicit"
+            Expect.stringContains publish "default: auto" "changed projects are the default"
+            Expect.stringContains publish "ResolveReleaseTransaction" "FAKE owns source/selection/version policy"
+            Expect.isFalse (publish.Contains("inputs.candidateCommit") || publish.Contains("inputs.candidateImage") || publish.Contains("inputs.coreVersion") || publish.Contains("inputs.cliVersion")) "operators do not supply release identity/version inputs"
             Expect.isFalse (publish.Contains("componentsVersion:")) "the retired Components version is not selected"
             Expect.isFalse (publish.Contains("docsVersion:")) "no new Docs package versions"
             Expect.isFalse (publish.Contains("Publish FSharp.ViewEngine.Docs")) "no Docs publication path"
             Expect.isFalse (publish.Contains("Publish FSharp.ViewEngine.Components")) "no Components publication path"
-            Expect.stringContains publish "inputs.packages == 'cli' || inputs.packages == 'both'" "both selects CLI"
-            Expect.stringContains publish "inputs.packages == 'core' || inputs.packages == 'both'" "both selects Core"
+            Expect.stringContains publish "needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'" "resolved selection controls CLI"
+            Expect.stringContains publish "needs.candidate.outputs.packages == 'core' || needs.candidate.outputs.packages == 'both'" "resolved selection controls Core"
             Expect.isFalse (File.Exists(workflowPath "publish-docs.yml")) "there is no second package-publishing entry point"
             Expect.isFalse (File.Exists(workflowPath "_publish-package.yml")) "single-use reusable workflow is removed"
             Expect.isFalse (File.Exists(workflowPath "verify-nuget-auth.yml")) "publication owns its OIDC authentication"
@@ -193,15 +256,13 @@ let tests =
                 (packageBlock.Split("actions/upload-artifact@", StringSplitOptions.None).Length - 1)
                 1
                 "selected packages share one verified release bundle"
-            Expect.equal
-                (publishBlock.Split("actions/download-artifact@", StringSplitOptions.None).Length - 1)
-                1
-                "publication downloads the release bundle once"
+            Expect.stringContains publishBlock "cmp \"$RUNNER_TEMP/transaction/transaction.json\" \"$RUNNER_TEMP/release/transaction.json\"" "publication verifies the complete pinned transaction"
+            Expect.isFalse (publishBlock.Contains("./fake.sh Pack")) "publication reuses verified bytes rather than repacking"
             Expect.isFalse (publish.Contains("uses: ./.github/workflows/deploy.yml")) "release promotion remains explicit"
             Expect.isFalse (publish.Contains("secrets: inherit")) "publication does not inherit unrelated secrets"
 
             Expect.stringContains packageBlock "./fake.sh Test --single-target" "release source is tested once"
-            Expect.stringContains packageBlock "ValidateReleaseSelection" "changed package contracts are checked"
+            Expect.stringContains packageBlock "release-plan-${{ github.run_id }}" "bundle consumes the previously pinned transaction"
             Expect.stringContains packageBlock "Verify Core package" "Core package is verified"
             Expect.stringContains packageBlock "Verify CLI package" "CLI package is verified"
             Expect.isFalse (packageBlock.Contains("Verify Components package")) "Components package publication is retired"
@@ -223,8 +284,9 @@ let tests =
             let retirementCheck = repositoryFile "e2e/scripts/verify-package-retirement.mjs"
             Expect.stringContains publish "queue: max" "explicit releases retain their serialized queue position"
             Expect.stringContains publish "cancel-in-progress: false" "an active release is never preempted"
-            Expect.stringContains publish "Prove protected staging runs the selected candidate" "staging identity is proven first"
-            Expect.stringContains publish "- acceptance" "package preparation waits for the aggregate acceptance result"
+            Expect.stringContains publish "needs: [candidate, acceptance]" "new package preparation waits for deployed acceptance"
+            Expect.stringContains publish "needs.candidate.outputs.promoteDocs == 'true'" "package-only releases do not implicitly promote Docs"
+            Expect.stringContains publish "needs.candidate.outputs.bundle == 'true'" "retries reuse an already verified bundle"
             Expect.stringContains publish "DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}" "production receives the accepted digest"
             Expect.stringContains publish "environment: release" "publication uses its protected environment"
             Expect.stringContains publish "name: production" "promotion uses its protected environment"
@@ -252,7 +314,7 @@ let tests =
             Expect.stringContains deploy "stack-name: meiermade/fsharp-view-engine/dev" "main updates only the isolated dev stack"
             Expect.isFalse (deploy.Contains("stack-name: meiermade/fsharp-view-engine/prod")) "main never updates production"
             Expect.stringContains deploy "pulumi env run meiermade/fsharpviewengine/e2e-dev" "acceptance loads scoped credentials in the consuming command"
-            Expect.stringContains deploy "bash scripts/test-published-ci.sh tests/staging-smoke.spec.ts" "main runs the bounded staging smoke suite"
+            Expect.stringContains deploy "bash scripts/test-release-smoke.sh" "main runs the same bounded smoke as production"
             Expect.stringContains deploy "DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}" "unsuccessful acceptance restores the previous immutable image"
             Expect.stringContains deploy "queue: max" "every successful merge retains its place in the staging queue"
             Expect.stringContains deploy "cancel-in-progress: false" "a newer merge does not interrupt an active rollout"
@@ -303,6 +365,97 @@ let tests =
             finally
                 if File.Exists authState then File.Delete authState
                 Directory.Delete(fakeDirectory, true)
+        }
+
+        test "FAKE pins accepted staging once and refuses to reallocate a retry" {
+            let root = Path.Combine(Path.GetTempPath(), $"fve-transaction.{Guid.NewGuid():N}")
+            let repository = Path.Combine(root,"repository")
+            let bin = Path.Combine(root,"bin")
+            Directory.CreateDirectory repository |> ignore
+            Directory.CreateDirectory bin |> ignore
+            let git arguments = PackagePublishing.runProcess true "git" (["-C";repository] @ arguments)
+            let calls = Path.Combine(root,"calls")
+            let savedPlan = Path.Combine(root,"saved.json")
+            let planPath = Path.Combine(root,"transaction","transaction.json")
+            let output = Path.Combine(root,"output")
+            let script name (content:string) =
+                let path = Path.Combine(bin,name)
+                File.WriteAllText(path,content)
+                File.SetUnixFileMode(path,UnixFileMode.UserRead ||| UnixFileMode.UserWrite ||| UnixFileMode.UserExecute)
+            try
+                git ["init";"--initial-branch=main"] |> ignore
+                git ["config";"user.email";"ci@meiermade.com"] |> ignore
+                git ["config";"user.name";"Release test"] |> ignore
+                for directory in ["sln/src/FSharp.ViewEngine";"sln/src/FSharp.ViewEngine.Cli"] do
+                    Directory.CreateDirectory(Path.Combine(repository,directory)) |> ignore
+                    File.WriteAllText(Path.Combine(repository,directory,"source.fs"),"published")
+                git ["add";"."] |> ignore
+                git ["-c";"commit.gpgSign=false";"commit";"-m";"published"] |> ignore
+                git ["tag";"v2026.8.2"] |> ignore
+                git ["tag";"cli/v2026.10.4"] |> ignore
+                let publishedCommit = git ["rev-parse";"HEAD"]
+                File.WriteAllText(Path.Combine(repository,"sln/src/FSharp.ViewEngine.Cli/source.fs"),"pending")
+                git ["add";"."] |> ignore
+                git ["-c";"commit.gpgSign=false";"commit";"-m";"accepted"] |> ignore
+                let commit = git ["rev-parse";"HEAD"]
+                git ["remote";"add";"origin";repository] |> ignore
+                script "gh" """#!/usr/bin/env bash
+set -euo pipefail
+printf 'gh %s %s\n' "$1" "${2:-}" >> "$FAKE_CALLS"
+if [[ "$1" == api ]]; then printf '%s' "$FAKE_ARTIFACTS"
+elif [[ "$1 $2" == 'run list' ]]; then printf '%s' "$FAKE_ACCEPTED"
+elif [[ "$1 $2" == 'run download' ]]; then mkdir -p "${@: -1}"; cp "$FAKE_SAVED_PLAN" "${@: -1}/transaction.json"
+else exit 91; fi
+"""
+                script "pulumi" """#!/usr/bin/env bash
+set -euo pipefail
+printf 'pulumi\n' >> "$FAKE_CALLS"
+if [[ " $* " == *' --json '* ]]; then
+  printf '{"releaseCommit":"%s","imageDigest":"%s","origin":"https://fve.meiermade.net","e2eReady":true}' "$FAKE_STAGED" "$FAKE_IMAGE"
+else printf '%s' "$FAKE_PUBLISHED"; fi
+"""
+                let image = "registry/image@sha256:"+String.replicate 64 "b"
+                let run attempt artifacts staged =
+                    File.WriteAllText(calls,"")
+                    if File.Exists planPath then File.Delete planPath
+                    let info = ProcessStartInfo("dotnet")
+                    info.WorkingDirectory <- root
+                    info.UseShellExecute <- false
+                    info.RedirectStandardOutput <- true
+                    info.RedirectStandardError <- true
+                    for argument in [typeof<Release.Metadata>.Assembly.Location;"--target";"ResolveReleaseTransaction";"--single-target"] do info.ArgumentList.Add argument
+                    for key,value in [
+                        "PATH",bin+string Path.PathSeparator+Environment.GetEnvironmentVariable("PATH")
+                        "RELEASE_REPOSITORY",repository; "RELEASE_PLAN_PATH",planPath
+                        "GITHUB_REPOSITORY","meiermade/FSharp.ViewEngine"; "GITHUB_RUN_ID","4242"
+                        "GITHUB_RUN_ATTEMPT",string attempt; "GITHUB_REF","refs/heads/main"; "GITHUB_SHA",commit
+                        "GITHUB_OUTPUT",output; "PACKAGE_SELECTION","docs"; "FAKE_CALLS",calls
+                        "FAKE_ARTIFACTS",artifacts; "FAKE_ACCEPTED",commit; "FAKE_STAGED",staged
+                        "FAKE_IMAGE",image; "FAKE_PUBLISHED",publishedCommit; "FAKE_SAVED_PLAN",savedPlan ] do info.Environment[key] <- value
+                    use child = Process.Start info
+                    let stdout = child.StandardOutput.ReadToEndAsync()
+                    let stderr = child.StandardError.ReadToEndAsync()
+                    if not (child.WaitForExit 30000) then child.Kill(true); failwith "Release target did not terminate."
+                    child.ExitCode, stdout.Result+stderr.Result
+                let rejected,_ = run 1 "" (String.replicate 40 "c")
+                Expect.notEqual rejected 0 "a drifted staging candidate cannot create a plan"
+                Expect.isFalse (File.Exists planPath) "no allocation before candidate acceptance"
+                let initial,diagnostics = run 1 "" commit
+                Expect.equal initial 0 diagnostics
+                let plan = PackagePublishing.readPlan planPath
+                Expect.equal (plan.commit,plan.image,plan.packages,plan.docsCliVersion) (commit,image,"docs","unreleased") "Docs is independent and truthful"
+                File.Copy(planPath,savedPlan)
+                let resumed,diagnostics = run 2 "release-plan-4242\npackage-release-4242\n" (String.replicate 40 "d")
+                Expect.equal resumed 0 diagnostics
+                Expect.equal (PackagePublishing.readPlan planPath) plan "newer staging cannot change the pinned transaction"
+                Expect.isFalse ((File.ReadAllText calls).Contains("pulumi")) "verified bundle retries do not query newer staging"
+                Expect.stringContains (File.ReadAllText output) "bundle=true" "verified package bytes are reused"
+                let missing,_ = run 2 "" commit
+                Expect.notEqual missing 0 "missing retry artifacts cannot mint another release"
+                Expect.isFalse (File.Exists planPath) "retry fails before creating another transaction"
+                Expect.isFalse ((File.ReadAllText calls).Contains("pulumi")) "retry failure happens before candidate resolution"
+            finally
+                Directory.Delete(root,true)
         }
 
         test "PR browser matrix retains all regression shards" {

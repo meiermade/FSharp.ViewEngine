@@ -38,7 +38,6 @@
     <Compile Include="src\Pages\Svg.fs" />
     <Compile Include="src\Pages\TailwindElements.fs" />
     <Compile Include="src\Pages\Benchmarks.fs" />
-    <Compile Include="src\Pages\Changelog.fs" />
     <Compile Include="src\Pages\Registry.fs" />
     <Compile Include="src\Web\Navigation.fs" />
     <Compile Include="src\Web\View.fs" />

@@ -25,6 +25,7 @@ type NavGroup<'destination> =
 and [<NoEquality; NoComparison>] NavNode<'destination> =
     | Page of NavPage<'destination>
     | Group of NavGroup<'destination>
+    | ExternalLink of id:string * label:string * href:string
 
 /// <category>navigation</category>
 type Breadcrumb =
@@ -39,6 +40,9 @@ module Nav =
               label = label
               href = href
               destination = destination }
+
+    /// An external destination opened in a new tab, outside the site's page registry.
+    let externalLink id label href = ExternalLink(id, label, href)
 
     let group id label defaultOpen children =
         Group
@@ -61,30 +65,34 @@ module NavNode =
     let id = function
         | Page page -> page.id
         | Group group -> group.id
+        | ExternalLink(id, _, _) -> id
 
     let label = function
         | Page page -> page.label
         | Group group -> group.label
+        | ExternalLink(_, label, _) -> label
 
     let href = function
         | Page page -> Some page.href
+        | ExternalLink(_, _, href) -> Some href
         | Group _ -> None
 
     let breadcrumbHref = function
         | Page page -> Some page.href
         | Group group -> group.breadcrumbHref
+        | ExternalLink _ -> None
 
     let destination = function
         | Page page -> Some page.destination
-        | Group _ -> None
+        | _ -> None
 
     let children = function
-        | Page _ -> []
         | Group group -> group.children
+        | _ -> []
 
     let defaultOpen = function
-        | Page _ -> false
         | Group group -> group.defaultOpen
+        | _ -> false
 
     let rec containsActive activeId node =
         id node = activeId || (children node |> List.exists (containsActive activeId))
@@ -93,15 +101,16 @@ module NavNode =
         nodes
         |> List.collect (fun node ->
             match node with
-            | Page _ -> []
-            | Group group -> node :: collectGroups group.children)
+            | Group group -> node :: collectGroups group.children
+            | _ -> [])
 
     let rec collectPages nodes =
         nodes
         |> List.collect (fun node ->
             match node with
             | Page _ -> [ node ]
-            | Group group -> collectPages group.children)
+            | Group group -> collectPages group.children
+            | ExternalLink _ -> [])
 
     let rec private tryPath activeId node =
         if id node = activeId then
@@ -153,6 +162,14 @@ module Navigation =
                 commonIssues
                 @ [ if not (validPath page.href) then
                         issue "navigation.invalid-href" $"Navigation page '{page.id}' must use an absolute application path." ]
+            | ExternalLink(_, id, href) ->
+                let valid =
+                    match Uri.TryCreate(href, UriKind.Absolute) with
+                    | true, uri -> uri.Scheme = Uri.UriSchemeHttps && String.IsNullOrEmpty uri.UserInfo
+                    | _ -> false
+                commonIssues
+                @ [ if not valid then
+                        issue "navigation.invalid-external-href" $"External navigation link '{id}' must use an HTTPS URL without credentials." ]
             | Group group ->
                 commonIssues
                 @ [ if List.isEmpty group.children then

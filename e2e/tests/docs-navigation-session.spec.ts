@@ -28,6 +28,34 @@ async function openGallery(page: Page, slug: string) {
   await expect(page).toHaveURL(`/components/${slug}`)
 }
 
+test('mobile Docs navigation scrolls external project links into view @cross-browser', async ({ page, context }) => {
+  await page.setViewportSize({ width: 390, height: 640 })
+  for (const url of ['https://github.com/meiermade/FSharp.ViewEngine/releases', 'https://www.nuget.org/packages?q=FSharp.ViewEngine']) {
+    await context.route(url, route => route.fulfill({ status: 200, contentType: 'text/html', body: '<main>External destination</main>' }))
+  }
+  await page.goto('/components/button')
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
+  await page.getByLabel('Toggle Project section', { exact: true }).click()
+  const content = page.locator('#side-nav nav')
+  expect(await content.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true)
+  await page.evaluate(() => { document.documentElement.dataset.externalNavigation = 'retained' })
+  for (const name of ['Changelog', 'Packages']) {
+    const link = page.getByRole('link', { name, exact: true })
+    await link.scrollIntoViewIfNeeded()
+    const bounds = await link.boundingBox()
+    expect(bounds).not.toBeNull()
+    expect(bounds!.y).toBeGreaterThanOrEqual(48)
+    expect(bounds!.y + bounds!.height).toBeLessThanOrEqual(640)
+    const [popup] = await Promise.all([page.waitForEvent('popup'), link.click()])
+    await popup.waitForLoadState()
+    expect(popup.url()).toBe(await link.getAttribute('href'))
+    expect(await popup.evaluate(() => window.opener)).toBeNull()
+    await popup.close()
+    await expect(page).toHaveURL(/\/components\/button$/)
+    await expect(page.locator('html')).toHaveAttribute('data-external-navigation', 'retained')
+  }
+})
+
 test('long-lived Docs navigation excludes demo signals and preserves Preview Code Copy after morphs @cross-browser', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))

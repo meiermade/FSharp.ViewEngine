@@ -503,6 +503,7 @@ module Handler =
     let routes : HttpHandler =
         choose [
             migrationRoutes
+            route "/changelog" >=> redirectTo true Registry.releasesUrl
             ExampleView.routes
             route "/sitemap.xml" >=> setHttpHeader "Content-Type" "application/xml; charset=utf-8" >=> setBodyFromString sitemap
             route "/robots.txt" >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8" >=> setBodyFromString robots

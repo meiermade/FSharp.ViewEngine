@@ -78,6 +78,60 @@ let getVersion () =
     let matched = Regex.Match(value, @"^(\d+\.\d+\.\d+(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?)$")
     if matched.Success then matched.Groups[1].Value else failwith $"invalid package version: {value}"
 
+let corePaths = [ "sln/src/FSharp.ViewEngine" ]
+let cliPaths = [ "sln/src/FSharp.ViewEngine.Cli"; "sln/src/FSharp.ViewEngine.Components" ]
+let docsPaths = [ "sln/src/Docs"; "sln/src/FSharp.ViewEngine.Components"; "sln/src/FSharp.ViewEngine"; "sln/Dockerfile" ]
+
+Target.create "ResolveReleaseTransaction" <| fun _ ->
+    let requested = Environment.environVarOrDefault "PACKAGE_SELECTION" "auto"
+    let githubRepository = Environment.environVarOrFail "GITHUB_REPOSITORY"
+    let runId = Environment.environVarOrFail "GITHUB_RUN_ID"
+    if Environment.environVarOrFail "GITHUB_REF" <> "refs/heads/main" then failwith "Releases must run from main."
+    let planPath = Environment.environVarOrFail "RELEASE_PLAN_PATH" |> Path.getFullName
+    let artifactNames = PackagePublishing.runArtifactNames githubRepository runId
+    let planName = $"release-plan-{runId}"
+    let bundleName = $"package-release-{runId}"
+    let reuse = artifactNames.Contains planName
+    let bundle = artifactNames.Contains bundleName
+    if not reuse && (bundle || Environment.environVarOrDefault "GITHUB_RUN_ATTEMPT" "1" <> "1") then
+        failwith "Pinned release transaction is unavailable; refusing to allocate new versions on a retry."
+    let plan =
+        if reuse then
+            PackagePublishing.runProcess false "gh" ["run"; "download"; runId; "--repo"; githubRepository; "--name"; planName; "--dir"; System.IO.Path.GetDirectoryName planPath] |> ignore
+            PackagePublishing.readPlan planPath
+        else
+            let commit,image = PackagePublishing.acceptedCandidate releaseRepository githubRepository
+            PackagePublishing.runProcess false "git" ["-C"; releaseRepository; "fetch"; "origin"; "main"; "--no-tags"] |> ignore
+            PackagePublishing.runProcess false "git" ["-C"; releaseRepository; "merge-base"; "--is-ancestor"; commit; "origin/main"] |> ignore
+            // The selected source must contain this release workflow/automation revision.
+            PackagePublishing.runProcess false "git" ["-C"; releaseRepository; "merge-base"; "--is-ancestor"; Environment.environVarOrFail "GITHUB_SHA"; commit] |> ignore
+            PackagePublishing.runProcess false "git" ["-C"; releaseRepository; "checkout"; "--detach"; commit] |> ignore
+            let coreState = PackagePublishing.packageStateSinceLatestTag releaseRepository "v[0-9]*" "v" corePaths
+            let cliState = PackagePublishing.packageStateSinceLatestTag releaseRepository "cli/v[0-9]*" "cli/v" cliPaths
+            let previousDocsCommit =
+                PackagePublishing.runProcess true "pulumi" ["-C"; rootDir </> "pulumi"; "stack"; "output"; "releaseCommit"; "--stack"; "meiermade/fsharp-view-engine/prod"]
+            let docsChanged =
+                if not (Regex.IsMatch(previousDocsCommit, "^[a-f0-9]{40}$")) then true
+                else
+                    PackagePublishing.runProcess true "git" (["-C"; releaseRepository; "diff"; "--name-only"; previousDocsCommit; "HEAD"; "--"] @ docsPaths)
+                    |> System.String.IsNullOrWhiteSpace |> not
+            let coreVersions = if requested = "cli" || requested = "docs" then [] else PackagePublishing.publishedVersions PackagePublishing.Package.ViewEngine
+            let cliVersions = if requested = "core" || requested = "docs" then [] else PackagePublishing.publishedVersions PackagePublishing.Package.Cli
+            let plan = PackagePublishing.planRelease requested commit image System.DateTimeOffset.UtcNow coreState cliState docsChanged coreVersions cliVersions
+            PackagePublishing.writePlan planPath plan
+            plan
+    PackagePublishing.validatePinnedPlan requested plan.commit plan
+    PackagePublishing.runProcess false "git" ["-C"; releaseRepository; "checkout"; "--detach"; plan.commit] |> ignore
+    let outputPath = Environment.environVarOrFail "GITHUB_OUTPUT"
+    System.IO.File.AppendAllLines(outputPath, [
+        $"commit={plan.commit}"; $"image={plan.image}"; $"packages={plan.packages}"
+        $"coreVersion={plan.coreVersion}"; $"cliVersion={plan.cliVersion}"
+        $"docsCoreVersion={plan.docsCoreVersion}"; $"docsCliVersion={plan.docsCliVersion}"
+        $"promoteDocs={string plan.promoteDocs |> _.ToLowerInvariant()}"
+        $"bundle={string bundle |> _.ToLowerInvariant()}"
+        $"newPlan={string (not reuse) |> _.ToLowerInvariant()}" ])
+    Trace.trace $"Pinned {plan.commit} / {plan.image}: {plan.packages}; Core {plan.coreVersion}; CLI {plan.cliVersion}; promote Docs {plan.promoteDocs}"
+
 Target.create "ValidateReleaseSelection" <| fun _ ->
     let selection = releaseSelection ()
     let coreState =
@@ -85,14 +139,13 @@ Target.create "ValidateReleaseSelection" <| fun _ ->
             releaseRepository
             "v[0-9]*"
             "v"
-            [ "sln/src/FSharp.ViewEngine" ]
+            corePaths
     let cliState =
         PackagePublishing.packageStateSinceLatestTag
             releaseRepository
             "cli/v[0-9]*"
             "cli/v"
-            [ "sln/src/FSharp.ViewEngine.Cli"
-              "sln/src/FSharp.ViewEngine.Components" ]
+            cliPaths
     PackagePublishing.validateCoherence selection coreState cliState
 
     let selected =

@@ -23,6 +23,10 @@ test('multiple Select separates active and selected options and submits ordered 
   const clear = example.getByRole('button', { name: 'Clear Team members', exact: true })
   await expect(clear).toBeDisabled()
   await expect(selectAll).toBeEnabled()
+  for (const action of [selectAll, clear]) {
+    await expect(action).toHaveCSS('font-size', '12px')
+    expect((await action.boundingBox())!.height).toBeGreaterThanOrEqual(32)
+  }
   await selectAll.click()
   await expect.poll(() => values(example, 'memberIds')).toEqual(['alex', 'jamie', 'riley', 'taylor'])
   await expect(selectAll).toBeDisabled()
