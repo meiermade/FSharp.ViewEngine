@@ -80,4 +80,8 @@ E2E_START_LOCAL=0 DOCS_E2E_BASE_URL=http://127.0.0.1:5054 \
   npx playwright test tests/catalog-areas.spec.ts --project=chromium --workers=1
 ```
 
-See [release procedures](.github/RELEASING.md) for package and Docs delivery. The [benchmark documentation](https://fve.meiermade.com/benchmarks) contains reproduction commands, methodology, detailed measurements, and profiling findings; results are not CI regression thresholds.
+The [benchmark documentation](https://fve.meiermade.com/benchmarks) contains reproduction commands, methodology, detailed measurements, and profiling findings; results are not CI regression thresholds.
+
+## Release
+
+Merges deploy staging. Production releases run through the [release workflow](.github/workflows/publish.yml). Core and CLI version independently.
