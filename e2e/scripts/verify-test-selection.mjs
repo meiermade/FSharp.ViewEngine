@@ -91,7 +91,19 @@ if (JSON.stringify(releaseSmoke.get('firefox')) !== JSON.stringify(releaseSmoke.
   fail('Release compatibility smoke selections differ')
 }
 
+const productionSmoke = listSelected(['tests/production-smoke.spec.ts'])
+for (const [browser, count] of [['chromium', 3], ['firefox', 1], ['webkit', 1]]) {
+  if (productionSmoke.get(browser).length !== count) fail(`${browser} production smoke must select ${count} intentional checks`)
+  if (productionSmoke.get(browser).some(name => !selected.get(browser).includes(name))) {
+    fail(`${browser} production smoke is missing from PR coverage`)
+  }
+}
+if (JSON.stringify(productionSmoke.get('firefox')) !== JSON.stringify(productionSmoke.get('webkit'))) {
+  fail('Production compatibility smoke selections differ')
+}
+
 if (!process.exitCode) {
   console.log(`PR E2E selection verified: Chromium ${chromium.length}, Firefox ${firefox.length}, WebKit ${webkit.length}`)
   console.log('Release smoke selection verified: Chromium 5, Firefox 1, WebKit 1')
+  console.log('Production smoke selection verified: Chromium 3, Firefox 1, WebKit 1')
 }

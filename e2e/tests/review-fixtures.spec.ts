@@ -55,16 +55,14 @@ test('fixture state and authored journey remain separate, with scroll and focus 
   await frame.getByRole('link', { name: 'Restore View accounts · Hierarchy', exact: true }).click()
   await expect(frame.getByRole('link', { name: 'Expand View accounts · Hierarchy', exact: true })).toBeFocused()
   await expect.poll(() => page.locator('[data-fve-page-scroll]').first().evaluate(el => el.scrollTop)).toBe(scroll)
-  await page.goto('/examples/specification/profile?appMode=1')
-  await expect(page.getByRole('link', { name: /^Next:/ })).toHaveCount(0)
-  await expect(page.getByLabel('No next journey step', { exact: true })).toBeVisible()
 })
 
-test('authored duplicate-name state shows a real field error without a redundant banner @cross-browser', async ({ page }) => {
+test('duplicate-name preview state updates the menu and focuses its field error without a redundant banner @cross-browser', async ({ page }) => {
   await page.goto('/examples/specification/accounts/update-account?resource=101')
   await page.getByRole('button', { name: /^Review state:/ }).click()
   await expect(page.getByRole('menuitem')).toHaveText(['Editor', 'Name already exists'])
   await page.getByRole('menuitem', { name: 'Name already exists', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Review state: Update account · Name already exists', exact: true })).toBeVisible()
   const drawer = page.getByRole('dialog', { name: 'Edit account', exact: true })
   const name = drawer.getByRole('textbox', { name: 'Name', exact: true })
   await expect(name).toHaveValue('Tax reserve')
