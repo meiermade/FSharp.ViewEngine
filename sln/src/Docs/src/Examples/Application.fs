@@ -65,9 +65,9 @@ module Application =
         let url = applicationHref query
         let columns : TableColumn<Transaction> list =
             [ TableColumn.create "Date" (fun (transaction:Transaction) -> text (date transaction.date)) |> (if selectable then TableColumn.withSort (collectionSort query ApplicationPage.Transactions "date-asc" "date-desc") else id)
-              TableColumn.create "Description" (fun (transaction:Transaction) -> Layout.link (url (ApplicationPage.Transaction transaction.id)) transaction.description) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary
+              TableColumn.create "Description" (fun (transaction:Transaction) -> Layout.inlineLink (url (ApplicationPage.Transaction transaction.id)) transaction.description) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary
               TableColumn.create "Verification" (fun transaction -> statusBadge transaction.status)
-              TableColumn.create "Account" (fun transaction -> Layout.link (url (ApplicationPage.Account transaction.accountId)) (findAccount transaction.accountId).name)
+              TableColumn.create "Account" (fun transaction -> Layout.inlineLink (url (ApplicationPage.Account transaction.accountId)) (findAccount transaction.accountId).name)
               TableColumn.create "Amount (USD)" (fun transaction -> text (money transaction.amount)) |> TableColumn.alignEnd
               if selectable then
                   TableColumn.create "Actions" (fun (transaction:Transaction) ->
@@ -323,7 +323,7 @@ form.requestSubmit();
                 DropdownMenuItem.link (collectionHref {query with overlayFrom="accounts"} (ApplicationPage.DeleteAccount account.id)) "Delete account" |> DropdownMenuItem.withColor DropdownMenuItemColor.Error ]
             |> DropdownMenu.render id
         Table.create "Account hierarchy" [
-            TableColumn.create "Name" (function Group kind -> strong { groupLabel kind } | Record account -> a { _href (url (ApplicationPage.Account account.id)); _class "font-medium text-[var(--fve-brand-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; account.name }) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary |> TableColumn.withSort (collectionSort query ApplicationPage.Accounts "name" "name-desc")
+            TableColumn.create "Name" (function Group kind -> strong { groupLabel kind } | Record account -> Layout.inlineLink (url (ApplicationPage.Account account.id)) account.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary |> TableColumn.withSort (collectionSort query ApplicationPage.Accounts "name" "name-desc")
             TableColumn.create "Type" (function Group kind -> text (string kind) | Record account -> text (string account.accountType))
             TableColumn.create "Commodity" (fun _ -> text "USD")
             TableColumn.create "Balance" (function Record account -> text (money (balance account)) | Group kind -> text (money (rows |> List.filter (fun account -> account.accountType=kind) |> List.sumBy balance))) |> TableColumn.alignEnd |> TableColumn.withSort (collectionSort query ApplicationPage.Accounts "balance-asc" "balance")
@@ -414,7 +414,7 @@ form.requestSubmit();
         let account = findAccount transaction.accountId
         div {
             _class "grid max-w-3xl gap-6"
-            DescriptionList.create [DescriptionListItem.text "Date" (date transaction.date);DescriptionListItem.create "Account" (Layout.link (applicationHref query (ApplicationPage.Account account.id)) account.name);DescriptionListItem.text "Amount (USD)" (money transaction.amount);DescriptionListItem.create "Verification" (statusBadge transaction.status);DescriptionListItem.text "Source" "Manual";DescriptionListItem.text "Comment" "No supporting comment in this record"] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
+            DescriptionList.create [DescriptionListItem.text "Date" (date transaction.date);DescriptionListItem.create "Account" (Layout.inlineLink (applicationHref query (ApplicationPage.Account account.id)) account.name);DescriptionListItem.text "Amount (USD)" (money transaction.amount);DescriptionListItem.create "Verification" (statusBadge transaction.status);DescriptionListItem.text "Source" "Manual";DescriptionListItem.text "Comment" "No supporting comment in this record"] |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
         }
     let private settings (query:Query) key =
         let table caption columns rows = Table.create caption columns rows |> Table.withMobileLayout TableMobileLayout.Records |> Table.render
@@ -422,14 +422,14 @@ form.requestSubmit();
             _class "grid max-w-4xl gap-6"
             match key with
             | "environments" ->
-                table "Organization environments" [TableColumn.create "Name" (fun (environment:Environment) -> Layout.link (applicationHref query (ApplicationPage.Environment environment.id)) environment.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Type" (fun environment -> text (if environment.sandbox then "Sandbox" else "Production"));TableColumn.create "Status" (fun _ -> Badge.create "Ready" |> Badge.withColor BadgeColor.Success |> Badge.render)] environments
+                table "Organization environments" [TableColumn.create "Name" (fun (environment:Environment) -> Layout.inlineLink (applicationHref query (ApplicationPage.Environment environment.id)) environment.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Type" (fun environment -> text (if environment.sandbox then "Sandbox" else "Production"));TableColumn.create "Status" (fun _ -> Badge.create "Ready" |> Badge.withColor BadgeColor.Success |> Badge.render)] environments
             | "users" ->
-                table "Organization users" [TableColumn.create "Name" (fun (name,_,_) -> Layout.link (applicationHref query ApplicationPage.Profile) name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Email" (fun (_,email,_) -> text email);TableColumn.create "Role" (fun (_,_,role) -> text role)] ["Andrew Meier","andrew@meiermade.com",query.workspace.organization.role]
+                table "Organization users" [TableColumn.create "Name" (fun (name,_,_) -> Layout.inlineLink (applicationHref query ApplicationPage.Profile) name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Email" (fun (_,email,_) -> text email);TableColumn.create "Role" (fun (_,_,role) -> text role)] ["Andrew Meier","andrew@meiermade.com",query.workspace.organization.role]
             | "api-clients" ->
                 EmptyState.create "No API clients" "There are no API clients for this organization." |> EmptyState.render
             | "ledgers" ->
                 let available = ledgers |> List.filter (fun ledger -> ledger.organizationId=query.workspace.organization.id)
-                table "Organization ledgers" [TableColumn.create "Name" (fun (ledger:Ledger) -> Layout.link (applicationHref {query with workspace={query.workspace with ledger=ledger};returnWorkspace=None} ApplicationPage.Home) ledger.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Reporting commodity" (fun _ -> text "USD")] available
+                table "Organization ledgers" [TableColumn.create "Name" (fun (ledger:Ledger) -> Layout.inlineLink (applicationHref {query with workspace={query.workspace with ledger=ledger};returnWorkspace=None} ApplicationPage.Home) ledger.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary;TableColumn.create "Reporting commodity" (fun _ -> text "USD")] available
             | "billing" ->
                 DescriptionList.create [DescriptionListItem.text "Subscription" "No subscription";DescriptionListItem.text "Payment method" "None";DescriptionListItem.text "Invoices" "No invoices"] |> DescriptionList.render
             | _ ->
@@ -444,7 +444,7 @@ form.requestSubmit();
         |> DescriptionList.withColumns DescriptionListColumns.Three |> DescriptionList.render
     let private profileOrganizations (query:Query) =
         Table.create "Your organizations" [
-            TableColumn.create "Organization" (fun (organization:Organization) -> Layout.link (applicationHref (organizationQuery query organization.id) (ApplicationPage.SettingsSection "general")) organization.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary
+            TableColumn.create "Organization" (fun (organization:Organization) -> Layout.inlineLink (applicationHref (organizationQuery query organization.id) (ApplicationPage.SettingsSection "general")) organization.name) |> TableColumn.asRowHeader |> TableColumn.asMobilePrimary
             TableColumn.create "Your role" (fun organization -> text organization.role)
             TableColumn.create "Settings" (fun organization -> Layout.secondaryLink (applicationHref (organizationQuery query organization.id) (ApplicationPage.SettingsSection "general")) "Open settings") ] organizations
         |> Table.withMobileLayout TableMobileLayout.Records |> Table.render
@@ -586,10 +586,10 @@ form.requestSubmit();
         div {
             _class "flex min-w-0 max-w-full items-center gap-2"
             match editPage with Some page -> Layout.secondaryLink (collectionHref query page) "Edit account" | None -> ()
-            DropdownMenu.create (elementId query "template-record-actions") "More actions"
-            |> DropdownMenu.withTrigger (DropdownMenuTrigger.icon (Layout.icon "M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z") |> DropdownMenuTrigger.withVariant ButtonVariant.Outline)
-            |> DropdownMenu.withContent [DropdownMenuItem.link (collectionHref query deletePage) "Delete" |> DropdownMenuItem.withColor DropdownMenuItemColor.Error]
-            |> DropdownMenu.render id
+            Button.create (ButtonContent.Text "Delete")
+            |> Button.withColor ButtonColor.Error
+            |> Button.withVariant ButtonVariant.Outline
+            |> Button.renderLink (collectionHref query deletePage)
         }
     let render page (query:Query) =
         let query = if page=ApplicationPage.Transactions && query.sort="name" then {query with sort="date-desc"} else query

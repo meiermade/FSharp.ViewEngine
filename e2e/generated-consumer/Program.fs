@@ -111,10 +111,49 @@ let document =
     |> Render.toString
     |> fun markup -> "<!doctype html>" + markup
 
+// No Docs stylesheet or Prism theme: only consumer-compiled Tailwind and owned runtime assets.
+let codeDocument highlighting =
+    html {
+        _lang "en"
+        _attr("data-nonce", "generated-code-nonce")
+        head {
+            meta { _charset "utf-8" }
+            meta { _name "viewport"; _content "width=device-width, initial-scale=1" }
+            title { "Generated code blocks" }
+            link { _rel "stylesheet"; _href "/output.css" }
+            let prismScripts =
+                if highlighting then
+                    [ "/scripts/prism.1.29.0.min.js"; "/scripts/prism-fsharp.1.29.0.min.js"
+                      "/scripts/prism-python.1.29.0.min.js"; "/scripts/prism-typescript.1.29.0.min.js"
+                      "/scripts/prism-bash.1.29.0.min.js"; "/scripts/prism-sql.1.29.0.min.js" ]
+                else []
+            CodeBlock.assetsWithNonce None prismScripts (Some "generated-code-nonce")
+            script { _type "module"; _src "/scripts/datastar.1.0.4.js"; _attr("nonce", "generated-code-nonce") }
+        }
+        body {
+            _class (ComponentsTheme.className ComponentsTheme.sky + " m-0 bg-[var(--fve-background)] p-6 text-[var(--fve-text)]")
+            main {
+                _class "mx-auto grid max-w-3xl gap-6"
+                h1 { "Generated code blocks" }
+                CodeBlock.create "text" "Build succeeded.\n0 warnings\n0 errors" |> CodeBlock.render
+                if highlighting then
+                    CodeBlock.create "fsharp" "let greeting = \"Hello\"\nlet count = 42" |> CodeBlock.render
+                    CodeBlock.create "python" "from decimal import Decimal\ntotal = Decimal(\"125.50\")" |> CodeBlock.render
+                    CodeBlock.create "typescript" "type Account = { balance: number };\nconst account: Account = { balance: 125.50 };" |> CodeBlock.render
+                    CodeBlock.create "bash" "#!/usr/bin/env bash\nset -euo pipefail\nfor project in Domain Server; do echo \"$project\"; done" |> CodeBlock.render
+                    CodeBlock.create "sql" "select account_id from accounts where currency = 'USD';" |> CodeBlock.render
+            }
+        }
+    } |> Render.toHtmlDocString
+
 let builder = WebApplication.CreateBuilder()
 builder.Services.AddRouting() |> ignore
 let app = builder.Build()
 app.UseStaticFiles() |> ignore
 app.MapGet("/", Func<IResult>(fun () -> Results.Content(document, "text/html; charset=utf-8"))) |> ignore
+for route, highlighting in ["/code", true; "/code/plain", false] do
+    app.MapGet(route, Func<HttpContext, IResult>(fun context ->
+        context.Response.Headers.ContentSecurityPolicy <- "default-src 'self'; script-src 'nonce-generated-code-nonce' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; object-src 'none'"
+        Results.Content(codeDocument highlighting, "text/html; charset=utf-8"))) |> ignore
 app.MapGet("/health", Func<IResult>(fun () -> Results.Json {| status = "ok" |})) |> ignore
 app.Run()

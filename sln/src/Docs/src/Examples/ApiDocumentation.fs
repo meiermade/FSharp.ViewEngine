@@ -121,7 +121,7 @@ module ApiDocumentation =
                         _class "grid gap-5"
                         for resource,description,url in ["Accounts","Financial classification, reporting currency and derived balances.","/examples/api-documentation/list-accounts";"Transactions","Dated signed activity, linked accounts and verification state.","/examples/api-documentation/list-transactions"] do
                             div {
-                                Layout.link url resource
+                                Layout.inlineLink url resource
                                 p { _class "px-3 text-base leading-7 text-[var(--fve-muted-text)]"; description }
                             }
                     })

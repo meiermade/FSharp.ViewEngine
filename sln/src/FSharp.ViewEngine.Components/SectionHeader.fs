@@ -46,7 +46,7 @@ module SectionHeader =
             div {
                 _class "min-w-0"
                 match config.level with
-                | SectionHeadingLevel.H2 -> h2 { _class "text-lg font-semibold text-[var(--fve-text)]"; config.title }
+                | SectionHeadingLevel.H2 -> h2 { _class "text-2xl font-semibold text-[var(--fve-text)]"; config.title }
                 | SectionHeadingLevel.H3 -> h3 { _class "text-base font-semibold text-[var(--fve-text)]"; config.title }
                 match config.description with
                 | Some description -> p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; description }

@@ -67,8 +67,7 @@ test('spec App mode follows an exact account through validation cancel and curre
   await dialog.getByRole('button', { name: 'Update', exact: true }).click()
   await expect(dialog).toHaveCount(0)
   await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
-  await page.getByRole('button', { name: 'More actions', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
+  await page.locator('[data-fve-page-header="true"]').getByRole('link', { name: 'Delete', exact: true }).click()
   const deletion = page.getByRole('dialog', { name: 'Delete Unassigned expense?', exact: true })
   await expect(deletion).toBeVisible()
   await expect(deletion.getByRole('link', { name: /^Restore / })).toHaveCount(0)
@@ -80,6 +79,38 @@ test('spec App mode follows an exact account through validation cancel and curre
   await expect(page.getByRole('heading', { name: 'View account', exact: true, level: 1 })).toBeVisible()
   expect(pageErrors).toEqual([])
 })
+
+for (const scenario of [
+  { path: 'accounts/101', title: 'Operating checking', blocked: true },
+  { path: 'transactions/201', title: 'Client payment', blocked: false },
+]) {
+  test(`detail Delete action opens the existing confirmation for ${scenario.title} @cross-browser`, async ({ page }) => {
+    const workspace = 'organization=example-household&environment=production&ledger=alex'
+    await page.goto(`/examples/application/${scenario.path}?${workspace}`)
+    const header = page.locator('[data-fve-page-header="true"]')
+    const remove = header.getByRole('link', { name: 'Delete', exact: true })
+    await expect(remove).toBeVisible()
+    await expect(header.getByRole('button', { name: 'More actions', exact: true })).toHaveCount(0)
+    await expect(header.getByRole('link', { name: 'Edit account', exact: true })).toHaveCount(scenario.blocked ? 1 : 0)
+    await remove.focus()
+    await page.keyboard.press('Enter')
+    const dialog = page.getByRole('dialog', { name: `Delete ${scenario.title}?`, exact: true })
+    await expect(dialog).toBeVisible()
+    await expect(page).toHaveURL(url => url.searchParams.get('organization') === 'example-household' && url.searchParams.get('environment') === 'production' && url.searchParams.get('ledger') === 'alex')
+    if (scenario.blocked) {
+      await expect(dialog.getByText('Account cannot be deleted', { exact: true })).toBeVisible()
+      await expect(dialog.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0)
+    } else {
+      await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
+      await expect(dialog.getByText('Deletion validated', { exact: true })).toBeVisible()
+    }
+    await page.keyboard.press('Escape')
+    await expect(dialog).toHaveCount(0)
+    await expect(page).toHaveURL(url => url.pathname === `/examples/application/${scenario.path}`)
+    await expect(page.getByRole('heading', { name: scenario.title, level: 1, exact: true })).toBeVisible()
+    await expect(header.getByRole('link', { name: 'Delete', exact: true })).toBeVisible()
+  })
+}
 
 for (const scenario of [
   { collection: 'accounts', record: 'Operating checking', action: 'Edit account', dialog: 'Edit account', workflow: 'accounts/update-account', resource: '101', background: 'Accounts' },
@@ -134,7 +165,7 @@ test('workspace menu and appearance preferences survive App mode document naviga
   await page.getByRole('menuitem', { name: 'Jordan', exact: true }).click()
   await expect(page).toHaveURL(/ledger=jordan.*appMode=1/)
   await expect(page.locator('html')).toHaveClass(/dark/)
-  await page.getByRole('link', { name: 'Andrew Meier', exact: true }).click()
+  await page.getByRole('link', { name: 'Andrew Meier andrew@meiermade.com', exact: true }).click()
   await expect(page).toHaveURL(/specification\/profile.*ledger=jordan.*appMode=1/)
   // The SSR radios are visible before the saved appearance and handlers initialize.
   await expect(page.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked()
