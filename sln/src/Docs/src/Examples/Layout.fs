@@ -13,6 +13,8 @@ module Layout =
     let theme = ComponentsTheme.sky
     let link (href:string) (label:string) =
         a { _href href; _class "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-[var(--fve-radius-control)] px-3 py-1.5 text-sm font-medium text-[var(--fve-brand-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; label }
+    let inlineLink (href:string) (label:string) =
+        a { _href href; _class "font-medium text-[var(--fve-brand-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; label }
     let secondaryLink (href:string) (label:string) = Button.create (ButtonContent.Text label) |> Button.renderLink href
     let primaryLink (href:string) (label:string) =
         a { _href href; _class "inline-flex min-h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-text)] px-3 py-1.5 text-sm font-medium text-[light-dark(white,#101828)] hover:bg-[var(--fve-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"; label }
@@ -22,6 +24,16 @@ module Layout =
     let icon (data:string) =
         svg { _viewBox "0 0 24 24"; _fill "none"; _stroke "currentColor"; _strokeWidth "1.5"; _class "size-5 shrink-0"; _ariaHidden true; path { _strokeLinecap "round"; _strokeLinejoin "round"; _d data } }
     let private chevron = icon "m9 6 6 6-6 6"
+    let private profileIdentity =
+        span {
+            _class "flex min-w-0 items-center gap-3"
+            Avatar.create "Andrew Meier" "AM" |> Avatar.decorative |> Avatar.render
+            span {
+                _class "min-w-0"
+                strong { _class "block truncate text-sm font-semibold"; "Andrew Meier" }
+                span { _class "block truncate text-xs text-[var(--fve-muted-text)]"; "andrew@meiermade.com" }
+            }
+        }
     let private footerLink (current:string) (href:string) (label:string) (leading:HtmlElement) =
         SideNavRow.link href label
         |> SideNavRow.withLeading leading
@@ -112,7 +124,7 @@ module Layout =
         |> SideNav.withCurrent currentNav
         |> SideNav.withContext [
             if personal then
-                div { _class "flex min-w-0 items-center gap-3 p-4"; Avatar.create "Andrew Meier" "AM" |> Avatar.render; div { _class "min-w-0"; strong { _class "block truncate text-sm"; "Andrew Meier" }; span { _class "block truncate text-xs text-[var(--fve-muted-text)]"; "andrew@meiermade.com" } } }
+                div { _class "p-4"; profileIdentity }
             elif settingsKey.IsSome then organizationSelector navId page query
             else workspaceSelector navId (current.Split('?')[0]) query ]
         |> SideNav.withFooter [
@@ -120,7 +132,10 @@ module Layout =
                 if settingsKey.IsNone then
                     yield footerLink current (url ApplicationPage.Settings) "Settings" (icon "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.281 1.94 1.12 1.217-.456 1.37.49 1.296 2.247-.26 1.431-1.003.827v2.24l1.003.827.26 1.43-1.296 2.247-1.37.491-1.217-.456-1.94 1.12-.213 1.281-1.11.94h-2.592l-1.11-.94-.213-1.281-1.94-1.12-1.217.456-1.369-.49-1.296-2.247.26-1.43 1.003-.827v-2.24l-1.003-.827-.26-1.43 1.296-2.247 1.37-.491 1.216.456 1.94-1.12.213-1.281ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z")
                     yield div { _class "border-t border-[var(--fve-border)]" }
-                yield footerLink current (url ApplicationPage.Profile) "Andrew Meier" (icon "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.12a7.5 7.5 0 0 1 15 0A17.93 17.93 0 0 1 12 21.75c-2.676 0-5.216-.584-7.5-1.63Z")
+                yield SideNavRow.link (url ApplicationPage.Profile) "Andrew Meier"
+                    |> SideNavRow.withLeading (Avatar.create "Andrew Meier" "AM" |> Avatar.decorative |> Avatar.render)
+                    |> SideNavRow.withDescription "andrew@meiermade.com"
+                    |> SideNavRow.render id
         ] |> SideNav.render id
     let private applicationFrame previewId framed (navigationLabel:string) (navigation:string -> HtmlElement) (bar:PageTopBarConfig) (title:string) (actions:HtmlElement) collection (content:HtmlElement) =
         let preview = previewId<>""
@@ -306,7 +321,7 @@ module Layout =
                 documentTitle title
                 ThemeSwitcher.assetsWithNonce "financial-example-appearance" ColorMode.System nonce
                 Html.link { _rel "stylesheet"; _href "/css/output.css" }
-                CodeBlock.assetsWithNonce (Some "/css/prism-tomorrow.1.29.0.min.css") ["/scripts/prism.1.29.0.min.js";"/scripts/prism-fsharp.1.29.0.min.js";"/scripts/prism-sql.1.29.0.min.js";"/scripts/prism-bash.1.29.0.min.js";"/scripts/prism-json.1.29.0.min.js"] nonce
+                CodeBlock.assetsWithNonce None ["/scripts/prism.1.29.0.min.js";"/scripts/prism-fsharp.1.29.0.min.js";"/scripts/prism-sql.1.29.0.min.js";"/scripts/prism-bash.1.29.0.min.js";"/scripts/prism-json.1.29.0.min.js"] nonce
                 Mermaid.assetsWithNonce "/scripts/mermaid.11.16.0.min.js" nonce
                 script {
                     match nonce with Some value -> _attr("nonce", value) | None -> ()

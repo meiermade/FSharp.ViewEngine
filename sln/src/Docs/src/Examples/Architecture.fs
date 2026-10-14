@@ -78,10 +78,10 @@ module Architecture =
                 _class "grid gap-12"
                 Layout.documentationSection "projects" "Projects" (diagram "Ledger project dependencies and HTTP boundary" solution)
                 Layout.documentationSection "project-inventory" "Project inventory" (DescriptionList.create [
-                    DescriptionListItem.create "Ledger.Domain" (Layout.link (href "architecture/solution/domain") "Financial types and invariants")
-                    DescriptionListItem.create "Ledger.Application" (Layout.link (href "architecture/solution/application") "Validation operations and outcomes")
-                    DescriptionListItem.create "Acme.Components" (Layout.link (href "architecture/solution/components") "Installed HTML building blocks")
-                    DescriptionListItem.create "Ledger.Server" (Layout.link (href "architecture/solution/server") "HTTP hosting and the three rendered surfaces") ] |> DescriptionList.render)
+                    DescriptionListItem.create "Ledger.Domain" (Layout.inlineLink (href "architecture/solution/domain") "Financial types and invariants")
+                    DescriptionListItem.create "Ledger.Application" (Layout.inlineLink (href "architecture/solution/application") "Validation operations and outcomes")
+                    DescriptionListItem.create "Acme.Components" (Layout.inlineLink (href "architecture/solution/components") "Installed HTML building blocks")
+                    DescriptionListItem.create "Ledger.Server" (Layout.inlineLink (href "architecture/solution/server") "HTTP hosting and the three rendered surfaces") ] |> DescriptionList.render)
                 rules ["Compile-time references SHALL flow Server → Application → Domain; Server SHALL also reference Components.";"Domain and Application SHALL remain independent of Giraffe, HTML and browser state.";"Ledger.Server SHALL be the only executable project. Example.fsproj SHALL compile that assembly.";"Solid relationships SHALL represent project references; the dashed relationship SHALL represent HTTP requests."]
             }
         | "architecture/solution/domain" ->

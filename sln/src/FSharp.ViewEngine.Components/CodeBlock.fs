@@ -9,9 +9,22 @@ open System.Security.Cryptography
 open System.Text
 
 module private CodeStyles =
-    let code = "m-0! overflow-x-auto rounded-xl border border-[var(--fve-border)] bg-[var(--fve-docs-code-surface,var(--fve-background))]! p-4 font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! shadow-sm"
+    let code = "m-0! overflow-x-auto rounded-xl border border-[var(--fve-border)] bg-[var(--fve-docs-code-surface,color-mix(in_oklch,var(--fve-background)_72%,var(--fve-surface-subtle)))]! p-4 font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! shadow-sm"
 
 module internal CopyableCode =
+    // Prism creates these spans after rendering, so their presentation travels with the source component.
+    // light-dark follows the owning ComponentsTheme color scheme, including locally scoped themes.
+    let syntaxClasses =
+        """[&_:where(.token.comment,.token.prolog,.token.doctype,.token.cdata)]:text-[var(--fve-muted-text)]
+        [&_:where(.token.punctuation)]:text-[var(--fve-text)]
+        [&_:where(.token.deleted,.token.property,.token.tag,.token.keyword)]:text-[light-dark(var(--color-red-700),var(--color-red-300))]
+        [&_:where(.token.boolean,.token.constant,.token.number,.token.symbol)]:text-[light-dark(var(--color-blue-700),var(--color-blue-300))]
+        [&_:where(.token.attr-name,.token.builtin,.token.string)]:text-[light-dark(var(--color-green-800),var(--color-green-300))]
+        [&_:where(.token.operator)]:text-[light-dark(var(--color-cyan-800),var(--color-cyan-200))]
+        [&_:where(.token.class-name,.token.function)]:text-[light-dark(var(--color-purple-700),var(--color-purple-300))]
+        [&_:where(.token.variable)]:text-[light-dark(var(--color-orange-800),var(--color-orange-300))]
+        [&_:where(.token.important,.token.bold)]:font-bold [&_:where(.token.italic)]:italic"""
+
     let refreshAfterMorph = "if (evt.detail.type === 'datastar-patch-elements') queueMicrotask(() => { if (el.isConnected) window.renderCode?.(el) })"
 
     let private sourceFingerprint (source:string) =
@@ -41,7 +54,7 @@ module internal CopyableCode =
 
     let render (className:string) (codeClass:string) (label:string) (source:string) =
         div {
-            _class "relative min-w-0"
+            _class ("relative min-w-0 " + syntaxClasses)
             _data("docs-copyable-code", "true")
             _data("init", $"window.renderCode?.(el, '{sourceFingerprint source}')")
             _data("on:datastar-fetch", refreshAfterMorph)

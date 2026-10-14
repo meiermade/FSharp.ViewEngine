@@ -115,8 +115,7 @@ module View =
     let private assets =
         { DocsAssets.defaults with
             productStylesheets = [ "/css/output.css" ]
-            prismStylesheet = Some "/css/prism-tomorrow.1.29.0.min.css"
-            prismScripts = DocsAssets.defaults.prismScripts @ ["/scripts/prism-bash.1.29.0.min.js";"/scripts/prism-json.1.29.0.min.js"]
+            prismScripts = DocsAssets.defaults.prismScripts @ ["/scripts/prism-bash.1.29.0.min.js";"/scripts/prism-json.1.29.0.min.js";"/scripts/prism-python.1.29.0.min.js";"/scripts/prism-typescript.1.29.0.min.js"]
             navigation = Some Docs.Web.Navigation.enhancement
             additionalHead =
                 [ link { _rel "icon"; _href "/favicon.svg"; _type "image/svg+xml" }

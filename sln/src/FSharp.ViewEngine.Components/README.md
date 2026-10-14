@@ -53,6 +53,8 @@ let workspace =
 
 Use component options and authored utilities rather than globally restyling descendants.
 
+CodeBlock, Example and API code samples include a subtle code surface and light/dark syntax colors in their scanned F# source; no Docs-host CSS or external Prism theme is required. For plain output, use `CodeBlock.create "text" source` and `CodeBlock.assets None []`: Datastar and the emitted copy runtime are sufficient, with no Prism download. For optional highlighting, use the [Prism download builder](https://prismjs.com/download.html) to select your languages, save its JavaScript bundle under `wwwroot/scripts`, and pass its URL to `CodeBlock.assets None scripts` (or `assetsWithNonce` under nonce CSP). `None` selects the built-in presentation; download a theme's CSS only if you want to pass a custom stylesheet URL instead. The built-in colors follow the owning `ComponentsTheme` color scheme, including scoped themes. See the [Code block guide](https://fve.meiermade.com/components/code-block) for Giraffe setup and F#, Python, TypeScript, Bash and SQL examples.
+
 ## Browser and host requirements
 
 Load Datastar and any assets required by the selected controls. The [nonce CSP guide](https://fve.meiermade.com/extensions/datastar#content-security-policy) explains the supported integration, including `ThemeSwitcher.assetsWithNonce`, `CodeBlock.assetsWithNonce`, and `Mermaid.assetsWithNonce`. Full documents get fresh host-issued nonces; enhanced patches retain the active document nonce. Nonces do not authorize inline event handlers.

@@ -1144,8 +1144,18 @@ after"""
                 @ Components.applicationResourceRegistrations
             let apiComponentPages = allComponentPages |> List.filter (fun registration -> registration.id <> Components.formLayoutsRegistration.id)
             let renderContent (content:HtmlElement list) = fragment { content } |> Render.toString
+            let assertInstallation (registration:DocPage) (page:DocumentationPageConfig) =
+                let html = page.sections |> List.find (fun section -> section.id = "installation") |> _.content |> renderContent
+                Expect.stringContains html ">Installation</h2>" $"{registration.title} has a visible installation heading"
+                Expect.stringContains html "Copy this component and its required dependencies" $"{registration.title} uses the shared introduction"
+                Expect.stringContains html "The CLI resolves dependencies and preserves consumer-authored files." $"{registration.title} uses the shared setup guidance"
+                Expect.stringContains html "href=\"/components/installation\"" $"{registration.title} links to full installation instructions"
+                let selector = registration.path.Substring("/components/".Length)
+                Expect.stringContains html $"dotnet fve add {selector} --config src/Acme.Components/fve.json" $"{registration.title} installs its own component"
+                Expect.equal (Regex.Matches(html, "<p(?:>| )").Count) 2 $"{registration.title} keeps component-specific setup out of installation"
             for registration in allComponentPages do
                 let page = Components.tryPage registration.path |> Option.get
+                assertInstallation registration page
                 Expect.isFalse (String.IsNullOrWhiteSpace page.description) $"{registration.title} has a concise description"
                 let leadHtml = renderContent page.lead
                 Expect.equal (Regex.Matches(leadHtml, "data-docs-example=\"true\"").Count) 1 $"{registration.title} has one canonical lead example"
@@ -1162,6 +1172,7 @@ after"""
                 Expect.stringContains html "val " $"{registration.title} exposes public function signatures"
             for registration in ComponentDocumentation.registrations do
                 let page = ComponentDocumentation.tryPage registration.path |> Option.get
+                assertInstallation registration page
                 Expect.equal (page.sections |> List.take 2 |> List.map _.id) [ "installation"; "usage" ] $"Documentation {registration.title} teaches installation and usage after its preview"
                 Expect.equal page.lead.Length 1 $"Documentation {registration.title} has one canonical lead (which may demonstrate a nested Example)"
                 Expect.stringContains (renderContent page.lead) "data-docs-example=\"true\"" "lead owns an executable example"
@@ -1337,6 +1348,39 @@ after"""
             let versioning = render Components.versioningRegistration
             Expect.stringContains versioning "rel=\"prev\" href=\"/components/customization\"" "last guide follows customization"
             Expect.stringContains versioning "rel=\"next\" href=\"/components/button\"" "shared guides precede focused components"
+        }
+
+        test "SideNavRow distinguishes navigation links from menus and supports profile and trailing content" {
+            let settings = SideNavRow.link Settings "Settings" |> SideNavRow.current
+            let settingsHtml = settings |> SideNavRow.render shellTestUrl |> Render.toString
+            Expect.stringContains settingsHtml "href=\"/settings\"" "link destinations use the typed resolver"
+            Expect.stringContains settingsHtml "aria-current=\"page\"" "current links retain their navigation state"
+            Expect.isFalse (settingsHtml.Contains "<svg") "plain links do not imply a menu or disclosure"
+            Expect.isFalse (settingsHtml.Contains "aria-haspopup") "plain links remain links"
+
+            let profileHtml =
+                SideNavRow.link Settings "Andrew Meier"
+                |> SideNavRow.withLeading (Avatar.create "Andrew Meier" "AM" |> Avatar.decorative |> Avatar.render)
+                |> SideNavRow.withDescription "andrew+<private>@meiermade.com"
+                |> SideNavRow.withTrailing (Badge.create "New" |> Badge.render)
+                |> SideNavRow.render shellTestUrl
+                |> Render.toString
+            Expect.stringContains profileHtml "Andrew Meier" "the profile name is rendered"
+            Expect.stringContains profileHtml "andrew+&lt;private&gt;@meiermade.com" "secondary text is safely encoded"
+            Expect.stringContains profileHtml ">AM</span>" "leading content supports an avatar"
+            Expect.stringContains profileHtml ">New</span>" "trailing content is explicitly supplied"
+            Expect.isFalse (profileHtml.Contains "<svg") "custom trailing content does not add a link chevron"
+
+            let menuHtml =
+                DropdownMenu.create "row-workspace" "Choose workspace"
+                |> DropdownMenu.withContent [DropdownMenuItem.link Home "Home"]
+                |> fun menu -> SideNavRow.menu menu "Workspace"
+                |> SideNavRow.withTrailing (Badge.create "2" |> Badge.render)
+                |> SideNavRow.render shellTestUrl
+                |> Render.toString
+            Expect.stringContains menuHtml "aria-haspopup=\"menu\"" "menu rows retain their interaction semantics"
+            Expect.equal (Regex.Matches(menuHtml, "<svg").Count) 1 "menus retain their disclosure indicator alongside optional trailing content"
+            Expect.stringContains menuHtml ">2</span>" "menus support the same trailing slot"
         }
 
         test "Breadcrumbs, SideNav, PageTopBar, PageHeader, Section, Page, and AppShell preserve typed ownership and responsive semantics" {

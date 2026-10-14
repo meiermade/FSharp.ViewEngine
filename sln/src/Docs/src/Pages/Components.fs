@@ -693,7 +693,11 @@ module Components =
             DescriptionListItem.text "Name" "Project notes"
             DescriptionListItem.text "Format" "Document"
             DescriptionListItem.text "Folder" "Shared files"
-            DescriptionListItem.text "Owner" "Alex Morgan"
+            DescriptionListItem.create "Owner" (a {
+                _href "/examples/application/profile"
+                _class "font-medium text-[var(--fve-brand-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                "Andrew Meier"
+            })
             DescriptionListItem.status "Status" (Badge.create "Active" |> Badge.withColor BadgeColor.Success |> Badge.render)
             DescriptionListItem.text "Size" "2.4 MB"
         ]
@@ -2406,6 +2410,7 @@ module Components =
         |> SideNav.withContext [
             SideNavRow.menu workspaceMenu "Alex"
             |> SideNavRow.withLeading (sideNavRowIcon "M3.75 3.75h6v6h-6zm10.5 0h6v6h-6zm-10.5 10.5h6v6h-6zm10.5 0h6v6h-6z")
+            |> SideNavRow.withTrailing (Badge.create "2" |> Badge.withAttributes [_ariaLabel "2 workspaces"] |> Badge.render)
             |> SideNavRow.render id ]
         |> SideNav.withContent (SideNavContent.create [
             SideNavItem.create "/components" "Home"
@@ -2418,8 +2423,9 @@ module Components =
             |> SideNavRow.withLeading (sideNavRowIcon "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.281a6.52 6.52 0 0 1 1.94 1.12l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827a6.759 6.759 0 0 1 0 2.24l1.003.827c.424.35.534.954.26 1.43l-1.296 2.247a1.125 1.125 0 0 1-1.37.491l-1.217-.456a6.57 6.57 0 0 1-1.94 1.12l-.213 1.281c-.09.543-.56.94-1.11.94h-2.592c-.55 0-1.02-.397-1.11-.94l-.213-1.281a6.52 6.52 0 0 1-1.94-1.12l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.296-2.247a1.125 1.125 0 0 1 .26-1.431l1.003-.827a6.932 6.932 0 0 1 0-2.24l-1.003-.827a1.125 1.125 0 0 1-.26-1.43l1.296-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456a6.52 6.52 0 0 1 1.94-1.12l.213-1.281ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z")
             |> SideNavRow.render id
             Separator.create () |> Separator.render
-            SideNavRow.link "/examples/application/profile" "Andy Meier"
-            |> SideNavRow.withLeading (sideNavRowIcon "M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.5 20.12a7.5 7.5 0 0 1 15 0")
+            SideNavRow.link "/examples/application/profile" "Andrew Meier"
+            |> SideNavRow.withLeading (Avatar.create "Andrew Meier" "AM" |> Avatar.decorative |> Avatar.render)
+            |> SideNavRow.withDescription "andrew@meiermade.com"
             |> SideNavRow.render id ]
         |> SideNav.render id
 
@@ -4002,7 +4008,7 @@ div {
         | "radio-group" -> "Choose one submitted value from an accessible typed radio group."
         | "choice-cards" -> "Choose one rich option from labelled cards with descriptions and supporting content."
         | "breadcrumbs" -> "Show the current hierarchy with semantic links and responsive overflow."
-        | "side-nav" -> "Compose optional header, context, scrolling content and footer slots. Use SideNavItem for links, SideNavSection for static headings, and SideNavGroup for collapsible groups; plain links share one chevron-aligned inset at every depth, sections use small, muted labels without indentation, and groups guide nested children with chevron-aligned vertical lines."
+        | "side-nav" -> "Compose optional header, context, scrolling content and footer slots. Use SideNavItem for links, SideNavSection for static headings, and SideNavGroup for collapsible groups. SideNavRow links have no default trailing indicator; menu rows retain a downward chevron. Add an avatar with withLeading, secondary text or email with withDescription, and optional trailing content with withTrailing. Sections use small, muted labels without indentation, and groups guide nested children with vertical lines."
         | "tabs" -> "Switch between labelled local panels with orientation-aware keyboard navigation."
         | "pagination" -> "Navigate bounded result pages with current, previous, next, and compact range items."
         | "command" -> "Search grouped destinations and actions with ranked matching, keyboard navigation, and an optional dialog palette."
@@ -4028,30 +4034,28 @@ div {
         | "media-library" -> "Browse and select media with filters, metadata, and responsive collection states."
         | _ -> $"Use the {registration.title} component in typed F# interfaces."
 
-    let private installationSelector (registration:DocPage) =
-        match componentKey registration with
-        | key -> key
-
     let private titledSection id title content =
         DocumentationSection.create id title (h2 { _class "text-xl font-semibold text-[var(--fve-text)]"; title } :: content)
+
+    let installationSection selector =
+        titledSection "installation" "Installation" [
+            prose "Copy this component and its required dependencies into the consumer-owned Components project."
+            code "shell" $"dotnet fve add {selector} --config src/Acme.Components/fve.json"
+            p {
+                _class "m-0 text-base leading-relaxed text-[var(--fve-muted-text)]"
+                "The CLI resolves dependencies and preserves consumer-authored files. See "
+                a { _href installationRegistration.path; _class "font-semibold text-[var(--fve-brand-text)] underline underline-offset-2"; "Installation" }
+                " for project initialization and Tailwind source detection."
+            } ]
 
     let private componentGallery (registration:DocPage) examples =
         match examples with
         | [] -> invalidOp $"Component page '{registration.path}' requires a canonical lead example."
         | lead :: variants ->
-            let installation = installationSelector registration
             let leadContent =
                 [ Example.lead lead.id lead.title "fsharp" lead.source lead.preview ]
             let sections = [
-                titledSection "installation" "Installation" [
-                    prose "Copy this component and its required dependencies into the consumer-owned Components project."
-                    code "shell" $"dotnet fve add {installation} --config src/Acme.Components/fve.json"
-                    p {
-                        _class "m-0 text-base leading-relaxed text-[var(--fve-muted-text)]"
-                        "The CLI resolves dependencies and preserves consumer-authored files. See "
-                        a { _href installationRegistration.path; _class "font-semibold text-[var(--fve-brand-text)] underline underline-offset-2"; "Installation" }
-                        " for project initialization and Tailwind source detection."
-                    } ]
+                installationSection (componentKey registration)
                 titledSection "usage" "Usage" [
                     code "fsharp" lead.source
                     if registration.id = buttonRegistration.id then

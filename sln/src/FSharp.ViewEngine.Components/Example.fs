@@ -56,7 +56,7 @@ module Example =
             "relative box-border min-h-40 min-w-[min(15rem,100%)] max-w-full overflow-hidden bg-[var(--fve-background)] p-6 " + frame + " has-[[data-fve-full-bleed-example=true]]:p-0 has-[[data-page-example-preview=true]]:overflow-visible has-[[data-page-example-preview=true]]:rounded-none has-[[data-page-example-preview=true]]:border-0"
         let codeClasses =
             let frame = if gallery then "rounded-xl border border-[var(--fve-border)]" else "border-0 rounded-none"
-            $"relative m-0! min-h-40 overflow-auto bg-[var(--fve-docs-code-surface,var(--fve-background))]! p-4 font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! {frame} language-{prismLanguage}"
+            $"relative m-0! min-h-40 overflow-auto bg-[var(--fve-docs-code-surface,color-mix(in_oklch,var(--fve-background)_72%%,var(--fve-surface-subtle)))]! p-4 font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! {frame} language-{prismLanguage}"
 
         section {
             _class frameClasses
@@ -162,7 +162,7 @@ module Example =
                 _role "tabpanel"
                 _attr("aria-labelledby", tabId "code")
                 _tabindex 0
-                _class codeClasses
+                _class (codeClasses + " " + CopyableCode.syntaxClasses)
                 _data("docs-example-code", "true")
                 _data("init", "window.renderCode?.(el)")
                 _data("on:datastar-fetch", CopyableCode.refreshAfterMorph)

@@ -111,7 +111,7 @@ type ApiOperationConfig =
 
 module private ApiStyles =
     let code =
-        "m-0! overflow-x-auto rounded-xl border border-[var(--fve-border)] bg-[var(--fve-docs-code-surface,var(--fve-background))]! p-4 font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! shadow-sm"
+        "m-0! overflow-x-auto rounded-xl border border-[var(--fve-border)] bg-[var(--fve-docs-code-surface,color-mix(in_oklch,var(--fve-background)_72%,var(--fve-surface-subtle)))]! p-4 font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! shadow-sm"
     let panel = "overflow-hidden rounded-xl border border-[var(--fve-border)] bg-[var(--fve-neutral-subtle)] text-[var(--fve-text)]"
     let panelHeader = "flex items-center justify-between border-b border-[var(--fve-border)] px-3.5 py-3 text-xs font-semibold text-[var(--fve-text)]"
     let parameter = "py-4 [&+&]:border-t [&+&]:border-[var(--fve-border)]"

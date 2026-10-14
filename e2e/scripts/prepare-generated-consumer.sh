@@ -109,7 +109,10 @@ done
 )
 
 visual_dir="$output_dir/net10.0"
-mkdir -p "$visual_dir/App/wwwroot"
+mkdir -p "$visual_dir/App/wwwroot/scripts"
+for asset in datastar.1.0.4.js prism.1.29.0.min.js prism-fsharp.1.29.0.min.js prism-python.1.29.0.min.js prism-typescript.1.29.0.min.js prism-bash.1.29.0.min.js prism-sql.1.29.0.min.js; do
+  cp "$sln_dir/src/Docs/wwwroot/scripts/$asset" "$visual_dir/App/wwwroot/scripts/$asset"
+done
 cp "$fixture_dir/GeneratedConsumer.fsproj" "$visual_dir/App/GeneratedConsumer.fsproj"
 cp "$fixture_dir/Program.fs" "$visual_dir/App/Program.fs"
 cp "$fixture_dir/input.css" "$visual_dir/App/input.css"

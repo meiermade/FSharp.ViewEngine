@@ -367,6 +367,10 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expect(descriptionListSurface.locator('dl')).toHaveCount(4)
   await expect(descriptionListSurface.first().locator('dt')).toHaveText(['Name', 'Format'])
   await expect(page.locator('#components-description-list-panel-preview dt')).toHaveText(['Name', 'Format', 'Folder', 'Owner', 'Status', 'Size'])
+  const descriptionListOwner = descriptionListSurface.getByRole('link', { name: 'Andrew Meier', exact: true })
+  await expect(descriptionListOwner).toBeVisible()
+  await expect(descriptionListOwner).toHaveAttribute('href', '/examples/application/profile')
+  await expect(descriptionListOwner).toHaveCSS('padding-left', '0px')
   await expect(descriptionListSurface.locator('dd')).toHaveCount(18)
   await expect(descriptionListSurface.getByText('Includes files added today.')).toBeVisible()
 
@@ -1576,6 +1580,21 @@ test('hidden active-document Prism failures remain observable', crossBrowser, as
   await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.29.0.min.js'))).toBe(true)
 })
 
+test('Code block guide renders plain output and highlights every documented language', async ({ page }) => {
+  const browserErrors = captureBrowserErrors(page)
+  await page.goto('/components/code-block', { waitUntil: 'domcontentloaded' })
+  await expect(page.getByRole('heading', { name: 'Quick start with Giraffe', exact: true })).toBeVisible()
+  const previews = page.locator('[data-docs-preview-frame="true"]')
+  await expect(previews.locator('code.language-text')).toHaveText('Build succeeded.\n0 warnings\n0 errors')
+  await expect(previews.locator('code.language-text .token')).toHaveCount(0)
+  for (const language of ['fsharp', 'python', 'typescript', 'bash', 'sql']) {
+    await expect(previews.locator(`code.language-${language} .token.keyword`).first()).toBeVisible()
+  }
+  await expect(page.getByRole('link', { name: 'Prism', exact: true })).toHaveAttribute('href', 'https://prismjs.com/')
+  await expect(page.getByRole('link', { name: 'Prism download builder', exact: true })).toHaveAttribute('href', 'https://prismjs.com/download.html')
+  expect(browserErrors).toEqual([])
+})
+
 test('code blocks copy their literal source', async ({ page }) => {
   await page.goto('/getting-started/first-view', { waitUntil: 'domcontentloaded' })
   await page.evaluate(() => {
@@ -1958,8 +1977,7 @@ test('code-free Examples index settles without starting Prism', crossBrowser, as
     await expect(page.locator('code[class*="language-"]')).toHaveCount(0)
     await expect(page.getByRole('heading', { level: 1 })).toBeVisible()
   }
-  expect(prismRequests.filter(url => /\/scripts\/prism/.test(new URL(url).pathname))).toEqual([])
-  expect(prismRequests.some(url => new URL(url).pathname === '/css/prism-tomorrow.1.29.0.min.css')).toBe(true)
+  expect(prismRequests).toEqual([])
 })
 
 test('representative component documents retain one page heading and unique IDs', async ({ page, request }) => {

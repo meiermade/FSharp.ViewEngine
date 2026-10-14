@@ -22,7 +22,7 @@ module internal PageHeaderView =
             for attribute in ComponentHtml.safeAttributes [ "class"; "data-fve-page-header" ] config.attributes do attribute
             div {
                 _class "min-w-0 flex-[1_1_12rem]"
-                h1 { _class "break-words text-xl font-semibold tracking-tight text-[var(--fve-text)]"; config.title }
+                h1 { _class "break-words text-3xl font-semibold tracking-tight text-[var(--fve-text)]"; config.title }
                 match config.subtitle with
                 | Some subtitle -> p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; subtitle }
                 | None -> ()

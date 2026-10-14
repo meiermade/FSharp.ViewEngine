@@ -35,6 +35,8 @@ type SideNavRowConfig<'destination> =
         { label:string
           destination:SideNavRowDestination<'destination>
           leading:HtmlElement option
+          description:string option
+          trailing:HtmlElement option
           current:bool
           attributes:HtmlAttribute list }
 
@@ -44,11 +46,13 @@ type SideNavRowConfig<'destination> =
 module SideNavRow =
     let private create label destination =
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A side-navigation row label is required."
-        { label = label; destination = destination; leading = None; current = false; attributes = [] }
+        { label = label; destination = destination; leading = None; description = None; trailing = None; current = false; attributes = [] }
 
     let link destination label = create label (Link destination)
     let menu menu label = create label (Menu menu)
     let withLeading leading (row:SideNavRowConfig<'destination>) = { row with leading = Some leading }
+    let withDescription description (row:SideNavRowConfig<'destination>) = { row with description = Some description }
+    let withTrailing trailing (row:SideNavRowConfig<'destination>) = { row with trailing = Some trailing }
     let current (row:SideNavRowConfig<'destination>) = { row with current = true }
     let withAttributes attributes (row:SideNavRowConfig<'destination>) = { row with attributes = attributes }
 
@@ -56,17 +60,24 @@ module SideNavRow =
         let body menu = span {
             _class "flex min-w-0 w-full items-center gap-3"
             match row.leading with
-            | Some leading -> span { _ariaHidden true; _class "flex size-5 shrink-0 items-center justify-center [&>svg]:size-5"; leading }
+            | Some leading -> span { _ariaHidden true; _class "flex shrink-0 items-center justify-center [&>svg]:size-5"; leading }
             | None -> ()
-            span { _class "min-w-0 flex-1 truncate text-left"; row.label }
             span {
-                _ariaHidden true
-                _class "size-4 shrink-0"
-                if menu then
-                    raw """<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
-                else
-                    raw """<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M7.22 4.22a.75.75 0 0 1 1.06 0l5.25 5.25a.75.75 0 0 1 0 1.06l-5.25 5.25a.75.75 0 1 1-1.06-1.06L11.94 10 7.22 5.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
+                _class "min-w-0 flex-1 text-left"
+                span { _class "block truncate"; row.label }
+                match row.description with
+                | Some description -> span { _class "block truncate text-xs leading-4 font-normal text-[var(--fve-muted-text)]"; description }
+                | None -> ()
             }
+            match row.trailing with
+            | Some trailing -> span { _class "flex shrink-0 items-center"; trailing }
+            | None -> ()
+            if menu then
+                span {
+                    _ariaHidden true
+                    _class "size-4 shrink-0"
+                    raw """<svg viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
+                }
         }
         match row.destination with
         | Link destination ->
