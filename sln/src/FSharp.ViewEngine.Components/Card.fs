@@ -3,42 +3,44 @@ namespace FSharp.ViewEngine.Components
 open FSharp.ViewEngine
 open type Html
 
+module internal Card =
+    let part name attributes (children:HtmlElement list) =
+        let children = children |> List.filter (fun child -> not (child :? NoopElement))
+        if List.isEmpty children then empty
+        else
+            let classes =
+                match name with
+                | "media" -> "min-w-0"
+                | "footer" -> "flex min-w-0 flex-wrap items-center gap-2 border-t border-[var(--fve-border)] p-[var(--fve-card-inset,1.25rem)]"
+                | _ -> "p-[var(--fve-card-inset,1.25rem)]"
+            ComponentPart("card", name, ComponentElement.render "div" [_class classes; _attr("data-fve-card-" + name, "true")] attributes children) :> HtmlElement
+
+    let render attributes children =
+        let size = ComponentElement.size (Some Size.Medium) attributes |> Option.get
+        let inset =
+            match size with
+            | Size.ExtraSmall -> "0.5rem" | Size.Small -> "0.75rem" | Size.Medium -> "1.25rem"
+            | Size.Large -> "1.75rem" | Size.ExtraLarge -> "2.25rem"
+        let parts, body = ComponentParts.split "card" children
+        let region name = Map.tryFind name parts |> Option.defaultValue empty
+        ComponentElement.render "div"
+            [ _attr("data-fve-card", "true")
+              _class "min-w-0 overflow-hidden [overflow-wrap:anywhere] rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-surface)] text-[var(--fve-text)]"
+              _style ("--fve-card-inset:" + inset) ] (ComponentHtml.safeAttributes ["size"] attributes)
+            [ region "media"
+              region "header"
+              if not (List.isEmpty body) then div { _class "p-[var(--fve-card-inset,1.25rem)]"; body }
+              region "footer" ]
+
+/// <summary>Native card regions, ordinary typed attributes and body content.</summary>
 /// <category>card</category>
-[<RequireQualifiedAccess>]
-type CardSize = Regular | Small
+type CardBuilder internal () =
+    inherit ComponentElementBuilder(Card.render)
 
 /// <category>card</category>
-[<NoEquality; NoComparison>]
-type CardConfig =
-    private
-        { content:HtmlElement
-          header:HtmlElement option
-          media:HtmlElement option
-          footer:HtmlElement option
-          size:CardSize
-          attributes:HtmlAttribute list }
-
-/// <summary>A presentational surface. Content, headings, images and actions remain ordinary HTML.</summary>
-/// <category>card</category>
-[<RequireQualifiedAccess>]
-module Card =
-    let create content =
-        { content=content; header=None; media=None; footer=None; size=CardSize.Regular; attributes=[] }
-    let withHeader header (config:CardConfig) = { config with header=Some header }
-    let withMedia media (config:CardConfig) = { config with media=Some media }
-    let withFooter footer (config:CardConfig) = { config with footer=Some footer }
-    let withSize size (config:CardConfig) = { config with size=size }
-    let withAttributes attributes (config:CardConfig) = { config with attributes=attributes }
-    let render config =
-        let inset = if config.size=CardSize.Small then "p-3" else "p-5"
-        div {
-            _attr("data-fve-card", "true")
-            _class "min-w-0 overflow-hidden rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-surface)] text-[var(--fve-text)]"
-            for attribute in ComponentHtml.safeAttributes ["class"; "data-fve-card"] config.attributes do attribute
-            match config.media with Some media -> div { _class "min-w-0"; media } | None -> ()
-            match config.header with Some header -> div { _class inset; header } | None -> ()
-            div { _class inset; config.content }
-            match config.footer with
-            | Some footer -> div { _class ("flex min-w-0 flex-wrap items-center gap-2 border-t border-[var(--fve-border)] " + inset); footer }
-            | None -> ()
-        }
+[<AutoOpen>]
+module CardDsl =
+    let fveCard = CardBuilder()
+    let fveCardHeader = ComponentElementBuilder(Card.part "header")
+    let fveCardFooter = ComponentElementBuilder(Card.part "footer")
+    let fveCardMedia = ComponentElementBuilder(Card.part "media")

@@ -1,90 +1,44 @@
 namespace FSharp.ViewEngine.Components
 
+open System
 open FSharp.ViewEngine
 open type Html
 
 /// <category>notice</category>
 [<RequireQualifiedAccess>]
-type NoticeColor =
-    | Primary
-    | Secondary
-    | Success
-    | Warning
-    | Error
-    | Info
-    | Neutral
-    | Custom of ColorPalette
-
-/// <summary>Selects notice presentation independently of color and announcement urgency.</summary>
-/// <category>notice</category>
-[<RequireQualifiedAccess>]
-type NoticeVariant =
-    | Solid
-    | Soft
-    | Outline
-    | Ghost
+type NoticeVariant = Solid | Soft | Outline | Ghost
 
 /// <category>notice</category>
-[<NoEquality; NoComparison>]
-type NoticeConfig =
-    private
-        { id:string
-          title:string
-          content:HtmlElement
-          color:NoticeColor
-          variant:NoticeVariant
-          announcement:LiveAnnouncement
-          actions:HtmlElement option }
+[<AutoOpen>]
+module NoticeAttributes =
+    type Html with
+        static member _variant(value:NoticeVariant) = Html._attr("variant", match value with NoticeVariant.Solid -> "solid" | NoticeVariant.Soft -> "soft" | NoticeVariant.Outline -> "outline" | NoticeVariant.Ghost -> "ghost")
+
+module internal Notice =
+    let actions attributes children =
+        if String.IsNullOrWhiteSpace (Render.toString (ComponentContent.fragment children)) then empty
+        else ComponentPart("Notice", "actions", ComponentElement.render "div" [_class "flex flex-wrap items-center gap-2"] attributes children) :> HtmlElement
+
+    let render attributes children =
+        let title = ComponentElement.required "label" attributes
+        let parts, body = ComponentParts.split "Notice" children
+        let variant =
+            match ComponentElement.choice "variant" "soft" ["solid"; "soft"; "outline"; "ghost"] attributes with
+            | "solid" -> ComponentColors.solid | "outline" -> ComponentColors.outline | "ghost" -> ComponentColors.ghost | _ -> ComponentColors.soft
+        let announcement = ComponentElement.choice "announcement" "static" ["static"; "polite"; "assertive"] attributes
+        ComponentElement.render "div"
+            [_attr("data-fve-notice", "true"); _style (ComponentColors.style (ComponentElement.palette (_color Color.Info :: attributes)) []); _class ("grid min-w-0 gap-3 [overflow-wrap:anywhere] rounded-[var(--fve-radius-control)] p-4 text-sm " + variant)]
+            (ComponentHtml.safeAttributes ["label"; "variant"; "color"; "palette"; "announcement"] attributes) [
+                yield div {
+                    if announcement = "polite" then _role "status"; _ariaAtomic true
+                    elif announcement = "assertive" then _role "alert"; _ariaAtomic true
+                    p { _class "font-semibold"; title }
+                    div { _class "mt-1 min-w-0"; body }
+                }
+                match Map.tryFind "actions" parts with Some actions -> yield actions | None -> () ]
 
 /// <category>notice</category>
-[<RequireQualifiedAccess>]
-module Notice =
-    /// Defaults to Info + borderless Soft, Static announcement policy, and no actions.
-    let create id title content =
-        { id = TextField.stableId id
-          title = TextField.requiredText (nameof title) title
-          content = content
-          color = NoticeColor.Info
-          variant = NoticeVariant.Soft
-          announcement = LiveAnnouncement.Static
-          actions = None }
-    let withColor color (config:NoticeConfig) = { config with color = color }
-    /// Selects presentation without adding interactive behavior or changing announcements.
-    let withVariant variant (config:NoticeConfig) = { config with variant = variant }
-    /// Announcement urgency is independent of visual color. Static notices do not create live regions.
-    let withAnnouncement announcement (config:NoticeConfig) = { config with announcement = announcement }
-    let withActions actions (config:NoticeConfig) = { config with actions = Some actions }
-    let private palette = function
-        | NoticeColor.Primary -> ComponentColors.primary
-        | NoticeColor.Secondary -> ComponentColors.secondary
-        | NoticeColor.Success -> ComponentColors.success
-        | NoticeColor.Warning -> ComponentColors.warning
-        | NoticeColor.Error -> ComponentColors.error
-        | NoticeColor.Info -> ComponentColors.info
-        | NoticeColor.Neutral -> ComponentColors.neutral
-        | NoticeColor.Custom colors -> colors
-
-    let render (config:NoticeConfig) =
-        div {
-            _id config.id
-            _attr ("data-fve-notice", "true")
-            _style (ComponentColors.style (palette config.color) [])
-            _class (ComponentHtml.classes [
-                "grid min-w-0 gap-3 [overflow-wrap:anywhere] rounded-[var(--fve-radius-control)] p-4 text-sm"
-                match config.variant with
-                | NoticeVariant.Solid -> ComponentColors.solid
-                | NoticeVariant.Soft -> ComponentColors.soft
-                | NoticeVariant.Outline -> ComponentColors.outline
-                | NoticeVariant.Ghost -> ComponentColors.ghost ])
-            div {
-                match config.announcement with
-                | LiveAnnouncement.Static -> ()
-                | LiveAnnouncement.Polite -> _role "status"; _ariaAtomic true
-                | LiveAnnouncement.Assertive -> _role "alert"; _ariaAtomic true
-                p { _class "font-semibold"; config.title }
-                div { _class "mt-1 min-w-0"; config.content }
-            }
-            match config.actions with
-            | Some actions -> div { _class "flex flex-wrap items-center gap-2"; actions }
-            | None -> ()
-        }
+[<AutoOpen>]
+module NoticeDsl =
+    let fveNotice = ComponentElementBuilder(Notice.render)
+    let fveNoticeActions = ComponentElementBuilder(Notice.actions)

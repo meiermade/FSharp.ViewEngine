@@ -4,11 +4,18 @@
     <Project Path="src/Build/Build.fsproj" />
     <Project Path="src/Build.Tests/Build.Tests.fsproj" />
     <Project Path="src/Docs/Docs.fsproj" />
+    <Project Path="src/Docs.Components/Docs.Components.fsproj" />
     <Project Path="src/Docs.Tests/Docs.Tests.fsproj" />
     <Project Path="src/FSharp.ViewEngine/FSharp.ViewEngine.fsproj" />
     <Project Path="src/FSharp.ViewEngine.Cli/FSharp.ViewEngine.Cli.fsproj" />
     <Project Path="src/FSharp.ViewEngine.Cli.Tests/FSharp.ViewEngine.Cli.Tests.fsproj" />
     <Project Path="src/FSharp.ViewEngine.Components/FSharp.ViewEngine.Components.fsproj" />
     <Project Path="src/Tests/Tests.fsproj" />
+  </Folder>
+  <Folder Name="/src/Example/">
+    <Project Path="src/Example/Example.Application/Example.Application.fsproj" />
+    <Project Path="src/Example/Example.Components/Example.Components.fsproj" />
+    <Project Path="src/Example/Example.Domain/Example.Domain.fsproj" />
+    <Project Path="src/Example/Example.Server/Example.Server.fsproj" />
   </Folder>
 </Solution>

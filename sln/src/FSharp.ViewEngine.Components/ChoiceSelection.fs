@@ -6,13 +6,6 @@ open FSharp.ViewEngine
 open type Html
 open type Datastar
 
-/// <summary>Type marker that keeps single-value configuration pipelines distinct.</summary>
-/// <exclude/>
-type SingleSelection = internal | SingleSelection
-/// <summary>Type marker that keeps multiple-value configuration pipelines distinct.</summary>
-/// <exclude/>
-type MultipleSelection = internal | MultipleSelection
-
 [<NoEquality; NoComparison>]
 type internal SelectedChoice = { value:string; label:string }
 

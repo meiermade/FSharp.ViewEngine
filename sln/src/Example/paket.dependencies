@@ -1,0 +1,1 @@
+// This consumer example owns its PackageReferences independently of the catalog's Paket dependencies.

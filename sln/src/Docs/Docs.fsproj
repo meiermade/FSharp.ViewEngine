@@ -4,25 +4,19 @@
     <TargetFramework>net10.0</TargetFramework>
     <NoWarn>$(NoWarn);NU1510</NoWarn>
     <UseAppHost>false</UseAppHost>
-    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/node_modules/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="paket.references" />
     <Compile Include="src\Common\Config.fs" />
     <Compile Include="src\Common\Model.fs" />
     <Compile Include="src\Common\SourceRegion.fs" />
-    <Compile Include="src\Examples\Model.fs" />
-    <Compile Include="src\Examples\Navigation.fs" />
-    <Compile Include="src\Examples\Layout.fs" />
-    <Compile Include="src\Examples\AppMode.fs" />
-    <Compile Include="src\Examples\Application.fs" />
-    <Compile Include="src\Examples\Architecture.fs" />
-    <Compile Include="src\Examples\Specification.fs" />
-    <Compile Include="src\Examples\ApiDocumentation.fs" />
-    <Compile Include="src\Examples\Routing.fs" />
-    <Compile Include="src\Examples\Hosting.fs" />
+    <Compile Include="src\Common\RecordTable.fs" />
     <Compile Include="src\Pages\Showcase.fs" />
     <Compile Include="src\Pages\PageExamples.fs" />
+    <Compile Include="src\Pages\Appearance.fs" />
+    <Compile Include="src\Pages\ComponentGuideExamples.fs" />
+    <Compile Include="src\Pages\ComponentInstallation.fs" />
     <Compile Include="src\Pages\Components.fs" />
     <Compile Include="src\Pages\ComponentDocumentation.fs" />
     <Compile Include="src\Pages\Examples.fs" />
@@ -41,24 +35,19 @@
     <Compile Include="src\Pages\Registry.fs" />
     <Compile Include="src\Web\Navigation.fs" />
     <Compile Include="src\Web\View.fs" />
-    <Compile Include="src\Web\Examples.fs" />
     <Compile Include="src\Web\Handler.fs" />
     <Compile Include="src\Program.fs" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="src\Examples\*.fs" LogicalName="Docs.Examples.%(Filename).fs" />
-    <EmbeddedResource Include="src\Examples\Example.fsproj" LogicalName="Docs.Examples.Example.fsproj" />
-    <EmbeddedResource Include="src\Examples\Domain\Domain.fs" LogicalName="Docs.Examples.Domain.Domain.fs" />
-    <EmbeddedResource Include="src\Examples\Domain\Ledger.Domain.fsproj" LogicalName="Docs.Examples.Domain.Ledger.Domain.fsproj" />
-    <EmbeddedResource Include="src\Examples\UseCases\Operations.fs" LogicalName="Docs.Examples.UseCases.Operations.fs" />
-    <EmbeddedResource Include="src\Examples\UseCases\Ledger.Application.fsproj" LogicalName="Docs.Examples.UseCases.Ledger.Application.fsproj" />
-    <EmbeddedResource Include="src\Examples\README.md" LogicalName="Docs.Examples.README.md" />
-    <EmbeddedResource Include="src\Examples\input.css" LogicalName="Docs.Examples.input.css" />
     <EmbeddedResource Include="src\Pages\ComponentDocumentation.fs" LogicalName="Docs.Pages.ComponentDocumentation.fs" />
     <EmbeddedResource Include="src\Pages\Showcase.fs" LogicalName="Docs.Pages.Showcase.fs" />
+    <EmbeddedResource Include="src\Pages\Appearance.fs" LogicalName="Docs.Pages.Appearance.fs" />
+    <EmbeddedResource Include="src\Pages\ComponentGuideExamples.fs" LogicalName="Docs.Pages.ComponentGuideExamples.fs" />
     <EmbeddedResource Include="src\Pages\Components.fs" LogicalName="Docs.Pages.Components.fs" />
+    <EmbeddedResource Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.Registry.props" LogicalName="Docs.ComponentRegistry.props" />
     <EmbeddedResource Include="src\Pages\PageExamples.fs" LogicalName="Docs.Pages.PageExamples.fs" />
+    <Content Update="package.json;package-lock.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
     <Content Include="input.css">
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
@@ -66,8 +55,8 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
-    <ProjectReference Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.fsproj" />
-    <ProjectReference Include="src\Examples\UseCases\Ledger.Application.fsproj" />
+    <ProjectReference Include="..\Docs.Components\Docs.Components.fsproj" />
+    <ProjectReference Include="..\Example\Example.Server\Example.Server.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

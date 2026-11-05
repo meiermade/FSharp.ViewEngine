@@ -1,6 +1,90 @@
-import { test, expect } from '../fixture'
+import { test, expect, specProduct } from '../fixture'
 
-test('gallery opens isolated templates with source download and native history', async ({ page }) => {
+for (const scenario of [
+  { path: '/examples/application/accounts', label: 'Ledger', link: 'Transactions', destination: '/examples/application/transactions' },
+  { path: '/examples/application/settings/general', label: 'Settings', link: 'Users', destination: '/examples/application/settings/users' },
+  { path: '/examples/application/profile', label: 'Profile', link: 'Organizations', destination: '/examples/application/profile/organizations' },
+  { path: '/examples/specification/accounts/view-accounts', label: 'Documentation', link: 'Overview', destination: '/examples/specification' },
+  { path: '/examples/api-documentation/create-account', label: 'Documentation', link: 'Overview', destination: '/examples/api-documentation' },
+]) {
+  test(`mobile ${scenario.path} uses a modal navigation drawer @cross-browser`, async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', error => errors.push(error.message))
+    await page.setViewportSize({ width: 390, height: 844 })
+    await page.goto(scenario.path)
+    const opener = page.locator('#template-navigation-dialog-trigger').getByRole('button', { name: 'Open navigation', exact: true })
+    const drawer = page.getByRole('dialog', { name: `${scenario.label} navigation`, exact: true })
+    const close = drawer.getByRole('button', { name: 'Close navigation', exact: true })
+    await expect(opener).toBeVisible()
+    await opener.focus()
+    await page.keyboard.press('Enter')
+    await expect(drawer).toBeVisible()
+    await expect(close).toBeFocused()
+    await page.keyboard.press('Shift+Tab')
+    expect(await drawer.evaluate(el => el.contains(document.activeElement))).toBe(true)
+    await page.keyboard.press('Escape')
+    await expect(drawer).toBeHidden()
+    await expect(opener).toBeFocused()
+    await opener.click()
+    await close.click()
+    await expect(opener).toBeFocused()
+    await opener.click()
+    await page.mouse.click(388, 420)
+    await expect(drawer).toBeHidden()
+    await expect(opener).toBeFocused()
+    await opener.click()
+    await page.setViewportSize({ width: 1440, height: 900 })
+    await expect(drawer).toBeHidden()
+    await expect(opener).toBeHidden()
+    await expect(page.locator('#template-desktop-navigation')).toBeVisible()
+    await page.setViewportSize({ width: 390, height: 844 })
+    await opener.click()
+    await drawer.getByRole('link', { name: scenario.link, exact: true }).first().click()
+    await expect(page).toHaveURL(url => url.pathname === scenario.destination)
+    await expect(page.locator('dialog[open]')).toHaveCount(0)
+    await expect(page.locator('#main-content')).toBeFocused()
+    await opener.click()
+    await expect(drawer).toBeVisible()
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+    if (scenario.label === 'Settings' || scenario.label === 'Profile') {
+      await expect(drawer.getByRole('link', { name: 'Ledger', exact: true })).toBeVisible()
+      const area = drawer.getByRole('heading', { name: scenario.label, level: 2, exact: true })
+      await expect(area).toBeVisible()
+      expect(await area.evaluate(el => el.closest('a, button'))).toBeNull()
+      await page.setViewportSize({ width: 320, height: 844 })
+      await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+      await expect.poll(() => area.locator('span').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+      expect(await drawer.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
+      await drawer.getByRole('link', { name: 'Back to Ledger', exact: true }).click()
+      await expect(page.getByRole('heading', { name: 'Home', level: 1, exact: true })).toBeVisible()
+      await expect(drawer).toBeHidden()
+    } else if (scenario.label === 'Documentation') {
+      await close.click()
+      await page.setViewportSize({ width: 320, height: 900 })
+      await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+      const shortcuts = page.locator('[data-fve-page-top-bar-actions]')
+      for (const control of await shortcuts.getByRole('link').all()) {
+        const bounds = (await control.boundingBox())!
+        expect(bounds.x).toBeGreaterThanOrEqual(0)
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(320)
+      }
+      await expect(shortcuts.getByRole('link')).toHaveCount(1)
+      await expect(shortcuts.getByRole('link', { name: 'View example source on GitHub', exact: true })).toBeVisible()
+      await expect(shortcuts.getByRole('link', { name: 'Settings', exact: true })).toHaveCount(0)
+      await expect(shortcuts.getByRole('link', { name: 'Profile', exact: true })).toHaveCount(0)
+      await expect(page.getByRole('link', { name: 'Open application', exact: true })).toHaveCount(0)
+      await expect(page.getByRole('link', { name: 'Read specification', exact: true })).toHaveCount(0)
+      const theme = shortcuts.getByRole('button', { name: 'Choose color theme', exact: true })
+      await expect(theme).toBeVisible()
+      const bounds = (await theme.boundingBox())!
+      expect(bounds.x).toBeGreaterThanOrEqual(0)
+      expect(bounds.x + bounds.width).toBeLessThanOrEqual(320)
+    }
+    expect(errors).toEqual([])
+  })
+}
+
+test('gallery opens isolated consumer templates with GitHub source and native history', async ({ page }) => {
   await page.goto('/examples')
   const popup = page.waitForEvent('popup')
   await page.getByRole('link', { name: 'Application example (opens in a new tab)', exact: true }).click()
@@ -10,11 +94,17 @@ test('gallery opens isolated templates with source download and native history',
   await app.locator('#template-desktop-navigation').getByRole('link', { name: 'Accounts', exact: true }).click()
   await expect(app.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
   await expect(app.getByRole('navigation', { name: 'Example view' })).toHaveCount(0)
-  const download = app.waitForEvent('download')
-  await app.getByRole('link', { name: 'Download example source ZIP', exact: true }).click()
-  expect((await download).suggestedFilename()).toBe('ledger-examples.zip')
-  await app.getByRole('button', { name: 'Choose color theme', exact: true }).click()
-  await app.getByRole('menuitemradio', { name: 'Dark', exact: true }).click()
+  const source = app.getByRole('link', { name: 'View example source on GitHub', exact: true })
+  await expect(source).toHaveAttribute('href', /^https:\/\/github\.com\/meiermade\/FSharp\.ViewEngine(?:\/tree\/[^/]+\/sln\/src\/Example)?$/)
+  await expect(source).toHaveAttribute('target', '_blank')
+  await expect(app.locator('script[type="module"][src="/examples/assets/scripts/app.js"]')).toHaveCount(1)
+  await expect(app.locator('fve-button[data-rocket-host]').first()).toBeAttached()
+  await expect(app.locator('script[src$="/datastar.1.0.4.js"]')).toHaveCount(0)
+  await expect(source).toHaveText('')
+  await app.getByRole('link', { name: 'Profile', exact: true }).click()
+  await app.getByRole('radiogroup', { name: 'Appearance', exact: true }).getByText('Dark', { exact: true }).click()
+  await app.getByRole('link', { name: 'Back to Ledger', exact: true }).click()
+  await app.locator('#template-desktop-navigation').getByRole('link', { name: 'Accounts', exact: true }).click()
   await app.getByRole('link', { name: 'Operating checking', exact: true }).click()
   await expect(app.getByRole('heading', { name: 'Operating checking', exact: true, level: 1 })).toBeVisible()
   await app.goBack()
@@ -26,13 +116,14 @@ test('gallery opens isolated templates with source download and native history',
 })
 
 test('spec App mode follows an exact account through validation cancel and current-state exit @cross-browser', async ({ page }) => {
+  const product = specProduct(page)
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
   await page.goto('/examples/specification/accounts/view-accounts')
   await expect(page.getByRole('tablist')).toHaveCount(0)
   await page.getByRole('button', { name: /^Review state:/ }).click()
   await page.getByRole('menuitem', { name: 'Assets', exact: true }).click()
-  const assets = page.locator('[data-review-fixture]')
+  const assets = product
   await expect(assets.getByRole('link', { name: 'Operating checking', exact: true })).toBeVisible()
   await expect(assets.getByRole('link', { name: 'Unassigned expense', exact: true })).toHaveCount(0)
   await page.getByRole('button', { name: /^Review state:/ }).click()
@@ -44,10 +135,10 @@ test('spec App mode follows an exact account through validation cancel and curre
   await expect(page).toHaveURL(/appMode=1/)
   await expect(page.getByRole('navigation', { name: 'App mode controls' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Example view' })).toHaveCount(0)
-  await page.getByRole('link', { name: 'Unassigned expense', exact: true }).click()
+  await product.getByRole('link', { name: 'Unassigned expense', exact: true }).click()
   await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
-  await page.getByRole('link', { name: 'Edit account', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Edit account', exact: true })
+  await product.getByRole('link', { name: 'Edit account', exact: true }).click()
+  const dialog = product.getByRole('dialog', { name: 'Edit account', exact: true })
   await expect(dialog).toBeVisible()
   await expect(dialog.getByRole('navigation', { name: 'App mode controls' })).toHaveCount(0)
   await expect(page.locator('[data-fve-browser-toolbar]').getByRole('navigation', { name: 'App mode controls' })).toBeVisible()
@@ -67,8 +158,8 @@ test('spec App mode follows an exact account through validation cancel and curre
   await dialog.getByRole('button', { name: 'Update', exact: true }).click()
   await expect(dialog).toHaveCount(0)
   await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
-  await page.locator('[data-fve-page-header="true"]').getByRole('link', { name: 'Delete', exact: true }).click()
-  const deletion = page.getByRole('dialog', { name: 'Delete Unassigned expense?', exact: true })
+  await product.locator('[data-fve-page-header="true"]').getByRole('link', { name: 'Delete', exact: true }).click()
+  const deletion = product.getByRole('dialog', { name: 'Delete Unassigned expense?', exact: true })
   await expect(deletion).toBeVisible()
   await expect(deletion.getByRole('link', { name: /^Restore / })).toHaveCount(0)
   await expect(page.locator('[data-fve-browser-toolbar]').getByRole('link', { name: /^Restore / })).toBeVisible()
@@ -100,15 +191,18 @@ for (const scenario of [
     if (scenario.blocked) {
       await expect(dialog.getByText('Account cannot be deleted', { exact: true })).toBeVisible()
       await expect(dialog.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0)
+      await page.keyboard.press('Escape')
+      await expect(dialog).toHaveCount(0)
+      await expect(page).toHaveURL(url => url.pathname === `/examples/application/${scenario.path}`)
+      await expect(page.getByRole('heading', { name: scenario.title, level: 1, exact: true })).toBeVisible()
+      await expect(header.getByRole('link', { name: 'Delete', exact: true })).toBeVisible()
     } else {
       await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
-      await expect(dialog.getByText('Deletion validated', { exact: true })).toBeVisible()
+      await expect(dialog).toHaveCount(0)
+      await expect(page).toHaveURL(url => url.pathname === '/examples/application/transactions')
+      await expect(page.locator('[data-fve-notification]').getByRole('status')).toContainText('1 transaction deleted')
+      await expect(page.getByRole('checkbox', { name: 'Select Client payment', exact: true })).toHaveCount(0)
     }
-    await page.keyboard.press('Escape')
-    await expect(dialog).toHaveCount(0)
-    await expect(page).toHaveURL(url => url.pathname === `/examples/application/${scenario.path}`)
-    await expect(page.getByRole('heading', { name: scenario.title, level: 1, exact: true })).toBeVisible()
-    await expect(header.getByRole('link', { name: 'Delete', exact: true })).toBeVisible()
   })
 }
 
@@ -118,18 +212,23 @@ for (const scenario of [
   { collection: 'transactions', record: 'Client payment', action: 'Delete transaction', dialog: 'Delete Client payment?', workflow: 'transactions/delete-transaction', resource: '201', background: 'Transactions' },
 ]) {
   test(`collection-origin ${scenario.action} survives App-mode exit, expansion and state URLs @cross-browser`, async ({ page }) => {
+    const product = specProduct(page)
     await page.goto(`/examples/specification/${scenario.collection}/view-${scenario.collection}?appMode=1`)
-    await page.getByRole('button', { name: `Actions for ${scenario.record}`, exact: true }).click()
-    await page.getByRole('menuitem', { name: scenario.action, exact: true }).click()
-    const dialog = page.getByRole('dialog', { name: scenario.dialog, exact: true })
+    await product.getByRole('button', { name: `Actions for ${scenario.record}`, exact: true }).click()
+    await product.getByRole('menuitem', { name: scenario.action, exact: true }).click()
+    const dialog = product.getByRole('dialog', { name: scenario.dialog, exact: true })
     await expect(dialog).toBeVisible()
+    // The iframe can render its dialog before the parent commits the mirrored location.
+    await expect(page).toHaveURL(url =>
+      url.pathname === `/examples/specification/${scenario.workflow}` &&
+      url.searchParams.getAll('from').length === 1 && url.searchParams.get('from') === scenario.collection)
     const assertOrigin = (href: string) => {
       const url = new URL(href, page.url())
       expect(url.searchParams.getAll('from')).toEqual([scenario.collection])
       return url
     }
     assertOrigin(page.url())
-    await expect(page.locator('[data-template-shell] h1')).toHaveText(scenario.background)
+    await expect(product.locator('[data-template-shell] h1')).toHaveText(scenario.background)
     const controls = page.locator('[data-fve-browser-toolbar]').getByRole('navigation', { name: 'App mode controls' })
     await controls.getByRole('button', { name: /^Review state:/ }).click()
     for (const link of await controls.getByRole('menuitem').all()) assertOrigin((await link.getAttribute('href'))!)
@@ -141,35 +240,43 @@ for (const scenario of [
     expect(exited.searchParams.get('resource')).toBe(scenario.resource)
     expect(exited.searchParams.has('appMode')).toBe(false)
     const fixture = page.locator('[data-review-fixture]')
-    await expect(fixture.locator('[data-template-shell] h1')).toHaveText(scenario.background)
+    await expect(product.locator('[data-template-shell] h1')).toHaveText(scenario.background)
     await fixture.getByRole('link', { name: /^Expand / }).click()
     await expect(page).toHaveURL(url => url.searchParams.get('appMode') === '1')
     assertOrigin(page.url())
     await expect(dialog).toBeVisible()
-    await expect(page.locator('[data-template-shell] h1')).toHaveText(scenario.background)
+    await expect(product.locator('[data-template-shell] h1')).toHaveText(scenario.background)
     await dialog.getByRole('button', { name: scenario.action === 'Edit account' ? 'Update' : 'Delete', exact: true }).click()
-    assertOrigin(page.url())
-    if (scenario.action === 'Edit account') await expect(dialog).toHaveCount(0)
-    else await expect(dialog.locator('#template-delete-valid')).toContainText('Deletion validated')
-    await expect(page.locator('[data-template-shell] h1')).toHaveText(scenario.background)
+    await expect(dialog).toHaveCount(0)
+    if (scenario.action === 'Edit account') {
+      await expect(page).toHaveURL(url => url.pathname === '/examples/specification/accounts/view-accounts')
+    } else {
+      await expect(page).toHaveURL(url => url.pathname === `/examples/specification/${scenario.collection}/view-${scenario.collection}`)
+      await expect(product.getByText(scenario.collection === 'accounts' ? '1 account deleted' : '1 transaction deleted', { exact: true })).toBeVisible()
+      await expect(product.getByRole('checkbox', { name: `Select ${scenario.record}`, exact: true })).toHaveCount(0)
+    }
+    await expect(product.locator('[data-template-shell] h1')).toHaveText(scenario.background)
   })
 }
 
 test('workspace menu and appearance preferences survive App mode document navigation', async ({ page }) => {
+  const product = specProduct(page)
   await page.goto('/examples/specification/home?appMode=1')
   await expect(page.locator('[data-fve-browser-toolbar]').getByRole('button', { name: /theme/i })).toHaveCount(0)
-  await page.locator('[data-review-fixture]').getByRole('button', { name: 'Choose color theme', exact: true }).click()
-  await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click()
+  await expect(product.getByRole('button', { name: 'Choose color theme', exact: true })).toHaveCount(0)
+  await product.getByRole('link', { name: 'Profile', exact: true }).click()
+  await product.getByRole('radiogroup', { name: 'Appearance', exact: true }).getByText('Dark', { exact: true }).click()
+  await product.getByRole('link', { name: 'Back to Ledger', exact: true }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
-  await page.getByRole('button', { name: 'Open workspace menu: Alex', exact: true }).click()
-  await page.getByRole('menuitem', { name: 'Jordan', exact: true }).click()
+  await product.getByRole('button', { name: 'Open workspace menu: Alex', exact: true }).click()
+  await product.getByRole('menuitem', { name: 'Jordan', exact: true }).click()
   await expect(page).toHaveURL(/ledger=jordan.*appMode=1/)
   await expect(page.locator('html')).toHaveClass(/dark/)
-  await page.getByRole('link', { name: 'Andrew Meier andrew@meiermade.com', exact: true }).click()
+  await product.getByRole('link', { name: 'Profile', exact: true }).click()
   await expect(page).toHaveURL(/specification\/profile.*ledger=jordan.*appMode=1/)
   // The SSR radios are visible before the saved appearance and handlers initialize.
-  await expect(page.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked()
-  const light = page.getByRole('radio', { name: 'Light', exact: true })
+  await expect(product.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked()
+  const light = product.getByRole('radio', { name: 'Light', exact: true })
   await light.focus()
   await page.keyboard.press('Space')
   await expect(light).toBeChecked()
@@ -187,23 +294,24 @@ for (const { saved, choice, activation } of [
   { saved: 'dark', choice: 'Light', activation: 'ArrowDown' },
 ]) {
   test(`Profile appearance honors native activation before delayed initialization (${saved} → ${choice}, ${activation}) @cross-browser`, async ({ page }) => {
+    const product = specProduct(page)
     // System must follow the OS, not simply select a light fallback.
     await page.emulateMedia({ colorScheme: choice === 'System' ? 'dark' : 'light' })
     await page.addInitScript(saved => {
-      if (!localStorage.getItem('fsharp-viewengine-docs-navigation-color-mode')) {
-        localStorage.setItem('fsharp-viewengine-docs-navigation-color-mode', saved)
+      if (!localStorage.getItem('financial-example-appearance')) {
+        localStorage.setItem('financial-example-appearance', saved)
       }
     }, saved)
     let release!: () => void
     const moduleReady = new Promise<void>(resolve => { release = resolve })
-    await page.route('**/scripts/datastar.1.0.4.js', async route => {
+    await page.route('**/scripts/datastar-rocket.1.0.4.js', async route => {
       await moduleReady
       await route.continue()
     })
     try {
       // Observe native SSR interaction while the module is still unavailable, not after hydration.
       await page.goto('/examples/specification/profile?appMode=1', { waitUntil: 'commit' })
-      const group = page.getByRole('radiogroup', { name: 'Appearance', exact: true })
+      const group = product.getByRole('radiogroup', { name: 'Appearance', exact: true })
       const clickText = async (text: string) => {
         const target = group.getByText(text, { exact: true })
         await expect(target).toBeVisible()
@@ -216,10 +324,10 @@ for (const { saved, choice, activation } of [
       }
       // A bubbled non-input click must not overwrite the preference with undefined.
       await clickText('Appearance')
-      expect(await page.evaluate(() => localStorage.getItem('fsharp-viewengine-docs-navigation-color-mode'))).toBe(saved)
-      const radio = page.getByRole('radio', { name: choice, exact: true })
+      expect(await page.evaluate(() => localStorage.getItem('financial-example-appearance'))).toBe(saved)
+      const radio = product.getByRole('radio', { name: choice, exact: true })
       await expect(radio).toBeVisible()
-      const system = page.getByRole('radio', { name: 'System', exact: true })
+      const system = product.getByRole('radio', { name: 'System', exact: true })
       if (choice === 'System' || activation === 'ArrowDown') await expect(system).toBeChecked()
       if (activation === 'label') {
         await clickText(choice)
@@ -230,7 +338,7 @@ for (const { saved, choice, activation } of [
       const mode = choice.toLowerCase()
       await expect(radio).toBeChecked()
       await expect(page.locator('html')).toHaveAttribute('data-color-mode', mode)
-      expect(await page.evaluate(() => localStorage.getItem('fsharp-viewengine-docs-navigation-color-mode'))).toBe(mode)
+      expect(await page.evaluate(() => localStorage.getItem('financial-example-appearance'))).toBe(mode)
       release()
       await page.waitForLoadState('load')
       await expect(radio).toBeChecked()
@@ -249,10 +357,35 @@ test('rendered architecture nodes navigate from system context to project contra
   await page.goto('/examples/specification/architecture')
   await page.getByRole('region', { name: 'Ledger system context', exact: true }).locator('svg a').click()
   await expect(page).toHaveURL(/architecture\/solution/)
-  await page.getByRole('region', { name: 'Ledger project dependencies and HTTP boundary', exact: true }).locator('svg a').filter({ hasText: 'Ledger.Application' }).click()
+  await page.getByRole('region', { name: 'Ledger project dependencies and HTTP boundary', exact: true }).locator('svg a').filter({ hasText: 'Example.Application' }).click()
   await expect(page).toHaveURL(/architecture\/solution\/application/)
   await expect(page.getByRole('heading', { name: 'Operations', exact: true })).toBeVisible()
-  await expect(page.getByText(/UseCases\/Operations.fs owns|UseCases\/Operations.fs validates/)).toBeVisible()
+  await expect(page.getByText(/Example.Application\/Operations.fs validates/)).toBeVisible()
+})
+
+test('API examples inherit the selected theme and separate code from the page surface @cross-browser', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.goto('/examples/api-documentation/create-account')
+  const examples = page.getByRole('complementary', { name: 'Request and response examples', exact: true })
+  const code = examples.locator('pre').first()
+  const string = examples.locator('.token.string').first()
+  await expect(string).toBeAttached()
+  const backgrounds: string[] = []
+  const syntax: string[] = []
+  for (const theme of ['Light', 'Dark']) {
+    await page.getByRole('button', { name: 'Choose color theme', exact: true }).click()
+    await page.getByRole('menuitemradio', { name: theme, exact: true }).click()
+    await expect(examples).toHaveCSS('color-scheme', theme.toLowerCase())
+    const pageBackground = await examples.evaluate(el => getComputedStyle(el).backgroundColor)
+    await expect(code).not.toHaveCSS('background-color', pageBackground)
+    backgrounds.push(await code.evaluate(el => getComputedStyle(el).backgroundColor))
+    syntax.push(await string.evaluate(el => getComputedStyle(el).color))
+    await page.getByRole('tab', { name: '400', exact: true }).click()
+    await expect(page.getByRole('tabpanel', { name: '400', exact: true })).toContainText('validation_failed')
+    await page.getByRole('tab', { name: '201', exact: true }).click()
+  }
+  expect(backgrounds[0]).not.toBe(backgrounds[1])
+  expect(syntax[0]).not.toBe(syntax[1])
 })
 
 test('API response tabs and copied cURL remain usable in a narrow layout', async ({ page, context }) => {
@@ -269,12 +402,28 @@ test('API response tabs and copied cURL remain usable in a narrow layout', async
 })
 
 test('shared shell and editor keep actions reachable at narrow enlarged text', async ({ page }) => {
+  const product = specProduct(page)
   await page.setViewportSize({ width: 320, height: 900 })
   await page.goto('/examples/specification/accounts/update-account?appMode=1&resource=105')
   await page.locator('html').evaluate(el => el.style.fontSize = '200%')
-  const dialog = page.getByRole('dialog', { name: 'Edit account', exact: true })
+  await product.locator('html').evaluate(el => el.style.fontSize = '200%')
+  const dialog = product.getByRole('dialog', { name: 'Edit account', exact: true })
   await expect(dialog.getByRole('button', { name: 'Update', exact: true })).toBeVisible()
-  await expect(page.locator('[data-fve-browser-toolbar]').getByRole('link', { name: /^Restore / })).toBeVisible()
+  const toolbar = page.locator('[data-fve-browser-toolbar]')
+  await expect(toolbar.getByRole('link', { name: /^Restore / })).toBeVisible()
+  const controls = await toolbar.locator('a, button').evaluateAll(elements => elements
+    .filter(el => el.getClientRects().length).map(el => {
+      const rect = el.getBoundingClientRect()
+      return { name: el.getAttribute('aria-label'), left: rect.left, right: rect.right }
+    }))
+  for (const control of controls) {
+    expect(control.left, control.name!).toBeGreaterThanOrEqual(0)
+    expect(control.right, control.name!).toBeLessThanOrEqual(320)
+  }
+  await toolbar.getByRole('button', { name: /^Review state:/ }).click()
+  await expect(page.getByRole('menuitem', { name: 'Name already exists', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(dialog).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   await dialog.getByRole('textbox', { name: /^Name/ }).fill('Expense validation')
   await dialog.getByRole('button', { name: 'Update', exact: true }).click()

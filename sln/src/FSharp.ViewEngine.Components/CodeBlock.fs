@@ -52,19 +52,18 @@ module internal CopyableCode =
             }
         }
 
-    let render (className:string) (codeClass:string) (label:string) (source:string) =
-        div {
-            _class ("relative min-w-0 " + syntaxClasses)
-            _data("docs-copyable-code", "true")
-            _data("init", $"window.renderCode?.(el, '{sourceFingerprint source}')")
-            _data("on:datastar-fetch", refreshAfterMorph)
-            renderButton $"Copy {label}"
-            pre { _class className; _tabindex 0; code { _class codeClass; _data("docs-copy-source", "true"); renderSource source } }
-        }
+    let render (className:string) (codeClass:string) (label:string) (source:string) attributes =
+        ComponentElement.render "div"
+            [_class ("relative min-w-0 " + syntaxClasses); _data("docs-copyable-code", "true"); _data("init", $"window.renderCode?.(el, '{sourceFingerprint source}')"); _data("on:datastar-fetch", refreshAfterMorph)]
+            attributes [
+                renderButton $"Copy {label}"
+                pre { _class className; _tabindex 0; code { _class codeClass; _data("docs-copy-source", "true"); renderSource source } } ]
 
 /// <category>code-block</category>
-[<NoEquality; NoComparison>]
-type CodeBlockConfig = private { language:string; source:string }
+[<AutoOpen>]
+module CodeBlockAttributes =
+    type Html with
+        static member _language(value:string) = Html._attr("language", value)
 
 /// <category>code-block</category>
 [<RequireQualifiedAccess>]
@@ -75,11 +74,14 @@ module CodeBlock =
     /// Authorize initialization and lazy-loaded assets with the current document's CSP nonce.
     let assetsWithNonce stylesheet scripts nonce = CodeAssets.renderWithNonce stylesheet scripts nonce
 
-    let create language source : CodeBlockConfig =
-        if String.IsNullOrWhiteSpace source then invalidArg (nameof source) "Code source cannot be empty."
-        { language = if String.IsNullOrWhiteSpace language then "text" else language.Trim().ToLowerInvariant()
-          source = source }
+    let internal render attributes children =
+        let source = ComponentContent.plainText "fveCodeBlock" children
+        if String.IsNullOrWhiteSpace source then invalidArg "children" "Code source cannot be empty."
+        let language = ComponentElement.value "language" attributes |> Option.filter (String.IsNullOrWhiteSpace >> not) |> Option.map (fun value -> value.Trim().ToLowerInvariant()) |> Option.defaultValue "text"
+        let prismLanguage = if language = "fs" then "fsharp" else language
+        CopyableCode.render ($"{CodeStyles.code} language-{prismLanguage}") ($"bg-transparent! font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! language-{prismLanguage}") "code" source (ComponentHtml.safeAttributes ["language"] attributes)
 
-    let render (block:CodeBlockConfig) =
-        let prismLanguage = if block.language = "fs" then "fsharp" else block.language
-        CopyableCode.render ($"{CodeStyles.code} language-{prismLanguage}") ($"bg-transparent! font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! language-{prismLanguage}") "code" block.source
+/// <category>code-block</category>
+[<AutoOpen>]
+module CodeBlockDsl =
+    let fveCodeBlock = ComponentElementBuilder(CodeBlock.render)

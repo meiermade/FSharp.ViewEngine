@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="10.0.102" />
+    <ProjectReference Include="../Example.Domain/Example.Domain.fsproj" />
+    <Compile Include="Operations.fs" />
+    <Compile Include="Home.fs" />
+  </ItemGroup>
+</Project>

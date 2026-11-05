@@ -1,4 +1,4 @@
-import { test, expect } from '../fixture'
+import { test, expect, specProduct } from '../fixture'
 
 for (const kind of ['Browser', 'Phone']) {
   test(`${kind} review fixture expands and restores through real links @cross-browser`, async ({ page }) => {
@@ -45,7 +45,7 @@ test('fixture state and authored journey remain separate, with scroll and focus 
   await expect(next).toHaveAttribute('href', /accounts\/view-account/)
   const expand = frame.getByRole('link', { name: 'Expand View accounts · Assets', exact: true })
   await expand.scrollIntoViewIfNeeded()
-  const scroll = await page.locator('[data-fve-page-scroll]').first().evaluate(el => el.scrollTop)
+  const scroll = await page.locator('[data-fve-page-scroll]').evaluate(el => el.scrollTop)
   await expand.click()
   await expect(page.locator('[data-fve-browser-expanded=true]')).toBeVisible()
   await state.click()
@@ -54,7 +54,7 @@ test('fixture state and authored journey remain separate, with scroll and focus 
   await expect(next).toHaveAttribute('href', /accounts\/view-account/)
   await frame.getByRole('link', { name: 'Restore View accounts · Hierarchy', exact: true }).click()
   await expect(frame.getByRole('link', { name: 'Expand View accounts · Hierarchy', exact: true })).toBeFocused()
-  await expect.poll(() => page.locator('[data-fve-page-scroll]').first().evaluate(el => el.scrollTop)).toBe(scroll)
+  await expect.poll(() => page.locator('[data-fve-page-scroll]').evaluate(el => el.scrollTop)).toBe(scroll)
 })
 
 test('duplicate-name preview state updates the menu and focuses its field error without a redundant banner @cross-browser', async ({ page }) => {
@@ -63,7 +63,7 @@ test('duplicate-name preview state updates the menu and focuses its field error 
   await expect(page.getByRole('menuitem')).toHaveText(['Editor', 'Name already exists'])
   await page.getByRole('menuitem', { name: 'Name already exists', exact: true }).click()
   await expect(page.getByRole('button', { name: 'Review state: Update account · Name already exists', exact: true })).toBeVisible()
-  const drawer = page.getByRole('dialog', { name: 'Edit account', exact: true })
+  const drawer = specProduct(page).getByRole('dialog', { name: 'Edit account', exact: true })
   const name = drawer.getByRole('textbox', { name: 'Name', exact: true })
   await expect(name).toHaveValue('Tax reserve')
   await expect(name).toHaveAttribute('aria-invalid', 'true')
@@ -73,31 +73,36 @@ test('duplicate-name preview state updates the menu and focuses its field error 
   await expect(drawer.getByRole('combobox', { name: 'Account type', exact: true })).not.toHaveAttribute('aria-invalid', 'true')
 })
 
-test('the same table viewport retains its scroll through expansion and restoration @cross-browser', async ({ page }) => {
+test('the same iframe and table viewport retain scroll through expansion and restoration @cross-browser', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 560 })
   await page.goto('/examples/specification/accounts/view-accounts')
   const frame = page.locator('[data-review-fixture]')
-  const rows = frame.locator('.fve-table-scroll')
+  const product = specProduct(page)
+  const rows = product.locator('.fve-table-scroll')
+  await product.locator('html').evaluate(el => { el.dataset.reviewDocument = 'retained' })
   await rows.evaluate(el => { el.scrollTop = 50 })
   await expect.poll(() => rows.evaluate(el => el.scrollTop)).toBe(50)
   await frame.getByRole('link', { name: /^Expand / }).click()
   await expect(page.locator('[data-fve-browser-expanded=true]')).toBeVisible()
+  await expect(product.locator('html')).toHaveAttribute('data-review-document', 'retained')
   await expect.poll(() => rows.evaluate(el => el.scrollTop)).toBe(50)
   await rows.evaluate(el => { el.scrollTop = 75 })
   await frame.getByRole('link', { name: /^Restore / }).click()
   await expect(frame.getByRole('link', { name: /^Expand / })).toBeFocused()
+  await expect(product.locator('html')).toHaveAttribute('data-review-document', 'retained')
   await expect.poll(() => rows.evaluate(el => el.scrollTop)).toBe(75)
 })
 
-test('edited review fixtures expand, switch state and navigate away without prompts @cross-browser', async ({ page }) => {
+test('edited iframe drafts survive resizing but explicit state changes discard them without prompts @cross-browser', async ({ page }) => {
   const prompts: string[] = []
   page.on('dialog', async dialog => { prompts.push(dialog.message()); await dialog.accept() })
   await page.goto('/examples/specification/accounts/update-account?resource=105')
-  const name = page.locator('[data-review-fixture]').getByRole('textbox', { name: 'Name', exact: true })
+  const product = specProduct(page)
+  const name = product.getByRole('textbox', { name: 'Name', exact: true })
   await name.fill('Private unfinished name')
   await page.getByRole('link', { name: /^Expand / }).click()
   await expect(page).toHaveURL(url => url.searchParams.get('appMode') === '1')
-  await expect(name).toHaveValue('Unassigned expense')
+  await expect(name).toHaveValue('Private unfinished name')
   await page.getByRole('button', { name: /^Review state:/ }).click()
   await page.getByRole('menuitem', { name: 'Name already exists', exact: true }).click()
   await expect(name).toHaveValue('Operating checking')
@@ -105,32 +110,29 @@ test('edited review fixtures expand, switch state and navigate away without prom
   await expect(page).toHaveURL(url => !url.searchParams.has('appMode'))
   await expect(name).toHaveValue('Operating checking')
   await page.getByRole('link', { name: 'Previous: View account', exact: true }).click()
-  await expect(page.getByRole('dialog', { name: 'Edit account', exact: true })).toHaveCount(0)
+  await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toHaveCount(0)
   expect(page.url()).not.toContain('Private')
   expect(prompts).toEqual([])
 })
 
-test('review overlays cover only the app while toolbar, menus and documentation remain usable @cross-browser', async ({ page }) => {
+test('native modal drawers and backdrops stay in the product document while review chrome remains usable @cross-browser', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/examples/specification/accounts/update-account?resource=105')
+  const product = specProduct(page)
   for (const expanded of [false, true]) {
-    const drawer = page.getByRole('dialog', { name: 'Edit account', exact: true })
+    const drawer = product.getByRole('dialog', { name: 'Edit account', exact: true })
     const toolbar = page.locator('[data-fve-browser-toolbar]')
-    const viewport = page.locator('[data-fve-app-viewport]')
-    await expect(drawer).toHaveAttribute('aria-modal', 'false')
-    expect(await drawer.evaluate(el => el.matches(':modal'))).toBe(false)
-    await expect(viewport.locator('[id$="template-app-background"]')).toHaveAttribute('inert', '')
-    expect(await toolbar.evaluate(el => !!el.closest('[inert]'))).toBe(false)
-    expect(await drawer.evaluate(el => !!el.closest('[inert]'))).toBe(false)
-    const geometry = await viewport.evaluate(el => {
-      const app = el.getBoundingClientRect()
-      const drawer = el.querySelector('dialog[open]')!.getBoundingClientRect()
-      const backdrop = el.querySelector('[data-fve-overlay-backdrop]')!.getBoundingClientRect()
-      return { app: [app.top, app.right, app.bottom, app.left], drawer: [drawer.top, drawer.right, drawer.bottom], backdrop: [backdrop.top, backdrop.right, backdrop.bottom, backdrop.left] }
+    await expect(drawer).toHaveAttribute('aria-modal', 'true')
+    expect(await drawer.evaluate(el => el.matches(':modal'))).toBe(true)
+    const geometry = await drawer.evaluate(el => {
+      const rect = el.getBoundingClientRect()
+      return { top: rect.top, right: rect.right, bottom: rect.bottom, width: innerWidth, height: innerHeight }
     })
-    expect(geometry.backdrop).toEqual(geometry.app)
-    geometry.drawer.forEach((value, index) => expect(Math.abs(value - geometry.app[index])).toBeLessThan(1))
+    expect(geometry.top).toBe(0)
+    expect(geometry.right).toBe(geometry.width)
+    expect(geometry.bottom).toBe(geometry.height)
+    await expect(page.getByRole('dialog', { name: 'Edit account', exact: true })).toHaveCount(0)
     await expect(drawer.getByRole('link', { name: /^Restore |^Expand / })).toHaveCount(0)
     await drawer.getByRole('combobox', { name: 'Account type', exact: true }).click()
     await page.keyboard.press('Escape')
@@ -141,20 +143,44 @@ test('review overlays cover only the app while toolbar, menus and documentation 
     await expect(drawer).toBeVisible()
     await expect(toolbar.getByRole('button', { name: /theme/i })).toHaveCount(0)
     if (!expanded) {
-      const rules = page.getByRole('heading', { name: 'Rules', exact: true })
-      expect(await rules.evaluate(el => !!el.closest('[inert]'))).toBe(false)
+      await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeAttached()
       await toolbar.getByRole('link', { name: /^Expand / }).click()
       await expect(page).toHaveURL(/appMode=1/)
+      await expect(page.locator('#template-desktop-navigation')).toBeHidden()
     } else {
       await toolbar.getByRole('link', { name: /^Restore / }).click()
       await expect(page).toHaveURL(url => !url.searchParams.has('appMode'))
       await expect(drawer).toBeVisible()
     }
   }
-  await page.locator('[data-fve-overlay-backdrop]').click({ position: { x: 5, y: 5 } })
-  await expect(page.getByRole('dialog')).toHaveCount(0)
-  await expect(page.locator('[id$="template-app-background"]')).not.toHaveAttribute('inert', '')
+  const bounds = (await page.locator('#spec-product-frame').boundingBox())!
+  await page.mouse.click(bounds.x + 5, bounds.y + bounds.height / 2)
+  await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toHaveCount(0)
+  await expect(page).toHaveURL(/accounts\/view-account.*resource=105/)
   expect(errors).toEqual([])
+})
+
+test('product history mirrors one review entry and Escape restores without losing the document @cross-browser', async ({ page }) => {
+  const product = specProduct(page)
+  await page.goto('/examples/specification/accounts/view-accounts?appMode=1')
+  await product.locator('html').evaluate(el => { el.dataset.historyDocument = 'retained' })
+  await product.getByRole('link', { name: 'Unassigned expense', exact: true }).click()
+  await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
+  await product.getByRole('link', { name: 'Edit account', exact: true }).click()
+  await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toBeVisible()
+  await page.goBack()
+  await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toHaveCount(0)
+  await expect(product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 })).toBeVisible()
+  await expect(page).toHaveURL(/accounts\/view-account.*resource=105/)
+  await page.goBack()
+  await expect(product.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
+  await expect(page).toHaveURL(/accounts\/view-accounts/)
+  await page.goForward()
+  await expect(product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 })).toBeVisible()
+  await product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 }).click()
+  await page.keyboard.press('Escape')
+  await expect(page).toHaveURL(url => !url.searchParams.has('appMode'))
+  await expect(product.locator('html')).toHaveAttribute('data-history-document', 'retained')
 })
 
 test('contained component close restores its background and trigger without making Docs modal @cross-browser', async ({ page }) => {
@@ -173,21 +199,24 @@ test('contained component close restores its background and trigger without maki
 
 test.describe('native frame links', () => {
   test.use({ javaScriptEnabled: false })
-  test('contained editor keeps native forms and review links available without JavaScript @cross-browser', async ({ page }) => {
+  test('iframe editors keep native forms and review links available without JavaScript @cross-browser', async ({ page }) => {
     await page.goto('/examples/specification/accounts/update-account?resource=105')
-    const drawer = page.getByRole('dialog', { name: 'Edit account', exact: true })
-    await expect(drawer).toBeVisible()
-    await expect(page.locator('[id$="template-app-background"]')).toHaveAttribute('inert', '')
+    const editor = specProduct(page).getByRole('region', { name: 'Edit Unassigned expense', exact: true })
+    await expect(editor).toBeVisible()
     await page.getByRole('link', { name: /^Expand / }).click()
-    await drawer.getByRole('textbox', { name: 'Name', exact: true }).fill('Tax reserve')
-    await drawer.getByRole('button', { name: 'Update', exact: true }).click()
-    await expect(drawer.getByText('An account named “Tax reserve” already exists.', { exact: true })).toBeVisible()
-    await expect(drawer.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue('Tax reserve')
-    await expect(drawer.getByRole('textbox', { name: 'Name', exact: true })).toBeFocused()
+    await editor.getByRole('textbox', { name: 'Name', exact: true }).fill('Tax reserve')
+    await editor.getByRole('button', { name: 'Update', exact: true }).click()
+    await expect(editor.getByText('An account named “Tax reserve” already exists.', { exact: true })).toBeVisible()
+    await expect(editor.getByRole('textbox', { name: 'Name', exact: true })).toHaveValue('Tax reserve')
+    // Native autofocus remains authored; browsers may suppress it after subframe navigation.
+    await expect(editor.getByRole('textbox', { name: 'Name', exact: true })).toHaveAttribute('autofocus', '')
     await page.getByRole('link', { name: /^Restore / }).click()
-    await expect(drawer).toBeVisible()
-    await drawer.getByRole('link', { name: 'Cancel', exact: true }).click()
-    await expect(drawer).toHaveCount(0)
+    await expect(page).toHaveURL(url => !url.searchParams.has('appMode'))
+    await expect(editor).toBeVisible()
+    await page.locator('#spec-product-frame').scrollIntoViewIfNeeded()
+    await editor.getByRole('link', { name: 'Cancel', exact: true }).click()
+    await expect(editor).toHaveCount(0)
+    await expect(specProduct(page).getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 })).toBeVisible()
   })
   for (const kind of ['Browser', 'Phone']) {
     test(`${kind} frame links have a genuine no-JavaScript fallback @cross-browser`, async ({ page }) => {

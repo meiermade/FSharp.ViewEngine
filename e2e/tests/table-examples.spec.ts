@@ -3,6 +3,7 @@ import AxeBuilder from '@axe-core/playwright'
 
 const examples = [
   ['components-table-panel-preview', 'Default'],
+  ['components-table-row-actions-panel-preview', 'Row actions'],
   ['components-table-comfortable-panel-preview', 'Comfortable rows'],
   ['components-table-status-panel-preview', 'With status values'],
   ['components-table-selection-panel-preview', 'With checkboxes'],
@@ -11,6 +12,7 @@ const examples = [
   ['components-table-sorting-panel-preview', 'Sortable records'],
   ['components-table-hierarchy-panel-preview', 'Hierarchical items'],
   ['components-table-empty-panel-preview', 'Empty state'],
+  ['components-table-infinite-panel-preview', 'Infinite scroll'],
 ] as const
 
 test('table examples render focused native semantics', async ({ page }) => {
@@ -22,7 +24,7 @@ test('table examples render focused native semantics', async ({ page }) => {
     await expect(example.getByRole('heading', { name: title, exact: true })).toBeVisible()
     await expect(preview.getByRole('table')).toHaveCount(id === 'components-table-empty-panel-preview' ? 0 : 1)
     await expect(preview.getByRole('link')).toHaveCount(id === 'components-table-sorting-panel-preview' ? 2 : id === 'components-table-hierarchy-panel-preview' ? 7 : 0)
-    await expect(preview.getByRole('button')).toHaveCount(id === 'components-table-hierarchy-panel-preview' ? 3 : 0)
+    await expect(preview.getByRole('button')).toHaveCount(id === 'components-table-hierarchy-panel-preview' || id === 'components-table-row-actions-panel-preview' ? 3 : 0)
     await expect(preview.getByRole('checkbox')).toHaveCount(id === 'components-table-selection-panel-preview' ? 5 : 0)
   }
   const simple = page.locator('#components-table-panel-preview')

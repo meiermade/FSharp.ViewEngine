@@ -1,0 +1,346 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "0.0.0-local",
+  "project": "Example.Components.fsproj",
+  "namespace": "Example.Components",
+  "components": [
+    "component-builder",
+    "foundation",
+    "card",
+    "browser",
+    "code-assets",
+    "mermaid-assets",
+    "datastar-license",
+    "rocket-runtime",
+    "code-block",
+    "mermaid",
+    "button-script",
+    "button",
+    "link",
+    "badge",
+    "empty-state",
+    "table-script",
+    "table",
+    "echarts-license",
+    "echarts-notice",
+    "echarts-provenance",
+    "echarts-runtime",
+    "chart-script",
+    "chart",
+    "description-list",
+    "choice-selection",
+    "field",
+    "checkbox",
+    "tabs",
+    "resizable",
+    "field-foundation",
+    "avatar",
+    "page-top-bar",
+    "page-header",
+    "section-header",
+    "notice",
+    "notification",
+    "dropdown-menu",
+    "side-nav",
+    "color-mode",
+    "input",
+    "native-overlay",
+    "input-group",
+    "select",
+    "button-group",
+    "breadcrumbs-script",
+    "breadcrumbs",
+    "dialog",
+    "drawer"
+  ],
+  "files": [
+    {
+      "component": "component-builder",
+      "path": "Components/ComponentBuilder.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "5dcdb95a80b053783ab8d099e03e388899d81ab8fa9d4eb6fec5524f35a1315f"
+    },
+    {
+      "component": "foundation",
+      "path": "Components/Foundation.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "9cb7e0e13431f403c35da57da040eed29c7c91928a52d294c47e34863222e9b9"
+    },
+    {
+      "component": "card",
+      "path": "Components/Card.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "1586af388cad62b0e876b89fb837eb976d99325ee62cb110aafbe0ade56bde3b"
+    },
+    {
+      "component": "browser",
+      "path": "Components/Browser.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "2a4b37e3a3a02e01383ba2798c1ec5590ccef4f3eb4044cd849a28c8e9952e6b"
+    },
+    {
+      "component": "code-assets",
+      "path": "Components/CodeAssets.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "1f5ad50e3c3fb8ba7777ab7ee4651f79c54f4b1195153213ace0cd1f7bb4765d"
+    },
+    {
+      "component": "mermaid-assets",
+      "path": "Components/MermaidAssets.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "60616869266f4fae13df5fa259780cf6db34773fa1d783cf20a2647a10185641"
+    },
+    {
+      "component": "datastar-license",
+      "path": "Components/Assets/datastar-LICENSE.txt",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "17da0e216d3c6a819526f5b72a6a44d84d34bcd9beb4191ac6af89c1508ef08f"
+    },
+    {
+      "component": "rocket-runtime",
+      "path": "Components/Assets/datastar-rocket.1.0.4.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "81a556c4591be8eb2ec1e555139c657bd9862ce209434faebf1fc93e8937b9e6"
+    },
+    {
+      "component": "code-block",
+      "path": "Components/CodeBlock.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "354ac3720ec5e0cb3728e355fd555b7b3f5182012834b417441b2a73e8f714fd"
+    },
+    {
+      "component": "mermaid",
+      "path": "Components/Mermaid.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "770f3f9a919d2c13802055506b7a6b112bf9df8cd32934eb5c52facdbd6c05b6"
+    },
+    {
+      "component": "button-script",
+      "path": "Components/Assets/button.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "a57e2f1c0a9dbc1550430e72afbc078d2f59e7c4e31bd0a4215435e4568ac4f5"
+    },
+    {
+      "component": "button",
+      "path": "Components/Button.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "3485d1eafd555373e0055cc56c0ec8b3830f7dd4db646f7e14b8f5ad6d2cc050"
+    },
+    {
+      "component": "link",
+      "path": "Components/Link.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "5a0a2fef2bb539f6b81e2717345eb49063e3bd6e61714c35685fd02f1a83408f"
+    },
+    {
+      "component": "badge",
+      "path": "Components/Badge.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "65db90668e5b43bf7a3024f71882c89a10de0e558eae32e62317059fb48f0d9a"
+    },
+    {
+      "component": "empty-state",
+      "path": "Components/EmptyState.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "d8e21904ea56f73daca62bc3bbc61fa1b59e33d34691cc97504d199449320c81"
+    },
+    {
+      "component": "table-script",
+      "path": "Components/Assets/table.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "414cd5c6f2be165d38880b3113dd96d338d1915460c01b853c0d8ef2e8bbd208"
+    },
+    {
+      "component": "table",
+      "path": "Components/Table.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "e50af778211bea62e859f510ea0c36ffa90a22d7ad467e220b8ede982fe6eefb"
+    },
+    {
+      "component": "echarts-license",
+      "path": "Components/Assets/echarts-LICENSE.txt",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "634293835b43a6dd2094fa39182a3d9a6b9ca43b7fdb9ac354e8037af2a3093a"
+    },
+    {
+      "component": "echarts-notice",
+      "path": "Components/Assets/echarts-NOTICE.txt",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "d491d358344f842685c1b1585970999db65fe30ecf7ef3867af8814f4016c016"
+    },
+    {
+      "component": "echarts-provenance",
+      "path": "Components/Assets/echarts.6.1.0.provenance.json",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "1bf648e7787647899872cf3c01f281c8c5f7c6f70f92e370e4ffe2cb53e42f99"
+    },
+    {
+      "component": "echarts-runtime",
+      "path": "Components/Assets/echarts.6.1.0.esm.min.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "28515f26aa57f87eb1e4ed4eb446927eaf329b5f5e02b4bfd4b0264fea40d1da"
+    },
+    {
+      "component": "chart-script",
+      "path": "Components/Assets/chart.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "f8d340cae4be480dcc48a5c72bc50f10f076dbc4aede4ba9c9a45dff2a86cf59"
+    },
+    {
+      "component": "chart",
+      "path": "Components/Chart.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "351005f785d33999c33c4d6c7e28608197517d7e2d0611f885e05ae5fa10e628"
+    },
+    {
+      "component": "description-list",
+      "path": "Components/DescriptionList.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "16799eebf55dc6426534119aa649aec0d343d4efe541a7ec79bc65e2ef368805"
+    },
+    {
+      "component": "choice-selection",
+      "path": "Components/ChoiceSelection.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "fc399f8a74cf7fbb7b8a7ee05fd8c81c7a738cff07bcfcac95a1d538989932e1"
+    },
+    {
+      "component": "field",
+      "path": "Components/Field.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "4876436105164bff9aa253becc1b293d3e8fa44bbca127fabd028ece95b1e7a8"
+    },
+    {
+      "component": "checkbox",
+      "path": "Components/Checkbox.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "2ee585d602850af13e57449519fa6e47331c50eb87585179e0aea8def2dfac4c"
+    },
+    {
+      "component": "tabs",
+      "path": "Components/Tabs.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "2ad0479856afa7c66fd48e5ed4cc1b2d2e908422a19190687b9f0c14b2b963d9"
+    },
+    {
+      "component": "resizable",
+      "path": "Components/Resizable.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "3e0adc1338e2c82eda8e5fe6805815c407468893eb50f6abbf71c14d3dc6fe84"
+    },
+    {
+      "component": "field-foundation",
+      "path": "Components/FieldFoundation.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "1448e0f10937edb5ecd0c42212702a8632d36bb52b873a4403742032ac79e685"
+    },
+    {
+      "component": "avatar",
+      "path": "Components/Avatar.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "e8e504367c489da2a33ec49f271aed833a160595ce3a610307908a38602bbaf3"
+    },
+    {
+      "component": "page-top-bar",
+      "path": "Components/PageTopBar.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "b489cb9168f172f7f53eab85864c003881d2dbedf58fa0e362ac9fddc781f1b6"
+    },
+    {
+      "component": "page-header",
+      "path": "Components/PageHeader.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "e498f39d1005b95c7f7abe969f0cb3e32a27417591cf49dd454f47bab4691944"
+    },
+    {
+      "component": "section-header",
+      "path": "Components/SectionHeader.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "621d949ba2014e5186b2cf5e9d334362dcd708e7dab345fbef69d52b7c4e6e31"
+    },
+    {
+      "component": "notice",
+      "path": "Components/Notice.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "5c9715ae7d1a2992b938a6215a6e8d542b43cd38ea38501f0c8eb032075c1a62"
+    },
+    {
+      "component": "notification",
+      "path": "Components/Notification.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "61610bb1193d52b291c61e6c4e4747a1824aed32504d53cacd9c45ab5fad8dd4"
+    },
+    {
+      "component": "dropdown-menu",
+      "path": "Components/DropdownMenu.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "8ebba1c3ca10575941911ce48b6a1e8413def2e12eb5d9e4d8031da8427c5aa7"
+    },
+    {
+      "component": "side-nav",
+      "path": "Components/SideNav.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "1035c4e434fce124b942f6606d7ba29d71438e2373e768d8b2af383351bb4187"
+    },
+    {
+      "component": "color-mode",
+      "path": "Components/ColorMode.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "7071150e1f5612d15f92779b85db0af60fcb4c8c2500c0fa701faebbe4c6fa85"
+    },
+    {
+      "component": "input",
+      "path": "Components/Input.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "a0f42cf221191611d603ed13cb94d51559199743730236deb6d48c1d818bb8d2"
+    },
+    {
+      "component": "native-overlay",
+      "path": "Components/NativeOverlay.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "e4dc2e9e971d2cae8d5898d230dbb7c24f4400e49aeccb896cffe7b997ffa39b"
+    },
+    {
+      "component": "input-group",
+      "path": "Components/InputGroup.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "b044ada6de174e73fd0e397ca923dd47324216907c46a6f40a7cc095bdc2c77e"
+    },
+    {
+      "component": "select",
+      "path": "Components/Select.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "f18789c8cc26aa872cf98aa5e86454760affeaf544201f4dafeb184fa34e29c5"
+    },
+    {
+      "component": "button-group",
+      "path": "Components/ButtonGroup.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "522456b9721899d25d08bc1c76aa1753f69171307fccdfd3b780ec6a6f1b6e53"
+    },
+    {
+      "component": "breadcrumbs-script",
+      "path": "Components/Assets/breadcrumbs.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "1b42f255dcd2682851ad2d68a2f16ddce6e9a9e4da9916ade81045b547913d53"
+    },
+    {
+      "component": "breadcrumbs",
+      "path": "Components/Breadcrumbs.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "862c6f1056e77e6fa3912a6fdaa02af4e004d9ceae654c8979e4ece95fbd6b98"
+    },
+    {
+      "component": "dialog",
+      "path": "Components/Dialog.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "5da6be2e9705b97f33ac305f51a15fd602fb687a5db5bf027bdcf0e4d729d37a"
+    },
+    {
+      "component": "drawer",
+      "path": "Components/Drawer.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "e0db89f60d985f2e60370e214a24b169ab740de6603ff4411b4fa88754db3375"
+    }
+  ]
+}

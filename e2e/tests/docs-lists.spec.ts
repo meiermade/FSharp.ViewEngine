@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 for (const [path, text, marker] of [
-  ['/components/interaction-and-server-state', 'Keep product routes', 'disc'],
+  ['/custom', 'emit their values without encoding.', 'disc'],
   ['/docs/previews/sections--prose--and-lists', 'Add the package', 'decimal'],
 ]) {
   test(`Docs ${marker} markers survive Preflight in light, dark, narrow and resized layouts`, async ({ page }, testInfo) => {

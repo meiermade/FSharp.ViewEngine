@@ -39,6 +39,44 @@ test('Catalog Command ranks Table in Components and navigates after morphs @cros
   await input.press('Escape')
   await expect(dialog).not.toBeVisible()
   await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toBeFocused()
+
+  for (const key of ['Meta+K', 'Control+K']) {
+    await page.keyboard.press(key)
+    await expect(input).toBeFocused()
+    await expect(input).toHaveValue('')
+    await expect(table).toBeVisible()
+
+    await input.fill('no-such-document')
+    await expect(dialog.getByText('No results found.', { exact: true })).toBeVisible()
+    await page.keyboard.press(key)
+    await expect(input).toHaveValue('')
+    await expect(input).toBeFocused()
+    await expect(dialog.getByText('No results found.', { exact: true })).not.toBeVisible()
+    await expect(dialog.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+
+    await input.fill('table')
+    await input.press('Escape')
+    await expect(dialog).not.toBeVisible()
+  }
+
+  // Exercise both navigation to Select and selecting the already-current page.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.keyboard.press(shortcut)
+    await input.fill('sel')
+    await expect(dialog.getByRole('option').first()).toHaveAttribute('href', '/components/select')
+    const navigation = page.locator('[data-fve-navigation-root]')
+    const previousDocument = await navigation.getAttribute('data-navigation-document')
+    await input.press('Enter')
+    await expect(page).toHaveURL('/components/select')
+    // The URL is already correct on the second attempt; wait for that response's committed document.
+    await expect(navigation).not.toHaveAttribute('data-navigation-document', previousDocument!)
+    await expect(dialog).not.toBeVisible()
+    await page.keyboard.press(shortcut)
+    await expect(input).toHaveValue('')
+    await expect(input).toBeFocused()
+    await expect(dialog.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+    await input.press('Escape')
+  }
 })
 
 test('Command supports grouped matching, keyboard actions, unavailable and empty results @cross-browser', async ({ page }) => {
@@ -96,4 +134,32 @@ test('Command palette stays bounded in dark 320px / 200% text @cross-browser', a
   expect((await new AxeBuilder({ page }).include('#docs-search-dialog').analyze()).violations).toEqual([])
   await dialog.getByRole('combobox').fill('no-such-document')
   await expect(dialog.getByText('No results found.', { exact: true })).toBeVisible()
+})
+
+test('Command keeps stable results in place and only changes the active option @cross-browser', async ({ page }) => {
+  await page.goto('/components/button')
+  await page.getByRole('button', { name: 'Search documentation', exact: true }).click()
+  const input = page.locator('#docs-search-input')
+  await input.fill('button')
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  const updates = await input.evaluate(async input => {
+    const root = input.closest('[data-fve-command]')!
+    const changes = { children: 0, selection: 0 }
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        if (record.type === 'childList') changes.children++
+        if (record.attributeName === 'aria-selected') changes.selection++
+      }
+    })
+    observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-selected'] })
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const unchanged = { ...changes }
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const navigated = { children: changes.children - unchanged.children, selection: changes.selection - unchanged.selection }
+    observer.disconnect()
+    return { unchanged, navigated }
+  })
+  expect(updates).toEqual({ unchanged: { children: 0, selection: 0 }, navigated: { children: 0, selection: 2 } })
 })

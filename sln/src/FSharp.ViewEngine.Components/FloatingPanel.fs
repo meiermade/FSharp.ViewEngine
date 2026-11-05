@@ -20,7 +20,7 @@ type FloatingPanelBoundary =
 
 /// <category>floating-panel</category>
 [<NoEquality; NoComparison>]
-type FloatingPanelConfig =
+type internal FloatingPanelConfig =
     private
         { id:string
           title:string
@@ -28,37 +28,38 @@ type FloatingPanelConfig =
           description:string option
           footer:HtmlElement option
           state:FloatingPanelState
-          boundary:FloatingPanelBoundary }
+          boundary:FloatingPanelBoundary
+          attributes:HtmlAttribute list }
 
-/// <summary>
-/// A persistent, non-modal product surface. It does not own completion or persistence policy.
-/// </summary>
 /// <category>floating-panel</category>
-[<RequireQualifiedAccess>]
-module FloatingPanel =
-    let create id title body =
-        { id = TextField.stableId id
-          title = TextField.requiredText (nameof title) title
-          body = body
-          description = None
-          footer = None
-          state = FloatingPanelState.Open
-          boundary = FloatingPanelBoundary.Viewport }
+[<AutoOpen>]
+module FloatingPanelAttributes =
+    type Html with
+        static member _state(value:FloatingPanelState) = Html._attr("state", match value with FloatingPanelState.Open -> "open" | FloatingPanelState.Minimized -> "minimized" | FloatingPanelState.Dismissed -> "dismissed")
+        static member _boundary(value:FloatingPanelBoundary) = Html._attr("boundary", if value = FloatingPanelBoundary.Container then "container" else "viewport")
 
-    let withDescription description (config:FloatingPanelConfig) =
-        { config with description = Some (TextField.requiredText (nameof description) description) }
+module internal FloatingPanel =
+    let footer attributes children =
+        ComponentPart("FloatingPanel", "footer", ComponentElement.render "div" [_class "shrink-0 border-t border-[var(--fve-border)] p-4"] attributes children) :> HtmlElement
 
-    let withFooter footer (config:FloatingPanelConfig) = { config with footer = Some footer }
-    let withinContainer (config:FloatingPanelConfig) = { config with boundary = FloatingPanelBoundary.Container }
-    let minimized (config:FloatingPanelConfig) = { config with state = FloatingPanelState.Minimized }
-    let dismissed (config:FloatingPanelConfig) = { config with state = FloatingPanelState.Dismissed }
+    let private configuration attributes children =
+        let parts, body = ComponentParts.split "FloatingPanel" children
+        { id = ComponentElement.required "id" attributes |> TextField.stableId
+          title = ComponentElement.required "label" attributes
+          body = ComponentContent.fragment body
+          description = ComponentElement.value "description" attributes |> Option.map (TextField.requiredText "description")
+          footer = Map.tryFind "footer" parts
+          state = match ComponentElement.choice "state" "open" ["open"; "minimized"; "dismissed"] attributes with "minimized" -> FloatingPanelState.Minimized | "dismissed" -> FloatingPanelState.Dismissed | _ -> FloatingPanelState.Open
+          boundary = if ComponentElement.choice "boundary" "viewport" ["viewport"; "container"] attributes = "container" then FloatingPanelBoundary.Container else FloatingPanelBoundary.Viewport
+          attributes = ComponentHtml.safeAttributes ["id"; "label"; "description"; "state"; "boundary"; "aria-labelledby"; "data-show"] attributes }
 
     let private icon path =
         raw $"""<svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path d="{path}"/></svg>"""
 
-    let render (config:FloatingPanelConfig) =
+    let render attributes children =
+        let config = configuration attributes children
         let token = ComponentHtml.signalToken config.id
-        let signal = $"{token}FloatingPanelState"
+        let signal = $"_{token}FloatingPanelState"
         let value = "$" + signal
         let titleId = config.id + "-title"
         let titleExpression = ComponentHtml.javascriptString titleId
@@ -80,11 +81,13 @@ module FloatingPanel =
             _attr ("data-fve-floating-panel-root", "true")
             _dataSignals $"{{{signal}: {ComponentHtml.javascriptString initial}}}"
             section {
-                _id config.id
-                _ariaLabelledby titleId
-                _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex max-h-[min(36rem,calc(100dvh-5rem))] w-[min(24rem,calc(100%-2rem))] flex-col overflow-hidden [body:has([data-fve-bottom-navigation=true])_&]:bottom-[max(4rem,calc(env(safe-area-inset-bottom)+3.5rem))] max-[30rem]:right-[max(8px,env(safe-area-inset-right))] max-[30rem]:w-[min(24rem,calc(100%-16px))] rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] text-[var(--fve-text)] shadow-xl ring-1 ring-[var(--fve-border)]")
-                _dataShow (value + " == 'open'")
-                if config.state <> FloatingPanelState.Open then _style "display:none"
+                let defaults = [
+                    yield _id config.id
+                    yield _ariaLabelledby titleId
+                    yield _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex max-h-[min(36rem,calc(100dvh-5rem))] w-[min(24rem,calc(100%-2rem))] flex-col overflow-hidden [body:has([data-fve-bottom-navigation=true])_&]:bottom-[max(4rem,calc(env(safe-area-inset-bottom)+3.5rem))] max-[30rem]:right-[max(8px,env(safe-area-inset-right))] max-[30rem]:w-[min(24rem,calc(100%-16px))] rounded-[var(--fve-radius-panel)] bg-[var(--fve-background)] text-[var(--fve-text)] shadow-xl ring-1 ring-[var(--fve-border)]")
+                    yield _dataShow (value + " == 'open'")
+                    if config.state <> FloatingPanelState.Open then yield _style "display:none" ]
+                for attribute in ComponentElement.attributes (defaults @ config.attributes) do attribute
                 header {
                     _class "fve-floating-panel-header flex shrink-0 flex-wrap items-start justify-between gap-3 border-b border-[var(--fve-border)] p-4 max-[30rem]:px-3"
                     div {
@@ -123,7 +126,7 @@ module FloatingPanel =
                     config.body
                 }
                 match config.footer with
-                | Some footer -> div { _class "shrink-0 border-t border-[var(--fve-border)] p-4"; footer }
+                | Some footer -> footer
                 | None -> ()
             }
             button {
@@ -148,3 +151,9 @@ module FloatingPanel =
                 "Restore " + config.title
             }
         }
+
+/// <category>floating-panel</category>
+[<AutoOpen>]
+module FloatingPanelDsl =
+    let fveFloatingPanel = ComponentElementBuilder(FloatingPanel.render)
+    let fveFloatingPanelFooter = ComponentElementBuilder(FloatingPanel.footer)

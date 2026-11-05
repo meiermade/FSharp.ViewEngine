@@ -1,106 +1,35 @@
 namespace FSharp.ViewEngine.Components
 
-open System
 open FSharp.ViewEngine
 open type Html
 
-/// <summary>Controls whether joined controls are arranged horizontally or vertically.</summary>
+module internal ButtonGroup =
+    let render attributes children =
+        if List.isEmpty children then invalidArg "children" "A button group requires at least one segment."
+        let label = ComponentElement.required "aria-label" attributes
+        let orientation = ComponentElement.choice "orientation" "horizontal" ["horizontal"; "vertical"] attributes
+        ComponentElement.render "div"
+            [ _role "group"
+              _ariaLabel label
+              _class (ComponentHtml.classes [
+                  ControlGroup.classes orientation
+                  if orientation = "horizontal" then ComponentHtml.horizontalScrollClasses ])
+              if orientation = "horizontal" then yield! ComponentHtml.horizontalScrollAttributes ]
+            (ComponentHtml.safeAttributes ["role"; "aria-label"; "tabindex"; "data-on:keydown"; "data-on:focusin"] attributes) children
+
+/// <summary>Joins native controls without changing their semantics or keyboard behavior.</summary>
 /// <category>button-group</category>
-[<RequireQualifiedAccess>]
-type ButtonGroupOrientation =
-    | Horizontal
-    | Vertical
+type ButtonGroupBuilder internal () =
+    inherit ComponentElementBuilder(ButtonGroup.render)
+    member this.Yield(text:string) : ComponentCode<unit> =
+        base.Yield(span {
+            _data ("fve-group-control", "outline")
+            _class "inline-flex shrink-0 items-center rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface-subtle)] px-3 min-h-[var(--fve-control-min-height)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] text-[var(--fve-muted-text)]"
+            text
+        })
 
-/// <summary>A typed label, Button, native link, Select, or DropdownMenu segment in a joined group.</summary>
 /// <category>button-group</category>
-[<NoEquality; NoComparison>]
-type ButtonGroupItem<'destination> =
-    private
-        | Label of string
-        | Button of ButtonConfig
-        | Select of (string -> string -> HtmlElement)
-        | Link of 'destination * ButtonConfig
-        | Menu of DropdownMenuConfig<'destination>
-
-/// <summary>Builds joined segments while preserving each interactive control’s behavior.</summary>
-/// <category>button-group</category>
-[<RequireQualifiedAccess>]
-module ButtonGroupItem =
-    /// Adds a muted, noninteractive text segment, not a disabled button.
-    let label text : ButtonGroupItem<'destination> =
-        if String.IsNullOrWhiteSpace text then invalidArg (nameof text) "A segment label is required."
-        Label text
-    /// Adds a Select with its accessible label visually hidden. Selection, popup and keyboard behavior remain owned by Select.
-    let select (config:SelectConfig<'value, 'mode>) : ButtonGroupItem<'destination> =
-        Select (fun outerClass controlClass -> Select.renderGrouped outerClass controlClass config)
-    /// Adds an existing Button configuration, including icon-only content.
-    let button config : ButtonGroupItem<'destination> = Button config
-    /// Adds a native link with shared Neutral + Outline button presentation. Icon content requires an accessible name.
-    let link destination content : ButtonGroupItem<'destination> = Link (destination, Button.create content)
-    /// Adds an existing DropdownMenu configuration.
-    let menu config : ButtonGroupItem<'destination> = Menu config
-
-/// <summary>Opaque configuration produced and modified by the ButtonGroup module.</summary>
-/// <category>button-group</category>
-[<NoEquality; NoComparison>]
-type ButtonGroupConfig<'destination> =
-    private
-        { label:string
-          items:ButtonGroupItem<'destination> list
-          orientation:ButtonGroupOrientation
-          attributes:HtmlAttribute list }
-
-/// <summary>Joins related controls visually while preserving each control’s native behavior.</summary>
-/// <category>button-group</category>
-[<RequireQualifiedAccess>]
-module ButtonGroup =
-    /// <summary>Creates a horizontal group. Every control retains its own focus stop and behavior.</summary>
-    let create label items =
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible button-group label is required."
-        if List.isEmpty items then invalidArg (nameof items) "A button group requires at least one control."
-        { label = label
-          items = items
-          orientation = ButtonGroupOrientation.Horizontal
-          attributes = [] }
-
-    /// Arranges the controls horizontally or vertically.
-    let withOrientation orientation (config:ButtonGroupConfig<'destination>) = { config with orientation = orientation }
-    /// Adds safe consumer-authored attributes to the group container.
-    let withAttributes attributes (config:ButtonGroupConfig<'destination>) = { config with attributes = attributes }
-
-    /// Renders the labelled group and resolves native link and DropdownMenu destinations.
-    let render (resolve:'destination -> string) (config:ButtonGroupConfig<'destination>) =
-        let count = config.items.Length
-        let overlapClass index =
-            if index = 0 then ""
-            else match config.orientation with ButtonGroupOrientation.Horizontal -> "-ml-px" | ButtonGroupOrientation.Vertical -> "-mt-px"
-        let shapeClass index =
-            if count = 1 then ""
-            else
-                match config.orientation, index with
-                | ButtonGroupOrientation.Horizontal, 0 -> "!rounded-e-none"
-                | ButtonGroupOrientation.Horizontal, index when index = count - 1 -> "!rounded-s-none"
-                | ButtonGroupOrientation.Horizontal, _ -> "!rounded-none"
-                | ButtonGroupOrientation.Vertical, 0 -> "!rounded-b-none"
-                | ButtonGroupOrientation.Vertical, index when index = count - 1 -> "!rounded-t-none"
-                | ButtonGroupOrientation.Vertical, _ -> "!rounded-none"
-        let controlClass index = ComponentHtml.classes [ overlapClass index; shapeClass index; "focus-visible:relative focus-visible:z-10" ]
-        div {
-            _role "group"
-            _ariaLabel config.label
-            _class (match config.orientation with ButtonGroupOrientation.Horizontal -> ComponentHtml.classes [ "isolate inline-flex items-stretch"; ComponentHtml.horizontalScrollClasses ] | ButtonGroupOrientation.Vertical -> "isolate inline-flex flex-col items-stretch")
-            if config.orientation = ButtonGroupOrientation.Horizontal then
-                for attribute in ComponentHtml.horizontalScrollAttributes do attribute
-            for attribute in ComponentHtml.safeAttributes [ "class"; "role"; "aria-label"; "tabindex"; "data-on:keydown"; "data-on:focusin" ] config.attributes do attribute
-            for index, item in config.items |> List.indexed do
-                match item with
-                | Label text ->
-                    span {
-                        _class (ComponentHtml.classes [ "inline-flex shrink-0 items-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] px-3 min-h-[var(--fve-control-min-height)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] text-[var(--fve-muted-text)] ring-1 ring-inset ring-[var(--fve-border)]"; controlClass index ])
-                        text
-                    }
-                | Button button -> button |> Button.withGroupClass (controlClass index) |> Button.render
-                | Select render -> render (overlapClass index) (ComponentHtml.classes [ shapeClass index; "focus-visible:relative focus-visible:z-10" ])
-                | Link (destination, button) -> Button.renderGroupedLink (resolve destination) (controlClass index) button
-                | Menu menu -> menu |> DropdownMenu.withinGroup (overlapClass index) (ComponentHtml.classes [ shapeClass index; "bg-transparent text-[var(--fve-neutral-text)] ring-1 ring-inset ring-[color-mix(in_srgb,var(--fve-neutral-text)_20%,transparent)] focus-visible:relative focus-visible:z-10" ]) |> DropdownMenu.render resolve
-        }
+[<AutoOpen>]
+module ButtonGroupDsl =
+    /// A labelled group of ordinary controls; orientation is a shared typed HTML attribute.
+    let fveButtonGroup = ButtonGroupBuilder()

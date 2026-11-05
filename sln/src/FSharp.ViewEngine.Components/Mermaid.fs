@@ -5,24 +5,17 @@ open FSharp.ViewEngine
 open type Html
 open type Datastar
 
-/// <category>mermaid</category>
-module MermaidView =
-    let private render (classes:string) (source:string) =
-        div {
-            _class classes
-            _data("init", "window.renderMermaid?.(el)")
-            _data("on:datastar-fetch", "if (evt.detail.type === 'datastar-patch-elements') queueMicrotask(() => { if (el.isConnected) window.renderMermaid?.(el, true) })")
-            _data("docs-diagram", "true")
-            _data("mermaid-source", source)
-            _data("mermaid-state", "pending")
-            _ariaBusy true
-            p {
-                _class "m-0 text-center text-sm leading-relaxed text-[var(--fve-muted-text)]"
-                _data("mermaid-status", "true")
-                _role "status"
-                "Rendering diagram…"
-            }
-        }
+module internal MermaidView =
+    let private render (classes:string) (source:string) attributes =
+        ComponentElement.render "div"
+            [_class classes; _data("init", "window.renderMermaid?.(el)"); _data("on:datastar-fetch", "if (evt.detail.type === 'datastar-patch-elements') queueMicrotask(() => { if (el.isConnected) window.renderMermaid?.(el, true) })"); _data("docs-diagram", "true"); _data("mermaid-source", source); _data("mermaid-state", "pending"); _ariaBusy true]
+            attributes [
+                p {
+                    _class "m-0 text-center text-sm leading-relaxed text-[var(--fve-muted-text)]"
+                    _data("mermaid-status", "true")
+                    _role "status"
+                    "Rendering diagram…"
+                } ]
 
     let private classes = "mermaid overflow-x-auto rounded-xl border border-[var(--fve-border)] bg-[var(--fve-surface-subtle)] p-5 data-[mermaid-state=pending]:grid data-[mermaid-state=pending]:min-h-32 data-[mermaid-state=pending]:place-items-center data-[mermaid-state=failed]:grid data-[mermaid-state=failed]:min-h-32 data-[mermaid-state=failed]:place-items-center [&>svg]:h-auto [&>svg]:max-w-full"
 
@@ -31,8 +24,10 @@ module MermaidView =
     let c4Diagram source = render $"{classes} max-sm:[&>svg]:min-w-3xl [&_a]:cursor-pointer [&_a:focus-visible]:outline-2 [&_a:focus-visible]:outline-offset-2 [&_a:focus-visible]:outline-[var(--fve-brand-ring)]" source
 
 /// <category>mermaid</category>
-[<NoEquality; NoComparison>]
-type MermaidConfig = private { source:string; c4:bool }
+[<AutoOpen>]
+module MermaidAttributes =
+    type Html with
+        static member _c4(value:bool) = Html._attr("c4", if value then "true" else "false")
 
 /// <category>mermaid</category>
 [<RequireQualifiedAccess>]
@@ -43,15 +38,16 @@ module Mermaid =
     /// Authorize initialization and the lazy-loaded runtime with the current document's CSP nonce.
     let assetsWithNonce scriptPath nonce = MermaidAssets.renderWithNonce scriptPath nonce
 
-    let create source : MermaidConfig =
-        if String.IsNullOrWhiteSpace source then invalidArg (nameof source) "Mermaid source cannot be empty."
-        { source = source; c4 = false }
+    let internal render attributes children =
+        let source = ComponentContent.plainText "fveMermaid" children
+        if String.IsNullOrWhiteSpace source then invalidArg "children" "Mermaid source cannot be empty."
+        let render = if ComponentElement.value "c4" attributes = Some "true" then MermaidView.c4Diagram else MermaidView.diagram
+        render source (ComponentHtml.safeAttributes ["c4"] attributes)
 
-    let withC4 (diagram:MermaidConfig) = { diagram with c4 = true }
-
-    let render (diagram:MermaidConfig) =
-        if diagram.c4 then MermaidView.c4Diagram diagram.source
-        else MermaidView.diagram diagram.source
+/// <category>mermaid</category>
+[<AutoOpen>]
+module MermaidDsl =
+    let fveMermaid = ComponentElementBuilder(Mermaid.render)
 
 
 namespace FSharp.ViewEngine.Components

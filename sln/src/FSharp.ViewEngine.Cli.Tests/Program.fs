@@ -47,36 +47,90 @@ let tests = testList "fve" [
     testCase "components and required helpers have one namespace and dependency-valid compile order" <| fun _ ->
         let order = registry.Components |> List.mapi (fun index item -> item.Name,index) |> Map.ofList
         for item in registry.Components do
-            Expect.isFalse (item.FileName.Contains('/')) "framework directory categories are not distribution boundaries"
+            if item.Compile then
+                Expect.isFalse (item.FileName.Contains('/')) "F# components have no framework directory categories"
+            else
+                Expect.isTrue (item.FileName.StartsWith("Assets/")) "non-compiled dependencies are explicit owned assets"
             for dependency in item.Dependencies do Expect.isLessThan order[dependency] order[item.Name] $"{dependency} precedes {item.Name}"
             match Registry.resolve registry [item.Name] with
             | Error message -> failtest message
             | Ok items -> Expect.equal items[items.Length-1].Name item.Name "requested component ends its closure"
-        for retired in ["documentation"; "documentation-registry"; "page"; "section"; "compositions"; "app-shell"; "media-library"; "fixture"; "text-field"; "identity"] do
+        for retired in ["documentation"; "documentation-registry"; "page"; "section"; "compositions"; "app-shell"; "media-library"; "fixture"; "text-field"; "identity"; "theme-switcher"; "item"; "steps"] do
             match Registry.resolve registry [retired] with
             | Error _ -> ()
-            | Ok _ -> failtest $"{retired} must not install an application/spec framework or unrelated bundle."
+            | Ok _ -> failtest $"{retired} is retired and must not install a component or compatibility alias."
 
     testCase "independently installable controls copy only their genuine dependencies" <| fun _ ->
         for requested,expected in [
-            "card",["foundation"; "card"]
-            "input",["foundation"; "field-foundation"; "input"]
-            "textarea",["foundation"; "field-foundation"; "textarea"]
-            "avatar",["foundation"; "avatar"]
-            "copy-reveal",["foundation"; "button"; "copy-reveal"]
-            "page-header",["foundation"; "page-header"]
-            "section-header",["foundation"; "section-header"]
-            "page-top-bar",["foundation"; "page-top-bar"]
-            "field-group",["foundation"; "field-foundation"; "field"; "field-group"]
-            "dialog",["foundation"; "button"; "native-overlay"; "dialog"]
-            "drawer",["foundation"; "button"; "native-overlay"; "drawer"]
-            "code-block",["code-assets"; "code-block"]
-            "mermaid",["mermaid-assets"; "mermaid"]
-            "fsharp-api-reference",["code-assets"; "code-block"; "fsharp-api-reference"] ] do
+            "card",["component-builder"; "foundation"; "card"]
+            "button-group",["component-builder"; "foundation"; "button-group"]
+            "dropdown-menu",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "dropdown-menu"]
+            "link",["component-builder"; "foundation"; "link"]
+            "input",["component-builder"; "foundation"; "field-foundation"; "input"]
+            "field",["component-builder"; "foundation"; "field"]
+            "input-group",["component-builder"; "foundation"; "input-group"]
+            "select",["component-builder"; "foundation"; "choice-selection"; "datastar-license"; "rocket-runtime"; "select"]
+            "textarea",["component-builder"; "foundation"; "field-foundation"; "textarea"]
+            "avatar",["component-builder"; "foundation"; "avatar"]
+            "badge",["component-builder"; "foundation"; "badge"]
+            "kbd",["component-builder"; "foundation"; "kbd"]
+            "separator",["component-builder"; "foundation"; "separator"]
+            "skeleton",["component-builder"; "foundation"; "skeleton"]
+            "progress",["component-builder"; "foundation"; "progress"]
+            "loading-indicator",["component-builder"; "foundation"; "loading-indicator"]
+            "empty-state",["component-builder"; "foundation"; "empty-state"]
+            "metric",["component-builder"; "foundation"; "metric"]
+            "callout",["component-builder"; "foundation"; "callout"]
+            "button",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "button-script"; "button"]
+            "table",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "table-script"; "table"]
+            "copy-reveal",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "button-script"; "button"; "copy-reveal"]
+            "page-header",["component-builder"; "foundation"; "page-header"]
+            "section-header",["component-builder"; "foundation"; "section-header"]
+            "description-list",["component-builder"; "foundation"; "description-list"]
+            "pagination",["component-builder"; "foundation"; "pagination"]
+            "file-selection",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "file-selection"]
+            "error-summary",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "error-summary"]
+            "notice",["component-builder"; "foundation"; "notice"]
+            "notification",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "notification"]
+            "message",["component-builder"; "foundation"; "message"]
+            "browser",["component-builder"; "foundation"; "browser"]
+            "phone",["component-builder"; "foundation"; "phone"]
+            "page-top-bar",["component-builder"; "foundation"; "page-top-bar"]
+            "field-group",["component-builder"; "foundation"; "field"; "field-group"]
+            "checkbox",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "checkbox"]
+            "switch",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "switch"]
+            "toggle-button",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "toggle-button"]
+            "radio-group",["component-builder"; "foundation"; "field"; "field-group"; "datastar-license"; "rocket-runtime"; "radio-group"]
+            "toggle-group",["component-builder"; "foundation"; "choice-selection"; "datastar-license"; "rocket-runtime"; "toggle-group"]
+            "choice-cards",["component-builder"; "foundation"; "field"; "field-group"; "choice-cards"]
+            "tag-input",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "tag-input-script"; "tag-input"]
+            "dialog",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "button-script"; "button"; "native-overlay"; "dialog"]
+            "drawer",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "button-script"; "button"; "native-overlay"; "drawer"]
+            "code-block",["code-assets"; "component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "code-block"]
+            "mermaid",["mermaid-assets"; "component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "mermaid"]
+            "fsharp-api-reference",["code-assets"; "component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "code-block"; "fsharp-api-reference"]
+            "side-nav",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "dropdown-menu"; "side-nav"]
+            "bottom-navigation",["component-builder"; "foundation"; "bottom-navigation"]
+            "chart",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "echarts-license"; "echarts-notice"; "echarts-provenance"; "echarts-runtime"; "chart-script"; "chart"]
+            "day-calendar",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "calendar-rendering"; "day-calendar"]
+            "week-calendar",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "calendar-rendering"; "week-calendar"]
+            "month-calendar",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "calendar-rendering"; "field-foundation"; "popover"; "month-calendar"]
+            "year-calendar",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "calendar-rendering"; "field-foundation"; "popover"; "month-calendar"; "year-calendar"]
+            "date-picker",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "calendar-rendering"; "field-foundation"; "popover"; "month-calendar"; "date-picker"]
+            "example",["code-assets"; "component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "code-block"; "example"]
+            "command",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "button-script"; "button"; "native-overlay"; "command"]
+            "popover",["component-builder"; "foundation"; "field-foundation"; "datastar-license"; "rocket-runtime"; "popover"]
+            "floating-panel",["component-builder"; "foundation"; "field-foundation"; "datastar-license"; "rocket-runtime"; "floating-panel"]
+            "tabs",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "tabs"]
+            "resizable",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "resizable"]
+            "tooltip",["component-builder"; "foundation"; "field-foundation"; "datastar-license"; "rocket-runtime"; "tooltip"]
+            "breadcrumbs",["component-builder"; "foundation"; "datastar-license"; "rocket-runtime"; "dropdown-menu"; "button-script"; "button"; "breadcrumbs-script"; "breadcrumbs"]
+            "color-mode",["color-mode"] ] do
             withTemp <| fun root ->
                 initialize root
                 add root [requested]
-                let actual = Directory.GetFiles(Path.Combine(root,"Components"),"*.fs") |> Array.map Path.GetFileName |> Array.sort
+                let componentsRoot = Path.Combine(root,"Components")
+                let actual = Directory.GetFiles(componentsRoot,"*",SearchOption.AllDirectories) |> Array.map (fun path -> Path.GetRelativePath(componentsRoot,path).Replace('\\','/')) |> Array.sort
                 let files = registry.Components |> List.filter (fun item -> List.contains item.Name expected) |> List.map _.FileName |> List.sort |> List.toArray
                 Expect.sequenceEqual actual files $"{requested} source boundary"
 
@@ -103,6 +157,12 @@ let tests = testList "fve" [
             initialize root
             add root ["button"]
             let initialized = File.ReadAllText project
+            Expect.stringContains initialized "<None Include=\"Components/Assets/button.js\" />" "JavaScript is editable source, not an F# compile item"
+            Expect.isFalse (initialized.Contains "<Compile Include=\"Components/Assets/") "assets are never compiled as F#"
+            let script = File.ReadAllText(componentPath root "Assets/button.js")
+            Expect.stringContains script "import { rocket } from './datastar-rocket.1.0.4.js'" "the component imports the shared pinned runtime"
+            Expect.stringContains script "rocket('fve-button'" "the installed source defines the documented custom element"
+            Expect.isTrue (File.Exists(componentPath root "Assets/datastar-LICENSE.txt")) "runtime provenance travels with source"
             Expect.isLessThan (initialized.IndexOf("Components/Button.fs")) (initialized.IndexOf("FinanceComponents.fs")) "generated definitions precede consumer"
             let startIndex = initialized.IndexOf("  <!-- fve:components:start -->")
             let endMarker = "  <!-- fve:components:end -->"

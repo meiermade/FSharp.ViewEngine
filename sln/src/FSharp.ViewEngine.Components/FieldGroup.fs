@@ -1,45 +1,25 @@
 namespace FSharp.ViewEngine.Components
 
-open System
 open FSharp.ViewEngine
 open type Html
-open type Datastar
+
+module internal FieldGroup =
+    let render attributes children =
+        let layout = ComponentElement.choice "layout" "vertical" ["vertical"; "horizontal"; "responsive"] attributes
+        let classes =
+            match layout with
+            | "horizontal" -> "flex flex-wrap items-start gap-4 [&>p]:w-full"
+            | "responsive" -> "grid gap-4 sm:grid-cols-2 [&>p]:col-span-full"
+            | _ -> "grid gap-3"
+        ComponentElement.render "fieldset" [_class ("min-w-0 [overflow-wrap:anywhere] " + classes)] (ComponentHtml.safeAttributes ["layout"] attributes) children
+
+    let legend attributes children =
+        // A native legend sits outside the fieldset's grid; gap does not separate its content.
+        ComponentElement.render "legend" [_class "mb-1.5 text-sm font-semibold text-[var(--fve-text)]"] attributes children
 
 /// <category>field-group</category>
-[<NoEquality; NoComparison>]
-type FieldGroupConfig =
-    private
-        { legend:string
-          content:HtmlElement
-          description:string option
-          layout:FieldLayout
-          attributes:HtmlAttribute list }
-
-/// <summary>
-/// A semantic fieldset for related controls. Individual controls retain their own Field or complete-control labels.
-/// </summary>
-/// <category>field-group</category>
-[<RequireQualifiedAccess>]
-module FieldGroup =
-    let create legend content =
-        { legend = TextField.requiredText (nameof legend) legend
-          content = content
-          description = None
-          layout = FieldLayout.Vertical
-          attributes = [] }
-
-    let withDescription description (config:FieldGroupConfig) = { config with description = Some(TextField.requiredText (nameof description) description) }
-    let withLayout layout (config:FieldGroupConfig) = { config with layout = layout }
-    let withAttributes attributes (config:FieldGroupConfig) = { config with attributes = attributes }
-
-    let render (config:FieldGroupConfig) =
-        fieldset {
-            _class "grid min-w-0 gap-3"
-            for attribute in ComponentHtml.safeAttributes [ "class" ] config.attributes do attribute
-            legend { _class "text-sm font-semibold text-[var(--fve-text)]"; config.legend }
-            match config.description with Some description -> p { _class "-mt-2 text-sm text-[var(--fve-muted-text)]"; description } | None -> ()
-            div {
-                _class (match config.layout with FieldLayout.Vertical -> "grid gap-4" | FieldLayout.Horizontal -> "flex flex-wrap items-start gap-4" | FieldLayout.Responsive -> "grid gap-4 sm:grid-cols-2")
-                config.content
-            }
-        }
+[<AutoOpen>]
+module FieldGroupDsl =
+    /// A native fieldset. Compose its legend, description and fields as ordinary children.
+    let fveFieldGroup = ComponentElementBuilder(FieldGroup.render)
+    let fveFieldLegend = ComponentElementBuilder(FieldGroup.legend)

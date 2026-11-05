@@ -1,4 +1,4 @@
-import { test as base, expect } from '@playwright/test'
+import { test as base, expect, type Page } from '@playwright/test'
 import { createLoadDiagnostics } from './scripts/load-diagnostics.mjs'
 
 type LoadDiagnostics = ReturnType<typeof createLoadDiagnostics>
@@ -20,4 +20,5 @@ export const test = base.extend<{ loadDiagnostics: LoadDiagnostics }>({
     }
   }, { auto: true }],
 })
+export const specProduct = (page: Page) => page.frameLocator('#spec-product-frame')
 export { expect }

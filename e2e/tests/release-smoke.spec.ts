@@ -1,4 +1,4 @@
-import { expect, test } from '../fixture'
+import { expect, test, specProduct } from '../fixture'
 
 const expectedCommit = process.env.DOCS_EXPECTED_COMMIT ?? 'local'
 const expectedImage = process.env.DOCS_EXPECTED_IMAGE ?? 'local'
@@ -71,24 +71,25 @@ test('essential rendered assets and critical read-only navigation work @cross-br
   await page.evaluate(() => { document.documentElement.dataset.smokeNavigation = 'retained' })
   await page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link', { name: 'View profile', exact: true }).click()
   await expect(page).toHaveURL(url => url.pathname === '/examples/specification/profile')
-  await expect(page.getByRole('heading', { name: 'Profile', exact: true, level: 1 })).toBeVisible()
+  await expect(specProduct(page).getByRole('heading', { name: 'General', exact: true, level: 1 })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-smoke-navigation', 'retained')
   // Retain the engine-sensitive Select/focus check on both deployment origins.
   await page.goto('/components/select')
-  const panel = page.locator('#components-select-panel-preview')
+  const panel = page.locator('#components-select-default-panel-preview')
   const trigger = panel.getByRole('combobox', { name: 'Update frequency' })
   await trigger.click()
-  const weekly = panel.getByRole('option', { name: 'Weekly', exact: true, selected: true })
-  await expect(weekly).toBeVisible()
-  await expect(weekly).toHaveAttribute('data-active', 'true')
+  const daily = panel.getByRole('option', { name: 'Daily', exact: true, selected: true })
+  await expect(daily).toBeVisible()
+  await expect(daily).toHaveAttribute('data-active', 'true')
+  await expect(panel.getByRole('option', { name: 'Monthly', exact: true })).toHaveAttribute('aria-disabled', 'true')
   await page.keyboard.press('ArrowDown')
-  await expect(panel.getByRole('option', { name: 'Monthly', exact: true })).toHaveAttribute('data-active', 'true')
+  await expect(panel.getByRole('option', { name: 'Weekly', exact: true })).toHaveAttribute('data-active', 'true')
   await page.keyboard.press('Enter')
-  await expect(trigger).toContainText('Monthly')
-  await expect(panel.locator('input[name="updateFrequency"]')).toHaveValue('monthly')
+  await expect(trigger).toContainText('Weekly')
+  await expect(panel.locator('input[name="updateFrequencyDefault"]')).toHaveValue('weekly')
   await expect(trigger).toBeFocused()
   await trigger.click()
-  await expect(panel.getByRole('option', { name: 'Monthly', exact: true, selected: true })).toBeVisible()
+  await expect(panel.getByRole('option', { name: 'Weekly', exact: true, selected: true })).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(trigger).toBeFocused()
   for (const section of ['Components', 'Actions']) {

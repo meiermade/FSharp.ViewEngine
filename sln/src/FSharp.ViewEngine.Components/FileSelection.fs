@@ -5,106 +5,47 @@ open FSharp.ViewEngine
 open type Html
 open type Datastar
 
-/// <category>file-selection</category>
-[<NoEquality; NoComparison>]
-type FileSelectionConfig =
-    private
-        { id:string
-          name:string
-          label:string
-          description:string option
-          accept:string option
-          multiple:bool
-          required:bool
-          disabled:bool
-          pending:bool
-          validation:string option }
-
-/// <category>file-selection</category>
-[<RequireQualifiedAccess>]
-module FileSelection =
-    let create id name label =
-        if String.IsNullOrWhiteSpace id || id |> Seq.exists Char.IsWhiteSpace then invalidArg (nameof id) "A stable file field ID is required."
-        if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A file form name is required."
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A file field label is required."
-        { id = id; name = name; label = label; description = None; accept = None; multiple = false; required = false; disabled = false; pending = false; validation = None }
-    let withDescription description (config:FileSelectionConfig) = { config with description = Some description }
-    let withAccept accept (config:FileSelectionConfig) = { config with accept = Some accept }
-    let multiple (config:FileSelectionConfig) = { config with multiple = true }
-    let required (config:FileSelectionConfig) = { config with required = true }
-    let disabled (config:FileSelectionConfig) = { config with disabled = true }
-    let pending (config:FileSelectionConfig) = { config with pending = true }
-    let withValidation validation (config:FileSelectionConfig) = { config with validation = Some validation }
-    let render config =
-        let unavailable = config.disabled || config.pending
-        let descriptionId = config.id + "-description"
-        let validationId = config.id + "-validation"
-        let selectedId = config.id + "-selected"
-        let describedBy =
-            [ if config.description.IsSome then descriptionId
-              if config.validation.IsSome then validationId ]
-            |> String.concat " "
+module internal FileSelection =
+    let render attributes children =
+        ComponentContent.noChildren "fveFileSelection" children
+        let attributes = ComponentElement.attributes attributes
+        let id = ComponentElement.required "id" attributes
+        if id |> Seq.exists Char.IsWhiteSpace then invalidArg "attributes" "A stable file control ID without whitespace is required."
+        ComponentElement.required "name" attributes |> ignore
+        ComponentElement.choice "type" "file" ["file"] attributes |> ignore
+        let flag name = ComponentElement.attribute name attributes |> Option.exists (fun attribute -> attribute.Value <> ValueSome "false")
+        let disabled, readOnly = flag "disabled", flag "readonly"
+        let defaults = [
+            _type "file"
+            if readOnly then
+                _ariaDisabled true
+            _class "block min-h-[var(--fve-control-min-height)] w-full min-w-0 cursor-pointer rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] text-sm text-[var(--fve-text)] aria-invalid:border-[var(--fve-critical-ring)] aria-invalid:focus-visible:outline-[var(--fve-critical-ring)] user-invalid:border-[var(--fve-critical-ring)] user-invalid:focus-visible:outline-[var(--fve-critical-ring)] file:me-3 file:min-h-[calc(var(--fve-control-min-height)-2px)] file:cursor-pointer file:border-0 file:bg-[var(--fve-neutral-subtle)] file:px-3 file:text-sm file:font-semibold file:text-[var(--fve-text)] file:hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-50 disabled:file:cursor-not-allowed" ]
         let update =
-            "const list = document.getElementById('" + selectedId + "'); "
-            + "list.replaceChildren(...Array.from(el.files).map(file => { const item = document.createElement('li'); item.textContent = file.name + ' · ' + Math.ceil(file.size / 1024) + ' KB'; return item })); "
-            + "list.hidden = el.files.length == 0"
+            "const field = el.querySelector('input[type=file]'); const clear = el.querySelector('[data-fve-file-clear]'); const labelled = (field.getAttribute('aria-labelledby') || '').split(/\\s+/).map(id => field.ownerDocument.getElementById(id)?.textContent?.trim()).filter(Boolean).join(' '); const label = labelled || field.getAttribute('aria-label')?.trim() || Array.from(field.labels || []).map(label => label.textContent.trim()).filter(Boolean).join(' ') || 'file'; clear.setAttribute('aria-label', 'Clear ' + label + ' selection' + (field.files.length === 1 ? ': ' + field.files[0].name : '')); clear.hidden = field.files.length === 0;"
         div {
-            _class "grid min-w-0 content-start gap-2"
-            label {
-                _for config.id
-                _class "text-sm font-medium text-[var(--fve-text)]"
-                config.label
-            }
+            _attr ("data-fve-file-selection", "")
+            _class "flex min-w-0 flex-wrap items-center gap-2 [&>input]:flex-[1_0_min(12rem,100%)] [&>input]:w-auto has-[input:disabled]:[&>button]:hidden has-[input[readonly]]:[&>button]:hidden"
+            _dataInit update
+            _dataOn ("change", update)
+            _dataOn ("reset__window", "if (evt.target === el.querySelector('input').form) queueMicrotask(() => { if (!evt.defaultPrevented) { " + update + " } })")
             input {
-                _id config.id
-                _name config.name
-                _type "file"
-                _multiple config.multiple
-                _required (config.required && not unavailable)
-                _disabled unavailable
-                if config.pending then _ariaBusy true
-                _ariaInvalid config.validation.IsSome
-                if describedBy <> "" then _ariaDescribedby describedBy
-                match config.accept with
-                | Some accept -> _accept accept
-                | None -> ()
-                _dataOn ("change", update)
-                _class "block min-h-[var(--fve-control-min-height)] w-full cursor-pointer rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] text-sm text-[var(--fve-text)] ring-1 ring-[var(--fve-border)] aria-invalid:ring-[var(--fve-critical-ring)] file:mr-3 file:min-h-[var(--fve-control-min-height)] file:cursor-pointer file:border-0 file:bg-[var(--fve-neutral-subtle)] file:px-3 file:text-sm file:font-semibold file:text-[var(--fve-text)] file:hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-50 disabled:file:cursor-not-allowed"
-            }
-            if config.pending then
-                p {
-                    _role "status"
-                    _ariaLive "polite"
-                    _class "text-sm text-[var(--fve-muted-text)]"
-                    "Validating selected files…"
-                }
-            match config.description with
-            | Some description ->
-                p {
-                    _id descriptionId
-                    _class "text-sm text-[var(--fve-muted-text)]"
-                    description
-                }
-            | None -> ()
-            ul {
-                _id selectedId
-                _class "grid gap-1 text-sm text-[var(--fve-text)]"
-                _hidden true
+                for attribute in ComponentElement.attributes (defaults @ (ComponentHtml.safeAttributes (if disabled || readOnly then ["required"] else []) attributes |> ComponentHtml.readOnlyGuards ["Enter"; " "])) do attribute
             }
             button {
                 _type "button"
-                _disabled unavailable
-                _class "justify-self-start rounded-[var(--fve-radius-control)] px-2 py-1 text-sm font-semibold text-[var(--fve-brand-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
-                _dataOn ("click", "const field = document.getElementById('" + config.id + "'); field.value = ''; field.dispatchEvent(new Event('change', {bubbles:true})); field.focus()")
-                "Clear selected files"
+                _id (id + "-clear")
+                _dataPreserveAttr "hidden aria-label"
+                _attr ("data-fve-file-clear", "")
+                _ariaLabel "Clear file selection"
+                _hidden true
+                _class "min-h-8 shrink-0 rounded-[var(--fve-radius-control)] px-2 py-1 text-sm text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                _dataOn ("click", "const field = el.parentElement.querySelector('input[type=file]'); if (field.disabled || field.readOnly) return; field.value = ''; field.dispatchEvent(new Event('input', {bubbles:true})); field.dispatchEvent(new Event('change', {bubbles:true})); field.focus()")
+                "Clear"
             }
-            match config.validation with
-            | Some validation ->
-                p {
-                    _id validationId
-                    _role "alert"
-                    _class "text-sm text-[var(--fve-critical-text)]"
-                    validation
-                }
-            | None -> ()
         }
+
+/// <category>file-selection</category>
+[<AutoOpen>]
+module FileSelectionDsl =
+    /// Native file selection with contextual clearing. Field owns its label, help and feedback.
+    let fveFileSelection = ComponentElementBuilder(FileSelection.render)

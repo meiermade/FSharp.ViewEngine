@@ -11,7 +11,7 @@ open Serilog.Sinks.OpenTelemetry
 open StarFederation.Datastar.DependencyInjection
 
 let webApp (config:Config) =
-    Docs.Examples.Hosting.securityHeaders ["https://cdn.jsdelivr.net"]
+    Example.Server.Hosting.securityHeaders ["https://cdn.jsdelivr.net"]
     >=> choose [
         GET >=> choose [
             route "/health" >=> json {|
@@ -28,7 +28,7 @@ let webApp (config:Config) =
             Handler.routes
         ]
         POST >=> Handler.postRoutes
-        setStatusCode 404 >=> text "Not found"
+        Handler.notFound
     ]
 
 let configureLogger (config:Config) =
@@ -56,6 +56,7 @@ let configureApp (config:Config) (app:IApplicationBuilder) =
                 else LogEventLevel.Information)
         .UseStaticFiles()
     |> ignore
+    Example.Server.Hosting.useAssets app
     app.UseGiraffe(webApp config)
 
 let configureServices (services:IServiceCollection) =

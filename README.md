@@ -56,11 +56,11 @@ dotnet fve add button input --config src/Acme.Components/fve.json
 
 Commit the tool manifest and generated source. See the [Components README](sln/src/FSharp.ViewEngine.Components/README.md) for styling and host requirements, and the [CLI README](sln/src/FSharp.ViewEngine.Cli/README.md) for safe source updates.
 
-The [Examples gallery](https://fve.meiermade.com/examples) provides three complete, downloadable compositions: Application, Specification, and API documentation. They share immutable financial fixtures; forms demonstrate validation, not persistence, and API contracts are illustrative. Start with the [example README](sln/src/Docs/src/Examples/README.md).
+The [Examples gallery](https://fve.meiermade.com/examples) opens three surfaces of one [standalone consumer example](sln/src/Example/README.md): Application, Specification, and API documentation. Its checked-in CLI-installed components and Rocket/ECharts chart demonstrate editable source ownership. The surfaces share immutable financial fixtures; forms demonstrate validation, not persistence, and API contracts are illustrative.
 
 ## Local development
 
-Use the .NET 10 SDK and Tailwind CSS CLI v4.2.2 on `PATH`:
+Use the .NET 10 SDK, Node.js with npm, and Tailwind CSS CLI v4.2.2 on `PATH`:
 
 ```sh
 cd sln
@@ -69,7 +69,9 @@ dotnet paket restore
 ./fake.sh WatchDocs
 ```
 
-The catalog runs at `http://127.0.0.1:5054`. Run one watcher; starting it replaces the previous Docs watcher across worktrees without taking unrelated listeners. Restart after changing project references or compile items.
+The catalog runs at `http://127.0.0.1:5054`. Run one watcher; starting it replaces the previous Docs watcher across worktrees without taking unrelated listeners. It watches F#, Tailwind, and the application JavaScript bundle. Restart after changing project references or compile items.
+
+Docs consumes checked-in CLI-installed source in `sln/src/Docs.Components`; catalog-only code lives outside its managed `Components/` directory. After editing canonical component source, explicitly run `./fake.sh UpdateInstalledComponents` from `sln` to replace the installed Docs and Example copies. `./fake.sh CheckInstalledComponents` checks drift without writing; CI runs it before tests. Normal builds and watchers compile and bundle installed source without regenerating it.
 
 To run a focused browser check against that watcher:
 

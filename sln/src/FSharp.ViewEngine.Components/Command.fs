@@ -13,59 +13,111 @@ type private CommandContent =
       description:string option
       leading:HtmlElement option
       shortcut:string option
-      disabled:bool }
+      disabled:bool
+      readOnly:bool
+      body:HtmlElement
+      attributes:HtmlAttribute list }
 
 /// <category>command</category>
 [<NoEquality; NoComparison>]
-type CommandItem<'destination> =
+type internal CommandItem =
     private
-        | Link of CommandContent * 'destination
+        | Link of CommandContent * string
         | Action of CommandContent * string
 
 /// <category>command</category>
-[<RequireQualifiedAccess>]
-module CommandItem =
-    let private content label =
-        NativeOverlay.requireText (nameof label) "A command label is required." label
-        { label = label; keywords = []; description = None; leading = None; shortcut = None; disabled = false }
-    let private map update = function
-        | Link(content, destination) -> Link(update content, destination)
-        | Action(content, expression) -> Action(update content, expression)
-    let link destination label = Link(content label, destination)
-    /// A trusted Datastar action. The caller owns durable state and any displayed shortcut behavior.
-    let action expression label =
-        NativeOverlay.requireText (nameof expression) "A command action is required." expression
-        Action(content label, expression)
-    let withKeywords keywords item = map (fun content -> { content with keywords = keywords }) item
-    let withDescription description item = map (fun content -> { content with description = Some description }) item
-    let withLeading leading item = map (fun content -> { content with leading = Some leading }) item
-    /// Displays a shortcut; registering that hotkey remains caller-owned.
-    let withShortcut shortcut item =
-        NativeOverlay.requireText (nameof shortcut) "A command shortcut is required." shortcut
-        map (fun content -> { content with shortcut = Some shortcut }) item
-    let disabled item = map (fun content -> { content with disabled = true }) item
+[<NoEquality; NoComparison>]
+type internal CommandGroup = private { label:string; items:CommandItem list; attributes:HtmlAttribute list }
 
 /// <category>command</category>
 [<NoEquality; NoComparison>]
-type CommandGroup<'destination> = private { label:string; items:CommandItem<'destination> list }
-
-/// <category>command</category>
-[<RequireQualifiedAccess>]
-module CommandGroup =
-    let create label items =
-        NativeOverlay.requireText (nameof label) "A command group label is required." label
-        { label = label; items = items }
-
-/// <category>command</category>
-[<NoEquality; NoComparison>]
-type CommandConfig<'destination> =
+type internal CommandConfig =
     private
         { id:string
           label:string
-          groups:CommandGroup<'destination> list
+          groups:CommandGroup list
           placeholder:string
           emptyLabel:string
           attributes:HtmlAttribute list }
+
+/// <category>command</category>
+[<AutoOpen>]
+module CommandAttributes =
+    type Html with
+        static member _keywords(values:string list) = Html._attr("keywords", System.Text.Json.JsonSerializer.Serialize values)
+        static member _shortcut(value:string) = Html._attr("shortcut", value)
+        static member _emptyLabel(value:string) = Html._attr("empty-label", value)
+
+type internal CommandItemElement(item:CommandItem) =
+    inherit HtmlElement()
+    member _.Item = item
+    override _.Render _ = invalidOp "fveCommandItem belongs inside fveCommandGroup."
+
+type internal CommandGroupElement(group:CommandGroup) =
+    inherit HtmlElement()
+    member _.Group = group
+    override _.Render _ = invalidOp "fveCommandGroup belongs inside fveCommand or fveCommandDialog."
+
+module internal CommandParts =
+    let private flag name attributes =
+        match ComponentElement.attribute name attributes with Some {Value = ValueNone} -> true | Some {Value = ValueSome value} -> value <> "false" | None -> false
+
+    let item authored children =
+        let attributes = ComponentElement.attributes authored
+        let parts, body = ComponentParts.split "CommandItem" children
+        let label = ComponentElement.value "label" attributes |> Option.defaultWith (fun () -> ComponentContent.plainText "Rich command items without _label" body)
+        NativeOverlay.requireText "label" "A command label is required." label
+        let keywords =
+            match ComponentElement.value "keywords" attributes with
+            | None -> []
+            | Some value ->
+                try
+                    let values = System.Text.Json.JsonSerializer.Deserialize<string[]>(value)
+                    if isNull values || (values |> Array.exists isNull) then invalidArg "keywords" "Command keywords must be strings."
+                    Array.toList values
+                with :? System.Text.Json.JsonException -> invalidArg "keywords" "Command keywords must be an array of strings."
+        let optional name = ComponentElement.value name attributes |> Option.map (fun value -> NativeOverlay.requireText name $"A supplied {name} cannot be empty." value; value)
+        match ComponentElement.value "id" attributes with
+        | Some id when String.IsNullOrWhiteSpace id || (id |> Seq.exists Char.IsWhiteSpace) -> invalidArg "id" "Command item IDs must be stable and contain no whitespace."
+        | _ -> ()
+        let content = {
+            label = label
+            keywords = keywords
+            description = optional "description"
+            leading = Map.tryFind "leading" parts
+            shortcut = optional "shortcut"
+            disabled = flag "disabled" attributes
+            readOnly = flag "readonly" attributes || flag "aria-disabled" attributes
+            body = if body.IsEmpty then Html.text label else ComponentContent.fragment body
+            attributes = ComponentHtml.safeAttributes ["label"; "keywords"; "description"; "shortcut"; "disabled"; "readonly"; "aria-disabled"] attributes }
+        let item =
+            match ComponentElement.value "href" attributes with
+            | Some href -> Link(content, href)
+            | None ->
+                if not (attributes |> List.exists (fun attribute -> attribute.Name.StartsWith("data-on:click", StringComparison.OrdinalIgnoreCase))) then invalidArg "data-on:click" "A command action needs a native click action."
+                Action(content, ComponentElement.value "data-on:click" attributes |> Option.defaultValue "void 0")
+        CommandItemElement(item) :> HtmlElement
+
+    let group attributes (children:HtmlElement list) =
+        let items = children |> List.choose (function :? CommandItemElement as item -> Some item.Item | :? NoopElement -> None | _ -> invalidArg "children" "Command groups accept fveCommandItem children.")
+        CommandGroupElement { label = ComponentElement.required "label" attributes; items = items; attributes = ComponentHtml.safeAttributes ["label"] attributes } :> HtmlElement
+
+    let configuration attributes (children:HtmlElement list) =
+        let id = ComponentElement.required "id" attributes
+        if id |> Seq.exists Char.IsWhiteSpace then invalidArg "id" "Command IDs cannot contain whitespace."
+        let groups = children |> List.choose (function :? CommandGroupElement as group -> Some group.Group | :? NoopElement -> None | _ -> invalidArg "children" "Use fveCommandGroup children.")
+        let emptyLabel = ComponentElement.value "empty-label" attributes |> Option.defaultValue "No results found."
+        NativeOverlay.requireText "empty-label" "An empty-result label is required." emptyLabel
+        { id = id
+          label = ComponentElement.required "aria-label" attributes
+          groups = groups
+          placeholder = ComponentElement.value "placeholder" attributes |> Option.defaultValue "Type a command or search…"
+          emptyLabel = emptyLabel
+          attributes = ComponentHtml.safeAttributes ["aria-label"; "placeholder"; "empty-label"] attributes }
+
+    let leading attributes children =
+        let content = if List.isEmpty attributes then ComponentContent.fragment children else ComponentElement.render "span" [] attributes children
+        ComponentPart("CommandItem", "leading", content) :> HtmlElement
 
 /// <summary>
 /// A grouped, locally searchable command menu with real links, trusted actions and combobox keyboard behavior.
@@ -78,25 +130,24 @@ type CommandConfig<'destination> =
 /// <category>command</category>
 [<RequireQualifiedAccess>]
 module Command =
-    let create id label groups =
-        NativeOverlay.requireText (nameof id) "A stable command ID is required." id
-        if id |> Seq.exists Char.IsWhiteSpace then invalidArg (nameof id) "Command IDs cannot contain whitespace."
-        NativeOverlay.requireText (nameof label) "An accessible command label is required." label
-        { id = id; label = label; groups = groups; placeholder = "Type a command or search…"; emptyLabel = "No results found."; attributes = [] }
-    let withPlaceholder placeholder (config:CommandConfig<'destination>) = { config with placeholder = placeholder }
-    let withEmptyState label config =
-        NativeOverlay.requireText (nameof label) "An empty-result label is required." label
-        { config with emptyLabel = label }
-    let withAttributes attributes (config:CommandConfig<'destination>) = { config with attributes = attributes }
+    /// Ordinary attributes for a consumer-owned native button, addressed by command ID rather than configuration.
+    let triggerAttributes (commandId:string) =
+        NativeOverlay.requireText (nameof commandId) "A stable command ID is required." commandId
+        NativeOverlay.triggerAttributes (commandId + "-dialog") (Some(commandId + "-input"))
 
     let private initialize = """
 const root = el;
 const words = value => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+root._fveCommandItems = () => [...root.querySelectorAll('[data-fve-command-item]')].filter(item => !item.hidden && !item.closest('[data-fve-command-group]').hidden && item.getAttribute('aria-disabled') !== 'true');
 root._fveCommandSelect = item => {
+  const previous = root.querySelector('[data-fve-command-item][aria-selected=true]');
+  if (previous && previous !== item) previous.setAttribute('aria-selected', 'false');
+  if (item && item.getAttribute('aria-selected') !== 'true') item.setAttribute('aria-selected', 'true');
   root._fveCommandActive = item?.id || '';
-  root.querySelectorAll('[data-fve-command-item]').forEach(option => option.setAttribute('aria-selected', String(option === item)));
   const input = root.querySelector('[data-fve-command-input]');
-  if (item) input.setAttribute('aria-activedescendant', item.id); else input.removeAttribute('aria-activedescendant');
+  if (item) {
+    if (input.getAttribute('aria-activedescendant') !== item.id) input.setAttribute('aria-activedescendant', item.id);
+  } else if (input.hasAttribute('aria-activedescendant')) input.removeAttribute('aria-activedescendant');
 };
 root._fveCommandUpdate = (preserve = false) => {
   const input = root.querySelector('[data-fve-command-input]');
@@ -118,15 +169,24 @@ root._fveCommandUpdate = (preserve = false) => {
       return Infinity;
     };
     const ranked = entries.map(item => ({item, score: score(item)})).sort((a,b) => a.score - b.score || Number(a.item.dataset.fveCommandOrder) - Number(b.item.dataset.fveCommandOrder));
-    for (const entry of ranked) { entry.item.hidden = !Number.isFinite(entry.score); group.append(entry.item); }
-    group.hidden = !ranked.some(entry => Number.isFinite(entry.score));
+    let cursor = entries[0] || null;
+    for (const entry of ranked) {
+      const hidden = !Number.isFinite(entry.score);
+      if (entry.item.hidden !== hidden) entry.item.hidden = hidden;
+      if (entry.item !== cursor) group.insertBefore(entry.item, cursor);
+      cursor = entry.item.nextElementSibling;
+    }
+    const hidden = !ranked.some(entry => Number.isFinite(entry.score));
+    if (group.hidden !== hidden) group.hidden = hidden;
   }
-  const items = [...root.querySelectorAll('[data-fve-command-item]')].filter(item => !item.hidden && !item.closest('[data-fve-command-group]').hidden && item.getAttribute('aria-disabled') !== 'true');
+  const items = root._fveCommandItems();
   root._fveCommandSelect((preserve && items.find(item => item.id === root._fveCommandActive)) || items[0]);
   const hasResults = [...root.querySelectorAll('[data-fve-command-group]')].some(group => !group.hidden);
-  root.querySelector('[role=listbox]').hidden = !hasResults;
-  input.setAttribute('aria-expanded', String(hasResults));
-  root.querySelector('[data-fve-command-empty]').hidden = hasResults;
+  const listbox = root.querySelector('[role=listbox]');
+  const empty = root.querySelector('[data-fve-command-empty]');
+  if (listbox.hidden === hasResults) listbox.hidden = !hasResults;
+  if (input.getAttribute('aria-expanded') !== String(hasResults)) input.setAttribute('aria-expanded', String(hasResults));
+  if (empty.hidden !== hasResults) empty.hidden = hasResults;
   return items;
 };
 root._fveCommandUpdate();
@@ -135,7 +195,7 @@ root._fveCommandUpdate();
 if (evt.target.matches('[data-fve-command-input]') && !evt.isComposing && !evt.ctrlKey && !evt.metaKey && !evt.altKey) {
   if (['ArrowDown','ArrowUp','Home','End','Enter'].includes(evt.key)) {
     evt.preventDefault();
-    const items = el._fveCommandUpdate(true);
+    const items = el._fveCommandItems();
     const index = items.findIndex(item => item.id === el._fveCommandActive);
     if (evt.key === 'Enter') items[index]?.click();
     else {
@@ -149,14 +209,14 @@ if (evt.target.matches('[data-fve-command-input]') && !evt.isComposing && !evt.c
   }
 }
 """
-    let private renderContent framed resolve config =
+    let private renderContent framed (config:CommandConfig) =
         let inputId = config.id + "-input"
         let listId = config.id + "-list"
         let hasItems = config.groups |> List.exists (fun group -> not (List.isEmpty group.items))
         div {
             _id config.id
             _data ("fve-command", "true")
-            _class ("flex min-h-0 min-w-0 w-full flex-col overflow-hidden bg-[var(--fve-surface)] text-[var(--fve-text)] " + (if framed then "rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)]" else ""))
+            _class ("flex min-h-0 min-w-0 w-full flex-col overflow-hidden text-[var(--fve-text)] " + (if framed then "rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-surface)]" else "bg-[var(--fve-background)]") + " " + ComponentContent.classes config.attributes)
             for attribute in ComponentHtml.safeAttributes [ "id"; "class"; "data-init"; "data-on:input"; "data-on:keydown"; "data-on:click"; "data-on:focusin" ] config.attributes do attribute
             _dataInit initialize
             _dataOn ("input", "el._fveCommandUpdate()")
@@ -200,12 +260,14 @@ if (evt.target.matches('[data-fve-command-input]') && !evt.isComposing && !evt.c
                         _ariaLabel group.label
                         _hidden (List.isEmpty group.items)
                         _data ("fve-command-group", "true")
-                        _class "py-1 not-first:border-t not-first:border-[var(--fve-border)]"
+                        _class ("py-1 not-first:border-t not-first:border-[var(--fve-border)] " + ComponentContent.classes group.attributes)
+                        for attribute in ComponentHtml.safeAttributes ["class"; "role"; "aria-label"; "hidden"; "data-fve-command-group"] group.attributes do attribute
                         div { _ariaHidden true; _class "px-2 py-1.5 text-xs font-medium text-[var(--fve-muted-text)]"; group.label }
                         for itemIndex, item in group.items |> List.indexed do
                             let content = match item with Link(content, _) | Action(content, _) -> content
-                            let attributes = [
-                                _id $"{config.id}-item-{groupIndex}-{itemIndex}"
+                            let unavailable = content.disabled || content.readOnly
+                            let defaults = [
+                                _id (ComponentElement.value "id" content.attributes |> Option.defaultValue $"{config.id}-item-{groupIndex}-{itemIndex}")
                                 _role "option"
                                 _ariaSelected false
                                 _tabindex -1
@@ -214,17 +276,23 @@ if (evt.target.matches('[data-fve-command-input]') && !evt.isComposing && !evt.c
                                 _data ("fve-command-keywords", String.concat " " content.keywords)
                                 _data ("fve-command-description", defaultArg content.description "")
                                 _data ("fve-command-order", string itemIndex)
-                                _ariaDisabled content.disabled
+                                _ariaDisabled unavailable
                                 _class "flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-[var(--fve-radius-control)] border-0 bg-transparent px-2 py-1.5 text-left text-sm text-[var(--fve-text)] no-underline outline-none aria-selected:bg-[var(--fve-surface-active)] hover:bg-[var(--fve-surface-hover)] aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                                 _dataOn ("pointermove", "if (el.getAttribute('aria-disabled') !== 'true') el.closest('[data-fve-command]')._fveCommandSelect(el)")
-                                if content.disabled then _dataOn ("click", "evt.preventDefault(); evt.stopPropagation()") ]
+                                if unavailable then _dataOn ("click", "evt.preventDefault(); evt.stopPropagation()") ]
+                            let authored =
+                                ComponentHtml.safeAttributes ["id"; "type"; "role"; "href"; "aria-selected"; "tabindex"; "data-fve-command-item"; "data-fve-command-label"; "data-fve-command-keywords"; "data-fve-command-description"; "data-fve-command-order"; "data-on:pointermove"; "data-on:click"] content.attributes
+                                |> List.filter (fun attribute -> not unavailable || not (attribute.Name.StartsWith("data-on:click", StringComparison.OrdinalIgnoreCase) || attribute.Name.StartsWith("data-on:keydown", StringComparison.OrdinalIgnoreCase)))
+                            let attributes = ComponentElement.attributes (defaults @ authored)
                             let body = fragment {
-                                match content.leading with
-                                | Some leading -> span { _ariaHidden true; _class "inline-flex size-4 shrink-0 items-center justify-center [&>svg]:size-4"; leading }
-                                | None -> ()
+                                if ComponentElement.value "aria-busy" content.attributes = Some "true" then ComponentHtml.loadingGlyph Size.Small
+                                else
+                                    match content.leading with
+                                    | Some leading -> span { _ariaHidden true; _class "inline-flex size-4 shrink-0 items-center justify-center [&>svg]:size-4"; leading }
+                                    | None -> ()
                                 span {
                                     _class "min-w-0 flex-1"
-                                    span { _class "block"; content.label }
+                                    span { _class "block"; content.body }
                                     match content.description with
                                     | Some description -> span { _class "block text-xs text-[var(--fve-muted-text)]"; description }
                                     | None -> ()
@@ -237,14 +305,15 @@ if (evt.target.matches('[data-fve-command-input]') && !evt.isComposing && !evt.c
                             | Link(_, destination) ->
                                 a {
                                     for attribute in attributes do attribute
-                                    _href (resolve destination)
+                                    if not unavailable then _href destination
                                     body
                                 }
                             | Action(_, expression) ->
                                 button {
                                     for attribute in attributes do attribute
-                                    _type "button"
-                                    if content.disabled then _disabled true else _dataOn ("click", expression)
+                                    _type (ComponentElement.value "type" content.attributes |> Option.defaultValue "button")
+                                    if content.disabled then _disabled true
+                                    if not unavailable then _dataOn ("click", expression)
                                     body
                                 }
                     }
@@ -258,19 +327,27 @@ if (evt.target.matches('[data-fve-command-input]') && !evt.isComposing && !evt.c
                 config.emptyLabel
             }
         }
-    let render resolve config = renderContent true resolve config
-    /// Attributes for a consumer-authored button that opens this command's dialog and focuses its input.
-    let triggerAttributes config = NativeOverlay.triggerAttributes (config.id + "-dialog") (Some(config.id + "-input"))
-    let trigger label config = NativeOverlay.trigger (config.id + "-dialog") (Some(config.id + "-input")) label
-    /// An optional native-dialog composition, not a separate command implementation.
-    let renderDialog resolve config =
+    let internal render attributes children = renderContent true (CommandParts.configuration attributes children)
+
+    let internal renderDialog attributes children =
+        let config = CommandParts.configuration attributes children
         let dialogId = config.id + "-dialog"
         dialog {
             _id dialogId
             _ariaLabel config.label
             _ariaModal true
+            _data("fve-initial-focus", config.id + "-input")
             _dataOn ("close", NativeOverlay.restoreFocusExpression dialogId)
             _dataOn ("click", NativeOverlay.dismissOnBackdropExpression dialogId)
-            _class "m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)] backdrop:backdrop-blur-[2px]"
-            renderContent false resolve config
+            _class "m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-background)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)] backdrop:backdrop-blur-[2px]"
+            renderContent false config
         }
+
+/// <category>command</category>
+[<AutoOpen>]
+module CommandDsl =
+    let fveCommand = ComponentElementBuilder(Command.render)
+    let fveCommandDialog = ComponentElementBuilder(Command.renderDialog)
+    let fveCommandGroup = ComponentElementBuilder(CommandParts.group)
+    let fveCommandItem = ComponentElementBuilder(CommandParts.item)
+    let fveCommandItemLeading = ComponentElementBuilder(CommandParts.leading)

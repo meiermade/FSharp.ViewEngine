@@ -5,7 +5,7 @@ open FSharp.ViewEngine.Components.Templates
 /// Adapt the consumer-owned navigation boundary to the catalog's retained shell.
 module Navigation =
     let enhancement : DocsNavigationEnhancement =
-        let shared = Docs.Examples.Navigation.enhancement
+        let shared = Example.Server.Navigation.enhancement
         { initialScript = shared.initialScript
           clickAction = shared.clickAction
           submitAction = shared.submitAction
@@ -13,5 +13,5 @@ module Navigation =
           fetchLifecycle = shared.fetchLifecycle
           appModeExitAction = shared.appModeExitAction }
 
-    let tryIntent = Docs.Examples.Navigation.tryIntent
-    let respond = Docs.Examples.Navigation.respond
+    let tryIntent = Example.Server.Navigation.tryIntent
+    let respond = Example.Server.Navigation.respond

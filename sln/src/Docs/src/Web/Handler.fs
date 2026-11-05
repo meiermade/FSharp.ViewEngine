@@ -23,209 +23,334 @@ module Handler =
                 let location = productionOrigin + path
                 $"  <url><loc>{WebUtility.HtmlEncode location}</loc></url>")
             |> String.concat Environment.NewLine
+
         $"<?xml version=\"1.0\" encoding=\"UTF-8\"?>{Environment.NewLine}<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">{Environment.NewLine}{urls}{Environment.NewLine}</urlset>{Environment.NewLine}"
 
-    let robots = $"User-agent: *{Environment.NewLine}Allow: /{Environment.NewLine}Sitemap: {productionOrigin}/sitemap.xml{Environment.NewLine}"
+    let robots =
+        $"User-agent: *{Environment.NewLine}Allow: /{Environment.NewLine}Sitemap: {productionOrigin}/sitemap.xml{Environment.NewLine}"
 
-    let private appMode (context:Microsoft.AspNetCore.Http.HttpContext) =
+    let private appMode (context: Microsoft.AspNetCore.Http.HttpContext) =
         let query key = context.Request.Query[key].ToString()
-        if query "fveAppMode" <> "app" || String.IsNullOrWhiteSpace(query "fveAppFrame") then None
+
+        if query "fveAppMode" <> "app" || String.IsNullOrWhiteSpace(query "fveAppFrame") then
+            None
         else
             let remainingQuery =
                 context.Request.Query
-                |> Seq.filter (fun entry -> not (List.contains entry.Key [ "fveAppMode"; "fveAppFrame"; "fveAppDock"; "fveAppReturn"; "fveAppTransition"; "datastar" ]))
-                |> Seq.collect (fun entry -> entry.Value |> Seq.map (fun value -> System.Collections.Generic.KeyValuePair(entry.Key, string value)))
-            let exitHref = context.Request.PathBase.ToString() + context.Request.Path.ToString() + Microsoft.AspNetCore.Http.QueryString.Create(remainingQuery).ToString()
+                |> Seq.filter (fun entry ->
+                    not (
+                        List.contains
+                            entry.Key
+                            [ "fveAppMode"
+                              "fveAppFrame"
+                              "fveAppDock"
+                              "fveAppReturn"
+                              "fveAppTransition"
+                              "datastar" ]
+                    ))
+                |> Seq.collect (fun entry ->
+                    entry.Value
+                    |> Seq.map (fun value -> System.Collections.Generic.KeyValuePair(entry.Key, string value)))
+
+            let exitHref =
+                context.Request.PathBase.ToString()
+                + context.Request.Path.ToString()
+                + Microsoft.AspNetCore.Http.QueryString.Create(remainingQuery).ToString()
+
             Some(AppMode.create (query "fveAppFrame") exitHref)
 
     let private respond intent document (root, metadata) : HttpHandler =
         match intent with
-        | Some intent ->
-            Navigation.respond intent (Render.toString root) (Render.toString metadata)
-        | None ->
-            document
-            |> Render.toHtmlDocString
-            |> htmlString
+        | Some intent -> Navigation.respond intent (Render.toString root) (Render.toString metadata)
+        | None -> document |> Render.toHtmlDocString |> htmlString
 
     let private respondWithPage intent context registration page =
         let mode = appMode context
+
         respond
             intent
-            (View.documentWithPageForAndNonce (Docs.Examples.Hosting.nonce context) mode Registry.navigation registration page)
+            (View.documentWithPageForAndNonce
+                (Example.Server.Hosting.nonce context)
+                mode
+                Registry.navigation
+                registration
+                page)
             (View.navigationPageWithPage mode Registry.navigation registration page)
 
-    let render (page:DocPage) : HttpHandler =
+    let render (page: DocPage) : HttpHandler =
         fun next context ->
             let intent = Navigation.tryIntent context
             let mode = appMode context
+
             let response =
-                if (page.id=Components.browserRegistration.id || page.id=Components.phoneRegistration.id) && context.Request.Query["expanded"].ToString()="1" then
+                if
+                    (page.id = Components.browserRegistration.id
+                     || page.id = Components.phoneRegistration.id)
+                    && context.Request.Query["expanded"].ToString() = "1"
+                then
                     let docsPage = DocumentationPage.create page.id page.title
-                    let root = Components.expandedReviewFixture (page.id=Components.phoneRegistration.id)
-                    respond intent (View.documentWithContentAndNonce (Docs.Examples.Hosting.nonce context) Registry.navigation page docsPage root) (root, View.contentMetadata Registry.navigation page docsPage)
+
+                    let root =
+                        Components.expandedReviewFixture (page.id = Components.phoneRegistration.id)
+
+                    respond
+                        intent
+                        (View.documentWithContentAndNonce
+                            (Example.Server.Hosting.nonce context)
+                            Registry.navigation
+                            page
+                            docsPage
+                            root)
+                        (root, View.contentMetadata Registry.navigation page docsPage)
+                elif
+                    page.id = Components.selectRegistration.id
+                    && context.Request.Query["fixtures"].ToString() = "1"
+                then
+                    respondWithPage intent context page Components.selectFixturePage
                 elif page.id = Components.tableRegistration.id then
-                    let sort = Components.teamMemberSortFromQuery (context.Request.Query["sort"].ToString()) (context.Request.Query["direction"].ToString())
+                    let sort =
+                        Components.teamMemberSortFromQuery
+                            (context.Request.Query["sort"].ToString())
+                            (context.Request.Query["direction"].ToString())
+
                     respondWithPage intent context page (Components.tablePageFor sort)
                 else
                     respond
                         intent
-                        (View.documentForWithNonce (Docs.Examples.Hosting.nonce context) mode Registry.navigation page)
+                        (View.documentForWithNonce (Example.Server.Hosting.nonce context) mode Registry.navigation page)
                         (View.navigationPage mode Registry.navigation page)
+
             response next context
 
     let private pageRoutes =
         Registry.all
-        |> List.collect (fun page ->
-            (page.path :: page.aliases)
-            |> List.map (fun path -> route path >=> render page))
+        |> List.collect (fun page -> (page.path :: page.aliases) |> List.map (fun path -> route path >=> render page))
 
-    let private componentPagination : HttpHandler =
+    let private componentPagination: HttpHandler =
         fun next context ->
             let requestedPage =
                 match Int32.TryParse(context.Request.Query["page"].ToString()) with
                 | true, page -> page
                 | false, _ -> 2
-            let html = Components.paginationPreviewRegion requestedPage |> Render.toString
-            (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
 
-    let private componentTableSort : HttpHandler =
+            let html = Components.paginationPreviewRegion requestedPage |> Render.toString
+
+            (setHttpHeader "Content-Type" "text/html; charset=utf-8"
+             >=> setBodyFromString html)
+                next
+                context
+
+    let private componentTableSort: HttpHandler =
         fun next context ->
             let sort = context.Request.Query["sort"].ToString()
             let direction = context.Request.Query["direction"].ToString()
+
             let html =
                 Components.teamMemberSortFromQuery sort direction
                 |> Components.sortableTeamTablePreview
                 |> Render.toString
+
             task {
                 if context.Request.Headers["datastar-request"].ToString() = "true" then
                     let service = context.RequestServices.GetRequiredService<IDatastarService>()
                     do! service.PatchElementsAsync(html, cancellationToken = context.RequestAborted)
                     return Some context
                 else
-                    return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+                    return!
+                        (setHttpHeader "Content-Type" "text/html; charset=utf-8"
+                         >=> setBodyFromString html)
+                            next
+                            context
             }
 
-    let private documentationSiteExample : HttpHandler =
-        fun next context ->
-            let intent = Navigation.tryIntent context
-            let state = context.Request.Query["fixtureState"].ToString()
-            respondWithPage intent context Showcase.documentationSiteRegistration (Showcase.documentationSitePageFor state) next context
-
-    let private apiReferenceExample : HttpHandler =
-        fun next context ->
-            let intent = Navigation.tryIntent context
-            let state = context.Request.Query["fixtureState"].ToString()
-            respondWithPage intent context Showcase.apiPageExampleRegistration (Showcase.apiPageExampleFor state) next context
-
-    let private componentAppShell : HttpHandler =
-        fun next context ->
-            let intent = Navigation.tryIntent context
-            let destination =
-                match context.Request.Query["section"].ToString() with
-                | "projects" -> Components.Projects
-                | "settings" -> Components.Preferences
-                | _ -> Components.Dashboard
-            respondWithPage intent context Components.appShellRegistration (Components.appShellPageFor destination) next context
-
-    let private accountWorkspace (context:Microsoft.AspNetCore.Http.HttpContext) =
+    let private accountWorkspace (context: Microsoft.AspNetCore.Http.HttpContext) =
         let workspace =
             match context.Request.Query["view"].ToString() with
             | "account-created" ->
                 { Components.defaultAccountWorkspace with
-                    feedback = "Account submission validated. This resettable example does not create or retain records." }
+                    feedback =
+                        "Account submission validated. This resettable example does not create or retain records." }
             | "account-invalid" ->
                 { Components.defaultAccountWorkspace with
                     feedback = "Enter a unique account name and a valid account type." }
             | "settings-saved" ->
                 { Components.defaultAccountWorkspace with
-                    feedback = "Settings submission validated. This resettable example does not retain submitted values." }
+                    feedback =
+                        "Settings submission validated. This resettable example does not retain submitted values." }
             | "settings-invalid" ->
                 { Components.defaultAccountWorkspace with
                     feedback = "Enter a workspace name of 1–80 characters." }
             | _ -> Components.defaultAccountWorkspace
-        let filterType = context.Request.Query["accountType"].ToString() |> function | "" -> "all" | value -> value
-        let sortColumn = context.Request.Query["sort"].ToString() |> function | "balance" -> "balance" | _ -> "name"
-        let sortDirection = context.Request.Query["direction"].ToString() |> function | "desc" -> "desc" | _ -> "asc"
-        let page = context.Request.Query["page"].ToString() |> Int32.TryParse |> function | true, value when value > 0 -> value | _ -> 1
+
+        let filterType =
+            context.Request.Query["accountType"].ToString()
+            |> function
+                | "" -> "all"
+                | value -> value
+
+        let sortColumn =
+            context.Request.Query["sort"].ToString()
+            |> function
+                | "balance" -> "balance"
+                | _ -> "name"
+
+        let sortDirection =
+            context.Request.Query["direction"].ToString()
+            |> function
+                | "desc" -> "desc"
+                | _ -> "asc"
+
+        let page =
+            context.Request.Query["page"].ToString()
+            |> Int32.TryParse
+            |> function
+                | true, value when value > 0 -> value
+                | _ -> 1
+
         let visibleColumns =
             match context.Request.Query["columns"].ToString() with
             | "" -> Components.defaultAccountWorkspace.visibleColumns
-            | value -> value.Split(',', StringSplitOptions.RemoveEmptyEntries) |> Set.ofArray |> Set.intersect (set [ "type"; "commodity"; "balance"; "total" ])
-        { workspace with searchQuery=context.Request.Query["query"].ToString(); filterType=filterType; sortColumn=sortColumn; sortDirection=sortDirection; page=page; visibleColumns=visibleColumns }
+            | value ->
+                value.Split(',', StringSplitOptions.RemoveEmptyEntries)
+                |> Set.ofArray
+                |> Set.intersect (set [ "type"; "commodity"; "balance"; "total" ])
 
-    let private accountManagement : HttpHandler =
+        { workspace with
+            searchQuery = context.Request.Query["query"].ToString()
+            filterType = filterType
+            sortColumn = sortColumn
+            sortDirection = sortDirection
+            page = page
+            visibleColumns = visibleColumns }
+
+    let private accountManagement: HttpHandler =
         fun next context ->
             let intent = Navigation.tryIntent context
+
             let destination =
                 context.Request.Query["destination"].ToString()
                 |> Components.tryShellDestination
                 |> Option.defaultValue Components.LedgerAccounts
-            (setHttpHeader "Cache-Control" "private, no-store" >=> respondWithPage intent context Components.accountManagementRegistration (Components.accountManagementPageWith (accountWorkspace context) destination)) next context
 
-    let private exampleQuery (context:Microsoft.AspNetCore.Http.HttpContext) =
+            (setHttpHeader "Cache-Control" "private, no-store"
+             >=> respondWithPage
+                     intent
+                     context
+                     Components.accountManagementRegistration
+                     (Components.accountManagementPageWith (accountWorkspace context) destination))
+                next
+                context
+
+    let private exampleQuery (context: Microsoft.AspNetCore.Http.HttpContext) =
         let query key = context.Request.Query[key].ToString()
         PageExamples.queryFromStrings (query "state") (query "item") (query "view") (query "range")
 
     let private pageExample page : HttpHandler =
         fun next context ->
             let intent = Navigation.tryIntent context
-            respondWithPage intent context (PageExamples.registration page) (Components.pageExamplePageFor page (exampleQuery context)) next context
+
+            respondWithPage
+                intent
+                context
+                (PageExamples.registration page)
+                (Components.pageExamplePageFor page (exampleQuery context))
+                next
+                context
 
     let private exampleMutation action : HttpHandler =
         fun next context ->
             task {
                 let origin = context.Request.Headers.Origin.ToString()
                 let expected = context.Request.Scheme + "://" + context.Request.Host.Value
-                if origin <> "" && origin <> expected then return! (setStatusCode 403 >=> text "Cross-origin fixture changes are not allowed.") next context
+
+                if origin <> "" && origin <> expected then
+                    return! (setStatusCode 403 >=> text "Cross-origin fixture changes are not allowed.") next context
                 elif context.Request.ContentLength.GetValueOrDefault() > 3_000_000L then
                     return! (setStatusCode 413 >=> text "The demo form exceeds its 3 MB request limit.") next context
-                elif isNull context.Request.ContentType || not (context.Request.ContentType.StartsWith("application/x-www-form-urlencoded", StringComparison.OrdinalIgnoreCase)) then
-                    return! (setStatusCode 415 >=> text "Submit URL-encoded form data. Multipart and file bodies are not accepted by documentation fixtures.") next context
+                elif
+                    isNull context.Request.ContentType
+                    || not (
+                        context.Request.ContentType.StartsWith(
+                            "application/x-www-form-urlencoded",
+                            StringComparison.OrdinalIgnoreCase
+                        )
+                    )
+                then
+                    return!
+                        (setStatusCode 415
+                         >=> text
+                                 "Submit URL-encoded form data. Multipart and file bodies are not accepted by documentation fixtures.")
+                            next
+                            context
                 else
-                    let size = context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>()
-                    if not (isNull size) && not size.IsReadOnly then size.MaxRequestBodySize <- Nullable 3_000_000L
+                    let size =
+                        context.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpMaxRequestBodySizeFeature>()
+
+                    if not (isNull size) && not size.IsReadOnly then
+                        size.MaxRequestBodySize <- Nullable 3_000_000L
+
                     try
                         let! form = context.Request.ReadFormAsync(context.RequestAborted)
                         context.Response.Headers.CacheControl <- "private, no-store"
                         return! action form next context
                     with
                     | :? Microsoft.AspNetCore.Http.BadHttpRequestException as error ->
-                        return! (setStatusCode error.StatusCode >=> text "The demo form is invalid or exceeds its 3 MB request limit.") next context
+                        return!
+                            (setStatusCode error.StatusCode
+                             >=> text "The demo form is invalid or exceeds its 3 MB request limit.")
+                                next
+                                context
                     | :? InvalidDataException ->
                         return! (setStatusCode 400 >=> text "Submit a valid form body.") next context
             }
 
     // Native example forms retain the documentation-owned App-mode envelope, not domain state.
-    let private redirectExample (destination:string) : HttpHandler =
+    let private redirectExample (destination: string) : HttpHandler =
         fun next context ->
             let expected = context.Request.Scheme + "://" + context.Request.Host.Value
+
             let destination =
                 match Uri.TryCreate(context.Request.Headers.Referer.ToString(), UriKind.Absolute) with
                 | true, referer when referer.GetLeftPart(UriPartial.Authority) = expected ->
                     let query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery referer.Query
-                    let value key = match query.TryGetValue key with true, value -> value.ToString() | _ -> ""
-                    if value "fveAppMode" = "app" && List.contains (value "fveAppFrame") ["page-workspace";"ledger-workflow"] then
+
+                    let value key =
+                        match query.TryGetValue key with
+                        | true, value -> value.ToString()
+                        | _ -> ""
+
+                    if
+                        value "fveAppMode" = "app"
+                        && List.contains (value "fveAppFrame") [ "page-workspace"; "ledger-workflow" ]
+                    then
                         let separator = if destination.Contains('?') then "&" else "?"
                         destination + separator + "fveAppMode=app&fveAppFrame=" + value "fveAppFrame"
-                    else destination
+                    else
+                        destination
                 | _ -> destination
+
             redirectTo false destination next context
 
     let private sendExampleMessage =
         exampleMutation (fun form next context ->
             let query = exampleQuery context
             let body = form["message"].ToString().Trim()
+
             let view =
                 if String.IsNullOrWhiteSpace body then "message-empty"
                 elif body.Length > 2000 then "message-too-long"
                 else "sent"
-            redirectExample (PageExamples.queryUrl PageExamples.Messaging { query with view=view }) next context)
+
+            redirectExample (PageExamples.queryUrl PageExamples.Messaging { query with view = view }) next context)
 
     let private saveExamplePhoto upload =
         exampleMutation (fun form next context ->
             let name = form["name"].ToString().Trim()
             let alt = form["alt"].ToString().Trim()
-            let valid = name.Length > 0 && name.Length <= 120 && alt.Length > 0 && alt.Length <= 500
+
+            let valid =
+                name.Length > 0 && name.Length <= 120 && alt.Length > 0 && alt.Length <= 500
+
             let query =
                 if upload then
                     { PageExamples.defaultQuery with
@@ -235,97 +360,134 @@ module Handler =
                     { PageExamples.defaultQuery with
                         item = context.Request.Query["item"].ToString()
                         view = if valid then "saved" else "invalid" }
+
             redirectExample (PageExamples.queryUrl PageExamples.MediaManagement query) next context)
 
     let private accountDestination destination view =
-        Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(Components.shellDestinationUrl destination, "view", view)
+        Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
+            Components.shellDestinationUrl destination,
+            "view",
+            view
+        )
 
     let private createExampleAccount =
         exampleMutation (fun form next context ->
             let name = form["name"].ToString().Trim()
             let accountType = form["accountType"].ToString()
+
             let valid =
                 name.Length > 0
                 && name.Length <= 80
                 && List.contains accountType [ "Asset"; "Liability"; "Equity"; "Revenue"; "Expense" ]
                 && not (Components.accountNameExists name)
-            redirectExample (accountDestination Components.LedgerCreateAccount (if valid then "account-created" else "account-invalid")) next context)
+
+            redirectExample
+                (accountDestination
+                    Components.LedgerCreateAccount
+                    (if valid then "account-created" else "account-invalid"))
+                next
+                context)
 
     let private saveExampleSettings =
         exampleMutation (fun form next context ->
             let name = form["workspaceName"].ToString().Trim()
             let valid = name.Length > 0 && name.Length <= 80
-            redirectExample (accountDestination Components.LedgerSettings (if valid then "settings-saved" else "settings-invalid")) next context)
 
-    let private componentAppShellFixture : HttpHandler =
+            redirectExample
+                (accountDestination Components.LedgerSettings (if valid then "settings-saved" else "settings-invalid"))
+                next
+                context)
+
+    let private componentAppShellFixture: HttpHandler =
         fun next context ->
             let destination =
                 context.Request.Query["destination"].ToString()
                 |> Components.tryShellDestination
                 |> Option.defaultValue Components.LedgerAccounts
-            let html = Components.shellFixtureWith (accountWorkspace context) destination |> Render.toString
-            (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
 
-    let private componentDropdownMenuPatch : HttpHandler =
+            let html =
+                Components.shellFixtureWith (accountWorkspace context) destination
+                |> Render.toString
+
+            (setHttpHeader "Content-Type" "text/html; charset=utf-8"
+             >=> setBodyFromString html)
+                next
+                context
+
+    let private componentDropdownMenuPatch: HttpHandler =
         let html = Components.patchedDropdownMenuRegion |> Render.toString
-        setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
 
-    let private componentDrawerPatch : HttpHandler =
+        setHttpHeader "Content-Type" "text/html; charset=utf-8"
+        >=> setBodyFromString html
+
+    let private componentDrawerPatch: HttpHandler =
         let html = Components.patchedItemDrawerContent |> Render.toString
-        setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
 
-    let private componentTabsPatch : HttpHandler =
+        setHttpHeader "Content-Type" "text/html; charset=utf-8"
+        >=> setBodyFromString html
+
+    let private componentTabsPatch: HttpHandler =
         let html = Components.reviewTabsRegion true |> Render.toString
-        setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html
 
-    let private componentItemDeletion : HttpHandler =
+        setHttpHeader "Content-Type" "text/html; charset=utf-8"
+        >=> setBodyFromString html
+
+    let private componentItemDeletion: HttpHandler =
         fun next context ->
             task {
                 do! System.Threading.Tasks.Task.Delay 1500
+
                 let html =
-                    Components.itemDeletionContent (Some "This item is still in use. Remove its links before deleting it.")
+                    Components.itemDeletionContent (
+                        Some "This item is still in use. Remove its links before deleting it."
+                    )
                     |> Render.toString
-                return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+
+                return!
+                    (setHttpHeader "Content-Type" "text/html; charset=utf-8"
+                     >=> setBodyFromString html)
+                        next
+                        context
             }
 
-    let private readSignals (context:Microsoft.AspNetCore.Http.HttpContext) =
+    let private readSignals (context: Microsoft.AspNetCore.Http.HttpContext) =
         task {
             use reader = new StreamReader(context.Request.Body)
             return! reader.ReadToEndAsync()
         }
 
-    let private trySignal (key:string) (body:string) =
+    let private trySignal (key: string) (body: string) =
         try
             use signals = JsonDocument.Parse body
             let mutable value = Unchecked.defaultof<JsonElement>
-            if signals.RootElement.TryGetProperty(key, &value) then Some(value.Clone()) else None
-        with :? JsonException -> None
+
+            if signals.RootElement.TryGetProperty(key, &value) then
+                Some(value.Clone())
+            else
+                None
+        with :? JsonException ->
+            None
 
     let private signalString key body =
         trySignal key body
         |> Option.bind (fun value ->
-            if value.ValueKind = JsonValueKind.String then value.GetString() |> Option.ofObj
-            else None)
-
-    let private signalBool key body =
-        trySignal key body
-        |> Option.bind (fun value ->
-            match value.ValueKind with
-            | JsonValueKind.True -> Some true
-            | JsonValueKind.False -> Some false
-            | JsonValueKind.String ->
-                match Boolean.TryParse(value.GetString()) with
-                | true, parsed -> Some parsed
-                | false, _ -> None
-            | _ -> None)
-        |> Option.defaultValue false
+            if value.ValueKind = JsonValueKind.String then
+                value.GetString() |> Option.ofObj
+            else
+                None)
 
     let private signalInt key body =
         trySignal key body
         |> Option.bind (fun value ->
             match value.ValueKind with
-            | JsonValueKind.Number -> match value.TryGetInt32() with true, parsed -> Some parsed | false, _ -> None
-            | JsonValueKind.String -> match Int32.TryParse(value.GetString()) with true, parsed -> Some parsed | false, _ -> None
+            | JsonValueKind.Number ->
+                match value.TryGetInt32() with
+                | true, parsed -> Some parsed
+                | false, _ -> None
+            | JsonValueKind.String ->
+                match Int32.TryParse(value.GetString()) with
+                | true, parsed -> Some parsed
+                | false, _ -> None
             | _ -> None)
 
     let private componentChoicePatch render : HttpHandler =
@@ -333,7 +495,12 @@ module Handler =
             task {
                 let! body = readSignals context
                 let html = render body |> Render.toString
-                return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+
+                return!
+                    (setHttpHeader "Content-Type" "text/html; charset=utf-8"
+                     >=> setBodyFromString html)
+                        next
+                        context
             }
 
     let private componentContactForm layout : HttpHandler =
@@ -343,54 +510,124 @@ module Handler =
                     return! (setStatusCode 415 >=> text "Submit ordinary form data.") next context
                 else
                     let! values = context.Request.ReadFormAsync(context.RequestAborted)
-                    let details : Components.ContactDetails =
+
+                    let details: Components.ContactDetails =
                         { name = values["contactName"].ToString()
                           email = values["email"].ToString()
                           notes = values["notes"].ToString() }
+
                     let errors =
-                        [ if String.IsNullOrWhiteSpace details.name then "contactName", "Enter a contact name."
+                        [ if String.IsNullOrWhiteSpace details.name then
+                              "contactName", "Enter a contact name."
                           match System.Net.Mail.MailAddress.TryCreate details.email with
                           | true, address when address.Address = details.email && details.email.Contains('@') -> ()
                           | _ -> "email", "Enter a valid email address." ]
                         |> Map.ofList
-                    let html = Components.contactFormRegion layout details errors (Map.isEmpty errors) |> Render.toString
-                    return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+
+                    let html =
+                        Components.contactFormRegion layout details errors (Map.isEmpty errors)
+                        |> Render.toString
+
+                    return!
+                        (setHttpHeader "Content-Type" "text/html; charset=utf-8"
+                         >=> setBodyFromString html)
+                            next
+                            context
             }
 
     let private componentSelectChoice =
         componentChoicePatch (fun body ->
             match signalString "components_status_value" body with
-            | Some "active" -> Components.selectFormRegion (Some Components.ChoiceStatus.Active) None (Some "Accepted status: Active.")
-            | Some "pending" -> Components.selectFormRegion (Some Components.Pending) None (Some "Accepted status: Pending.")
-            | Some "scheduled" -> Components.selectFormRegion (Some Components.Scheduled) None (Some "Accepted status: Scheduled.")
+            | Some "active" -> Components.selectFormRegion (Some "active") None (Some "Accepted status: Active.")
+            | Some "pending" -> Components.selectFormRegion (Some "pending") None (Some "Accepted status: Pending.")
+            | Some "scheduled" ->
+                Components.selectFormRegion (Some "scheduled") None (Some "Accepted status: Scheduled.")
             | _ -> Components.selectFormRegion None (Some "Choose an available status.") None)
 
+    let private componentFormChoice render : HttpHandler =
+        fun next context ->
+            task {
+                if not context.Request.HasFormContentType then
+                    return! (setStatusCode 415 >=> text "Submit ordinary form data.") next context
+                else
+                    let! form = context.Request.ReadFormAsync(context.RequestAborted)
+                    let html = render form |> Render.toString
+
+                    return!
+                        (setHttpHeader "Content-Type" "text/html; charset=utf-8"
+                         >=> setBodyFromString html)
+                            next
+                            context
+            }
+
     let private componentCheckboxChoice =
-        componentChoicePatch (fun body ->
-            if signalBool "components_confirm_archived_review_checked" body then
+        componentFormChoice (fun form ->
+            if form["confirmArchivedReview"].ToString() = "true" then
                 Components.checkboxFormRegion true None (Some "Review confirmed.")
             else
                 Components.checkboxFormRegion false (Some "Confirm the review.") None)
 
     let private componentSwitchChoice =
-        componentChoicePatch (fun body ->
-            let enabled = signalBool "components_notifications_enabled" body
-            let result = if enabled then "Notifications enabled." else "Notifications disabled."
+        componentFormChoice (fun form ->
+            let enabled = form["notifications"].ToString() = "true"
+
+            let result =
+                if enabled then
+                    "Notifications enabled."
+                else
+                    "Notifications disabled."
+
             Components.switchFormRegion enabled None (Some result))
 
     let private componentRadioChoice =
-        componentChoicePatch (fun body ->
-            match signalString "components_update_mode_value" body with
-            | Some "automatic" -> Components.radioGroupFormRegion (Some "automatic") None (Some "Accepted update mode: Automatic.")
-            | Some "manual" -> Components.radioGroupFormRegion (Some "manual") None (Some "Accepted update mode: Manual review.")
+        componentFormChoice (fun form ->
+            match form["updateMode"].ToString() with
+            | "automatic" ->
+                Components.radioGroupFormRegion (Some "automatic") None (Some "Accepted update mode: Automatic.")
+            | "manual" ->
+                Components.radioGroupFormRegion (Some "manual") None (Some "Accepted update mode: Manual review.")
             | _ -> Components.radioGroupFormRegion None (Some "Choose an available update mode.") None)
 
-    let private componentNotification =
-        componentChoicePatch (fun body ->
-            let sequence = signalInt "components_notification_sequence" body |> Option.defaultValue 1 |> max 1 |> min 10000
-            Components.notificationLeadRegion sequence)
+    let private componentFormattingChoice =
+        componentFormChoice (fun form ->
+            let requested = form["format"] |> Seq.toList |> List.distinct
 
-    let private componentMultipleChoice (name:string) render : HttpHandler =
+            let selected =
+                requested |> List.filter (fun value -> List.contains value [ "bold"; "italic" ])
+
+            if selected <> requested || List.isEmpty selected then
+                Components.toggleGroupFormRegion selected (Some "Choose at least one available format.") None
+            else
+                Components.toggleGroupFormRegion
+                    selected
+                    None
+                    (Some("Saved formatting: " + String.concat ", " selected + ".")))
+
+    let private componentTagChoice =
+        componentFormChoice (fun form ->
+            let values =
+                form["submittedTags"]
+                |> Seq.map (fun value -> value.Trim())
+                |> Seq.filter (String.IsNullOrWhiteSpace >> not)
+                |> Seq.distinct
+                |> Seq.toList
+
+            if List.isEmpty values || values.Length > 5 then
+                Components.tagInputFormRegion values (Some "Choose one to five tags.") None
+            else
+                Components.tagInputFormRegion values None (Some("Saved tags: " + String.concat ", " values + ".")))
+
+    let private componentNotification signalName render =
+        componentChoicePatch (fun body ->
+            let sequence =
+                signalInt signalName body
+                |> Option.defaultValue 1
+                |> max 1
+                |> min 10000
+
+            render sequence)
+
+    let private componentMultipleChoice (name: string) render : HttpHandler =
         fun next context ->
             task {
                 if not context.Request.HasFormContentType then
@@ -398,51 +635,39 @@ module Handler =
                 else
                     let! form = context.Request.ReadFormAsync(context.RequestAborted)
                     let requested = form[name] |> Seq.toList |> List.distinct
-                    let known = requested |> List.filter (fun value -> List.contains value [ "alex"; "jamie"; "riley"; "taylor" ])
+
+                    let known =
+                        requested
+                        |> List.filter (fun value -> List.contains value [ "alex"; "jamie"; "riley"; "taylor" ])
+
                     let valid = requested = known && known.Length >= 1 && known.Length <= 3
-                    let validation = if valid then None else Some "Choose one to three available members."
-                    let result = if valid then Some $"Validated {known.Length} members." else None
+
+                    let validation =
+                        if valid then
+                            None
+                        else
+                            Some "Choose one to three available members."
+
+                    let result =
+                        if valid then
+                            Some $"Validated {known.Length} members."
+                        else
+                            None
+
                     let html = render known validation result |> Render.toString
-                    return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
+
+                    return!
+                        (setHttpHeader "Content-Type" "text/html; charset=utf-8"
+                         >=> setBodyFromString html)
+                            next
+                            context
             }
 
-    let private componentMemberSearch wholeField : HttpHandler =
-        fun next context ->
-            let query =
-                signalString "components_remote_members_query" (context.Request.Query["datastar"].ToString())
-                |> Option.defaultValue ""
-            let retry = String.Equals(context.Request.Query["retry"].ToString(), "true", StringComparison.OrdinalIgnoreCase)
-            let html = (if wholeField then Components.remoteMembersField query else Components.remoteMembersOptions query retry) |> Render.toString
-            (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
-
-    let private componentButtonSettled : HttpHandler =
+    let private componentButtonSettled: HttpHandler =
         fun next context ->
             task {
                 do! System.Threading.Tasks.Task.Delay 1000
                 return! setStatusCode 204 next context
-            }
-
-    let private componentItemSearch : HttpHandler =
-        fun next context ->
-            task {
-                let query =
-                    try
-                        use signals = JsonDocument.Parse(context.Request.Query["datastar"].ToString())
-                        signals.RootElement.GetProperty("item_query").GetString()
-                        |> Option.ofObj
-                        |> Option.defaultValue ""
-                    with
-                    | :? JsonException
-                    | :? InvalidOperationException
-                    | :? System.Collections.Generic.KeyNotFoundException -> ""
-                let retry = String.Equals(context.Request.Query["retry"].ToString(), "true", StringComparison.OrdinalIgnoreCase)
-                let delay =
-                    if query.StartsWith("proj", StringComparison.OrdinalIgnoreCase) then 750
-                    elif query.StartsWith("shared", StringComparison.OrdinalIgnoreCase) then 50
-                    else 0
-                if delay > 0 then do! System.Threading.Tasks.Task.Delay delay
-                let html = Components.itemComboboxOptions query retry |> Render.toString
-                return! (setHttpHeader "Content-Type" "text/html; charset=utf-8" >=> setBodyFromString html) next context
             }
 
     let private previewRoutes =
@@ -452,76 +677,111 @@ module Handler =
             match Showcase.tryPreviewPage path with
             | None -> route path >=> htmlString html
             | Some(site, page) ->
-                let site = { site with assets = { site.assets with navigation = Some Navigation.enhancement } }
-                let breadcrumbs = FSharp.ViewEngine.Components.Templates.Navigation.breadcrumbs site.navigation site.homeId page.activeId
-                let root = DocsView.navigationRootWithNavigation site breadcrumbs site.navigation Embedded page
+                let site =
+                    { site with
+                        assets =
+                            { site.assets with
+                                navigation = Some Navigation.enhancement } }
+
+                let breadcrumbs =
+                    FSharp.ViewEngine.Components.Templates.Navigation.breadcrumbs
+                        site.navigation
+                        site.homeId
+                        page.activeId
+
+                let root =
+                    DocsView.navigationRootWithNavigation site breadcrumbs site.navigation Embedded page
+
                 let metadata = DocsView.documentMetadata site page
-                route path >=> fun next context ->
-                    let site = { site with assets = { site.assets with nonce = Docs.Examples.Hosting.nonce context } }
+
+                route path
+                >=> fun next context ->
+                    let site =
+                        { site with
+                            assets =
+                                { site.assets with
+                                    nonce = Example.Server.Hosting.nonce context } }
+
                     let document = Document.create site page |> Document.render
                     respond (Navigation.tryIntent context) document (root, metadata) next context)
 
-    let postRoutes : HttpHandler =
-        choose [
-            ExampleView.postRoutes
-            route "/components/page-examples/account-management/create" >=> createExampleAccount
-            route "/components/page-examples/account-management/settings" >=> saveExampleSettings
-            route "/components/page-examples/messaging/send" >=> sendExampleMessage
-            route "/components/page-examples/media-management/save" >=> saveExamplePhoto false
-            route "/components/page-examples/media-management/upload" >=> saveExamplePhoto true
-            route "/components/forms/contact" >=> componentContactForm Components.ContactFormLayout.Stacked
-            route "/components/forms/contact/grid" >=> componentContactForm Components.TwoColumns
-            route "/components/forms/contact/sectioned" >=> componentContactForm Components.Sectioned
-            route "/components/choices/select" >=> componentSelectChoice
-            route "/components/choices/multiple-select" >=> componentMultipleChoice "reviewerIds" Components.multipleSelectForm
-            route "/components/choices/multiple-combobox" >=> componentMultipleChoice "assigneeIds" Components.multipleComboboxForm
-            route "/components/choices/checkbox" >=> componentCheckboxChoice
-            route "/components/choices/switch" >=> componentSwitchChoice
-            route "/components/choices/radio" >=> componentRadioChoice
-            route "/components/notifications/show" >=> componentNotification
-            route "/components/dialogs/confirm" >=> componentItemDeletion
-        ]
+    let postRoutes: HttpHandler =
+        choose
+            [ Example.Server.Hosting.routes;
+              Components.progressExampleRoutes;
+              route "/components/page-examples/account-management/create"
+              >=> createExampleAccount
+              route "/components/page-examples/account-management/settings"
+              >=> saveExampleSettings
+              route "/components/page-examples/messaging/send" >=> sendExampleMessage
+              route "/components/page-examples/media-management/save"
+              >=> saveExamplePhoto false
+              route "/components/page-examples/media-management/upload"
+              >=> saveExamplePhoto true
+              route "/components/forms/contact"
+              >=> componentContactForm Components.ContactFormLayout.Stacked
+              route "/components/forms/contact/grid"
+              >=> componentContactForm Components.TwoColumns
+              route "/components/forms/contact/sectioned"
+              >=> componentContactForm Components.Sectioned
+              route "/components/choices/select" >=> componentSelectChoice
+              route "/components/choices/multiple-select"
+              >=> componentMultipleChoice "reviewerIds" Components.multipleSelectForm
+              route "/components/choices/multiple-combobox"
+              >=> componentMultipleChoice "assigneeIds" Components.multipleComboboxForm
+              route "/components/choices/checkbox" >=> componentCheckboxChoice
+              route "/components/choices/formatting" >=> componentFormattingChoice
+              route "/components/tags" >=> componentTagChoice
+              route "/components/choices/switch" >=> componentSwitchChoice
+              route "/components/choices/radio" >=> componentRadioChoice
+              route "/components/notifications/show"
+              >=> componentNotification "components_notification_sequence" Components.notificationLeadRegion;
+              route "/components/notifications/show-timed"
+              >=> componentNotification "components_timed_notification_sequence" Components.timedNotificationRegion;
+              route "/components/dialogs/confirm" >=> componentItemDeletion ]
 
-    let private migrationRoutes =
-        [ "/components/primitives", "/components"; "/components/application", "/examples"
-          "/components/page", "/examples/application"; "/components/app-shell", "/examples/application"
-          "/components/collection", "/examples/application/accounts"; "/components/detail", "/examples/application/accounts/101"
-          "/components/form-layouts", "/examples/application/accounts/new"; "/components/media-library", "/components/card"
-          "/components/bulk-actions", "/examples/application/accounts"
-          "/docs", "/examples"; "/docs/components", "/components"; "/docs-components", "/components"
-          "/docs/components/layouts", "/examples/specification"; "/docs/components/content", "/components/code-block"
-          "/docs/components/navigation", "/components/side-nav"; "/docs/components/api-reference", "/examples/api-documentation"
-          "/docs/components/diagrams", "/components/mermaid"
-          "/components/fixture", "/examples/specification"
-          "/docs/components/fixture", "/examples/specification"; "/docs/components/interactive-examples", "/examples/specification"
-          "/docs/page-examples/documentation-site", "/examples/specification"
-          "/docs/page-examples/api-reference", "/examples/api-documentation"; "/docs/examples/api-reference", "/examples/api-documentation"
-          "/docs/page-examples/executable-specification", "/examples/specification"; "/docs/examples/executable-specification", "/examples/specification" ]
-        |> List.map (fun (path,destination) -> route path >=> redirectTo true destination)
-        |> choose
+    let notFound: HttpHandler =
+        fun next context ->
+            let document =
+                View.notFound
+                    (Example.Server.Hosting.nonce context)
+                    (string context.Request.PathBase + string context.Request.Path)
 
-    let routes : HttpHandler =
-        choose [
-            migrationRoutes
-            route "/changelog" >=> redirectTo true Registry.releasesUrl
-            ExampleView.routes
-            route "/sitemap.xml" >=> setHttpHeader "Content-Type" "application/xml; charset=utf-8" >=> setBodyFromString sitemap
-            route "/robots.txt" >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8" >=> setBodyFromString robots
-            route "/components/pagination/page" >=> componentPagination
-            route "/components/table/sort" >=> componentTableSort
-            route "/components/members/search" >=> componentMemberSearch false
-            route "/components/members/field" >=> componentMemberSearch true
-            GET >=> route "/components/page-examples/graph-and-trace" >=> redirectTo true "/components/page-examples/dependency-graph"
-            GET >=> choose [ for page in PageExamples.pages -> route (PageExamples.url page) >=> pageExample page ]
-            route "/components/page-examples/account-management/fixture" >=> componentAppShellFixture
-            route "/components/page-examples/account-management" >=> accountManagement
-            route "/components/app-shell" >=> componentAppShell
-            route "/docs/page-examples/documentation-site" >=> documentationSiteExample
-            route "/docs/page-examples/api-reference" >=> apiReferenceExample
-            route "/components/menus/actions" >=> componentDropdownMenuPatch
-            route "/components/drawers/item" >=> componentDrawerPatch
-            route "/components/tabs/review" >=> componentTabsPatch
-            route "/components/button/settled" >=> componentButtonSettled
-            route "/components/items/search" >=> componentItemSearch
-            choose (previewRoutes @ pageRoutes)
-        ]
+            (setStatusCode 404 >=> (document |> Render.toHtmlDocString |> htmlString)) next context
+
+    let routes: HttpHandler =
+        choose
+            [ Example.Server.Hosting.routes
+              route "/sitemap.xml"
+              >=> setHttpHeader "Content-Type" "application/xml; charset=utf-8"
+              >=> setBodyFromString sitemap
+              route "/robots.txt"
+              >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8"
+              >=> setBodyFromString robots
+              GET
+              >=> route "/components/theming/document"
+              >=> (fun next context ->
+                  Appearance.appearanceDocument (Example.Server.Hosting.nonce context)
+                  |> Render.toHtmlDocString
+                  |> htmlString
+                  |> fun handler -> handler next context)
+              route "/components/pagination/page" >=> componentPagination
+              route "/components/table/sort" >=> componentTableSort
+              Components.tableMoreRoutes
+              Components.remoteMembersRoutes
+              Components.checkEmailRoutes
+              GET
+              >=> choose [ for page in PageExamples.pages -> route (PageExamples.url page) >=> pageExample page ]
+              route "/components/page-examples/account-management/fixture"
+              >=> componentAppShellFixture
+              route "/components/page-examples/account-management" >=> accountManagement
+              route "/components/menus/actions" >=> componentDropdownMenuPatch
+              route "/components/drawers/item" >=> componentDrawerPatch
+              route "/components/tabs/review" >=> componentTabsPatch
+              route "/components/tags/reset"
+              >=> componentChoicePatch (fun _ -> Components.tagInputFormRegion [ "reviewed" ] None (Some "Tags reset."))
+              route "/components/button/settled" >=> componentButtonSettled
+              Components.itemFixtureSearchRoutes
+              Components.itemSearchRoutes
+              choose (previewRoutes @ pageRoutes)
+              notFound ]

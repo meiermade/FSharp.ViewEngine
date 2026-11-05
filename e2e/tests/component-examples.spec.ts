@@ -143,6 +143,49 @@ test('Free-form tags add, reject, remove, and submit repeated native values @cro
   await expect(entry).toBeFocused()
 })
 
+test('TagInput keeps successful values, reset and editing after server patches and reconnection @cross-browser', async ({ page }) => {
+  await page.goto('/components/tag-input')
+  const region = page.locator('#components-tag-form-region')
+  const form = region.locator('form')
+  const entry = region.getByRole('textbox', { name: 'Submitted tags', exact: true })
+  const values = () => form.evaluate(form => new FormData(form as HTMLFormElement).getAll('submittedTags'))
+  await entry.fill('priority')
+  await entry.press('Enter')
+  await expect.poll(values).toEqual(['reviewed', 'priority'])
+  await form.evaluate(form => (form as HTMLFormElement).reset())
+  await expect.poll(values).toEqual(['reviewed'])
+  await entry.fill('priority')
+  await entry.press('Enter')
+  await region.getByRole('button', { name: 'Reset tags from server' }).click()
+  await expect(region.getByRole('status').filter({ hasText: 'Tags reset.' })).toBeVisible()
+  await expect.poll(values).toEqual(['reviewed'])
+  await entry.fill('priority')
+  await entry.press('Enter')
+  await region.getByRole('button', { name: 'Save tags' }).click()
+  await expect(region.getByRole('status').filter({ hasText: 'Saved tags: reviewed, priority.' })).toBeVisible()
+  await region.getByRole('button', { name: 'Remove reviewed', exact: true }).click()
+  await expect.poll(values).toEqual(['priority'])
+  await entry.fill('<draft>')
+  await entry.press('Enter')
+  await expect.poll(values).toEqual(['priority', '<draft>'])
+  await expect(region.getByRole('button', { name: 'Remove <draft>', exact: true })).toBeVisible()
+  await form.locator('fve-tag-input').evaluate(host => {
+    const marker = document.createComment('reconnect')
+    host.replaceWith(marker)
+    marker.replaceWith(host)
+  })
+  await entry.fill('final')
+  await entry.press('Enter')
+  await expect.poll(values).toEqual(['priority', '<draft>', 'final'])
+  const pending = page.locator('#components-tag-input-pending-panel-preview')
+  await expect(pending.getByRole('button', { name: 'Remove reviewed', exact: true })).toBeDisabled()
+  expect(await pending.locator('fve-tag-input').evaluate(host => {
+    const form = document.createElement('form')
+    form.append(host.cloneNode(true))
+    return new FormData(form).getAll('pendingTags')
+  })).toEqual(['reviewed'])
+})
+
 test('Calendar component galleries stay focused without connected view switching @cross-browser', async ({ page }) => {
   await page.goto('/components/week-calendar')
   await expect(page.getByRole('heading', { name: 'Week calendar', level: 1, exact: true })).toBeVisible()
@@ -163,6 +206,12 @@ test('Rich choice cards retain native selection and disabled semantics @cross-br
   await expect(selfService).toBeChecked()
   await expect(assisted).not.toBeChecked()
   await expect(unavailable).toBeDisabled()
+  await page.setViewportSize({ width: 320, height: 1000 })
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+  const lines = await example.getByText('Staff assisted', { exact: true }).evaluate(title =>
+    title.getBoundingClientRect().height / parseFloat(getComputedStyle(title).lineHeight))
+  expect(lines).toBeLessThanOrEqual(2)
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
 test('Hierarchical tables disclose only their matching descendants @cross-browser', async ({ page }) => {
@@ -179,30 +228,9 @@ test('Hierarchical tables disclose only their matching descendants @cross-browse
   await expect(checking).toBeVisible()
 })
 
-test('Operational application examples preserve native input and recoverable actions @cross-browser', async ({ page }) => {
-  await page.goto('/components/file-selection')
-  const file = page.locator('#selected-files')
-  await file.setInputFiles([
-    { name: 'items.csv', mimeType: 'text/csv', buffer: Buffer.from('name,status') },
-    { name: 'files.csv', mimeType: 'text/csv', buffer: Buffer.from('name,size') },
-  ])
-  await expect(page.locator('#selected-files-selected')).toContainText('items.csv')
-  await expect(page.locator('#selected-files-selected')).toContainText('files.csv')
-  await page.locator('#components-file-selection-panel-preview').getByRole('button', { name: 'Clear selected files', exact: true }).click()
-  await expect(file).toHaveValue('')
-
+test('Progress and CopyReveal preserve native input and recoverable actions @cross-browser', async ({ page }) => {
   await page.goto('/components/progress')
-  await expect(page.getByRole('progressbar', { name: 'File upload', exact: true }).first()).toHaveAttribute('value', '68')
-
-  await page.goto('/components/steps')
-  const steps = page.locator('#components-steps-panel-preview')
-  await expect(steps.getByRole('navigation', { name: 'Setup progress', exact: true }).locator('[aria-current="step"]')).toContainText('Review details')
-  await steps.getByRole('button', { name: 'Continue', exact: true }).click()
-  await expect(steps.getByRole('alert')).toHaveText('Enter a review note before continuing.')
-  await expect(steps.getByRole('navigation', { name: 'Setup progress', exact: true }).locator('[aria-current="step"]')).toContainText('Review details')
-  await steps.getByRole('textbox', { name: 'Review note', exact: true }).fill('The selected items are correct.')
-  await steps.getByRole('button', { name: 'Continue', exact: true }).click()
-  await expect(steps.getByRole('status')).toHaveText('Ready to continue.')
+  await expect(page.getByRole('progressbar', { name: 'Example task', exact: true })).toHaveAttribute('value', '0')
 
   await page.goto('/components/copy-reveal')
   const identity = page.locator('#components-copy-reveal-panel-preview')
@@ -237,6 +265,27 @@ test('Bottom navigation remains visible native link navigation @cross-browser', 
     const bounds = element.getBoundingClientRect()
     return element.contains(document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + bounds.height / 2))
   })).toBe(true)
+})
+
+test('Card content remains readable in a narrow preview with 200% text @cross-browser', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 1000 })
+  await page.goto('/components/card')
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%'; document.documentElement.classList.add('dark') })
+  const card = page.locator('[data-fve-card]').filter({ hasText: 'Project review' })
+  await card.scrollIntoViewIfNeeded()
+  const clipped = await card.evaluate(card => {
+    const bounds = card.getBoundingClientRect()
+    const walker = document.createTreeWalker(card, NodeFilter.SHOW_TEXT)
+    const clipped: string[] = []
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      if (!node.textContent?.trim()) continue
+      const range = document.createRange()
+      range.selectNodeContents(node)
+      if ([...range.getClientRects()].some(rect => rect.left < bounds.left - 1 || rect.right > bounds.right + 1)) clipped.push(node.textContent)
+    }
+    return clipped
+  })
+  expect(clipped).toEqual([])
 })
 
 for (const id of ['button', 'select', 'side-nav', 'bottom-navigation', 'table', 'input', 'breadcrumbs', 'page-top-bar', 'day-calendar', 'week-calendar', 'month-calendar', 'year-calendar', 'date-picker', 'command', 'notice', 'skeleton', 'metric', 'toggle-button', 'toggle-group', 'button-group', 'tabs', 'resizable']) {
@@ -309,7 +358,7 @@ test('denied gallery copying reports failure without losing the source @cross-br
   await expect(copy).toHaveAttribute('data-copy-error', 'true')
   await expect(copy).toHaveText('Copy failed')
   await example.getByRole('tab', { name: 'Code', exact: true }).click()
-  await expect(example.locator('[data-docs-copy-source]')).toContainText('Button.create (ButtonContent.Text "Create")')
+  await expect(example.locator('[data-docs-copy-source]')).toContainText('fveButton {')
   await example.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(example.getByRole('button', { name: 'Create', exact: true })).toHaveCount(3)
 })
@@ -330,20 +379,4 @@ test('gallery code switches preserve independent edited previews @cross-browser'
   await searchToolbar.getByRole('tab', { name: 'Preview', exact: true }).click()
   await expect(query).toHaveValue('Savings')
   await expect(page).toHaveURL(/\/components\/input$/)
-})
-
-test('Item metadata interaction stays independent of its stretched row link @cross-browser', async ({ page }) => {
-  await page.goto('/components/item')
-  const preview = page.locator('#components-item-linked-metadata-panel-preview')
-  const edit = preview.getByRole('button', { name: 'Edit', exact: true })
-  expect(await edit.evaluate(element => element.closest('a') === null)).toBe(true)
-  await edit.click()
-  const dialog = page.getByRole('dialog', { name: 'Edit item name', exact: true })
-  await expect(dialog.getByRole('textbox', { name: 'Item name', exact: true })).toBeFocused()
-  await expect(page).toHaveURL('/components/item')
-  await page.keyboard.press('Escape')
-  await expect(dialog).toBeHidden()
-  await expect(edit).toBeFocused()
-  // Component galleries deliberately suppress destination activation; copied Items retain this native link.
-  await expect(preview.getByRole('link', { name: 'Project notes', exact: true })).toHaveAttribute('href', '/components/item')
 })

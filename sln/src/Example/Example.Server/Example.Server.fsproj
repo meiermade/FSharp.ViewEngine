@@ -1,0 +1,79 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <UseAppHost>false</UseAppHost>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/node_modules/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="10.0.102" />
+    <ProjectReference Include="../Example.Components/Example.Components.fsproj" />
+    <ProjectReference Include="../Example.Application/Example.Application.fsproj" />
+    <PackageReference Include="Giraffe" Version="8.3.0" />
+    <PackageReference Include="StarFederation.Datastar" Version="1.4.0" />
+    <Compile Include="Model.fs" />
+    <Compile Include="DemoState.fs" />
+    <Compile Include="Navigation.fs" />
+    <Compile Include="Layout.fs" />
+    <Compile Include="AppMode.fs" />
+    <Compile Include="RecordTable.fs" />
+    <Compile Include="Application/Controls.fs" />
+    <Compile Include="Application/TransactionTable.fs" />
+    <Compile Include="Application/Collection.fs" />
+    <Compile Include="Application/Home.fs" />
+    <Compile Include="Application/Accounts/ViewAccounts.fs" />
+    <Compile Include="Application/Accounts/ViewAccount.fs" />
+    <Compile Include="Application/Transactions/ViewTransactions.fs" />
+    <Compile Include="Application/Transactions/ViewTransaction.fs" />
+    <Compile Include="Application/Settings/ViewEnvironment.fs" />
+    <Compile Include="Application/Profile/Organizations.fs" />
+    <Compile Include="Application/Profile/ViewProfile.fs" />
+    <Compile Include="Application/Overlay.fs" />
+    <Compile Include="Application/Accounts/AccountEditor.fs" />
+    <Compile Include="Application/Accounts/CreateAccount.fs" />
+    <Compile Include="Application/Accounts/UpdateAccount.fs" />
+    <Compile Include="Application/Accounts/DeleteAccount.fs" />
+    <Compile Include="Application/Transactions/DeleteTransaction.fs" />
+    <Compile Include="Application/Settings/Environments.fs" />
+    <Compile Include="Application/Settings/Users.fs" />
+    <Compile Include="Application/Settings/ApiClients.fs" />
+    <Compile Include="Application/Settings/Ledgers.fs" />
+    <Compile Include="Application/Settings/Billing.fs" />
+    <Compile Include="Application/Settings/General.fs" />
+    <Compile Include="Application/Settings/EditOrganization.fs" />
+    <Compile Include="Application/Settings/EditEnvironment.fs" />
+    <Compile Include="Application/Profile/EditProfile.fs" />
+    <Compile Include="Application.fs" />
+    <Compile Include="Specification/Architecture/Presentation.fs" />
+    <Compile Include="Specification/Architecture/Context.fs" />
+    <Compile Include="Specification/Architecture/Solution.fs" />
+    <Compile Include="Specification/Architecture/Domain.fs" />
+    <Compile Include="Specification/Architecture/Application.fs" />
+    <Compile Include="Specification/Architecture/Components.fs" />
+    <Compile Include="Specification/Architecture/Server.fs" />
+    <Compile Include="Architecture.fs" />
+    <Compile Include="Specification/Workflow.fs" />
+    <Compile Include="Specification/Home.fs" />
+    <Compile Include="Specification/Accounts/ViewAccounts.fs" />
+    <Compile Include="Specification/Accounts/ViewAccount.fs" />
+    <Compile Include="Specification/Accounts/CreateAccount.fs" />
+    <Compile Include="Specification/Accounts/UpdateAccount.fs" />
+    <Compile Include="Specification/Accounts/DeleteAccount.fs" />
+    <Compile Include="Specification/Transactions/ViewTransactions.fs" />
+    <Compile Include="Specification/Transactions/ViewTransaction.fs" />
+    <Compile Include="Specification/Transactions/DeleteTransaction.fs" />
+    <Compile Include="Specification/Workspace.fs" />
+    <Compile Include="Specification/Settings.fs" />
+    <Compile Include="Specification/Profile.fs" />
+    <Compile Include="Specification/Overview.fs" />
+    <Compile Include="Specification.fs" />
+    <Compile Include="ApiDocumentation.fs" />
+    <Compile Include="Routing.fs" />
+    <Compile Include="Hosting.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="package.json;package-lock.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+    <Content Include="../Example.Components/Components/Assets/*" Link="wwwroot/examples/assets/scripts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

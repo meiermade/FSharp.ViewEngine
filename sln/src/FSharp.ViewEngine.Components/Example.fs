@@ -5,8 +5,23 @@ open System
 open type Html
 
 /// <category>example</category>
-module Example =
-    let private render gallery showTitle codeFirst (id:string) (label:string) (language:string) (source:string) (preview:HtmlElement) =
+[<RequireQualifiedAccess>]
+type ExampleVariant = PreviewFirst | CodeFirst | Lead | Gallery
+
+/// <category>example</category>
+[<AutoOpen>]
+module ExampleAttributes =
+    type Html with
+        static member _variant(value:ExampleVariant) = Html._attr("variant", match value with ExampleVariant.PreviewFirst -> "preview-first" | ExampleVariant.CodeFirst -> "code-first" | ExampleVariant.Lead -> "lead" | ExampleVariant.Gallery -> "gallery")
+
+type internal ExampleCodeElement(attributes:HtmlAttribute list, source:string) =
+    inherit HtmlElement()
+    member _.Attributes = attributes
+    member _.Source = source
+    override _.Render _ = invalidOp "fveExampleCode belongs inside fveExample."
+
+module internal Example =
+    let private render gallery showTitle codeFirst (id:string) (label:string) (language:string) (source:string) (preview:HtmlElement) attributes codeAttributes =
         if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "An example ID is required."
         if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An example label is required."
 
@@ -25,10 +40,10 @@ module Example =
         let panelId name = $"{id}-panel-{name}"
         let select name = $"${signal} = '{name}'"
         let activate name =
-            if name = "code" then $", queueMicrotask(() => window.renderCode?.(document.getElementById('{panelId name}')))"
-            elif name = "preview" then $", queueMicrotask(() => window.renderDocsPreview?.(document.getElementById('{panelId name}')))"
+            if name = "code" then $", queueMicrotask(() => window.renderCode?.(document.getElementById({ComponentHtml.javascriptString (panelId name)})))"
+            elif name = "preview" then $", queueMicrotask(() => window.renderDocsPreview?.(document.getElementById({ComponentHtml.javascriptString (panelId name)})))"
             else ""
-        let focus name = $"{select name}, document.getElementById('{tabId name}').focus(){activate name}"
+        let focus name = $"{select name}, document.getElementById({ComponentHtml.javascriptString (tabId name)}).focus(){activate name}"
         let tabs =
             if gallery then [ "preview", "Preview"; "code", "Code" ]
             else [ "code", "Code"; "preview", "Preview" ]
@@ -53,16 +68,14 @@ module Example =
         let panelClasses = "min-h-40 overflow-visible"
         let previewFrameClasses =
             let frame = if gallery then "rounded-xl border border-[var(--fve-border)]" else "border-0 rounded-none"
-            "relative box-border min-h-40 min-w-[min(15rem,100%)] max-w-full overflow-hidden bg-[var(--fve-background)] p-6 " + frame + " has-[[data-fve-full-bleed-example=true]]:p-0 has-[[data-page-example-preview=true]]:overflow-visible has-[[data-page-example-preview=true]]:rounded-none has-[[data-page-example-preview=true]]:border-0"
+            "relative box-border min-h-40 min-w-[min(15rem,100%)] max-w-full overflow-hidden bg-[var(--fve-background)] p-[12px] sm:p-6 " + frame + " has-[[data-fve-full-bleed-example=true]]:p-0 has-[[data-page-example-preview=true]]:overflow-visible has-[[data-page-example-preview=true]]:rounded-none has-[[data-page-example-preview=true]]:border-0"
         let codeClasses =
             let frame = if gallery then "rounded-xl border border-[var(--fve-border)]" else "border-0 rounded-none"
             $"relative m-0! min-h-40 overflow-auto bg-[var(--fve-docs-code-surface,color-mix(in_oklch,var(--fve-background)_72%%,var(--fve-surface-subtle)))]! p-4 font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! {frame} language-{prismLanguage}"
 
         section {
-            _class frameClasses
-            _data("docs-copyable-code", "true")
-            _data("docs-example", "true")
-            _data("signals__ifmissing", $"{{ {signal}: '{initial}', {widthSignal}: '100%%' }}")
+            let defaults = [_class frameClasses; _data("docs-copyable-code", "true"); _data("docs-example", "true"); _data("signals__ifmissing", $"{{ {signal}: '{initial}', {widthSignal}: '100%%' }}")]
+            for attribute in ComponentElement.attributes (defaults @ attributes) do attribute
             div {
                 _class toolbarClasses
                 _data("docs-example-toolbar", "true")
@@ -157,29 +170,45 @@ module Example =
                     }
                 }
             }
-            pre {
+            div {
                 _id (panelId "code")
                 _role "tabpanel"
                 _attr("aria-labelledby", tabId "code")
-                _tabindex 0
-                _class (codeClasses + " " + CopyableCode.syntaxClasses)
+                _class ("relative min-w-0 " + CopyableCode.syntaxClasses)
                 _data("docs-example-code", "true")
                 _data("init", "window.renderCode?.(el)")
                 _data("on:datastar-fetch", CopyableCode.refreshAfterMorph)
                 _data("show", $"${signal} == 'code'")
                 if not codeFirst then _style "display:none"
-                CopyableCode.renderButton $"Copy {label} code"
-                code {
-                    _class $"bg-transparent! font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! language-{prismLanguage}"
-                    _data("docs-copy-source", "true")
-                    CopyableCode.renderSource source
+                pre {
+                    _class codeClasses
+                    _tabindex 0
+                    code {
+                        for attribute in ComponentElement.attributes ([_class $"bg-transparent! font-mono! text-sm! leading-[1.55]! text-[var(--fve-text)]! [text-shadow:none]! language-{prismLanguage}"; _data("docs-copy-source", "true")] @ codeAttributes) do attribute
+                        CopyableCode.renderSource source
+                    }
                 }
+                CopyableCode.renderButton $"Copy {label} code"
             }
         }
 
-    let previewFirst id label language source preview = render false true false id label language source preview
-    let codeFirst id label language source preview = render false true true id label language source preview
-    /// A preview-first lead example whose accessible h2 label is visually hidden.
-    let lead id label language source preview = render true false false id label language source preview
-    /// A named, preview-first gallery item with copyable code and an h2 toolbar title.
-    let gallery id label language source preview = render true true false id label language source preview
+    let code attributes children = ExampleCodeElement(attributes, ComponentContent.plainText "fveExampleCode" children) :> HtmlElement
+
+    let element attributes (children:HtmlElement list) =
+        // The name scopes inner tab/panel IDs. A separate optional id belongs to the native section.
+        let name = ComponentElement.required "name" attributes
+        if name |> Seq.exists Char.IsWhiteSpace then invalidArg "name" "An example name cannot contain whitespace."
+        let label = ComponentElement.required "label" attributes
+        let sources, preview =
+            children |> List.fold (fun (sources, preview) child -> match child with :? ExampleCodeElement as source -> source :: sources, preview | _ -> sources, child :: preview) ([], [])
+        let source = match sources with [source] -> source | _ -> invalidArg "children" "Exactly one fveExampleCode is required."
+        let language = ComponentElement.value "language" source.Attributes |> Option.orElse (ComponentElement.value "language" attributes) |> Option.defaultValue "text"
+        let variant = ComponentElement.choice "variant" "preview-first" ["preview-first"; "code-first"; "lead"; "gallery"] attributes
+        render (variant = "lead" || variant = "gallery") (variant <> "lead") (variant = "code-first") name label language source.Source (ComponentContent.fragment (List.rev preview))
+            (ComponentHtml.safeAttributes ["name"; "label"; "language"; "variant"] attributes) (ComponentHtml.safeAttributes ["language"] source.Attributes)
+
+/// <category>example</category>
+[<AutoOpen>]
+module ExampleDsl =
+    let fveExample = ComponentElementBuilder(Example.element)
+    let fveExampleCode = ComponentElementBuilder(Example.code)

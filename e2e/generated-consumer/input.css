@@ -1,3 +1,5 @@
 @import "tailwindcss" source(none);
 @source "./Program.fs";
 @source "../Components/**/*.fs";
+@source "../Components/Assets/**/*.js";
+@source not "../Components/Assets/echarts.6.1.0.esm.min.js";

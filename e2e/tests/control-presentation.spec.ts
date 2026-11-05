@@ -24,37 +24,6 @@ const contrast = (control: Locator, property: 'color' | 'outlineColor' = 'color'
 // Assert browser output rather than Tailwind class spelling.
 const translation = (control: Locator) => control.evaluate(el => getComputedStyle(el).translate)
 
-test('breadcrumb middle overflow preserves context, keyboard access and narrow ancestors @cross-browser', async ({ page }) => {
-  await page.goto('/components/breadcrumbs')
-  const trail = page.locator('#middle-breadcrumbs')
-  await expect(trail.locator(':scope > ol > li > a')).toHaveText(['Home', 'Navigation'])
-  await expect(trail.locator('[aria-current="page"]')).toHaveText('Breadcrumbs')
-  const trigger = trail.getByRole('button', { name: 'Show hidden breadcrumbs' })
-  await trigger.focus()
-  await page.keyboard.press('ArrowDown')
-  const menu = trail.getByRole('menu', { name: 'Show hidden breadcrumbs' })
-  await expect(menu.getByRole('menuitem')).toHaveCount(2)
-  await expect(menu.getByRole('menuitem').first()).toBeFocused()
-  await page.keyboard.press('ArrowDown')
-  await expect(menu.getByRole('menuitem').last()).toBeFocused()
-  await page.keyboard.press('Escape')
-  await expect(trigger).toBeFocused()
-  await expect(menu).toBeHidden()
-  await trigger.click()
-  await menu.getByRole('menuitem').first().click()
-  await expect(page).toHaveURL(/\/components\/breadcrumbs$/)
-  await expect(menu).toBeHidden()
-
-  const configured = page.locator('#visible-breadcrumbs')
-  await expect(configured.locator(':scope > ol > li > a')).toHaveText(['Home', 'Components', 'Navigation'])
-  await page.setViewportSize({ width: 390, height: 844 })
-  await trigger.click()
-  await expect(menu.getByRole('menuitem')).toHaveCount(4)
-  await page.keyboard.press('Escape')
-  await expect(trigger).toBeFocused()
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-})
-
 test('badges expose independent readable colors and variants without live-region behavior @cross-browser', async ({ page }) => {
   await page.goto('/components/badge')
   const basic = page.locator('#components-badge-panel-preview').getByText('Internal', { exact: true })
@@ -79,14 +48,52 @@ test('badges expose independent readable colors and variants without live-region
 
 test('Toggle controls apply Small, Medium and Large geometry without invalid group ARIA @cross-browser', async ({ page }) => {
   await page.goto('/components/toggle-button')
-  for (const [id, height] of [['components-compact-rows', 40], ['toggle-soft', 32], ['toggle-outline', 40], ['toggle-ghost', 48]] as const) {
-    await expect.poll(async () => (await page.locator(`#${id}`).boundingBox())!.height).toBe(height)
+  for (const [id, height] of [['components-compact-rows', 32], ['toggle-soft', 28], ['toggle-outline', 32], ['toggle-ghost', 36]] as const) {
+    await expect.poll(async () => (await page.locator(`#${id}`).boundingBox())!.height).toBeCloseTo(height, 1)
   }
+  await expect(page.locator('#toggle-outline')).toHaveCSS('border-top-width', '1px')
   await page.goto('/components/toggle-group')
   const group = page.locator('#components-alignment-default')
   await expect(group).not.toHaveAttribute('aria-orientation')
-  for (const button of await group.getByRole('button').all()) expect((await button.boundingBox())!.height).toBe(40)
-  for (const button of await page.locator('#components-formatting-group').getByRole('button').all()) expect((await button.boundingBox())!.height).toBe(32)
+  for (const button of await group.getByRole('button').all()) expect((await button.boundingBox())!.height).toBeCloseTo(32, 1)
+  for (const button of await page.locator('#components-formatting-group').getByRole('button').all()) {
+    expect((await button.boundingBox())!.height).toBeCloseTo(28, 1)
+    await expect(button).toHaveCSS('border-inline-start-width', '1px')
+    expect(parseFloat(await button.evaluate(el => getComputedStyle(el).borderTopLeftRadius))).toBeGreaterThan(0)
+  }
+  const [first, middle, last] = await group.getByRole('button').all()
+  expect(parseFloat(await first.evaluate(el => getComputedStyle(el).borderTopLeftRadius))).toBeGreaterThan(0)
+  await expect(first).toHaveCSS('border-top-right-radius', '0px')
+  for (const button of [middle, last]) await expect(button).toHaveCSS('border-inline-start-width', '0px')
+  await expect(middle).toHaveCSS('border-top-left-radius', '0px')
+  await expect(middle).toHaveCSS('border-top-right-radius', '0px')
+  await expect(last).toHaveCSS('border-top-left-radius', '0px')
+  expect(parseFloat(await last.evaluate(el => getComputedStyle(el).borderTopRightRadius))).toBeGreaterThan(0)
+  const boxes = await Promise.all([first.boundingBox(), middle.boundingBox(), last.boundingBox()])
+  expect(boxes[1]!.x - boxes[0]!.x - boxes[0]!.width).toBeCloseTo(0, 1)
+  expect(boxes[2]!.x - boxes[1]!.x - boxes[1]!.width).toBeCloseTo(0, 1)
+  const vertical = page.locator('#components-view-group')
+  const verticalButtons = await vertical.getByRole('button').all()
+  for (const button of verticalButtons.slice(1)) {
+    await expect(button).toHaveCSS('border-block-start-width', '0px')
+    await expect(button).toHaveCSS('border-top-left-radius', '0px')
+  }
+  await group.evaluate(el => el.setAttribute('dir', 'rtl'))
+  expect(parseFloat(await first.evaluate(el => getComputedStyle(el).borderTopRightRadius))).toBeGreaterThan(0)
+  await expect(first).toHaveCSS('border-top-left-radius', '0px')
+  await group.evaluate(el => el.removeAttribute('dir'))
+  const connected = page.locator('#connected-formats')
+  const connectedButtons = await connected.getByRole('button').all()
+  await expect(connected.getByRole('button', { pressed: true })).toHaveText(['Bold', 'Italic'])
+  expect(parseFloat(await connectedButtons[0].evaluate(el => getComputedStyle(el).borderTopLeftRadius))).toBeGreaterThan(0)
+  await expect(connectedButtons[1]).toHaveCSS('border-top-left-radius', '0px')
+  expect(parseFloat(await connectedButtons[2].evaluate(el => getComputedStyle(el).borderTopRightRadius))).toBeGreaterThan(0)
+  await expect(connected.locator('input[type="hidden"]')).toHaveCount(2)
+  const only = page.locator('#single-toggle-item').getByRole('button')
+  for (const corner of ['border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius', 'border-bottom-right-radius']) {
+    expect(parseFloat(await only.evaluate((el, corner) => getComputedStyle(el).getPropertyValue(corner), corner))).toBeGreaterThan(0)
+  }
+  await expect(only).toHaveCSS('border-inline-start-width', '1px')
   await page.setViewportSize({ width: 320, height: 1000 })
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
   const frame = (await page.locator('#components-toggle-group-default-panel-preview').boundingBox())!
@@ -101,6 +108,21 @@ test('Toggle controls apply Small, Medium and Large geometry without invalid gro
     const box = (await right.boundingBox())!
     return box.x >= region.x && box.x + box.width <= region.x + region.width + 1
   }).toBe(true)
+})
+
+test('outlined fields and pagination use real borders without growing their control heights @cross-browser', async ({ page }) => {
+  for (const [route, selector, height] of [
+    ['/components/tag-input', '#components-tag-input-panel-preview [data-fve-tag-entry]', 32],
+    ['/components/copy-reveal', '#demo-token', 32],
+    ['/components/file-selection', '#components-file-selection-panel-preview input[type=file]', 32],
+    ['/components/pagination', '#components-pagination-panel-preview [aria-current=page]', 36],
+  ] as const) {
+    await page.goto(route)
+    const control = page.locator(selector)
+    await expect(control).toHaveCSS('border-top-width', '1px')
+    await expect(control).toHaveCSS('border-bottom-width', '1px')
+    await expect.poll(async () => (await control.boundingBox())!.height).toBe(height)
+  }
 })
 
 test('Select retains a contrasting keyboard outline in light and dark modes @cross-browser', async ({ page }) => {
@@ -162,7 +184,15 @@ test('Skeleton reserves visible geometry and respects reduced motion @cross-brow
   expect(second!.width).toBeLessThan(first!.width)
   expect(first!.x).toBeGreaterThan(circle!.x + circle!.width)
   expect(first!.y).toBeLessThan(circle!.y + circle!.height)
-  for (const id of ['skeleton-default', 'skeleton-text', 'skeleton-avatar', 'skeleton-card']) {
+  expect(await shapes.first().evaluate(el => parseFloat(getComputedStyle(el).borderRadius))).toBeGreaterThanOrEqual(circle!.width / 2)
+  const card = page.locator('#components-skeleton-card-panel-preview').getByRole('status').locator('[aria-hidden="true"]').first()
+  await expect(card).toHaveCSS('border-radius', '12px')
+  const explicit = page.locator('#components-skeleton-dimensions-panel-preview').getByRole('status').locator('[aria-hidden="true"]')
+  await explicit.evaluate(el => el.classList.add('w-full', 'h-8'))
+  await expect(explicit).toHaveCSS('height', '16px')
+  const sizes = await explicit.evaluate(el => ({ width: el.getBoundingClientRect().width, parent: el.parentElement!.getBoundingClientRect().width }))
+  expect(sizes.width / sizes.parent).toBeCloseTo(0.75, 2)
+  for (const id of ['skeleton-default', 'skeleton-text', 'skeleton-avatar', 'skeleton-card', 'skeleton-dimensions']) {
     const preview = page.locator(`#components-${id}-panel-preview`)
     await expect(preview.getByRole('status')).toHaveCount(1)
     await expect(preview.getByRole('status')).toHaveAttribute('aria-busy', 'true')
@@ -192,7 +222,11 @@ test('notices share palette variants without changing announcement or interactio
   const variants = page.locator('#components-notice-variants-panel-preview [data-fve-notice]')
   await expect(colors).toHaveCount(7)
   await expect(variants).toHaveCount(4)
-  await expect(page.locator('[data-fve-notice] [role="alert"], [data-fve-notice] [role="status"]')).toHaveCount(0)
+  const staticPreviews = page.locator('#components-notice-panel-preview, #components-notice-colors-panel-preview, #components-notice-variants-panel-preview')
+  await expect(staticPreviews.locator('[role="alert"], [role="status"]')).toHaveCount(0)
+  const announcement = page.locator('#components-notice-announcement-panel-preview')
+  await announcement.getByRole('button', { name: 'Update status', exact: true }).click()
+  await expect(announcement.getByRole('status')).toContainText('Ready to continue.')
   for (const dark of [false, true]) {
     await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
     await expect(basic).toHaveCSS('box-shadow', 'none')
@@ -225,6 +259,11 @@ test('notices share palette variants without changing announcement or interactio
 
 test('action palettes retain contrast, independent overrides and mode-aware custom colors @cross-browser', async ({ page }) => {
   await page.goto('/components/button')
+  const lead = page.locator('#components-button-basic-panel-preview').getByRole('button', { name: 'Sync', exact: true })
+  await lead.click()
+  await expect(lead).toBeDisabled()
+  await expect(lead).toHaveAttribute('aria-busy', 'true')
+  await expect(lead).toBeEnabled()
   const colors = page.locator('#components-button-colors-panel-preview').getByRole('button')
   const variants = page.locator('#components-button-variants-panel-preview').getByRole('button')
   const custom = page.locator('#components-button-custom-panel-preview').getByRole('button')
@@ -291,10 +330,17 @@ test('button groups keep compact seams, separate independent groups, and operate
   await page.evaluate(() => document.documentElement.classList.remove('dark'))
 
   const boxes = async (group: Locator) => Promise.all((await group.getByRole('button').all()).map(control => control.boundingBox()))
+  for (const group of [message, scheduling]) {
+    const [first, last] = await group.getByRole('button').all()
+    for (const corner of ['border-top-right-radius', 'border-bottom-right-radius']) await expect(first).toHaveCSS(corner, '0px')
+    for (const corner of ['border-top-left-radius', 'border-bottom-left-radius']) await expect(last).toHaveCSS(corner, '0px')
+    await expect(first).toHaveCSS('border-inline-start-width', '1px')
+    await expect(last).toHaveCSS('border-inline-start-width', '0px')
+  }
   const [archive, report] = await boxes(message)
   const [snooze, menuTrigger] = await boxes(scheduling)
-  expect(Math.abs(archive!.x + archive!.width - report!.x)).toBeLessThanOrEqual(1)
-  expect(Math.abs(snooze!.x + snooze!.width - menuTrigger!.x)).toBeLessThanOrEqual(1)
+  expect(report!.x - archive!.x - archive!.width).toBeCloseTo(0, 1)
+  expect(menuTrigger!.x - snooze!.x - snooze!.width).toBeCloseTo(0, 1)
   const independentGap = await Promise.all([back.boundingBox(), message.boundingBox()])
   expect(independentGap[1]!.x - (independentGap[0]!.x + independentGap[0]!.width)).toBeGreaterThanOrEqual(7)
   expect(await scheduling.getByRole('button', { name: 'More scheduling actions' }).evaluate(el => getComputedStyle(el).boxShadow)).not.toBe('none')
@@ -308,10 +354,53 @@ test('button groups keep compact seams, separate independent groups, and operate
   await page.keyboard.press('Escape')
   await expect(trigger).toBeFocused()
 
+  const exports = page.locator('#components-button-group-select-panel-preview').getByRole('group', { name: 'Export options' })
+  const format = exports.getByRole('combobox', { name: 'Export format' })
+  for (const corner of ['border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius', 'border-bottom-right-radius']) {
+    await expect(format).toHaveCSS(corner, '0px')
+  }
+  await format.focus()
+  await page.keyboard.press('ArrowDown')
+  expect(await exports.locator('[data-fve-select-content]').evaluate(el => parseFloat(getComputedStyle(el).borderTopLeftRadius))).toBeGreaterThan(0)
+  await exports.getByRole('option', { name: 'JSON', exact: true }).click()
+  await expect(exports.locator('input[name="groupExportFormat"]')).toHaveValue('json')
+  await expect(format).toBeFocused()
+  await expect(exports.getByRole('button', { name: 'Export', exact: true })).toBeEnabled()
+
   const vertical = page.locator('#components-button-group-vertical-panel-preview').getByRole('group', { name: 'Record view' })
   const [summary, activity, files] = await boxes(vertical)
-  expect(Math.abs(summary!.y + summary!.height - activity!.y)).toBeLessThanOrEqual(1)
-  expect(Math.abs(activity!.y + activity!.height - files!.y)).toBeLessThanOrEqual(1)
+  expect(activity!.y - summary!.y - summary!.height).toBeCloseTo(0, 1)
+  expect(files!.y - activity!.y - activity!.height).toBeCloseTo(0, 1)
+  for (const control of await vertical.getByRole('button').all()) {
+    await expect(control).toHaveCSS('border-inline-start-width', '1px')
+  }
+  for (const control of (await vertical.getByRole('button').all()).slice(1)) {
+    await expect(control).toHaveCSS('border-block-start-width', '0px')
+    await expect(control).toHaveCSS('border-top-left-radius', '0px')
+    await expect(control).toHaveCSS('border-top-right-radius', '0px')
+  }
+
+  const custom = page.locator('#components-button-group-custom-panel-preview').getByRole('group', { name: 'Custom control actions' })
+  const native = custom.getByRole('button', { name: 'Native action', exact: true })
+  const details = custom.getByRole('button', { name: 'Details', exact: true })
+  await expect(native).toHaveCSS('border-top-right-radius', '0px')
+  await expect(details).toHaveCSS('border-top-left-radius', '0px')
+  await expect(details).toHaveCSS('border-inline-start-width', '0px')
+  await details.click()
+  const independent = custom.getByRole('button', { name: 'Independent action', exact: true })
+  await expect(independent).toBeVisible()
+  for (const corner of ['border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius', 'border-bottom-right-radius']) {
+    expect(parseFloat(await independent.evaluate((el, corner) => getComputedStyle(el).getPropertyValue(corner), corner))).toBeGreaterThan(0)
+  }
+  await expect(independent).toHaveCSS('border-inline-start-width', '1px')
+  await expect(independent).toHaveCSS('border-block-start-width', '1px')
+  await independent.focus()
+  await page.keyboard.press('Escape')
+  await expect(details).toBeFocused()
+  await scheduling.evaluate(el => { el.setAttribute('dir', 'rtl') })
+  await expect(trigger).toHaveCSS('border-top-right-radius', '0px')
+  expect(parseFloat(await trigger.evaluate(el => getComputedStyle(el).borderTopLeftRadius))).toBeGreaterThan(0)
+  await scheduling.evaluate(el => { el.removeAttribute('dir') })
 
   await page.setViewportSize({ width: 320, height: 1000 })
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
@@ -333,7 +422,74 @@ test('button groups keep compact seams, separate independent groups, and operate
   await expect.poll(() => message.evaluate(el => el.scrollLeft)).toBeGreaterThan(0)
 })
 
-test('Button renders each content mode while CopyReveal can use icon actions @cross-browser', async ({ page }) => {
+test.describe('native button group Select fallback', () => {
+  test.use({ javaScriptEnabled: false })
+  test('keeps the middle segment square without JavaScript @cross-browser', async ({ page }) => {
+    await page.goto('/components/button-group')
+    const group = page.getByRole('group', { name: 'Export options', exact: true })
+    const select = group.getByRole('combobox', { name: 'Export format', exact: true })
+    await expect(select).toBeVisible()
+    for (const corner of ['border-top-left-radius', 'border-top-right-radius', 'border-bottom-left-radius', 'border-bottom-right-radius']) {
+      await expect(select).toHaveCSS(corner, '0px')
+    }
+    await select.selectOption('json')
+    await expect(select).toHaveValue('json')
+  })
+})
+
+test('Link variants retain native keyboard and new-tab navigation @cross-browser', async ({ page }) => {
+  await page.goto('/components/link')
+  const plain = page.locator('#components-link-basic-panel-preview').getByRole('link', { name: 'Read documentation', exact: true })
+  await expect(plain).toHaveAttribute('href', '/components')
+  await expect(plain).toHaveCSS('text-decoration-line', 'underline')
+  const variants = page.locator('#components-link-variants-panel-preview')
+  await expect(variants.getByRole('link')).toHaveCount(5)
+  await expect(variants.getByRole('button')).toHaveCount(0)
+  await expect(variants.getByRole('link', { name: 'Solid', exact: true })).toHaveJSProperty('tagName', 'A')
+
+  const newTab = page.locator('#components-link-new-tab-panel-preview').getByRole('link', { name: 'Open examples in a new tab', exact: true })
+  const opened = page.waitForEvent('popup')
+  await newTab.click()
+  const popup = await opened
+  await expect(popup).toHaveURL(/\/examples$/)
+  await popup.close()
+  await expect(page).toHaveURL(/\/components\/link$/)
+
+  await plain.focus()
+  await expect(plain).toBeFocused()
+  await plain.press('Enter')
+  await expect(page).toHaveURL(/\/components$/)
+  await expect(page.getByRole('heading', { level: 1, name: 'Components', exact: true })).toBeVisible()
+})
+
+test('pending buttons center an overlay without changing size or accessible names @cross-browser', async ({ page }) => {
+  await page.goto('/components/button')
+  for (const fontSize of ['100%', '200%']) {
+    await page.evaluate(value => { document.documentElement.style.fontSize = value }, fontSize)
+    for (const [id, name] of [['button-basic', 'Sync'], ['button-icon-pending', 'Refresh']]) {
+      const control = page.locator(`#components-${id}-panel-preview`).getByRole('button', { name, exact: true })
+      const before = (await control.boundingBox())!
+      await control.click()
+      await expect(control).toBeDisabled()
+      await expect(control).toHaveAttribute('aria-busy', 'true')
+      await expect(control).toHaveAccessibleName(name)
+      const spinner = control.locator('.animate-spin')
+      await expect(spinner).toBeVisible()
+      const during = (await control.boundingBox())!
+      const glyph = (await spinner.boundingBox())!
+      expect(during.width).toBeCloseTo(before.width, 1)
+      expect(during.height).toBeCloseTo(before.height, 1)
+      expect(Math.abs(glyph.x + glyph.width / 2 - during.x - during.width / 2)).toBeLessThan(1)
+      expect(Math.abs(glyph.y + glyph.height / 2 - during.y - during.height / 2)).toBeLessThan(1)
+      await expect(control).toBeEnabled()
+      const after = (await control.boundingBox())!
+      expect(after.width).toBeCloseTo(before.width, 1)
+      expect(after.height).toBeCloseTo(before.height, 1)
+    }
+  }
+})
+
+test('Button composes ordinary text and icon children while CopyReveal can use icon actions @cross-browser', async ({ page }) => {
   await page.goto('/components/button')
   const content = page.locator('#components-button-content-panel-preview')
   await expect(content.getByRole('button', { name: 'Text', exact: true })).toBeVisible()
@@ -342,7 +498,8 @@ test('Button renders each content mode while CopyReveal can use icon actions @cr
   await expect(iconOnly.locator('svg')).toHaveCount(1)
   const iconBox = await iconOnly.boundingBox()
   expect(iconBox).toBeTruthy()
-  expect(iconBox!.width).toBeCloseTo(iconBox!.height)
+  expect(iconBox!.width).toBeGreaterThanOrEqual(24)
+  expect(iconBox!.height).toBeGreaterThanOrEqual(24)
   const leading = content.getByRole('button', { name: 'New branch', exact: true }).locator('svg')
   const trailing = content.getByRole('button', { name: 'Continue', exact: true }).locator('svg')
   await expect(leading).toHaveCount(1)
@@ -360,6 +517,32 @@ test('Button renders each content mode while CopyReveal can use icon actions @cr
   await expect(secret).toHaveAttribute('type', 'text')
   await expect(reveal.getByRole('button', { name: 'Hide', exact: true })).toBeVisible()
   await expect(reveal.getByRole('button', { name: 'Copy', exact: true })).toBeVisible()
+})
+
+test('Rocket Button appearance bindings preserve native behavior and consumer styles @cross-browser', async ({ page }) => {
+  await page.goto('/components/button')
+  const button = page.locator('#components-button-basic-panel-preview').getByRole('button', { name: 'Sync', exact: true })
+  await expect(button).toBeEnabled()
+  await button.evaluate(el => {
+    const host = el.parentElement!
+    host.style.margin = '1px'
+    host.setAttribute('data-attr:color', "'error'")
+    host.setAttribute('data-attr:variant', "'soft'")
+    host.setAttribute('data-attr:size', "'large'")
+  })
+  await expect.poll(() => button.evaluate(el => el.getBoundingClientRect().height)).toBe(36)
+  await expect.poll(() => button.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe('rgba(0, 0, 0, 0)')
+  expect(await button.evaluate(el => el.style.margin)).toBe('1px')
+  await button.evaluate(el => el.parentElement!.focus())
+  await expect(button).toBeFocused()
+  const settled = page.waitForResponse(response => response.url().includes('/components/button/settled'))
+  await button.evaluate(el => el.parentElement!.click())
+  await expect(button).toBeDisabled()
+  await expect(button.locator('.animate-spin')).toBeVisible()
+  await expect(button.locator('.animate-spin')).toHaveCSS('width', '20px')
+  await settled
+  await expect(button).toBeEnabled()
+  await expect(button).toHaveAccessibleName('Sync')
 })
 
 test('button press feedback respects keyboard, reduced motion, unavailable controls and popup anchors @cross-browser', async ({ page }) => {

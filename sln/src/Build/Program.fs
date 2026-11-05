@@ -21,6 +21,7 @@ let nugetsDir = rootDir </> "nugets"
 let testsDir = srcDir </> "Tests"
 let docsDir = srcDir </> "Docs"
 let docsTestsDir = srcDir </> "Docs.Tests"
+let exampleServerDir = srcDir </> "Example" </> "Example.Server"
 let cliTestsDir = srcDir </> "FSharp.ViewEngine.Cli.Tests"
 let buildTestsDir = srcDir </> "Build.Tests"
 let benchmarksDir = srcDir </> "Benchmarks"
@@ -39,7 +40,12 @@ let exec workDir cmd args =
     |> Async.Ignore
 
 let dotnet workdir args = exec workdir "dotnet" args
-let tailwindcss args = exec docsDir "tailwindcss" args
+let tailwindcss workDir args =
+    // The standalone CLI's native Oxide loader fails with FAKE's bare command on Linux.
+    let executable =
+        ProcessUtils.tryFindFileOnPath "tailwindcss"
+        |> Option.defaultWith (fun () -> failwith "tailwindcss is required on PATH.")
+    exec workDir executable args
 
 let packageProject (package:PackagePublishing.Package) =
     srcDir </> package.Id </> $"{package.Id}.fsproj"
@@ -328,11 +334,37 @@ Target.create "VerifyPackage" (fun _ ->
             package
 )
 
+Target.create "UpdateInstalledComponents" (fun _ ->
+    let selectors =
+        System.Xml.Linq.XDocument.Load(srcDir </> "FSharp.ViewEngine.Components" </> "FSharp.ViewEngine.Components.Registry.props").Descendants()
+        |> Seq.choose (fun element ->
+            let name = element.Attribute(System.Xml.Linq.XName.Get "FveName")
+            if isNull name then None else Some name.Value)
+        |> Seq.toList
+    dotnet slnDir (["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"] @ selectors @ ["--config"; "src/Docs.Components/fve.json"; "--overwrite"])
+    |> Async.RunSynchronously
+    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "button"; "field"; "chart"; "checkbox"; "input-group"; "notification"; "--config"; "src/Example/Example.Components/fve.json"; "--overwrite"]
+    |> Async.RunSynchronously
+)
+
+Target.create "CheckInstalledComponents" (fun _ ->
+    for config in ["src/Docs.Components/fve.json"; "src/Example/Example.Components/fve.json"] do
+        dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "diff"; "--config"; config]
+        |> Async.RunSynchronously
+)
+
+Target.create "BuildDocsJs" (fun _ ->
+    exec docsDir "npm" ["ci"] |> Async.RunSynchronously
+    exec docsDir "npm" ["run"; "build:js"] |> Async.RunSynchronously
+)
+
 Target.create "WatchDocs" (fun _ ->
     let docsUrl = WatchDocs.defaultUrl
 
     WatchDocs.runExclusiveWatcher "WatchDocs" docsUrl <| fun () ->
         Trace.trace $"Starting the FSharp.ViewEngine Docs at {docsUrl}"
+        exec docsDir "npm" ["ci"] |> Async.RunSynchronously
+        exec docsDir "npm" ["run"; "build:js"] |> Async.RunSynchronously
 
         let watchApp =
             CreateProcess.fromRawCommand "dotnet"
@@ -349,11 +381,18 @@ Target.create "WatchDocs" (fun _ ->
 
         let watchCss =
             // Imported package stylesheets are siblings of Docs, so watch their common root.
-            exec (System.IO.Path.GetDirectoryName docsDir) "tailwindcss"
+            tailwindcss (System.IO.Path.GetDirectoryName docsDir)
                 [ "--input"; "Docs/input.css"; "--output"; "Docs/wwwroot/css/output.css"
                   "--watch=always"; "--minify" ]
 
-        Async.Parallel [| watchApp; watchCss |]
+        let watchExampleCss =
+            tailwindcss srcDir
+                [ "--input"; "Example/Example.Server/input.css"; "--output"; "Example/Example.Server/wwwroot/examples/assets/css/output.css"
+                  "--watch=always"; "--minify" ]
+
+        let watchJs = exec docsDir "npm" ["run"; "watch:js"]
+
+        Async.Parallel [| watchApp; watchCss; watchExampleCss; watchJs |]
         |> Async.RunSynchronously
         |> ignore
 )
@@ -367,8 +406,10 @@ Target.create "BenchmarkSmoke" <| fun parameters ->
     |> Async.RunSynchronously
 
 Target.create "BuildDocsCss" <| fun _ ->
-    tailwindcss [ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ]
-    |> Async.RunSynchronously
+    Async.Parallel [|
+        tailwindcss docsDir [ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ]
+        tailwindcss exampleServerDir [ "--input"; "input.css"; "--output"; "wwwroot/examples/assets/css/output.css"; "--minify" ]
+    |] |> Async.RunSynchronously |> ignore
 
 Target.create "PublishDocs" <| fun _ ->
     dotnet docsDir [
@@ -384,5 +425,7 @@ Target.create "Default" (fun _ -> Target.listAvailable())
 "CleanNugets" ==>! "Pack"
 "Pack" ==>! "VerifyPackage"
 "BuildDocsCss" ==>! "PublishDocs"
+"BuildDocsJs" ==>! "PublishDocs"
+"CheckInstalledComponents" ==>! "Test"
 
 Target.runOrDefaultWithArguments "Default"

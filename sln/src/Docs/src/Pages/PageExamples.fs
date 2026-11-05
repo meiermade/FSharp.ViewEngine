@@ -127,21 +127,35 @@ module PageExamples =
         }
 
     // Ordinary consumer-authored anchors for compact page-header destinations.
-    let pageLink (href:string) (label:string) =
+    let pageLink (href: string) (label: string) =
         a {
             _href href
-            _class "inline-flex min-h-8 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-1.5 text-sm font-medium leading-5 text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+
+            _class
+                "inline-flex min-h-8 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-1.5 text-sm font-medium leading-5 text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+
             label
         }
 
     let section (heading: string) (content: HtmlElement) =
-        Section.create (SectionHeader.create heading |> SectionHeader.withDivider) content
+        Section.create
+            (fveSectionHeader {
+                _label heading
+                _divider true
+            })
+            content
         |> Section.render
 
     let details (fields: (string * string) list) =
-        DescriptionList.create [ for label, value in fields -> DescriptionListItem.text label value ]
-        |> DescriptionList.withColumns DescriptionListColumns.Three
-        |> DescriptionList.render
+        fveDescriptionList {
+            for label, value in fields do
+                fveDescriptionListItem {
+                    _label label
+                    value
+                }
+
+            _columns DescriptionListColumns.Three
+        }
 
     let reviewStates page =
         (if page = Operations then [ Setup, "Setup" ] else [])
@@ -155,31 +169,54 @@ module PageExamples =
             div {
                 _class "p-8"
 
-                LoadingIndicator.create ("Loading " + (title page).ToLowerInvariant())
-                |> LoadingIndicator.withVisibleLabel
-                |> LoadingIndicator.render
+                let label = "Loading " + (title page).ToLowerInvariant()
+
+                fveLoadingIndicator {
+                    _ariaLabel label
+                    label
+                }
             }
         | Empty ->
             let heading, description, action =
                 match page with
-                | DependencyGraph -> "No dependencies found", "There are no dependencies for this selection.", "View dependencies"
-                | ExecutionDetail -> "No execution selected", "Choose an execution to inspect its timing and logs.", "View latest execution"
-                | FinancialReporting -> "No activity for this period", "Choose a period with recorded balances and transactions.", "View recent activity"
-                | Messaging -> "No messages in this conversation", "Choose a conversation to read its messages.", "View conversations"
+                | DependencyGraph ->
+                    "No dependencies found", "There are no dependencies for this selection.", "View dependencies"
+                | ExecutionDetail ->
+                    "No execution selected",
+                    "Choose an execution to inspect its timing and logs.",
+                    "View latest execution"
+                | FinancialReporting ->
+                    "No activity for this period",
+                    "Choose a period with recorded balances and transactions.",
+                    "View recent activity"
+                | Messaging ->
+                    "No messages in this conversation",
+                    "Choose a conversation to read its messages.",
+                    "View conversations"
                 | Operations -> "No sessions scheduled", "Check the schedule for upcoming sessions.", "View schedule"
-                | Scheduling -> "No sessions in this period", "Return to the current period to see upcoming sessions.", "View current schedule"
-                | MediaManagement -> "No media in this selection", "Browse the library to choose an asset.", "Browse media"
-            EmptyState.create heading description
-            |> EmptyState.withActions (link (queryUrl (if page = Operations then Scheduling else page) { query with state = Ready }) action)
-            |> EmptyState.render
+                | Scheduling ->
+                    "No sessions in this period",
+                    "Return to the current period to see upcoming sessions.",
+                    "View current schedule"
+                | MediaManagement ->
+                    "No media in this selection", "Browse the library to choose an asset.", "Browse media"
+
+            fveEmptyState {
+                _label heading
+                _description description
+
+                fveEmptyStateActions {
+                    link (queryUrl (if page = Operations then Scheduling else page) { query with state = Ready }) action
+                }
+            }
         | Failed ->
-            Notice.create
-                "workspace-error"
-                "This view could not be loaded"
-                (p { "Your selection is preserved. Try loading it again." })
-            |> Notice.withColor NoticeColor.Error
-            |> Notice.withActions (link (queryUrl page { query with state = Ready }) "Try again")
-            |> Notice.render
+            fveNotice {
+                _id "workspace-error"
+                _label "This view could not be loaded"
+                p { "Your selection is preserved. Try loading it again." }
+                _color Color.Error
+                fveNoticeActions { link (queryUrl page { query with state = Ready }) "Try again" }
+            }
 
     /// Place durable workspace identity above the scrollable destination list.
     let sideNavWorkspace (name: string) =
@@ -195,7 +232,7 @@ module PageExamples =
             }
         }
 
-    let workspace page heading subtitle canvas (actions:HtmlElement list) content =
+    let workspace page heading subtitle canvas (actions: HtmlElement list) content =
         let product, workspaceName, destinations =
             match page with
             | DependencyGraph
@@ -204,50 +241,82 @@ module PageExamples =
             | FinancialReporting -> "Ledger", "Meier Made", [ FinancialReporting, "Overview" ]
             | Messaging -> "Gather", "Northwind Outdoor", [ Messaging, "Messages" ]
             | _ ->
-                "Fieldwork", "Northwind Outdoor", [ Operations, "Overview"; Scheduling, "Schedule"; MediaManagement, "Media" ]
+                "Fieldwork",
+                "Northwind Outdoor",
+                [ Operations, "Overview"; Scheduling, "Schedule"; MediaManagement, "Media" ]
 
         let items =
-            [ for destination, label in destinations -> SideNavItem.create destination label ]
+            [ for destination, label in destinations ->
+                  fveSideNavItem {
+                      _href (url destination)
+                      label
+                  } ]
 
         let navigation =
-            SideNav.create
-                (slug page + "-nav")
-                (product + " navigation")
-            |> SideNav.withHeader (SideNavHeader.create product)
-            |> SideNav.withContent (SideNavContent.create items)
-            |> SideNav.withCurrent page
-            |> SideNav.withWidth SideNavWidth.Narrow
-            |> SideNav.withContext [sideNavWorkspace workspaceName]
-            |> SideNav.withFooter [
-                div {
-                    _class "flex min-w-0 items-center gap-3"
-                    Avatar.create "Andy Meier" "AM" |> Avatar.render
+            fveSideNav {
+                _id (slug page + "-nav")
+                _ariaLabel (product + " navigation")
+                fveSideNavHeader { _label product }
+                fveSideNavContent { yield! items }
+                _value (url page)
+                Html._width SideNavWidth.Narrow
+                fveSideNavContext { sideNavWorkspace workspaceName }
 
-                    p {
-                        _class "truncate text-sm font-medium"
-                        "Andy Meier"
+                fveSideNavFooter {
+                    div {
+                        _class "flex min-w-0 items-center gap-3"
+
+                        fveAvatar {
+                            _ariaLabel "Andy Meier"
+                            "AM"
+                        }
+
+                        p {
+                            _class "truncate text-sm font-medium"
+                            "Andy Meier"
+                        }
                     }
                 }
-            ]
+            }
 
         let header =
-            PageHeader.create heading
-            |> PageHeader.withSubtitle subtitle
-            |> (if List.isEmpty actions then id else PageHeader.withActions (div { _id (slug page + "-actions"); _class "flex flex-wrap items-center gap-3"; for action in actions do action }))
+            fvePageHeader {
+                _label heading
+                _description subtitle
+
+                if not (List.isEmpty actions) then
+                    fvePageHeaderActions {
+                        div {
+                            _id (slug page + "-actions")
+                            _class "flex flex-wrap items-center gap-3"
+
+                            for action in actions do
+                                action
+                        }
+                    }
+            }
 
         let topBar =
-            PageTopBar.create ()
-            |> PageTopBar.withContent (
+            fvePageTopBar {
                 div {
                     _class "flex min-w-0 flex-1 items-center"
 
-                    Breadcrumbs.create
-                        (slug page + "-breadcrumbs")
-                        (product + " breadcrumb")
-                        [ BreadcrumbItem.create page product; BreadcrumbItem.create page heading ]
-                    |> Breadcrumbs.render url
+                    fveBreadcrumbs {
+                        _id (slug page + "-breadcrumbs")
+                        _ariaLabel (product + " breadcrumb")
+
+                        fveBreadcrumbItem {
+                            _href (url page)
+                            product
+                        }
+
+                        fveBreadcrumbItem {
+                            _href (url page)
+                            heading
+                        }
+                    }
                 }
-            )
+            }
 
         let body =
             Page.create header content
@@ -263,18 +332,27 @@ module PageExamples =
         let framedBody =
             div {
                 _class "flex h-full min-h-0 flex-col"
-                div { _class "hidden shrink-0 md:block"; topBar |> PageTopBar.render }
-                div { _class "min-h-0 flex-1"; body }
+
+                div {
+                    _class "hidden shrink-0 md:block"
+                    topBar
+                }
+
+                div {
+                    _class "min-h-0 flex-1"
+                    body
+                }
             }
 
-        AppShell.create (slug page + "-shell") navigation framedBody
-        |> AppShell.withTheme (
-            ComponentsTheme.sky
-            |> ComponentsTheme.withDensity Density.Compact
-            |> ComponentsTheme.withControlSize ControlSize.Small)
-        |> AppShell.withBoundary AppShellBoundary.Container
-        |> AppShell.asPreview (product + " workspace")
-        |> AppShell.render url
+        (AppShell.create ((slug page + "-shell")) (navigation) (framedBody)
+         |> AppShell.withTheme (
+             (ComponentsTheme.sky
+              |> ComponentsTheme.withDensity Density.Compact
+              |> ComponentsTheme.withControlSize Size.Small)
+         )
+         |> AppShell.withBoundary (AppShellBoundary.Container)
+         |> AppShell.asPreview ((product + " workspace"))
+         |> AppShell.render)
 
     type DependencyNode =
         { key: string
@@ -330,14 +408,16 @@ module PageExamples =
             run = "run-2411" } ]
 
     let nodeStatus status =
-        Badge.create status
-        |> Badge.withColor (
-            match status with
-            | "Succeeded" -> BadgeColor.Success
-            | "Failed" -> BadgeColor.Error
-            | _ -> BadgeColor.Warning
-        )
-        |> Badge.render
+        fveBadge {
+            _color (
+                match status with
+                | "Succeeded" -> Color.Success
+                | "Failed" -> Color.Error
+                | _ -> Color.Warning
+            )
+
+            status
+        }
 
     let selectedNode query =
         dependencyNodes
@@ -362,28 +442,65 @@ module PageExamples =
             _class "flex h-full min-h-0 flex-col"
 
             div {
-                _class "flex shrink-0 flex-wrap items-end gap-1 border-y border-[var(--fve-border)] p-[12px] sm:px-6 sm:py-3 lg:px-8"
+                _class
+                    "flex shrink-0 flex-wrap items-end gap-1 border-y border-[var(--fve-border)] p-[12px] sm:px-6 sm:py-3 lg:px-8"
 
                 div {
                     _class "min-w-0 basis-full md:flex-1 md:basis-48"
 
-                    Input.create "graph-search" "Search dependencies"
-                    |> Input.withType InputType.Search
-                    |> Input.withAttributes [ _dataBind "_graph-query" ]
-                    |> Input.render
+                    fveField {
+                        fveLabel {
+                            _for "graph-search"
+                            "Search dependencies"
+                        }
+
+                        fveInput {
+                            _id "graph-search"
+                            _name "graph-search"
+                            _type InputType.Search
+                            _dataBind "_graph-query"
+                        }
+                    }
                 }
 
-                Button.create (ButtonContent.Icon ("Zoom out", raw """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" d="M4 10h12"/></svg>"""))
-                |> Button.withAttributes [ _dataOn ("click", "$_graphZoom = Math.max(0.75, $_graphZoom - 0.25)") ]
-                |> Button.render
+                fveButton {
+                    _ariaLabel "Zoom out"
+                    _dataOn ("click", "$_graphZoom = Math.max(0.75, $_graphZoom - 0.25)")
 
-                Button.create (ButtonContent.Icon ("Zoom in", raw """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" d="M4 10h12M10 4v12"/></svg>"""))
-                |> Button.withAttributes [ _dataOn ("click", "$_graphZoom = Math.min(1.5, $_graphZoom + 0.25)") ]
-                |> Button.render
+                    span {
+                        _ariaHidden true
+                        _class "inline-flex shrink-0"
 
-                Button.create (ButtonContent.Icon ("Reset view", raw """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7V3m0 4h4M4 7a6 6 0 1 1-1 6"/></svg>"""))
-                |> Button.withAttributes [ _dataOn ("click", "$_graphZoom = 1; $_graphQuery = ''") ]
-                |> Button.render
+                        raw
+                            """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" d="M4 10h12"/></svg>"""
+                    }
+                }
+
+                fveButton {
+                    _ariaLabel "Zoom in"
+                    _dataOn ("click", "$_graphZoom = Math.min(1.5, $_graphZoom + 0.25)")
+
+                    span {
+                        _ariaHidden true
+                        _class "inline-flex shrink-0"
+
+                        raw
+                            """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" d="M4 10h12M10 4v12"/></svg>"""
+                    }
+                }
+
+                fveButton {
+                    _ariaLabel "Reset view"
+                    _dataOn ("click", "$_graphZoom = 1; $_graphQuery = ''")
+
+                    span {
+                        _ariaHidden true
+                        _class "inline-flex shrink-0"
+
+                        raw
+                            """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7V3m0 4h4M4 7a6 6 0 1 1-1 6"/></svg>"""
+                    }
+                }
 
                 output {
                     _ariaLabel "Graph zoom"
@@ -612,16 +729,35 @@ module PageExamples =
         div {
             _class "grid gap-6"
 
-            DescriptionList.create [
-                DescriptionListItem.text "Duration" (if node.status = "Blocked" then "—" else "1.24 s")
-                DescriptionListItem.text "Started" (if node.status = "Blocked" then "Not started" else "17 Sep 2026, 09:42:18 UTC") ]
-            |> DescriptionList.render
+            fveDescriptionList {
+                fveDescriptionListItem {
+                    _label "Duration"
+                    if node.status = "Blocked" then "—" else "1.24 s"
+                }
+
+                fveDescriptionListItem {
+                    _label "Started"
+
+                    if node.status = "Blocked" then
+                        "Not started"
+                    else
+                        "17 Sep 2026, 09:42:18 UTC"
+                }
+            }
 
             Html.details {
-                summary { _class "cursor-pointer text-sm font-medium text-[var(--fve-brand-text)]"; "Execution metadata" }
+                summary {
+                    _class "cursor-pointer text-sm font-medium text-[var(--fve-brand-text)]"
+                    "Execution metadata"
+                }
+
                 div {
                     _class "mt-3"
-                    details [ "Dependency", node.name; "Worker", "warehouse-worker-01"; "Attempt", (if node.status = "Blocked" then "0" else "1") ]
+
+                    details
+                        [ "Dependency", node.name
+                          "Worker", "warehouse-worker-01"
+                          "Attempt", (if node.status = "Blocked" then "0" else "1") ]
                 }
             }
 
@@ -632,15 +768,18 @@ module PageExamples =
             }
 
             if node.status = "Blocked" then
-                Notice.create
-                    "blocked-run"
-                    "Waiting for an upstream dependency"
-                    (p { "warehouse.orders must succeed before this execution can start." })
-                |> Notice.withColor NoticeColor.Warning
-                |> Notice.withActions (
-                    link (queryUrl ExecutionDetail { defaultQuery with item = "run-2408" }) "Inspect failed dependency"
-                )
-                |> Notice.render
+                fveNotice {
+                    _id "blocked-run"
+                    _label "Waiting for an upstream dependency"
+                    p { "warehouse.orders must succeed before this execution can start." }
+                    _color Color.Warning
+
+                    fveNoticeActions {
+                        link
+                            (queryUrl ExecutionDetail { defaultQuery with item = "run-2408" })
+                            "Inspect failed dependency"
+                    }
+                }
             else
                 section
                     "Trace waterfall"
@@ -658,42 +797,91 @@ module PageExamples =
                             _tabindex 0
                             _class "overflow-x-auto"
 
-                            Table.create
-                                "Execution spans"
-                                [ TableColumn.create "Operation" (fun (item: TraceSpan) ->
-                                      div {
-                                          _style $"padding-left:{item.depth}rem"
-                                          link (queryUrl ExecutionDetail { query with view = item.id }) item.operation
-                                      })
-                                  |> TableColumn.asRowHeader
-                                  TableColumn.create "Service" (fun item -> text item.service)
-                                  TableColumn.create "Start" (fun item -> text $"{item.start} ms") |> TableColumn.alignEnd
-                                  TableColumn.create "Duration" (fun item -> text $"{item.duration} ms")
-                                  |> TableColumn.alignEnd
-                                  TableColumn.create "0 — 620 — 1,240 ms" (fun item ->
-                                      div {
-                                          _ariaHidden "true"
-                                          _class "relative h-6 min-w-64 rounded bg-[var(--fve-surface-subtle)]"
+                            fveTable {
+                                _ariaLabel "Execution spans"
+                                _density Density.Compact
 
-                                          div {
-                                              _class (
-                                                  if failed && item.id = "write" then
-                                                      "absolute top-1 h-4 rounded bg-[var(--fve-critical-text)]"
-                                                  else
-                                                      "absolute top-1 h-4 rounded bg-[var(--fve-brand-solid)]"
-                                              )
+                                fveTableHeader {
+                                    fveTableRow {
+                                        fveTableHead { "Operation" }
+                                        fveTableHead { "Service" }
 
-                                              _style (
-                                                  sprintf
-                                                      "left:%.2f%%;width:%.2f%%"
-                                                      (float item.start / 12.4)
-                                                      (float item.duration / 12.4)
-                                              )
-                                          }
-                                      }) ]
-                                spans
-                            |> Table.withDensity Density.Compact
-                            |> Table.render
+                                        fveTableHead {
+                                            _class "text-right"
+                                            "Start"
+                                        }
+
+                                        fveTableHead {
+                                            _class "text-right"
+                                            "Duration"
+                                        }
+
+                                        fveTableHead { "0 — 620 — 1,240 ms" }
+                                    }
+                                }
+
+                                fveTableBody {
+                                    for item in spans do
+                                        fveTableRow {
+                                            fveTableHead {
+                                                _scope "row"
+                                                _label "Operation"
+
+                                                div {
+                                                    _style $"padding-left:{item.depth}rem"
+
+                                                    link
+                                                        (queryUrl ExecutionDetail { query with view = item.id })
+                                                        item.operation
+                                                }
+                                            }
+
+                                            fveTableCell {
+                                                _label "Service"
+                                                item.service
+                                            }
+
+                                            fveTableCell {
+                                                _label "Start"
+                                                _class "text-right"
+                                                $"{item.start} ms"
+                                            }
+
+                                            fveTableCell {
+                                                _label "Duration"
+                                                _class "text-right"
+                                                $"{item.duration} ms"
+                                            }
+
+                                            fveTableCell {
+                                                _label "0 — 620 — 1,240 ms"
+
+                                                div {
+                                                    _ariaHidden true
+
+                                                    _class
+                                                        "relative h-6 min-w-64 rounded bg-[var(--fve-surface-subtle)]"
+
+                                                    div {
+                                                        _class (
+                                                            if failed && item.id = "write" then
+                                                                "absolute top-1 h-4 rounded bg-[var(--fve-critical-text)]"
+                                                            else
+                                                                "absolute top-1 h-4 rounded bg-[var(--fve-brand-solid)]"
+                                                        )
+
+                                                        _style (
+                                                            sprintf
+                                                                "left:%.2f%%;width:%.2f%%"
+                                                                (float item.start / 12.4)
+                                                                (float item.duration / 12.4)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                }
+                            }
                         }
                     })
 
@@ -792,14 +980,11 @@ module PageExamples =
         let xPercent index =
             float index * 100. / float (points.Length - 1)
 
-        let yPercent amount =
-            100. - float amount / 50000. * 100.
+        let yPercent amount = 100. - float amount / 50000. * 100.
 
-        let chartX index =
-            xPercent index * 6.
+        let chartX index = xPercent index * 6.
 
-        let chartY amount =
-            yPercent amount * 1.8
+        let chartY amount = yPercent amount * 1.8
 
         let linePoints select =
             points
@@ -884,7 +1069,9 @@ module PageExamples =
 
                     div {
                         _ariaHidden true
-                        _class "flex h-52 flex-col justify-between text-right text-xs leading-none text-[var(--fve-muted-text)]"
+
+                        _class
+                            "flex h-52 flex-col justify-between text-right text-xs leading-none text-[var(--fve-muted-text)]"
 
                         for value in [ 50000M; 40000M; 30000M; 20000M; 10000M; 0M ] do
                             span { "$" + string (value / 1000M) + "k" }
@@ -934,7 +1121,10 @@ module PageExamples =
                         for index, point in List.indexed points do
                             span {
                                 _ariaHidden true
-                                _class "absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--fve-brand-solid)]"
+
+                                _class
+                                    "absolute size-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[var(--fve-brand-solid)]"
+
                                 _style (sprintf "left:%.2f%%;top:%.2f%%" (xPercent index) (yPercent point.actual))
                             }
                     }
@@ -957,18 +1147,49 @@ module PageExamples =
                     "View balance data"
                 }
 
-                Table.create
-                    "Monthly closing balances (USD)"
-                    [ TableColumn.create "Month" (fun (point: BalancePoint) -> text point.month)
-                      |> TableColumn.asRowHeader
-                      |> TableColumn.asMobilePrimary
-                      TableColumn.create "Actual" (fun point -> text (currency point.actual))
-                      |> TableColumn.alignEnd
-                      TableColumn.create "Plan" (fun point -> text (currency point.planned))
-                      |> TableColumn.alignEnd ]
-                    points
-                |> Table.withMobileLayout TableMobileLayout.Records
-                |> Table.render
+                fveTable {
+                    _ariaLabel "Monthly closing balances (USD)"
+                    _mobileLayout MobileLayout.Records
+
+                    fveTableHeader {
+                        fveTableRow {
+                            fveTableHead { "Month" }
+
+                            fveTableHead {
+                                _class "text-right"
+                                "Actual"
+                            }
+
+                            fveTableHead {
+                                _class "text-right"
+                                "Plan"
+                            }
+                        }
+                    }
+
+                    fveTableBody {
+                        for point in points do
+                            fveTableRow {
+                                fveTableHead {
+                                    _scope "row"
+                                    _mobile Mobile.Primary
+                                    point.month
+                                }
+
+                                fveTableCell {
+                                    _label "Actual"
+                                    _class "text-right"
+                                    currency point.actual
+                                }
+
+                                fveTableCell {
+                                    _label "Plan"
+                                    _class "text-right"
+                                    currency point.planned
+                                }
+                            }
+                    }
+                }
             }
         }
 
@@ -978,36 +1199,69 @@ module PageExamples =
                 _class "grid gap-8"
 
                 div {
-                    _class "grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-5 border-b border-[var(--fve-border)] pb-6"
+                    _class
+                        "grid grid-cols-[repeat(auto-fit,minmax(min(100%,10rem),1fr))] gap-5 border-b border-[var(--fve-border)] pb-6"
 
                     for label, value, description in
                         [ "Checking balance", "$38,442.11", "As of September 17"
                           "Change since April", "+$14,242.11", "58.9% increase"
                           "Against September plan", "−$1,557.89", "3.9% below plan" ] do
-                        Metric.text label value |> Metric.withDescription description |> Metric.render
+                        fveMetric {
+                            _label label
+                            _description description
+                            value
+                        }
                 }
 
                 balanceChart query
 
                 section
                     "Recent transactions"
-                    (Table.create
-                        "Checking transactions"
-                        [ TableColumn.create "Date" (fun (date, _, _, _) -> text date)
-                          TableColumn.create "Description" (fun (_, name, id, _) ->
-                              link
-                                  ("/components/page-examples/account-management?destination=ledger-transaction-"
-                                   + string id)
-                                  name)
-                          |> TableColumn.asRowHeader
-                          |> TableColumn.asMobilePrimary
-                          TableColumn.create "Amount" (fun (_, _, _, amount) -> text (currency amount))
-                          |> TableColumn.alignEnd ]
-                        [ "Jul 28", "Northwind payment", 201, 4800M
-                          "Jul 27", "Cloud hosting", 202, 386.42M
-                          "Jul 26", "ACH withdrawal", 203, 1240M ]
-                     |> Table.withMobileLayout TableMobileLayout.Records
-                     |> Table.render)
+                    (fveTable {
+                        _ariaLabel "Checking transactions"
+                        _mobileLayout MobileLayout.Records
+
+                        fveTableHeader {
+                            fveTableRow {
+                                fveTableHead { "Date" }
+                                fveTableHead { "Description" }
+
+                                fveTableHead {
+                                    _class "text-right"
+                                    "Amount"
+                                }
+                            }
+                        }
+
+                        fveTableBody {
+                            for date, name, id, amount in
+                                [ "Jul 28", "Northwind payment", 201, 4800M
+                                  "Jul 27", "Cloud hosting", 202, 386.42M
+                                  "Jul 26", "ACH withdrawal", 203, 1240M ] do
+                                fveTableRow {
+                                    fveTableCell {
+                                        _label "Date"
+                                        date
+                                    }
+
+                                    fveTableHead {
+                                        _scope "row"
+                                        _mobile Mobile.Primary
+
+                                        link
+                                            ("/components/page-examples/account-management?destination=ledger-transaction-"
+                                             + string id)
+                                            name
+                                    }
+
+                                    fveTableCell {
+                                        _label "Amount"
+                                        _class "text-right"
+                                        currency amount
+                                    }
+                                }
+                        }
+                    })
             }
 
         workspace
@@ -1103,7 +1357,9 @@ module PageExamples =
 
     let messagesFor query =
         if query.view = "sent" then
-            initialMessages @ [ { sentMessage with conversation = (currentConversation query).id } ]
+            initialMessages
+            @ [ { sentMessage with
+                    conversation = (currentConversation query).id } ]
         else
             initialMessages
 
@@ -1122,13 +1378,26 @@ module PageExamples =
             }
 
             for message in messages |> List.filter (fun message -> message.conversation = conversation.id) do
-                FSharp.ViewEngine.Components.Message.create message.author (p { _class "whitespace-pre-wrap break-words"; message.body })
-                |> FSharp.ViewEngine.Components.Message.withSide (if message.outgoing then MessageSide.Sender else MessageSide.Receiver)
-                |> FSharp.ViewEngine.Components.Message.withMetadata (message.author + " · " + message.time)
-                |> FSharp.ViewEngine.Components.Message.withAttributes [
+                fveMessage {
                     _id ("message-" + message.id)
-                    _dataInit "el.parentElement.scrollTop = el.parentElement.scrollHeight" ]
-                |> FSharp.ViewEngine.Components.Message.render
+                    _label message.author
+
+                    _side (
+                        if message.outgoing then
+                            MessageSide.Sender
+                        else
+                            MessageSide.Receiver
+                    )
+
+                    _dataInit "el.parentElement.scrollTop = el.parentElement.scrollHeight"
+
+                    p {
+                        _class "whitespace-pre-wrap break-words"
+                        message.body
+                    }
+
+                    fveMessageMetadata { message.author + " · " + message.time }
+                }
         }
 
     let conversationPanel query messages draft error =
@@ -1143,29 +1412,53 @@ module PageExamples =
             form {
                 _method "post"
                 _action (url Messaging + "/send?item=" + conversation.id)
-                _class "flex shrink-0 flex-wrap items-end gap-2 border-t border-[var(--fve-border)] bg-[var(--fve-surface)] p-[12px]"
+
+                _class
+                    "flex shrink-0 flex-wrap items-end gap-2 border-t border-[var(--fve-border)] bg-[var(--fve-surface)] p-[12px]"
 
                 let field =
-                    Textarea.create "message" "Message"
-                    |> Textarea.withId "message-compose"
-                    |> Textarea.withRows 1
-                    |> Textarea.withVisuallyHiddenLabel
-                    |> Textarea.withValue draft
-                    |> Textarea.required
-                    |> Textarea.withAttributes [ _maxlength 2000; _placeholder "Write a message…" ]
+                    fveField {
+                        fveLabel {
+                            _for "message-compose"
+                            _class "sr-only"
+                            "Message"
+                        }
+
+                        fveTextarea {
+                            _id "message-compose"
+                            _name "message"
+                            _rows 1
+                            _value draft
+                            _required true
+                            _maxlength 2000
+                            _placeholder "Write a message…"
+                            _ariaInvalid (Option.isSome error)
+
+                            if Option.isSome error then
+                                _ariaDescribedby "message-compose-validation"
+                        }
+
+                        match error with
+                        | Some message ->
+                            fveFieldError {
+                                _id "message-compose-validation"
+                                Html.text message
+                            }
+                        | None -> ()
+                    }
 
                 div {
                     _class "min-w-0 flex-[1_1_12rem]"
-                    (match error with
-                     | Some message -> field |> Textarea.withValidation message
-                     | None -> field)
-                    |> Textarea.render
+                    field
                 }
-                Button.create (ButtonContent.Text "Send message")
-                |> Button.withColor ButtonColor.Primary
-                |> Button.withVariant ButtonVariant.Solid
-                |> Button.asSubmit
-                |> Button.render
+
+                fveButton {
+                    _color Color.Primary
+                    _variant ButtonVariant.Solid
+                    _type "submit"
+                    "Send message"
+                }
+
                 if query.view = "sent" then
                     p {
                         _role "status"
@@ -1178,6 +1471,7 @@ module PageExamples =
     let messaging query =
         let current = currentConversation query
         let messages = messagesFor query
+
         let error =
             match query.view with
             | "message-empty" -> Some "Enter a message before sending."
@@ -1188,27 +1482,43 @@ module PageExamples =
             queryUrl Messaging { defaultQuery with item = id }
 
         let navigation =
-            SideNav.create
-                "gather-conversations"
-                "Conversations"
-            |> SideNav.withHeader (SideNavHeader.create "Gather")
-            |> SideNav.withContent (SideNavContent.create [ SideNavSection.create
-                      "Messages"
-                      [ for conversation in conversations -> SideNavItem.create conversation.id conversation.name ] ])
-            |> SideNav.withCurrent current.id
-            |> SideNav.withWidth SideNavWidth.Wide
-            |> SideNav.withContext [sideNavWorkspace "Northwind Outdoor"]
-            |> SideNav.withFooter [
-                div {
-                    _class "flex items-center gap-3"
-                    Avatar.create "Andy Meier" "AM" |> Avatar.render
+            fveSideNav {
+                _id "gather-conversations"
+                _ariaLabel "Conversations"
+                fveSideNavHeader { _label "Gather" }
 
-                    span {
-                        _class "text-sm font-medium"
-                        "Andy Meier"
+                fveSideNavContent {
+                    fveSideNavSection {
+                        _label "Messages"
+
+                        for conversation in conversations do
+                            fveSideNavItem {
+                                _href (destination conversation.id)
+                                conversation.name
+                            }
                     }
                 }
-            ]
+
+                _value (destination current.id)
+                Html._width SideNavWidth.Wide
+                fveSideNavContext { sideNavWorkspace "Northwind Outdoor" }
+
+                fveSideNavFooter {
+                    div {
+                        _class "flex items-center gap-3"
+
+                        fveAvatar {
+                            _ariaLabel "Andy Meier"
+                            "AM"
+                        }
+
+                        span {
+                            _class "text-sm font-medium"
+                            "Andy Meier"
+                        }
+                    }
+                }
+            }
 
         let content =
             Html.section {
@@ -1218,13 +1528,29 @@ module PageExamples =
             }
 
         let topBar =
-            PageTopBar.create ()
-            |> PageTopBar.withContent (Breadcrumbs.create "gather-breadcrumbs" "Gather breadcrumb" [ BreadcrumbItem.create "beach" "Gather"; BreadcrumbItem.create current.id "Messages" ] |> Breadcrumbs.render destination)
+            fvePageTopBar {
+                fveBreadcrumbs {
+                    _id "gather-breadcrumbs"
+                    _ariaLabel "Gather breadcrumb"
+
+                    fveBreadcrumbItem {
+                        _href (destination "beach")
+                        "Gather"
+                    }
+
+                    fveBreadcrumbItem {
+                        _href (destination current.id)
+                        "Messages"
+                    }
+                }
+            }
 
         let page =
             Page.create
-                (PageHeader.create current.name
-                 |> PageHeader.withSubtitle current.participants)
+                (fvePageHeader {
+                    _label current.name
+                    _description current.participants
+                })
                 (stateContent Messaging query content)
             |> Page.withBodyLayout PageBodyLayout.Canvas
             |> Page.render
@@ -1232,17 +1558,27 @@ module PageExamples =
         let framedPage =
             div {
                 _class "flex h-full min-h-0 flex-col"
-                div { _class "hidden shrink-0 md:block"; topBar |> PageTopBar.render }
-                div { _class "min-h-0 flex-1"; page }
+
+                div {
+                    _class "hidden shrink-0 md:block"
+                    topBar
+                }
+
+                div {
+                    _class "min-h-0 flex-1"
+                    page
+                }
             }
-        AppShell.create "messaging-shell" navigation framedPage
-        |> AppShell.withTheme (
-            ComponentsTheme.sky
-            |> ComponentsTheme.withDensity Density.Compact
-            |> ComponentsTheme.withControlSize ControlSize.Small)
-        |> AppShell.withBoundary AppShellBoundary.Container
-        |> AppShell.asPreview "Gather workspace"
-        |> AppShell.render destination
+
+        (AppShell.create ("messaging-shell") (navigation) (framedPage)
+         |> AppShell.withTheme (
+             (ComponentsTheme.sky
+              |> ComponentsTheme.withDensity Density.Compact
+              |> ComponentsTheme.withControlSize Size.Small)
+         )
+         |> AppShell.withBoundary (AppShellBoundary.Container)
+         |> AppShell.asPreview ("Gather workspace")
+         |> AppShell.render)
 
     type ScheduledEvent =
         { id: string
@@ -1305,20 +1641,47 @@ module PageExamples =
     let eventUrl event =
         queryUrl Scheduling { defaultQuery with item = event.id }
 
-    let eventTable events =
-        Table.create
-            "Upcoming events"
-            [ TableColumn.create "Event" (fun (event: ScheduledEvent) -> link (eventUrl event) event.name)
-              |> TableColumn.asRowHeader
-              |> TableColumn.asMobilePrimary
-              TableColumn.create "Date" (fun event ->
-                  text (event.date.ToString("MMM d", Globalization.CultureInfo.InvariantCulture)))
-              TableColumn.create "Time" (fun event -> text event.time)
-              TableColumn.create "People" (fun event -> text event.people) ]
-            events
-        |> Table.withMobileLayout TableMobileLayout.Records
-        |> Table.withDensity Density.Compact
-        |> Table.render
+    let eventTable (events: ScheduledEvent list) =
+        fveTable {
+            _ariaLabel "Upcoming events"
+            _mobileLayout MobileLayout.Records
+            _density Density.Compact
+
+            fveTableHeader {
+                fveTableRow {
+                    fveTableHead { "Event" }
+                    fveTableHead { "Date" }
+                    fveTableHead { "Time" }
+                    fveTableHead { "People" }
+                }
+            }
+
+            fveTableBody {
+                for event in events do
+                    fveTableRow {
+                        fveTableHead {
+                            _scope "row"
+                            _mobile Mobile.Primary
+                            link (eventUrl event) event.name
+                        }
+
+                        fveTableCell {
+                            _label "Date"
+                            event.date.ToString("MMM d", Globalization.CultureInfo.InvariantCulture)
+                        }
+
+                        fveTableCell {
+                            _label "Time"
+                            event.time
+                        }
+
+                        fveTableCell {
+                            _label "People"
+                            event.people
+                        }
+                    }
+            }
+        }
 
     let operations query =
         let content =
@@ -1326,18 +1689,26 @@ module PageExamples =
                 _class "grid gap-8"
 
                 div {
-                    _class "order-2 grid grid-cols-[repeat(auto-fit,minmax(min(100%,6.5rem),1fr))] gap-4 border-b border-[var(--fve-border)] pb-4 md:order-none"
+                    _class
+                        "order-2 grid grid-cols-[repeat(auto-fit,minmax(min(100%,6.5rem),1fr))] gap-4 border-b border-[var(--fve-border)] pb-4 md:order-none"
 
                     for label, value, detail in
                         [ "Today's sessions", "2", "One lesson · One camp"
                           "Riders expected", "5", "September 17"
                           "Upcoming sessions", "4", "Through September 19" ] do
-                        Metric.text label value |> Metric.withDescription detail |> Metric.render
+                        fveMetric {
+                            _label label
+                            _description detail
+                            value
+                        }
                 }
 
                 div {
                     _class "order-3 md:order-none"
-                    section "Today's schedule" (eventTable (scheduledEvents |> List.filter (fun event -> event.date = DateOnly(2026, 9, 17))))
+
+                    section
+                        "Today's schedule"
+                        (eventTable (scheduledEvents |> List.filter (fun event -> event.date = DateOnly(2026, 9, 17))))
                 }
 
                 div {
@@ -1363,16 +1734,37 @@ module PageExamples =
                 }
 
                 if query.state = Setup then
-                    FloatingPanel.create "fieldwork-workspace-guide" "Finish your workspace" (ol {
-                        _class "m-0 grid list-none gap-4 p-0 text-sm"
-                        li { p { _class "font-medium"; "Review this week's schedule" }; link (url Scheduling) "Open schedule" }
-                        li {
-                            p { _class "font-medium"; "Prepare your session assets" }
-                            p { _class "text-[var(--fve-muted-text)]"; "Review descriptions before sharing a collection." }
-                            link (url MediaManagement) "Open photos"
+                    fveFloatingPanel {
+                        _id "fieldwork-workspace-guide"
+                        _label "Finish your workspace"
+
+                        ol {
+                            _class "m-0 grid list-none gap-4 p-0 text-sm"
+
+                            li {
+                                p {
+                                    _class "font-medium"
+                                    "Review this week's schedule"
+                                }
+
+                                link (url Scheduling) "Open schedule"
+                            }
+
+                            li {
+                                p {
+                                    _class "font-medium"
+                                    "Prepare your session assets"
+                                }
+
+                                p {
+                                    _class "text-[var(--fve-muted-text)]"
+                                    "Review descriptions before sharing a collection."
+                                }
+
+                                link (url MediaManagement) "Open photos"
+                            }
                         }
-                    })
-                    |> FloatingPanel.render
+                    }
             }
 
         workspace
@@ -1381,9 +1773,12 @@ module PageExamples =
             "Thursday, September 17"
             false
             [ a {
-                _href (url Scheduling)
-                _class "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] px-3 text-sm font-medium text-white hover:bg-[var(--fve-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
-                "View schedule"
+                  _href (url Scheduling)
+
+                  _class
+                      "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] px-3 text-sm font-medium text-white hover:bg-[var(--fve-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+
+                  "View schedule"
               } ]
             (stateContent Operations query content)
 
@@ -1415,9 +1810,7 @@ module PageExamples =
 
                     section
                         "Session assets"
-                        (link
-                            (queryUrl MediaManagement { defaultQuery with item = event.photo })
-                            "View matching asset")
+                        (link (queryUrl MediaManagement { defaultQuery with item = event.photo }) "View matching asset")
 
                     link (url Scheduling) "Back to schedule"
                 },
@@ -1425,16 +1818,23 @@ module PageExamples =
             | None ->
                 let view =
                     match query.view with
-                    | "day" | "week" | "year" -> query.view
+                    | "day"
+                    | "week"
+                    | "year" -> query.view
                     | _ -> "month"
 
                 let today = DateOnly(2026, 9, 17)
+
                 let offset =
                     match Int32.TryParse query.range with
                     | true, value -> Math.Clamp(value, -366, 366)
                     | _ -> 0
+
                 let start = today.AddDays offset
-                let startValue = start.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+
+                let startValue =
+                    start.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture)
+
                 let step direction =
                     let target =
                         match view with
@@ -1442,6 +1842,7 @@ module PageExamples =
                         | "week" -> start.AddDays(direction * 7)
                         | "year" -> start.AddYears direction
                         | _ -> start.AddMonths direction
+
                     target.DayNumber - today.DayNumber
 
                 let events =
@@ -1449,74 +1850,103 @@ module PageExamples =
                           CalendarEvent.create event.id event.name event.date (eventUrl event)
                           |> CalendarEvent.withTime event.start event.finish
                           |> CalendarEvent.withDetail event.people ]
-                let dateDestination (date:DateOnly) = queryUrl Scheduling { query with view = "day"; range = string (date.DayNumber - today.DayNumber) }
+
+                let dateDestination (date: DateOnly) =
+                    queryUrl
+                        Scheduling
+                        { query with
+                            view = "day"
+                            range = string (date.DayNumber - today.DayNumber) }
+
                 let todayDestination = queryUrl Scheduling { query with range = "0" }
                 let previous = queryUrl Scheduling { query with range = string (step -1) }
                 let next = queryUrl Scheduling { query with range = string (step 1) }
+
+                let navigation calendarView =
+                    [ fveCalendarToday {
+                          _date today
+                          _href todayDestination
+                      }
+                      if step -1 >= -366 then
+                          fveCalendarPrevious { _href previous }
+                      if step 1 <= 366 then
+                          fveCalendarNext { _href next }
+                      for day in Calendar.dates calendarView start do
+                          fveCalendarDate {
+                              _date day
+                              _href (dateDestination day)
+                          } ]
+
                 let calendar =
                     match view with
                     | "day" ->
-                        DayCalendar.create "Daily sessions" start events
-                        |> DayCalendar.withToday today todayDestination
-                        |> DayCalendar.withSelectedDate start
-                        |> DayCalendar.withDateDestination dateDestination
-                        |> (if step -1 >= -366 then DayCalendar.withPrevious previous else id)
-                        |> (if step 1 <= 366 then DayCalendar.withNext next else id)
-                        |> DayCalendar.render id
+                        fveDayCalendar {
+                            _label "Daily sessions"
+                            _date start
+                            _selectedDate start
+                            yield! events
+                            yield! navigation CalendarView.Day
+                        }
                     | "week" ->
-                        WeekCalendar.create "Weekly sessions" start events
-                        |> WeekCalendar.withToday today todayDestination
-                        |> WeekCalendar.withSelectedDate start
-                        |> WeekCalendar.withDateDestination dateDestination
-                        |> (if step -1 >= -366 then WeekCalendar.withPrevious previous else id)
-                        |> (if step 1 <= 366 then WeekCalendar.withNext next else id)
-                        |> WeekCalendar.render id
+                        fveWeekCalendar {
+                            _label "Weekly sessions"
+                            _date start
+                            _selectedDate start
+                            yield! events
+                            yield! navigation CalendarView.Week
+                        }
                     | "year" ->
-                        YearCalendar.create "Annual sessions" start events
-                        |> YearCalendar.withToday today todayDestination
-                        |> YearCalendar.withSelectedDate start
-                        |> YearCalendar.withDateDestination dateDestination
-                        |> (if step -1 >= -366 then YearCalendar.withPrevious previous else id)
-                        |> (if step 1 <= 366 then YearCalendar.withNext next else id)
-                        |> YearCalendar.render id
+                        fveYearCalendar {
+                            _label "Annual sessions"
+                            _date start
+                            _selectedDate start
+                            yield! events
+                            yield! navigation CalendarView.Year
+                        }
                     | _ ->
-                        MonthCalendar.create "Monthly sessions" start events
-                        |> MonthCalendar.withToday today todayDestination
-                        |> MonthCalendar.withSelectedDate start
-                        |> MonthCalendar.withDateDestination dateDestination
-                        |> (if step -1 >= -366 then MonthCalendar.withPrevious previous else id)
-                        |> (if step 1 <= 366 then MonthCalendar.withNext next else id)
-                        |> MonthCalendar.render id
+                        fveMonthCalendar {
+                            _label "Monthly sessions"
+                            _date start
+                            _selectedDate start
+                            yield! events
+                            yield! navigation CalendarView.Month
+                        }
+
                 Html.section {
                     _ariaLabel "Schedule"
                     _attr ("data-view", view)
                     _class "grid min-w-0 gap-4"
+
                     nav {
                         _ariaLabel "Schedule calendar view"
                         _class "flex flex-wrap gap-1"
+
                         for value, label in [ "day", "Day"; "week", "Week"; "month", "Month"; "year", "Year" ] do
                             a {
                                 _href (queryUrl Scheduling { query with view = value })
-                                if view = value then _ariaCurrent "page"
-                                _class "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-3 py-1 text-sm font-medium no-underline hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] aria-[current=page]:bg-[var(--fve-brand-subtle)] aria-[current=page]:text-[var(--fve-brand-text)]"
+
+                                if view = value then
+                                    _ariaCurrent "page"
+
+                                _class
+                                    "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-3 py-1 text-sm font-medium no-underline hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] aria-[current=page]:bg-[var(--fve-brand-subtle)] aria-[current=page]:text-[var(--fve-brand-text)]"
+
                                 label
                             }
                     }
+
                     div {
                         _id ("scheduling-calendar-" + view + "-" + startValue)
-                        _dataInit $"el.fveCalendarObserver?.disconnect(); const cell = el.querySelector('[data-date=\"{startValue}\"]'); const region = cell?.closest('[role=region]'); if (cell && region) {{ const observer = new ResizeObserver(() => {{ if (!el.isConnected) {{ observer.disconnect(); return }}; if (!region.clientWidth) return; const c = cell.getBoundingClientRect(), r = region.getBoundingClientRect(); const hours = region.querySelector('.fve-calendar-hours')?.clientWidth || 0; region.scrollLeft += c.left - r.left - Math.max(hours, (region.clientWidth - c.width) / 2) }}); el.fveCalendarObserver = observer; observer.observe(region) }}"
+
+                        _dataInit
+                            $"el.fveCalendarObserver?.disconnect(); const cell = el.querySelector('[data-date=\"{startValue}\"]'); const region = cell?.closest('[role=region]'); if (cell && region) {{ const observer = new ResizeObserver(() => {{ if (!el.isConnected) {{ observer.disconnect(); return }}; if (!region.clientWidth) return; const c = cell.getBoundingClientRect(), r = region.getBoundingClientRect(); const hours = region.querySelector('.fve-calendar-hours')?.clientWidth || 0; region.scrollLeft += c.left - r.left - Math.max(hours, (region.clientWidth - c.width) / 2) }}); el.fveCalendarObserver = observer; observer.observe(region) }}"
+
                         calendar
                     }
                 },
                 "Schedule"
 
-        workspace
-            Scheduling
-            heading
-            "Eastern time"
-            false
-            []
-            (stateContent Scheduling query content)
+        workspace Scheduling heading "Eastern time" false [] (stateContent Scheduling query content)
 
     type WorkspacePhoto =
         { id: string
@@ -1594,19 +2024,42 @@ module PageExamples =
                 _action (url MediaManagement + "/save?item=" + photo.id)
                 _class "grid content-start gap-5"
 
-                Input.create "name" "Asset name"
-                |> Input.withValue photo.name
-                |> Input.required
-                |> Input.withAttributes [ _maxlength 120 ]
-                |> Input.render
+                fveField {
+                    fveLabel {
+                        _for "name"
+                        "Asset name"
+                    }
 
-                Textarea.create "alt" "Image description"
-                |> Textarea.withValue photo.alt
-                |> Textarea.withRows 3
-                |> Textarea.withDescription "Describe the image for people who cannot see it."
-                |> Textarea.required
-                |> Textarea.withAttributes [ _maxlength 500 ]
-                |> Textarea.render
+                    fveInput {
+                        _id "name"
+                        _name "name"
+                        _value photo.name
+                        _required true
+                        _maxlength 120
+                    }
+                }
+
+                fveField {
+                    fveLabel {
+                        _for "alt"
+                        "Image description"
+                    }
+
+                    fveTextarea {
+                        _id "alt"
+                        _name "alt"
+                        _value photo.alt
+                        _rows 3
+                        _required true
+                        _maxlength 500
+                        _ariaDescribedby (String.concat " " [ ("alt") + "-description" ])
+                    }
+
+                    fveFieldDescription {
+                        _id ("alt" + "-description")
+                        "Describe the image for people who cannot see it."
+                    }
+                }
 
                 div {
                     _role "status"
@@ -1617,11 +2070,12 @@ module PageExamples =
                 div {
                     _class "flex flex-wrap items-center gap-3"
 
-                    Button.create (ButtonContent.Text "Save changes")
-                    |> Button.withColor ButtonColor.Primary
-                    |> Button.withVariant ButtonVariant.Solid
-                    |> Button.asSubmit
-                    |> Button.render
+                    fveButton {
+                        _color Color.Primary
+                        _variant ButtonVariant.Solid
+                        _type "submit"
+                        "Save changes"
+                    }
 
                     link (url MediaManagement) "Back to media"
                 }
@@ -1634,6 +2088,7 @@ module PageExamples =
 
     let mediaManagement query =
         let photos = photosFor query
+
         let selected =
             photos |> List.tryFind (fun (photo: WorkspacePhoto) -> photo.id = query.item)
 
@@ -1647,18 +2102,34 @@ module PageExamples =
                     _action (url MediaManagement + "/upload")
                     _class "grid gap-5"
 
-                    Input.create "name" "Asset name"
-                    |> Input.withId "media-upload-name"
-                    |> Input.required
-                    |> Input.withAttributes [ _maxlength 120 ]
-                    |> Input.render
+                    fveField {
+                        fveLabel {
+                            _for "media-upload-name"
+                            "Asset name"
+                        }
 
-                    Textarea.create "alt" "Image description"
-                    |> Textarea.withId "media-upload-description"
-                    |> Textarea.withRows 3
-                    |> Textarea.required
-                    |> Textarea.withAttributes [ _maxlength 500 ]
-                    |> Textarea.render
+                        fveInput {
+                            _id "media-upload-name"
+                            _name "name"
+                            _required true
+                            _maxlength 120
+                        }
+                    }
+
+                    fveField {
+                        fveLabel {
+                            _for "media-upload-description"
+                            "Image description"
+                        }
+
+                        fveTextarea {
+                            _id "media-upload-description"
+                            _name "alt"
+                            _rows 3
+                            _required true
+                            _maxlength 500
+                        }
+                    }
 
                     if query.view = "upload-error" then
                         p {
@@ -1668,43 +2139,67 @@ module PageExamples =
                         }
                 }
 
-                FileSelection.create "media-upload-image" "image" "Image file"
-                |> FileSelection.withAccept "image/jpeg,image/png,image/webp"
-                |> FileSelection.withDescription
-                    "Selected files stay in your browser. This documentation fixture never submits or stores their contents."
-                |> FileSelection.render
+                fveField {
+                    fveLabel {
+                        _for "media-upload-image"
+                        "Image file"
+                    }
+
+                    fveFileSelection {
+                        _id "media-upload-image"
+                        _name "image"
+                        _accept "image/jpeg,image/png,image/webp"
+                        _ariaDescribedby "media-upload-image-help"
+                    }
+
+                    fveFieldDescription {
+                        _id "media-upload-image-help"
+                        "Selected files stay in your browser. This documentation fixture never submits or stores their contents."
+                    }
+                }
             }
 
         let uploadDrawer =
-            Drawer.create "media-upload-drawer" "Upload asset" uploadBody
-            |> Drawer.withDescription "Review a safe upload workflow using a repository-owned success fixture."
-            |> Drawer.withInitialFocus "media-upload-name"
-            |> Drawer.withFooter (
-                fragment {
-                    Button.create (ButtonContent.Text "Cancel")
-                    |> Button.withAttributes [
-                        _dataOn ("click", "document.getElementById('media-upload-drawer')?.close()") ]
-                    |> Button.render
+            fveDrawer {
+                _id "media-upload-drawer"
+                _label "Upload asset"
+                uploadBody
+                _description "Review a safe upload workflow using a repository-owned success fixture."
+                _initialFocus "media-upload-name"
 
-                    Button.create (ButtonContent.Text "Upload")
-                    |> Button.asSubmit
-                    |> Button.withColor ButtonColor.Primary
-                    |> Button.withVariant ButtonVariant.Solid
-                    |> Button.withAttributes [ _form "media-upload-form" ]
-                    |> Button.render
+                fveDrawerFooter {
+                    fragment {
+                        fveButton {
+                            _dataOn ("click", "document.getElementById('media-upload-drawer')?.close()")
+                            "Cancel"
+                        }
+
+                        fveButton {
+                            _color Color.Primary
+                            _variant ButtonVariant.Solid
+                            _type "submit"
+                            _form "media-upload-form"
+                            "Upload"
+                        }
+                    }
                 }
-            )
+            }
 
         let uploadAction =
-            Button.create (ButtonContent.Text "Upload")
-            |> Button.withColor ButtonColor.Primary
-            |> Button.withVariant ButtonVariant.Solid
-            |> Button.withAttributes [
-                _dataOn ("click", "document.getElementById('media-upload-drawer')?.showModal(); queueMicrotask(() => document.getElementById('media-upload-name')?.focus())")
+            fveButton {
+                _color Color.Primary
+                _variant ButtonVariant.Solid
+
+                _dataOn (
+                    "click",
+                    "document.getElementById('media-upload-drawer')?.showModal(); queueMicrotask(() => document.getElementById('media-upload-name')?.focus())"
+                )
+
                 _id "media-upload-drawer-trigger"
                 _ariaHaspopup "dialog"
-                _ariaControls "media-upload-drawer" ]
-            |> Button.render
+                _ariaControls "media-upload-drawer"
+                "Upload"
+            }
 
         let content, heading =
             match selected with
@@ -1740,23 +2235,20 @@ module PageExamples =
                     if query.view = "upload-error" then
                         div {
                             _class "hidden"
-                            _dataEffect "(() => { const drawer = document.getElementById('media-upload-drawer'); if (drawer && !drawer.open) drawer.showModal(); queueMicrotask(() => document.getElementById('media-upload-name')?.focus()) })()"
+
+                            _dataEffect
+                                "(() => { const drawer = document.getElementById('media-upload-drawer'); if (drawer && !drawer.open) drawer.showModal(); queueMicrotask(() => document.getElementById('media-upload-name')?.focus()) })()"
                         }
 
-                    uploadDrawer |> Drawer.render
+                    uploadDrawer
                 },
                 "Media"
 
         let actions =
-            [ if query.state = Ready && selected.IsNone then uploadAction ]
+            [ if query.state = Ready && selected.IsNone then
+                  uploadAction ]
 
-        workspace
-            MediaManagement
-            heading
-            "Session assets"
-            false
-            actions
-            (stateContent MediaManagement query content)
+        workspace MediaManagement heading "Session assets" false actions (stateContent MediaManagement query content)
 
     let product page query =
         match page with
@@ -1769,21 +2261,24 @@ module PageExamples =
         | MediaManagement -> mediaManagement query
 
     let fixture page query =
-        div {
-            _class "h-[44rem]"
-            product page query
+        fveBrowser {
+            _address ("https://fve.meiermade.com" + queryUrl page query)
+
+            div {
+                _class "h-[44rem]"
+                product page query
+            }
         }
-        |> Browser.create
-        |> Browser.withAddress ("https://fve.meiermade.com" + queryUrl page query)
-        |> Browser.render
         |> Fixture.create "page-workspace" (title page) (queryUrl page query)
         |> Fixture.withFullscreenContent (product page query)
         |> Fixture.withStates
             [ for state, label in reviewStates page ->
                   FixtureState.create label (queryUrl page { query with state = state })
                   |> fun item ->
-                      if state = query.state then FixtureState.current item
-                      else item ]
+                      if state = query.state then
+                          FixtureState.current item
+                      else
+                          item ]
 
     let preview page query =
         div {
@@ -1793,14 +2288,25 @@ module PageExamples =
                 _ariaLabel "Example review state"
                 _attr ("data-page-example-state-tabs", "true")
                 _class "mb-5 border-b border-[var(--fve-border)]"
+
                 ul {
                     _class "-mb-px flex list-none gap-5 overflow-x-auto p-0"
+
                     for state, label in reviewStates page do
                         li {
                             a {
                                 _href (queryUrl page { query with state = state })
-                                if state = query.state then _ariaCurrent "page"
-                                _class (if state = query.state then "inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-[var(--fve-brand-solid)] font-semibold text-[var(--fve-brand-text)]" else "inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent font-medium text-[var(--fve-muted-text)] hover:border-[var(--fve-border)] hover:text-[var(--fve-text)]")
+
+                                if state = query.state then
+                                    _ariaCurrent "page"
+
+                                _class (
+                                    if state = query.state then
+                                        "inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-[var(--fve-brand-solid)] font-semibold text-[var(--fve-brand-text)]"
+                                    else
+                                        "inline-flex min-h-11 items-center whitespace-nowrap border-b-2 border-transparent font-medium text-[var(--fve-muted-text)] hover:border-[var(--fve-border)] hover:text-[var(--fve-text)]"
+                                )
+
                                 label
                             }
                         }
@@ -1893,4 +2399,6 @@ module PageExamples =
         + queryUrl page defaultQuery
         + "\"\n|> Browser.render\n|> Fixture.create \"page-workspace\" \"Workspace\" \""
         + queryUrl page defaultQuery
-        + "\"\n|> Fixture.withFullscreenContent (" + usage + ")\n|> Fixture.render"
+        + "\"\n|> Fixture.withFullscreenContent ("
+        + usage
+        + ")\n|> Fixture.render"

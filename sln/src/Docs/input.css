@@ -1,6 +1,8 @@
 @import "tailwindcss";
 @source "./src/**/*.fs";
-@source "../FSharp.ViewEngine.Components/**/*.fs";
+@source "../Docs.Components/**/*.fs";
+@source "../Docs.Components/Components/Assets/**/*.js";
+@source not "../Docs.Components/Components/Assets/echarts.6.1.0.esm.min.js";
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
 

@@ -1,6 +1,7 @@
 namespace FSharp.ViewEngine.Components
 
 open System
+open System.Globalization
 open FSharp.ViewEngine
 open type Html
 
@@ -9,81 +10,49 @@ open type Html
 type ProgressState = Active | Complete | Failed
 
 /// <category>progress</category>
-[<RequireQualifiedAccess>]
-type ProgressValue =
-    | Determinate of value:int * maximum:int
-    | Indeterminate
+[<AutoOpen>]
+module ProgressAttributes =
+    type Html with
+        static member _state(value:ProgressState) =
+            Html._attr("state", match value with ProgressState.Active -> "active" | ProgressState.Complete -> "complete" | ProgressState.Failed -> "failed")
 
-/// <category>progress</category>
-[<NoEquality; NoComparison>]
-type ProgressConfig = private { label:string; progress:ProgressValue; valueText:string option; detail:string option; state:ProgressState }
-
-/// <category>progress</category>
-[<RequireQualifiedAccess>]
-module Progress =
-    let create label value maximum =
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A progress label is required."
-        if maximum < 1 then invalidArg (nameof maximum) "Progress maximum must be positive."
-        if value < 0 || value > maximum then invalidArg (nameof value) "Progress value must be within its range."
-        { label = label; progress = ProgressValue.Determinate(value, maximum); valueText = None; detail = None; state = ProgressState.Active }
-    let indeterminate label =
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A progress label is required."
-        { label = label; progress = ProgressValue.Indeterminate; valueText = None; detail = None; state = ProgressState.Active }
-    let withValueText valueText config = { config with valueText = Some valueText }
-    let withDetail detail config = { config with detail = Some detail }
-    let complete config =
-        match config.progress with
-        | ProgressValue.Indeterminate -> invalidArg (nameof config) "Indeterminate progress cannot be marked complete without a determinate value."
-        | ProgressValue.Determinate _ -> { config with state = ProgressState.Complete }
-    let failed config = { config with state = ProgressState.Failed }
-    let render config =
-        let percent =
-            match config.progress with
-            | ProgressValue.Determinate(value, maximum) -> Some(value * 100 / maximum)
-            | ProgressValue.Indeterminate -> None
-        let readable = config.valueText |> Option.defaultValue (percent |> Option.map (fun value -> string value + "%") |> Option.defaultValue "In progress")
-        section {
-            _role "group"
-            _ariaLabel config.label
-            _class "grid gap-2"
-            div {
-                _class "flex items-baseline justify-between gap-3 text-sm"
-                strong { config.label }
-                span {
-                    _class "text-[var(--fve-muted-text)]"
-                    readable
-                }
-            }
+module internal Progress =
+    let render attributes children =
+        let label = ComponentElement.required "aria-label" attributes
+        let number name fallback =
+            match ComponentElement.attribute name attributes with
+            | None -> fallback
+            | Some _ ->
+                match Double.TryParse(ComponentElement.required name attributes, NumberStyles.Float, CultureInfo.InvariantCulture) with
+                | true, value when Double.IsFinite value -> value
+                | _ -> invalidArg "attributes" $"A finite {name} is required."
+        let maximum = number "max" 100.
+        let value = ComponentElement.attribute "value" attributes |> Option.map (fun _ -> number "value" 0.)
+        if maximum <= 0. || value |> Option.exists (fun value -> value < 0. || value > maximum) then
+            invalidArg "attributes" "Progress value must be within a positive maximum."
+        let state = ComponentElement.choice "state" "active" ["active"; "complete"; "failed"] attributes
+        if state = "complete" && value.IsNone then invalidArg "attributes" "Indeterminate progress cannot be complete."
+        let readable =
+            ComponentElement.value "aria-valuetext" attributes
+            |> Option.defaultWith (fun () -> value |> Option.map (fun value -> (value * 100. / maximum).ToString("0", CultureInfo.InvariantCulture) + "%") |> Option.defaultValue "In progress")
+        let control =
             progress {
-                _ariaLabel config.label
+                _ariaLabel label
                 _ariaValuetext readable
-                match config.progress with
-                | ProgressValue.Determinate(value, maximum) ->
-                    _value (string value)
-                    _max (string maximum)
-                | ProgressValue.Indeterminate -> ()
-                _class ("h-2 w-full overflow-hidden rounded-full accent-[var(--fve-brand-solid)]" + if percent.IsNone then " animate-pulse motion-reduce:animate-none" else "")
+                _max (maximum.ToString(CultureInfo.InvariantCulture))
+                match value with Some value -> _value (value.ToString(CultureInfo.InvariantCulture)) | None -> ()
+                _class ("h-2 w-full overflow-hidden rounded-full accent-[var(--fve-brand-solid)]" + if value.IsNone then " animate-pulse motion-reduce:animate-none" else "")
                 readable
             }
-            match config.detail with
-            | Some detail ->
-                p {
-                    _class "text-sm text-[var(--fve-muted-text)]"
-                    detail
-                }
-            | None -> ()
-            match config.state with
-            | ProgressState.Complete ->
-                p {
-                    _role "status"
-                    _class "text-sm text-[var(--fve-positive-text)]"
-                    "Complete"
-                }
-            | ProgressState.Failed ->
-                p {
-                    _role "alert"
-                    _class "text-sm text-[var(--fve-critical-text)]"
-                    "Failed"
-                }
-            | ProgressState.Active -> ()
-        }
+        ComponentElement.render "section" [_role "group"; _class "grid gap-2"] (ComponentHtml.safeAttributes ["state"; "max"; "value"; "aria-valuetext"] attributes)
+            [ div { _class "flex items-baseline justify-between gap-3 text-sm"; strong { label }; span { _class "text-[var(--fve-muted-text)]"; readable } }
+              control
+              yield! children
+              if state = "complete" then p { _role "status"; _class "text-sm text-[var(--fve-positive-text)]"; "Complete" }
+              elif state = "failed" then p { _role "alert"; _class "text-sm text-[var(--fve-critical-text)]"; "Failed" } ]
+
+/// <category>progress</category>
+[<AutoOpen>]
+module ProgressDsl =
+    /// Native progress with typed status, ordinary value/max attributes and optional supporting content.
+    let fveProgress = ComponentElementBuilder(Progress.render)
