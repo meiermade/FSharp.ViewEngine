@@ -1312,7 +1312,8 @@ let tests =
               let unresolved =
                   references |> Seq.filter (fun reference -> referenceStatus reference >= 400) |> Seq.toList
 
-              Expect.isEmpty unresolved "rendered local references resolve"
+              let unresolvedReferences = String.concat ", " unresolved
+              Expect.isEmpty unresolved $"rendered local references resolve: {unresolvedReferences}"
 
               Expect.isGreaterThan
                   references.Count

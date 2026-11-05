@@ -203,9 +203,8 @@ test('native filter checkboxes apply multiple choices and clear without JavaScri
 test('account drawer preserves context and leaves edited forms without prompts @cross-browser', async ({ page }) => {
   const prompts: string[] = []
   page.on('dialog', async prompt => { prompts.push(prompt.message()); await prompt.accept() })
+  await page.addInitScript(() => localStorage.setItem('financial-example-appearance', 'dark'))
   await page.goto('/examples/application/accounts?search=checking&sort=balance')
-  await page.getByRole('button', { name: 'Choose color theme', exact: true }).click()
-  await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click()
   const title = await page.title()
   const crumbs = await page.getByRole('navigation', { name: 'Breadcrumb', exact: true }).innerText()
   await page.getByRole('link', { name: 'Create account', exact: true }).click()

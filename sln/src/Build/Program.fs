@@ -40,6 +40,11 @@ let exec workDir cmd args =
     |> Async.Ignore
 
 let dotnet workdir args = exec workdir "dotnet" args
+
+let buildDocsJs () =
+    exec docsDir "npm" ["ci"] |> Async.RunSynchronously
+    exec docsDir "npm" ["run"; "build:js"] |> Async.RunSynchronously
+
 let tailwindcss workDir args =
     // The standalone CLI's native Oxide loader fails with FAKE's bare command on Linux.
     let executable =
@@ -273,6 +278,7 @@ Target.create "Test" <| fun _ ->
         |> Async.RunSynchronously
     )
 
+    buildDocsJs ()
     dotnet docsTestsDir ["run"]
     |> Async.RunSynchronously
 
@@ -353,10 +359,7 @@ Target.create "CheckInstalledComponents" (fun _ ->
         |> Async.RunSynchronously
 )
 
-Target.create "BuildDocsJs" (fun _ ->
-    exec docsDir "npm" ["ci"] |> Async.RunSynchronously
-    exec docsDir "npm" ["run"; "build:js"] |> Async.RunSynchronously
-)
+Target.create "BuildDocsJs" (fun _ -> buildDocsJs ())
 
 Target.create "WatchDocs" (fun _ ->
     let docsUrl = WatchDocs.defaultUrl
