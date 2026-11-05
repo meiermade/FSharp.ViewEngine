@@ -105,6 +105,7 @@ test('gallery opens isolated consumer templates with GitHub source and native hi
   await app.getByRole('radiogroup', { name: 'Appearance', exact: true }).getByText('Dark', { exact: true }).click()
   await app.getByRole('link', { name: 'Back to Ledger', exact: true }).click()
   await app.locator('#template-desktop-navigation').getByRole('link', { name: 'Accounts', exact: true }).click()
+  await expect(app.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
   await app.getByRole('link', { name: 'Operating checking', exact: true }).click()
   await expect(app.getByRole('heading', { name: 'Operating checking', exact: true, level: 1 })).toBeVisible()
   await app.goBack()
