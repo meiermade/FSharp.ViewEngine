@@ -36,6 +36,8 @@ test('Breadcrumbs fit their actual container and restore hidden ancestors with f
   await expect(more).toBeVisible()
   await expect(nav.locator('[aria-current="page"]')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await more.scrollIntoViewIfNeeded()
+  await expect(more).toBeInViewport()
   await more.press('ArrowDown')
   const menu = nav.getByRole('menu')
   await expect(menu.getByRole('menuitem', { name: 'Home', exact: true })).toBeFocused()
