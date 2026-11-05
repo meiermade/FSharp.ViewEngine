@@ -31,7 +31,7 @@ jobs:
         run: echo "commit=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
       - name: Setup Node
         timeout-minutes: 5
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -55,7 +55,7 @@ jobs:
         working-directory: ./e2e
       - name: Authenticate Pulumi
         timeout-minutes: 5
-        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        uses: pulumi/auth-actions@159c3e431aab767d4519b96f3f784d7d3d725622 # v2.1.1
         with:
           organization: meiermade
           requested-token-type: urn:pulumi:token-type:access_token:personal
@@ -126,7 +126,7 @@ jobs:
       - name: Upload credential-free E2E diagnostics
         if: ${{ failure() || cancelled() }}
         timeout-minutes: 5
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fsharp-viewengine-staging-e2e
           path: |
