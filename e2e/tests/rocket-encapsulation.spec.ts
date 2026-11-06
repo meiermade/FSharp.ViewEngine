@@ -82,7 +82,7 @@ test('Checkbox follows authoritative mixed state on the same native node @cross-
 })
 
 for (const multiple of [false, true]) {
-  test(`${multiple ? 'MultiToggleGroup' : 'ToggleGroup'} preserves canceled reset and accepts native reset @cross-browser`, async ({ page }) => {
+  test(`${multiple ? 'MultiToggleGroup' : 'ToggleGroup'} retains values on reconnect and honors native reset cancellation @cross-browser`, async ({ page }) => {
     await page.goto('/components/toggle-group')
     const group = page.locator(multiple ? '#components-formatting-group' : '#components-alignment-group')
     await group.evaluate(el => {
@@ -96,6 +96,16 @@ for (const multiple of [false, true]) {
     await group.getByRole('button', { name: multiple ? 'Italic' : 'Center', exact: true }).click()
     const changed = multiple ? ['bold', 'italic'] : ['center']
     await expect.poll(values).toEqual(changed)
+    const chosen = group.getByRole('button', { name: multiple ? 'Italic' : 'Center', exact: true })
+    for (let reconnect = 0; reconnect < 2; reconnect++) {
+      await group.evaluate(owner => {
+        const parent = owner.parentNode!, next = owner.nextSibling
+        owner.remove()
+        parent.insertBefore(owner, next)
+      })
+      await expect.poll(values).toEqual(changed)
+      await expect(chosen).toHaveAttribute('aria-pressed', 'true')
+    }
     await form.evaluate(el => {
       el.addEventListener('reset', event => event.preventDefault(), { once: true })
       ;(el as HTMLFormElement).reset()
@@ -103,6 +113,19 @@ for (const multiple of [false, true]) {
     await expect.poll(values).toEqual(changed)
     await form.evaluate(el => (el as HTMLFormElement).reset())
     await expect.poll(values).toEqual(multiple ? ['bold'] : ['left'])
+    if (!multiple) await group.evaluate(owner => owner.setAttribute('allow-empty', ''))
+    await group.getByRole('button', { name: multiple ? 'Bold' : 'Left', exact: true }).click()
+    await expect.poll(values).toEqual([])
+    await group.evaluate(owner => {
+      const parent = owner.parentNode!, next = owner.nextSibling
+      owner.remove()
+      parent.insertBefore(owner, next)
+    })
+    await expect.poll(values).toEqual([])
+    await expect(group.getByRole('button', { pressed: true })).toHaveCount(0)
+    await form.evaluate(el => (el as HTMLFormElement).reset())
+    await expect.poll(values).toEqual(multiple ? ['bold'] : ['left'])
+    await expect(group.getByRole('button', { name: multiple ? 'Bold' : 'Left', exact: true })).toHaveAttribute('aria-pressed', 'true')
   })
 }
 
@@ -133,6 +156,58 @@ for (const multiple of [false, true]) {
     await expect.poll(values).toEqual(multiple ? [] : [''])
   })
 }
+
+test('native-fallback Select retains pre-enhancement edits and reconnected values with a separate reset baseline @cross-browser', async ({ page }) => {
+  let release!: () => void
+  const enhance = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/assets/app.js', async route => { await enhance; await route.continue() })
+  try {
+    await page.goto('/components/select?fixtures=1', { waitUntil: 'commit' })
+    const native = page.locator('select[name="nativeFrequency"]')
+    await native.selectOption('monthly')
+    await native.evaluate(el => {
+      const owner = el.closest('fve-select')!
+      const form = document.createElement('form')
+      form.id = 'native-fallback-reconnect'
+      owner.before(form)
+      form.append(owner)
+    })
+    const form = page.locator('#native-fallback-reconnect')
+    const values = () => form.evaluate(el => new FormData(el as HTMLFormElement).getAll('nativeFrequency'))
+    await expect.poll(values).toEqual(['monthly'])
+    release()
+    const trigger = page.getByRole('combobox', { name: 'Update frequency', exact: true }).and(page.locator('#nativeFrequency'))
+    await expect(trigger).toHaveJSProperty('tagName', 'BUTTON')
+    await expect(trigger).toContainText('Monthly')
+    await expect.poll(values).toEqual(['monthly'])
+    await trigger.click()
+    await form.getByRole('option', { name: 'Daily', exact: true }).click()
+    await expect.poll(values).toEqual(['daily'])
+    for (let reconnect = 0; reconnect < 2; reconnect++) {
+      await form.locator('fve-select').evaluate(owner => {
+        const parent = owner.parentNode!, next = owner.nextSibling
+        owner.remove()
+        parent.insertBefore(owner, next)
+      })
+      await expect.poll(values).toEqual(['daily'])
+      await expect(trigger).toContainText('Daily')
+      await trigger.click()
+      await expect(form.getByRole('option', { name: 'Daily', exact: true })).toHaveAttribute('aria-selected', 'true')
+      await trigger.press('Escape')
+    }
+    await form.evaluate(el => {
+      el.addEventListener('reset', event => event.preventDefault(), { once: true })
+      ;(el as HTMLFormElement).reset()
+    })
+    await expect.poll(values).toEqual(['daily'])
+    await expect(trigger).toContainText('Daily')
+    await form.evaluate(el => (el as HTMLFormElement).reset())
+    await expect.poll(values).toEqual(['weekly'])
+    await expect(trigger).toContainText('Weekly')
+  } finally {
+    release()
+  }
+})
 
 test('nested Examples keep their own tabs and panels @cross-browser', async ({ page }) => {
   await page.goto('/components/button')

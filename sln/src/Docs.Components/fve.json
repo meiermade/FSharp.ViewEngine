@@ -476,7 +476,7 @@
       "component": "toggle-group",
       "path": "Components/Assets/toggle-group.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "a4a4829329d2fad0af9a52a859bfadded6e1734676a292552f849d0fcfc00929"
+      "registryChecksum": "4e07446195a2d8888ce8266271604929a29c1a4bbec4982c83ff0c2a87c4de73"
     },
     {
       "component": "toggle-group",
@@ -644,7 +644,7 @@
       "component": "select",
       "path": "Components/Assets/select.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "ff3e29784085c34e11715a9c4a24a767571f62a49b6a7a70dd0f2ba626a06887"
+      "registryChecksum": "5a9c8c5073f0e6262b96b24476815cbd1f886e167f51dee29ce042ebfa1bcc7b"
     },
     {
       "component": "select",

@@ -86,6 +86,9 @@ rocket('fve-select', {
       if (!host.isConnected) return;
       promoteNative();
       const panel = popup(), control = trigger(), label = name(), selected = $$.selected;
+      // Keep the disabled native fallback current for a subsequent takeover on reconnect.
+      const native = nativeControl();
+      if (native && native.value !== (selected[0]?.value || '')) native.value = selected[0]?.value || '';
       const values = host.querySelector('[data-fve-select-values]');
       const needed = settings.multiple ? selected : selected.length ? selected : [{ value: '', label: '' }];
       const fields = [...values.querySelectorAll('input')];

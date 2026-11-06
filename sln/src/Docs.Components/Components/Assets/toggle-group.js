@@ -9,7 +9,9 @@ rocket('fve-toggle-group', {
     const buttons = () => [...host.querySelectorAll('[data-fve-toggle-value]')].filter(el => el.closest('fve-toggle-group') === host);
     const initialValues = () => multiple ? JSON.parse(host.getAttribute('values') || '[]') : [host.getAttribute('value')].filter(value => value !== null);
     let initial = initialValues(), disposed = false, pending = false;
-    $$('selected', [...initial]);
+    // Native values survive disconnection; host attributes remain the reset baseline.
+    const values = host.querySelector('[data-fve-toggle-values]');
+    $$('selected', values ? [...values.children].map(field => field.value) : [...initial]);
     const disabled = () => host.hasAttribute('disabled');
     const unavailable = () => disabled() || host.hasAttribute('readonly');
     const observe = () => observer.observe(host, { childList: true, subtree: true, attributes: true,
