@@ -469,18 +469,30 @@ test('pending buttons center an overlay without changing size or accessible name
     for (const [id, name] of [['button-basic', 'Sync'], ['button-icon-pending', 'Refresh']]) {
       const control = page.locator(`#components-${id}-panel-preview`).getByRole('button', { name, exact: true })
       const before = (await control.boundingBox())!
-      await control.click()
-      await expect(control).toBeDisabled()
-      await expect(control).toHaveAttribute('aria-busy', 'true')
-      await expect(control).toHaveAccessibleName(name)
-      const spinner = control.locator('.animate-spin')
-      await expect(spinner).toBeVisible()
-      const during = (await control.boundingBox())!
-      const glyph = (await spinner.boundingBox())!
-      expect(during.width).toBeCloseTo(before.width, 1)
-      expect(during.height).toBeCloseTo(before.height, 1)
-      expect(Math.abs(glyph.x + glyph.width / 2 - during.x - during.width / 2)).toBeLessThan(1)
-      expect(Math.abs(glyph.y + glyph.height / 2 - during.y - during.height / 2)).toBeLessThan(1)
+      let release!: () => void
+      const held = new Promise<void>(resolve => { release = resolve })
+      // Exercise the real handler, but keep its response pending until geometry is
+      // measured: CI round trips can otherwise outlast the one-second example.
+      await page.route('**/components/button/settled*', async route => {
+        const response = await route.fetch()
+        await held
+        await route.fulfill({ response })
+      }, { times: 1 })
+      try {
+        await control.click()
+        await expect(control).toBeDisabled()
+        await expect(control).toHaveAttribute('aria-busy', 'true')
+        await expect(control).toHaveAccessibleName(name)
+        await expect(control.locator('.animate-spin')).toBeVisible()
+        const { during, glyph } = await control.evaluate(element => {
+          const box = element.getBoundingClientRect(), spinner = element.querySelector('.animate-spin')!.getBoundingClientRect()
+          return { during: { x: box.x, y: box.y, width: box.width, height: box.height }, glyph: { x: spinner.x, y: spinner.y, width: spinner.width, height: spinner.height } }
+        })
+        expect(during.width).toBeCloseTo(before.width, 1)
+        expect(during.height).toBeCloseTo(before.height, 1)
+        expect(Math.abs(glyph.x + glyph.width / 2 - during.x - during.width / 2)).toBeLessThan(1)
+        expect(Math.abs(glyph.y + glyph.height / 2 - during.y - during.height / 2)).toBeLessThan(1)
+      } finally { release() }
       await expect(control).toBeEnabled()
       const after = (await control.boundingBox())!
       expect(after.width).toBeCloseTo(before.width, 1)
