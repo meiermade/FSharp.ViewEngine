@@ -85,19 +85,18 @@ function captureBrowserErrors(page: Page) {
 }
 
 async function waitForDocsCodeSettlement(page: Page) {
-  // A commit-only navigation has not necessarily parsed its code blocks yet.
+  // Wait for rendered syntax, not a loader promise whose remote handle can be
+  // garbage-collected while a routed document is being replaced.
   await page.waitForLoadState('domcontentloaded')
-  await page.waitForFunction(() =>
-    !document.querySelector('code[class*="language-"]') || Boolean((window as any).fsharpDocsCode?.loading),
-  )
-  await page.evaluate(() => (window as any).fsharpDocsCode?.loading)
+  const code = page.locator('code.language-fsharp').first()
+  if (await code.count()) await expect(code.locator('.token').first()).toBeAttached()
 }
 
 // Request routing disables Playwright's HTTP cache, so settle the current document's
 // own assets before ordinary full navigation in workflows that mock the CDN runtime.
 async function waitForDocsAssetSettlement(page: Page) {
   await waitForDocsCodeSettlement(page)
-  await page.evaluate(() => document.fonts?.ready)
+  await page.waitForFunction(() => document.fonts.status === 'loaded')
 }
 
 async function gotoAfterDocsAssetSettlement(page: Page, path: string, waitUntil: 'commit' | 'domcontentloaded' = 'commit') {
