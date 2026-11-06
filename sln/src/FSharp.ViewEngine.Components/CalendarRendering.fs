@@ -240,12 +240,12 @@ module internal CalendarRendering =
                 if List.isEmpty events then config.emptyState
                 if config.view = CalendarView.Month || config.view = CalendarView.Year then renderDates resolve config
                 else
-                    div {
-                        _class ("fve-calendar-body min-w-0 rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] " + (if timed then "relative grid max-h-152 grid-cols-[3.5rem_minmax(0,1fr)] overflow-auto" else "overflow-x-auto"))
+                    (Html.el "fve-scroll-region") {
+                        _class ("fve-calendar-body min-w-0 rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] " + (if timed then "relative grid max-h-152 grid-cols-[3.5rem_minmax(0,1fr)] overflow-auto" else "block overflow-x-auto"))
                         _style $"--fve-calendar-hours:{endHour - startHour};--fve-calendar-days:{days.Length};--fve-calendar-all-day-rows:{allDayRows}"
                         _tabindex 0
                         _role "region"
-                        _data ("on:keydown", "if (evt.target === el && !evt.ctrlKey && !evt.metaKey && !evt.altKey && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(evt.key)) { const horizontal = evt.key === 'ArrowLeft' || evt.key === 'ArrowRight'; if (horizontal ? el.scrollWidth > el.clientWidth : el.scrollHeight > el.clientHeight) { evt.preventDefault(); const offset = evt.key === 'ArrowLeft' || evt.key === 'ArrowUp' ? -64 : 64; el.scrollBy({left:horizontal ? offset : 0,top:horizontal ? 0 : offset}) } }")
+                        _attr("scroll-axis", "both")
                         _ariaLabel (config.label + (if timed then " scrollable times" else " scrollable dates"))
                         if timed then
                             div {

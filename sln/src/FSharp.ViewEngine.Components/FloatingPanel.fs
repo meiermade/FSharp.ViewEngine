@@ -58,34 +58,23 @@ module internal FloatingPanel =
 
     let render attributes children =
         let config = configuration attributes children
-        let token = ComponentHtml.signalToken config.id
-        let signal = $"_{token}FloatingPanelState"
-        let value = "$" + signal
         let titleId = config.id + "-title"
-        let titleExpression = ComponentHtml.javascriptString titleId
-        let restoreFocus = $"queueMicrotask(() => document.getElementById({titleExpression})?.focus())"
-        let focusRestore id = $"queueMicrotask(() => document.getElementById({ComponentHtml.javascriptString id})?.focus())"
-        let minimizedFocus = focusRestore (config.id + "-open")
-        let dismissedFocus = focusRestore (config.id + "-restore")
-        let stateEvent state =
-            $"evt.currentTarget.closest('[data-fve-floating-panel-root]')?.dispatchEvent(new CustomEvent('fve-floating-panel-state', {{ bubbles: true, detail: {{ id: {ComponentHtml.javascriptString config.id}, state: {ComponentHtml.javascriptString state} }} }}))"
-        let minimizedEvent = stateEvent "minimized"
-        let dismissedEvent = stateEvent "dismissed"
-        let openEvent = stateEvent "open"
         let initial =
             match config.state with
             | FloatingPanelState.Open -> "open"
             | FloatingPanelState.Minimized -> "minimized"
             | FloatingPanelState.Dismissed -> "dismissed"
-        div {
+        (Html.el "fve-floating-panel") {
+            _id (config.id + "-host")
+            _class "contents"
             _attr ("data-fve-floating-panel-root", "true")
-            _dataSignals $"{{{signal}: {ComponentHtml.javascriptString initial}}}"
+            _attr ("state", initial)
             section {
                 let defaults = [
                     yield _id config.id
                     yield _ariaLabelledby titleId
                     yield _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 flex max-h-[min(36rem,calc(100dvh-5rem))] w-[min(24rem,calc(100%-2rem))] flex-col overflow-hidden [body:has([data-fve-bottom-navigation=true])_&]:bottom-[max(4rem,calc(env(safe-area-inset-bottom)+3.5rem))] max-[30rem]:right-[max(8px,env(safe-area-inset-right))] max-[30rem]:w-[min(24rem,calc(100%-16px))] rounded-[var(--fve-radius-panel)] bg-[var(--fve-background)] text-[var(--fve-text)] shadow-xl ring-1 ring-[var(--fve-border)]")
-                    yield _dataShow (value + " == 'open'")
+                    yield _attr ("data-fve-floating-panel-state", "open")
                     if config.state <> FloatingPanelState.Open then yield _style "display:none" ]
                 for attribute in ComponentElement.attributes (defaults @ config.attributes) do attribute
                 header {
@@ -109,14 +98,14 @@ module internal FloatingPanel =
                             _ariaLabel ("Minimize " + config.title)
                             _ariaControls config.id
                             _class "inline-flex size-8 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
-                            _dataOn ("click", $"{value} = 'minimized'; {minimizedEvent}; {minimizedFocus}")
+                            _attr ("data-fve-floating-panel-action", "minimized")
                             icon "M4 9.25a.75.75 0 0 0 0 1.5h12a.75.75 0 0 0 0-1.5H4Z"
                         }
                         button {
                             _type "button"
                             _ariaLabel ("Dismiss " + config.title)
                             _class "inline-flex size-8 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
-                            _dataOn ("click", $"{value} = 'dismissed'; {dismissedEvent}; {dismissedFocus}")
+                            _attr ("data-fve-floating-panel-action", "dismissed")
                             icon "M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z"
                         }
                     }
@@ -135,9 +124,9 @@ module internal FloatingPanel =
                 _ariaControls config.id
                 _ariaExpanded false
                 _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel-trigger right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 inline-flex min-h-[var(--fve-control-min-height)] max-w-[min(24rem,calc(100%-2rem))] items-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] [body:has([data-fve-bottom-navigation=true])_&]:bottom-[max(4rem,calc(env(safe-area-inset-bottom)+3.5rem))] max-[30rem]:right-[max(8px,env(safe-area-inset-right))] max-[30rem]:max-w-[min(24rem,calc(100%-16px))] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] shadow-lg ring-1 ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]")
-                _dataShow (value + " == 'minimized'")
+                _attr ("data-fve-floating-panel-state", "minimized")
                 if config.state <> FloatingPanelState.Minimized then _style "display:none"
-                _dataOn ("click", $"{value} = 'open'; {openEvent}; {restoreFocus}")
+                _attr ("data-fve-floating-panel-action", "open")
                 "Open " + config.title
             }
             button {
@@ -145,9 +134,9 @@ module internal FloatingPanel =
                 _type "button"
                 _ariaControls config.id
                 _class ((if config.boundary = FloatingPanelBoundary.Container then "absolute" else "fixed") + " fve-floating-panel-trigger right-[max(1rem,env(safe-area-inset-right))] bottom-[max(1rem,env(safe-area-inset-bottom))] z-40 inline-flex min-h-[var(--fve-control-min-height)] max-w-[min(24rem,calc(100%-2rem))] items-center rounded-[var(--fve-radius-control)] px-3 [body:has([data-fve-bottom-navigation=true])_&]:bottom-[max(4rem,calc(env(safe-area-inset-bottom)+3.5rem))] max-[30rem]:right-[max(8px,env(safe-area-inset-right))] max-[30rem]:max-w-[min(24rem,calc(100%-16px))] py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-brand-text)] underline-offset-2 hover:bg-[var(--fve-surface-hover)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]")
-                _dataShow (value + " == 'dismissed'")
+                _attr ("data-fve-floating-panel-state", "dismissed")
                 if config.state <> FloatingPanelState.Dismissed then _style "display:none"
-                _dataOn ("click", $"{value} = 'open'; {openEvent}; {restoreFocus}")
+                _attr ("data-fve-floating-panel-action", "open")
                 "Restore " + config.title
             }
         }

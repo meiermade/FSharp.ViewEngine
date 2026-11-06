@@ -8,6 +8,7 @@ const loadRenderer = () => renderer ??= import('./echarts.6.1.0.esm.min.js').cat
 const validOptions = value => value && typeof value === 'object' && !Array.isArray(value);
 
 rocket('fve-chart', {
+  scope: false,
   renderOnPropChange: false,
   props: ({ json, bool }) => ({ options: json, events: json.default([]), empty: bool.default(false) }),
   manifest: { events: [
@@ -22,9 +23,10 @@ rocket('fve-chart', {
       .plot[data-message] { display:grid; place-items:center; color:var(--fve-muted-text); }
       :host([data-ready]) slot { display:none; }
     </style>
-    <div class="plot" data-ref:plot><span role="status">Loading chart…</span></div>
+    <div class="plot"><span role="status">Loading chart…</span></div>
     <slot></slot>`,
-  onFirstRender: ({ refs, host, props, observeProps, cleanup }) => {
+  onFirstRender: ({ host, props, observeProps, cleanup }) => {
+    const plot = host.shadowRoot.querySelector('.plot');
     delete host.dataset.ready;
     let chart;
     let echarts;
@@ -70,12 +72,12 @@ rocket('fve-chart', {
     };
     const message = text => {
       release();
-      refs.plot.dataset.message = 'true';
-      refs.plot.replaceChildren();
+      plot.dataset.message = 'true';
+      plot.replaceChildren();
       const status = document.createElement('span');
       status.setAttribute('role', 'status');
       status.textContent = text;
-      refs.plot.append(status);
+      plot.append(status);
     };
     const update = () => {
       if (disposed) return;
@@ -102,15 +104,15 @@ rocket('fve-chart', {
         });
         return;
       }
-      if (!refs.plot.clientWidth || !refs.plot.clientHeight) return;
-      delete refs.plot.dataset.message;
+      if (!plot.clientWidth || !plot.clientHeight) return;
+      delete plot.dataset.message;
       const style = getComputedStyle(host);
       const currentTheme = theme(style);
       const key = JSON.stringify(currentTheme);
       try {
         if (!chart) {
-          refs.plot.replaceChildren();
-          chart = echarts.init(refs.plot, currentTheme, { renderer: 'svg' });
+          plot.replaceChildren();
+          chart = echarts.init(plot, currentTheme, { renderer: 'svg' });
         } else if (key !== themeKey) {
           // ECharts 6 setTheme recreates component models; retain settled native interaction state.
           const previous = chart.getOption();
@@ -145,7 +147,7 @@ rocket('fve-chart', {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => { if (!chart) update(); chart?.resize(); });
     });
-    resize.observe(refs.plot);
+    resize.observe(plot);
     const appearance = new MutationObserver(update);
     for (let element = host; element; element = element.parentElement)
       appearance.observe(element, { attributes: true, attributeFilter: ['class', 'style', 'data-fve-color-mode'] });

@@ -3195,7 +3195,7 @@ module Components =
 
             button {
                 _type "button"
-                _dataOn ("click", "@get('/components/members/field')")
+                _dataOn ("click", "document.getElementById('fve-select-components_remote_members-field').dispatchEvent(new CustomEvent('fve-select-refresh', {detail:{endpoint:'/components/members/field'}}))")
                 _class "min-h-8 text-sm text-[var(--fve-brand-text)] underline underline-offset-2"
                 "Refresh members"
             }
@@ -3795,7 +3795,7 @@ module Components =
             _class "grid max-w-sm gap-3"
 
             form {
-                _dataOn ("submit", "@post('/components/choices/select')")
+                _dataOn ("submit", "@post('/components/choices/select', {contentType:'form'})")
                 _class "grid gap-3"
 
                 fveField {

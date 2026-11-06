@@ -23,12 +23,18 @@ type Configuration =
       Files:InstalledFile array }
 
 [<NoEquality; NoComparison>]
-type RegistryComponent =
-    { Name:string
+type RegistryFile =
+    { Component:string
       FileName:string
-      Dependencies:string list
       Compile:bool
       Source:string }
+
+[<NoEquality; NoComparison>]
+type RegistryComponent =
+    { Name:string
+      Dependencies:string list
+      Internal:bool
+      Files:RegistryFile list }
 
 [<NoEquality; NoComparison>]
 type ComponentRegistry =

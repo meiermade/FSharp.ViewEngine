@@ -23,7 +23,7 @@ let private encodeStatus =
 let tests =
     testList
         "Component DSL"
-        [ test "distinct component IDs cannot share generated state or anchor identities" {
+        [ test "distinct component IDs remain lossless native identities" {
               let ids = ["review-start-date"; "review_start_date"; "Review-start-date"; "review--start-date"; "1-start"; "é"; "漢字"]
               let calendars =
                   ids |> List.mapi (fun index id ->
@@ -31,21 +31,21 @@ let tests =
                           _id id; _name ("date" + string index); _ariaLabel ("Date " + string index)
                           _value "2026-11-12"
                       } |> Render.toString)
-              let signals = calendars |> List.map (fun html -> Regex.Match(html, "data-signals=\"\\{([^:]+):").Groups[1].Value)
-              Expect.isTrue (signals |> List.forall (System.String.IsNullOrEmpty >> not)) "every calendar declares its local state"
-              Expect.equal (List.distinct signals).Length ids.Length "legal distinct IDs retain independent state"
+              let renderedIds = calendars |> List.map (fun html -> Regex.Match(html, "<fve-calendar-selection id=\"([^\"]+)\"").Groups[1].Value |> System.Net.WebUtility.HtmlDecode)
+              Expect.equal renderedIds ids "native identities are not normalized or collapsed"
           }
 
-          test "readonly native controls retain persistent guards alongside caller events" {
+          test "readonly native controls retain their owners, native flags and caller events" {
               let attributes =
                   [ _id "readonly-event-contract"; _name "value"; _ariaLabel "Readonly value"; _readonly true
                     _dataOn ("click", "el.dataset.clicked = 'yes'")
                     _attr ("data-on:click__once", "el.dataset.once = 'yes'")
                     _attr ("data-on:click__capture", "el.dataset.captured = 'yes'") ]
-              for render in [ fveCheckbox; fveSwitch; fveRadio; fveFileSelection ] do
+              for render, owner in [ fveCheckbox, "fve-checkbox"; fveSwitch, "fve-switch"; fveRadio, "fve-radio"; fveFileSelection, "fve-file-selection" ] do
                   let html = render { for attribute in attributes do attribute } |> Render.toString
                   let control = Regex.Match(html, "<input[^>]*>").Value
-                  Expect.stringContains control "data-on:click__capture=\"if (el.readOnly) evt.preventDefault();" "a persistent capture guard cannot be overwritten"
+                  Expect.stringContains html ("<" + owner + " ") "the native control retains its lifecycle owner"
+                  Expect.isTrue (Regex.IsMatch(control, "\\sreadonly(?:\\s|>|=)")) "readonly remains a native property"
                   Expect.stringContains control "el.dataset.captured" "the caller capture callback is retained"
                   Expect.stringContains control "data-on:click__once=" "caller once behavior remains independent"
                   Expect.stringContains control "data-on:click=\"el.dataset.clicked" "ordinary callbacks still run"
@@ -1558,7 +1558,7 @@ let tests =
                   [ "<strong>Active</strong>"
                     "role=\"group\""
                     "aria-label=\"Statuses\""
-                    "fve-select-choice" ] do
+                    "<fve-select " ] do
                   Expect.stringContains html expected "rich content stays native and events stay root-owned"
 
               let disabled =
@@ -1922,7 +1922,7 @@ let tests =
                     "role=\"menu\""
                     "href=\"/components\""
                     "href=\"/examples\""
-                    "data-on:keydown"
+                    "<fve-dropdown-menu "
                     "aria-controls=\"explore-menu\"" ] do
                   Expect.stringContains html expected "the builder retains the menu's native and Datastar contract"
 
@@ -2037,7 +2037,7 @@ let tests =
                   |> Render.toString
 
               Expect.stringContains floating "custom-guide" "floating panel attributes belong to its native section"
-              Expect.stringContains floating "FloatingPanelState" "local UI state is private to the component"
+              Expect.stringContains floating "state=\"minimized\"" "the native lifecycle owner receives the initial state"
               Expect.stringContains floating "Supporting action" "the footer is ordinary server-rendered content"
           }
 

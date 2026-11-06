@@ -59,19 +59,6 @@ module internal Popover =
     let part kind attributes children =
         PopoverPartElement(kind, ComponentElement.attributes attributes, children) :> HtmlElement
 
-    let private eventAttribute event expression attributes =
-        let name = "data-on:" + event
-
-        match ComponentElement.attribute name attributes with
-        | Some attribute ->
-            Html._attr (
-                name,
-                expression
-                + "; "
-                + (attribute.Value |> ValueOption.toOption |> Option.defaultValue "void 0")
-            )
-        | None -> Html._attr (name, expression)
-
     let render attributes (children: HtmlElement list) =
         let id = ComponentElement.required "id" attributes |> TextField.stableId
 
@@ -116,7 +103,6 @@ module internal Popover =
             ComponentElement.choice "focus-on-open" "false" [ "true"; "false" ] attributes = "true"
 
         let readOnly = ComponentTrigger.unavailable controlAttributes
-        let openSignal = "_fvePopover" + ComponentHtml.signalToken id
 
         let position =
             match side, alignment with
@@ -139,18 +125,13 @@ module internal Popover =
               yield _ariaHaspopup "dialog"
               yield _ariaControls panelId
               yield _attr ("popovertarget", panelId)
-              yield _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
+              yield _ariaExpanded false
               if readOnly then
                   yield _ariaDisabled true
-              yield
-                  ComponentTrigger.event
-                      "click"
-                      (if readOnly then "evt.preventDefault()" else "void 0")
-                      controlAttributes ]
+              ]
 
         let triggerAttributes =
             controlAttributes
-            |> ComponentTrigger.withoutEvents [ "click" ]
             |> ComponentHtml.safeAttributes
                 [ "id"
                   "type"
@@ -175,20 +156,6 @@ module internal Popover =
                 ComponentElement.value name contentAttributes
                 |> Option.exists (String.IsNullOrWhiteSpace >> not))
 
-        let restore =
-            $"document.getElementById({ComponentHtml.javascriptString triggerId})?.focus()"
-
-        let opened =
-            if focusContent then
-                "if (evt.newState == 'open') queueMicrotask(() => { if (el.isConnected && el.matches(':popover-open')) el.querySelector('input:not(:disabled),select:not(:disabled),textarea:not(:disabled),button:not(:disabled),a[href],[tabindex=\"0\"]')?.focus() }); "
-            else
-                ""
-
-        let toggle =
-            $"${openSignal} = evt.newState == 'open'; "
-            + opened
-            + $"if (evt.newState == 'closed' && el.dataset.fveEscapeDismissed == 'true') {{ delete el.dataset.fveEscapeDismissed; {restore} }}"
-
         let contentDefaults =
             [ yield _id panelId
               yield _role "dialog"
@@ -198,23 +165,19 @@ module internal Popover =
               yield
                   _style
                       $"inset:auto;margin:0.5rem 0;position-anchor:{anchor};position-area:{position};position-try-fallbacks:flip-block,flip-inline,flip-block flip-inline"
-              yield
-                  eventAttribute
-                      "keydown"
-                      "if (evt.key == 'Escape' && !evt.defaultPrevented) el.dataset.fveEscapeDismissed = 'true'"
-                      contentAttributes
-              yield eventAttribute "toggle" toggle contentAttributes
+              yield _attr ("data-fve-popover-content", "")
+              yield _attr ("data-fve-popover-trigger", triggerId)
               // Closed visibility must beat caller display utilities without replacing the open layout.
               yield
                   _class
                       "fixed max-h-[min(32rem,calc(100dvh-2rem))] w-[min(24rem,calc(100vw-2rem))] overflow-auto rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-surface)] p-4 text-[var(--fve-text)] shadow-xl [&:not(:popover-open)]:hidden" ]
 
         ComponentElement.render
-            "span"
+            "fve-popover"
             [ _id id
               _class "inline-flex"
               _style $"anchor-name:{anchor}"
-              _dataSignals $"{{{openSignal}: false}}" ]
+              _attr ("focus-on-open", if focusContent then "true" else "false") ]
             (ComponentHtml.safeAttributes
                 [ "side"; "alignment"; "focus-on-open"; "aria-label"; "aria-labelledby" ]
                 attributes)
@@ -223,7 +186,7 @@ module internal Popover =
                   "div"
                   contentDefaults
                   (ComponentHtml.safeAttributes
-                      [ "id"; "role"; "popover"; "data-on:keydown"; "data-on:toggle" ]
+                      [ "id"; "role"; "popover" ]
                       contentAttributes)
                   content.Children ]
 

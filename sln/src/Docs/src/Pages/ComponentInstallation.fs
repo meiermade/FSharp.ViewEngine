@@ -14,30 +14,36 @@ open type Html
 module ComponentInstallation =
     type private Entry =
         { file: string
-          dependencies: string list }
+          dependencies: string list
+          modules: string list }
 
     let private registry =
         use stream =
             typeof<DocPage>.Assembly
                 .GetManifestResourceStream("Docs.ComponentRegistry.props")
 
-        XDocument.Load(stream).Descendants()
-        |> Seq.choose (fun element ->
-            let name = element.Attribute(XName.Get "FveName")
+        let entries = XDocument.Load(stream).Descendants() |> Seq.toList
+        let attribute name (element: XElement) =
+            let value = element.Attribute(XName.Get name)
+            if isNull value then "" else value.Value
 
-            if isNull name then
-                None
+        entries
+        |> List.choose (fun element ->
+            let name = attribute "FveName" element
+            if name = "" then None
             else
                 Some(
-                    name.Value,
-                    { file = element.Attribute(XName.Get "FveFile").Value
-                      dependencies =
-                        element
-                            .Attribute(XName.Get "FveDependencies")
-                            .Value.Split(';', StringSplitOptions.RemoveEmptyEntries)
-                        |> Array.toList }
+                    name,
+                    { file = attribute "FveFile" element
+                      dependencies = (attribute "FveDependencies" element).Split(';', StringSplitOptions.RemoveEmptyEntries) |> Array.toList
+                      modules =
+                        entries
+                        |> List.filter (fun file ->
+                            (attribute "FveName" file = name || attribute "FveOwner" file = name)
+                            && attribute "FveModule" file = "true")
+                        |> List.map (attribute "FveFile") }
                 ))
-        |> Map.ofSeq
+        |> Map.ofList
 
     let private closure selector =
         let rec visit found name =
@@ -54,8 +60,8 @@ module ComponentInstallation =
 
     let private modules (selectors: seq<string>) =
         selectors
-        |> Seq.filter (fun name -> name.EndsWith("-script", StringComparison.Ordinal))
-        |> Seq.map (fun name -> registry[name].file)
+        |> Seq.choose (fun name -> Map.tryFind name registry)
+        |> Seq.collect _.modules
         |> Set.ofSeq
 
     let private code language (source: string) =
@@ -106,7 +112,7 @@ module ComponentInstallation =
                   p { "No additional JavaScript import is required." }
               else
                   yield! imports files
-              if dependencies.Contains "code-assets" then
+              if dependencies.Contains "code-block" then
                   p { "Include this once in your document head to enable copying:" }
                   code "fsharp" "CodeBlock.assets None []"
 
@@ -115,7 +121,7 @@ module ComponentInstallation =
                       link "/components/code-block#syntax-highlighting" "Code block setup"
                       "."
                   }
-              if dependencies.Contains "mermaid-assets" then
+              if dependencies.Contains "mermaid" then
                   p {
                       "Serve the "
                       link "https://mermaid.js.org/intro/getting-started.html" "Mermaid browser bundle"

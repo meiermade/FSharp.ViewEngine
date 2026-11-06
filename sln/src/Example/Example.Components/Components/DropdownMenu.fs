@@ -240,10 +240,6 @@ module internal DropdownMenu =
             || DropdownMenuItem.flag "aria-disabled" trigger.attributes
 
         let disabled = DropdownMenuItem.flag "disabled" trigger.attributes
-        let instanceId = ComponentHtml.signalToken config.id
-        let openSignal = $"_{instanceId}_open"
-        let typeaheadSignal = $"_{instanceId}_typeahead"
-        let typeaheadTimeSignal = $"_{instanceId}_typeahead_time"
 
         let triggerId =
             ComponentElement.value "id" trigger.attributes
@@ -261,90 +257,6 @@ module internal DropdownMenu =
             match config.alignment with
             | DropdownMenuAlignment.Start -> "block-end span-inline-end"
             | DropdownMenuAlignment.End -> "block-end span-inline-start"
-
-        let menuJsId = ComponentHtml.javascriptString menuId
-        let triggerJsId = ComponentHtml.javascriptString triggerId
-
-        let enabledItems =
-            $"Array.from(document.getElementById({menuJsId}).querySelectorAll(':is([role=menuitem], [role=menuitemradio], [role=menuitemcheckbox]):not([aria-disabled=true])')).filter(item => item.getClientRects().length)"
-
-        let firstItem = $"{enabledItems}.at(0)"
-        let lastItem = $"{enabledItems}.at(-1)"
-        let currentIndex = $"{enabledItems}.indexOf(document.activeElement)"
-        let focus item = $"({item})?.focus()"
-        // WebKit can retarget a stationary pointer after focus scrolling; only intentional coordinate changes move focus.
-        let menuElement = $"document.getElementById({menuJsId})"
-
-        let pointerMoved =
-            $"(evt.clientX != Number({menuElement}.dataset.fvePointerX) || evt.clientY != Number({menuElement}.dataset.fvePointerY))"
-
-        let rememberPointer =
-            "el.dataset.fvePointerX = evt.clientX; el.dataset.fvePointerY = evt.clientY"
-
-        let move offset =
-            let missingIndex = if offset > 0 then -1 else 0
-            $"evt.preventDefault(), {enabledItems}.length && {enabledItems}.at((({currentIndex} < 0 ? {missingIndex} : {currentIndex}) + {offset} + {enabledItems}.length) %% {enabledItems}.length)?.focus()"
-
-        let searchText =
-            $"(Array.from(${typeaheadSignal}).every(character => character == ${typeaheadSignal}[0]) ? ${typeaheadSignal}[0] : ${typeaheadSignal})"
-
-        let startIndex = $"Math.max(0, {currentIndex} + 1)"
-
-        let orderedItems =
-            $"{enabledItems}.slice({startIndex}).concat({enabledItems}.slice(0, {startIndex}))"
-
-        let typeaheadMatch =
-            $"{orderedItems}.find(item => item.dataset.fveMenuLabel.startsWith({searchText}))"
-
-        let typeahead =
-            $"!evt.ctrlKey && !evt.metaKey && !evt.altKey && evt.key.length == 1 && evt.key != ' ' && (evt.preventDefault(), ${typeaheadSignal} = Date.now() - ${typeaheadTimeSignal} > 700 ? evt.key.toLowerCase() : ${typeaheadSignal} + evt.key.toLowerCase(), ${typeaheadTimeSignal} = Date.now(), {focus typeaheadMatch})"
-
-        let menuIsOpen = $"{menuElement}.matches(':popover-open')"
-
-        let cleanupPosition =
-            $"(() => {{ const menu = {menuElement}; if (menu._fvePosition) {{ delete menu._fvePosition; menu.style.setProperty('position-area', menu.dataset.fvePositionArea); menu.style.removeProperty('left'); menu.style.removeProperty('top') }} }})()"
-
-        let horizontalPosition =
-            match config.alignment with
-            | DropdownMenuAlignment.Start -> "trigger.left"
-            | DropdownMenuAlignment.End -> "trigger.right - width"
-
-        let preparePosition =
-            $"document.getElementById({triggerJsId}).closest('[data-fve-sticky-cell=true]') && (() => {{ const menu = {menuElement}; menu.style.removeProperty('position-area'); const position = () => {{ const trigger = document.getElementById({triggerJsId}).getBoundingClientRect(); const width = menu.offsetWidth; const height = menu.offsetHeight; const padding = 16; const gap = parseFloat(getComputedStyle(menu).marginTop); const left = Math.min(Math.max(padding, {horizontalPosition}), window.innerWidth - width - padding); const below = trigger.bottom + gap; const preferredTop = below + height + padding <= window.innerHeight ? below : trigger.top - height - gap; const top = Math.min(Math.max(padding, preferredTop), window.innerHeight - height - padding); menu.style.left = `${{left}}px`; menu.style.top = `${{top - gap}}px` }}; menu._fvePosition = position; position() }})()"
-
-        let hideMenu = $"{menuIsOpen} && ({menuElement}.hidePopover(), {cleanupPosition})"
-
-        let closeAndRestore =
-            $"{hideMenu}, ${typeaheadSignal} = '', document.getElementById({triggerJsId})?.focus()"
-
-        let closeWithoutRestore = $"{hideMenu}, ${typeaheadSignal} = ''"
-
-        let showAndFocus item =
-            $"{menuIsOpen} || ({menuElement}.showPopover({{source: document.getElementById({triggerJsId})}}), {preparePosition}), {focus item}"
-
-        let menuKeydown =
-            String.concat
-                "; "
-                [ $"evt.key == 'Escape' && (evt.preventDefault(), {closeAndRestore})"
-                  $"evt.key == 'ArrowDown' && ({move 1})"
-                  $"evt.key == 'ArrowUp' && ({move -1})"
-                  $"evt.key == 'Home' && (evt.preventDefault(), {focus firstItem})"
-                  $"evt.key == 'End' && (evt.preventDefault(), {focus lastItem})"
-                  $"(evt.key == 'Enter' || evt.key == ' ') && {enabledItems}.includes(document.activeElement) && (evt.preventDefault(), document.activeElement.click())"
-                  $"evt.key == 'Tab' && ({closeWithoutRestore})"
-                  typeahead ]
-
-        let showAndFocusFirst = showAndFocus firstItem
-        let showAndFocusLast = showAndFocus lastItem
-
-        let toggleAndFocus =
-            $"{menuIsOpen} ? ({menuElement}.hidePopover(), {cleanupPosition}) : ({menuElement}.showPopover({{source: document.getElementById({triggerJsId})}}), {preparePosition}, evt.detail == 0 ? ({focus firstItem}) : {menuElement}.focus({{preventScroll: true}}))"
-
-        let triggerKeydown =
-            String.concat
-                "; "
-                [ $"evt.key == 'ArrowDown' && (evt.preventDefault(), {showAndFocusFirst})"
-                  $"evt.key == 'ArrowUp' && (evt.preventDefault(), {showAndFocusLast})" ]
 
         let itemContent (content: MenuItemContent) =
             [ if content.pending then
@@ -454,21 +366,11 @@ module internal DropdownMenu =
                     _attr ("data-fve-menu-label", content.label.ToLowerInvariant())
 
                     if unavailable |> not then
-                        _dataOn (
-                            "pointermove",
-                            $"evt.pointerType != 'touch' && {pointerMoved} && el.focus({{preventScroll: true}})"
-                        )
-
-                        _dataOn (
-                            "pointerleave",
-                            $"evt.pointerType != 'touch' && {pointerMoved} && document.activeElement == el && {menuElement}.focus({{preventScroll: true}})"
-                        )
-
                         let action =
                             ComponentElement.value content.clickName content.attributes
                             |> Option.defaultValue "void 0"
 
-                        _attr (content.clickName, $"{closeAndRestore}; {action}")
+                        _attr (content.clickName, action)
 
                     _style (ComponentColors.style content.color content.attributes)
 
@@ -517,19 +419,7 @@ module internal DropdownMenu =
                     _attr ("data-fve-menu-label", content.label.ToLowerInvariant())
 
                     if unavailable |> not then
-                        _dataOn (
-                            "pointermove",
-                            $"evt.pointerType != 'touch' && {pointerMoved} && el.focus({{preventScroll: true}})"
-                        )
-
-                        _dataOn (
-                            "pointerleave",
-                            $"evt.pointerType != 'touch' && {pointerMoved} && document.activeElement == el && {menuElement}.focus({{preventScroll: true}})"
-                        )
-
-                        match item with
-                        | Checkbox _ -> _attr (content.clickName, expression)
-                        | _ -> _attr (content.clickName, $"{closeAndRestore}; {expression}")
+                        _attr (content.clickName, expression)
 
                     _style (ComponentColors.style content.color content.attributes)
 
@@ -579,18 +469,17 @@ module internal DropdownMenu =
                       for index, child in items |> List.indexed do
                           yield renderEntry $"{path}-{index}" child ]
 
-        div {
+        (Html.el "fve-dropdown-menu") {
             _class (ComponentHtml.classes [ "relative inline-flex"; config.containerClass |> Option.defaultValue "" ])
-            _dataSignals $"{{{openSignal}: false, {typeaheadSignal}: '', {typeaheadTimeSignal}: 0}}"
+            _attr ("alignment", if config.alignment = DropdownMenuAlignment.Start then "start" else "end")
 
-            for attribute in ComponentHtml.safeAttributes [ "class"; "data-signals" ] config.attributes do
+            for attribute in ComponentHtml.safeAttributes [ "class"; "alignment" ] config.attributes do
                 attribute
 
             ComponentTrigger.render
                 trigger.control
                 [ yield!
                       trigger.attributes
-                      |> ComponentTrigger.withoutEvents [ "click"; "keydown" ]
                       |> ComponentHtml.safeAttributes
                           [ "id"
                             "type"
@@ -610,26 +499,10 @@ module internal DropdownMenu =
                   yield _ariaExpanded false
                   if not (String.IsNullOrWhiteSpace config.label) then
                       yield _ariaLabel config.label
-                  yield _dataAttr ("aria-expanded", $"${openSignal} ? 'true' : 'false'")
                   yield _ariaControls menuId
                   yield _disabled disabled
                   yield _ariaDisabled (disabled || readOnly)
-                  yield
-                      ComponentTrigger.event
-                          "click"
-                          ("evt.preventDefault(); "
-                           + ComponentTrigger.guard
-                               triggerId
-                               (if readOnly then
-                                    "void 0"
-                                else
-                                    $"${typeaheadSignal} = ''; {toggleAndFocus}"))
-                          trigger.attributes
-                  yield
-                      ComponentTrigger.event
-                          "keydown"
-                          (ComponentTrigger.guard triggerId (if readOnly then "void 0" else triggerKeydown))
-                          trigger.attributes ]
+                  ]
 
             div {
                 _id menuId
@@ -637,21 +510,7 @@ module internal DropdownMenu =
                 _role "menu"
                 _tabindex -1
                 _ariaLabelledby triggerId
-                _dataOn ("scroll__window__capture", "el._fvePosition?.()")
-                _dataOn ("resize__window", "el._fvePosition?.()")
-
-                _dataOn (
-                    "beforetoggle",
-                    $"${openSignal} = evt.newState == 'open'; evt.newState == 'closed' && (${typeaheadSignal} = '')"
-                )
-
-                _dataOn ("toggle", $"evt.newState == 'closed' && ({cleanupPosition})")
-                _dataOn ("keydown", menuKeydown)
-                _dataOn ("pointermove", [ "window" ], rememberPointer)
-                _attr ("data-fve-pointer-x", "NaN")
-                _attr ("data-fve-pointer-y", "NaN")
                 _attr ("data-fve-position-area", positionArea)
-                _dataPreserveAttr "data-fve-pointer-x data-fve-pointer-y"
 
                 _style
                     $"inset: auto; margin: 0.5rem 0; position-area: {positionArea}; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: min(16rem, calc(100vw - 2rem))"

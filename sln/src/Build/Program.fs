@@ -345,11 +345,12 @@ Target.create "UpdateInstalledComponents" (fun _ ->
         System.Xml.Linq.XDocument.Load(srcDir </> "FSharp.ViewEngine.Components" </> "FSharp.ViewEngine.Components.Registry.props").Descendants()
         |> Seq.choose (fun element ->
             let name = element.Attribute(System.Xml.Linq.XName.Get "FveName")
-            if isNull name then None else Some name.Value)
+            let internal' = element.Attribute(System.Xml.Linq.XName.Get "FveInternal")
+            if isNull name || (not (isNull internal') && internal'.Value = "true") then None else Some name.Value)
         |> Seq.toList
     dotnet slnDir (["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"] @ selectors @ ["--config"; "src/Docs.Components/fve.json"; "--overwrite"])
     |> Async.RunSynchronously
-    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "button"; "field"; "chart"; "checkbox"; "input-group"; "notification"; "--config"; "src/Example/Example.Components/fve.json"; "--overwrite"]
+    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "button"; "field"; "chart"; "checkbox"; "input-group"; "notification"; "command"; "--config"; "src/Example/Example.Components/fve.json"; "--overwrite"]
     |> Async.RunSynchronously
 )
 

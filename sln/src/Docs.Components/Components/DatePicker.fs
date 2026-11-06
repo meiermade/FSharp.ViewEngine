@@ -37,37 +37,7 @@ module internal DatePicker =
             | MonthCalendarSelection.Range(Some startDate, None) -> format (Some startDate) + " – Choose end date"
             | MonthCalendarSelection.Range(None, _) -> "Choose date range"
 
-        let token = ComponentHtml.signalToken calendar.id
-        let selectedSignal = "_month_calendar_" + token + "_selected"
-        let endSignal = "_month_calendar_" + token + "_end"
-
-        let formatExpression signal =
-            "new Intl.DateTimeFormat("
-            + ComponentHtml.javascriptString calendar.locale
-            + ", { dateStyle: 'short', timeZone: 'UTC' }).format(new Date($"
-            + signal
-            + " + 'T00:00:00Z'))"
-
-        let valueExpression =
-            match calendar.selection with
-            | MonthCalendarSelection.Single _ ->
-                "$"
-                + selectedSignal
-                + " ? "
-                + formatExpression selectedSignal
-                + " : 'Choose date'"
-            | MonthCalendarSelection.Range _ ->
-                "$"
-                + selectedSignal
-                + " ? ("
-                + formatExpression selectedSignal
-                + " + ($"
-                + endSignal
-                + " ? ' – ' + "
-                + formatExpression endSignal
-                + " : ' – Choose end date')) : 'Choose date range'"
-
-        fvePopover {
+        let content = fvePopover {
             _id (id + "-popover")
             _alignment PopoverAlignment.Start
 
@@ -94,7 +64,7 @@ module internal DatePicker =
                             _class "flex min-w-48 items-center justify-between gap-3"
 
                             span {
-                                _dataText valueExpression
+                                _attr ("data-fve-date-picker-value", "")
                                 visibleValue
                             }
 
@@ -109,12 +79,15 @@ module internal DatePicker =
             }
 
             fvePopoverContent {
-                _class "w-auto max-w-[calc(100vw-2rem)]"
+                _class "w-auto max-w-[calc(100vw-32px)]"
                 // Fit the available anchor area; retain a percentage fallback where stretch is unsupported.
                 _style "padding:0;max-height:min(32rem,calc(100dvh - 2rem),100%);max-height:stretch;position-try-order:most-height"
                 MonthCalendarSelectionRendering.render calendar
             }
         }
+        ComponentElement.render "fve-date-picker"
+            [ _id (id + "-host"); _class "contents"; _lang calendar.locale
+              match calendar.selection with MonthCalendarSelection.Range _ -> _attr("range", "") | _ -> () ] [] [content]
 
 /// <summary>A date-only form control; native labels and feedback belong to the caller.</summary>
 /// <category>date-picker</category>

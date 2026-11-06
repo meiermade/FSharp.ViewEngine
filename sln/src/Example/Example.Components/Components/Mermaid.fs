@@ -7,8 +7,8 @@ open type Datastar
 
 module internal MermaidView =
     let private render (classes:string) (source:string) attributes =
-        ComponentElement.render "div"
-            [_class classes; _data("init", "window.renderMermaid?.(el)"); _data("on:datastar-fetch", "if (evt.detail.type === 'datastar-patch-elements') queueMicrotask(() => { if (el.isConnected) window.renderMermaid?.(el, true) })"); _data("docs-diagram", "true"); _data("mermaid-source", source); _data("mermaid-state", "pending"); _ariaBusy true]
+        ComponentElement.render "fve-mermaid"
+            [_class ("block " + classes); _data("docs-diagram", "true"); _data("mermaid-source", source); _data("mermaid-state", "pending"); _ariaBusy true]
             attributes [
                 p {
                     _class "m-0 text-center text-sm leading-relaxed text-[var(--fve-muted-text)]"

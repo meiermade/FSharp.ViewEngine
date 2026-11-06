@@ -53,17 +53,6 @@ module internal Resizable =
         let leading, trailing = match List.rev panels with [leading; trailing] -> leading, trailing | _ -> invalidArg "children" "Resizable requires exactly two panels."
         let handleAttributes, handleChildren = match handles with [] -> [], [] | [handle] -> handle.Attributes, handle.Children | _ -> invalidArg "children" "Resizable accepts one handle."
         let leadingId = ComponentElement.value "id" leading.Attributes |> Option.defaultValue (id + "-leading")
-        let signal = $"_{ComponentHtml.signalToken id}_size"
-        let coordinate, extent, previousKey, nextKey = if horizontal then "clientX", "width", "ArrowLeft", "ArrowRight" else "clientY", "height", "ArrowUp", "ArrowDown"
-        let toggleCollapse = $"${signal} = ${signal} <= {minimum} ? {initial} : {collapsed}"
-        let pointerMove = $"el.hasPointerCapture(evt.pointerId) && (${signal} = Math.min({maximum}, Math.max({minimum}, Number(el.dataset.fveStartSize) + (evt.{coordinate} - Number(el.dataset.fveStartPoint)) / el.parentElement.getBoundingClientRect().{extent} * 100)))"
-        let keyboard =
-            String.concat "; " [
-                $"evt.key == '{previousKey}' && (evt.preventDefault(), ${signal} = Math.max({minimum}, ${signal} - 2))"
-                $"evt.key == '{nextKey}' && (evt.preventDefault(), ${signal} = Math.min({maximum}, ${signal} + 2))"
-                $"evt.key == 'Home' && (evt.preventDefault(), ${signal} = {minimum})"
-                $"evt.key == 'End' && (evt.preventDefault(), ${signal} = {maximum})"
-                if collapsible then $"evt.key == 'Enter' && (evt.preventDefault(), {toggleCollapse})" ]
         let rootClasses = ComponentHtml.classes [
             "flex min-w-0 overflow-hidden"
             if not horizontal then "flex-col"
@@ -79,16 +68,16 @@ module internal Resizable =
             yield _ariaValuemin (string collapsed)
             yield _ariaValuemax (string maximum)
             yield _ariaValuenow (string initial)
-            yield _dataAttr("aria-valuenow", $"Math.round(${signal})")
             yield _attr("data-fve-resize-handle", "true")
-            yield _dataOn("pointerdown", $"if (evt.button == 0 && evt.isPrimary) {{ el.setPointerCapture(evt.pointerId); el.dataset.fveStartPoint = evt.{coordinate}; el.dataset.fveStartSize = ${signal} }}")
-            yield _dataOn("pointermove", pointerMove)
-            yield _dataOn("keydown", keyboard)
-            if collapsible then yield _dataOn("dblclick", toggleCollapse)
             yield _class handleClasses ]
-        ComponentElement.render "div" [_id id; _role "group"; _ariaLabel label; _attr("data-signals__ifmissing", $"{{{signal}: {initial}}}"); _class rootClasses]
+        let hostAttributes = [
+            _id id; _role "group"; _ariaLabel label; _class rootClasses
+            _attr("initial-size", string initial); _attr("min-size", string minimum); _attr("max-size", string maximum)
+            _attr("orientation", if horizontal then "horizontal" else "vertical")
+            if collapsible then _attr("collapsed-size", string collapsed) ]
+        ComponentElement.render "fve-resizable" hostAttributes
             (ComponentHtml.safeAttributes ["orientation"; "initial-size"; "min-size"; "max-size"; "collapsed-size"; "framed"; "role"] attributes) [
-                ComponentElement.render "div" [_id leadingId; _class ("min-h-0 min-w-0 shrink-0" + if framed then " overflow-auto" else ""); _style ($"flex-basis:{initial}%%"); _dataStyle("flex-basis", $"${signal} + '%%'")] leading.Attributes leading.Children
+                ComponentElement.render "div" [_id leadingId; _class ("min-h-0 min-w-0 shrink-0" + if framed then " overflow-auto" else ""); _style ($"flex-basis:{initial}%%"); _attr("data-fve-resize-leading", "")] leading.Attributes leading.Children
                 ComponentElement.render "div" handleDefaults (ComponentHtml.safeAttributes ["role"; "aria-orientation"; "aria-valuemin"; "aria-valuemax"; "aria-valuenow"; "aria-controls"] handleAttributes) (if handleChildren.IsEmpty then [grip] else handleChildren)
                 ComponentElement.render "div" [_class ("min-h-0 min-w-0 flex-1" + if framed then " overflow-auto" else "")] trailing.Attributes trailing.Children ]
 

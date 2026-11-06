@@ -687,7 +687,7 @@ module DocsView =
                     if not (String.IsNullOrWhiteSpace page.description) then
                         p {
                             _class "mt-4 max-w-3xl leading-7 text-[var(--fve-muted-text)]"
-                            page.description
+                            page.descriptionContent |> Option.defaultWith (fun () -> text page.description)
                         }
 
                     if page.metadata.lastUpdated.IsSome || page.metadata.editUrl.IsSome then
@@ -1305,68 +1305,7 @@ window.fsharpDocsMermaid = window.fsharpDocsMermaid ?? {
     await this.loading;
   }
 };
-let mermaidRenderQueue = Promise.resolve();
-let mermaidRenderId = 0;
-const mermaidStatus = (role, message) => {
-  const status = document.createElement('p');
-  status.className = 'm-0 text-center text-sm leading-relaxed text-[var(--fve-muted-text)]';
-  status.dataset.mermaidStatus = 'true';
-  status.setAttribute('role', role);
-  status.textContent = message;
-  return status;
-};
-const setMermaidPending = node => {
-  node.dataset.mermaidState = 'pending';
-  delete node.dataset.mermaidRenderedSource;
-  node.setAttribute('aria-busy', 'true');
-  node.replaceChildren(mermaidStatus('status', 'Rendering diagram…'));
-};
-const setMermaidFailed = node => {
-  node.dataset.mermaidState = 'failed';
-  node.removeAttribute('aria-busy');
-  node.replaceChildren(mermaidStatus('alert', 'Diagram unavailable.'));
-};
-window.renderMermaid = (el, pendingOnly = false) => {
-  const render = async () => {
-    const candidates = el?.matches?.('.mermaid') ? [el] : Array.from(el?.querySelectorAll?.('.mermaid') ?? []);
-    const nodes = candidates.filter(node => !pendingOnly || node.dataset.mermaidState !== 'rendered' || node.dataset.mermaidRenderedSource !== (node.dataset.mermaidSource ?? '') || !node.querySelector('svg'));
-    if (nodes.length === 0) return;
-    for (const node of nodes) setMermaidPending(node);
-    try {
-      await window.fsharpDocsMermaid.ensure();
-      if (!window.fsharpDocsMermaid.hasApi()) throw new Error('Mermaid is unavailable.');
-      window.mermaid.initialize({ startOnLoad: false, theme: document.documentElement.classList.contains('dark') ? 'dark' : 'neutral', securityLevel: __SECURITY__, suppressErrorRendering: true });
-    } catch {
-      for (const node of nodes) if (node.isConnected) setMermaidFailed(node);
-      return;
-    }
-    for (const node of nodes) {
-      if (!node.isConnected) continue;
-      const source = node.dataset.mermaidSource ?? '';
-      try {
-        const id = `fsharp-docs-mermaid-${++mermaidRenderId}`;
-        const { svg, bindFunctions } = await window.mermaid.render(id, source);
-        if (!node.isConnected) continue;
-        if ((node.dataset.mermaidSource ?? '') !== source) {
-          setMermaidPending(node);
-          continue;
-        }
-        node.innerHTML = svg;
-        bindFunctions?.(node);
-        node.dataset.mermaidState = 'rendered';
-        node.dataset.mermaidRenderedSource = source;
-        node.removeAttribute('aria-busy');
-      } catch {
-        if (!node.isConnected) continue;
-        if ((node.dataset.mermaidSource ?? '') !== source) setMermaidPending(node);
-        else setMermaidFailed(node);
-      }
-    }
-  };
-  mermaidRenderQueue = mermaidRenderQueue.then(render, render);
-  return mermaidRenderQueue;
-};
-window.addEventListener('fve-color-mode', () => window.renderMermaid?.(document));
+window.fsharpDocsMermaid.security = __SECURITY__;
             """
             |> fun source ->
                 source
@@ -1428,17 +1367,10 @@ window.fsharpDocsCode = window.fsharpDocsCode ?? {
       })().finally(() => window.removeEventListener('beforeunload', markDocsCodeUnloading));
     }
     await this.loading;
-  },
-  async render(el) {
-    const root = el ?? document;
-    if (!root.querySelector?.('code[class*="language-"]') && !root.matches?.('code[class*="language-"]')) return;
-    await this.ensure();
-    window.Prism?.highlightAllUnder?.(root);
   }
 };
 window.addEventListener('pagehide', markDocsCodeUnloading);
 window.addEventListener('pageshow', () => { window.fsharpDocsCode.unloading = false; });
-window.renderCode = el => window.fsharpDocsCode.render(el);
 window.fsharpDocsPreviewColorMode = window.fsharpDocsPreviewColorMode ?? {
   resolved() {
     return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -1465,40 +1397,18 @@ window.fsharpDocsPreviewColorMode = window.fsharpDocsPreviewColorMode ?? {
   }
 };
 window.addEventListener('fve-color-mode', () => window.fsharpDocsPreviewColorMode.sync(document));
-window.renderDocsPreview = (el, pendingOnly = false) => {
+window.renderDocsPreview = (el) => {
   for (const frame of el?.querySelectorAll?.('iframe[data-docs-preview-src]') ?? []) {
     window.fsharpDocsPreviewColorMode.wire(frame);
     if (!frame.getAttribute('src')) frame.setAttribute('src', frame.dataset.docsPreviewSrc);
   }
-  return window.renderMermaid?.(el, pendingOnly);
+
 };
 window.renderInitialDocsPreviews = (el) => Promise.all(
   Array.from(el?.querySelectorAll?.('[data-docs-preview-initial="true"]') ?? [])
-    .map(preview => window.renderDocsPreview(preview, true))
+    .map(preview => window.renderDocsPreview(preview))
 );
-window.fsharpDocsCopy = async button => {
-  const source = button.closest('[data-docs-copyable-code]')?.querySelector('[data-docs-copy-source]')?.textContent ?? '';
-  const label = button.querySelector('[data-docs-copy-label]');
-  window.clearTimeout(button.docsCopyReset);
-  delete button.dataset.copied;
-  delete button.dataset.copyError;
-  try {
-    await navigator.clipboard.writeText(source);
-    if (label) label.textContent = 'Copied';
-    button.title = 'Copied';
-    button.dataset.copied = 'true';
-  } catch {
-    if (label) label.textContent = 'Copy failed';
-    button.title = 'Copy failed';
-    button.dataset.copyError = 'true';
-  }
-  button.docsCopyReset = window.setTimeout(() => {
-    if (label) label.textContent = '';
-    button.title = button.getAttribute('aria-label');
-    delete button.dataset.copied;
-    delete button.dataset.copyError;
-  }, 1600);
-};
+document.addEventListener('fve-example-preview', event => window.renderDocsPreview(event.detail.panel));
 window.fsharpDocsFragments = {
   setCurrent(id) {
     for (const link of document.querySelectorAll('[data-docs-toc] a[href^="#"]')) {
@@ -1762,6 +1672,7 @@ module DocumentationPage =
     let validate (page: DocumentationPageConfig) = DocumentationPageModel.validate page
 
     let withDescription description (page: DocumentationPageConfig) = { page with description = description }
+    let withDescriptionContent content (page: DocumentationPageConfig) = { page with descriptionContent = Some content }
     let withLayout layout (page: DocumentationPageConfig) = { page with layout = layout }
     let withRightRail rightRail (page: DocumentationPageConfig) = { page with rightRail = rightRail }
     /// Render content after the page heading and before outlined sections.

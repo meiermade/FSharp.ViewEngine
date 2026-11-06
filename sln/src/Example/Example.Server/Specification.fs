@@ -453,7 +453,11 @@ module Specification =
             (sidebar query)
             crumbs
             (Some(title page, description))
-            (fragment { yield! query.topBarActions })
+            (fragment {
+                Layout.documentationSearch "Search specification"
+                    [ "Specification", navigation |> List.map (fun (href, label) -> workspaceUrl href query.workspace, label) ]
+                yield! query.topBarActions
+            })
             contents
             workflow.IsSome
             content

@@ -25,9 +25,10 @@ module internal Switch =
             if readOnly then
                 _ariaReadonly true ]
         let controlAttributes = ComponentHtml.safeAttributes (["size"] @ if readOnly || flag "disabled" attributes then ["required"] else []) attributes
-        span {
+        (Html.el "fve-switch") {
             _class "relative mt-0.5 inline-flex shrink-0 align-middle"
-            input { for attribute in ComponentElement.attributes (defaults @ ComponentHtml.readOnlyGuards [] controlAttributes) do attribute }
+            match ComponentElement.value "id" attributes with Some id -> _id (id + "-host") | None -> ()
+            input { for attribute in ComponentElement.attributes (defaults @ ComponentHtml.outerSignals controlAttributes) do attribute }
             span {
                 _ariaHidden true
                 _class ("pointer-events-none relative block rounded-full bg-[var(--fve-neutral-subtle)] ring-1 ring-inset ring-[var(--fve-border)] transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--fve-brand-ring)] peer-aria-invalid:ring-[var(--fve-critical-ring)] peer-disabled:opacity-50 after:absolute after:left-0.5 after:top-0.5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:content-[''] forced-colors:ring-[ButtonText] forced-colors:peer-checked:bg-[Highlight] " + track + " " + thumb + " " + translation)

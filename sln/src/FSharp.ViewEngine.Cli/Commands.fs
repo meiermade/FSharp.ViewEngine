@@ -37,9 +37,21 @@ module Commands =
         | "net8.0" | "net9.0" | "net10.0" -> Ok value
         | _ -> Error "--framework must be net8.0, net9.0, or net10.0."
 
-    let private componentsForNames (registry:ComponentRegistry) (names:seq<string>) =
+    let private installedComponentNames (registry:ComponentRegistry) (configuration:Configuration) =
         let byName = registry.Components |> Seq.map (fun item -> item.Name, item) |> Map.ofSeq
-        names |> Seq.choose (fun name -> Map.tryFind name byName) |> Seq.toList
+        let byFile = Registry.files registry.Components |> Seq.map (fun file -> Path.GetFileName file.FileName, file.Component) |> Map.ofSeq
+        // Existing manifests may track each file as a component. Recover its current owner from the installed file identity, not selector aliases.
+        configuration.Components
+        |> Array.toList
+        |> List.collect (fun name ->
+            match Map.tryFind name byName with
+            | Some item -> if item.Internal then [] else [name]
+            | None ->
+                let owned = configuration.Files |> Array.filter (fun file -> file.Component = name)
+                let owners = owned |> Array.choose (fun file -> Map.tryFind (Path.GetFileName file.Path) byFile)
+                if owned.Length = 0 || owners.Length <> owned.Length then [name]
+                else owners |> Array.filter (fun owner -> not byName[owner].Internal) |> Array.toList)
+        |> List.distinct
 
     let init (registry:ComponentRegistry) (output:CommandOutput) (request:InitRequest) =
         match Validation.projectPath request.Project, framework request.Framework with
@@ -85,7 +97,7 @@ module Commands =
         | Error message -> fail output message
         | Ok configuration when request.Components.IsEmpty -> fail output "At least one component is required."
         | Ok configuration ->
-            let requested = configuration.Components |> Array.toList |> List.append request.Components
+            let requested = installedComponentNames registry configuration @ request.Components |> List.distinct
             match Registry.resolve registry requested with
             | Error message -> fail output message
             | Ok selected ->
@@ -93,21 +105,26 @@ module Commands =
                 let projectPath = Path.GetFullPath(Path.Combine(root, configuration.Project))
                 if not (File.Exists projectPath) then fail output $"Project '{projectPath}' was not found."
                 else
-                    let installed = configuration.Files |> Seq.map (fun file -> file.Component, file) |> Map.ofSeq
-                    let previousComponents =
-                        componentsForNames registry configuration.Components
-                        |> List.map (fun item ->
-                            match Map.tryFind item.Name installed |> Option.bind (fun file -> ConsumerProject.tryFileName file.Path) with
-                            | Some fileName -> { item with FileName = fileName }
-                            | None -> item)
+                    let installed = configuration.Files |> Seq.map (fun file -> Path.GetFileName file.Path, file) |> Map.ofSeq
+                    let previousFiles =
+                        configuration.Files
+                        |> Array.filter (fun file -> not (file.Component.StartsWith("$", StringComparison.Ordinal)))
+                        |> Array.choose (fun file ->
+                            ConsumerProject.tryFileName file.Path
+                            |> Option.map (fun fileName ->
+                                { Component = file.Component
+                                  FileName = fileName
+                                  Compile = Path.GetExtension(fileName) = ".fs"
+                                  Source = "" }))
+                        |> Array.toList
                     let mutable conflicts = []
                     let planned =
-                        selected
+                        Registry.files selected
                         |> List.map (fun item ->
                             let path = ConsumerProject.sourcePath root item.FileName
                             let source = Registry.sourceFor configuration.Namespace item
                             let checksum = Text.checksum source
-                            let existing = Map.tryFind item.Name installed
+                            let existing = Map.tryFind (Path.GetFileName item.FileName) installed
                             let previousPath = existing |> Option.map (fun file -> Path.GetFullPath(Path.Combine(root, file.Path)))
                             let relocated = previousPath |> Option.exists (fun previous -> not (String.Equals(previous, path, StringComparison.Ordinal)))
                             let previousExists = previousPath |> Option.exists File.Exists
@@ -145,7 +162,7 @@ module Commands =
                         output.Error.WriteLine("No files were changed. Re-run with --overwrite only if replacing those files is intended.")
                         2
                     else
-                        match ConsumerProject.updateProject projectPath previousComponents selected request.Overwrite with
+                        match ConsumerProject.updateProject projectPath previousFiles (Registry.files selected) request.Overwrite with
                         | Error message -> fail output message
                         | Ok () ->
                             for (_, path, source, _, _, shouldWrite, _, previousPath, removePrevious) in planned do
@@ -155,22 +172,22 @@ module Commands =
                                 planned
                                 |> List.map (fun (item, _, _, checksum, existing, shouldWrite, relocated, _, _) ->
                                     match existing with
-                                    | Some file when not shouldWrite && not relocated -> file
+                                    | Some file when not shouldWrite && not relocated -> { file with Component = item.Component }
                                     | _ ->
-                                        { Component = item.Name
+                                        { Component = item.Component
                                           Path = ConsumerProject.relativeSourcePath item.FileName
                                           RegistryVersion = registry.Version
                                           RegistryChecksum = checksum })
                             let nonComponentFiles = configuration.Files |> Array.filter (fun file -> file.Component.StartsWith("$", StringComparison.Ordinal))
                             { configuration with
                                 RegistryVersion = registry.Version
-                                Components = selected |> List.map _.Name |> List.toArray
+                                Components = List.toArray requested
                                 Files = Array.append nonComponentFiles (List.toArray componentFiles) }
                             |> ConsumerProject.writeConfiguration configPath
-                            for item in selected do
-                                if not (Array.contains item.Name configuration.Components) then
-                                    output.Out.WriteLine($"Added {item.Name}")
-                            if selected |> List.forall (fun item -> Array.contains item.Name configuration.Components) then
+                            for name in requested do
+                                if not (Array.contains name configuration.Components) then
+                                    output.Out.WriteLine($"Added {name}")
+                            if requested |> List.forall (fun name -> Array.contains name configuration.Components) then
                                 output.Out.WriteLine("All selected components are already installed.")
                             0
 
@@ -180,12 +197,23 @@ module Commands =
         | Error message -> fail output message
         | Ok configuration ->
             let root = Path.GetDirectoryName configPath
-            let current = registry.Components |> Seq.map (fun item -> item.Name, item) |> Map.ofSeq
+            let current = Registry.files registry.Components |> Seq.map (fun item -> Path.GetFileName item.FileName, item) |> Map.ofSeq
             let mutable different = configuration.RegistryVersion <> registry.Version
             if different then output.Out.WriteLine($"registry {configuration.RegistryVersion} -> {registry.Version}")
+            match Registry.resolve registry (installedComponentNames registry configuration) with
+            | Error message ->
+                different <- true
+                output.Out.WriteLine(message)
+            | Ok selected ->
+                let tracked = configuration.Files |> Seq.map (fun file -> Path.GetFileName file.Path) |> Set.ofSeq
+                for file in Registry.files selected do
+                    if not (Set.contains (Path.GetFileName file.FileName) tracked) then
+                        different <- true
+                        let path = ConsumerProject.relativeSourcePath file.FileName
+                        output.Out.WriteLine($"untracked {file.Component} {path}")
             for file in configuration.Files do
                 let path = Path.Combine(root, file.Path)
-                let item = Map.tryFind file.Component current
+                let item = Map.tryFind (Path.GetFileName file.Path) current
                 match item with
                 | Some item when file.Path.Replace('\\', '/') <> ConsumerProject.relativeSourcePath item.FileName ->
                     different <- true

@@ -124,6 +124,7 @@ type DocumentationPageConfig =
     { activeId:string
       title:string
       description:string
+      descriptionContent:HtmlElement option
       heading:Heading
       layout:DocsLayout
       rightRail:DocsRightRail
@@ -139,6 +140,7 @@ module internal DocumentationPageModel =
         { activeId = activeId
           title = title
           description = description
+          descriptionContent = None
           heading = heading
           layout = layout
           rightRail = rightRail

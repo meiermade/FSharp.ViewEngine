@@ -1,6 +1,6 @@
 # FSharp.ViewEngine.Cli
 
-`FSharp.ViewEngine.Cli` provides the `fve` .NET tool. It copies selected FSharp.ViewEngine Components and their transitive dependencies into source files that your application owns.
+`FSharp.ViewEngine.Cli` provides the `fve` .NET tool. It copies selected FSharp.ViewEngine Components and their transitive dependencies into source files that your application owns. A component includes all of its required F# and JavaScript files; there are no separate script selectors. `fve.json` lists selected components and tracks each installed file's owner and checksum separately. Shared helpers, runtimes and licenses resolve internally.
 
 Pin it in a repository-local tool manifest:
 

@@ -71,38 +71,19 @@ module internal ToggleGroup =
         let vertical = ComponentElement.choice "orientation" "horizontal" ["horizontal"; "vertical"] attributes = "vertical"
         let spaced = ComponentElement.choice "variant" "connected" ["connected"; "spaced"] attributes = "spaced"
         let size = ComponentElement.size None attributes
-        let signal = "_" + ComponentHtml.signalToken id + "_selected"
-        let initial = ChoiceSelection.json selected
-        let available = items |> List.filter (fun item -> not (unavailable || flag "disabled" item.Attributes))
         let buttonId (item:ToggleGroupItem) = ComponentElement.value "id" item.Attributes |> Option.defaultValue (id + "-toggle-" + ComponentHtml.optionToken item.Choice.value)
-        let ids = available |> List.map buttonId
-        let focus target = "document.getElementById(" + ComponentHtml.javascriptString target + ")?.focus()"
         let renderItem (item:ToggleGroupItem) =
             let choice = item.Choice
-            let pressed = ChoiceSelection.selected signal choice.value
-            let click =
-                if multiple then ChoiceSelection.toggle signal choice.value choice.label
-                elif flag "allow-empty" attributes then $"${signal} = {pressed} ? [] : {ChoiceSelection.json [choice]}"
-                else $"${signal} = {ChoiceSelection.json [choice]}"
-            let position = available |> List.tryFindIndex (fun candidate -> candidate.Choice.value = choice.value) |> Option.defaultValue 0
-            let keys =
-                if List.isEmpty ids then ""
-                else
-                    let previous = ids[(position - 1 + ids.Length) % ids.Length]
-                    let next = ids[(position + 1) % ids.Length]
-                    let previousKey, nextKey = if vertical then "ArrowUp", "ArrowDown" else "ArrowLeft", "ArrowRight"
-                    $"evt.key === '{previousKey}' && (evt.preventDefault(), {focus previous}); evt.key === '{nextKey}' && (evt.preventDefault(), {focus next}); evt.key === 'Home' && (evt.preventDefault(), {focus ids.Head}); evt.key === 'End' && (evt.preventDefault(), {focus (List.last ids)})"
             let defaults = [
                 _id (buttonId item); _type "button"
                 _data ("fve-group-control", "outline")
                 _disabled (unavailable || flag "disabled" item.Attributes)
                 _ariaPressed (List.contains choice.value values)
-                _dataAttr ("aria-pressed", $"{pressed} ? 'true' : 'false'")
-                if not unavailable && not (flag "disabled" item.Attributes) then
-                    _dataOn ("click", click)
-                    _dataOn ("keydown", keys)
+                _value choice.value
+                _attr ("data-fve-toggle-value", choice.value)
+                if flag "disabled" item.Attributes then _attr ("data-fve-toggle-disabled", "")
                 _class ("inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] [--fve-control-border-width:1px] border border-[var(--fve-border)] bg-[var(--fve-surface)] font-medium text-[var(--fve-text)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:z-10 focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-brand-subtle)] aria-pressed:text-[var(--fve-brand-text)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 " + ComponentHtml.sizeClasses size) ]
-            ComponentElement.render "button" defaults (ComponentHtml.safeAttributes ["id"; "type"; "disabled"; "value"; "label"; "aria-pressed"] item.Attributes)
+            ComponentElement.render "button" defaults (ComponentHtml.safeAttributes ["id"; "type"; "disabled"; "value"; "label"; "aria-pressed"] item.Attributes |> ComponentHtml.outerSignals)
                 (if List.isEmpty item.Children then [text choice.label] else item.Children)
         let classes =
             "inline-flex min-w-0 max-w-full" + (if not vertical && not spaced then " " + ComponentHtml.horizontalScrollClasses else "")
@@ -114,11 +95,24 @@ module internal ToggleGroup =
             yield _role "group"
             yield _ariaDisabled unavailable
             yield _class classes
-            yield _dataSignals $"{{{signal}: {initial}}}"
-            yield _dataOn ("reset__window", $"if (evt.target === el.closest('form')) queueMicrotask(() => {{ ${signal} = {initial} }})")
+            yield _name name
+            yield _disabled disabled
+            yield _readonly readOnly
+            yield _attr ("orientation", if vertical then "vertical" else "horizontal")
+            if multiple then
+                yield _attr ("multiple", "")
+                yield _attr ("values", JsonSerializer.Serialize values)
+            else
+                match values with value :: _ -> yield _value value | [] -> ()
+            if flag "allow-empty" attributes then yield _attr ("allow-empty", "")
             if not vertical && not spaced then yield! ComponentHtml.horizontalScrollAttributes ]
         let body = [
-            yield ChoiceSelection.render name signal selected disabled
+            yield div {
+                _class "hidden"
+                _attr ("data-fve-toggle-values", "")
+                for choice in selected do
+                    input { _type "hidden"; _name name; _value choice.value; _disabled disabled }
+            }
             // Successful form values stay outside the visual track and never count as segments.
             yield div {
                 _class trackClasses
@@ -127,7 +121,7 @@ module internal ToggleGroup =
                     | :? ToggleGroupItem as item -> renderItem item
                     | _ -> child
             } ]
-        ComponentElement.render "div" defaults (ComponentHtml.safeAttributes ["name"; "value"; "values"; "disabled"; "readonly"; "variant"; "orientation"; "size"; "allow-empty"] attributes) body
+        ComponentElement.render "fve-toggle-group" defaults (ComponentHtml.safeAttributes ["name"; "value"; "values"; "disabled"; "readonly"; "variant"; "orientation"; "size"; "allow-empty"] attributes |> ComponentHtml.outerSignals) body
 
 /// <category>toggle-group</category>
 [<AutoOpen>]

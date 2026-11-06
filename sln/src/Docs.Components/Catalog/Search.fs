@@ -87,11 +87,11 @@ module SearchView =
 
         div {
             _id "docs-search-shell"
-            _class "relative"
+            _class "relative whitespace-normal"
 
             _dataOn (
                 "keydown__window",
-                "if ((evt.metaKey || evt.ctrlKey) && evt.key.toLowerCase() === 'k') { evt.preventDefault(); const dialog = document.getElementById('docs-search-dialog'); const input = document.getElementById('docs-search-input'); input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); if (!dialog.open) dialog.showModal(); input.focus() }"
+                "if ((evt.metaKey || evt.ctrlKey) && evt.key.toLowerCase() === 'k') { evt.preventDefault(); const dialog = document.getElementById('docs-search-dialog'); const input = document.getElementById('docs-search-input'); input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); if (!dialog.open) document.getElementById('docs-search-dialog-trigger').click(); input.focus() }"
             )
 
             button {
@@ -108,7 +108,7 @@ module SearchView =
                     _viewBox "0 0 24 24"
                     _fill "none"
                     _ariaHidden true
-                    _class "size-4 sm:hidden"
+                    _class "size-4 shrink-0"
                     _attr ("stroke", "currentColor")
                     _attr ("stroke-width", "1.5")
 
@@ -117,11 +117,6 @@ module SearchView =
                         _attr ("stroke-linejoin", "round")
                         _d "m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
                     }
-                }
-
-                span {
-                    _class "hidden sm:inline"
-                    "Search"
                 }
 
                 kbd {

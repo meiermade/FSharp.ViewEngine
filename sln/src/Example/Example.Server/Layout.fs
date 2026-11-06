@@ -89,6 +89,45 @@ module Layout =
     let private organizationIcon =
         icon "M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z"
 
+    let documentationSearch label (groups: (string * (string * string) list) list) =
+        let id = "template-document-search"
+        div {
+            _id (id + "-shell")
+            _class "whitespace-normal"
+            _dataOn (
+                "keydown__window",
+                $"if ((evt.metaKey || evt.ctrlKey) && evt.key.toLowerCase() === 'k') {{ evt.preventDefault(); const dialog = document.getElementById('{id}-dialog'); const input = document.getElementById('{id}-input'); input.value = ''; input.dispatchEvent(new Event('input', {{ bubbles: true }})); if (!dialog.open) document.getElementById('{id}-dialog-trigger').click(); input.focus(); }}"
+            )
+            button {
+                for attribute in Command.triggerAttributes id do attribute
+                _type "button"
+                _ariaLabel label
+                _title label
+                _class "flex h-8 cursor-pointer items-center gap-2 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] px-2.5 text-sm text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] max-sm:w-8 max-sm:justify-center max-sm:p-0 [&>svg]:size-4"
+                icon "m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
+                kbd {
+                    _class "hidden rounded border border-[var(--fve-border)] px-1 py-px font-mono text-xs sm:inline"
+                    _dataText "navigator.userAgent.includes('Mac') ? '⌘K' : 'Ctrl+K'"
+                    "Ctrl+K"
+                }
+            }
+            fveCommandDialog {
+                _id id
+                _ariaLabel label
+                _placeholder (label + "…")
+                for group, entries in groups do
+                    fveCommandGroup {
+                        _label (if group = "" then "Overview" else group)
+                        for href, title in entries do
+                            fveCommandItem {
+                                _href href
+                                _keywords [ group; href.Replace('/', ' ').Replace('-', ' ') ]
+                                title
+                            }
+                    }
+            }
+        }
+
     let private documentationTheme () =
         let signal = "_documentation_mode"
 
@@ -177,7 +216,7 @@ module Layout =
             )
 
             _class
-                "fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-[min(18rem,calc(100vw-3rem))] max-w-none border-0 bg-[var(--fve-background)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] [&>aside]:w-full"
+                "fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-[min(18rem,calc(100vw-3rem))] max-w-none border-0 bg-[var(--fve-background)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] [&>aside]:w-full [&>fve-side-nav]:w-full"
 
             content
         }
@@ -975,7 +1014,7 @@ module Layout =
                     _class "overflow-hidden max-lg:contents"
 
                     div {
-                        _class "hidden h-full [&>aside]:w-full lg:block"
+                        _class "hidden h-full [&>aside]:w-full [&>fve-side-nav]:w-full lg:block"
                         navigation "template-desktop-navigation" false
                     }
                 }

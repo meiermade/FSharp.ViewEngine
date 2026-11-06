@@ -32,7 +32,7 @@ export DOTNET_CLI_HOME="$output_dir/.dotnet-home" NUGET_PACKAGES="$output_dir/.n
   dotnet tool install FSharp.ViewEngine.Cli --version "$cli_version" --add-source "$nugets_dir" --local >/dev/null
 )
 components=()
-while IFS= read -r component; do components+=("$component"); done < <(grep -Eo 'FveName="[^"]+"' "$registry" | cut -d'"' -f2)
+while IFS= read -r component; do components+=("$component"); done < <(grep 'FveName=' "$registry" | grep -v 'FveInternal="true"' | grep -Eo 'FveName="[^"]+"' | cut -d'"' -f2)
 [[ ${#components[@]} -gt 0 ]] || { echo 'No components found.' >&2; exit 1; }
 
 restore_build() {

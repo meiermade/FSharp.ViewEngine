@@ -2,7 +2,7 @@ import { rocket } from './datastar-rocket.1.0.4.js';
 
 // Native fields remain authoritative across morphs and reconnects; Rocket owns the lifecycle.
 rocket('fve-tag-input', {
-    mode: 'light',
+    mode: 'light', scope: false,
     setup: ({ host, cleanup }) => {
         let values = [], initial = [], pending = false, disposed = false;
         const events = new AbortController();

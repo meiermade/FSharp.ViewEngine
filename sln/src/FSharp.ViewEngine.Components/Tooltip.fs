@@ -45,12 +45,8 @@ module internal Tooltip =
             | "start" -> "left"
             | "end" -> "right"
             | side -> side
-        let show = $"clearTimeout(el._fveTooltipTimer); const tip = el.querySelector('[role=tooltip]'); el._fveTooltipTimer = setTimeout(() => {{ if (el.isConnected && tip.isConnected && !tip.matches(':popover-open')) tip.showPopover() }}, {delay})"
-        // The tooltip's hit area covers its margin; a short grace period also tolerates pointer transitions.
-        let hide = "clearTimeout(el._fveTooltipTimer); el._fveTooltipTimer = setTimeout(() => { if (!el.matches(':hover') && !el.contains(document.activeElement)) el.querySelector('[role=tooltip]')?.hidePopover() }, 150)"
-        let dismiss = "if (evt.key == 'Escape') { clearTimeout(el._fveTooltipTimer); const tip = el.querySelector('[role=tooltip]'); if (tip.matches(':popover-open')) { tip.hidePopover(); evt.preventDefault(); evt.stopPropagation() } }"
-        ComponentElement.render "span"
-            [_id id; _class "inline-flex"; _style $"anchor-name:{anchor}"; _dataOn("mouseenter", show); _dataOn("mouseleave", hide); _dataOn("focusin", show); _dataOn("focusout", hide); _dataOn("keydown__window__capture", dismiss)]
+        ComponentElement.render "fve-tooltip"
+            [_id id; _class "inline-flex"; _style $"anchor-name:{anchor}"; _attr("delay", string delay)]
             (ComponentHtml.safeAttributes ["description"; "side"; "delay"] attributes)
             (children @ [span {
                 _id contentId

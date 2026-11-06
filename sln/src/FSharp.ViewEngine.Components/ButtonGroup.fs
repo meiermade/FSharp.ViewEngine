@@ -8,14 +8,14 @@ module internal ButtonGroup =
         if List.isEmpty children then invalidArg "children" "A button group requires at least one segment."
         let label = ComponentElement.required "aria-label" attributes
         let orientation = ComponentElement.choice "orientation" "horizontal" ["horizontal"; "vertical"] attributes
-        ComponentElement.render "div"
+        ComponentElement.render (if orientation = "horizontal" then "fve-scroll-region" else "div")
             [ _role "group"
               _ariaLabel label
               _class (ComponentHtml.classes [
                   ControlGroup.classes orientation
                   if orientation = "horizontal" then ComponentHtml.horizontalScrollClasses ])
               if orientation = "horizontal" then yield! ComponentHtml.horizontalScrollAttributes ]
-            (ComponentHtml.safeAttributes ["role"; "aria-label"; "tabindex"; "data-on:keydown"; "data-on:focusin"] attributes) children
+            (ComponentHtml.safeAttributes ["role"; "aria-label"; "tabindex"] attributes) children
 
 /// <summary>Joins native controls without changing their semantics or keyboard behavior.</summary>
 /// <category>button-group</category>

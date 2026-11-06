@@ -2,7 +2,7 @@ import { rocket } from './datastar-rocket.1.0.4.js';
 
 // Server-owned destinations, client-owned fit. Never clone the navigation model or observe the document.
 rocket('fve-breadcrumbs', {
-    mode: 'light',
+    mode: 'light', scope: false,
     setup: ({ host, cleanup }) => {
         let frame = 0, disposed = false;
         let observed = [];

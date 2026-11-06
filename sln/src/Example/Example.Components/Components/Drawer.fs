@@ -122,8 +122,6 @@ module internal Drawer =
                   yield _data ("fve-contained", "true")
               if describedby <> "" then
                   yield _ariaDescribedby describedby
-              yield NativeOverlay.eventAttribute "click" (NativeOverlay.dismissOnBackdropExpression id) attributes
-              yield NativeOverlay.eventAttribute "close" (NativeOverlay.restoreFocusExpression id) attributes
               yield
                   _class (
                       ComponentHtml.classes
@@ -155,8 +153,7 @@ module internal Drawer =
                       "aria-labelledby"
                       "aria-describedby"
                       "aria-modal"
-                      "data-on:close"
-                      "data-on:click" ]
+ ]
                     attributes)
                 [ div {
                       _class "flex h-full flex-col"
@@ -197,9 +194,8 @@ module internal Drawer =
                       | None -> ()
                   } ]
 
-        match container with
-        | Some background -> NativeOverlay.contained id background true content
-        | None -> content
+        let content = match container with Some background -> NativeOverlay.contained id background true content | None -> content
+        NativeOverlay.enhance "fve-drawer" id true content
 
 /// <category>drawer</category>
 [<AutoOpen>]

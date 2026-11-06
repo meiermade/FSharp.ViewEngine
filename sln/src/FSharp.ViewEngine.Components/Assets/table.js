@@ -33,7 +33,7 @@ const setAttributeIfChanged = (element, name, value) => {
 };
 
 rocket('fve-table', {
-  mode: 'light',
+  mode: 'light', scope: false,
   setup: ({ host, cleanup }) => {
     let syncing = false, pending = false, disposed = false, focusId;
     const attributes = ['density', 'surface', 'mobile-layout', 'scroll-rows', 'aria-label', 'aria-labelledby', 'aria-describedby', 'class'];

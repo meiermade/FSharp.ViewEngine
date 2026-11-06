@@ -1,23 +1,24 @@
 import { test, expect } from '@playwright/test'
 
-// Clone actual server-authored controls before adding ordinary application callbacks.
-// This exercises the library's guards, not a test-owned replacement implementation.
+// Reconnect actual server-authored component owners with ordinary application callbacks.
+// The native input remains inside its enhancer; guards must survive callbacks and reconnection.
 test('readonly guards survive caller click callbacks and once modifiers @cross-browser', async ({ page }) => {
   for (const route of ['checkbox', 'switch', 'radio-group', 'file-selection']) {
     await page.goto(`/components/${route}`)
     const source = page.locator(route === 'file-selection' ? 'input[type=file]' : 'input[readonly]').first()
     await expect(source).toBeAttached()
     await source.evaluate(input => {
-      const clone = input.cloneNode(true) as HTMLInputElement
-      clone.id = 'readonly-callback-contract'
-      clone.name = 'readonlyValue'
-      clone.readOnly = true
-      clone.checked = true
-      clone.style.cssText = 'position:static;opacity:1;width:24px;height:24px'
-      clone.setAttribute('data-on:click', "el.dataset.calls = String(Number(el.dataset.calls || '0') + 1)")
-      clone.setAttribute('data-on:click__once', "el.dataset.once = String(Number(el.dataset.once || '0') + 1)")
+      const control = input as HTMLInputElement
+      const owner = control.closest('fve-checkbox,fve-switch,fve-radio,fve-file-selection')!
+      control.id = 'readonly-callback-contract'
+      control.name = 'readonlyValue'
+      control.readOnly = true
+      control.checked = true
+      control.style.cssText = 'position:static;opacity:1;width:24px;height:24px'
+      control.setAttribute('data-on:click', "el.dataset.calls = String(Number(el.dataset.calls || '0') + 1)")
+      control.setAttribute('data-on:click__once', "el.dataset.once = String(Number(el.dataset.once || '0') + 1)")
       const form = document.createElement('form')
-      form.append(clone)
+      form.append(owner)
       document.body.append(form)
     })
     const control = page.locator('#readonly-callback-contract')

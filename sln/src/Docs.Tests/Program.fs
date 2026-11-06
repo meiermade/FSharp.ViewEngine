@@ -155,7 +155,19 @@ let private referenceStatus (reference: string) =
 let tests =
     testList
         "Direct F# documentation"
-        [ testCase "page-example mutation boundaries reject foreign origins, unsupported forms, and oversized bodies"
+        [ testCase "Introduction uses one linked subtitle and begins its sections with Design"
+          <| fun _ ->
+              let status, html = routeResponse "/"
+              Expect.equal status 200 "Introduction renders"
+              let main = html.Substring(html.IndexOf("<main", StringComparison.Ordinal))
+              Expect.equal (Regex.Matches(main, "A minimal, fast view engine").Count) 1 "the introduction appears only once in visible content"
+              Expect.isFalse (main.Contains "id=\"overview\"") "no duplicate Overview section or TOC entry"
+              let subtitle = Regex.Match(main, "(?s)<h1[^>]*>FSharp.ViewEngine</h1>(.*?)</section>").Groups[1].Value
+              for href in [ "https://github.com/giraffe-fsharp/Giraffe.ViewEngine"; "https://github.com/dbrattli/Feliz.ViewEngine"; "https://github.com/Lanayx/Oxpecker"; "https://github.com/fsbolero/Bolero" ] do
+                  Expect.stringContains subtitle ($"href=\"{href}\"") "inspiration links belong to the subtitle"
+              Expect.stringContains main "id=\"design\"" "Design remains the first outlined section"
+
+          testCase "page-example mutation boundaries reject foreign origins, unsupported forms, and oversized bodies"
           <| fun _ ->
               let path = "/components/page-examples/messaging/send"
 
@@ -447,13 +459,8 @@ let tests =
                   "aria-orientation=\"vertical\""
                   "horizontal panels expose a vertical separator"
 
-              Expect.stringContains resizable "setPointerCapture" "pointer resizing captures the active pointer"
-              Expect.stringContains resizable "ArrowLeft" "horizontal resizing supports directional keys"
-
-              Expect.stringContains
-                  resizable
-                  "data-on:dblclick"
-                  "collapsible panels expose an explicit collapse gesture"
+              Expect.stringContains resizable "<fve-resizable " "resizing keeps a local lifecycle owner"
+              Expect.stringContains resizable "collapsed-size=" "collapsible panels expose their configured bound"
 
               let verticalResizable =
                   panels "stacked-panels" "Stacked panels" Orientation.Vertical |> Render.toString
@@ -462,8 +469,6 @@ let tests =
                   verticalResizable
                   "aria-orientation=\"horizontal\""
                   "vertical panels expose a horizontal separator"
-
-              Expect.stringContains verticalResizable "ArrowUp" "vertical resizing supports directional keys"
 
               Expect.throws
                   (fun () ->
@@ -588,11 +593,8 @@ let tests =
               Expect.stringContains monthSelection "name=\"endDate\"" "date ranges submit a canonical end value"
               Expect.stringContains monthSelection "value=\"2026-09-14\"" "date-only values do not include a timezone"
 
-              Expect.isTrue
-                  (Regex.IsMatch(monthSelection, "data-value=\"2026-09-16\"[^>]*disabled"))
-                  "unavailable dates cannot be selected"
-
-              Expect.stringContains monthSelection "PageUp" "date grids support keyboard month navigation"
+              let unavailableCell = Regex.Match(monthSelection, "<button[^>]*data-value=\"2026-09-16\"[^>]*>").Value
+              Expect.isTrue (Regex.IsMatch(unavailableCell, "\\sdisabled(?:\\s|>|=)")) "unavailable dates cannot be selected"
 
               let captionMonthSelection =
                   fveMonthCalendarSelection {
@@ -644,7 +646,7 @@ let tests =
                   "value=\"2026\""
                   "bounded dropdown captions end at the maximum year"
 
-              Expect.stringContains captionMonthSelection " p-3 " "selection calendars own compact padding"
+              Expect.stringContains captionMonthSelection " p-[12px] " "selection calendars own a 12px inset independently of text size"
 
               let datePicker =
                   fveField {
@@ -1169,7 +1171,7 @@ let tests =
 
               Expect.stringContains html "role=\"alert\"" "one summary announcement"
               Expect.stringContains html "href=\"#contact%3Aemail\"" "fragment safely encodes the exact control ID"
-              Expect.stringContains html "data-init=\"el.focus()\"" "focus is explicitly opt-in at insertion"
+              Expect.stringContains html " autofocus" "focus is explicitly opt-in at insertion"
               Expect.stringContains html "Email: Use &lt;name@fve.meiermade.com&gt;." "corrective content is encoded"
 
               Expect.equal
@@ -3138,11 +3140,19 @@ after"""
 
                   let requiredModule =
                       match selector with
-                      | "button" | "copy-reveal" | "dialog" | "drawer" | "command" -> Some "button.js"
-                      | "table" -> Some "table.js"
-                      | "chart" -> Some "chart.js"
-                      | "tag-input" -> Some "tag-input.js"
-                      | "breadcrumbs" -> Some "breadcrumbs.js"
+                      | "fsharp-api-reference" -> Some "code-block.js"
+                      | "radio-group" -> Some "radio.js"
+                      | "day-calendar" | "week-calendar" | "button-group" -> Some "scroll-region.js"
+                      | "month-calendar" | "year-calendar" -> Some "calendar-selection.js"
+                      | selector when
+                          List.contains selector
+                              [ "button"; "copy-reveal"; "dialog"; "drawer"; "command"
+                                "table"; "chart"; "tag-input"; "breadcrumbs"
+                                "checkbox"; "switch"; "toggle-button"; "toggle-group"
+                                "file-selection"; "tabs"; "notification"; "floating-panel"
+                                "resizable"; "error-summary"; "tooltip"; "popover"
+                                "dropdown-menu"; "select"; "side-nav"
+                                "code-block"; "mermaid"; "example"; "date-picker" ] -> Some (selector + ".js")
                       | _ -> None
                   match requiredModule with
                   | Some file ->
@@ -3645,7 +3655,7 @@ after"""
 
                   Expect.stringContains
                       html
-                      "Example: &#39;preview&#39;"
+                      "initial-tab=\"preview\""
                       $"{registration.path} shows its preview by default"
 
                   let examples =
@@ -3715,8 +3725,8 @@ after"""
 
               Expect.stringContains
                   allHtml
-                  "data-fve-select-query=\"item_query\""
-                  "remote Combobox emits local open state and an intentionally submitted query"
+                  "data-fve-select-content"
+                  "remote Select preserves an independently patchable native content boundary"
 
               Expect.stringContains allHtml "role=\"switch\"" "Switch preserves switch semantics"
               Expect.stringContains allHtml "aria-pressed=\"true\"" "ToggleButton preserves pressed semantics"
@@ -3733,16 +3743,6 @@ after"""
                   allHtml
                   "id=\"review-changes-dialog-trigger\""
                   "Dialog renders its connected trigger"
-
-              Expect.stringContains
-                  allHtml
-                  "document.getElementById(&quot;review-changes-dialog-trigger&quot;)?.focus()"
-                  "Dialog close retains a connected-trigger fallback"
-
-              Expect.stringContains
-                  allHtml
-                  "dialog?._fveOpener"
-                  "Dialog close restores the actual opener before falling back to its default trigger"
 
               Expect.stringContains
                   allHtml
@@ -3764,15 +3764,6 @@ after"""
 
               Expect.stringContains allHtml "/components/drawers/item" "Drawer uses a real Docs-owned patch endpoint"
               Expect.stringContains allHtml "/components/tabs/review" "Tabs uses a real Docs-owned patch endpoint"
-
-              Expect.stringContains
-                  allHtml
-                  "data-signals=\"{_components_menu_actions_open: false, _components_menu_actions_typeahead:"
-                  "menu IDs become valid isolated interaction signal tokens"
-
-              Expect.isFalse
-                  (allHtml.Contains("_components-menu-actions-open"))
-                  "DOM IDs are not copied unsafely into expressions"
 
               Expect.stringContains allHtml "aria-current=\"page\"" "typed navigation retains the current destination"
 
@@ -4082,8 +4073,8 @@ after"""
 
               Expect.stringContains
                   groupedHtml
-                  "data-on:click__stop=\"true\""
-                  "item actions do not activate their navigation destination"
+                  "data-fve-side-nav-action"
+                  "item actions remain distinct from their navigation destination"
 
               Expect.stringContains groupedHtml ">4</span>" "navigation items support consumer-authored badges"
 
@@ -4974,13 +4965,8 @@ after"""
 
               Expect.stringContains
                   first
-                  "hidden data-attr:hidden"
+                  " hidden"
                   "inactive panels leave interaction and accessibility trees"
-
-              Expect.stringContains first "evt.key == &#39;ArrowLeft&#39;" "Left Arrow is handled"
-              Expect.stringContains first "evt.key == &#39;ArrowRight&#39;" "Right Arrow is handled"
-              Expect.stringContains first "evt.key == &#39;Home&#39;" "Home is handled"
-              Expect.stringContains first "evt.key == &#39;End&#39;" "End is handled"
 
               Expect.stringContains
                   first
@@ -5025,16 +5011,6 @@ after"""
                   ids.Length
                   (ids |> List.distinct |> List.length)
                   "adjacent instances produce no duplicate IDs"
-
-              Expect.stringContains
-                  adjacent
-                  "_tabs_v66697273742d74616273_selected"
-                  "first signal is collision-safe and local"
-
-              Expect.stringContains
-                  adjacent
-                  "_tabs_v7365636f6e642d74616273_selected"
-                  "second signal is collision-safe and local"
 
               let duplicateItems =
                   [ fveTabsItem {
@@ -5157,15 +5133,7 @@ after"""
               Expect.stringContains dialogHtml "<dialog id=\"test-dialog\"" "Dialog remains a native dialog"
               Expect.stringContains dialogHtml "aria-modal=\"true\"" "Dialog exposes modal semantics"
 
-              Expect.stringContains
-                  dialogHtml
-                  "evt.target == evt.currentTarget"
-                  "Dialog can opt into backdrop dismissal"
-
-              Expect.stringContains
-                  dialogHtml
-                  "document.getElementById(&quot;test-dialog-trigger&quot;)?.focus()"
-                  "Dialog restores its connected trigger"
+              Expect.stringContains dialogHtml "dismiss-on-backdrop" "Dialog can opt into backdrop dismissal"
 
               Expect.stringContains dialogHtml "role=\"alertdialog\"" "consumers can choose alert-dialog semantics"
               Expect.stringContains dialogHtml "data-signals=\"{saving: false}\"" "consumers own transient state"
@@ -5307,8 +5275,8 @@ after"""
 
               Expect.stringContains
                   endDrawerHtml
-                  "evt.target == evt.currentTarget"
-                  "Drawer backdrop dismisses explicitly"
+                  "dismiss-on-backdrop"
+                  "Drawer can opt into backdrop dismissal"
 
               let startDrawerHtml =
                   drawer DrawerSide.Start DrawerSize.Standard None false |> Render.toString
@@ -5823,7 +5791,7 @@ after"""
                   }
                   |> Render.toString
 
-              Expect.stringContains checkbox "el.indeterminate = true" "mixed state initializes the native property"
+              Expect.stringContains checkbox "indeterminate=\"true\"" "the lifecycle owner receives mixed state"
               Expect.stringContains checkbox "aria-label=\"Select all\"" "controls accept an explicit accessible name"
           }
 
@@ -6329,11 +6297,6 @@ after"""
 
               Expect.stringContains
                   rendered
-                  ":is([role=menuitem], [role=menuitemradio], [role=menuitemcheckbox]):not([aria-disabled=true])"
-                  "Keyboard navigation includes every enabled menu choice"
-
-              Expect.stringContains
-                  rendered
                   "role=\"menuitemcheckbox\" aria-checked=\"true\""
                   "Checkbox choices expose independent checked state"
 
@@ -6418,9 +6381,6 @@ after"""
                   "role=\"menu\" tabindex=\"-1\" aria-labelledby=\"account-actions-trigger\""
                   "DropdownMenu container receives focus when no item is active"
 
-              Expect.stringContains html "data-on:pointerleave" "DropdownMenu clears item focus on pointer leave"
-              Expect.stringContains html "evt.detail == 0" "DropdownMenu distinguishes keyboard from pointer opening"
-
               Expect.stringContains
                   html
                   "role=\"group\" aria-labelledby=\"account-actions-menu-entry-0-label\""
@@ -6457,20 +6417,6 @@ after"""
                   "position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline"
                   "DropdownMenu provides viewport-edge fallbacks"
 
-              Expect.stringContains
-                  html
-                  "closest(&#39;[data-fve-sticky-cell=true]&#39;)"
-                  "DropdownMenu detects standardized sticky table cells"
-
-              Expect.stringContains
-                  html
-                  "data-on:scroll__window__capture=\"el._fvePosition?.()\""
-                  "DropdownMenu tracks nested scrolling with lifecycle-owned bindings"
-
-              Expect.isFalse
-                  (html.Contains "window.addEventListener")
-                  "Removed menu elements cannot retain manual position listeners"
-
               Expect.stringContains html "var(--fve-error-solid," "DropdownMenu preserves the selected Error color"
 
               Expect.stringContains
@@ -6499,61 +6445,8 @@ after"""
 
               Expect.stringContains
                   html
-                  "_account_actions_typeahead"
-                  "DropdownMenu isolates bounded character-navigation state"
-
-              Expect.stringContains
-                  html
                   "popovertarget=\"account-actions-menu\""
                   "DropdownMenu associates its trigger with the native popover"
-
-              Expect.stringContains
-                  html
-                  "data-on:beforetoggle"
-                  "DropdownMenu synchronizes native visibility with its local signal"
-
-              let triggerClick =
-                  Regex.Match(html, "<fve-button[^>]* data-on:click=\"([^\"]*)\"").Groups[1].Value
-
-              Expect.stringContains
-                  triggerClick
-                  "evt.preventDefault()"
-                  "the trigger cancels the native toggle before its menu focus behavior"
-
-              Expect.stringContains html "evt.key == &#39;ArrowDown&#39;" "DropdownMenu trigger opens with ArrowDown"
-              Expect.stringContains html "Date.now()" "DropdownMenu bounds its character-navigation buffer"
-
-              Expect.stringContains
-                  html
-                  "every(character =&gt; character == $_account_actions_typeahead[0])"
-                  "DropdownMenu cycles repeated characters"
-
-              Expect.stringContains html ":not([aria-disabled=true])" "DropdownMenu movement skips unavailable items"
-
-              Expect.stringContains
-                  html
-                  "document.activeElement.click()"
-                  "DropdownMenu activates focused items with Enter or Space"
-
-              Expect.stringContains
-                  html
-                  "data-on:pointermove__window=\"el.dataset.fvePointerX = evt.clientX; el.dataset.fvePointerY = evt.clientY\""
-                  "DropdownMenu remembers the last intentional pointer coordinates"
-
-              Expect.stringContains
-                  html
-                  "data-preserve-attr=\"data-fve-pointer-x data-fve-pointer-y\""
-                  "DropdownMenu retains pointer coordinates through a server morph"
-
-              Expect.stringContains
-                  html
-                  "evt.clientX != Number(document.getElementById(&quot;account-actions-menu&quot;).dataset.fvePointerX)"
-                  "DropdownMenu ignores stationary pointer events after keyboard focus movement"
-
-              Expect.stringContains
-                  html
-                  "document.getElementById(&quot;account-actions-trigger&quot;)?.focus()"
-                  "DropdownMenu restores its trigger when appropriate"
 
               let unavailableLink =
                   Regex
@@ -6643,8 +6536,6 @@ after"""
                   }
                   |> Render.toString
 
-              Expect.stringContains adjacentHtml "_first_actions_open" "First menu owns a stable signal"
-              Expect.stringContains adjacentHtml "_second_actions_open" "Second menu owns an isolated stable signal"
               Expect.equal (Regex.Matches(adjacentHtml, "id=\"first-actions-menu\"").Count) 1 "First menu ID is unique"
 
               Expect.equal
@@ -6878,8 +6769,8 @@ after"""
 
               Expect.stringContains
                   alignedHtml
-                  "data-attr:aria-selected"
-                  "items expose the owning selection to positioning and assistive technology"
+                  "aria-selected=\"false\""
+                  "native options expose selected-state semantics"
 
               Expect.isFalse (alignedHtml.Contains("rotate-180")) "opening does not rotate the plain Select chevron"
 
@@ -6916,29 +6807,7 @@ after"""
               Expect.stringContains html "role=\"alert\"" "Select validation is announced after a patch"
               Expect.stringContains html "role=\"option\"" "Select renders branded options"
               Expect.stringContains html "aria-disabled=\"true\"" "Select preserves disabled options"
-              Expect.stringContains html "_fveSelect.account_status.typeahead" "Select isolates bounded typeahead state"
-              Expect.stringContains html "Date.now()" "Select resets typeahead after its bounded interval"
-
-              Expect.stringContains
-                  html
-                  "every(character =&gt; character == $_fveSelect.account_status.typeahead[0])"
-                  "Select cycles repeated-character matches"
-
-              Expect.stringContains
-                  html
-                  "evt.altKey &amp;&amp; evt.key == &#39;ArrowDown&#39;"
-                  "Select implements closed Alt+Down"
-
-              Expect.stringContains html "evt.key == &#39;PageUp&#39;" "Select implements PageUp"
-              Expect.stringContains html "evt.key == &#39;PageDown&#39;" "Select implements PageDown"
-              Expect.stringContains html "Math.min" "Select clamps forward movement"
-              Expect.stringContains html "Math.max" "Select clamps backward movement"
-              Expect.stringContains html "evt.key == &#39;Tab&#39;" "Select commits the active option on Tab"
-
-              Expect.stringContains
-                  html
-                  "document.getElementById($_fveSelect.account_status.active)?.click()"
-                  "Select commits active identity through one option path"
+              Expect.stringContains html "<fve-select " "selection keeps its own lifecycle owner"
           }
 
           test "Select examples each teach one control with complete remote source" {
@@ -7125,18 +6994,10 @@ after"""
                   "id=\"fve-select-parent_account-search\""
                   "popup owns a distinct search input"
 
-              Expect.stringContains
-                  searchInput
-                  "data-on:input"
-                  "input updates the nearest owner's query rather than the selected identity"
+              Expect.isFalse (searchInput.Contains "name=") "search text is distinct from the submitted selection"
 
               Expect.stringContains submittedValue "name=\"account\"" "hidden input preserves the consumer form name"
               Expect.stringContains submittedValue "value=\"101\"" "typed selected identity is explicitly encoded"
-
-              Expect.stringContains
-                  submittedValue
-                  "data-bind:parent_account_value"
-                  "submitted identity remains distinct from query binding"
 
               Expect.stringContains
                   html
@@ -7154,14 +7015,6 @@ after"""
                   "searchable Select provides viewport-edge fallbacks"
 
               Expect.stringContains html "role=\"listbox\"" "popup contains the canonical listbox"
-              Expect.stringContains html "data-on:pointermove" "pointer and keyboard share one active option"
-              Expect.stringContains html "data-on:pointerleave" "pointer leave clears the active option"
-
-              Expect.stringContains
-                  html
-                  "active:&#39;&#39;"
-                  "searchable Select opens without a persistent active option"
-
               Expect.stringContains html "aria-disabled=\"true\"" "disabled options remain discoverable but unavailable"
               Expect.stringContains html "role=\"alert\"" "form validation is announced"
 
@@ -7191,8 +7044,7 @@ after"""
                   }
                   |> Render.toString
 
-              Expect.stringContains staticHtml "_local_query" "static query remains private ephemeral state"
-              Expect.stringContains staticHtml "data-show=" "static options filter locally"
+              Expect.stringContains (System.Net.WebUtility.HtmlDecode staticHtml) "\"search\":\"static\"" "static filtering is an explicit component mode"
               Expect.stringContains staticHtml "No local accounts" "static empty state is configurable"
               Expect.isFalse (staticHtml.Contains("@get(")) "static filtering has no backend action"
 
@@ -7828,8 +7680,8 @@ after"""
                   (Regex
                       .Matches(selectValue, "\\sdata-bind:[^=\\s>]+(?:=|\\s|>)", RegexOptions.IgnoreCase)
                       .Count)
-                  1
-                  "Select owns one submitted Datastar binding"
+                  0
+                  "native submitted values do not expose private state through page bindings"
 
               for rejected in [ "data-bind:other"; "other-option" ] do
                   Expect.isFalse
@@ -7893,16 +7745,7 @@ after"""
 
               let basicHtml = basic None false |> Render.toString
               Expect.stringContains basicHtml "data-fve-notification-ttl=\"5000\"" "default lifetime"
-              Expect.stringContains basicHtml "data-on-interval__duration.100ms" "local timer"
-              Expect.stringContains basicHtml "document.hidden" "hidden documents pause expiry"
-
-              Expect.stringContains
-                  basicHtml
-                  "closest(&#39;[data-fve-notification-region]&#39;)"
-                  "the whole active region owns interaction pause"
-
-              Expect.stringContains basicHtml ":hover" "hover pauses expiry"
-              Expect.stringContains basicHtml ":focus-within" "focus pauses expiry"
+              Expect.stringContains basicHtml "<fve-notification " "lifetime has a component-local owner"
               Expect.stringContains basicHtml "bg-[var(--fve-surface)]" "notification card uses the neutral surface"
               Expect.stringContains basicHtml "data-fve-notification-dismiss" "accessible dismissal control"
 
@@ -7910,10 +7753,6 @@ after"""
               Expect.stringContains configuredHtml "data-fve-notification-ttl=\"1250\"" "custom positive lifetime"
               let persistentHtml = basic None true |> Render.toString
               Expect.stringContains persistentHtml "data-fve-notification-persistent=\"true\"" "persistent mode"
-
-              Expect.isFalse
-                  (persistentHtml.Contains("data-on-interval"))
-                  "persistent notifications do not start a timer"
 
               Expect.throws (fun () -> basic (Some 0) false |> ignore) "non-positive lifetimes are rejected"
 

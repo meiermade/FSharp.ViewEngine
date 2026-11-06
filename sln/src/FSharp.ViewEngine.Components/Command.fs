@@ -135,94 +135,15 @@ module Command =
         NativeOverlay.requireText (nameof commandId) "A stable command ID is required." commandId
         NativeOverlay.triggerAttributes (commandId + "-dialog") (Some(commandId + "-input"))
 
-    let private initialize = """
-const root = el;
-const words = value => value.toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
-root._fveCommandItems = () => [...root.querySelectorAll('[data-fve-command-item]')].filter(item => !item.hidden && !item.closest('[data-fve-command-group]').hidden && item.getAttribute('aria-disabled') !== 'true');
-root._fveCommandSelect = item => {
-  const previous = root.querySelector('[data-fve-command-item][aria-selected=true]');
-  if (previous && previous !== item) previous.setAttribute('aria-selected', 'false');
-  if (item && item.getAttribute('aria-selected') !== 'true') item.setAttribute('aria-selected', 'true');
-  root._fveCommandActive = item?.id || '';
-  const input = root.querySelector('[data-fve-command-input]');
-  if (item) {
-    if (input.getAttribute('aria-activedescendant') !== item.id) input.setAttribute('aria-activedescendant', item.id);
-  } else if (input.hasAttribute('aria-activedescendant')) input.removeAttribute('aria-activedescendant');
-};
-root._fveCommandUpdate = (preserve = false) => {
-  const input = root.querySelector('[data-fve-command-input]');
-  const query = input.value.trim().toLowerCase();
-  const terms = words(query);
-  for (const group of root.querySelectorAll('[data-fve-command-group]')) {
-    const entries = [...group.querySelectorAll('[data-fve-command-item]')];
-    const score = item => {
-      if (!query) return 0;
-      const label = item.dataset.fveCommandLabel.toLowerCase();
-      const labels = words(label);
-      const keywords = words(item.dataset.fveCommandKeywords);
-      const description = words(item.dataset.fveCommandDescription);
-      if (label === query) return 0;
-      if (label.startsWith(query)) return 1;
-      if (terms.length && terms.every(term => labels.some(word => word.startsWith(term)))) return 2;
-      if (terms.length && terms.every(term => [...labels, ...keywords].some(word => word.startsWith(term)))) return 3;
-      if (terms.length && terms.every(term => [...labels, ...keywords, ...description].includes(term))) return 4;
-      return Infinity;
-    };
-    const ranked = entries.map(item => ({item, score: score(item)})).sort((a,b) => a.score - b.score || Number(a.item.dataset.fveCommandOrder) - Number(b.item.dataset.fveCommandOrder));
-    let cursor = entries[0] || null;
-    for (const entry of ranked) {
-      const hidden = !Number.isFinite(entry.score);
-      if (entry.item.hidden !== hidden) entry.item.hidden = hidden;
-      if (entry.item !== cursor) group.insertBefore(entry.item, cursor);
-      cursor = entry.item.nextElementSibling;
-    }
-    const hidden = !ranked.some(entry => Number.isFinite(entry.score));
-    if (group.hidden !== hidden) group.hidden = hidden;
-  }
-  const items = root._fveCommandItems();
-  root._fveCommandSelect((preserve && items.find(item => item.id === root._fveCommandActive)) || items[0]);
-  const hasResults = [...root.querySelectorAll('[data-fve-command-group]')].some(group => !group.hidden);
-  const listbox = root.querySelector('[role=listbox]');
-  const empty = root.querySelector('[data-fve-command-empty]');
-  if (listbox.hidden === hasResults) listbox.hidden = !hasResults;
-  if (input.getAttribute('aria-expanded') !== String(hasResults)) input.setAttribute('aria-expanded', String(hasResults));
-  if (empty.hidden !== hasResults) empty.hidden = hasResults;
-  return items;
-};
-root._fveCommandUpdate();
-"""
-    let private keyboard = """
-if (evt.target.matches('[data-fve-command-input]') && !evt.isComposing && !evt.ctrlKey && !evt.metaKey && !evt.altKey) {
-  if (['ArrowDown','ArrowUp','Home','End','Enter'].includes(evt.key)) {
-    evt.preventDefault();
-    const items = el._fveCommandItems();
-    const index = items.findIndex(item => item.id === el._fveCommandActive);
-    if (evt.key === 'Enter') items[index]?.click();
-    else {
-      const next = evt.key === 'Home' ? items[0] : evt.key === 'End' ? items.at(-1) : items.at((index + (evt.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length);
-      el._fveCommandSelect(next);
-      next?.scrollIntoView({block:'nearest', inline:'nearest'});
-    }
-  } else if (evt.key === 'Escape' && !el.closest('dialog')) {
-    const input = el.querySelector('[data-fve-command-input]');
-    input.value = ''; el._fveCommandUpdate();
-  }
-}
-"""
     let private renderContent framed (config:CommandConfig) =
         let inputId = config.id + "-input"
         let listId = config.id + "-list"
         let hasItems = config.groups |> List.exists (fun group -> not (List.isEmpty group.items))
-        div {
+        (Html.el "fve-command") {
             _id config.id
             _data ("fve-command", "true")
             _class ("flex min-h-0 min-w-0 w-full flex-col overflow-hidden text-[var(--fve-text)] " + (if framed then "rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-surface)]" else "bg-[var(--fve-background)]") + " " + ComponentContent.classes config.attributes)
-            for attribute in ComponentHtml.safeAttributes [ "id"; "class"; "data-init"; "data-on:input"; "data-on:keydown"; "data-on:click"; "data-on:focusin" ] config.attributes do attribute
-            _dataInit initialize
-            _dataOn ("input", "el._fveCommandUpdate()")
-            _dataOn ("focusin", "if (evt.target.matches('[data-fve-command-input]')) el._fveCommandUpdate(true)")
-            _dataOn ("keydown", keyboard)
-            _dataOn ("click", "if (!evt.ctrlKey && !evt.metaKey && !evt.altKey && !evt.shiftKey && evt.target.closest('[data-fve-command-item]:not([aria-disabled=true])')) el.closest('dialog')?.close()")
+            for attribute in ComponentHtml.safeAttributes [ "id"; "class" ] config.attributes do attribute
             div {
                 _class "flex shrink-0 items-center gap-2 border-b border-[var(--fve-border)] px-3"
                 svg {
@@ -278,8 +199,7 @@ if (evt.target.matches('[data-fve-command-input]') && !evt.isComposing && !evt.c
                                 _data ("fve-command-order", string itemIndex)
                                 _ariaDisabled unavailable
                                 _class "flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-[var(--fve-radius-control)] border-0 bg-transparent px-2 py-1.5 text-left text-sm text-[var(--fve-text)] no-underline outline-none aria-selected:bg-[var(--fve-surface-active)] hover:bg-[var(--fve-surface-hover)] aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
-                                _dataOn ("pointermove", "if (el.getAttribute('aria-disabled') !== 'true') el.closest('[data-fve-command]')._fveCommandSelect(el)")
-                                if unavailable then _dataOn ("click", "evt.preventDefault(); evt.stopPropagation()") ]
+                            ]
                             let authored =
                                 ComponentHtml.safeAttributes ["id"; "type"; "role"; "href"; "aria-selected"; "tabindex"; "data-fve-command-item"; "data-fve-command-label"; "data-fve-command-keywords"; "data-fve-command-description"; "data-fve-command-order"; "data-on:pointermove"; "data-on:click"] content.attributes
                                 |> List.filter (fun attribute -> not unavailable || not (attribute.Name.StartsWith("data-on:click", StringComparison.OrdinalIgnoreCase) || attribute.Name.StartsWith("data-on:keydown", StringComparison.OrdinalIgnoreCase)))
@@ -332,16 +252,15 @@ if (evt.target.matches('[data-fve-command-input]') && !evt.isComposing && !evt.c
     let internal renderDialog attributes children =
         let config = CommandParts.configuration attributes children
         let dialogId = config.id + "-dialog"
-        dialog {
+        let content = dialog {
             _id dialogId
             _ariaLabel config.label
             _ariaModal true
             _data("fve-initial-focus", config.id + "-input")
-            _dataOn ("close", NativeOverlay.restoreFocusExpression dialogId)
-            _dataOn ("click", NativeOverlay.dismissOnBackdropExpression dialogId)
             _class "m-auto max-h-[calc(100dvh-2rem)] w-[min(32rem,calc(100vw-2rem))] overflow-hidden rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-background)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)] backdrop:backdrop-blur-[2px]"
             renderContent false config
         }
+        NativeOverlay.enhance "fve-dialog" dialogId true content
 
 /// <category>command</category>
 [<AutoOpen>]

@@ -1785,28 +1785,7 @@ const expectNoRawMermaid = async (diagram: Locator) => {
   await expect(diagram.locator('.error-icon, .error-text')).toHaveCount(0)
 }
 
-test('initial document readiness renders pending diagrams independently of data-init timing', crossBrowser, async ({ page }) => {
-  await page.addInitScript(() => {
-    let renderMermaid: ((root: Document | Element, pendingOnly?: boolean) => Promise<void>) | undefined
-    Object.defineProperty(window, 'renderMermaid', {
-      configurable: true,
-      get: () => renderMermaid,
-      set: value => {
-        renderMermaid = (root, pendingOnly) =>
-          root instanceof Element && root.matches('.mermaid') ? Promise.resolve() : value(root, pendingOnly)
-      },
-    })
-  })
-
-  await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
-
-  const diagram = page.locator('main [data-docs-diagram="true"]').first()
-  await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
-  await expect(diagram.locator('svg')).toBeVisible()
-  await expectNoRawMermaid(diagram)
-})
-
-test('diagrams render directly without exposing Mermaid source', async ({ page }) => {
+test('diagrams render on initial document readiness without exposing Mermaid source', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
 
@@ -1869,7 +1848,6 @@ test('a Mermaid render rejection shows the accessible failure state without an e
 
   await diagram.evaluate(async element => {
     element.setAttribute('data-mermaid-source', 'not-a-valid-mermaid-diagram')
-    await (window as typeof window & { renderMermaid?: (element: Element) => Promise<void> }).renderMermaid?.(element)
   })
 
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'failed')
@@ -1883,19 +1861,7 @@ test('a Mermaid render rejection shows the accessible failure state without an e
 test('pending diagrams render after Docs navigation through component-local initialization', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/components/code-block', { waitUntil: 'domcontentloaded' })
-  await page.evaluate(() => {
-    const docsWindow = window as typeof window & {
-      renderMermaid?: (root: Document | Element, pendingOnly?: boolean) => Promise<void>
-      mermaidRenderHosts?: string[]
-    }
-    const renderMermaid = docsWindow.renderMermaid
-    docsWindow.mermaidRenderHosts = []
-    docsWindow.renderMermaid = (root, pendingOnly) => {
-      const fromDataInit = root instanceof Element && root.matches('.mermaid')
-      docsWindow.mermaidRenderHosts?.push(fromDataInit ? 'data-init' : root instanceof Element ? root.id : 'document')
-      return renderMermaid?.(root, pendingOnly) ?? Promise.resolve()
-    }
-  })
+  await page.evaluate(() => { (window as any).mermaidNavigationDocument = 'same-document' })
 
   await page.locator('#nav-components-mermaid').click()
   await expect(page).toHaveURL('/components/mermaid')
@@ -1903,15 +1869,13 @@ test('pending diagrams render after Docs navigation through component-local init
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
   await expect(diagram.locator('svg')).toBeVisible()
-  await expect.poll(() => page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('data-init')
-  expect(await page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).not.toContain('page-content')
+  expect(await page.evaluate(() => (window as any).mermaidNavigationDocument)).toBe('same-document')
 
   await page.evaluate(async () => {
     const diagram = document.querySelector<HTMLElement>('main [data-docs-diagram="true"]')!
     diagram.dataset.mermaidState = 'rendered'
     diagram.dataset.mermaidRenderedSource = 'stale-source'
     diagram.replaceChildren()
-    await (window as typeof window & { renderMermaid?: (element: Element, pendingOnly?: boolean) => Promise<void> }).renderMermaid?.(document.getElementById('page-content')!, true)
   })
   await expect(diagram.locator('svg')).toBeVisible()
   await expectNoRawMermaid(diagram)
@@ -1927,7 +1891,6 @@ test('queued pending rendering discards stale in-flight Mermaid results for a re
   const expectedSource = await diagram.evaluate(async element => {
     const docsWindow = window as typeof window & {
       mermaid: { render: (id: string, source: string) => Promise<{ svg: string; bindFunctions?: (node: Element) => void }> }
-      renderMermaid?: (element: Element, pendingOnly?: boolean) => Promise<void>
     }
     const firstSource = 'flowchart LR\n  Stale --> Result'
     const nextSource = 'flowchart LR\n  Current --> Result'
@@ -1951,12 +1914,16 @@ test('queued pending rendering discards stale in-flight Mermaid results for a re
       const node = element as HTMLElement
       node.dataset.mermaidSource = firstSource
       node.dataset.mermaidState = 'pending'
-      const firstRender = docsWindow.renderMermaid?.(node, true) ?? Promise.resolve()
       await firstStarted
+      const applied = new Promise<void>(resolve => {
+        const observer = new MutationObserver(() => {
+          if (node.dataset.mermaidRenderedSource === nextSource && node.querySelector('svg')?.getAttribute('data-test-mermaid-source') === encodeURIComponent(nextSource)) { observer.disconnect(); resolve() }
+        })
+        observer.observe(node, { attributes: true, childList: true })
+      })
       node.dataset.mermaidSource = nextSource
-      const nextRender = docsWindow.renderMermaid?.(node, true) ?? Promise.resolve()
       releaseFirst?.()
-      await Promise.all([firstRender, nextRender])
+      await applied
       return nextSource
     } finally {
       docsWindow.mermaid.render = originalRender

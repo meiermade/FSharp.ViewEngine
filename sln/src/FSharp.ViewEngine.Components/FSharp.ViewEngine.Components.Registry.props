@@ -2,89 +2,117 @@
 <Project>
   <!-- Only independently installable components and their tightly coupled helpers are distributed. -->
   <ItemGroup>
-    <FveComponent Include="$(MSBuildThisFileDirectory)ComponentBuilder.fs" FveFile="ComponentBuilder.fs" FveName="component-builder" FveDependencies="" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Foundation.fs" FveFile="Foundation.fs" FveName="foundation" FveDependencies="component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ComponentBuilder.fs" FveFile="ComponentBuilder.fs" FveName="component-builder" FveDependencies="" FveInternal="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Foundation.fs" FveFile="Foundation.fs" FveName="foundation" FveDependencies="component-builder" FveInternal="true" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Card.fs" FveFile="Card.fs" FveName="card" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Progress.fs" FveFile="Progress.fs" FveName="progress" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Browser.fs" FveFile="Browser.fs" FveName="browser" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Phone.fs" FveFile="Phone.fs" FveName="phone" FveDependencies="foundation;component-builder" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)CodeAssets.fs" FveFile="CodeAssets.fs" FveName="code-assets" FveDependencies="" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)MermaidAssets.fs" FveFile="MermaidAssets.fs" FveName="mermaid-assets" FveDependencies="" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)CodeAssets.fs" FveFile="CodeAssets.fs" FveOwner="code-block" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)MermaidAssets.fs" FveFile="MermaidAssets.fs" FveOwner="mermaid" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Kbd.fs" FveFile="Kbd.fs" FveName="kbd" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Separator.fs" FveFile="Separator.fs" FveName="separator" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Skeleton.fs" FveFile="Skeleton.fs" FveName="skeleton" FveDependencies="foundation;component-builder" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/datastar-LICENSE.txt" FveFile="Assets/datastar-LICENSE.txt" FveName="datastar-license" FveDependencies="" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/datastar-rocket.1.0.4.js" FveFile="Assets/datastar-rocket.1.0.4.js" FveName="rocket-runtime" FveDependencies="datastar-license" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)CodeBlock.fs" FveFile="CodeBlock.fs" FveName="code-block" FveDependencies="foundation;component-builder;code-assets;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Mermaid.fs" FveFile="Mermaid.fs" FveName="mermaid" FveDependencies="foundation;component-builder;mermaid-assets;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)FileSelection.fs" FveFile="FileSelection.fs" FveName="file-selection" FveDependencies="foundation;component-builder;rocket-runtime" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/button.js" FveFile="Assets/button.js" FveName="button-script" FveDependencies="rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Button.fs" FveFile="Button.fs" FveName="button" FveDependencies="foundation;component-builder;button-script" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/datastar-LICENSE.txt" FveFile="Assets/datastar-LICENSE.txt" FveOwner="rocket-runtime" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/datastar-rocket.1.0.4.js" FveFile="Assets/datastar-rocket.1.0.4.js" FveName="rocket-runtime" FveDependencies="" FveInternal="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/code-block.js" FveFile="Assets/code-block.js" FveOwner="code-block" FveModule="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/mermaid.js" FveFile="Assets/mermaid.js" FveOwner="mermaid" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)CodeBlock.fs" FveFile="CodeBlock.fs" FveName="code-block" FveDependencies="rocket-runtime;foundation;component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Mermaid.fs" FveFile="Mermaid.fs" FveName="mermaid" FveDependencies="rocket-runtime;foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/native-control.js" FveFile="Assets/native-control.js" FveName="native-control" FveDependencies="rocket-runtime" FveInternal="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/file-selection.js" FveFile="Assets/file-selection.js" FveOwner="file-selection" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)FileSelection.fs" FveFile="FileSelection.fs" FveName="file-selection" FveDependencies="native-control;foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/button.js" FveFile="Assets/button.js" FveOwner="button" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Button.fs" FveFile="Button.fs" FveName="button" FveDependencies="rocket-runtime;foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Link.fs" FveFile="Link.fs" FveName="link" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Badge.fs" FveFile="Badge.fs" FveName="badge" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)LoadingIndicator.fs" FveFile="LoadingIndicator.fs" FveName="loading-indicator" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)EmptyState.fs" FveFile="EmptyState.fs" FveName="empty-state" FveDependencies="foundation;component-builder" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/table.js" FveFile="Assets/table.js" FveName="table-script" FveDependencies="rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Table.fs" FveFile="Table.fs" FveName="table" FveDependencies="foundation;component-builder;table-script" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/echarts-LICENSE.txt" FveFile="Assets/echarts-LICENSE.txt" FveName="echarts-license" FveDependencies="" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/echarts-NOTICE.txt" FveFile="Assets/echarts-NOTICE.txt" FveName="echarts-notice" FveDependencies="" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/echarts.6.1.0.provenance.json" FveFile="Assets/echarts.6.1.0.provenance.json" FveName="echarts-provenance" FveDependencies="" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/echarts.6.1.0.esm.min.js" FveFile="Assets/echarts.6.1.0.esm.min.js" FveName="echarts-runtime" FveDependencies="echarts-license;echarts-notice;echarts-provenance" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/chart.js" FveFile="Assets/chart.js" FveName="chart-script" FveDependencies="rocket-runtime;echarts-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Chart.fs" FveFile="Chart.fs" FveName="chart" FveDependencies="foundation;component-builder;chart-script" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/table.js" FveFile="Assets/table.js" FveOwner="table" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Table.fs" FveFile="Table.fs" FveName="table" FveDependencies="rocket-runtime;foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/echarts-LICENSE.txt" FveFile="Assets/echarts-LICENSE.txt" FveOwner="echarts" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/echarts-NOTICE.txt" FveFile="Assets/echarts-NOTICE.txt" FveOwner="echarts" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/echarts.6.1.0.provenance.json" FveFile="Assets/echarts.6.1.0.provenance.json" FveOwner="echarts" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/echarts.6.1.0.esm.min.js" FveFile="Assets/echarts.6.1.0.esm.min.js" FveName="echarts" FveDependencies="" FveInternal="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/chart.js" FveFile="Assets/chart.js" FveOwner="chart" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Chart.fs" FveFile="Chart.fs" FveName="chart" FveDependencies="rocket-runtime;echarts;foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)DescriptionList.fs" FveFile="DescriptionList.fs" FveName="description-list" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Metric.fs" FveFile="Metric.fs" FveName="metric" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Pagination.fs" FveFile="Pagination.fs" FveName="pagination" FveDependencies="foundation;component-builder" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)ChoiceSelection.fs" FveFile="ChoiceSelection.fs" FveName="choice-selection" FveDependencies="foundation" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/tag-input.js" FveFile="Assets/tag-input.js" FveName="tag-input-script" FveDependencies="rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)TagInput.fs" FveFile="TagInput.fs" FveName="tag-input" FveDependencies="foundation;component-builder;tag-input-script" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ChoiceSelection.fs" FveFile="ChoiceSelection.fs" FveName="choice-selection" FveDependencies="foundation" FveInternal="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/tag-input.js" FveFile="Assets/tag-input.js" FveOwner="tag-input" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)TagInput.fs" FveFile="TagInput.fs" FveName="tag-input" FveDependencies="rocket-runtime;foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Field.fs" FveFile="Field.fs" FveName="field" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)FieldGroup.fs" FveFile="FieldGroup.fs" FveName="field-group" FveDependencies="field" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Checkbox.fs" FveFile="Checkbox.fs" FveName="checkbox" FveDependencies="foundation;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Switch.fs" FveFile="Switch.fs" FveName="switch" FveDependencies="foundation;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)ToggleButton.fs" FveFile="ToggleButton.fs" FveName="toggle-button" FveDependencies="foundation;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Tabs.fs" FveFile="Tabs.fs" FveName="tabs" FveDependencies="foundation;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)RadioGroup.fs" FveFile="RadioGroup.fs" FveName="radio-group" FveDependencies="field-group;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)CalendarRendering.fs" FveFile="CalendarRendering.fs" FveName="calendar-rendering" FveDependencies="foundation;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Resizable.fs" FveFile="Resizable.fs" FveName="resizable" FveDependencies="foundation;component-builder;rocket-runtime" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/checkbox.js" FveFile="Assets/checkbox.js" FveOwner="checkbox" FveModule="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/switch.js" FveFile="Assets/switch.js" FveOwner="switch" FveModule="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/radio.js" FveFile="Assets/radio.js" FveOwner="radio-group" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Checkbox.fs" FveFile="Checkbox.fs" FveName="checkbox" FveDependencies="native-control;foundation;component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Switch.fs" FveFile="Switch.fs" FveName="switch" FveDependencies="native-control;foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/toggle-button.js" FveFile="Assets/toggle-button.js" FveOwner="toggle-button" FveModule="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/tabs.js" FveFile="Assets/tabs.js" FveOwner="tabs" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ToggleButton.fs" FveFile="ToggleButton.fs" FveName="toggle-button" FveDependencies="rocket-runtime;foundation;component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Tabs.fs" FveFile="Tabs.fs" FveName="tabs" FveDependencies="rocket-runtime;foundation;component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)RadioGroup.fs" FveFile="RadioGroup.fs" FveName="radio-group" FveDependencies="native-control;field-group" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/scroll-region.js" FveFile="Assets/scroll-region.js" FveName="scroll-region" FveDependencies="rocket-runtime" FveInternal="true" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)CalendarRendering.fs" FveFile="CalendarRendering.fs" FveName="calendar-rendering" FveDependencies="foundation;component-builder;scroll-region" FveInternal="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/resizable.js" FveFile="Assets/resizable.js" FveOwner="resizable" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Resizable.fs" FveFile="Resizable.fs" FveName="resizable" FveDependencies="rocket-runtime;foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)BottomNavigation.fs" FveFile="BottomNavigation.fs" FveName="bottom-navigation" FveDependencies="foundation;component-builder" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)FieldFoundation.fs" FveFile="FieldFoundation.fs" FveName="field-foundation" FveDependencies="foundation;component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)FieldFoundation.fs" FveFile="FieldFoundation.fs" FveName="field-foundation" FveDependencies="foundation;component-builder" FveInternal="true" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Avatar.fs" FveFile="Avatar.fs" FveName="avatar" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)PageTopBar.fs" FveFile="PageTopBar.fs" FveName="page-top-bar" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)PageHeader.fs" FveFile="PageHeader.fs" FveName="page-header" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)SectionHeader.fs" FveFile="SectionHeader.fs" FveName="section-header" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)FSharpApiReference.fs" FveFile="FSharpApiReference.fs" FveName="fsharp-api-reference" FveDependencies="code-block" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Callout.fs" FveFile="Callout.fs" FveName="callout" FveDependencies="foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/example.js" FveFile="Assets/example.js" FveOwner="example" FveModule="true" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Example.fs" FveFile="Example.fs" FveName="example" FveDependencies="code-block" />
     <FveComponent Include="$(MSBuildThisFileDirectory)ChoiceCards.fs" FveFile="ChoiceCards.fs" FveName="choice-cards" FveDependencies="field-group" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Notice.fs" FveFile="Notice.fs" FveName="notice" FveDependencies="foundation;component-builder" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Notification.fs" FveFile="Notification.fs" FveName="notification" FveDependencies="foundation;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)ToggleGroup.fs" FveFile="ToggleGroup.fs" FveName="toggle-group" FveDependencies="foundation;choice-selection;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)DropdownMenu.fs" FveFile="DropdownMenu.fs" FveName="dropdown-menu" FveDependencies="foundation;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)SideNav.fs" FveFile="SideNav.fs" FveName="side-nav" FveDependencies="foundation;dropdown-menu" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/notification.js" FveFile="Assets/notification.js" FveOwner="notification" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Notification.fs" FveFile="Notification.fs" FveName="notification" FveDependencies="rocket-runtime;foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/toggle-group.js" FveFile="Assets/toggle-group.js" FveOwner="toggle-group" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ToggleGroup.fs" FveFile="ToggleGroup.fs" FveName="toggle-group" FveDependencies="rocket-runtime;foundation;choice-selection;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/dropdown-menu.js" FveFile="Assets/dropdown-menu.js" FveOwner="dropdown-menu" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)DropdownMenu.fs" FveFile="DropdownMenu.fs" FveName="dropdown-menu" FveDependencies="rocket-runtime;foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/side-nav.js" FveFile="Assets/side-nav.js" FveOwner="side-nav" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)SideNav.fs" FveFile="SideNav.fs" FveName="side-nav" FveDependencies="rocket-runtime;foundation;dropdown-menu" />
     <FveComponent Include="$(MSBuildThisFileDirectory)ColorMode.fs" FveFile="ColorMode.fs" FveName="color-mode" FveDependencies="" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)FloatingPanel.fs" FveFile="FloatingPanel.fs" FveName="floating-panel" FveDependencies="foundation;component-builder;field-foundation;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Tooltip.fs" FveFile="Tooltip.fs" FveName="tooltip" FveDependencies="foundation;component-builder;field-foundation;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Popover.fs" FveFile="Popover.fs" FveName="popover" FveDependencies="foundation;component-builder;field-foundation;rocket-runtime" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/floating-panel.js" FveFile="Assets/floating-panel.js" FveOwner="floating-panel" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)FloatingPanel.fs" FveFile="FloatingPanel.fs" FveName="floating-panel" FveDependencies="rocket-runtime;foundation;component-builder;field-foundation" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/tooltip.js" FveFile="Assets/tooltip.js" FveOwner="tooltip" FveModule="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/popover.js" FveFile="Assets/popover.js" FveOwner="popover" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Tooltip.fs" FveFile="Tooltip.fs" FveName="tooltip" FveDependencies="rocket-runtime;foundation;component-builder;field-foundation" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Popover.fs" FveFile="Popover.fs" FveName="popover" FveDependencies="rocket-runtime;foundation;component-builder;field-foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)DayCalendar.fs" FveFile="DayCalendar.fs" FveName="day-calendar" FveDependencies="calendar-rendering" />
     <FveComponent Include="$(MSBuildThisFileDirectory)WeekCalendar.fs" FveFile="WeekCalendar.fs" FveName="week-calendar" FveDependencies="calendar-rendering" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)MonthCalendar.fs" FveFile="MonthCalendar.fs" FveName="month-calendar" FveDependencies="calendar-rendering;field-foundation;popover" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/calendar-selection.js" FveFile="Assets/calendar-selection.js" FveOwner="month-calendar" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)MonthCalendar.fs" FveFile="MonthCalendar.fs" FveName="month-calendar" FveDependencies="rocket-runtime;calendar-rendering;field-foundation;popover" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Message.fs" FveFile="Message.fs" FveName="message" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Input.fs" FveFile="Input.fs" FveName="input" FveDependencies="field-foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Textarea.fs" FveFile="Textarea.fs" FveName="textarea" FveDependencies="field-foundation" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)ErrorSummary.fs" FveFile="ErrorSummary.fs" FveName="error-summary" FveDependencies="foundation;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)CopyReveal.fs" FveFile="CopyReveal.fs" FveName="copy-reveal" FveDependencies="foundation;button" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)NativeOverlay.fs" FveFile="NativeOverlay.fs" FveName="native-overlay" FveDependencies="foundation;button" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/error-summary.js" FveFile="Assets/error-summary.js" FveOwner="error-summary" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ErrorSummary.fs" FveFile="ErrorSummary.fs" FveName="error-summary" FveDependencies="rocket-runtime;foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/copy-reveal.js" FveFile="Assets/copy-reveal.js" FveOwner="copy-reveal" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)CopyReveal.fs" FveFile="CopyReveal.fs" FveName="copy-reveal" FveDependencies="rocket-runtime;foundation;button" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/native-overlay.js" FveFile="Assets/native-overlay.js" FveOwner="native-overlay" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)NativeOverlay.fs" FveFile="NativeOverlay.fs" FveName="native-overlay" FveDependencies="rocket-runtime;foundation;button" FveInternal="true" />
     <FveComponent Include="$(MSBuildThisFileDirectory)InputGroup.fs" FveFile="InputGroup.fs" FveName="input-group" FveDependencies="foundation;component-builder" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Select.fs" FveFile="Select.fs" FveName="select" FveDependencies="foundation;choice-selection;component-builder;rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)ButtonGroup.fs" FveFile="ButtonGroup.fs" FveName="button-group" FveDependencies="foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/select.js" FveFile="Assets/select.js" FveOwner="select" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Select.fs" FveFile="Select.fs" FveName="select" FveDependencies="rocket-runtime;foundation;choice-selection;component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)ButtonGroup.fs" FveFile="ButtonGroup.fs" FveName="button-group" FveDependencies="foundation;component-builder;scroll-region" />
     <FveComponent Include="$(MSBuildThisFileDirectory)YearCalendar.fs" FveFile="YearCalendar.fs" FveName="year-calendar" FveDependencies="month-calendar" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)DatePicker.fs" FveFile="DatePicker.fs" FveName="date-picker" FveDependencies="foundation;field-foundation;popover;month-calendar" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/breadcrumbs.js" FveFile="Assets/breadcrumbs.js" FveName="breadcrumbs-script" FveDependencies="rocket-runtime" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Breadcrumbs.fs" FveFile="Breadcrumbs.fs" FveName="breadcrumbs" FveDependencies="foundation;dropdown-menu;button;breadcrumbs-script" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/date-picker.js" FveFile="Assets/date-picker.js" FveOwner="date-picker" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)DatePicker.fs" FveFile="DatePicker.fs" FveName="date-picker" FveDependencies="popover;month-calendar;foundation;field-foundation" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/breadcrumbs.js" FveFile="Assets/breadcrumbs.js" FveOwner="breadcrumbs" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Breadcrumbs.fs" FveFile="Breadcrumbs.fs" FveName="breadcrumbs" FveDependencies="rocket-runtime;foundation;dropdown-menu;button" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/dialog.js" FveFile="Assets/dialog.js" FveOwner="dialog" FveModule="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/drawer.js" FveFile="Assets/drawer.js" FveOwner="drawer" FveModule="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/command.js" FveFile="Assets/command.js" FveOwner="command" FveModule="true" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Dialog.fs" FveFile="Dialog.fs" FveName="dialog" FveDependencies="native-overlay" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Drawer.fs" FveFile="Drawer.fs" FveName="drawer" FveDependencies="native-overlay" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Command.fs" FveFile="Command.fs" FveName="command" FveDependencies="foundation;component-builder;native-overlay" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Command.fs" FveFile="Command.fs" FveName="command" FveDependencies="dialog;foundation;component-builder;native-overlay" />
     <Compile Include="@(FveComponent)" Condition="'$(FveCompileRegistry)' != 'false'" />
   </ItemGroup>
 </Project>

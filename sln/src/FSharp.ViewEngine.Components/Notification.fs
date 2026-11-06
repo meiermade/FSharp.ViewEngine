@@ -30,24 +30,11 @@ module internal Notification =
     let private closeIcon =
         raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z"/></svg>"""
 
-    let private removalExpression root reason (config:NotificationData) =
-        $"const notification = {root}; const region = notification?.closest('[data-fve-notification-region]'); if (notification?.contains(document.activeElement)) document.activeElement?.blur(); notification?.remove(); region?.dispatchEvent(new CustomEvent('fve-notification-dismiss', {{ bubbles: true, detail: {{ id: {ComponentHtml.javascriptString config.id}, reason: '{reason}' }} }}))"
-
     let private render (config:NotificationData) =
-        let timeoutRemoval = removalExpression "el" "timeout" config
-        let clock milliseconds =
-            $"const now = performance.now(); const clock = el._fveNotificationClock ?? {{at: now, elapsed: 0, paused: true}}; if (!clock.paused) clock.elapsed += Math.max(0, now - clock.at); clock.at = now; clock.paused = document.hidden || el.matches(':hover') || el.matches(':focus-within'); el._fveNotificationClock = clock; if (!clock.paused && clock.elapsed >= {milliseconds}) {{ {timeoutRemoval} }}"
-        article {
+        let content = article {
             _attr ("data-fve-notification", "true")
             match config.ttl with
-            | Some milliseconds ->
-                let advance = clock milliseconds
-                _attr ("data-fve-notification-ttl", string milliseconds)
-                _dataInit advance
-                _dataOnInterval ([ "duration.100ms" ], advance)
-                for event in ["mouseenter"; "mouseleave"; "focusin"; "focusout"] do
-                    _dataOn (event, "queueMicrotask(() => { " + advance + " })")
-                _dataOn ("visibilitychange", ["window"], advance)
+            | Some milliseconds -> _attr ("data-fve-notification-ttl", string milliseconds)
             | None -> _attr ("data-fve-notification-persistent", "true")
             let classes = "pointer-events-auto relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-surface)] p-4 text-[var(--fve-text)] shadow-lg [overflow-wrap:anywhere] transition-[transform,opacity] duration-200 motion-reduce:transition-none @max-[20rem]/fve-notification:grid-cols-1 @max-[20rem]/fve-notification:gap-y-2 @max-[20rem]/fve-notification:p-3"
             for attribute in ComponentElement.attributes ([_id config.id; _style (ComponentColors.style config.colors []); _class classes] @ config.attributes) do attribute
@@ -69,13 +56,13 @@ module internal Notification =
                 _ariaLabel ("Dismiss " + config.title)
                 _attr ("data-fve-notification-dismiss", "true")
                 _class "inline-flex size-8 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-color-focus)] @max-[20rem]/fve-notification:col-start-1 @max-[20rem]/fve-notification:row-start-1 @max-[20rem]/fve-notification:justify-self-end"
-                _dataOn ("click", removalExpression "evt.currentTarget.closest('[data-fve-notification]')" "dismiss" config)
                 closeIcon
             }
             match config.actions with
             | Some actions -> div { _class "col-start-2 col-end-4 mt-3 flex flex-wrap items-center gap-2 @max-[20rem]/fve-notification:col-start-1 @max-[20rem]/fve-notification:col-end-2 @max-[20rem]/fve-notification:row-start-3"; actions }
             | None -> ()
         }
+        ComponentElement.render "fve-notification" [_id (config.id + "-host"); _class "contents"] [] [content]
 
     let actions attributes children =
         if String.IsNullOrWhiteSpace (Render.toString (ComponentContent.fragment children)) then empty

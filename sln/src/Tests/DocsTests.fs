@@ -284,11 +284,11 @@ let tests =
             Expect.stringContains rendered "rel=\"stylesheet\" href=\"/css/compiled.css\"" "default compiled stylesheet contract"
             Expect.stringContains rendered "data-docs-visually-hidden-heading=\"true\"" "hidden semantic heading"
             Expect.stringContains rendered "aria-label=\"Toggle Guides section\"" "accessible disclosure"
-            Expect.stringContains rendered "data-attr:open" "groups preserve native disclosure state"
-            Expect.stringContains rendered "data-attr:aria-expanded" "groups expose accessible disclosure state"
+            Expect.stringContains rendered "<details" "groups preserve native disclosure state"
+            Expect.stringContains rendered "aria-expanded=" "groups expose accessible disclosure state"
             Expect.stringContains rendered "href=\"/guides\"" "breadcrumb destination"
-            Expect.stringContains rendered "class=\"mermaid overflow-x-auto" "sequence diagram component"
-            Expect.stringContains rendered "data-init=\"window.renderMermaid?.(el)\"" "diagrams initialize when Datastar adds them to the DOM"
+            Expect.stringContains rendered "class=\"block mermaid overflow-x-auto" "sequence diagram component"
+            Expect.stringContains rendered "<fve-mermaid " "diagrams keep an instance-local lifecycle owner"
             Expect.stringContains rendered "data-mermaid-source=\"sequenceDiagram" "diagram source is encoded outside visible content"
             Expect.stringContains rendered "data-mermaid-state=\"pending\" aria-busy=\"true\"" "diagrams expose their initial busy state"
             Expect.stringContains rendered "data-mermaid-status=\"true\" role=\"status\">Rendering diagram…</p>" "diagrams provide accessible pending content"
@@ -389,7 +389,7 @@ let tests =
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "plain pages do not eagerly load Mermaid"
             Expect.isFalse (plainHtml.Contains("prism-tomorrow.1.29.0.min.css")) "consumers opt into a Prism stylesheet through DocsAssets"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/prism.1.29.0.min.js\"")) "plain pages omit Prism scripts"
-            Expect.stringContains diagramHtml "data-init=\"window.renderMermaid?.(el)\"" "diagram elements own their Datastar initialization"
+            Expect.stringContains diagramHtml "<fve-mermaid " "diagram elements own their initialization"
             Expect.stringContains diagramHtml "data-mermaid-source=\"flowchart LR" "diagram source is encoded as data rather than visible content"
             Expect.stringContains diagramHtml "&lt;script&gt;alert(&#39;diagram&#39;)&lt;/script&gt;" "diagram source cannot escape its encoded data attribute"
             Expect.isFalse (diagramHtml.Contains("<script>alert('diagram')</script>")) "trusted Mermaid source is never emitted as executable component markup"
@@ -423,7 +423,7 @@ let tests =
 
             Expect.stringContains rendered "href=\"/css/product.css\"" "product stylesheet"
             Expect.stringContains rendered "href=\"/css/custom-prism.css\"" "consumer Prism stylesheet overrides the embedded palette"
-            Expect.stringContains rendered "securityLevel: \"strict\"" "Mermaid security setting is safely serialized"
+            Expect.stringContains rendered "window.fsharpDocsMermaid.security = \"strict\"" "Mermaid security setting is safely serialized"
             Expect.stringContains rendered "name=\"robots\"" "additional head content"
         }
 
@@ -443,7 +443,7 @@ let tests =
             Expect.stringContains document "aria-label=\"Copy code\"" "standard code copy button"
             Expect.stringContains document "data-docs-copy-source" "standard source relationship"
             Expect.stringContains api "aria-label=\"Copy Request\"" "API code copy button"
-            Expect.stringContains document "window.fsharpDocsCopy" "document copy lifecycle"
+            Expect.stringContains document "data-docs-copy-button" "copy controls remain native and explicitly owned"
             let example = fveExample { yield _name ("copy-example"); yield _label ("Example"); yield _variant ExampleVariant.CodeFirst; yield _language ("fsharp"); yield fveExampleCode { yield ("let value = 42" : string) }; yield ((div { "42" }) : HtmlElement) } |> Render.toString
             for html in [ document; api; example ] do
                 for state in [ "copy"; "success"; "error" ] do
@@ -500,26 +500,25 @@ let tests =
             Expect.stringContains example "data-docs-example-preview=\"true\"" "consumer preview"
             Expect.stringContains example "data-docs-example-code=\"true\"" "code panel hook"
             Expect.stringContains example "language-fsharp" "Prism-compatible code"
-            Expect.stringContains example "counter_exampleExample: &#39;code&#39;" "developer examples show source first"
+            Expect.stringContains example "initial-tab=\"code\"" "developer examples show source first"
             Expect.isLessThan
                 (example.IndexOf(">Code</button>", System.StringComparison.Ordinal))
                 (example.IndexOf(">Preview</button>", System.StringComparison.Ordinal))
                 "code appears before preview in the toggle"
-            Expect.stringContains example "window.renderCode" "opening code highlights dynamic content"
-            Expect.stringContains example "window.renderDocsPreview" "opening preview initializes isolated pages and dynamic diagrams"
+            Expect.stringContains example "<fve-code-block " "code panels keep an independent lifecycle owner"
             Expect.stringContains example "aria-label=\"Copy Counter code\"" "every example exposes a direct source copy action"
             Expect.stringContains example "data-docs-copy-source=\"true\"" "every example identifies the exact source to copy"
 
             let previewFirst =
                 fveExample { yield _name ("preview-example"); yield _label ("Preview"); yield _variant ExampleVariant.PreviewFirst; yield _language ("fsharp"); yield fveExampleCode { yield ("div { \"Source\" }" : string) }; yield ((div { "Preview" }) : HtmlElement) }
                 |> Render.toString
-            Expect.stringContains previewFirst "preview_exampleExample: &#39;preview&#39;" "preview-first examples initialize independently"
+            Expect.stringContains previewFirst "initial-tab=\"preview\"" "preview-first examples initialize independently"
             Expect.stringContains previewFirst "data-docs-preview-initial=\"true\"" "initial previews opt into lifecycle initialization"
 
             let codeFirst =
                 fveExample { yield _name ("source-example"); yield _label ("Source"); yield _variant ExampleVariant.CodeFirst; yield _language ("fsharp"); yield fveExampleCode { yield ("div { \"Source\" }" : string) }; yield ((div { "Preview" }) : HtmlElement) }
                 |> Render.toString
-            Expect.stringContains codeFirst "source_exampleExample: &#39;code&#39;" "code-first examples initialize independently"
+            Expect.stringContains codeFirst "initial-tab=\"code\"" "code-first examples initialize independently"
         }
 
         test "Version selectors are opt-in navigation" {

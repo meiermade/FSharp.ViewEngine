@@ -430,7 +430,7 @@ module internal SideNavView =
                     for attribute in hiddenWhenCollapsed do
                         attribute
 
-                    _dataOn ("click", [ "stop" ], "true")
+                    _attr ("data-fve-side-nav-action", "")
                     _class "shrink-0"
                     content
                 }
@@ -444,12 +444,6 @@ module internal SideNavView =
                       "bg-[var(--fve-brand-subtle)] font-semibold text-[var(--fve-brand-text)]"
                   else
                       "text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]" ]
-
-        let storagePrefix = "fve-side-nav:" + config.persistenceKey
-        let scrollKey = ComponentHtml.javascriptString (storagePrefix + ":scroll")
-
-        let saveScroll =
-            $"if (el.clientHeight > 0) {{ try {{ sessionStorage.setItem({scrollKey}, String(el.scrollTop)); }} catch {{}} }}"
 
         let rec renderItem path (item: SideNavNode<'destination>) =
             let itemId = item.id |> Option.defaultValue (config.id + "-item-" + path)
@@ -554,34 +548,22 @@ module internal SideNavView =
                         string (item.expanded || containsCurrent item) |> _.ToLowerInvariant()
 
                     let groupKey = item.id |> Option.defaultValue (path + ":" + item.label)
-                    let key = storagePrefix + ":group:" + groupKey
-                    let storageKey = ComponentHtml.javascriptString key
-
-                    let signal =
-                        item.expandedSignal
-                        |> Option.defaultValue ("_side_nav_" + ComponentHtml.optionToken key)
-                    // Host-owned signals keep their existing initialization and persistence policy.
-                    let initial =
-                        if item.expandedSignal.IsSome then
-                            expanded
-                        else
-                            $"(() => {{ try {{ const saved = sessionStorage.getItem({storageKey}); const value = saved === 'true' ? true : saved === 'false' ? false : {expanded}; sessionStorage.setItem({storageKey}, String(value)); return value; }} catch {{ return {expanded}; }} }})()"
-
-                    let toggle =
-                        $"evt.preventDefault(); ${signal} = !${signal}"
-                        + (if item.expandedSignal.IsSome then
-                               ""
-                           else
-                               $"; try {{ sessionStorage.setItem({storageKey}, String(${signal})); }} catch {{}}")
-
                     details {
                         if item.expanded || containsCurrent item then
                             _open true
 
                         _id (itemId + "-group")
                         _ariaLabel item.label
-                        _attr ("data-signals__ifmissing", $"{{{signal}: {initial}}}")
-                        _dataAttr ("open", $"${signal}")
+                        _attr ("data-fve-side-nav-group", groupKey)
+                        _attr ("data-fve-side-nav-default-open", expanded)
+                        // This adapter targets an explicitly caller-owned signal, never private widget state.
+                        match item.expandedSignal with
+                        | Some signal ->
+                            _attr ("data-fve-side-nav-external", "")
+                            _attr ("data-signals__ifmissing", $"{{{signal}: {expanded}}}")
+                            _dataAttr ("open", $"${signal}")
+                            _dataOn ("fve-side-nav-toggle", $"${signal} = evt.detail.open")
+                        | None -> ()
                         _dataPreserveAttr "open"
                         _class "group/navigation-item"
 
@@ -589,8 +571,7 @@ module internal SideNavView =
                             _id itemId
                             _ariaLabel ("Toggle " + item.label + " section")
                             _ariaControls (itemId + "-children")
-                            _dataAttr ("aria-expanded", $"${signal} ? 'true' : 'false'")
-                            _dataOn ("click", toggle)
+                            _ariaExpanded (item.expanded || containsCurrent item)
                             _title item.label
 
                             _class (
@@ -642,8 +623,12 @@ module internal SideNavView =
                     }
             }
 
-        aside {
+        (Html.el "fve-side-nav") {
             _id config.id
+            _role "complementary"
+            if ComponentElement.value "aria-label" (config.attributes @ attributes) = None then
+                _ariaLabel (config.label + " sidebar")
+            _attr ("persistence-key", config.persistenceKey)
 
             _class (
                 ComponentHtml.classes
@@ -718,15 +703,6 @@ module internal SideNavView =
             nav {
                 _ariaLabel config.label
                 _attr ("data-fve-side-nav-content", "true")
-                // Restore only when visible, including a mobile panel first opened after load.
-                _attr (
-                    "data-on-intersect__once",
-                    $"try {{ const saved = Number(sessionStorage.getItem({scrollKey})); if (Number.isFinite(saved) && saved >= 0) el.scrollTop = saved; }} catch {{}}"
-                )
-
-                _dataOn ("scroll", [ "passive" ], saveScroll)
-                _dataOn ("click", [ "capture" ], saveScroll)
-
                 _class (
                     ComponentHtml.classes
                         [ "min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto"
@@ -741,11 +717,7 @@ module internal SideNavView =
                 | Some content ->
                     for attribute in
                         ComponentHtml.safeAttributes
-                            [ "class"
-                              "aria-label"
-                              "data-on-intersect__once"
-                              "data-on:scroll__passive"
-                              "data-on:click__capture" ]
+                            [ "class"; "aria-label" ]
                             content.attributes do
                         attribute
                 | None -> ()

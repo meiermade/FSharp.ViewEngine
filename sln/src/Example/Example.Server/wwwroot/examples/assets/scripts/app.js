@@ -1,6 +1,19 @@
 import './spec-fixture.js';
 import './balance-chart.js';
 import './button.js';
+import './checkbox.js';
+import './notification.js';
+import './tabs.js';
+import './resizable.js';
+import './dialog.js';
+import './command.js';
+import './drawer.js';
+import './dropdown-menu.js';
+import './select.js';
+import './scroll-region.js';
+import './side-nav.js';
+import './code-block.js';
+import './mermaid.js';
 import './table.js';
 import './breadcrumbs.js';
 

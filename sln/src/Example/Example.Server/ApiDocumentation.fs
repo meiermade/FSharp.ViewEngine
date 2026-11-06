@@ -511,7 +511,10 @@ module ApiDocumentation =
             current
             groups
             (title page)
-            (fragment { yield! actions })
+            (fragment {
+                Layout.documentationSearch "Search API documentation" groups
+                yield! actions
+            })
             content
 
     let render page = renderWithActions [] page

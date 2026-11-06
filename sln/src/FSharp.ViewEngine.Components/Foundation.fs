@@ -368,9 +368,7 @@ module internal ComponentHtml =
     let horizontalScrollClasses = "min-w-0 max-w-full overflow-x-auto p-1 scroll-p-1 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] forced-colors:focus-visible:outline-[Highlight]"
 
     let horizontalScrollAttributes =
-        [ _tabindex 0
-          _dataOn ("focusin", "if (evt.target !== el && !evt.target.closest('[role=menu]')) evt.target.scrollIntoView({block: 'nearest', inline: 'nearest'})")
-          _dataOn ("keydown", "if (evt.target === el && !evt.altKey && !evt.ctrlKey && !evt.metaKey && !evt.shiftKey && (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight')) { evt.preventDefault(); el.scrollBy({left: evt.key === 'ArrowLeft' ? -80 : 80}) }") ]
+        [ _tabindex 0; _attr("scroll-step", "80"); _attr("follow-focus", "") ]
 
     let popupClasses = "border border-[var(--fve-border)] bg-[var(--fve-surface)] shadow-lg outline-none forced-colors:border-[CanvasText]"
     let popupFieldClasses = "outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-[Highlight]"
@@ -410,23 +408,6 @@ module internal ComponentHtml =
         // Keep conventional wire names readable. All other IDs use a disjoint, lossless namespace.
         if Regex.IsMatch(value, "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$") then value.Replace('-', '_')
         else "_" + optionToken value
-
-    let readOnlyGuards keys (attributes: HtmlAttribute list) =
-        let guard event expression =
-            let name = "data-on:" + event + "__capture"
-            let caller = attributes |> List.tryFindBack (fun attribute -> attribute.Name = name)
-            let expression =
-                match caller |> Option.bind (fun attribute -> ValueOption.toOption attribute.Value) with
-                | Some caller -> expression + "; " + caller
-                | None -> expression
-            Html._attr(name, expression)
-        let click = guard "click" "if (el.readOnly) evt.preventDefault()"
-        let keydown =
-            if List.isEmpty keys then []
-            else [ guard "keydown" ($"if (el.readOnly && {javascriptString keys}.includes(evt.key)) evt.preventDefault()") ]
-        // The persistent capture guard is independent of caller modifiers such as __once.
-        [ click; yield! keydown
-          yield! safeAttributes ([ "data-on:click__capture" ] @ if List.isEmpty keys then [] else [ "data-on:keydown__capture" ]) attributes ]
 
     let controlSizeClass size = size |> Option.map Size.className |> Option.defaultValue ""
 
@@ -554,36 +535,3 @@ module internal ComponentTrigger =
         match element with
         | :? ComponentControlElement as control when control.TagName = "fve-button" -> render control control.Attributes
         | _ -> element
-
-    let event name expression attributes =
-        let prefix = "data-on:" + name
-
-        let bindings =
-            attributes
-            |> List.filter (fun attribute ->
-                attribute.Name.Equals(prefix, StringComparison.OrdinalIgnoreCase)
-                || attribute.Name.StartsWith(prefix + "__", StringComparison.OrdinalIgnoreCase))
-
-        let bindingName, caller =
-            match bindings with
-            | [] -> prefix, "void 0"
-            | [ binding ] -> binding.Name, binding.Value |> ValueOption.defaultValue "void 0"
-            | _ -> invalidArg "attributes" $"Supply one {name} binding on a trigger control."
-
-        Html._attr (bindingName, caller + "; if (!evt.defaultPrevented) { " + expression + " }")
-
-    let withoutEvents names attributes =
-        attributes
-        |> List.filter (fun attribute ->
-            names
-            |> List.forall (fun name ->
-                let prefix = "data-on:" + name
-
-                not (
-                    attribute.Name.Equals(prefix, StringComparison.OrdinalIgnoreCase)
-                    || attribute.Name.StartsWith(prefix + "__", StringComparison.OrdinalIgnoreCase)
-                )))
-
-    let guard id expression =
-        let control = $"document.getElementById({ComponentHtml.javascriptString id})"
-        $"if ({control} && !{control}.disabled && {control}.getAttribute('aria-disabled') != 'true') {{ {expression} }}"

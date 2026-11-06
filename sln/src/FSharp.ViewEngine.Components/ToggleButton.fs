@@ -31,9 +31,14 @@ module internal ToggleButton =
             _data ("fve-group-control", if appearance = "outline" then "outline" else "plain")
             _ariaPressed false
             if readOnly then _ariaDisabled true
-            else _dataOn ("click", "el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') === 'true' ? 'false' : 'true'); el.dispatchEvent(new Event('change', {bubbles:true}))")
             _class ("inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium text-[var(--fve-text)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-brand-subtle)] aria-pressed:text-[var(--fve-brand-text)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 " + ComponentHtml.sizeClasses size + " " + variant) ]
-        ComponentElement.render "button" defaults (ComponentHtml.safeAttributes ["size"; "variant"; "readonly"] attributes) children
+        let content = ComponentElement.render "button" defaults (ComponentHtml.safeAttributes ["size"; "variant"; "readonly"] attributes |> ComponentHtml.outerSignals) children
+        let hostAttributes = [
+            _class "contents"
+            _readonly readOnly
+            match ComponentElement.value "id" attributes with Some id -> _id (id + "-host") | None -> ()
+            if (ComponentElement.attribute "data-on:click" attributes).IsSome then _attr ("controlled", "") ]
+        ComponentElement.render "fve-toggle-button" hostAttributes [] [content]
 
 /// <category>toggle-button</category>
 [<AutoOpen>]

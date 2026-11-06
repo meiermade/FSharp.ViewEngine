@@ -113,11 +113,6 @@ module internal MonthCalendarSelectionRendering =
     let render (config: MonthCalendarSelectionConfig) =
         let selectedDate, endDate = selectedValues config.selection
         let currentDate = config.today |> Option.defaultValue config.currentDate
-        let currentDateJs = ComponentHtml.javascriptString (dateValue currentDate)
-        let token = ComponentHtml.signalToken config.id
-        let monthSignal = "_month_calendar_" + token + "_month"
-        let selectedSignal = "_month_calendar_" + token + "_selected"
-        let endSignal = "_month_calendar_" + token + "_end"
 
         let monthValue =
             config.displayMonth.ToString("yyyy-MM", CultureInfo.InvariantCulture)
@@ -171,7 +166,6 @@ module internal MonthCalendarSelectionRendering =
             config.unavailable
             |> Seq.map dateValue
             |> Seq.toArray
-            |> JsonSerializer.Serialize
 
         let weekStart =
             if config.weekStart = MonthCalendarWeekStart.Sunday then
@@ -194,84 +188,6 @@ module internal MonthCalendarSelectionRendering =
 
         let unavailableState = config.disabled
 
-        let dateScript index =
-            "const first = new Date($"
-            + monthSignal
-            + " + '-01T00:00:00Z'); "
-            + $"const offset = (first.getUTCDay() - {weekStart} + 7) %% 7; "
-            + $"const date = new Date(Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), {index + 1} - offset)); "
-            + "const value = date.toISOString().slice(0, 10); "
-            + "el.dataset.value = value; el.textContent = date.getUTCDate(); "
-            + $"if (value == {currentDateJs}) el.setAttribute('aria-current', 'date'); else el.removeAttribute('aria-current'); "
-            + "el.dataset.outside = date.getUTCMonth() == first.getUTCMonth() ? 'false' : 'true'; "
-            + "el.setAttribute('aria-label', new Intl.DateTimeFormat("
-            + ComponentHtml.javascriptString config.locale
-            + ", { dateStyle: 'full', timeZone: 'UTC' }).format(date)); "
-            + "el.setAttribute('aria-selected', ($"
-            + selectedSignal
-            + " == value || $"
-            + endSignal
-            + " == value) ? 'true' : 'false'); "
-            + "el.dataset.inRange = ($"
-            + selectedSignal
-            + " && $"
-            + endSignal
-            + " && value > $"
-            + selectedSignal
-            + " && value < $"
-            + endSignal
-            + ") ? 'true' : 'false'; "
-            + "el.disabled = "
-            + (if unavailableState then "true" else "false")
-            + " || ("
-            + ComponentHtml.javascriptString minimumValue
-            + " && value < "
-            + ComponentHtml.javascriptString minimumValue
-            + ") || ("
-            + ComponentHtml.javascriptString maximumValue
-            + " && value > "
-            + ComponentHtml.javascriptString maximumValue
-            + ") || "
-            + unavailable
-            + ".includes(value)"
-
-        let changeMonth expression =
-            $"const month = {expression}; const minimum = {ComponentHtml.javascriptString effectiveMinimumMonth}; const maximum = {ComponentHtml.javascriptString effectiveMaximumMonth}; ${monthSignal} = minimum && month < minimum ? minimum : maximum && month > maximum ? maximum : month"
-
-        let focusScript =
-            "const buttons = [...el.closest('[role=grid]').querySelectorAll('[role=gridcell]')]; const index = buttons.indexOf(el); "
-            + "const moves = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 }; "
-            + "const focus = button => { if (button && !button.disabled) { buttons.forEach(b => b.tabIndex = b == button ? 0 : -1); button.focus() } }; "
-            + "if (moves[evt.key] != null) { evt.preventDefault(); const step = moves[evt.key]; let target = index + step; while (target >= 0 && target < buttons.length && buttons[target].disabled) target += step; focus(buttons[target]) } "
-            + "else if (evt.key == 'Home' || evt.key == 'End') { evt.preventDefault(); const week = buttons.slice(index - index % 7, index - index % 7 + 7).filter(b => !b.disabled); focus(evt.key == 'Home' ? week[0] : week.at(-1)) } "
-            + "else if (evt.key == 'PageUp' || evt.key == 'PageDown') { evt.preventDefault(); const day = Number(el.dataset.value.slice(8)); "
-            + changeMonth (
-                "(() => { const value = new Date($"
-                + monthSignal
-                + " + '-01T00:00:00Z'); value.setUTCMonth(value.getUTCMonth() + (evt.key == 'PageUp' ? -1 : 1)); return value.toISOString().slice(0, 7) })()"
-            )
-            + "; requestAnimationFrame(() => { const month = $"
-            + monthSignal
-            + "; const candidates = buttons.filter(b => !b.disabled && b.dataset.value.startsWith(month)); const target = candidates.reduce((nearest, b) => !nearest || Math.abs(Number(b.dataset.value.slice(8)) - day) < Math.abs(Number(nearest.dataset.value.slice(8)) - day) ? b : nearest, null); focus(target) }) }"
-
-        let close =
-            "const popover = el.closest('[popover]'); if (popover) { popover.hidePopover(); const trigger = document.querySelector('[popovertarget=\"' + popover.id + '\"]'); trigger?.focus() }"
-
-        let commitSelection startDate endDate =
-            $"${selectedSignal} = {startDate}; ${endSignal} = {endDate}; "
-            + (if config.closeOnSelection then close else "")
-
-        let selectScript =
-            if config.readOnly then "evt.preventDefault()"
-            elif not isRange then commitSelection "el.dataset.value" "''"
-            else
-                $"if (!${selectedSignal} || ${endSignal}) {{ ${selectedSignal} = el.dataset.value; ${endSignal} = '' }} "
-                + $"else if (el.dataset.value < ${selectedSignal}) {{ const previous = ${selectedSignal}; "
-                + commitSelection "el.dataset.value" "previous"
-                + " } else { "
-                + commitSelection ("$" + selectedSignal) "el.dataset.value"
-                + " }"
-
         let initialOffset = (int config.displayMonth.DayOfWeek - weekStart + 7) % 7
 
         let isBlocked date =
@@ -288,47 +204,26 @@ module internal MonthCalendarSelectionRendering =
                 |> List.map config.displayMonth.AddDays
                 |> List.tryFind (isBlocked >> not))
 
-        let previousMonth =
-            "(() => { const value = new Date($"
-            + monthSignal
-            + " + '-01T00:00:00Z'); value.setUTCMonth(value.getUTCMonth() - 1); return value.toISOString().slice(0, 7) })()"
+        let settings =
+            JsonSerializer.Serialize
+                {| month = monthValue
+                   start = selectedValue
+                   ending = endValue
+                   minimum = minimumValue
+                   maximum = maximumValue
+                   minimumMonth = effectiveMinimumMonth
+                   maximumMonth = effectiveMaximumMonth
+                   unavailable = unavailable
+                   weekStart = weekStart
+                   locale = config.locale
+                   currentDate = dateValue currentDate
+                   today = config.today |> Option.map dateValue |> Option.defaultValue ""
+                   range = isRange
+                   close = config.closeOnSelection
+                   disabled = config.disabled
+                   readOnly = config.readOnly |}
 
-        let nextMonth =
-            "(() => { const value = new Date($"
-            + monthSignal
-            + " + '-01T00:00:00Z'); value.setUTCMonth(value.getUTCMonth() + 1); return value.toISOString().slice(0, 7) })()"
-
-        let unavailableLiteral = if unavailableState then "true" else "false"
-        let minimumMonthJs = ComponentHtml.javascriptString effectiveMinimumMonth
-        let maximumMonthJs = ComponentHtml.javascriptString effectiveMaximumMonth
-
-        let monthAtBound comparison bound =
-            let boundJs = ComponentHtml.javascriptString bound
-            $"el.disabled = {unavailableLiteral} || ({boundJs} && ${monthSignal} {comparison} {boundJs})"
-
-        let ownerForm =
-            ComponentElement.value "form" config.attributes
-            |> Option.map (fun id -> "document.getElementById(" + ComponentHtml.javascriptString id + ")")
-            |> Option.defaultValue "el.closest('form')"
-
-        let reset =
-            "if (evt.target === "
-            + ownerForm
-            + ") queueMicrotask(() => { if (!evt.defaultPrevented) { $"
-            + monthSignal
-            + " = "
-            + ComponentHtml.javascriptString monthValue
-            + "; $"
-            + selectedSignal
-            + " = "
-            + ComponentHtml.javascriptString selectedValue
-            + "; $"
-            + endSignal
-            + " = "
-            + ComponentHtml.javascriptString endValue
-            + " } })"
-
-        section {
+        (Html.el "fve-calendar-selection") {
             _id config.id
             _ariaLabel config.label
 
@@ -337,14 +232,12 @@ module internal MonthCalendarSelectionRendering =
 
             _attr ("data-fve-month-calendar", "selection")
 
-            _dataSignals
-                $"{{{monthSignal}: {ComponentHtml.javascriptString monthValue}, {selectedSignal}: {ComponentHtml.javascriptString selectedValue}, {endSignal}: {ComponentHtml.javascriptString endValue}}}"
-
-            _dataOn ("reset__window", reset)
+            _role "region"
+            _attr ("settings", settings)
             _tabindex 0
 
             _class (
-                "grid w-[18rem] max-w-full min-w-0 gap-3 overflow-x-auto rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-3 text-[var(--fve-text)] "
+                "@container/calendar grid w-[18rem] max-w-full min-w-0 gap-3 overflow-x-auto rounded-[var(--fve-radius-panel)] bg-[var(--fve-surface)] p-[12px] text-[var(--fve-text)] "
                 + ComponentContent.classes config.attributes
             )
 
@@ -359,7 +252,7 @@ module internal MonthCalendarSelectionRendering =
             input {
                 _type "hidden"
                 _name config.name
-                _dataBind selectedSignal
+                _attr ("data-fve-calendar-field", "start")
                 _value selectedValue
                 _disabled config.disabled
 
@@ -371,7 +264,7 @@ module internal MonthCalendarSelectionRendering =
                 input {
                     _type "hidden"
                     _name config.rangeEndName
-                    _dataBind endSignal
+                    _attr ("data-fve-calendar-field", "end")
                     _value endValue
                     _disabled config.disabled
 
@@ -380,17 +273,16 @@ module internal MonthCalendarSelectionRendering =
                 }
 
             header {
-                _class "flex min-w-[16.5rem] items-center justify-between gap-3"
+                _class "grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1"
 
                 button {
                     _type "button"
                     _ariaLabel "Previous month"
                     _disabled unavailableState
-                    _dataEffect (monthAtBound "<=" effectiveMinimumMonth)
-                    _dataOn ("click", changeMonth previousMonth)
+                    _attr ("data-fve-calendar-action", "previous")
 
                     _class
-                        "grid size-9 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                        "col-start-1 @max-[14rem]/calendar:row-start-2 grid size-9 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
 
                     raw
                         """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
@@ -399,19 +291,13 @@ module internal MonthCalendarSelectionRendering =
                 h2 {
                     _ariaLive "polite"
 
-                    _dataText (
-                        "new Intl.DateTimeFormat("
-                        + ComponentHtml.javascriptString config.locale
-                        + ", { month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date($"
-                        + monthSignal
-                        + " + '-01T00:00:00Z'))"
-                    )
+                    _attr ("data-fve-calendar-caption", "")
 
                     _class (
                         if config.captionLayout = MonthCalendarCaptionLayout.Dropdown then
                             "sr-only"
                         else
-                            "text-sm font-semibold"
+                            "col-start-2 min-w-0 text-center text-sm font-semibold @max-[14rem]/calendar:col-start-1 @max-[14rem]/calendar:col-span-3 @max-[14rem]/calendar:row-start-1"
                     )
 
                     config.displayMonth.ToString("MMMM yyyy", culture)
@@ -419,7 +305,7 @@ module internal MonthCalendarSelectionRendering =
 
                 if config.captionLayout = MonthCalendarCaptionLayout.Dropdown then
                     div {
-                        _class "flex h-9 items-center justify-center gap-1.5 text-sm font-medium"
+                        _class "col-start-2 flex min-h-9 min-w-0 flex-wrap items-center justify-center gap-1.5 text-sm font-medium @max-[14rem]/calendar:col-start-1 @max-[14rem]/calendar:col-span-3 @max-[14rem]/calendar:row-start-1"
 
                         span {
                             _class "relative inline-flex"
@@ -428,12 +314,7 @@ module internal MonthCalendarSelectionRendering =
                                 _ariaLabel "Month"
                                 _disabled unavailableState
                                 _value (config.displayMonth.Month.ToString("00", CultureInfo.InvariantCulture))
-                                _dataEffect ("el.value = $" + monthSignal + ".slice(5, 7)")
-
-                                _dataOn (
-                                    "change",
-                                    changeMonth ("$" + monthSignal + ".slice(0, 4) + '-' + evt.currentTarget.value")
-                                )
+                                _attr ("data-fve-calendar-month", "")
 
                                 _class
                                     "h-8 w-20 appearance-none rounded-[var(--fve-radius-control)] bg-transparent py-1 pr-6 pl-2 text-sm font-medium hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
@@ -446,10 +327,6 @@ module internal MonthCalendarSelectionRendering =
 
                                         if month = config.displayMonth.Month then
                                             _selected true
-
-                                        _dataEffect (
-                                            $"const candidate = ${monthSignal}.slice(0, 4) + '-{value}'; el.disabled = {unavailableLiteral} || ({minimumMonthJs} && candidate < {minimumMonthJs}) || ({maximumMonthJs} && candidate > {maximumMonthJs})"
-                                        )
 
                                         monthNames[month - 1]
                                     }
@@ -466,12 +343,7 @@ module internal MonthCalendarSelectionRendering =
                                 _ariaLabel "Year"
                                 _disabled unavailableState
                                 _value (string config.displayMonth.Year)
-                                _dataEffect ("el.value = $" + monthSignal + ".slice(0, 4)")
-
-                                _dataOn (
-                                    "change",
-                                    changeMonth ("evt.currentTarget.value + '-' + $" + monthSignal + ".slice(5, 7)")
-                                )
+                                _attr ("data-fve-calendar-year", "")
 
                                 _class
                                     "h-8 w-20 appearance-none rounded-[var(--fve-radius-control)] bg-transparent py-1 pr-6 pl-2 text-sm font-medium hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
@@ -496,18 +368,17 @@ module internal MonthCalendarSelectionRendering =
                     _type "button"
                     _ariaLabel "Next month"
                     _disabled unavailableState
-                    _dataEffect (monthAtBound ">=" effectiveMaximumMonth)
-                    _dataOn ("click", changeMonth nextMonth)
+                    _attr ("data-fve-calendar-action", "next")
 
                     _class
-                        "grid size-9 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                        "col-start-3 @max-[14rem]/calendar:row-start-2 grid size-9 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
 
                     raw
                         """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
                 }
             }
 
-            CompactMonth.render config.label weekdayNames 6 "min-w-[16.5rem] gap-1" (fun index ->
+            CompactMonth.render config.label weekdayNames 6 "min-w-0 gap-1 @max-[14rem]/calendar:gap-0" (fun index ->
                 let date = config.displayMonth.AddDays(index - initialOffset)
                 let value = dateValue date
                 let selected = selectedValue = value || endValue = value
@@ -543,9 +414,6 @@ module internal MonthCalendarSelectionRendering =
                     )
 
                     _attr ("data-in-range", if inRange then "true" else "false")
-                    _dataEffect (dateScript index)
-                    _dataOn ("click", selectScript)
-                    _dataOn ("keydown", focusScript)
 
                     _class
                         "grid min-h-9 min-w-0 place-items-center rounded-[var(--fve-radius-control)] text-sm tabular-nums [&[aria-current=date]:not([aria-selected=true]):not([data-in-range=true])]:bg-[var(--fve-surface-hover)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-30 data-[outside=true]:text-[var(--fve-muted-text)] data-[in-range=true]:rounded-none data-[in-range=true]:bg-[var(--fve-brand-subtle)] aria-selected:bg-[var(--fve-brand-solid)] aria-selected:text-white"
@@ -562,23 +430,19 @@ module internal MonthCalendarSelectionRendering =
                             _type "button"
                             _disabled unavailableState
                             if config.readOnly then _ariaDisabled true
-                            _dataOn ("click", if config.readOnly then "evt.preventDefault()" else $"${selectedSignal} = ''; ${endSignal} = ''")
+                            _attr ("data-fve-calendar-action", "clear")
                             _class actionClass
                             "Clear"
                         }
                     match config.today with
                     | None -> ()
                     | Some today ->
-                        let value = ComponentHtml.javascriptString (dateValue today)
-                        let month = ComponentHtml.javascriptString (today.ToString("yyyy-MM", CultureInfo.InvariantCulture))
                         button {
                             _type "button"
                             _ariaLabel ("Select today, " + today.ToString("D", culture))
                             _disabled (config.readOnly || isBlocked today)
                             _data ("value", dateValue today)
-                            _dataOn ("click",
-                                if config.readOnly then "evt.preventDefault()"
-                                else $"${monthSignal} = {month}; " + commitSelection value (if isRange then value else "''"))
+                            _attr ("data-fve-calendar-action", "today")
                             _class (actionClass + " ms-auto")
                             "Today"
                         }
@@ -1050,18 +914,13 @@ module internal MonthCalendar =
                     | None -> ()
             }
 
-        div {
+        (Html.el "fve-scroll-region") {
             _class
-                "fve-calendar-body min-w-0 overflow-x-auto rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)]"
+                "fve-calendar-body block min-w-0 overflow-x-auto rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)]"
 
             _tabindex 0
             _role "region"
             _ariaLabel (display.label + " scrollable dates")
-
-            _dataOn (
-                "keydown",
-                "if (evt.target === el && !evt.ctrlKey && !evt.metaKey && !evt.altKey && ['ArrowLeft','ArrowRight'].includes(evt.key) && el.scrollWidth > el.clientWidth) { evt.preventDefault(); el.scrollBy({left:evt.key === 'ArrowLeft' ? -64 : 64}) }"
-            )
 
             div {
                 _class
@@ -1218,10 +1077,8 @@ module internal MonthCalendar =
                                             _class
                                                 "grid size-8 shrink-0 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
 
-                                            _dataOn (
-                                                "click",
-                                                "const popup = el.closest('[popover]'); popup.hidePopover(); popup.previousElementSibling?.focus()"
-                                            )
+                                            _popovertarget popupId
+                                            _attr("popovertargetaction", "hide")
 
                                             raw
                                                 """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 0 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 0 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z"/></svg>"""

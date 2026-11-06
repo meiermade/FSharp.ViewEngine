@@ -69,9 +69,6 @@ module internal Dialog =
               match focus with
               | Some focus -> yield _data ("fve-initial-focus", focus)
               | None -> ()
-              yield NativeOverlay.eventAttribute "close" (NativeOverlay.restoreFocusExpression id) attributes
-              if dismiss then
-                  yield NativeOverlay.eventAttribute "click" (NativeOverlay.dismissOnBackdropExpression id) attributes
               yield
                   _class (
                       (if container.IsSome then
@@ -96,9 +93,7 @@ module internal Dialog =
                       "aria-labelledby"
                       "aria-describedby"
                       "aria-modal"
-                      "data-on:close"
-                      if dismiss then
-                          "data-on:click" ]
+ ]
                     attributes)
                 [ div {
                       _class "p-6"
@@ -128,9 +123,8 @@ module internal Dialog =
                       | None -> ()
                   } ]
 
-        match container with
-        | Some background -> NativeOverlay.contained id background dismiss content
-        | None -> content
+        let content = match container with Some background -> NativeOverlay.contained id background dismiss content | None -> content
+        NativeOverlay.enhance "fve-dialog" id dismiss content
 
 /// <category>dialog</category>
 [<AutoOpen>]

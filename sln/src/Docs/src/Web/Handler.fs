@@ -535,15 +535,6 @@ module Handler =
                             context
             }
 
-    let private componentSelectChoice =
-        componentChoicePatch (fun body ->
-            match signalString "components_status_value" body with
-            | Some "active" -> Components.selectFormRegion (Some "active") None (Some "Accepted status: Active.")
-            | Some "pending" -> Components.selectFormRegion (Some "pending") None (Some "Accepted status: Pending.")
-            | Some "scheduled" ->
-                Components.selectFormRegion (Some "scheduled") None (Some "Accepted status: Scheduled.")
-            | _ -> Components.selectFormRegion None (Some "Choose an available status.") None)
-
     let private componentFormChoice render : HttpHandler =
         fun next context ->
             task {
@@ -559,6 +550,14 @@ module Handler =
                             next
                             context
             }
+
+    let private componentSelectChoice =
+        componentFormChoice (fun form ->
+            match form["status"].ToString() with
+            | "active" -> Components.selectFormRegion (Some "active") None (Some "Accepted status: Active.")
+            | "pending" -> Components.selectFormRegion (Some "pending") None (Some "Accepted status: Pending.")
+            | "scheduled" -> Components.selectFormRegion (Some "scheduled") None (Some "Accepted status: Scheduled.")
+            | _ -> Components.selectFormRegion None (Some "Choose an available status.") None)
 
     let private componentCheckboxChoice =
         componentFormChoice (fun form ->

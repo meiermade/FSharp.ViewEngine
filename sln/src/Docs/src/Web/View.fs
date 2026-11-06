@@ -281,6 +281,11 @@ module View =
         content |> List.map collect |> String.concat ""
 
     let private legacyPage (page: DocPage) =
+        let subtitle, nodes =
+            match page.id, page.nodes with
+            | "home", DocNode.Paragraph content :: remaining -> Some content, remaining
+            | _ -> None, page.nodes
+
         let description =
             page.nodes
             |> List.tryPick (function
@@ -291,13 +296,17 @@ module View =
         let rendered =
             DocumentationPage.create page.id page.title
             |> DocumentationPage.withDescription description
-            |> DocumentationPage.withSections (sections page.nodes)
+            |> DocumentationPage.withSections (sections nodes)
             |> DocumentationPage.withMetadata
                 { DocsPageMetadata.defaults with
                     browserTitle = Some page.browserTitle
                     socialImage = Some "https://fve.meiermade.com/social-card.png" }
 
         if page.id = "home" then
+            let rendered =
+                match subtitle with
+                | Some content -> rendered |> DocumentationPage.withDescriptionContent (fragment { for item in content do renderInline item })
+                | None -> rendered
             rendered
             |> DocumentationPage.withHeadingAdornment (
                 div {
