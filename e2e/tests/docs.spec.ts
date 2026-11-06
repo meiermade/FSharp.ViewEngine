@@ -85,19 +85,18 @@ function captureBrowserErrors(page: Page) {
 }
 
 async function waitForDocsCodeSettlement(page: Page) {
-  // A commit-only navigation has not necessarily parsed its code blocks yet.
+  // Wait for rendered syntax, not a loader promise whose remote handle can be
+  // garbage-collected while a routed document is being replaced.
   await page.waitForLoadState('domcontentloaded')
-  await page.waitForFunction(() =>
-    !document.querySelector('code[class*="language-"]') || Boolean((window as any).fsharpDocsCode?.loading),
-  )
-  await page.evaluate(() => (window as any).fsharpDocsCode?.loading)
+  const code = page.locator('code.language-fsharp').first()
+  if (await code.count()) await expect(code.locator('.token').first()).toBeAttached()
 }
 
 // Request routing disables Playwright's HTTP cache, so settle the current document's
 // own assets before ordinary full navigation in workflows that mock the CDN runtime.
 async function waitForDocsAssetSettlement(page: Page) {
   await waitForDocsCodeSettlement(page)
-  await page.evaluate(() => document.fonts?.ready)
+  await page.waitForFunction(() => document.fonts.status === 'loaded')
 }
 
 async function gotoAfterDocsAssetSettlement(page: Page, path: string, waitUntil: 'commit' | 'domcontentloaded' = 'commit') {
@@ -120,20 +119,34 @@ test('representative documentation routes render without browser errors', async 
   expect(browserErrors).toEqual([])
 })
 
-test('legacy Docs catalog routes remain aliases with canonical destinations', async ({ request }) => {
-  const aliases = [
-    ['/docs/components', '/components'],
-    ['/docs-components', '/components'],
-    ['/docs/examples/api-reference', '/examples/api-documentation'],
-    ['/docs/examples/executable-specification', '/examples/specification'],
-  ] as const
+test('missing destinations retain their URL and recover through real catalog links', crossBrowser, async ({ page }) => {
+  const response = await page.goto('/components/steps')
+  expect(response?.status()).toBe(404)
+  await expect(page).toHaveURL('/components/steps')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found')
+  await expect(page.getByRole('navigation', { name: 'Breadcrumb', exact: true })).toContainText('Page not found')
+  await page.getByRole('link', { name: 'Browse components', exact: true }).click()
+  await expect(page).toHaveURL('/components')
+  await page.locator('main a[href="/components/button"]').click()
+  await expect(page).toHaveURL('/components/button')
 
-  for (const [alias, canonicalPath] of aliases) {
-    const response = await request.get(alias)
-    expect(response.status(), alias).toBe(200)
-    expect(new URL(response.url()).pathname).toBe(canonicalPath)
-    expect(await response.text()).toContain(`rel="canonical" href="${productionOrigin}${canonicalPath}"`)
-  }
+  // Simulate an outdated link; the ordinary navigation boundary must handle its 404.
+  await page.locator('#nav-home').evaluate(link => link.setAttribute('href', '/components/steps?source=old-link'))
+  const missingDocument = page.waitForResponse(response => response.request().isNavigationRequest() && response.url().includes('/components/steps'))
+  await page.locator('#nav-home').click()
+  expect((await missingDocument).status()).toBe(404)
+  await expect(page).toHaveURL('/components/steps?source=old-link')
+  await expect(page).toHaveTitle('Page not found · FSharp.ViewEngine')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found')
+
+  await page.goBack()
+  await expect(page).toHaveURL('/components/button')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Button')
+  await page.goForward()
+  await expect(page).toHaveURL('/components/steps?source=old-link')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Page not found')
+  await page.getByRole('link', { name: 'Go home', exact: true }).click()
+  await expect(page).toHaveURL('/')
 })
 
 test.describe('automated accessibility checks', () => {
@@ -145,7 +158,7 @@ test.describe('automated accessibility checks', () => {
   }
 
   test('representative article and catalog routes pass WCAG A/AA scans', async ({ page }) => {
-    for (const route of ['/', '/getting-started/first-view', '/docs/components/content', '/components', '/components/select']) {
+    for (const route of ['/', '/getting-started/first-view', '/components/code-block', '/components', '/components/select']) {
       await page.goto(route, { waitUntil: 'domcontentloaded' })
       await scan(page, route)
     }
@@ -198,10 +211,6 @@ test('Representative Components pages provide focused examples, navigation, inte
     if (path === '/components/month-calendar') {
       await expect(surface.getByRole('combobox', { name: 'Month', exact: true })).toHaveCount(1)
       await expect(surface.getByRole('combobox', { name: 'Year', exact: true })).toHaveCount(1)
-    } else if (path === '/components/select') {
-      await expect(surface.locator('select')).toHaveCount(1)
-      await expect(surface.locator('select')).toBeHidden()
-      await expect(surface.locator('select')).toBeDisabled()
     } else {
       await expect(surface.locator('select')).toHaveCount(0)
     }
@@ -310,7 +319,7 @@ test('Representative Components pages provide focused examples, navigation, inte
   await enabledButton.press('Space')
   await expect.poll(() => activationCount(buttonSurface, 'button-activation-count')).toBe(buttonCountBeforeEnabledActivation + 3)
 
-  const pendingButton = buttonSurface.getByRole('button', { name: 'Sync' })
+  const pendingButton = page.locator('#components-button-pending-panel-preview').getByRole('button', { name: 'Sync' })
   const disabledButton = buttonSurface.getByRole('button', { name: 'Delete' }).and(page.locator(':disabled'))
   await expect(pendingButton).toBeEnabled()
   await pendingButton.click()
@@ -327,7 +336,7 @@ test('Representative Components pages provide focused examples, navigation, inte
   const addAccount = iconButtonSurface.getByRole('button', { name: 'Create' })
   await addAccount.focus()
   await expect(addAccount).toBeFocused()
-  await expect(addAccount.locator('[aria-hidden="true"]')).toBeVisible()
+  await expect(addAccount.locator('svg[aria-hidden="true"]')).toBeVisible()
   for (const control of [addAccount, page.locator('#components-button-icon-variants-panel-preview').getByRole('button', { name: 'Solid refresh' })]) {
     const { hover, active } = await pressedBackgrounds(control)
     expect(active, `${await control.getAttribute('aria-label')} active background`).not.toBe(hover)
@@ -441,13 +450,13 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expect(statusSelect).toBeFocused()
   const selectScrollY = await page.evaluate(() => window.scrollY)
   const selectPopupOffset = await statusPopup.evaluate(popup => {
-    const trigger = document.getElementById('fve-select-components_status-trigger')!.getBoundingClientRect()
+    const trigger = document.getElementById('components-status')!.getBoundingClientRect()
     const bounds = popup.getBoundingClientRect()
     return { inlineStart: bounds.left - trigger.left, blockStart: bounds.top - trigger.bottom }
   })
   await page.evaluate(() => window.scrollBy(0, 40))
   await expect.poll(() => statusPopup.evaluate(popup => {
-    const trigger = document.getElementById('fve-select-components_status-trigger')!.getBoundingClientRect()
+    const trigger = document.getElementById('components-status')!.getBoundingClientRect()
     const bounds = popup.getBoundingClientRect()
     return { inlineStart: bounds.left - trigger.left, blockStart: bounds.top - trigger.bottom }
   })).toEqual(selectPopupOffset)
@@ -458,7 +467,7 @@ test('Representative Components pages provide focused examples, navigation, inte
   })).toBe(true)
   await page.evaluate(scrollY => window.scrollTo(0, scrollY), selectScrollY)
   const openSelectAccessibility = await new AxeBuilder({ page })
-    .include('#fve-select-components_status-trigger')
+    .include('#components-status')
     .include('#fve-select-components_status-options')
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze()
@@ -527,8 +536,11 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expect(pendingStatus).toHaveAttribute('aria-busy', 'true')
   await expect(pendingStatus.locator('[aria-hidden="true"]')).toBeVisible()
   const unavailableStatusValues = selectSurface.locator('input[type="hidden"][name="status"]:disabled')
-  await expect(unavailableStatusValues).toHaveCount(2)
+  await expect(unavailableStatusValues).toHaveCount(1)
   expect(await clonedControlEntries(unavailableStatusValues)).toEqual([])
+  const pendingStatusValues = selectSurface.locator('[data-fve-select]').filter({ has: page.getByRole('combobox', { name: 'Updating status', exact: true }) }).locator('input[type="hidden"][name="status"]')
+  await expect(pendingStatusValues).toBeEnabled()
+  expect(await clonedControlEntries(pendingStatusValues)).toEqual([['status', 'pending']])
   await attachScreenshot('components-select-state-matrix-desktop-dark')
 
   const checkboxSurface = await openPreview('/components/checkbox', 'Checkbox')
@@ -559,8 +571,12 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expect(includeArchived).toBeChecked()
   const pendingReview = checkboxSurface.getByRole('checkbox', { name: 'Saving review' })
   const disabledReview = checkboxSurface.getByRole('checkbox', { name: 'Archived review unavailable' })
-  await expect(pendingReview).toBeDisabled()
+  await expect(pendingReview).toBeEnabled()
+  await expect(pendingReview).toHaveAttribute('readonly', '')
   await expect(pendingReview).toHaveAttribute('aria-busy', 'true')
+  await pendingReview.press('Space')
+  await expect(pendingReview).toBeChecked()
+  expect(await clonedControlEntries(pendingReview)).toEqual([['confirmArchivedReview', 'true']])
   await expect(disabledReview).toBeDisabled()
   expect(await clonedControlEntries(checkboxSurface.locator('input[name="confirmArchivedReview"]:disabled'))).toEqual([])
   await attachScreenshot('components-checkbox-state-matrix-desktop-dark')
@@ -571,16 +587,20 @@ test('Representative Components pages provide focused examples, navigation, inte
   const switchSubmit = switchSurface.getByRole('button', { name: 'Save notifications' })
   expect(await formEntries(switchForm)).toEqual([['notifications', 'true']])
   await notifications.press('Space')
-  await expect(notifications).toHaveAttribute('aria-checked', 'false')
+  await expect(notifications).not.toBeChecked()
   expect(await formEntries(switchForm)).toEqual([])
   await switchSubmit.focus()
   await switchSubmit.press('Enter')
   await expect(switchSurface.getByRole('status')).toHaveText('Notifications disabled.')
-  await expect(notifications).toHaveAttribute('aria-checked', 'false')
+  await expect(notifications).not.toBeChecked()
   await expect(switchSubmit).toBeFocused()
   const pendingNotifications = switchSurface.getByRole('switch', { name: 'Saving notifications' })
-  await expect(pendingNotifications).toBeDisabled()
+  await expect(pendingNotifications).toBeEnabled()
+  await expect(pendingNotifications).toHaveAttribute('readonly', '')
   await expect(pendingNotifications).toHaveAttribute('aria-busy', 'true')
+  await pendingNotifications.press('Space')
+  await expect(pendingNotifications).toBeChecked()
+  expect(await clonedControlEntries(pendingNotifications)).toEqual([['notifications', 'true']])
   expect(await clonedControlEntries(switchSurface.locator('input[name="notifications"]:disabled'))).toEqual([])
   await expect(switchSurface.getByRole('alert')).toHaveText('Notification preferences could not be saved.')
 
@@ -592,7 +612,8 @@ test('Representative Components pages provide focused examples, navigation, inte
   const disabledCompactRows = toggleSurface.getByRole('button', { name: 'Compact rows unavailable' })
   await expect(pendingCompactRows).toBeDisabled()
   await expect(pendingCompactRows).toHaveAttribute('aria-busy', 'true')
-  await expect(pendingCompactRows.locator('[aria-hidden="true"]')).toBeVisible()
+  await pendingCompactRows.press('Space')
+  await expect(pendingCompactRows).toHaveAttribute('aria-pressed', 'false')
   await expect(disabledCompactRows).toBeDisabled()
 
   const radioSurface = await openPreview('/components/radio-group', 'Radio group')
@@ -624,9 +645,13 @@ test('Representative Components pages provide focused examples, navigation, inte
   await expect(pendingMode).toHaveAttribute('aria-busy', 'true')
   await expect(pendingMode.getByRole('radio')).toHaveCount(3)
   await expect(disabledMode.getByRole('radio')).toHaveCount(3)
-  await expect.poll(() => pendingMode.getByRole('radio').evaluateAll(radios => radios.every(radio => (radio as HTMLInputElement).disabled))).toBe(true)
-  await expect.poll(() => disabledMode.getByRole('radio').evaluateAll(radios => radios.every(radio => (radio as HTMLInputElement).disabled))).toBe(true)
-  expect(await clonedControlEntries(radioSurface.locator('input[name="updateMode"]:disabled'))).toEqual([])
+  const pendingAutomatic = pendingMode.getByRole('radio', { name: 'Automatic', exact: true })
+  await expect(pendingAutomatic).toHaveAttribute('readonly', '')
+  await pendingAutomatic.press('ArrowRight')
+  await expect(pendingAutomatic).toBeChecked()
+  expect(await clonedControlEntries(pendingMode)).toEqual([['pendingUpdateMode', 'automatic']])
+  for (const radio of await disabledMode.getByRole('radio').all()) await expect(radio).toBeDisabled()
+  expect(await clonedControlEntries(disabledMode)).toEqual([])
   await attachScreenshot('components-radio-state-matrix-desktop-dark')
 
   expect(browserErrors).toEqual([])
@@ -821,7 +846,7 @@ test('Components examples preserve documentation framing without clipping anchor
       await tab.click()
       const panel = page.locator(`#${panelId}`)
       await expect(panel).toBeVisible()
-      const framedSurface = name === 'Preview' ? panel.locator('[data-docs-preview-frame="true"]') : panel
+      const framedSurface = name === 'Preview' ? panel.locator('[data-docs-preview-frame="true"]') : panel.locator('pre')
       await expect(framedSurface).toHaveCSS('border-bottom-left-radius', '12px')
       await expect(framedSurface).toHaveCSS('border-bottom-right-radius', '12px')
     }
@@ -841,7 +866,7 @@ test('Components examples preserve documentation framing without clipping anchor
 
 test('searchable Select keeps a standard trigger and popup search for static and remote results', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
-  await page.goto('/components/select')
+  await page.goto('/components/select?fixtures=1')
 
   const staticExample = page.locator('#components-select-search')
   const staticTrigger = staticExample.getByRole('button', { name: 'Search items', exact: true })
@@ -1357,7 +1382,7 @@ test('component pages lead with an example, then installation, usage, variants, 
   await expect(lead.getByRole('heading', { level: 2, name: 'Default' })).toHaveClass(/sr-only/)
   await expect(lead.getByRole('tab', { name: 'Preview', exact: true })).toHaveAttribute('aria-selected', 'true')
   await expect(page.locator('#installation')).toContainText('dotnet fve add button --config src/Acme.Components/fve.json')
-  await expect(page.locator('#usage code[data-docs-copy-source="true"]')).toContainText('Button.create (ButtonContent.Text "Continue")')
+  await expect(page.locator('#usage code[data-docs-copy-source="true"]')).toContainText('fveButton {')
 
   const documentOrder = await page.locator('[data-docs-example="true"], #installation, #usage, #api-reference').evaluateAll(elements =>
     elements.map(element => element.id || element.getAttribute('data-docs-example-title') || element.querySelector('[data-docs-example-title]')?.textContent?.trim()),
@@ -1498,7 +1523,7 @@ test('Docs navigation loads Prism dependencies before highlighting a code page',
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
 
-  await page.goto('/docs/components/content', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components/code-block', { waitUntil: 'domcontentloaded' })
   await page.locator('#nav-home').click()
 
   await expect(page).toHaveURL('/')
@@ -1604,6 +1629,35 @@ test('code blocks copy their literal source', async ({ page }) => {
   await block.getByRole('button', { name: 'Copy code' }).click()
   await expect(block.getByRole('button', { name: 'Copy code' })).toContainText('Copied')
   expect(await page.evaluate(() => (window as any).__copiedSource)).toContain('let greeting')
+})
+
+test('copy buttons stay pinned while code scrolls horizontally @cross-browser', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 })
+  await page.goto('/components/chart')
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value: string) => { (window as any).__copiedSource = value } } })
+  })
+  const interaction = page.locator('#components-chart-interaction')
+  await interaction.getByRole('tab', { name: 'Code', exact: true }).click()
+  const panels = [
+    page.locator('#components-chart-interaction-panel-code'),
+    page.locator('#usage [data-docs-copyable-code="true"]').first(),
+  ]
+  for (const panel of panels) {
+    const copy = panel.getByRole('button', { name: /^Copy / })
+    await copy.scrollIntoViewIfNeeded()
+    const before = (await copy.boundingBox())!
+    const source = await panel.locator('[data-docs-copy-source="true"]').textContent()
+    const distance = await panel.evaluate(element => {
+      const pre = (element.matches('pre') ? element : element.querySelector('pre')) as HTMLElement
+      pre.scrollLeft = Math.min(300, pre.scrollWidth - pre.clientWidth)
+      return pre.scrollLeft
+    })
+    expect(distance).toBeGreaterThan(100)
+    await expect.poll(async () => Math.abs((await copy.boundingBox())!.x - before.x)).toBeLessThan(1)
+    await copy.click()
+    expect(await page.evaluate(() => (window as any).__copiedSource)).toBe(source)
+  }
 })
 
 test('code and preview examples support pointer and keyboard tabs', crossBrowser, async ({ page }) => {
@@ -1730,30 +1784,9 @@ const expectNoRawMermaid = async (diagram: Locator) => {
   await expect(diagram.locator('.error-icon, .error-text')).toHaveCount(0)
 }
 
-test('initial document readiness renders pending diagrams independently of data-init timing', crossBrowser, async ({ page }) => {
-  await page.addInitScript(() => {
-    let renderMermaid: ((root: Document | Element, pendingOnly?: boolean) => Promise<void>) | undefined
-    Object.defineProperty(window, 'renderMermaid', {
-      configurable: true,
-      get: () => renderMermaid,
-      set: value => {
-        renderMermaid = (root, pendingOnly) =>
-          root instanceof Element && root.matches('.mermaid') ? Promise.resolve() : value(root, pendingOnly)
-      },
-    })
-  })
-
-  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
-
-  const diagram = page.locator('main [data-docs-diagram="true"]').first()
-  await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
-  await expect(diagram.locator('svg')).toBeVisible()
-  await expectNoRawMermaid(diagram)
-})
-
-test('diagrams render directly without exposing Mermaid source', async ({ page }) => {
+test('diagrams render on initial document readiness without exposing Mermaid source', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
-  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
 
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
@@ -1774,7 +1807,7 @@ test('delayed Mermaid loading shows accessible pending content and never raw sou
     await route.continue()
   })
 
-  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
   await expect.poll(() => intercepted).toBe(true)
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'pending')
@@ -1795,7 +1828,7 @@ test('an unavailable Mermaid asset shows the accessible deterministic failure st
   page.on('pageerror', error => pageErrors.push(error.message))
   await page.route('**/scripts/mermaid.11.16.0.min.js', route => route.abort('failed'))
 
-  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'failed')
   await expect(diagram.getByRole('alert')).toHaveText('Diagram unavailable.')
@@ -1808,13 +1841,12 @@ test('an unavailable Mermaid asset shows the accessible deterministic failure st
 test('a Mermaid render rejection shows the accessible failure state without an error SVG', async ({ page }) => {
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
-  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram.locator('svg')).toBeVisible()
 
   await diagram.evaluate(async element => {
     element.setAttribute('data-mermaid-source', 'not-a-valid-mermaid-diagram')
-    await (window as typeof window & { renderMermaid?: (element: Element) => Promise<void> }).renderMermaid?.(element)
   })
 
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'failed')
@@ -1828,19 +1860,7 @@ test('a Mermaid render rejection shows the accessible failure state without an e
 test('pending diagrams render after Docs navigation through component-local initialization', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/components/code-block', { waitUntil: 'domcontentloaded' })
-  await page.evaluate(() => {
-    const docsWindow = window as typeof window & {
-      renderMermaid?: (root: Document | Element, pendingOnly?: boolean) => Promise<void>
-      mermaidRenderHosts?: string[]
-    }
-    const renderMermaid = docsWindow.renderMermaid
-    docsWindow.mermaidRenderHosts = []
-    docsWindow.renderMermaid = (root, pendingOnly) => {
-      const fromDataInit = root instanceof Element && root.matches('.mermaid')
-      docsWindow.mermaidRenderHosts?.push(fromDataInit ? 'data-init' : root instanceof Element ? root.id : 'document')
-      return renderMermaid?.(root, pendingOnly) ?? Promise.resolve()
-    }
-  })
+  await page.evaluate(() => { (window as any).mermaidNavigationDocument = 'same-document' })
 
   await page.locator('#nav-components-mermaid').click()
   await expect(page).toHaveURL('/components/mermaid')
@@ -1848,15 +1868,13 @@ test('pending diagrams render after Docs navigation through component-local init
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
   await expect(diagram.locator('svg')).toBeVisible()
-  await expect.poll(() => page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).toContain('data-init')
-  expect(await page.evaluate(() => (window as typeof window & { mermaidRenderHosts?: string[] }).mermaidRenderHosts)).not.toContain('page-content')
+  expect(await page.evaluate(() => (window as any).mermaidNavigationDocument)).toBe('same-document')
 
   await page.evaluate(async () => {
     const diagram = document.querySelector<HTMLElement>('main [data-docs-diagram="true"]')!
     diagram.dataset.mermaidState = 'rendered'
     diagram.dataset.mermaidRenderedSource = 'stale-source'
     diagram.replaceChildren()
-    await (window as typeof window & { renderMermaid?: (element: Element, pendingOnly?: boolean) => Promise<void> }).renderMermaid?.(document.getElementById('page-content')!, true)
   })
   await expect(diagram.locator('svg')).toBeVisible()
   await expectNoRawMermaid(diagram)
@@ -1865,14 +1883,13 @@ test('pending diagrams render after Docs navigation through component-local init
 
 test('queued pending rendering discards stale in-flight Mermaid results for a reused host', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
-  await page.goto('/docs/components/diagrams', { waitUntil: 'domcontentloaded' })
+  await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram.locator('svg')).toBeVisible()
 
   const expectedSource = await diagram.evaluate(async element => {
     const docsWindow = window as typeof window & {
       mermaid: { render: (id: string, source: string) => Promise<{ svg: string; bindFunctions?: (node: Element) => void }> }
-      renderMermaid?: (element: Element, pendingOnly?: boolean) => Promise<void>
     }
     const firstSource = 'flowchart LR\n  Stale --> Result'
     const nextSource = 'flowchart LR\n  Current --> Result'
@@ -1896,12 +1913,16 @@ test('queued pending rendering discards stale in-flight Mermaid results for a re
       const node = element as HTMLElement
       node.dataset.mermaidSource = firstSource
       node.dataset.mermaidState = 'pending'
-      const firstRender = docsWindow.renderMermaid?.(node, true) ?? Promise.resolve()
       await firstStarted
+      const applied = new Promise<void>(resolve => {
+        const observer = new MutationObserver(() => {
+          if (node.dataset.mermaidRenderedSource === nextSource && node.querySelector('svg')?.getAttribute('data-test-mermaid-source') === encodeURIComponent(nextSource)) { observer.disconnect(); resolve() }
+        })
+        observer.observe(node, { attributes: true, childList: true })
+      })
       node.dataset.mermaidSource = nextSource
-      const nextRender = docsWindow.renderMermaid?.(node, true) ?? Promise.resolve()
       releaseFirst?.()
-      await Promise.all([firstRender, nextRender])
+      await applied
       return nextSource
     } finally {
       docsWindow.mermaid.render = originalRender

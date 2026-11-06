@@ -7,167 +7,115 @@ open type Datastar
 
 /// <category>tabs</category>
 [<RequireQualifiedAccess>]
-type TabsVariant =
-    | Segmented
-    | Underlined
+type TabsVariant = Segmented | Underlined
 
 /// <category>tabs</category>
-[<NoEquality; NoComparison>]
-type TabItem =
-    private
-        { id:string
-          label:string
-          content:HtmlElement
-          leading:HtmlElement option
-          disabled:bool }
+[<AutoOpen>]
+module TabsAttributes =
+    type Html with
+        static member _variant(value:TabsVariant) = Html._attr("variant", if value = TabsVariant.Segmented then "segmented" else "underlined")
 
-/// <category>tabs</category>
-[<RequireQualifiedAccess>]
-module TabItem =
-    let create id label content =
-        if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable tab item ID is required."
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A tab label is required."
-        { id = id; label = label; content = content; leading = None; disabled = false }
+type internal TabsTriggerElement(attributes:HtmlAttribute list, children:HtmlElement list) =
+    inherit HtmlElement()
+    member _.Attributes = attributes
+    member _.Children = children
+    override _.Render _ = invalidOp "fveTabsTrigger belongs inside fveTabsItem."
 
-    let withLeading leading (item:TabItem) = { item with leading = Some leading }
-    let disabled (item:TabItem) = { item with disabled = true }
+type internal TabsItemElement(value:string, attributes:HtmlAttribute list, trigger:TabsTriggerElement, children:HtmlElement list) =
+    inherit HtmlElement()
+    member _.Value = value
+    member _.Attributes = attributes
+    member _.Trigger = trigger
+    member _.Children = children
+    override _.Render _ = invalidOp "fveTabsItem belongs inside fveTabs."
 
-/// <category>tabs</category>
-[<RequireQualifiedAccess>]
-type TabsOrientation =
-    | Horizontal
-    | Vertical
+module internal Tabs =
+    let private flag name attributes =
+        match ComponentElement.attribute name attributes with
+        | Some {Value = ValueNone} -> true
+        | Some {Value = ValueSome value} -> value <> "false"
+        | None -> false
 
-/// <category>tabs</category>
-[<NoEquality; NoComparison>]
-type TabsConfig =
-    private
-        { id:string
-          label:string
-          items:TabItem list
-          selectedId:string
-          variant:TabsVariant
-          orientation:TabsOrientation }
+    let trigger attributes children = TabsTriggerElement(ComponentElement.attributes attributes, children) :> HtmlElement
 
-/// <remarks>
-/// Horizontal tab strips scroll within their available width; labels remain on one line.
-/// Use zero-minimum grid tracks and min-w-0 flex/grid children in containing layouts so their
-/// intrinsic content width cannot expand the page. Panels retain their own layout and overflow behavior.
-/// </remarks>
-/// <category>tabs</category>
-[<RequireQualifiedAccess>]
-module Tabs =
-    let create id label (items:TabItem list) =
-        if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable tabs ID is required."
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible tabs label is required."
-        if List.isEmpty items then invalidArg (nameof items) "At least one tab item is required."
+    let item attributes (children:HtmlElement list) =
+        let value = ComponentElement.required "value" attributes
+        let triggers, contents =
+            children |> List.fold (fun (triggers, contents) child -> match child with :? TabsTriggerElement as trigger -> trigger :: triggers, contents | _ -> triggers, child :: contents) ([], [])
+        let trigger = match triggers with [trigger] -> trigger | _ -> invalidArg "children" "Each tab item requires exactly one fveTabsTrigger."
+        if String.IsNullOrWhiteSpace(Render.toString (ComponentContent.fragment trigger.Children)) then invalidArg "children" "A tab trigger requires visible content or a named icon."
+        TabsItemElement(value, ComponentHtml.safeAttributes ["value"] attributes, trigger, List.rev contents) :> HtmlElement
 
-        let duplicateIds =
-            items
-            |> List.countBy _.id
-            |> List.choose (fun (itemId, count) -> if count > 1 then Some itemId else None)
-
-        if duplicateIds.IsEmpty |> not then
-            let duplicateIdList = String.concat ", " duplicateIds
-            invalidArg (nameof items) $"Tab item IDs must be unique: {duplicateIdList}."
-
-        let available = items |> List.filter (fun item -> not item.disabled)
-        if List.isEmpty available then invalidArg (nameof items) "At least one tab item must be enabled."
-
-        { id = id
-          label = label
-          items = items
-          selectedId = available.Head.id
-          variant = TabsVariant.Segmented
-          orientation = TabsOrientation.Horizontal }
-
-    let withSelected selectedId (config:TabsConfig) =
-        if String.IsNullOrWhiteSpace selectedId then invalidArg (nameof selectedId) "A selected tab item ID is required."
-        if config.items |> List.exists (fun item -> item.id = selectedId && not item.disabled) |> not then
-            invalidArg (nameof selectedId) $"The selected tab item '{selectedId}' does not exist or is disabled."
-        { config with selectedId = selectedId }
-
-    let withVariant variant (config:TabsConfig) = { config with variant = variant }
-    let withOrientation orientation (config:TabsConfig) = { config with orientation = orientation }
-
-    let private itemToken (item:TabItem) = ComponentHtml.optionToken item.id
-
-    let render (config:TabsConfig) =
-        let signal = $"_tabs_{ComponentHtml.optionToken config.id}_selected"
-        let selectedExpression (item:TabItem) = $"${signal} == {ComponentHtml.javascriptString item.id}"
-        let selectExpression (item:TabItem) = $"${signal} = {ComponentHtml.javascriptString item.id}"
-        let tabId (item:TabItem) = $"{config.id}-tab-{itemToken item}"
-        let panelId (item:TabItem) = $"{config.id}-panel-{itemToken item}"
-        let availableItems = config.items |> List.filter (fun item -> not item.disabled)
-        let availableTabIds = availableItems |> List.map tabId
-        let availableIds = availableItems |> List.map (fun item -> ComponentHtml.javascriptString item.id) |> String.concat ", "
-        let ensureValidSelection = $"[{availableIds}].includes(${signal}) || (${signal} = {ComponentHtml.javascriptString config.selectedId})"
+    let render attributes (children:HtmlElement list) =
+        let id = ComponentElement.required "id" attributes
+        if id |> Seq.exists Char.IsWhiteSpace then invalidArg "id" "A stable tabs ID without whitespace is required."
+        let label = ComponentElement.value "aria-label" attributes
+        let labelledby = ComponentElement.value "aria-labelledby" attributes
+        if label |> Option.forall String.IsNullOrWhiteSpace then
+            if labelledby |> Option.forall String.IsNullOrWhiteSpace then invalidArg "aria-label" "A tab list needs an accessible name."
+        let items = children |> List.choose (function :? TabsItemElement as item -> Some item | :? NoopElement -> None | _ -> invalidArg "children" "Tabs accepts fveTabsItem children.")
+        if items.IsEmpty then invalidArg "children" "At least one tab item is required."
+        let values = items |> List.map _.Value
+        if values.Length <> (values |> List.distinct |> List.length) then invalidArg "value" "Tab item values must be unique."
+        let unavailable (item:TabsItemElement) = flag "disabled" item.Trigger.Attributes || flag "readonly" item.Trigger.Attributes || flag "aria-disabled" item.Trigger.Attributes
+        let available = items |> List.filter (unavailable >> not)
+        if available.IsEmpty then invalidArg "children" "At least one tab trigger must be enabled."
+        let selected = ComponentElement.value "value" attributes |> Option.defaultValue available.Head.Value
+        if not (available |> List.exists (fun item -> item.Value = selected)) then invalidArg "value" "The selected tab must exist and be enabled."
+        let horizontal = ComponentElement.choice "orientation" "horizontal" ["horizontal"; "vertical"] attributes = "horizontal"
+        let variant = ComponentElement.choice "variant" "segmented" ["segmented"; "underlined"] attributes
+        let nativeId fallback authored =
+            let id = ComponentElement.value "id" authored |> Option.defaultValue fallback
+            if String.IsNullOrWhiteSpace id || (id |> Seq.exists Char.IsWhiteSpace) then invalidArg "id" "Native tab and panel IDs must be stable and contain no whitespace."
+            id
+        let tabId (item:TabsItemElement) = nativeId ($"{id}-tab-{ComponentHtml.optionToken item.Value}") item.Trigger.Attributes
+        let panelId (item:TabsItemElement) = nativeId ($"{id}-panel-{ComponentHtml.optionToken item.Value}") item.Attributes
         let listClasses, tabClasses =
-            match config.variant with
-            | TabsVariant.Segmented ->
+            if variant = "segmented" then
                 "inline-flex min-w-0 max-w-full items-center gap-1 overflow-x-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-1",
                 "min-h-[var(--fve-control-min-height)] shrink-0 rounded-[var(--fve-radius-control)] border-0 bg-transparent px-3 py-[calc(var(--fve-control-padding-block)+0.125rem)] text-sm font-semibold text-[var(--fve-muted-text)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)] aria-selected:bg-[var(--fve-surface)] aria-selected:text-[var(--fve-brand-text)] aria-selected:shadow-sm"
-            | TabsVariant.Underlined ->
+            else
                 "flex min-w-0 w-full max-w-full items-center gap-4 overflow-x-auto border-b border-[var(--fve-border)]",
                 "min-h-[var(--fve-control-min-height)] shrink-0 border-0 border-b-2 border-transparent bg-transparent px-2 py-[calc(var(--fve-control-padding-block)+0.125rem)] text-sm font-semibold text-[var(--fve-muted-text)] outline-none transition-colors hover:text-[var(--fve-text)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)] aria-selected:border-[var(--fve-brand-solid)] aria-selected:text-[var(--fve-brand-text)]"
-
-        div {
-            _id config.id
-            _class (match config.orientation with TabsOrientation.Horizontal -> "min-w-0 w-full max-w-full" | TabsOrientation.Vertical -> "grid min-w-0 max-w-full gap-4 sm:grid-cols-[auto_minmax(0,1fr)]")
-            _dataSignals $"{{{signal}: {ComponentHtml.javascriptString config.selectedId}}}"
-            _dataInit ensureValidSelection
+        let tabList =
             div {
-                _id (config.id + "-list")
+                _id (id + "-list")
                 _role "tablist"
-                _ariaLabel config.label
-                _ariaOrientation (match config.orientation with TabsOrientation.Horizontal -> "horizontal" | TabsOrientation.Vertical -> "vertical")
-                _class (listClasses + if config.orientation = TabsOrientation.Vertical then " flex-col !items-stretch" else "")
-                for item in config.items do
-                    let availableIndex = availableItems |> List.tryFindIndex (fun candidate -> candidate.id = item.id) |> Option.defaultValue 0
-                    let previousIndex = (availableIndex - 1 + availableItems.Length) % availableItems.Length
-                    let nextIndex = (availableIndex + 1) % availableItems.Length
-                    let focusAndSelect targetIndex targetId =
-                        let target = availableItems[targetIndex]
-                        $"{selectExpression target}, document.getElementById({ComponentHtml.javascriptString targetId})?.focus()"
-                    let previous = focusAndSelect previousIndex availableTabIds[previousIndex]
-                    let next = focusAndSelect nextIndex availableTabIds[nextIndex]
-                    let first = focusAndSelect 0 availableTabIds.Head
-                    let last = focusAndSelect (availableItems.Length - 1) availableTabIds[availableTabIds.Length - 1]
-                    let directionalKeys =
-                        match config.orientation with
-                        | TabsOrientation.Horizontal -> $"evt.key == 'ArrowLeft' && (evt.preventDefault(), {previous}); evt.key == 'ArrowRight' && (evt.preventDefault(), {next})"
-                        | TabsOrientation.Vertical -> $"evt.key == 'ArrowUp' && (evt.preventDefault(), {previous}); evt.key == 'ArrowDown' && (evt.preventDefault(), {next})"
-                    button {
-                        _id (tabId item)
-                        _type "button"
-                        _role "tab"
-                        _ariaControls (panelId item)
-                        _ariaSelected (item.id = config.selectedId)
-                        _ariaDisabled item.disabled
-                        _disabled item.disabled
-                        _tabindex (if item.id = config.selectedId && not item.disabled then 0 else -1)
-                        _dataAttr ("aria-selected", $"{selectedExpression item} ? 'true' : 'false'")
-                        _dataAttr ("tabindex", $"{selectedExpression item} ? 0 : -1")
-                        if not item.disabled then
-                            _dataOn ("click", selectExpression item)
-                            _dataOn ("keydown", $"{directionalKeys}; evt.key == 'Home' && (evt.preventDefault(), {first}); evt.key == 'End' && (evt.preventDefault(), {last})")
-                        _class (tabClasses + " disabled:pointer-events-none disabled:opacity-50" + if config.orientation = TabsOrientation.Horizontal then " whitespace-nowrap" else "")
-                        match item.leading with
-                        | Some leading -> span { _ariaHidden true; _class "mr-2 inline-flex size-4 items-center justify-center align-text-bottom"; leading }
-                        | None -> ()
-                        item.label
-                    }
+                match label with Some label -> _ariaLabel label | None -> ()
+                match labelledby with Some labelledby -> _ariaLabelledby labelledby | None -> ()
+                _ariaOrientation (if horizontal then "horizontal" else "vertical")
+                _class (listClasses + if horizontal then "" else " flex-col !items-stretch")
+                for item in items do
+                    let initialSelected = item.Value = selected
+                    let defaults = [
+                        yield _id (tabId item)
+                        yield _type "button"
+                        yield _role "tab"
+                        yield _ariaControls (panelId item)
+                        yield _ariaSelected initialSelected
+                        yield _ariaDisabled (unavailable item)
+                        yield _disabled (flag "disabled" item.Trigger.Attributes)
+                        yield _tabindex (if initialSelected then 0 else -1)
+                        yield _attr("data-fve-tab-value", item.Value)
+                        yield _class (tabClasses + " disabled:pointer-events-none disabled:opacity-50" + if horizontal then " whitespace-nowrap" else "") ]
+                    let nativeAttributes =
+                        ComponentHtml.safeAttributes ["role"; "aria-controls"; "aria-selected"; "aria-disabled"; "disabled"; "readonly"; "tabindex"; "data-attr:aria-selected"; "data-attr:tabindex"] item.Trigger.Attributes
+                        |> List.filter (fun attribute -> not (unavailable item) || not (attribute.Name.StartsWith("data-on:click", StringComparison.OrdinalIgnoreCase) || attribute.Name.StartsWith("data-on:keydown", StringComparison.OrdinalIgnoreCase)))
+                    ComponentElement.render "button" defaults (ComponentHtml.outerSignals nativeAttributes) item.Trigger.Children
             }
-            for item in config.items do
-                let selected = item.id = config.selectedId
-                div {
-                    _id (panelId item)
-                    _role "tabpanel"
-                    _ariaLabelledby (tabId item)
-                    _tabindex 0
-                    _hidden (not selected)
-                    _dataAttr ("hidden", $"{selectedExpression item} ? null : true")
-                    _class (match config.orientation with TabsOrientation.Horizontal -> "mt-4 min-w-0 max-w-full outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]" | TabsOrientation.Vertical -> "min-w-0 outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]")
-                    item.content
-                }
-        }
+        let panels =
+            items |> List.map (fun item ->
+                let initialSelected = item.Value = selected
+                ComponentElement.render "div"
+                    [_id (panelId item); _role "tabpanel"; _ariaLabelledby (tabId item); _tabindex 0; _hidden (not initialSelected); _dataPreserveAttr "hidden"; _class ((if horizontal then "mt-4 min-w-0 max-w-full" else "min-w-0") + " outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]")]
+                    (ComponentHtml.safeAttributes ["role"; "aria-labelledby"; "hidden"; "data-attr:hidden"; "data-preserve-attr"] item.Attributes) item.Children)
+        ComponentElement.render "fve-tabs"
+            [_id id; _value selected; _attr("orientation", if horizontal then "horizontal" else "vertical"); _class (if horizontal then "block min-w-0 w-full max-w-full" else "grid min-w-0 max-w-full gap-4 sm:grid-cols-[auto_minmax(0,1fr)]")]
+            (ComponentHtml.safeAttributes ["value"; "variant"; "orientation"; "aria-label"; "aria-labelledby"] attributes |> ComponentHtml.outerSignals) (tabList :: panels)
+
+/// <category>tabs</category>
+[<AutoOpen>]
+module TabsDsl =
+    let fveTabs = ComponentElementBuilder(Tabs.render)
+    let fveTabsItem = ComponentElementBuilder(Tabs.item)
+    let fveTabsTrigger = ComponentElementBuilder(Tabs.trigger)

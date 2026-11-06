@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>Example.Components</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <FSharpCoreImplicitPackageVersion>10.0.102</FSharpCoreImplicitPackageVersion>
+  </PropertyGroup>
+  <!-- fve:components:start -->
+  <ItemGroup Label="fve components">
+      <Compile Include="Components/ComponentBuilder.fs" />
+      <Compile Include="Components/Foundation.fs" />
+      <Compile Include="Components/Card.fs" />
+      <Compile Include="Components/Browser.fs" />
+      <Compile Include="Components/CodeAssets.fs" />
+      <Compile Include="Components/CodeBlock.fs" />
+      <Compile Include="Components/MermaidAssets.fs" />
+      <Compile Include="Components/Mermaid.fs" />
+      <Compile Include="Components/Button.fs" />
+      <Compile Include="Components/Link.fs" />
+      <Compile Include="Components/Badge.fs" />
+      <Compile Include="Components/EmptyState.fs" />
+      <Compile Include="Components/Table.fs" />
+      <Compile Include="Components/Chart.fs" />
+      <Compile Include="Components/DescriptionList.fs" />
+      <Compile Include="Components/Field.fs" />
+      <Compile Include="Components/Checkbox.fs" />
+      <Compile Include="Components/Tabs.fs" />
+      <Compile Include="Components/Resizable.fs" />
+      <Compile Include="Components/Avatar.fs" />
+      <Compile Include="Components/PageTopBar.fs" />
+      <Compile Include="Components/PageHeader.fs" />
+      <Compile Include="Components/SectionHeader.fs" />
+      <Compile Include="Components/Notice.fs" />
+      <Compile Include="Components/Notification.fs" />
+      <Compile Include="Components/DropdownMenu.fs" />
+      <Compile Include="Components/SideNav.fs" />
+      <Compile Include="Components/ColorMode.fs" />
+      <Compile Include="Components/FieldFoundation.fs" />
+      <Compile Include="Components/Input.fs" />
+      <Compile Include="Components/InputGroup.fs" />
+      <Compile Include="Components/ChoiceSelection.fs" />
+      <Compile Include="Components/Select.fs" />
+      <Compile Include="Components/ButtonGroup.fs" />
+      <Compile Include="Components/Breadcrumbs.fs" />
+      <Compile Include="Components/NativeOverlay.fs" />
+      <Compile Include="Components/Dialog.fs" />
+      <Compile Include="Components/Drawer.fs" />
+      <Compile Include="Components/Command.fs" />
+      <None Include="fve.json" />
+      <None Include="Components/Assets/datastar-LICENSE.txt" />
+      <None Include="Components/Assets/datastar-rocket.1.0.4.js" />
+      <None Include="Components/Assets/code-block.js" />
+      <None Include="Components/Assets/mermaid.js" />
+      <None Include="Components/Assets/button.js" />
+      <None Include="Components/Assets/table.js" />
+      <None Include="Components/Assets/echarts-LICENSE.txt" />
+      <None Include="Components/Assets/echarts-NOTICE.txt" />
+      <None Include="Components/Assets/echarts.6.1.0.provenance.json" />
+      <None Include="Components/Assets/echarts.6.1.0.esm.min.js" />
+      <None Include="Components/Assets/chart.js" />
+      <None Include="Components/Assets/native-control.js" />
+      <None Include="Components/Assets/checkbox.js" />
+      <None Include="Components/Assets/tabs.js" />
+      <None Include="Components/Assets/resizable.js" />
+      <None Include="Components/Assets/notification.js" />
+      <None Include="Components/Assets/dropdown-menu.js" />
+      <None Include="Components/Assets/side-nav.js" />
+      <None Include="Components/Assets/select.js" />
+      <None Include="Components/Assets/scroll-region.js" />
+      <None Include="Components/Assets/breadcrumbs.js" />
+      <None Include="Components/Assets/native-overlay.js" />
+      <None Include="Components/Assets/dialog.js" />
+      <None Include="Components/Assets/drawer.js" />
+      <None Include="Components/Assets/command.js" />
+  </ItemGroup>
+  <!-- fve:components:end -->
+  <ItemGroup>
+    <PackageReference Include="FSharp.ViewEngine" Version="2026.8.2" />
+  </ItemGroup>
+</Project>

@@ -9,10 +9,6 @@ open System.Reflection
 open System.Xml.Linq
 open Microsoft.FSharp.Reflection
 
-/// <category>fsharp-api-reference</category>
-[<NoEquality; NoComparison>]
-type FSharpApiReferenceConfig = private { types:Type list }
-
 module private FSharpApiReflection =
     let private simpleName (value:string) =
         let index = value.IndexOf('`')
@@ -126,9 +122,14 @@ module private FSharpApiReflection =
                 |> Array.filter (fun method' -> not method'.IsSpecialName)
                 |> Array.sortBy _.MetadataToken
                 |> Array.map methodDeclaration
+            let values =
+                type'.GetProperties(BindingFlags.Public ||| BindingFlags.Static ||| BindingFlags.DeclaredOnly)
+                |> Array.filter (fun property -> property.GetIndexParameters().Length = 0 && not (isNull property.GetMethod) && property.GetMethod.IsPublic)
+                |> Array.sortBy _.MetadataToken
+                |> Array.map (fun property -> "    val " + property.Name + " : " + typeName property.PropertyType)
             let moduleName = simpleName type'.Name
             let sourceName = if moduleName.EndsWith("Module", StringComparison.Ordinal) then moduleName.Substring(0, moduleName.Length - "Module".Length) else moduleName
-            "module " + sourceName + " =\n" + String.concat "\n" methods
+            "module " + sourceName + " =\n" + String.concat "\n" (Array.append methods values)
         elif FSharpType.IsUnion type' then unionDeclaration type'
         elif FSharpType.IsRecord(type', true) then recordDeclaration type'
         else "type " + typeName type'
@@ -136,31 +137,39 @@ module private FSharpApiReflection =
 /// <category>fsharp-api-reference</category>
 [<RequireQualifiedAccess>]
 module FSharpApiReference =
-    /// Uses exactly the supplied compiled declarations. Referenced component types remain on their own pages.
-    let create (types:Type list) : FSharpApiReferenceConfig =
-        if List.isEmpty types then invalidArg (nameof types) "At least one public owning type is required."
-        let assembly = (List.head types).Assembly
-        if types |> List.exists (fun type' -> type'.Assembly <> assembly) then invalidArg (nameof types) "Owning types must come from one assembly."
-        { types = types |> List.distinct }
-
     /// Selects declarations explicitly assigned to the category in their XML documentation.
-    let forCategory owner (anchor:Type) : FSharpApiReferenceConfig =
+    let forCategory owner (anchor:Type) : Type list =
         if String.IsNullOrWhiteSpace owner then invalidArg (nameof owner) "An API-reference category is required."
         match FSharpApiReflection.typesInCategory owner anchor with
         | [] -> invalidArg (nameof owner) $"No public F# declarations are documented for the '{owner}' category."
-        | types -> create types
+        | types -> types
 
     /// Renders compiled signatures and declaration-owned XML usage remarks without exposing private config fields.
-    let render (config:FSharpApiReferenceConfig) =
-        let remarks = FSharpApiReflection.remarks (List.head config.types)
+    let internal render attributes (types:Type list) =
+        if List.isEmpty types then invalidArg (nameof types) "At least one public owning type is required."
+        let types = List.distinct types
+        let assembly = types.Head.Assembly
+        if types |> List.exists (fun type' -> type'.Assembly <> assembly) then invalidArg (nameof types) "Owning types must come from one assembly."
+        let remarks = FSharpApiReflection.remarks types.Head
         let source =
-            config.types
+            types
             |> List.map (fun type' ->
                 let comments = remarks |> Map.tryFind type'.FullName |> Option.map (fun value -> value + "\n") |> Option.defaultValue ""
                 comments + FSharpApiReflection.declaration type')
             |> String.concat "\n\n"
-        div {
-            _attr ("data-fve-api-reference", "true")
-            _class "grid min-w-0 gap-4"
-            CodeBlock.create "fsharp" source |> CodeBlock.render
-        }
+        ComponentElement.render "div" [_attr("data-fve-api-reference", "true"); _class "grid min-w-0 gap-4"] attributes [fveCodeBlock { _language "fsharp"; source }]
+
+/// <category>fsharp-api-reference</category>
+[<Sealed>]
+type FSharpApiReferenceBuilder internal () =
+    inherit ComponentExpressionBuilder()
+    member _.Yield(value:Type) : ComponentCode<Type list> = fun state -> state.Options.Add(fun types -> types @ [value])
+    member _.YieldFrom(values:Type seq) : ComponentCode<Type list> = fun state -> state.Options.Add(fun types -> types @ List.ofSeq values)
+    member this.Run(code:ComponentCode<Type list>) =
+        this.Evaluate(code, (fun children -> ComponentContent.noChildren "fveFSharpApiReference" children; []),
+            (fun attributes types -> attributes, types), (fun (attributes, types) -> FSharpApiReference.render attributes types))
+
+/// <category>fsharp-api-reference</category>
+[<AutoOpen>]
+module FSharpApiReferenceDsl =
+    let fveFSharpApiReference = FSharpApiReferenceBuilder()

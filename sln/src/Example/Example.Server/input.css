@@ -1,0 +1,46 @@
+@import "tailwindcss";
+@source "../Example.Components/**/*.fs";
+@source "../Example.Components/Components/Assets/**/*.js";
+@source not "../Example.Components/Components/Assets/echarts.6.1.0.esm.min.js";
+@source "./**/*.fs";
+@source not "./obj/**";
+@source not "./bin/**";
+@plugin "@tailwindcss/typography";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Expansion changes presentation, never the iframe's position in the document. */
+#example-navigation-root:has([data-review-expanded="true"]) {
+  visibility: hidden;
+}
+[data-review-fixture][data-review-expanded="true"] {
+  visibility: visible;
+}
+
+@theme {
+  --font-sans: "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "Noto Sans Mono", ui-monospace, monospace;
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/examples/assets/fonts/noto-sans-latin.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans";
+  font-style: italic;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/examples/assets/fonts/noto-sans-latin-italic.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Noto Sans Mono";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/examples/assets/fonts/noto-sans-mono-latin.woff2") format("woff2");
+}

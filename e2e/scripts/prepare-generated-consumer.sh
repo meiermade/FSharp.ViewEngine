@@ -14,6 +14,9 @@ fsharp_core_version="$(grep -Eo '<FveFSharpCorePackageVersion>[^<]+' "$sln_dir/s
 nugets_dir="$repo_dir/nugets"
 tailwindcss_bin="${TAILWINDCSS_BIN:-$(command -v tailwindcss || true)}"
 [[ -n "$tailwindcss_bin" ]] || { echo 'tailwindcss is required.' >&2; exit 1; }
+# Reuse the repository's pinned browser-build tooling for this installed-source fixture.
+npm ci --prefix "$sln_dir/src/Docs"
+esbuild_bin="$sln_dir/src/Docs/node_modules/.bin/esbuild"
 rm -rf "$output_dir"
 mkdir -p "$output_dir/.nuget/packages"
 (
@@ -29,7 +32,7 @@ export DOTNET_CLI_HOME="$output_dir/.dotnet-home" NUGET_PACKAGES="$output_dir/.n
   dotnet tool install FSharp.ViewEngine.Cli --version "$cli_version" --add-source "$nugets_dir" --local >/dev/null
 )
 components=()
-while IFS= read -r component; do components+=("$component"); done < <(grep -Eo 'FveName="[^"]+"' "$registry" | cut -d'"' -f2)
+while IFS= read -r component; do components+=("$component"); done < <(grep 'FveName=' "$registry" | grep -v 'FveInternal="true"' | grep -Eo 'FveName="[^"]+"' | cut -d'"' -f2)
 [[ ${#components[@]} -gt 0 ]] || { echo 'No components found.' >&2; exit 1; }
 
 restore_build() {
@@ -85,37 +88,29 @@ EOF
 
 done
 
-# Compile the actual published project tree on its declared .NET 10 target, not a synthetic host.
+# Build the checked-in consumer as-is; no namespace rewriting or generated ZIP tree.
 template_dir="$output_dir/templates-net10.0"
-example_sources="$sln_dir/src/Docs/src/Examples"
-mkdir -p "$template_dir/Domain" "$template_dir/UseCases"
+example_sources="$sln_dir/src/Example"
+mkdir -p "$template_dir"
+tar --exclude=bin --exclude=obj --exclude=node_modules -C "$example_sources" -cf - . | tar -C "$template_dir" -xf -
 cp "$output_dir/net10.0/global.json" "$template_dir/global.json"
-for relative in '*.fs' '*.fsproj' README.md 'Domain/*.fs' 'Domain/*.fsproj' 'UseCases/*.fs' 'UseCases/*.fsproj'; do
-  # Expand relative globs under the authored example tree rather than copying bin/obj outputs.
-  for source in "$example_sources"/$relative; do
-    target="$template_dir/${source#"$example_sources/"}"
-    perl -pe 's/FSharp\.ViewEngine\.Components/Acme.Components/g' "$source" > "$target"
-  done
-done
 (
   cd "$template_dir"
-  dotnet fve init Components/Acme.Components.fsproj --namespace Acme.Components
-  # Exercise the install command consumers are given; missing declared components must fail this build.
-  selectors=()
-  while IFS= read -r selector; do selectors+=("$selector"); done < <(awk '/^dotnet fve add / { for (i=4;i<=NF && $i!="--config";i++) print $i }' README.md)
-  [[ ${#selectors[@]} -gt 0 ]] || { echo 'README component selectors are missing.' >&2; exit 1; }
-  dotnet fve add "${selectors[@]}" --config Components/fve.json
-  restore_build Example.fsproj
+  dotnet fve add button --config Example.Components/fve.json --overwrite
+  restore_build Example.Server/Example.Server.fsproj
 )
 
 visual_dir="$output_dir/net10.0"
 mkdir -p "$visual_dir/App/wwwroot/scripts"
-for asset in datastar.1.0.4.js prism.1.29.0.min.js prism-fsharp.1.29.0.min.js prism-python.1.29.0.min.js prism-typescript.1.29.0.min.js prism-bash.1.29.0.min.js prism-sql.1.29.0.min.js; do
+for asset in prism.1.29.0.min.js prism-fsharp.1.29.0.min.js prism-python.1.29.0.min.js prism-typescript.1.29.0.min.js prism-bash.1.29.0.min.js prism-sql.1.29.0.min.js; do
   cp "$sln_dir/src/Docs/wwwroot/scripts/$asset" "$visual_dir/App/wwwroot/scripts/$asset"
 done
 cp "$fixture_dir/GeneratedConsumer.fsproj" "$visual_dir/App/GeneratedConsumer.fsproj"
 cp "$fixture_dir/Program.fs" "$visual_dir/App/Program.fs"
 cp "$fixture_dir/input.css" "$visual_dir/App/input.css"
+mkdir -p "$visual_dir/App/js"
+cp "$fixture_dir/app.js" "$visual_dir/App/js/app.js"
+"$esbuild_bin" "$visual_dir/App/js/app.js" --bundle --format=esm --splitting --outdir="$visual_dir/App/wwwroot/assets" --minify
 "$tailwindcss_bin" --input "$visual_dir/App/input.css" --output "$visual_dir/App/wwwroot/output.css" --minify
 (cd "$visual_dir/App"; restore_build GeneratedConsumer.fsproj)
 (cd "$visual_dir"; dotnet new sln --name GeneratedConsumer --format slnx --force >/dev/null; dotnet sln GeneratedConsumer.slnx add Acme.Components.fsproj App/GeneratedConsumer.fsproj >/dev/null)

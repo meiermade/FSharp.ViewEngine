@@ -5,9 +5,35 @@ open System.Globalization
 open FSharp.ViewEngine
 open type Html
 
-/// <exclude/>
+/// <category>month-calendar</category>
 [<RequireQualifiedAccess>]
-type internal CalendarPeriod = Day | Week | Month | Year
+type CalendarView = Day | Week | Month | Year
+
+/// <summary>The visible date values for each calendar view, before application-owned URL mapping.</summary>
+/// <category>month-calendar</category>
+[<RequireQualifiedAccess>]
+module Calendar =
+    let dates view (date:DateOnly) =
+        if date.Year < 2 || date.Year > 9998 then invalidArg (nameof date) "The displayed date must permit adjacent calendar weeks (years 2–9998)."
+        let monday (day:DateOnly) = day.AddDays(-((int day.DayOfWeek + 6) % 7))
+        let start, count =
+            match view with
+            | CalendarView.Day -> date, 1
+            | CalendarView.Week -> monday date, 7
+            | CalendarView.Month ->
+                let first = DateOnly(date.Year, date.Month, 1)
+                let start = monday first
+                let finish = monday (first.AddMonths(1).AddDays(-1)) |> fun day -> day.AddDays(6)
+                start, finish.DayNumber - start.DayNumber + 1
+            | CalendarView.Year ->
+                let start = DateOnly(date.Year, 1, 1)
+                start, start.AddYears(1).DayNumber - start.DayNumber
+        [ for offset in 0 .. count - 1 -> start.AddDays offset ]
+
+    /// A standalone compact month retains six complete weeks.
+    let compactMonthDates date =
+        let start = dates CalendarView.Month date |> List.head
+        [ for offset in 0 .. 41 -> start.AddDays offset ]
 
 /// <summary>
 /// An inclusive all-day date range, or a minute-resolution interval on one consumer-local date.
@@ -60,14 +86,16 @@ type CalendarState = Ready | Loading | Error of message:string | Unavailable of 
 [<NoEquality; NoComparison>]
 type internal CalendarDisplayConfig<'destination> =
         { label:string
-          view:CalendarPeriod
+          view:CalendarView
           date:DateOnly
           events:CalendarEvent<'destination> list
           previous:'destination option
           next:'destination option
           today:(DateOnly * 'destination) option
           selectedDate:DateOnly option
-          dateDestination:(DateOnly -> 'destination) option
+          dateDestination:(DateOnly -> 'destination option) option
+          attributes:HtmlAttribute list
+          navigation:Map<string, HtmlAttribute list * HtmlElement list>
           emptyState:HtmlElement
           state:CalendarState
           stateAction:HtmlElement option }
@@ -82,41 +110,23 @@ module internal CalendarRendering =
         { label = label; view = view; date = date; events = events; previous = None; next = None; today = None
           selectedDate = None; dateDestination = None
           emptyState = p { _class "p-4 text-sm text-[var(--fve-muted-text)]"; "No events in this range." }
-          state = CalendarState.Ready; stateAction = None }
-    let withPrevious destination (config:CalendarDisplayConfig<'destination>) = { config with previous = Some destination }
-    let withNext destination (config:CalendarDisplayConfig<'destination>) = { config with next = Some destination }
-    /// The consumer supplies today's date in the displayed time zone and its destination.
-    let withToday date destination config = { config with today = Some (date, destination) }
-    let withSelectedDate date config = { config with selectedDate = Some date }
-    let withDateDestination destination config = { config with dateDestination = Some destination }
-    let withEmptyState emptyState (config:CalendarDisplayConfig<'destination>) = { config with emptyState = emptyState }
-    let loading (config:CalendarDisplayConfig<'destination>) = { config with state = CalendarState.Loading; stateAction = None }
-    let withError message (config:CalendarDisplayConfig<'destination>) =
-        if String.IsNullOrWhiteSpace message then invalidArg (nameof message) "A calendar error message is required."
-        { config with state = CalendarState.Error message; stateAction = None }
-    let withUnavailable message (config:CalendarDisplayConfig<'destination>) =
-        if String.IsNullOrWhiteSpace message then invalidArg (nameof message) "A calendar unavailable message is required."
-        { config with state = CalendarState.Unavailable message; stateAction = None }
-    let withStateAction action (config:CalendarDisplayConfig<'destination>) = { config with stateAction = Some action }
+          state = CalendarState.Ready; stateAction = None; attributes = []; navigation = Map.empty }
 
     let private format pattern (date:DateOnly) = date.ToString(pattern, CultureInfo.InvariantCulture)
     let private minute (time:TimeOnly) = time.Hour * 60 + time.Minute
-    let private monday (date:DateOnly) = date.AddDays(-((int date.DayOfWeek + 6) % 7))
-    let private viewName = function CalendarPeriod.Day -> "Day" | CalendarPeriod.Week -> "Week" | CalendarPeriod.Month -> "Month" | CalendarPeriod.Year -> "Year"
-    let private dates config =
-        let start, count =
-            match config.view with
-            | CalendarPeriod.Day -> config.date, 1
-            | CalendarPeriod.Week -> monday config.date, 7
-            | CalendarPeriod.Month ->
-                let first = DateOnly(config.date.Year, config.date.Month, 1)
-                let start = monday first
-                let finish = monday (first.AddMonths(1).AddDays(-1)) |> fun day -> day.AddDays(6)
-                start, finish.DayNumber - start.DayNumber + 1
-            | CalendarPeriod.Year ->
-                let start = DateOnly(config.date.Year, 1, 1)
-                start, start.AddYears(1).DayNumber - start.DayNumber
-        [ for offset in 0 .. count - 1 -> start.AddDays offset ]
+    let private viewName = function CalendarView.Day -> "Day" | CalendarView.Week -> "Week" | CalendarView.Month -> "Month" | CalendarView.Year -> "Year"
+
+    let dateAttributes (date:DateOnly) (config:CalendarDisplayConfig<'destination>) =
+        config.navigation |> Map.tryFind ("date-" + date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)) |> Option.map fst |> Option.defaultValue []
+
+    let navigationLink resolve key defaults fallback (config:CalendarDisplayConfig<'destination>) =
+        let destination =
+            match key with "previous" -> config.previous | "next" -> config.next | _ -> config.today |> Option.map snd
+        match destination with
+        | None -> empty
+        | Some destination ->
+            let attributes, children = config.navigation |> Map.tryFind key |> Option.defaultValue ([], [])
+            ComponentElement.render "a" (_href (resolve destination) :: defaults) attributes (if List.isEmpty children then fallback else children)
 
     // Connected overlap groups share a lane count; disjoint events regain the full day width.
     let private placements events =
@@ -140,19 +150,19 @@ module internal CalendarRendering =
         place timed |> Map.ofList
 
     let render (resolve:'destination -> string) (renderDates:('destination -> string) -> CalendarDisplayConfig<'destination> -> HtmlElement) id (config:CalendarDisplayConfig<'destination>) =
-        let days = dates config
+        let days = Calendar.dates config.view config.date
         let events = config.events |> List.filter (fun event -> event.endDate >= days.Head && event.date <= List.last days) |> List.sortBy (fun event -> event.date, event.time, event.id)
         let allDayRows = days |> List.map (fun date -> events |> List.filter (fun event -> CalendarEvent.occursOn date event && event.time.IsNone) |> List.length) |> List.max
         let times = events |> List.choose _.time
         let startHour = times |> List.fold (fun hour (start, _) -> min hour start.Hour) 8
         let endHour = times |> List.fold (fun hour (_, finish) -> max hour ((minute finish + 59) / 60)) 18
-        let timed = config.view = CalendarPeriod.Day || config.view = CalendarPeriod.Week
+        let timed = config.view = CalendarView.Day || config.view = CalendarView.Week
         let rangeLabel =
             match config.view with
-            | CalendarPeriod.Month -> format "MMMM yyyy" config.date
-            | CalendarPeriod.Day -> format "dddd, MMMM d, yyyy" config.date
-            | CalendarPeriod.Week -> format "MMMM d" days.Head + "–" + format "MMMM d, yyyy" (List.last days)
-            | CalendarPeriod.Year -> string config.date.Year
+            | CalendarView.Month -> format "MMMM yyyy" config.date
+            | CalendarView.Day -> format "dddd, MMMM d, yyyy" config.date
+            | CalendarView.Week -> format "MMMM d" days.Head + "–" + format "MMMM d, yyyy" (List.last days)
+            | CalendarView.Year -> string config.date.Year
         let control = "inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
         let dateHeading date =
             let today = config.today |> Option.exists (fun (value, _) -> value = date)
@@ -167,12 +177,10 @@ module internal CalendarRendering =
                         span { _class (if timed then "hidden" else "inline"); string date.Day }
                         span { _class (if timed then "" else "sr-only"); format "ddd, MMM d" date }
                     }
-                match config.dateDestination with
+                match config.dateDestination |> Option.bind (fun destination -> destination date) with
                 | Some destination ->
                     a {
-                        _href (resolve (destination date))
-                        _ariaLabel ((if selected then "Selected: " else "Show ") + format "dddd, MMMM d, yyyy" date)
-                        _class "inline-flex min-h-8 rounded-[var(--fve-radius-control)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                        for attribute in ComponentElement.attributes ([_href (resolve destination); _ariaLabel ((if selected then "Selected: " else "Show ") + format "dddd, MMMM d, yyyy" date); _class "inline-flex min-h-8 rounded-[var(--fve-radius-control)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"] @ dateAttributes date config) do attribute
                         content
                     }
                 | None -> content
@@ -194,10 +202,11 @@ module internal CalendarRendering =
                 | None -> ()
             }
         section {
-            match id with Some id -> _id id | None -> ()
-            _ariaLabel config.label
-            _class "fve-calendar fve-control-small @container/fve-calendar grid min-w-0 grid-cols-1 gap-4 text-[var(--fve-text)]"
-            _attr ("data-view", viewName config.view |> fun value -> value.ToLowerInvariant())
+            for attribute in ComponentElement.attributes ([
+                match id with Some id -> _id id | None -> ()
+                _ariaLabel config.label
+                _class "fve-calendar fve-control-small @container/fve-calendar grid min-w-0 grid-cols-1 gap-4 text-[var(--fve-text)]"
+                _attr ("data-view", viewName config.view |> fun value -> value.ToLowerInvariant()) ] @ config.attributes) do attribute
             header {
                 _class "flex flex-wrap items-center justify-between gap-3"
                 div {
@@ -207,10 +216,8 @@ module internal CalendarRendering =
                 nav {
                     _ariaLabel (config.label + " date navigation")
                     _class "flex flex-wrap items-center gap-1"
-                    for destination, label in [config.previous, "Previous"; config.today |> Option.map snd, "Today"; config.next, "Next"] do
-                        match destination with
-                        | Some target -> a { _href (resolve target); _class control; label }
-                        | None -> ()
+                    for key, label in ["previous", "Previous"; "today", "Today"; "next", "Next"] do
+                        navigationLink resolve key [_class control] [text label] config
                 }
             }
             match config.state with
@@ -231,14 +238,14 @@ module internal CalendarRendering =
                 }
             | CalendarState.Ready ->
                 if List.isEmpty events then config.emptyState
-                if config.view = CalendarPeriod.Month || config.view = CalendarPeriod.Year then renderDates resolve config
+                if config.view = CalendarView.Month || config.view = CalendarView.Year then renderDates resolve config
                 else
-                    div {
-                        _class ("fve-calendar-body min-w-0 rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] " + (if timed then "relative grid max-h-152 grid-cols-[3.5rem_minmax(0,1fr)] overflow-auto" else "overflow-x-auto"))
+                    (Html.el "fve-scroll-region") {
+                        _class ("fve-calendar-body min-w-0 rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] " + (if timed then "relative grid max-h-152 grid-cols-[3.5rem_minmax(0,1fr)] overflow-auto" else "block overflow-x-auto"))
                         _style $"--fve-calendar-hours:{endHour - startHour};--fve-calendar-days:{days.Length};--fve-calendar-all-day-rows:{allDayRows}"
                         _tabindex 0
                         _role "region"
-                        _data ("on:keydown", "if (evt.target === el && !evt.ctrlKey && !evt.metaKey && !evt.altKey && ['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(evt.key)) { const horizontal = evt.key === 'ArrowLeft' || evt.key === 'ArrowRight'; if (horizontal ? el.scrollWidth > el.clientWidth : el.scrollHeight > el.clientHeight) { evt.preventDefault(); const offset = evt.key === 'ArrowLeft' || evt.key === 'ArrowUp' ? -64 : 64; el.scrollBy({left:horizontal ? offset : 0,top:horizontal ? 0 : offset}) } }")
+                        _attr("scroll-axis", "both")
                         _ariaLabel (config.label + (if timed then " scrollable times" else " scrollable dates"))
                         if timed then
                             div {
@@ -248,7 +255,7 @@ module internal CalendarRendering =
                                     span { _class "h-32 p-1 text-center"; TimeOnly(hour, 0).ToString("h tt", CultureInfo.InvariantCulture) }
                             }
                         ol {
-                            _class ("fve-calendar-days m-0 grid list-none p-0 " + (if timed then "col-start-2 row-start-1 grid-cols-[repeat(var(--fve-calendar-days),minmax(0,1fr))]" + (if config.view = CalendarPeriod.Day then " min-w-80" else " min-w-[112rem] @min-[48rem]/fve-calendar:min-w-[56rem]") else "min-w-[56rem] grid-cols-7 gap-px bg-[var(--fve-border)]"))
+                            _class ("fve-calendar-days m-0 grid list-none p-0 " + (if timed then "col-start-2 row-start-1 grid-cols-[repeat(var(--fve-calendar-days),minmax(0,1fr))]" + (if config.view = CalendarView.Day then " min-w-80" else " min-w-[112rem] @min-[48rem]/fve-calendar:min-w-[56rem]") else "min-w-[56rem] grid-cols-7 gap-px bg-[var(--fve-border)]"))
                             _ariaLabel (config.label + " dates")
                             for date in days do
                                 let dayEvents = events |> List.filter (CalendarEvent.occursOn date)
@@ -307,3 +314,111 @@ module internal CompactMonth =
                     for day in 0..6 do cell (week * 7 + day)
                 }
         }
+
+type internal CalendarPartElement(kind:string, attributes:HtmlAttribute list, children:HtmlElement list) =
+    inherit HtmlElement()
+    member _.Kind = kind
+    member _.Attributes = attributes
+    member _.Children = children
+    override _.Render(_) = invalidOp "Calendar parts must be placed inside a calendar builder."
+
+module internal CalendarElements =
+    let parseDate name attributes =
+        let value = ComponentElement.required name attributes
+        match DateOnly.TryParseExact(value, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None) with
+        | true, date -> date
+        | _ -> invalidArg "attributes" $"{name} must be an ISO date (yyyy-MM-dd)."
+
+    let part kind attributes children =
+        if List.contains kind ["previous"; "next"; "today"; "date"] then ComponentElement.required "href" attributes |> ignore
+        if kind = "today" || kind = "date" then parseDate "date" attributes |> ignore
+        if kind = "date" then ComponentContent.noChildren "fveCalendarDate" children
+        CalendarPartElement(kind, attributes, children) :> HtmlElement
+
+    let configuration view attributes (children:HtmlElement list) events =
+        let label = ComponentElement.required "label" attributes
+        let date = parseDate "date" attributes
+        let mutable config = CalendarRendering.create label view date events
+        let mutable seen = Set.empty
+        let mutable links = Map.empty
+        for child in children do
+            match child with
+            | :? NoopElement -> ()
+            | :? CalendarPartElement as part ->
+                let native = ComponentHtml.safeAttributes ["date"] part.Attributes
+                if part.Kind = "date" then
+                    let date = parseDate "date" part.Attributes
+                    if Map.containsKey date links then invalidArg "children" "Each calendar date can have only one destination."
+                    links <- Map.add date (ComponentElement.required "href" part.Attributes) links
+                    config <- { config with navigation = Map.add ("date-" + date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)) (native, []) config.navigation }
+                else
+                    if Set.contains part.Kind seen then invalidArg "children" $"Only one calendar {part.Kind} part is supported."
+                    seen <- Set.add part.Kind seen
+                    match part.Kind with
+                    | "previous" -> config <- { config with previous = Some (ComponentElement.required "href" part.Attributes) }
+                    | "next" -> config <- { config with next = Some (ComponentElement.required "href" part.Attributes) }
+                    | "today" -> config <- { config with today = Some (parseDate "date" part.Attributes, ComponentElement.required "href" part.Attributes) }
+                    | "empty" -> config <- { config with emptyState = ComponentElement.render "div" [] native part.Children }
+                    | "action" -> config <- { config with stateAction = Some (ComponentElement.render "div" [] native part.Children) }
+                    | _ -> invalidArg "children" "Unsupported calendar part."
+                    if List.contains part.Kind ["previous"; "next"; "today"] then
+                        config <- { config with navigation = Map.add part.Kind (native, part.Children) config.navigation }
+            | _ -> invalidArg "children" "Calendars accept events and calendar parts, not arbitrary HTML children."
+        let state =
+            match ComponentElement.value "calendar-state" attributes with
+            | None -> CalendarState.Ready
+            | Some value ->
+                match System.Text.Json.JsonSerializer.Deserialize<string array>(value) with
+                | [|"ready"|] -> CalendarState.Ready
+                | [|"loading"|] -> CalendarState.Loading
+                | [|"error"; message|] when not (String.IsNullOrWhiteSpace message) -> CalendarState.Error message
+                | [|"unavailable"; message|] when not (String.IsNullOrWhiteSpace message) -> CalendarState.Unavailable message
+                | _ -> invalidArg "attributes" "Unsupported calendar state."
+        match ComponentElement.value "id" attributes with
+        | Some id when String.IsNullOrWhiteSpace id || Seq.exists Char.IsWhiteSpace id -> invalidArg "attributes" "A calendar ID cannot contain whitespace."
+        | _ -> ()
+        { config with
+            selectedDate = ComponentElement.value "selected-date" attributes |> Option.map (fun _ -> parseDate "selected-date" attributes)
+            dateDestination = if Map.isEmpty links then None else Some (fun day -> Map.tryFind day links)
+            state = state
+            attributes = ComponentHtml.safeAttributes ["date"; "label"; "selected-date"; "calendar-state"; "layout"] attributes }
+
+/// <exclude/>
+type CalendarDisplayBuilder internal (view:CalendarView, render:HtmlAttribute list -> CalendarDisplayConfig<string> -> HtmlElement) =
+    inherit ComponentExpressionBuilder()
+    member _.Yield(event:CalendarEvent<string>) : ComponentCode<CalendarEvent<string> list> =
+        fun state -> state.Options.Add(fun events -> events @ [event])
+    member _.YieldFrom(events:CalendarEvent<string> seq) : ComponentCode<CalendarEvent<string> list> =
+        fun state -> state.Options.Add(fun previous -> previous @ List.ofSeq events)
+    member _.Run(code:ComponentCode<CalendarEvent<string> list>) =
+        let state = ComponentState<CalendarEvent<string> list>()
+        code state
+        let events = ([], state.Options) ||> Seq.fold (fun events update -> update events)
+        let attributes = List.ofSeq state.Attributes
+        let config = CalendarElements.configuration view attributes (List.ofSeq state.Children) events
+        render attributes config
+
+/// <category>month-calendar</category>
+[<AutoOpen>]
+module CalendarAttributes =
+    type Html with
+        static member _date(value:DateOnly) = Html._attr("date", value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
+        static member _selectedDate(value:DateOnly) = Html._attr("selected-date", value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture))
+        static member _state(value:CalendarState) =
+            let state =
+                match value with
+                | CalendarState.Ready -> [|"ready"|]
+                | CalendarState.Loading -> [|"loading"|]
+                | CalendarState.Error message -> [|"error"; message|]
+                | CalendarState.Unavailable message -> [|"unavailable"; message|]
+            Html._attr("calendar-state", System.Text.Json.JsonSerializer.Serialize state)
+
+/// <category>month-calendar</category>
+[<AutoOpen>]
+module CalendarPartsDsl =
+    let fveCalendarPrevious = ComponentElementBuilder(CalendarElements.part "previous")
+    let fveCalendarNext = ComponentElementBuilder(CalendarElements.part "next")
+    let fveCalendarToday = ComponentElementBuilder(CalendarElements.part "today")
+    let fveCalendarDate = ComponentElementBuilder(CalendarElements.part "date")
+    let fveCalendarEmpty = ComponentElementBuilder(CalendarElements.part "empty")
+    let fveCalendarStateAction = ComponentElementBuilder(CalendarElements.part "action")

@@ -3,48 +3,31 @@ namespace FSharp.ViewEngine.Components
 open System
 open FSharp.ViewEngine
 open type Html
-open type Datastar
+
+module internal PageHeader =
+    let actions attributes children =
+        if String.IsNullOrWhiteSpace (Render.toString (ComponentContent.fragment children)) then empty
+        else ComponentPart("PageHeader", "actions", ComponentElement.render "div" [_class "flex shrink-0 flex-wrap items-center gap-2"] attributes children) :> HtmlElement
+
+    let render attributes children =
+        let title = ComponentElement.required "label" attributes
+        let description = ComponentElement.attribute "description" attributes |> Option.map (fun _ -> ComponentElement.required "description" attributes)
+        let parts, content = ComponentParts.split "PageHeader" children
+        ComponentElement.render "header"
+            [_attr("data-fve-page-header", "true"); _class "fve-control-small @container flex w-full flex-wrap items-start justify-between gap-4 px-[16px] py-4 sm:px-6 lg:px-8"]
+            (ComponentHtml.safeAttributes ["label"; "description"] attributes) [
+                yield div {
+                    _class "min-w-0 flex-[1_1_12rem]"
+                    h1 { _class "break-words text-3xl font-semibold tracking-tight text-[var(--fve-text)]"; title }
+                    match description with
+                    | Some description -> p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; description }
+                    | None -> ()
+                    content
+                }
+                match Map.tryFind "actions" parts with Some actions -> yield actions | None -> () ]
 
 /// <category>page-header</category>
-[<NoEquality; NoComparison>]
-type PageHeaderConfig =
-    private
-        { title:string
-          subtitle:string option
-          actions:HtmlElement option
-          attributes:HtmlAttribute list }
-
-module internal PageHeaderView =
-    let render (config:PageHeaderConfig) =
-        header {
-            _attr ("data-fve-page-header", "true")
-            _class "fve-control-small @container flex flex-wrap items-start justify-between gap-4 px-4 py-4 sm:px-6 lg:px-8"
-            for attribute in ComponentHtml.safeAttributes [ "class"; "data-fve-page-header" ] config.attributes do attribute
-            div {
-                _class "min-w-0 flex-[1_1_12rem]"
-                h1 { _class "break-words text-3xl font-semibold tracking-tight text-[var(--fve-text)]"; config.title }
-                match config.subtitle with
-                | Some subtitle -> p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; subtitle }
-                | None -> ()
-            }
-            match config.actions with
-            | Some actions -> actions
-            | None -> ()
-        }
-
-/// <category>page-header</category>
-[<RequireQualifiedAccess>]
-module PageHeader =
-    let create title =
-        if String.IsNullOrWhiteSpace title then invalidArg (nameof title) "A page title is required."
-        { title = title; subtitle = None; actions = None; attributes = [] }
-
-    let withSubtitle subtitle (config:PageHeaderConfig) =
-        if String.IsNullOrWhiteSpace subtitle then invalidArg (nameof subtitle) "A page subtitle cannot be empty."
-        { config with subtitle = Some subtitle }
-
-    let withActions actions (config:PageHeaderConfig) = { config with actions = Some actions }
-    let withAttributes attributes (config:PageHeaderConfig) = { config with attributes = attributes }
-
-    let render config =
-        div { _class "w-full"; PageHeaderView.render config }
+[<AutoOpen>]
+module PageHeaderDsl =
+    let fvePageHeader = ComponentElementBuilder(PageHeader.render)
+    let fvePageHeaderActions = ComponentElementBuilder(PageHeader.actions)

@@ -16,7 +16,9 @@ test('examples expose only preview and code, copy complete source and preserve e
   await page.evaluate(() => { navigator.clipboard.writeText = async value => { document.body.dataset.copied = value } })
   await step.getByRole('button', { name: 'Copy With help text code' }).click()
   await expect(page.locator('body')).toHaveAttribute('data-copied', source!)
-  expect(source).toContain('Input.withDescription')
+  expect(source).toContain('fveInput {')
+  expect(source).toContain('fveFieldDescription {')
+  expect(source).toContain('We will use this address for updates.')
   expect(source).not.toContain('+     |>')
   await full.focus()
   await page.keyboard.press('Home')
@@ -31,7 +33,7 @@ test('examples expose only preview and code, copy complete source and preserve e
   const breadcrumbStep = page.locator('#components-breadcrumbs-visible')
   await expect(breadcrumbStep.getByRole('tab')).toHaveText(['Preview', 'Code'])
   await breadcrumbStep.getByRole('tab', { name: 'Code', exact: true }).click()
-  await expect(breadcrumbStep.locator('[data-docs-copy-source]')).toContainText('Breadcrumbs.withMaxVisibleItems 4')
+  await expect(breadcrumbStep.locator('[data-docs-copy-source]')).toContainText('fveBreadcrumbs')
   await page.setViewportSize({ width: 320, height: 800 })
   await page.evaluate(() => {
     document.documentElement.style.fontSize = '200%'

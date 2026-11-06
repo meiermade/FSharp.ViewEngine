@@ -154,7 +154,7 @@ let tests =
                         ul { li { "Plain list item" } }
                         ol { li { "Ordered item" } }
                         div { table { thead { tr { th { "Builder" }; th { "Purpose" } } }; tbody { tr { td { code { "DocumentationPage.create" } }; td { "Guides" } } } } }
-                        Callout.create "Note" [ p { "Direct typed HTML stays semantic." } ] |> Callout.render ] ]
+                        fveCallout { _label "Note"; p { "Direct typed HTML stays semantic." } } ] ]
 
             let rendered = DocumentationPage.render page |> Render.toString
             Expect.stringContains rendered "<strong>carefully</strong>" "strong inline content"
@@ -182,7 +182,7 @@ let tests =
         }
 
         test "Article, reference, and canvas builders select composable layouts" {
-            let sections = [ DocumentationSection.create "usage" "Usage" [ CodeBlock.create "shell" "example run" |> CodeBlock.render; p { "Any page shape is allowed." } ] ]
+            let sections = [ DocumentationSection.create "usage" "Usage" [ fveCodeBlock { yield _language ("shell"); yield ("example run" : string) }; p { "Any page shape is allowed." } ] ]
             let article = DocumentationPage.create "guide" "CLI guide" |> DocumentationPage.withDescription "Run the CLI." |> DocumentationPage.withSections sections
             let reference = DocumentationPage.create "reference" "Create item" |> DocumentationPage.withDescription "Creates an item." |> DocumentationPage.withLayout DocsLayout.Reference |> DocumentationPage.withRightRail (CustomRail (div { "Request examples" })) |> DocumentationPage.withSections sections
             let canvas = DocumentationPage.create "detail" "Architecture" |> DocumentationPage.withDescription "Explore the system." |> DocumentationPage.withLayout Canvas |> DocumentationPage.withRightRail NoRail |> DocumentationPage.withSections sections
@@ -268,7 +268,7 @@ let tests =
         test "Document builders render accessible navigation and arbitrary content" {
             let page =
                 DocumentationPage.create "detail" "Detail" |> DocumentationPage.withDescription "A customizable page." |> DocumentationPage.withLayout Canvas |> DocumentationPage.withRightRail NoRail |> DocumentationPage.withHiddenHeading |> DocumentationPage.withSections [
-                    DocumentationSection.create "diagram" "Diagram" [ sequenceDiagram () |> SequenceDiagram.render |> Mermaid.create |> Mermaid.render ]
+                    DocumentationSection.create "diagram" "Diagram" [ fveMermaid { SequenceDiagram.render (sequenceDiagram ()) } ]
                     DocumentationSection.create "custom" "Custom" [ div { _data("example", "true"); "Product content" } ] ]
 
             let breadcrumbs = Navigation.breadcrumbs navigation site.homeId page.activeId
@@ -284,11 +284,11 @@ let tests =
             Expect.stringContains rendered "rel=\"stylesheet\" href=\"/css/compiled.css\"" "default compiled stylesheet contract"
             Expect.stringContains rendered "data-docs-visually-hidden-heading=\"true\"" "hidden semantic heading"
             Expect.stringContains rendered "aria-label=\"Toggle Guides section\"" "accessible disclosure"
-            Expect.stringContains rendered "data-attr:open" "groups preserve native disclosure state"
-            Expect.stringContains rendered "data-attr:aria-expanded" "groups expose accessible disclosure state"
+            Expect.stringContains rendered "<details" "groups preserve native disclosure state"
+            Expect.stringContains rendered "aria-expanded=" "groups expose accessible disclosure state"
             Expect.stringContains rendered "href=\"/guides\"" "breadcrumb destination"
-            Expect.stringContains rendered "class=\"mermaid overflow-x-auto" "sequence diagram component"
-            Expect.stringContains rendered "data-init=\"window.renderMermaid?.(el)\"" "diagrams initialize when Datastar adds them to the DOM"
+            Expect.stringContains rendered "class=\"block mermaid overflow-x-auto" "sequence diagram component"
+            Expect.stringContains rendered "<fve-mermaid " "diagrams keep an instance-local lifecycle owner"
             Expect.stringContains rendered "data-mermaid-source=\"sequenceDiagram" "diagram source is encoded outside visible content"
             Expect.stringContains rendered "data-mermaid-state=\"pending\" aria-busy=\"true\"" "diagrams expose their initial busy state"
             Expect.stringContains rendered "data-mermaid-status=\"true\" role=\"status\">Rendering diagram…</p>" "diagrams provide accessible pending content"
@@ -378,8 +378,8 @@ let tests =
         test "Pages declare optional runtime asset requirements" {
             let plain = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections []
             let diagramSource = "flowchart LR\nA[\"<script>alert('diagram')</script>\"] --> B[Ready]"
-            let diagram = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [ DocumentationSection.create "flow" "Flow" [ Mermaid.create diagramSource |> Mermaid.render ] ]
-            let highlighted = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [ DocumentationSection.create "code" "Code" [ CodeBlock.create "fsharp" "let x = 1" |> CodeBlock.render ] ]
+            let diagram = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [ DocumentationSection.create "flow" "Flow" [ fveMermaid { yield (diagramSource : string) } ] ]
+            let highlighted = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [ DocumentationSection.create "code" "Code" [ fveCodeBlock { yield _language ("fsharp"); yield ("let x = 1" : string) } ] ]
 
             let plainHtml = Document.create site plain |> Document.render |> Render.toString
             let diagramHtml = Document.create site diagram |> Document.render |> Render.toString
@@ -389,7 +389,7 @@ let tests =
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/mermaid.11.16.0.min.js\"")) "plain pages do not eagerly load Mermaid"
             Expect.isFalse (plainHtml.Contains("prism-tomorrow.1.29.0.min.css")) "consumers opt into a Prism stylesheet through DocsAssets"
             Expect.isFalse (plainHtml.Contains("src=\"/scripts/prism.1.29.0.min.js\"")) "plain pages omit Prism scripts"
-            Expect.stringContains diagramHtml "data-init=\"window.renderMermaid?.(el)\"" "diagram elements own their Datastar initialization"
+            Expect.stringContains diagramHtml "<fve-mermaid " "diagram elements own their initialization"
             Expect.stringContains diagramHtml "data-mermaid-source=\"flowchart LR" "diagram source is encoded as data rather than visible content"
             Expect.stringContains diagramHtml "&lt;script&gt;alert(&#39;diagram&#39;)&lt;/script&gt;" "diagram source cannot escape its encoded data attribute"
             Expect.isFalse (diagramHtml.Contains("<script>alert('diagram')</script>")) "trusted Mermaid source is never emitted as executable component markup"
@@ -405,7 +405,8 @@ let tests =
 
             Expect.isFalse (rendered.Contains("<style")) "the package emits no style element requiring a nonce"
             Expect.stringContains rendered "<script nonce=\"request-nonce\">" "inline script nonce"
-            Expect.stringContains rendered "type=\"module\" src=\"/scripts/datastar.1.0.4.js\" nonce=\"request-nonce\"" "external runtime nonce"
+            Expect.stringContains rendered "type=\"module\" src=\"/assets/app.js\" nonce=\"request-nonce\"" "the shared component bundle carries the request nonce"
+            Expect.isFalse (rendered.Contains "src=\"/scripts/datastar.1.0.4.js\"") "ordinary Datastar is not loaded alongside Rocket"
         }
 
         test "Assets and Mermaid behavior are configurable" {
@@ -417,12 +418,12 @@ let tests =
                     additionalHead = [ meta { _name "robots"; _content "noindex" } ] }
 
             let configuredSite = { site with assets = assets }
-            let page = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [ DocumentationSection.create "flow" "Flow" [ Mermaid.create "flowchart LR" |> Mermaid.render ] ]
+            let page = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [ DocumentationSection.create "flow" "Flow" [ fveMermaid { yield ("flowchart LR" : string) } ] ]
             let rendered = Document.create configuredSite page |> Document.render |> Render.toString
 
             Expect.stringContains rendered "href=\"/css/product.css\"" "product stylesheet"
             Expect.stringContains rendered "href=\"/css/custom-prism.css\"" "consumer Prism stylesheet overrides the embedded palette"
-            Expect.stringContains rendered "securityLevel: \"strict\"" "Mermaid security setting is safely serialized"
+            Expect.stringContains rendered "window.fsharpDocsMermaid.security = \"strict\"" "Mermaid security setting is safely serialized"
             Expect.stringContains rendered "name=\"robots\"" "additional head content"
         }
 
@@ -431,7 +432,7 @@ let tests =
                 DocumentationSection.create
                     "code"
                     "Code"
-                    [ CodeBlock.create "fsharp" "let value = 42" |> CodeBlock.render ]
+                    [ fveCodeBlock { yield _language ("fsharp"); yield ("let value = 42" : string) } ]
             let page =
                 DocumentationPage.create "guide" "Guide"
                 |> DocumentationPage.withDescription "Description"
@@ -442,41 +443,38 @@ let tests =
             Expect.stringContains document "aria-label=\"Copy code\"" "standard code copy button"
             Expect.stringContains document "data-docs-copy-source" "standard source relationship"
             Expect.stringContains api "aria-label=\"Copy Request\"" "API code copy button"
-            Expect.stringContains document "window.fsharpDocsCopy" "document copy lifecycle"
-            let example = Example.codeFirst "copy-example" "Example" "fsharp" "let value = 42" (div { "42" }) |> Render.toString
+            Expect.stringContains document "data-docs-copy-button" "copy controls remain native and explicitly owned"
+            let example = fveExample { yield _name ("copy-example"); yield _label ("Example"); yield _variant ExampleVariant.CodeFirst; yield _language ("fsharp"); yield fveExampleCode { yield ("let value = 42" : string) }; yield ((div { "42" }) : HtmlElement) } |> Render.toString
             for html in [ document; api; example ] do
                 for state in [ "copy"; "success"; "error" ] do
                     Expect.stringContains html ($"data-docs-copy-icon=\"{state}\"") "all code surfaces share icon states"
                 Expect.stringContains html "class=\"sr-only\" role=\"status\"" "copy feedback is announced without visible button text"
                 Expect.isFalse (html.Contains(">Copy</span>")) "copy controls are icon-only"
-            Expect.throws (fun () -> CodeBlock.create "fsharp" "" |> ignore) "code source is required"
+            Expect.throws (fun () -> fveCodeBlock { yield _language ("fsharp"); yield ("" : string) } |> ignore) "code source is required"
         }
 
         test "Callout and Mermaid components retain their package-owned presentation" {
             let content = p { "Render trusted content only." }
             let callout =
-                Callout.create "Security" [ content ]
-                |> Callout.render
+                fveCallout { _label "Security"; content }
                 |> Render.toString
             let c4 =
-                Mermaid.create "C4Context\ntitle Documentation"
-                |> Mermaid.withC4
-                |> Mermaid.render
+                fveMermaid { yield _c4 true; yield ("C4Context\ntitle Documentation" : string) }
                 |> Render.toString
 
             Expect.stringContains callout "data-docs-callout=\"true\"" "callout hook"
             Expect.stringContains callout ">Security</div>" "callout label"
             Expect.stringContains callout "Render trusted content only." "semantic callout content"
             Expect.stringContains c4 "max-sm:[&amp;&gt;svg]:min-w-3xl" "C4 diagram surface"
-            Expect.throws (fun () -> Mermaid.create "" |> ignore) "diagram source is required"
-            Expect.throws (fun () -> Callout.create "" [] |> ignore) "callout label is required"
+            Expect.throws (fun () -> fveMermaid { yield ("" : string) } |> ignore) "diagram source is required"
+            Expect.throws (fun () -> fveCallout { _label "" } |> ignore) "callout label is required"
         }
 
         test "Gallery pages keep named examples without duplicate headings or article rails" {
             let page =
                 DocumentationPage.create "buttons" "Buttons" |> DocumentationPage.withLayout Gallery |> DocumentationPage.withRightRail NoRail |> DocumentationPage.withSections [
                     DocumentationSection.create "primary" "Primary" [
-                        Example.gallery "primary-button" "Primary" "fsharp" "Button.create (ButtonContent.Text \"Create\") |> Button.render" (button { _type "button"; "Create" }) ] ]
+                        fveExample { yield _name ("primary-button"); yield _label ("Primary"); yield _variant ExampleVariant.Gallery; yield _language ("fsharp"); yield fveExampleCode { yield ("fveButton { \"Create\" }" : string) }; yield ((button { _type "button"; "Create" }) : HtmlElement) } ] ]
             let html = Document.create site page |> Document.render |> Render.toString
             Expect.equal page.layout Gallery "explicit gallery layout"
             Expect.stringContains html "data-docs-layout=\"gallery\"" "gallery layout hook"
@@ -492,7 +490,7 @@ let tests =
 
         test "Examples provide accessible independent preview and code tabs" {
             let example =
-                Example.codeFirst "counter-example" "Counter" "fsharp" "button { \"Increment\" }" (button { _type "button"; "Increment" })
+                fveExample { yield _name ("counter-example"); yield _label ("Counter"); yield _variant ExampleVariant.CodeFirst; yield _language ("fsharp"); yield fveExampleCode { yield ("button { \"Increment\" }" : string) }; yield ((button { _type "button"; "Increment" }) : HtmlElement) }
                 |> Render.toString
 
             Expect.stringContains example "data-docs-example=\"true\"" "example marker"
@@ -502,26 +500,25 @@ let tests =
             Expect.stringContains example "data-docs-example-preview=\"true\"" "consumer preview"
             Expect.stringContains example "data-docs-example-code=\"true\"" "code panel hook"
             Expect.stringContains example "language-fsharp" "Prism-compatible code"
-            Expect.stringContains example "counter_exampleExample: &#39;code&#39;" "developer examples show source first"
+            Expect.stringContains example "initial-tab=\"code\"" "developer examples show source first"
             Expect.isLessThan
                 (example.IndexOf(">Code</button>", System.StringComparison.Ordinal))
                 (example.IndexOf(">Preview</button>", System.StringComparison.Ordinal))
                 "code appears before preview in the toggle"
-            Expect.stringContains example "window.renderCode" "opening code highlights dynamic content"
-            Expect.stringContains example "window.renderDocsPreview" "opening preview initializes isolated pages and dynamic diagrams"
+            Expect.stringContains example "<fve-code-block " "code panels keep an independent lifecycle owner"
             Expect.stringContains example "aria-label=\"Copy Counter code\"" "every example exposes a direct source copy action"
             Expect.stringContains example "data-docs-copy-source=\"true\"" "every example identifies the exact source to copy"
 
             let previewFirst =
-                Example.previewFirst "preview-example" "Preview" "fsharp" "div { \"Source\" }" (div { "Preview" })
+                fveExample { yield _name ("preview-example"); yield _label ("Preview"); yield _variant ExampleVariant.PreviewFirst; yield _language ("fsharp"); yield fveExampleCode { yield ("div { \"Source\" }" : string) }; yield ((div { "Preview" }) : HtmlElement) }
                 |> Render.toString
-            Expect.stringContains previewFirst "preview_exampleExample: &#39;preview&#39;" "preview-first examples initialize independently"
+            Expect.stringContains previewFirst "initial-tab=\"preview\"" "preview-first examples initialize independently"
             Expect.stringContains previewFirst "data-docs-preview-initial=\"true\"" "initial previews opt into lifecycle initialization"
 
             let codeFirst =
-                Example.codeFirst "source-example" "Source" "fsharp" "div { \"Source\" }" (div { "Preview" })
+                fveExample { yield _name ("source-example"); yield _label ("Source"); yield _variant ExampleVariant.CodeFirst; yield _language ("fsharp"); yield fveExampleCode { yield ("div { \"Source\" }" : string) }; yield ((div { "Preview" }) : HtmlElement) }
                 |> Render.toString
-            Expect.stringContains codeFirst "source_exampleExample: &#39;code&#39;" "code-first examples initialize independently"
+            Expect.stringContains codeFirst "initial-tab=\"code\"" "code-first examples initialize independently"
         }
 
         test "Version selectors are opt-in navigation" {
@@ -533,19 +530,23 @@ let tests =
 
         test "Browser frames and tabs are reusable independent components" {
             let framed =
-                Browser.create (div { "Application" })
-                |> Browser.withAddress "https://fve.meiermade.com/components/browser"
-                |> Browser.render
+                fveBrowser {
+                    yield _address ("https://fve.meiermade.com/components/browser")
+                    yield (
+                        (div { "Application" })
+                    )
+                }
                 |> Render.toString
             Expect.stringContains framed "data-browser-frame=\"true\"" "browser marker"
             Expect.stringContains framed "data-browser-url=\"https://fve.meiermade.com/components/browser\"" "canonical URL marker"
 
             let tabs =
-                [ TabItem.create "empty" "Empty" (div { "No items" })
-                  TabItem.create "ready" "Ready" (div { "Items" }) ]
-                |> Tabs.create "item-states" "Item states"
-                |> Tabs.render
-                |> Render.toString
+                fveTabs {
+                    _id "item-states"
+                    _ariaLabel "Item states"
+                    fveTabsItem { _value "empty"; fveTabsTrigger { "Empty" }; div { "No items" } }
+                    fveTabsItem { _value "ready"; fveTabsTrigger { "Ready" }; div { "Items" } }
+                } |> Render.toString
 
             Expect.stringContains tabs "role=\"tablist\"" "tab list semantics"
             Expect.stringContains tabs "aria-controls=\"item-states-panel-" "tab controls panel"
@@ -554,46 +555,52 @@ let tests =
 
         test "Browser and Phone accept host-owned review chrome without owning routes or navigation" {
             let control = a { _href "/components/browser?expanded=1"; "Expand" }
-            let browser = Browser.create (p { "Product" }) |> Browser.withAddress "/components/browser"
-                          |> Browser.withWindowControls control |> Browser.withToolbarActions (span { "Review state" })
-                          |> Browser.withExpanded true |> Browser.render |> Render.toString
+            let browser =
+                fveBrowser {
+                    _expanded true
+                    _address "/components/browser"
+                    p { "Product" }
+                    fveBrowserWindowControls { control }
+                    fveBrowserToolbarActions { span { "Review state" } }
+                } |> Render.toString
             Expect.stringContains browser "data-fve-browser-expanded=\"true\"" "viewport presentation is explicit"
             Expect.stringContains browser "data-fve-browser-address=\"true\"" "expansion retains address chrome"
             Expect.stringContains browser "href=\"/components/browser?expanded=1\"" "native host-owned destination survives"
             Expect.stringContains browser "Review state" "trailing controls render"
             Expect.stringContains browser ">Product<" "product remains inside its frame"
             Expect.isFalse (browser.Contains "data-on") "frame presentation installs no competing runtime"
-            let phone = Phone.create (p { "Messages" }) |> Phone.withToolbar control |> Phone.withExpanded true |> Phone.render |> Render.toString
+            let phone =
+                fvePhone {
+                    _expanded true
+                    p { "Messages" }
+                    fvePhoneToolbar { control }
+                } |> Render.toString
             Expect.stringContains phone "data-fve-phone-expanded=\"true\"" "Phone supports viewport presentation"
             Expect.isLessThan (phone.IndexOf "data-fve-phone-toolbar") (phone.IndexOf "data-fve-phone-screen") "review toolbar is outside and above the simulated screen"
             Expect.isFalse (phone.Contains "data-fve-browser-address") "native messages are not given a browser address"
         }
 
         test "Small display primitives preserve semantic and interaction boundaries" {
-            let shortcut = Kbd.shortcut [ "Control"; "K" ] |> Kbd.withLabel "Open search" |> Kbd.render |> Render.toString
+            let shortcut = fveKbdShortcut { _ariaLabel "Open search"; for key in [ "Control"; "K" ] do fveKbd { key } } |> Render.toString
             Expect.equal (shortcut.Split("<kbd", System.StringSplitOptions.None).Length - 1) 2 "each shortcut key is semantic kbd markup"
             Expect.stringContains shortcut "aria-label=\"Open search\"" "shortcut group is labelled"
             Expect.isFalse (shortcut.Contains("data-on")) "Kbd registers no behavior"
 
-            let semanticSeparator = Separator.create () |> Separator.semantic |> Separator.render |> Render.toString
+            let semanticSeparator = fveSeparator { _role "separator" } |> Render.toString
             Expect.stringContains semanticSeparator "role=\"separator\"" "semantic separator has a role"
             Expect.stringContains semanticSeparator "aria-orientation=\"horizontal\"" "semantic orientation is explicit"
-            let decorativeSeparator = Separator.create () |> Separator.withOrientation SeparatorOrientation.Vertical |> Separator.render |> Render.toString
+            let decorativeSeparator = fveSeparator { _orientation Orientation.Vertical } |> Render.toString
             Expect.stringContains decorativeSeparator "aria-hidden=\"true\"" "decorative separator is ignored"
 
-            let skeletonContent = div { _class "grid gap-2"; Skeleton.create () |> Skeleton.render }
-            let skeleton = SkeletonRegion.create "Loading records" skeletonContent |> SkeletonRegion.render |> Render.toString
+            let skeletonContent = div { _class "grid gap-2"; fveSkeleton { _class "h-4 w-full" } }
+            let skeleton = fveSkeletonRegion { _ariaLabel "Loading records"; skeletonContent } |> Render.toString
             Expect.stringContains skeleton "class=\"grid gap-2\"" "consumer-authored placeholder layout is preserved"
-            Expect.throws (fun () -> SkeletonRegion.create " " skeletonContent |> ignore) "loading region requires a meaningful label"
+            Expect.throws (fun () -> fveSkeletonRegion { _ariaLabel " "; skeletonContent } |> ignore) "loading region requires a meaningful label"
             Expect.stringContains skeleton "role=\"status\"" "one region owns status"
             Expect.stringContains skeleton "aria-busy=\"true\"" "region is truthfully busy"
             Expect.equal (skeleton.Split("aria-hidden=\"true\"", System.StringSplitOptions.None).Length - 1) 1 "placeholder is silent"
             Expect.stringContains skeleton "motion-reduce:animate-none" "placeholder honors reduced motion"
 
-            let linked = Item.create "Account" |> Item.withLink "/accounts/1" |> Item.render |> Render.toString
-            Expect.stringContains linked "<li" "item preserves list semantics"
-            Expect.stringContains linked "href=\"/accounts/1\"" "whole row can be one link"
-            Expect.throws (fun () -> Item.create "Invalid" |> Item.withLink "/items/1" |> Item.withActions (button { "Edit" }) |> Item.render |> ignore) "whole-row links reject nested actions"
         }
 
         test "Graph validation is available without prescribing architecture depth" {

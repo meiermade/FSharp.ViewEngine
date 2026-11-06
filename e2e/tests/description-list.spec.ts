@@ -40,7 +40,7 @@ test('description lists show full-width detail grids with shared label and value
     }
     await example.getByRole('tab', { name: 'Code', exact: true }).click()
     const code = example.locator('[data-docs-copy-source]')
-    await expect(code).toContainText('DescriptionList.create')
+    await expect(code).toContainText('fveDescriptionList {')
     await expect(code).not.toContainText('ShellDestination')
     await expect(code).not.toContainText('detailsSurface')
     await example.getByRole('tab', { name: 'Preview', exact: true }).click()

@@ -1,80 +1,47 @@
 namespace FSharp.ViewEngine.Components
 
-open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
 /// <category>toggle-button</category>
 [<RequireQualifiedAccess>]
-type ToggleButtonVariant =
-    | Soft
-    | Outline
-    | Ghost
+type ToggleButtonVariant = Soft | Outline | Ghost
 
 /// <category>toggle-button</category>
-[<NoEquality; NoComparison>]
-type ToggleButtonConfig =
-    private
-        { id:string
-          label:string
-          content:HtmlElement
-          leading:HtmlElement option
-          size:ControlSize
-          variant:ToggleButtonVariant
-          isPressed:bool
-          isDisabled:bool
-          isPending:bool }
+[<AutoOpen>]
+module ToggleButtonAttributes =
+    type Html with
+        static member _variant(value:ToggleButtonVariant) =
+            Html._attr("variant", match value with ToggleButtonVariant.Soft -> "soft" | ToggleButtonVariant.Outline -> "outline" | ToggleButtonVariant.Ghost -> "ghost")
 
-/// <category>toggle-button</category>
-[<RequireQualifiedAccess>]
-module ToggleButton =
-    let create id label =
-        if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable toggle button ID is required."
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A toggle button label is required."
-        { id = id
-          label = label
-          content = Html.text label
-          leading = None
-          size = ControlSize.Medium
-          variant = ToggleButtonVariant.Outline
-          isPressed = false
-          isDisabled = false
-          isPending = false }
-
-    let withContent content (config:ToggleButtonConfig) = { config with content = content }
-    let withLeading leading (config:ToggleButtonConfig) = { config with leading = Some leading }
-    let withSize size (config:ToggleButtonConfig) = { config with size = size }
-    let withVariant variant (config:ToggleButtonConfig) = { config with variant = variant }
-    let pressed (config:ToggleButtonConfig) = { config with isPressed = true }
-    let disabled (config:ToggleButtonConfig) = { config with isDisabled = true }
-    let pending (config:ToggleButtonConfig) = { config with isPending = true }
-
-    let render (config:ToggleButtonConfig) =
-        let signal = $"_{ComponentHtml.signalToken config.id}_pressed"
-        let initialValue = if config.isPressed then "true" else "false"
-        let unavailable = config.isDisabled || config.isPending
-        let variantClasses =
-            match config.variant with
-            | ToggleButtonVariant.Soft -> "border-0 bg-[var(--fve-surface-subtle)] hover:bg-[var(--fve-surface-hover)] aria-pressed:bg-[var(--fve-brand-subtle)]"
-            | ToggleButtonVariant.Outline -> "bg-[var(--fve-surface)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] aria-pressed:bg-[var(--fve-brand-subtle)]"
-            | ToggleButtonVariant.Ghost -> "border-0 bg-transparent hover:bg-[var(--fve-surface-hover)] aria-pressed:bg-[var(--fve-brand-subtle)]"
-        button {
-            _id config.id
+module internal ToggleButton =
+    let render attributes children =
+        ComponentElement.choice "type" "button" ["button"] attributes |> ignore
+        let appearance = ComponentElement.choice "variant" "outline" ["soft"; "outline"; "ghost"] attributes
+        let variant =
+            match appearance with
+            | "soft" -> "bg-[var(--fve-surface-subtle)]"
+            | "ghost" -> "bg-transparent"
+            | _ -> "[--fve-control-border-width:1px] border border-[var(--fve-border)] bg-[var(--fve-surface)]"
+        let size = ComponentElement.size None attributes
+        let readOnly = ComponentElement.attribute "readonly" attributes |> Option.exists (fun attribute -> attribute.Value <> ValueSome "false")
+        let defaults = [
             _type "button"
-            _disabled unavailable
-            _ariaDisabled unavailable
-            _ariaLabel config.label
-            _ariaPressed config.isPressed
-            if config.isPending then _ariaBusy true
-            _dataSignals $"{{{signal}: {initialValue}}}"
-            _dataAttr ("aria-pressed", $"${signal} ? 'true' : 'false'")
-            if not unavailable then _dataOn ("click", $"${signal} = !${signal}")
-            _class (ComponentHtml.classes [ "inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] px-3 font-medium text-[var(--fve-text)] outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)] aria-pressed:text-[var(--fve-brand-text)] disabled:pointer-events-none disabled:opacity-50"; ComponentHtml.sizeClasses (Some config.size); variantClasses ])
-            if config.isPending then ComponentHtml.loadingGlyph ControlSize.Small
-            else
-                match config.leading with
-                | Some leading -> span { _ariaHidden true; _class "flex shrink-0 items-center justify-center"; leading }
-                | None -> ()
-            config.content
-        }
+            _data ("fve-group-control", if appearance = "outline" then "outline" else "plain")
+            _ariaPressed false
+            if readOnly then _ariaDisabled true
+            _class ("inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium text-[var(--fve-text)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-brand-subtle)] aria-pressed:text-[var(--fve-brand-text)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 " + ComponentHtml.sizeClasses size + " " + variant) ]
+        let content = ComponentElement.render "button" defaults (ComponentHtml.safeAttributes ["size"; "variant"; "readonly"] attributes |> ComponentHtml.outerSignals) children
+        let hostAttributes = [
+            _class "contents"
+            _readonly readOnly
+            match ComponentElement.value "id" attributes with Some id -> _id (id + "-host") | None -> ()
+            if (ComponentElement.attribute "data-on:click" attributes).IsSome then _attr ("controlled", "") ]
+        ComponentElement.render "fve-toggle-button" hostAttributes [] [content]
+
+/// <category>toggle-button</category>
+[<AutoOpen>]
+module ToggleButtonDsl =
+    /// A native pressed-state button. Authored click/binding attributes can own application state.
+    let fveToggleButton = ComponentElementBuilder(ToggleButton.render)

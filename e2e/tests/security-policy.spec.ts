@@ -1,4 +1,4 @@
-import { test, expect } from '../fixture';
+import { test, expect, specProduct } from '../fixture';
 
 function nonce(policy: string | undefined): string {
   expect(policy).toBeTruthy();
@@ -47,16 +47,17 @@ test('nonce CSP permits canonical controls but blocks unauthorized scripts @cros
   await expect(page.locator('html')).toHaveClass(/dark/);
   await page.getByRole('button', { name: /^Review state:/ }).click();
   await page.getByRole('menuitem', { name: 'Type filter added', exact: true }).click();
-  await expect(page.locator('[data-review-fixture] [data-ledger-filter="accountType"]')).toBeVisible();
+  await expect(specProduct(page).locator('[data-ledger-filter="accountType"]')).toBeVisible();
   const resize = page.getByRole('separator', { name: 'Resize Documentation navigation width', exact: true });
   const before = Number(await resize.getAttribute('aria-valuenow'));
   await resize.press('ArrowRight');
   await expect(resize).toHaveAttribute('aria-valuenow', String(before + 2));
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Documentation navigation', exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Close navigation', exact: true }).click();
-  await expect(page.getByRole('dialog', { name: 'Documentation navigation', exact: true })).not.toBeVisible();
+  const navigation = page.getByRole('dialog', { name: 'Documentation navigation', exact: true });
+  await page.locator('#template-navigation-dialog-trigger').getByRole('button', { name: 'Open navigation', exact: true }).click();
+  await expect(navigation).toBeVisible();
+  await navigation.getByRole('button', { name: 'Close navigation', exact: true }).click();
+  await expect(navigation).not.toBeVisible();
   expect(await page.evaluate(() => (window as any).scriptViolations)).toEqual([]);
   await page.evaluate(() => {
     const script = document.createElement('script');

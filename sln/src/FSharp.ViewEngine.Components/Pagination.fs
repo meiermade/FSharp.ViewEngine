@@ -5,133 +5,88 @@ open FSharp.ViewEngine
 open type Html
 
 /// <category>pagination</category>
-[<NoEquality; NoComparison>]
-type PaginationItem<'destination> =
-    private
-    | PageLink of page:int * destination:'destination
-    | CurrentPage of page:int
-    | Gap
-
-/// <category>pagination</category>
 [<RequireQualifiedAccess>]
-type PaginationVariant =
-    | Full
-    | NumbersOnly
-    | PreviousNextOnly
+type PaginationVariant = Full | NumbersOnly | PreviousNextOnly
 
 /// <category>pagination</category>
-[<NoEquality; NoComparison>]
-type PaginationConfig<'destination> =
-    private
-        { label:string
-          items:PaginationItem<'destination> list
-          previous:'destination option
-          next:'destination option
-          variant:PaginationVariant
-          summary:HtmlElement option
-          attributes:HtmlAttribute list }
+[<AutoOpen>]
+module PaginationAttributes =
+    type Html with
+        static member _variant(value:PaginationVariant) = Html._attr("variant", match value with PaginationVariant.Full -> "full" | PaginationVariant.NumbersOnly -> "numbers-only" | PaginationVariant.PreviousNextOnly -> "previous-next-only")
+        static member _page(value:int) = Html._attr("page", string value)
 
-/// <category>pagination</category>
-[<RequireQualifiedAccess>]
-module PaginationItem =
-    let private requirePositive page =
-        if page < 1 then invalidArg (nameof page) "A page number must be positive."
-        page
+type internal PaginationPart(kind:string, pages:(int * bool) list, element:HtmlElement) =
+    inherit HtmlElement()
+    member _.Kind = kind
+    member _.Pages = pages
+    override _.Render(writer) = element.Render writer
 
-    let link page destination = PageLink(requirePositive page, destination)
-    let current page = CurrentPage(requirePositive page)
-    let gap<'destination> : PaginationItem<'destination> = Gap
+module internal Pagination =
+    let private part kind pages element = PaginationPart(kind, pages, element) :> HtmlElement
+    let private linkClasses = "inline-flex min-h-9 items-center justify-center rounded-[var(--fve-radius-control)] px-3 text-sm font-medium text-[var(--fve-text)] no-underline border border-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+    let edge kind attributes children =
+        let href = ComponentElement.value "href" attributes
+        let children = if List.isEmpty children then [text (if kind = "previous" then "Previous" else "Next")] else children
+        let element =
+            match href with
+            | Some href when not (String.IsNullOrWhiteSpace href) -> ComponentElement.render "a" [_class linkClasses] attributes children
+            | Some _ -> invalidArg "attributes" "A pagination destination cannot be empty."
+            | None -> ComponentElement.render "span" [_ariaDisabled true; _class (linkClasses + " cursor-default opacity-50")] attributes children
+        part kind [] element
 
-/// <category>pagination</category>
-[<RequireQualifiedAccess>]
-module Pagination =
-    let create label items =
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "An accessible pagination label is required."
-        if List.isEmpty items then invalidArg (nameof items) "At least one pagination item is required."
-
-        let currentPages =
-            items
-            |> List.choose (function | CurrentPage page -> Some page | _ -> None)
-
-        if currentPages.Length <> 1 then invalidArg (nameof items) "Pagination requires exactly one current page."
-
-        let numberedPages =
-            items
-            |> List.choose (function | PageLink(page, _) | CurrentPage page -> Some page | Gap -> None)
-
-        if (numberedPages |> Set.ofList |> Set.count) <> numberedPages.Length then
-            invalidArg (nameof items) "Pagination page numbers must be unique."
-
-        { label = label
-          items = items
-          previous = None
-          next = None
-          variant = PaginationVariant.Full
-          summary = None
-          attributes = [] }
-
-    let withPrevious destination (config:PaginationConfig<'destination>) = { config with previous = Some destination }
-    let withNext destination (config:PaginationConfig<'destination>) = { config with next = Some destination }
-    let withVariant variant (config:PaginationConfig<'destination>) = { config with variant = variant }
-    let withSummary summary (config:PaginationConfig<'destination>) = { config with summary = Some summary }
-    let withAttributes attributes (config:PaginationConfig<'destination>) = { config with attributes = attributes }
-
-    let private edgeLink (resolve:'destination -> string) (labelText:string) (destination:'destination option) : HtmlElement =
-        match destination with
-        | Some target ->
-            a {
-                _href (resolve target)
-                _class "inline-flex min-h-9 items-center justify-center rounded-[var(--fve-radius-control)] px-3 text-sm font-medium text-[var(--fve-text)] no-underline ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
-                labelText
-            }
-        | None ->
-            span {
-                _ariaDisabled true
-                _class "inline-flex min-h-9 cursor-default items-center rounded-[var(--fve-radius-control)] px-3 text-sm font-medium text-[var(--fve-muted-text)] opacity-50 ring-1 ring-inset ring-[var(--fve-border)]"
-                labelText
-            }
-
-    let render (resolve:'destination -> string) (config:PaginationConfig<'destination>) =
-        nav {
-            _ariaLabel config.label
-            _class "flex flex-wrap items-center justify-between gap-3"
-            for attribute in ComponentHtml.safeAttributes [ "class"; "role"; "aria-label" ] config.attributes do attribute
-            match config.summary with
-            | Some summary -> div { _class "min-w-0 text-sm text-[var(--fve-muted-text)]"; summary }
-            | None -> ()
-            div {
-                _class "flex flex-wrap items-center gap-1"
-                if config.variant <> PaginationVariant.NumbersOnly then
-                    edgeLink resolve "Previous" config.previous
-                if config.variant <> PaginationVariant.PreviousNextOnly then
-                    ol {
-                        _class "flex flex-wrap items-center gap-1"
-                        for item in config.items do
-                            li {
-                                match item with
-                                | PageLink(page, destination) ->
-                                    a {
-                                        _href (resolve destination)
-                                        _ariaLabel $"Page {page}"
-                                        _class "inline-flex size-9 items-center justify-center rounded-[var(--fve-radius-control)] text-sm font-medium text-[var(--fve-text)] no-underline ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
-                                        string page
-                                    }
-                                | CurrentPage page ->
-                                    span {
-                                        _ariaCurrent "page"
-                                        _ariaLabel $"Page {page}, current page"
-                                        _class "inline-flex size-9 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] text-sm font-semibold text-[var(--fve-brand-text)] ring-1 ring-inset ring-[var(--fve-brand-ring)]"
-                                        string page
-                                    }
-                                | Gap ->
-                                    span {
-                                        _ariaHidden "true"
-                                        _class "inline-flex size-9 items-center justify-center text-[var(--fve-muted-text)]"
-                                        "…"
-                                    }
-                            }
-                    }
-                if config.variant <> PaginationVariant.NumbersOnly then
-                    edgeLink resolve "Next" config.next
-            }
+    let item attributes children =
+        let page =
+            match ComponentElement.required "page" attributes |> Int32.TryParse with
+            | true, page when page > 0 -> page
+            | _ -> invalidArg "attributes" "A pagination page number must be positive."
+        let current = ComponentElement.value "aria-current" attributes = Some "page"
+        let href = ComponentElement.value "href" attributes
+        if not current && (href |> Option.forall String.IsNullOrWhiteSpace) then invalidArg "attributes" "A non-current page requires a destination."
+        let attrs = ComponentHtml.safeAttributes ["page"; "href"; "aria-current"] attributes
+        let children = if List.isEmpty children then [text (string page)] else children
+        let element = li {
+            if current then
+                ComponentElement.render "span" [_ariaCurrent "page"; _ariaLabel $"Page {page}, current page"; _class "inline-flex size-9 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-subtle)] text-sm font-semibold text-[var(--fve-brand-text)] border border-[var(--fve-brand-ring)]"] attrs children
+            else ComponentElement.render "a" [_href href.Value; _ariaLabel $"Page {page}"; _class (linkClasses + " size-9 px-0")] attrs children
         }
+        part "item" [page, current] element
+
+    let ellipsis attributes children =
+        let children = if List.isEmpty children then [text "…"] else children
+        part "item" [] (li { ComponentElement.render "span" [_ariaHidden true; _class "inline-flex size-9 items-center justify-center text-[var(--fve-muted-text)]"] attributes children })
+
+    let content attributes (children:HtmlElement list) =
+        let pages = children |> List.collect (function :? PaginationPart as part when part.Kind = "item" -> part.Pages | :? NoopElement -> [] | _ -> invalidArg "children" "PaginationContent accepts page items and ellipses.")
+        part "content" pages (ComponentElement.render "ol" [_class "flex flex-wrap items-center gap-1"] attributes children)
+
+    let summary attributes children = part "summary" [] (ComponentElement.render "div" [_class "min-w-0 text-sm text-[var(--fve-muted-text)]"] attributes children)
+
+    let render attributes (children:HtmlElement list) =
+        let parts = children |> List.choose (function :? PaginationPart as part -> Some part | :? NoopElement -> None | _ -> invalidArg "children" "Pagination accepts its semantic child parts.")
+        if parts |> List.exists (fun part -> not (List.contains part.Kind ["summary"; "content"; "previous"; "next"])) then invalidArg "children" "Page items must be inside fvePaginationContent."
+        if parts |> List.map _.Kind |> List.distinct |> List.length <> parts.Length then invalidArg "children" "Each pagination region may occur only once."
+        let pages = parts |> List.collect _.Pages
+        if pages |> List.map fst |> List.distinct |> List.length <> pages.Length then invalidArg "children" "Pagination page numbers must be unique."
+        let variant = ComponentElement.choice "variant" "full" ["full"; "numbers-only"; "previous-next-only"] attributes
+        if variant <> "previous-next-only" && (pages |> List.filter snd |> List.length <> 1) then invalidArg "children" "Pagination requires exactly one current page."
+        if ComponentElement.value "aria-label" attributes |> Option.orElseWith (fun () -> ComponentElement.value "aria-labelledby" attributes) |> Option.forall String.IsNullOrWhiteSpace then invalidArg "attributes" "Pagination requires an accessible label."
+        let find kind = parts |> List.tryFind (fun part -> part.Kind = kind) |> Option.map (fun part -> part :> HtmlElement)
+        ComponentElement.render "nav" [_class "flex flex-wrap items-center justify-between gap-3"] (ComponentHtml.safeAttributes ["variant"; "role"] attributes) [
+            match find "summary" with Some summary -> yield summary | None -> ()
+            yield div {
+                _class "flex flex-wrap items-center gap-1"
+                if variant <> "numbers-only" then find "previous" |> Option.defaultWith (fun () -> edge "previous" [] [])
+                if variant <> "previous-next-only" then find "content" |> Option.defaultValue empty
+                if variant <> "numbers-only" then find "next" |> Option.defaultWith (fun () -> edge "next" [] [])
+            } ]
+
+/// <category>pagination</category>
+[<AutoOpen>]
+module PaginationDsl =
+    let fvePagination = ComponentElementBuilder(Pagination.render)
+    let fvePaginationContent = ComponentElementBuilder(Pagination.content)
+    let fvePaginationItem = ComponentElementBuilder(Pagination.item)
+    let fvePaginationEllipsis = ComponentElementBuilder(Pagination.ellipsis)
+    let fvePaginationPrevious = ComponentElementBuilder(Pagination.edge "previous")
+    let fvePaginationNext = ComponentElementBuilder(Pagination.edge "next")
+    let fvePaginationSummary = ComponentElementBuilder(Pagination.summary)

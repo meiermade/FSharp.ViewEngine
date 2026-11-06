@@ -43,7 +43,7 @@ test('installed CodeBlock owns syntax colors and code surfaces without Docs CSS 
   expect(await colors()).toEqual(light)
   await page.locator('body').evaluate(element => { delete element.dataset.fveColorMode })
 
-  // Reinsert the actual component markup, as a consumer patch would, then run its public initializer.
+  // Reinsert actual component markup; its connected lifecycle must highlight without a page initializer.
   const original = await fsharp.textContent()
   await fsharp.evaluate(element => {
     const wrapper = element.closest('[data-docs-copyable-code]')!
@@ -51,7 +51,6 @@ test('installed CodeBlock owns syntax colors and code surfaces without Docs CSS 
     const code = replacement.querySelector('code')!
     code.textContent = element.textContent
     wrapper.replaceWith(replacement)
-    return (window as any).renderCode(replacement)
   })
   await expect(fsharp.locator('.token.keyword').first()).toBeVisible()
   expect(await colors()).toEqual(dark)

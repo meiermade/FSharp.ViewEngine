@@ -19,7 +19,7 @@ module private ThemeClasses =
         [--fve-warning-subtle:oklch(97.3%_0.071_103.193)] [--fve-warning-text:oklch(47.6%_0.114_61.907)] [--fve-warning-ring:oklch(76.9%_0.188_70.08)]
         [--fve-critical-subtle:oklch(97.1%_0.013_17.38)] [--fve-critical-solid:oklch(57.7%_0.245_27.325)] [--fve-critical-hover:oklch(50.5%_0.213_27.518)] [--fve-critical-active:oklch(44.4%_0.177_26.899)] [--fve-critical-text:oklch(44.4%_0.177_26.899)] [--fve-critical-ring:oklch(63.7%_0.237_25.331)]
         [--fve-info-subtle:oklch(97%_0.014_254.604)] [--fve-info-text:oklch(48.8%_0.243_264.376)] [--fve-info-ring:oklch(62.3%_0.214_259.815)]
-        [--fve-radius-control:0.5rem] [--fve-radius-panel:0.75rem] [--fve-control-padding-block:0.5rem] [--fve-control-min-height:2.5rem]
+        [--fve-radius-control:0.5rem] [--fve-radius-panel:0.75rem]
         [--fve-popup-active-background:var(--fve-brand-solid)] [--fve-popup-active-text:white]
         dark:not-data-[fve-color-mode=light]:[--fve-popup-active-background:var(--fve-brand-text)] dark:not-data-[fve-color-mode=light]:[--fve-popup-active-text:var(--fve-surface)]
         [.dark_&:not([data-fve-color-mode=light])]:[--fve-popup-active-background:var(--fve-brand-text)] [.dark_&:not([data-fve-color-mode=light])]:[--fve-popup-active-text:var(--fve-surface)]
@@ -73,7 +73,7 @@ module private ThemeClasses =
 /// <summary>
 /// Shared announcement policy for persistent notices and dismissible notifications.
 /// </summary>
-/// <category>accessibility</category>
+/// <category>notice</category>
 [<RequireQualifiedAccess>]
 type LiveAnnouncement =
     | Static
@@ -82,19 +82,51 @@ type LiveAnnouncement =
 
 /// <category>theming</category>
 [<RequireQualifiedAccess>]
-type ControlSize =
+type Size =
+    | ExtraSmall
     | Small
     | Medium
     | Large
+    | ExtraLarge
 
 /// <category>theming</category>
 [<RequireQualifiedAccess>]
-module ControlSize =
-    /// Apply to a region to size its controls independently of layout density.
+module Size =
+    let internal name = function
+        | Size.ExtraSmall -> "extra-small" | Size.Small -> "small" | Size.Medium -> "medium"
+        | Size.Large -> "large" | Size.ExtraLarge -> "extra-large"
+
+    let internal tryParse = function
+        | "extra-small" -> Some Size.ExtraSmall | "small" -> Some Size.Small | "medium" -> Some Size.Medium
+        | "large" -> Some Size.Large | "extra-large" -> Some Size.ExtraLarge | _ -> None
+
+    /// Apply the 24/28/32/36/40px control scale independently of layout density.
     let className = function
-        | ControlSize.Small -> "fve-control-small [--fve-control-min-height:2rem] [--fve-control-icon-size:0.875rem] [--fve-control-padding-block:0.375rem] [--fve-control-font-size:0.875rem] [--fve-control-line-height:1.25rem]"
-        | ControlSize.Medium -> "fve-control-medium [--fve-control-min-height:2.5rem] [--fve-control-icon-size:1rem] [--fve-control-padding-block:0.5rem] [--fve-control-font-size:1rem] [--fve-control-line-height:1.5rem]"
-        | ControlSize.Large -> "fve-control-large [--fve-control-min-height:3rem] [--fve-control-icon-size:1.25rem] [--fve-control-padding-block:0.75rem] [--fve-control-font-size:1rem] [--fve-control-line-height:1.5rem]"
+        | Size.ExtraSmall -> "fve-control-extra-small [--fve-control-min-height:1.5rem] [--fve-control-icon-size:0.75rem] [--fve-control-padding-block:0.25rem] [--fve-control-padding-inline:0.5rem] [--fve-control-font-size:0.75rem] [--fve-control-line-height:1rem]"
+        | Size.Small -> "fve-control-small [--fve-control-min-height:1.75rem] [--fve-control-icon-size:1rem] [--fve-control-padding-block:0.25rem] [--fve-control-padding-inline:0.5rem] [--fve-control-font-size:0.875rem] [--fve-control-line-height:1.25rem]"
+        | Size.Medium -> "fve-control-medium [--fve-control-min-height:2rem] [--fve-control-icon-size:1rem] [--fve-control-padding-block:0.375rem] [--fve-control-padding-inline:0.625rem] [--fve-control-font-size:0.875rem] [--fve-control-line-height:1.25rem]"
+        | Size.Large -> "fve-control-large [--fve-control-min-height:2.25rem] [--fve-control-icon-size:1.25rem] [--fve-control-padding-block:0.5rem] [--fve-control-padding-inline:0.75rem] [--fve-control-font-size:0.875rem] [--fve-control-line-height:1.25rem]"
+        | Size.ExtraLarge -> "fve-control-extra-large [--fve-control-min-height:2.5rem] [--fve-control-icon-size:1.25rem] [--fve-control-padding-block:0.625rem] [--fve-control-padding-inline:0.875rem] [--fve-control-font-size:0.875rem] [--fve-control-line-height:1.25rem]"
+
+/// <category>theming</category>
+[<RequireQualifiedAccess>]
+type Color = Primary | Secondary | Success | Warning | Error | Info | Neutral | Custom
+
+/// <category>button</category>
+[<RequireQualifiedAccess>]
+type ButtonVariant = Solid | Soft | Outline | Ghost
+
+/// <category>link</category>
+[<RequireQualifiedAccess>]
+type LinkVariant = Text | Solid | Soft | Outline | Ghost
+
+/// <category>badge</category>
+[<RequireQualifiedAccess>]
+type BadgeVariant = Solid | Soft | Outline | Ghost
+
+/// <category>theming</category>
+[<RequireQualifiedAccess>]
+type Orientation = Horizontal | Vertical
 
 /// <category>theming</category>
 [<RequireQualifiedAccess>]
@@ -109,6 +141,32 @@ type Radius =
 type Density =
     | Compact
     | Comfortable
+
+/// <summary>Typed component values serialized as ordinary HTML attributes. Native HTML overloads remain available.</summary>
+/// <category>theming</category>
+[<AutoOpen>]
+module ComponentAttributes =
+    type Html with
+        static member _color(value:Color) =
+            Html._attr("color", match value with Color.Primary -> "primary" | Color.Secondary -> "secondary" | Color.Success -> "success" | Color.Warning -> "warning" | Color.Error -> "error" | Color.Info -> "info" | Color.Neutral -> "neutral" | Color.Custom -> "custom")
+        static member _variant(value:ButtonVariant) =
+            Html._attr("variant", match value with ButtonVariant.Solid -> "solid" | ButtonVariant.Soft -> "soft" | ButtonVariant.Outline -> "outline" | ButtonVariant.Ghost -> "ghost")
+        static member _variant(value:LinkVariant) =
+            Html._attr("variant", match value with LinkVariant.Text -> "text" | LinkVariant.Solid -> "solid" | LinkVariant.Soft -> "soft" | LinkVariant.Outline -> "outline" | LinkVariant.Ghost -> "ghost")
+        static member _variant(value:BadgeVariant) =
+            Html._attr("variant", match value with BadgeVariant.Solid -> "solid" | BadgeVariant.Soft -> "soft" | BadgeVariant.Outline -> "outline" | BadgeVariant.Ghost -> "ghost")
+        static member _size(value:Size) =
+            Html._attr("size", Size.name value)
+        static member _values(value:string list) = Html._attr("values", System.Text.Json.JsonSerializer.Serialize value)
+        static member _expanded(value:bool) = Html._attr("expanded", if value then "true" else "false")
+        static member _clearable(value:bool) = Html._attr("clearable", if value then "true" else "false")
+        static member _announcement(value:LiveAnnouncement) = Html._attr("announcement", match value with LiveAnnouncement.Static -> "static" | LiveAnnouncement.Polite -> "polite" | LiveAnnouncement.Assertive -> "assertive")
+        static member _description(value:string) = Html._attr("description", value)
+        static member _trend(value:string) = Html._attr("trend", value)
+        static member _orientation(value:Orientation) =
+            Html._attr("orientation", match value with Orientation.Horizontal -> "horizontal" | Orientation.Vertical -> "vertical")
+        static member _density(value:Density) =
+            Html._attr("density", match value with Density.Compact -> "compact" | Density.Comfortable -> "comfortable")
 
 /// <category>theming</category>
 [<NoEquality; NoComparison>]
@@ -128,31 +186,31 @@ module ComponentsTheme =
         { paletteClass = ThemeClasses.sky
           radiusClass = "fve-radius-large"
           densityClass = comfortableDensity
-          controlSizeClass = ControlSize.className ControlSize.Medium }
+          controlSizeClass = Size.className Size.Medium }
 
     let emerald =
         { paletteClass = ThemeClasses.emerald
           radiusClass = "fve-radius-large"
           densityClass = comfortableDensity
-          controlSizeClass = ControlSize.className ControlSize.Medium }
+          controlSizeClass = Size.className Size.Medium }
 
     let amber =
         { paletteClass = ThemeClasses.amber
           radiusClass = "fve-radius-large"
           densityClass = comfortableDensity
-          controlSizeClass = ControlSize.className ControlSize.Medium }
+          controlSizeClass = Size.className Size.Medium }
 
     let cyan =
         { paletteClass = ThemeClasses.cyan
           radiusClass = "fve-radius-large"
           densityClass = comfortableDensity
-          controlSizeClass = ControlSize.className ControlSize.Medium }
+          controlSizeClass = Size.className Size.Medium }
 
     let neutral =
         { paletteClass = ThemeClasses.neutral
           radiusClass = "fve-radius-large"
           densityClass = comfortableDensity
-          controlSizeClass = ControlSize.className ControlSize.Medium }
+          controlSizeClass = Size.className Size.Medium }
 
     let custom paletteClass =
         if String.IsNullOrWhiteSpace paletteClass || Regex.IsMatch(paletteClass, "\\s") then
@@ -160,7 +218,7 @@ module ComponentsTheme =
         { paletteClass = paletteClass
           radiusClass = "fve-radius-large"
           densityClass = comfortableDensity
-          controlSizeClass = ControlSize.className ControlSize.Medium }
+          controlSizeClass = Size.className Size.Medium }
 
     let withRadius radius theme =
         let radiusClass =
@@ -179,7 +237,7 @@ module ComponentsTheme =
         { theme with densityClass = densityClass }
 
     let withControlSize size theme =
-        { theme with controlSizeClass = ControlSize.className size }
+        { theme with controlSizeClass = Size.className size }
 
     let className theme =
         [ ThemeClasses.foundation; theme.paletteClass; theme.radiusClass; theme.densityClass; theme.controlSizeClass ]
@@ -211,6 +269,12 @@ type ColorPaletteMode =
 type ColorPalette =
     { light:ColorPaletteMode
       dark:ColorPaletteMode }
+
+/// <category>theming</category>
+[<AutoOpen>]
+module PaletteAttributes =
+    type Html with
+        static member _palette(value:ColorPalette) = Html._attr("palette", System.Text.Json.JsonSerializer.Serialize value)
 
 module internal ComponentColors =
     let private mode solid onSolid soft mix =
@@ -273,17 +337,40 @@ module internal ComponentColors =
     let solidInteraction = "enabled:hover:bg-[var(--fve-color-hover)] enabled:active:bg-[var(--fve-color-active)]"
     let softInteraction = "enabled:hover:bg-[var(--fve-color-soft-hover)] enabled:active:bg-[var(--fve-color-soft-active)]"
     let focus = "focus-visible:ring-[var(--fve-color-focus)] focus-visible:ring-offset-[var(--fve-surface)]"
+module internal ActionStyles =
+    let iconClasses = "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0"
+
+    let baseClasses =
+        iconClasses + " inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium shadow-xs outline-none transition-[color,background-color,border-color,box-shadow,translate] duration-100 motion-reduce:transition-none motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup]):not([data-fve-keyboard-pressed])]:active:translate-y-px motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup])]:data-[fve-keyboard-pressed=true]:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+
+module internal ControlGroup =
+    // A logical segment exports geometry to marked native controls, regardless of wrapper depth.
+    // Popovers and dialogs are independent surfaces, not segments of their opener's group.
+    let private controls =
+        "[&_[data-fve-group-control]]:relative [&_[data-fve-group-control]:focus-visible]:z-10 [&_[data-fve-group-control]]:[border-start-start-radius:var(--fve-group-radius-ss,var(--fve-radius-control))] [&_[data-fve-group-control]]:[border-start-end-radius:var(--fve-group-radius-se,var(--fve-radius-control))] [&_[data-fve-group-control]]:[border-end-start-radius:var(--fve-group-radius-es,var(--fve-radius-control))] [&_[data-fve-group-control]]:[border-end-end-radius:var(--fve-group-radius-ee,var(--fve-radius-control))] [&_[data-fve-group-control=outline]]:[border-inline-start-width:var(--fve-group-border-inline-start,1px)] [&_[data-fve-group-control=outline]]:[border-block-start-width:var(--fve-group-border-block-start,1px)]"
+
+    let private surfaces =
+        "[&_:is([popover],dialog)]:[--fve-group-radius-ss:initial] [&_:is([popover],dialog)]:[--fve-group-radius-se:initial] [&_:is([popover],dialog)]:[--fve-group-radius-es:initial] [&_:is([popover],dialog)]:[--fve-group-radius-ee:initial] [&_:is([popover],dialog)]:[--fve-group-border-inline-start:initial] [&_:is([popover],dialog)]:[--fve-group-border-block-start:initial]"
+
+    let private geometry = function
+        | "vertical" ->
+            "flex-col [&>*]:[--fve-group-radius-ss:0px] [&>*]:[--fve-group-radius-se:0px] [&>*]:[--fve-group-radius-es:0px] [&>*]:[--fve-group-radius-ee:0px] [&>:first-child]:[--fve-group-radius-ss:var(--fve-radius-control)] [&>:first-child]:[--fve-group-radius-se:var(--fve-radius-control)] [&>:last-child]:[--fve-group-radius-es:var(--fve-radius-control)] [&>:last-child]:[--fve-group-radius-ee:var(--fve-radius-control)] [&>:not(:first-child)]:[--fve-group-border-block-start:0px]"
+        | _ ->
+            "[&>*]:[--fve-group-radius-ss:0px] [&>*]:[--fve-group-radius-se:0px] [&>*]:[--fve-group-radius-es:0px] [&>*]:[--fve-group-radius-ee:0px] [&>:first-child]:[--fve-group-radius-ss:var(--fve-radius-control)] [&>:first-child]:[--fve-group-radius-es:var(--fve-radius-control)] [&>:last-child]:[--fve-group-radius-se:var(--fve-radius-control)] [&>:last-child]:[--fve-group-radius-ee:var(--fve-radius-control)] [&>:not(:first-child)]:[--fve-group-border-inline-start:0px]"
+
+    let classes orientation =
+        "isolate inline-flex items-stretch [&>*]:shrink-0 [&>*:focus-within]:relative [&>*:focus-within]:z-10 "
+        + controls + " " + surfaces + " " + geometry orientation
+
 module internal ComponentHtml =
     let classes values = values |> List.filter (String.IsNullOrWhiteSpace >> not) |> String.concat " "
 
     let horizontalScrollClasses = "min-w-0 max-w-full overflow-x-auto p-1 scroll-p-1 outline-none focus-visible:outline-2 focus-visible:outline-solid focus-visible:-outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] forced-colors:focus-visible:outline-[Highlight]"
 
     let horizontalScrollAttributes =
-        [ _tabindex 0
-          _dataOn ("focusin", "if (evt.target !== el && !evt.target.closest('[role=menu]')) evt.target.scrollIntoView({block: 'nearest', inline: 'nearest'})")
-          _dataOn ("keydown", "if (evt.target === el && !evt.altKey && !evt.ctrlKey && !evt.metaKey && !evt.shiftKey && (evt.key === 'ArrowLeft' || evt.key === 'ArrowRight')) { evt.preventDefault(); el.scrollBy({left: evt.key === 'ArrowLeft' ? -80 : 80}) }") ]
+        [ _tabindex 0; _attr("scroll-step", "80"); _attr("follow-focus", "") ]
 
-    let popupClasses = "outline-none forced-colors:border forced-colors:border-[CanvasText]"
+    let popupClasses = "border border-[var(--fve-border)] bg-[var(--fve-surface)] shadow-lg outline-none forced-colors:border-[CanvasText]"
     let popupFieldClasses = "outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-[Highlight]"
     let popupControlClasses = "outline-none focus-visible:outline-solid focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-[Highlight]"
     let popupItemClasses =
@@ -302,11 +389,13 @@ module internal ComponentHtml =
                 || (reservedName.EndsWith(':') && attribute.Name.StartsWith(reservedName, StringComparison.OrdinalIgnoreCase)))
             |> not)
 
-    let javascriptString value = System.Text.Json.JsonSerializer.Serialize(value)
+    // Structural Rocket hosts enhance caller HTML; declarations remain in the outer page scope.
+    let outerSignals (attributes: HtmlAttribute list) =
+        attributes |> List.map (fun attribute ->
+            if attribute.Name = "data-signals" then { attribute with Name = "data-signals__root" }
+            else attribute)
 
-    let signalToken value =
-        let token = Regex.Replace(value, "[^A-Za-z0-9]+", "_").Trim('_')
-        if String.IsNullOrEmpty token then "component" else token.ToLowerInvariant()
+    let javascriptString value = System.Text.Json.JsonSerializer.Serialize(value)
 
     let optionToken (value:string) =
         value
@@ -315,10 +404,15 @@ module internal ComponentHtml =
         |> String.concat ""
         |> (+) "v"
 
-    let controlSizeClass size = size |> Option.map ControlSize.className |> Option.defaultValue ""
+    let signalToken (value:string) =
+        // Keep conventional wire names readable. All other IDs use a disjoint, lossless namespace.
+        if Regex.IsMatch(value, "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$") then value.Replace('-', '_')
+        else "_" + optionToken value
+
+    let controlSizeClass size = size |> Option.map Size.className |> Option.defaultValue ""
 
     let sizeClasses size =
-        classes [ controlSizeClass size; "min-h-[var(--fve-control-min-height)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)]" ]
+        classes [ controlSizeClass size; "min-h-[var(--fve-control-min-height)] px-[max(0px,calc(var(--fve-control-padding-inline)-var(--fve-control-border-width,0px)))] py-[max(0px,calc(var(--fve-control-padding-block)-var(--fve-control-border-width,0px)))] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)]" ]
 
     let iconButtonSizeClasses size =
         classes [ controlSizeClass size; "size-[var(--fve-control-min-height)] p-0" ]
@@ -326,10 +420,118 @@ module internal ComponentHtml =
     let loadingGlyph size =
         let sizeClass =
             match size with
-            | ControlSize.Small -> "size-3.5"
-            | ControlSize.Medium -> "size-4"
-            | ControlSize.Large -> "size-5"
+            | Size.ExtraSmall -> "size-3"
+            | Size.Small | Size.Medium -> "size-4"
+            | Size.Large | Size.ExtraLarge -> "size-5"
         span {
             _ariaHidden "true"
             _class (classes [ "shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none"; sizeClass ])
         }
+
+module internal ComponentElement =
+    let attributes (items:HtmlAttribute list) =
+        items
+        |> List.filter (fun item -> not (String.IsNullOrEmpty item.Name))
+        |> List.groupBy (fun item -> item.Name.ToLowerInvariant())
+        |> List.map (fun (name, values) ->
+            if name = "class" || name = "style" then
+                Html._attr(name, values |> List.choose (fun item -> ValueOption.toOption item.Value) |> String.concat (if name = "style" then ";" else " "))
+            else List.last values)
+
+    let attribute name (items:HtmlAttribute list) =
+        items |> List.tryFindBack (fun item -> String.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase))
+
+    let value name items = attribute name items |> Option.bind (fun item -> ValueOption.toOption item.Value)
+
+    let size fallback items =
+        match attribute "size" items with
+        | None -> fallback
+        | Some { Value = ValueSome value } ->
+            match Size.tryParse value with
+            | Some size -> Some size
+            | None -> invalidArg "attributes" "Unsupported component size."
+        | Some _ -> invalidArg "attributes" "A component size is required."
+
+    let required name items =
+        match value name items with
+        | Some value when not (String.IsNullOrWhiteSpace value) -> value
+        | _ -> invalidArg "attributes" $"A non-empty {name} attribute is required."
+
+    let choice name fallback allowed items =
+        match attribute name items with
+        | None -> fallback
+        | Some { Value = ValueSome value } when List.contains value allowed -> value
+        | _ -> invalidArg "attributes" $"Unsupported {name} attribute."
+
+    let render tag (defaults:HtmlAttribute list) (items:HtmlAttribute list) (children:HtmlElement list) =
+        (Html.el tag) {
+            for item in attributes (defaults @ items) do item
+            children
+        }
+
+    let palette items =
+        match choice "color" "neutral" ["primary"; "secondary"; "success"; "warning"; "error"; "info"; "neutral"; "custom"] items with
+        | "primary" -> ComponentColors.primary
+        | "secondary" -> ComponentColors.secondary
+        | "success" -> ComponentColors.success
+        | "warning" -> ComponentColors.warning
+        | "error" -> ComponentColors.error
+        | "info" -> ComponentColors.info
+        | "custom" ->
+            try
+                let palette = System.Text.Json.JsonSerializer.Deserialize<ColorPalette>(required "palette" items)
+                for colors in [palette.light; palette.dark] do
+                    for color in [colors.solid; colors.solidHover; colors.solidActive; colors.onSolid; colors.soft; colors.softHover; colors.softActive; colors.text; colors.border; colors.focus] do
+                        if String.IsNullOrWhiteSpace color then invalidArg "attributes" "A complete light/dark palette is required."
+                palette
+            with _ -> invalidArg "attributes" "A complete light/dark palette is required."
+        | _ -> ComponentColors.neutral
+
+module internal ComponentTrigger =
+    let control owner authored (children: HtmlElement list) =
+        let children =
+            children
+            |> List.filter (function
+                | :? NoopElement -> false
+                | _ -> true)
+
+        let unsupported () =
+            invalidArg
+                "children"
+                $"{owner} requires one fveButton control or an attribute-forwarding render function for a native/custom control."
+
+        match children with
+        | [ child ] ->
+            match box child with
+            | :? ComponentControlElement as target when target.TagName = "button" || target.TagName = "fve-button" ->
+                target, ComponentElement.attributes (target.Attributes @ authored)
+            | _ -> unsupported ()
+        | _ -> unsupported ()
+
+    let flag name attributes =
+        match ComponentElement.attribute name attributes with
+        | Some { Value = ValueNone } -> true
+        | Some { Value = ValueSome value } -> value <> "false"
+        | None -> false
+
+    let unavailable attributes =
+        flag "readonly" attributes || flag "aria-disabled" attributes
+
+    let rec render (target: ComponentControlElement) attributes =
+        let attributes = ComponentElement.attributes attributes
+
+        let attributes =
+            if target.TagName = "fve-button" then
+                let id = ComponentElement.required "id" attributes
+                // The host remains a Datastar boundary; IDs, focus and anchoring name its actual native control.
+                Html._id (id + "-host")
+                :: Html._data ("fve-control-id", id)
+                :: ComponentHtml.safeAttributes [ "id"; "data-fve-control-id" ] attributes
+            else
+                attributes
+
+        let element = target.WithAttributes attributes
+
+        match element with
+        | :? ComponentControlElement as control when control.TagName = "fve-button" -> render control control.Attributes
+        | _ -> element

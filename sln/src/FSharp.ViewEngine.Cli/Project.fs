@@ -54,7 +54,7 @@ module ConsumerProject =
         let prefix = ComponentsDirectory + "/"
         if normalized.StartsWith(prefix, StringComparison.Ordinal) then Some normalized[prefix.Length..]
         else None
-    let projectBlock (components:RegistryComponent list) =
+    let projectBlock (components:RegistryFile list) =
         let compileEntries =
             components
             |> List.filter _.Compile
@@ -100,7 +100,7 @@ module ConsumerProject =
             content.Insert(index, $"{separator}{block}\n") |> Text.writeAtomic projectPath
             Ok ()
 
-    let updateProject (projectPath:string) (previousComponents:RegistryComponent list) (nextComponents:RegistryComponent list) overwrite =
+    let updateProject (projectPath:string) (previousComponents:RegistryFile list) (nextComponents:RegistryFile list) overwrite =
         let content = File.ReadAllText projectPath |> Text.normalize
         let previous = projectBlock previousComponents
         let next = projectBlock nextComponents

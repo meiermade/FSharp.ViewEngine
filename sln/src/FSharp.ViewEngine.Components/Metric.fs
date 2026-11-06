@@ -1,60 +1,33 @@
 namespace FSharp.ViewEngine.Components
 
-open System
 open FSharp.ViewEngine
 open type Html
 
-/// <category>metric</category>
-[<NoEquality; NoComparison>]
-type MetricConfig =
-    private
-        { label:string
-          value:HtmlElement
-          description:string option
-          trend:string option
-          status:HtmlElement option
-          attributes:HtmlAttribute list }
+module internal Metric =
+    let status attributes (children:HtmlElement list) =
+        if List.isEmpty children then empty
+        else ComponentPart("metric", "status", ComponentElement.render "span" [] attributes children) :> HtmlElement
+
+    let render attributes children =
+        let label = ComponentElement.required "label" attributes
+        let parts, body = ComponentParts.split "metric" children
+        ComponentElement.render "div" [_class "min-w-0"] (ComponentHtml.safeAttributes ["label"; "trend"; "description"] attributes)
+            [ div {
+                  _class "flex flex-wrap items-center gap-2"
+                  p { _class "text-xs font-medium text-[var(--fve-muted-text)]"; label }
+                  Map.tryFind "status" parts |> Option.defaultValue empty
+              }
+              div { _class "mt-2 break-words text-2xl font-semibold tracking-tight text-[var(--fve-text)]"; body }
+              match ComponentElement.value "trend" attributes with
+              | Some trend -> p { _class "mt-2 text-xs font-medium text-[var(--fve-text)]"; span { _class "sr-only"; "Trend: " }; trend }
+              | None -> ()
+              match ComponentElement.value "description" attributes with
+              | Some description -> p { _class "mt-1 text-xs text-[var(--fve-muted-text)]"; description }
+              | None -> () ]
 
 /// <category>metric</category>
-[<RequireQualifiedAccess>]
-module Metric =
-    let create label value =
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A metric label is required."
-        { label = label
-          value = value
-          description = None
-          trend = None
-          status = None
-          attributes = [] }
-
-    let text (label:string) (value:string) = create label (span { value })
-    let withDescription (description:string) (config:MetricConfig) = { config with description = Some description }
-    let withTrend (trend:string) (config:MetricConfig) = { config with trend = Some trend }
-    let withStatus (status:HtmlElement) (config:MetricConfig) = { config with status = Some status }
-    let withAttributes attributes (config:MetricConfig) = { config with attributes = attributes }
-
-    let render config =
-        div {
-            _class "min-w-0"
-            for attribute in ComponentHtml.safeAttributes [ "class" ] config.attributes do attribute
-            div {
-                _class "flex flex-wrap items-center gap-2"
-                p { _class "text-xs font-medium text-[var(--fve-muted-text)]"; config.label }
-                config.status |> Option.defaultValue empty
-            }
-            div { _class "mt-2 break-words text-2xl font-semibold tracking-tight text-[var(--fve-text)]"; config.value }
-            match config.trend with
-            | Some trend ->
-                p {
-                    _class "mt-2 text-xs font-medium text-[var(--fve-text)]"
-                    span {
-                        _class "sr-only"
-                        "Trend: "
-                    }
-                    trend
-                }
-            | None -> ()
-            match config.description with
-            | Some description -> p { _class "mt-1 text-xs text-[var(--fve-muted-text)]"; description }
-            | None -> ()
-        }
+[<AutoOpen>]
+module MetricDsl =
+    /// The value is ordinary rich content; label, description and trend are HTML attributes.
+    let fveMetric = ComponentElementBuilder(Metric.render)
+    let fveMetricStatus = ComponentElementBuilder(Metric.status)

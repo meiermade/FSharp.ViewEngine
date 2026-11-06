@@ -9,3 +9,5 @@ test-results/
 .auth/
 BenchmarkDotNet.Artifacts/
 nugets/
+sln/src/Docs/wwwroot/assets/
+sln/src/Docs/out/

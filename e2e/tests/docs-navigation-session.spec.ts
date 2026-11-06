@@ -87,7 +87,7 @@ test('long-lived Docs navigation excludes demo signals and preserves Preview Cod
     const panel = example.getByRole('tabpanel', { name: 'Code', exact: true })
     await panel.getByRole('button', { name: /^Copy / }).click()
     await expect(panel.locator('[data-copied="true"]')).toHaveCount(1)
-    expect(await page.evaluate(() => (window as any).__copiedExample)).toContain('Notice.create')
+    expect(await page.evaluate(() => (window as any).__copiedExample)).toContain('fveNotice {')
     const previewTab = toolbar.getByRole('tab', { name: 'Preview', exact: true })
     const previewId = await previewTab.getAttribute('aria-controls')
     expect(previewId).toBeTruthy()
@@ -177,7 +177,7 @@ test('Button Pending example is discoverable through fragments and demonstrates 
 
   await section.getByRole('tab', { name: 'Code', exact: true }).click()
   const source = section.locator('[data-docs-copy-source]')
-  await expect(source).toContainText('Button.withPendingSignal')
+  await expect(source).toContainText('fveButton {')
   await expect(source).toContainText('_dataIndicator')
   await expect(source).toContainText('_dataOn')
   await page.reload()

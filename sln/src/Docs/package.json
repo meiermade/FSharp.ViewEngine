@@ -1,0 +1,12 @@
+{
+  "name": "fsharp-viewengine-docs",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build:js": "esbuild js/app.js js/appearance.js --bundle --format=esm --splitting --outdir=wwwroot/assets --metafile=obj/components-assets.json --minify",
+    "watch:js": "npm run build:js -- --watch=forever"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

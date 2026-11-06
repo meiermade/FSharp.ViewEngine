@@ -1,0 +1,97 @@
+import { test, expect } from '@playwright/test'
+
+test('Breadcrumbs fit their actual container and restore hidden ancestors with focus @cross-browser', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.setViewportSize({ width: 1440, height: 1000 })
+  await page.goto('/components/breadcrumbs')
+  const nav = page.locator('#visible-breadcrumbs')
+  const more = nav.getByRole('button', { name: 'Show hidden breadcrumbs', exact: true })
+  await expect(nav.getByRole('link', { name: 'Home', exact: true })).toBeVisible()
+  await expect(nav.getByRole('link', { name: 'Components', exact: true })).toBeVisible()
+  await expect(nav.getByRole('link', { name: 'Navigation', exact: true })).toBeVisible()
+  await expect(more).toBeHidden()
+  await nav.evaluate(el => { el.style.width = '240px' })
+  await expect(more).toBeVisible()
+  await more.focus()
+  await more.press('ArrowDown')
+  const components = nav.getByRole('menuitem', { name: 'Components', exact: true })
+  await expect(components).toBeFocused()
+  await expect(nav.getByRole('menuitem', { name: 'Home', exact: true })).toBeHidden()
+  await nav.evaluate(el => { el.style.removeProperty('width') })
+  await expect(more).toBeHidden()
+  await expect(nav.getByRole('link', { name: 'Components', exact: true })).toBeFocused()
+  await expect(nav.getByRole('menu')).toBeHidden()
+  await nav.evaluate(el => { el.style.width = '150px' })
+  await expect(nav.getByRole('link', { name: 'Home', exact: true })).toBeHidden()
+  await more.press('ArrowDown')
+  await expect(nav.getByRole('menuitem', { name: 'Home', exact: true })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(more).toBeFocused()
+  await nav.evaluate(el => { el.style.removeProperty('width') })
+  await expect(more).toBeHidden()
+  await expect(nav.locator('[aria-current="page"]')).toBeFocused()
+  await page.setViewportSize({ width: 320, height: 1000 })
+  await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+  await expect(more).toBeVisible()
+  await expect(nav.locator('[aria-current="page"]')).toBeVisible()
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  await more.scrollIntoViewIfNeeded()
+  await expect(more).toBeInViewport()
+  await more.press('ArrowDown')
+  const menu = nav.getByRole('menu')
+  await expect(menu.getByRole('menuitem', { name: 'Home', exact: true })).toBeFocused()
+  await page.keyboard.press('ArrowDown')
+  await expect(menu.getByRole('menuitem', { name: 'Components', exact: true })).toBeFocused()
+  const destination = menu.getByRole('menuitem', { name: 'Navigation', exact: true })
+  await expect(destination).toHaveAttribute('href', '/components/side-nav')
+  await destination.click()
+  // The catalog contains preview navigation; the copied/native link retains its real destination.
+  await expect(page).toHaveURL(/\/components\/breadcrumbs$/)
+  await expect(menu).toBeHidden()
+  await expect(more).toBeFocused()
+  expect(errors).toEqual([])
+})
+
+test('Breadcrumbs remeasure server morphs and reconnect without replacing destinations @cross-browser', async ({ page }) => {
+  await page.goto('/components/breadcrumbs')
+  const nav = page.locator('#visible-breadcrumbs')
+  const host = page.locator('#visible-breadcrumbs-host')
+  expect(await host.evaluate((el: any) => typeof el.rocketInstanceId)).toBe('string')
+  const markup = await page.evaluate(async () => {
+    const doc = new DOMParser().parseFromString(await (await fetch('/components/breadcrumbs')).text(), 'text/html')
+    const source = doc.querySelector('#visible-breadcrumbs-host')!
+    source.querySelector('[aria-current="page"]')!.textContent = 'A much longer current breadcrumb identity for a patched page'
+    return source.outerHTML
+  })
+  await page.route('**/components/breadcrumbs?morph=1*', route => route.fulfill({ status: 200, contentType: 'text/event-stream', body: `event: datastar-patch-elements\ndata: elements ${markup}\n\n` }))
+  await host.evaluate(el => {
+    const button = document.createElement('button')
+    button.type = 'button'
+    button.textContent = 'Update breadcrumb'
+    button.setAttribute('data-on:click', "@get('/components/breadcrumbs?morph=1')")
+    el.before(button)
+  })
+  await page.getByRole('button', { name: 'Update breadcrumb', exact: true }).click()
+  await expect(nav.locator('[aria-current="page"]')).toHaveText('A much longer current breadcrumb identity for a patched page')
+  await nav.evaluate(el => { el.style.width = '240px' })
+  await expect(nav.getByRole('button', { name: 'Show hidden breadcrumbs', exact: true })).toBeVisible()
+  await host.evaluate(el => { const next = el.nextSibling, parent = el.parentNode!; el.remove(); parent.insertBefore(el, next) })
+  await nav.evaluate(el => { el.style.width = '1000px' })
+  await expect(nav.getByRole('link', { name: 'Navigation', exact: true })).toBeVisible()
+  await expect(nav.getByRole('button', { name: 'Show hidden breadcrumbs', exact: true })).toBeHidden()
+})
+
+test('Native Breadcrumbs retain all real ancestors without JavaScript @cross-browser', async ({ browser }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 320, height: 900 } })
+  try {
+    const page = await context.newPage()
+    await page.goto('/components/breadcrumbs')
+    const nav = page.locator('#visible-breadcrumbs')
+    for (const name of ['Home', 'Components', 'Navigation']) await expect(nav.getByRole('link', { name, exact: true })).toBeVisible()
+    await expect(nav.getByRole('button', { name: 'Show hidden breadcrumbs', exact: true })).toHaveCount(0)
+    await nav.getByRole('link', { name: 'Navigation', exact: true }).click()
+    await expect(page).toHaveURL(/\/components\/side-nav$/)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  } finally { await context.close() }
+})

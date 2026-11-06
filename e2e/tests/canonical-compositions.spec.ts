@@ -9,8 +9,8 @@ test('SideNav retains independent nested choices through enhanced navigation, hi
   await toggle('Architecture').click()
   await toggle('Solution').focus()
   await page.keyboard.press('Enter')
-  await sidebar.getByRole('link', { name: 'Ledger.Domain', exact: true }).click()
-  await expect(page.getByRole('heading', { level: 1, name: 'Ledger.Domain', exact: true })).toBeVisible()
+  await sidebar.getByRole('link', { name: 'Example.Domain', exact: true }).click()
+  await expect(page.getByRole('heading', { level: 1, name: 'Example.Domain', exact: true })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-navigation-session', 'retained')
   for (const name of ['Transactions', 'Architecture', 'Solution']) {
     await expect(toggle(name)).toHaveAttribute('aria-expanded', 'true')
@@ -19,7 +19,7 @@ test('SideNav retains independent nested choices through enhanced navigation, hi
   await expect(page.getByRole('heading', { level: 1, name: 'View transactions', exact: true })).toBeVisible()
   await expect(toggle('Architecture')).toHaveAttribute('aria-expanded', 'true')
   await page.goForward()
-  await expect(page.getByRole('heading', { level: 1, name: 'Ledger.Domain', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Example.Domain', exact: true })).toBeVisible()
   await expect(page.locator('html')).toHaveAttribute('data-navigation-session', 'retained')
   await toggle('Transactions').click()
   await toggle('Solution').focus()
@@ -28,7 +28,7 @@ test('SideNav retains independent nested choices through enhanced navigation, hi
   await expect(toggle('Transactions')).toHaveAttribute('aria-expanded', 'false')
   await expect(toggle('Solution')).toHaveAttribute('aria-expanded', 'false')
   await expect(toggle('Architecture')).toHaveAttribute('aria-expanded', 'true')
-  await expect(sidebar.getByRole('link', { name: 'Ledger.Domain', exact: true, includeHidden: true })).toHaveAttribute('aria-current', 'page')
+  await expect(sidebar.getByRole('link', { name: 'Example.Domain', exact: true, includeHidden: true })).toHaveAttribute('aria-current', 'page')
 })
 
 test('SideNav aligns plain items at every depth and retains guide gutters @cross-browser', async ({ page }) => {
@@ -71,7 +71,7 @@ test('filter chips toggle multiple choices, clear to unrestricted and retain foc
   await page.goto('/examples/application/accounts?search=checking&sort=balance')
   const add = page.getByRole('button', { name: 'Add filter', exact: true })
   expect((await add.boundingBox())!.height).toBe(32)
-  expect((await add.locator('svg').boundingBox())!.width).toBe(14)
+  expect((await add.locator('svg').boundingBox())!.width).toBe(16)
   await add.click()
   await page.getByRole('menuitem', { name: 'Type', exact: true }).click()
   const group = page.getByRole('group', { name: 'Type filter', exact: true })
@@ -203,9 +203,8 @@ test('native filter checkboxes apply multiple choices and clear without JavaScri
 test('account drawer preserves context and leaves edited forms without prompts @cross-browser', async ({ page }) => {
   const prompts: string[] = []
   page.on('dialog', async prompt => { prompts.push(prompt.message()); await prompt.accept() })
+  await page.addInitScript(() => localStorage.setItem('financial-example-appearance', 'dark'))
   await page.goto('/examples/application/accounts?search=checking&sort=balance')
-  await page.getByRole('button', { name: 'Choose color theme', exact: true }).click()
-  await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click()
   const title = await page.title()
   const crumbs = await page.getByRole('navigation', { name: 'Breadcrumb', exact: true }).innerText()
   await page.getByRole('link', { name: 'Create account', exact: true }).click()

@@ -1,11 +1,15 @@
+FROM --platform=$BUILDPLATFORM node:24-bookworm-slim AS node
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-noble AS builder
+
+COPY --from=node /usr/local/bin/node /usr/local/bin/node
+COPY --from=node /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm
 
 WORKDIR /app
 
-# install tailwindcss v4 CLI (match builder platform)
-RUN ARCH=$(uname -m | sed 's/aarch64/arm64/' | sed 's/x86_64/x64/') \
-    && curl -fsSLo /usr/local/bin/tailwindcss "https://github.com/tailwindlabs/tailwindcss/releases/download/v4.2.2/tailwindcss-linux-${ARCH}" \
-    && chmod +x /usr/local/bin/tailwindcss
+# Resolve Tailwind and Typography from the shared build root for both consumers.
+ENV PATH="/app/node_modules/.bin:${PATH}"
+RUN npm install --no-save tailwindcss@4.2.2 @tailwindcss/cli@4.2.2 @tailwindcss/typography@0.5.19
 
 # restore tools
 COPY .config .config

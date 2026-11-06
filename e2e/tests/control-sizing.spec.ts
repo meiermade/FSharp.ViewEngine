@@ -6,21 +6,21 @@ for (const width of [1440, 390]) {
     await page.emulateMedia({ colorScheme: width === 390 ? 'dark' : 'light' })
     await page.goto('/components/input', { waitUntil: 'domcontentloaded' })
     const example = page.locator('#components-input-sizes')
-    for (const [name, height] of [['Compact', 32], ['Standard', 40], ['Large', 48], ['Larger', 48]] as const) {
+    for (const [name, height] of [['Extra small', 24], ['Compact', 28], ['Standard', 32], ['Large', 36], ['Extra large', 40], ['Larger', 36]] as const) {
       const searchName = name === 'Larger' ? 'Larger search in a compact region' : `${name} search`
       for (const control of [example.getByRole('searchbox', { name: searchName, exact: true }), example.getByRole('combobox', { name: `${name} type`, exact: true }), example.getByRole('button', { name: `${name} action`, exact: true }), example.getByRole('button', { name: `${name} refresh`, exact: true })]) {
         const actual = await control.evaluate(el => {
           const style = getComputedStyle(el)
           return {
-            height: el.matches('input') ? el.closest('.fve-input-frame')!.getBoundingClientRect().height : el.getBoundingClientRect().height,
+            height: el.getBoundingClientRect().height,
             size: style.fontSize, lineHeight: style.lineHeight, weight: style.fontWeight,
             iconOnly: el.hasAttribute('aria-label'), field: el.matches('input, [role=combobox]'),
           }
         })
         expect(actual.height, `${name}: ${await control.getAttribute('id')}`).toBe(height)
         if (!actual.iconOnly) {
-          expect(actual.size).toBe(name === 'Compact' ? '14px' : '16px')
-          expect(actual.lineHeight).toBe(name === 'Compact' ? '20px' : '24px')
+          expect(actual.size).toBe(name === 'Extra small' ? '12px' : '14px')
+          expect(actual.lineHeight).toBe(name === 'Extra small' ? '16px' : '20px')
           expect(actual.weight).toBe(actual.field ? '400' : '500')
         }
       }
@@ -31,6 +31,52 @@ for (const width of [1440, 390]) {
   })
 }
 
+
+test('Button sizes coordinate text and icon-only geometry without padding conflicts @cross-browser', async ({ page }) => {
+  await page.goto('/components/button')
+  const example = page.locator('#components-button-sizes-panel-preview')
+  for (const [name, height, font, icon] of [
+    ['Extra small', 24, 12, 12], ['Small', 28, 14, 16], ['Medium', 32, 14, 16], ['Large', 36, 14, 20], ['Extra large', 40, 14, 20],
+  ] as const) {
+    const text = example.getByRole('button', { name, exact: true })
+    const square = example.getByRole('button', { name: `${name} refresh`, exact: true })
+    await expect(text).toHaveCSS('height', `${height}px`)
+    await expect(text).toHaveCSS('font-size', `${font}px`)
+    await expect(square).toHaveCSS('height', `${height}px`)
+    await expect(square).toHaveCSS('width', `${height}px`)
+    await expect(square).toHaveCSS('padding', '0px')
+    await expect(square.locator('svg')).toHaveCSS('width', `${icon}px`)
+  }
+  const square = example.getByRole('button', { name: 'Small refresh', exact: true })
+  await square.evaluate(el => el.parentElement!.setAttribute('size', 'extra-large'))
+  await expect(square).toHaveCSS('width', '40px')
+  await expect(square).toHaveCSS('height', '40px')
+  await square.evaluate(el => el.parentElement!.setAttribute('icon-only', 'false'))
+  await expect(square).toHaveCSS('padding-left', '13px') // Outline border is included in the size's inset.
+  await square.evaluate(el => el.parentElement!.setAttribute('icon-only', 'true'))
+  await expect(square).toHaveCSS('padding', '0px')
+  await expect(square).toHaveCSS('width', '40px')
+})
+
+test('row-action recipes match the application compact trigger and row typography @cross-browser', async ({ page }) => {
+  for (const [path, selector] of [
+    ['/examples/application/accounts', 'main'],
+    ['/components/button', '#components-button-row-actions'],
+    ['/components/dropdown-menu', '#components-dropdown-menu-row-actions'],
+    ['/components/table', '#components-table-row-actions'],
+  ]) {
+    await page.goto(path)
+    const trigger = page.locator(selector).getByRole('button', { name: 'Actions for Unassigned expense', exact: true })
+    await expect(trigger).toHaveCSS('width', '28px')
+    await expect(trigger).toHaveCSS('height', '28px')
+    await expect(trigger.locator('svg')).toHaveCSS('width', '16px')
+    await trigger.click()
+    const entry = page.getByRole('menuitem', { name: 'Open account', exact: true })
+    await expect(entry).toHaveCSS('font-size', '14px')
+    await page.keyboard.press('Escape')
+    await expect(trigger).toBeFocused()
+  }
+})
 
 test('application page and section headers keep a clear hierarchy without crowding actions', async ({ page }) => {
   for (const width of [1440, 390]) {
@@ -112,29 +158,4 @@ test('server-populated search follows native form reset and unavailable states @
   await search.press('Enter')
   await expect(search).toHaveValue('')
   await expect(clear).toBeHidden()
-})
-
-test('shared search has an icon and clearing follows typing, bound resets, and native values @cross-browser', async ({ page }) => {
-  await page.goto('/components/input', { waitUntil: 'domcontentloaded' })
-  const root = page.locator('[data-docs-layout="gallery"]')
-  const search = root.getByRole('searchbox', { name: 'Search', exact: true })
-  const clear = root.getByRole('button', { name: 'Clear Search', includeHidden: true })
-  await expect(root.locator('.fve-input-frame svg').first()).toBeVisible()
-  await expect(clear).toBeHidden()
-  await search.fill('customers')
-  await expect(clear).toBeVisible()
-  await search.evaluate((el: HTMLInputElement) => { el.value = '' })
-  await expect(search).toHaveValue('')
-  await expect(clear).toBeHidden()
-  await search.fill('orders')
-  await clear.focus()
-  await page.keyboard.press('Enter')
-  await expect(search).toBeFocused()
-  await expect(search).toHaveValue('')
-  await expect(clear).toBeHidden()
-  // Value changes need not originate in an input event (autofill / bound updates).
-  await search.evaluate((el: HTMLInputElement) => { el.value = 'customers' })
-  await expect(clear).toBeVisible()
-  await clear.click()
-  await expect(search).toHaveValue('')
 })

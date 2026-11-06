@@ -20,121 +20,187 @@ type DrawerSize =
     | Large
 
 /// <category>drawer</category>
-[<NoEquality; NoComparison>]
-type DrawerConfig =
-    private
-        { id:string
-          title:string
-          body:HtmlElement
-          description:string option
-          footer:HtmlElement option
-          initialFocusId:string
-          side:DrawerSide
-          size:DrawerSize
-          container:string option
-          isOpen:bool
-          attributes:HtmlAttribute list }
+[<AutoOpen>]
+module DrawerAttributes =
+    type Html with
+        static member _side(value: DrawerSide) =
+            Html._attr (
+                "side",
+                match value with
+                | DrawerSide.Start -> "start"
+                | DrawerSide.End -> "end"
+                | DrawerSide.Top -> "top"
+                | DrawerSide.Bottom -> "bottom"
+            )
+
+        static member _size(value: DrawerSize) =
+            Html._attr ("size", if value = DrawerSize.Large then "large" else "standard")
+
+module internal Drawer =
+    let private optional name attributes =
+        ComponentElement.value name attributes
+        |> Option.map (fun value ->
+            NativeOverlay.requireText name $"A supplied {name} cannot be empty." value
+            value)
+
+    let footer attributes children =
+        ComponentPart(
+            "Drawer",
+            "footer",
+            ComponentElement.render
+                "div"
+                [ _class "flex shrink-0 flex-wrap justify-end gap-3 border-t border-[var(--fve-border)] p-5" ]
+                attributes
+                children
+        )
+        :> HtmlElement
+
+    let render attributes children =
+        let id = ComponentElement.required "id" attributes
+
+        if id |> Seq.exists Char.IsWhiteSpace then
+            invalidArg "id" "A stable drawer ID without whitespace is required."
+
+        let title = ComponentElement.required "label" attributes
+        let description = optional "description" attributes
+
+        let focus =
+            optional "initial-focus" attributes |> Option.defaultValue (id + "-close")
+
+        let container = optional "container" attributes
+
+        let isOpen =
+            match ComponentElement.attribute "open" attributes with
+            | Some { Value = ValueNone } -> true
+            | Some { Value = ValueSome value } -> value <> "false"
+            | None -> false
+
+        if isOpen && container.IsNone then
+            invalidArg
+                "open"
+                "An initially open drawer requires a container; use fveDrawerTrigger for a document-modal drawer."
+
+        let side =
+            ComponentElement.choice "side" "end" [ "start"; "end"; "top"; "bottom" ] attributes
+
+        let size =
+            ComponentElement.choice "size" "standard" [ "standard"; "large" ] attributes
+
+        let parts, body = ComponentParts.split "Drawer" children
+        let titleId = id + "-title"
+        let descriptionId = id + "-description"
+
+        let describedby =
+            [ if description.IsSome then
+                  yield descriptionId
+              match ComponentElement.value "aria-describedby" attributes with
+              | Some value -> yield value
+              | None -> () ]
+            |> String.concat " "
+
+        let sideClasses =
+            match side with
+            | "start" -> "inset-y-0 left-0 ml-0 mr-auto h-dvh border-r"
+            | "end" -> "inset-y-0 right-0 ml-auto mr-0 h-dvh border-l"
+            | "top" -> "inset-x-0 top-0 mb-auto mt-0 w-full max-w-none border-b"
+            | _ -> "inset-x-0 bottom-0 mb-0 mt-auto w-full max-w-none border-t"
+
+        let sizeClasses =
+            match side, size with
+            | ("start" | "end"), "standard" -> "w-full max-w-full sm:w-96"
+            | ("start" | "end"), _ -> "w-full max-w-full sm:w-[42rem]"
+            | _, "standard" -> "h-[min(20rem,calc(100%-3rem))]"
+            | _ -> "h-[min(36rem,calc(100%-3rem))]"
+
+        let defaults =
+            [ yield _id id
+              yield _ariaLabelledby titleId
+              yield _ariaModal container.IsNone
+              yield _data ("fve-initial-focus", focus)
+              if container.IsSome then
+                  yield _open isOpen
+                  yield _data ("fve-contained", "true")
+              if describedby <> "" then
+                  yield _ariaDescribedby describedby
+              yield
+                  _class (
+                      ComponentHtml.classes
+                          [ (if container.IsSome then
+                                 "absolute max-h-full"
+                             else
+                                 "fixed max-h-none")
+                            "rounded-none border-[var(--fve-border)] bg-[var(--fve-background)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]"
+                            sizeClasses
+                            (if container.IsSome then
+                                 sideClasses.Replace("h-dvh", "h-full")
+                             else
+                                 sideClasses) ]
+                  ) ]
+
+        let content =
+            ComponentElement.render
+                "dialog"
+                defaults
+                (ComponentHtml.safeAttributes
+                    [ "id"
+                      "label"
+                      "description"
+                      "initial-focus"
+                      "container"
+                      "size"
+                      "side"
+                      "open"
+                      "aria-labelledby"
+                      "aria-describedby"
+                      "aria-modal"
+ ]
+                    attributes)
+                [ div {
+                      _class "flex h-full flex-col"
+
+                      div {
+                          _class
+                              "flex shrink-0 items-start justify-between gap-4 border-b border-[var(--fve-border)] p-5"
+
+                          div {
+                              _class "min-w-0 flex-1"
+
+                              h2 {
+                                  _id titleId
+                                  _class "text-lg font-semibold [overflow-wrap:anywhere]"
+                                  title
+                              }
+
+                              match description with
+                              | Some description ->
+                                  p {
+                                      _id descriptionId
+                                      _class "mt-1 text-sm text-[var(--fve-muted-text)]"
+                                      description
+                                  }
+                              | None -> ()
+                          }
+
+                          NativeOverlay.closeButton id (id + "-close") "Close"
+                      }
+
+                      div {
+                          _class "min-h-0 flex-1 overflow-y-auto p-5"
+                          body
+                      }
+
+                      match Map.tryFind "footer" parts with
+                      | Some footer -> footer
+                      | None -> ()
+                  } ]
+
+        let content = match container with Some background -> NativeOverlay.contained id background true content | None -> content
+        NativeOverlay.enhance "fve-drawer" id true content
 
 /// <category>drawer</category>
-[<RequireQualifiedAccess>]
-module Drawer =
-    let create id title body =
-        NativeOverlay.requireText (nameof id) "A stable drawer ID is required." id
-        NativeOverlay.requireText (nameof title) "A drawer title is required." title
-        { id = id
-          title = title
-          body = body
-          description = None
-          footer = None
-          initialFocusId = $"{id}-close"
-          side = DrawerSide.End
-          size = DrawerSize.Standard
-          container = None
-          isOpen = false
-          attributes = [] }
-
-    let withDescription description (config:DrawerConfig) =
-        NativeOverlay.requireText (nameof description) "A drawer description cannot be empty." description
-        { config with description = Some description }
-
-    let withFooter footer (config:DrawerConfig) = { config with footer = Some footer }
-
-    let withInitialFocus initialFocusId (config:DrawerConfig) =
-        NativeOverlay.requireText (nameof initialFocusId) "A drawer initial-focus ID cannot be empty." initialFocusId
-        { config with initialFocusId = initialFocusId }
-
-    let withSide side (config:DrawerConfig) = { config with side = side }
-
-    let withSize size (config:DrawerConfig) = { config with size = size }
-
-    /// Consumer-owned dimensions and route lifecycle; structural overlay attributes remain protected.
-    let withAttributes attributes (config:DrawerConfig) = { config with attributes = config.attributes @ attributes }
-
-    /// Opt into an app-contained dialog. Render beside this background inside a positioned viewport.
-    let withContainer backgroundId (config:DrawerConfig) =
-        NativeOverlay.requireText (nameof backgroundId) "A drawer background ID is required." backgroundId
-        { config with container=Some backgroundId }
-
-    /// Server-owned initial visibility for a contained drawer (also available without JavaScript).
-    let withOpen isOpen (config:DrawerConfig) = { config with isOpen=isOpen }
-
-    let trigger label (config:DrawerConfig) =
-        match config.container with
-        | Some _ -> NativeOverlay.containedTrigger config.id config.initialFocusId label
-        | None -> NativeOverlay.trigger config.id (Some config.initialFocusId) label
-
-    let private closeButton label (config:DrawerConfig) =
-        NativeOverlay.closeButton config.id $"{config.id}-close" label
-
-    let render (config:DrawerConfig) =
-        if config.isOpen && config.container.IsNone then invalidArg (nameof config) "withOpen requires withContainer; use the native trigger for a document-modal drawer."
-        let titleId = $"{config.id}-title"
-        let descriptionId = $"{config.id}-description"
-        let sideClasses =
-            match config.side with
-            | DrawerSide.Start -> "inset-y-0 left-0 ml-0 mr-auto h-dvh border-r"
-            | DrawerSide.End -> "inset-y-0 right-0 ml-auto mr-0 h-dvh border-l"
-            | DrawerSide.Top -> "inset-x-0 top-0 mb-auto mt-0 w-full max-w-none border-b"
-            | DrawerSide.Bottom -> "inset-x-0 bottom-0 mb-0 mt-auto w-full max-w-none border-t"
-        let sizeClasses =
-            match config.side, config.size with
-            | (DrawerSide.Start | DrawerSide.End), DrawerSize.Standard -> "w-full max-w-full sm:w-96"
-            | (DrawerSide.Start | DrawerSide.End), DrawerSize.Large -> "w-full max-w-full sm:w-[42rem]"
-            | (DrawerSide.Top | DrawerSide.Bottom), DrawerSize.Standard -> "h-[min(20rem,calc(100%-3rem))]"
-            | (DrawerSide.Top | DrawerSide.Bottom), DrawerSize.Large -> "h-[min(36rem,calc(100%-3rem))]"
-        let content = dialog {
-            _id config.id
-            _ariaLabelledby titleId
-            _ariaModal config.container.IsNone
-            if config.container.IsSome then _open config.isOpen
-            if config.description.IsSome then _ariaDescribedby descriptionId
-            for attribute in ComponentHtml.safeAttributes [ "id"; "class"; "open"; "aria-labelledby"; "aria-describedby"; "aria-modal"; "data-on:close"; "data-on:click" ] config.attributes do attribute
-            _dataOn ("click", NativeOverlay.dismissOnBackdropExpression config.id)
-            _dataOn ("close", NativeOverlay.restoreFocusExpression config.id)
-            _class (ComponentHtml.classes [
-                (if config.container.IsSome then "absolute max-h-full" else "fixed max-h-none")
-                " rounded-none border-[var(--fve-border)] bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]"
-                sizeClasses
-                (if config.container.IsSome then sideClasses.Replace("h-dvh", "h-full") else sideClasses) ])
-            div {
-                _class "flex h-full flex-col"
-                div {
-                    _class "flex shrink-0 items-start justify-between gap-4 border-b border-[var(--fve-border)] p-5"
-                    div {
-                        _class "min-w-0 flex-1"
-                        h2 { _id titleId; _class "text-lg font-semibold [overflow-wrap:anywhere]"; config.title }
-                        match config.description with
-                        | Some description -> p { _id descriptionId; _class "mt-1 text-sm text-[var(--fve-muted-text)]"; description }
-                        | None -> ()
-                    }
-                    closeButton "Close" config
-                }
-                div { _class "min-h-0 flex-1 overflow-y-auto p-5"; config.body }
-                match config.footer with
-                | Some footer -> div { _class "flex shrink-0 flex-wrap justify-end gap-3 border-t border-[var(--fve-border)] p-5"; footer }
-                | None -> ()
-            }
-        }
-        match config.container with
-        | Some background -> NativeOverlay.contained config.id background true content
-        | None -> content
+[<AutoOpen>]
+module DrawerDsl =
+    let fveDrawer = ComponentElementBuilder(Drawer.render)
+    let fveDrawerFooter = ComponentElementBuilder(Drawer.footer)
+    let fveDrawerTrigger = ComponentTriggerBuilder(NativeOverlay.renderTrigger)
+    let fveDrawerClose = ComponentElementBuilder(NativeOverlay.renderClose)

@@ -5,95 +5,131 @@ open FSharp.ViewEngine
 open type Html
 open type Datastar
 
-/// <category>dialog</category>
-[<NoEquality; NoComparison>]
-type DialogConfig =
-    private
-        { id:string
-          title:string
-          body:HtmlElement
-          description:string option
-          footer:HtmlElement option
-          initialFocusId:string option
-          dismissOnBackdrop:bool
-          container:string option
-          isOpen:bool
-          attributes:HtmlAttribute list }
+module internal Dialog =
+    let private optional name attributes =
+        ComponentElement.value name attributes
+        |> Option.map (fun value ->
+            NativeOverlay.requireText name $"A supplied {name} cannot be empty." value
+            value)
+
+    let footer attributes children =
+        ComponentPart(
+            "Dialog",
+            "footer",
+            ComponentElement.render "div" [ _class "mt-6 flex justify-end gap-3" ] attributes children
+        )
+        :> HtmlElement
+
+    let render attributes children =
+        let id = ComponentElement.required "id" attributes
+
+        if id |> Seq.exists Char.IsWhiteSpace then
+            invalidArg "id" "A stable dialog ID without whitespace is required."
+
+        let title = ComponentElement.required "label" attributes
+        let description = optional "description" attributes
+        let focus = optional "initial-focus" attributes
+        let container = optional "container" attributes
+
+        let isOpen =
+            match ComponentElement.attribute "open" attributes with
+            | Some { Value = ValueNone } -> true
+            | Some { Value = ValueSome value } -> value <> "false"
+            | None -> false
+
+        if isOpen && container.IsNone then
+            invalidArg
+                "open"
+                "An initially open dialog requires a container; use fveDialogTrigger for a document-modal dialog."
+
+        let dismiss =
+            ComponentElement.choice "dismiss-on-backdrop" "false" [ "true"; "false" ] attributes = "true"
+
+        let parts, body = ComponentParts.split "Dialog" children
+        let titleId = id + "-title"
+        let descriptionId = id + "-description"
+
+        let describedby =
+            [ if description.IsSome then
+                  yield descriptionId
+              match ComponentElement.value "aria-describedby" attributes with
+              | Some value -> yield value
+              | None -> () ]
+            |> String.concat " "
+
+        let defaults =
+            [ yield _id id
+              yield _ariaLabelledby titleId
+              yield _ariaModal container.IsNone
+              if container.IsSome then
+                  yield _open isOpen
+                  yield _data ("fve-contained", "true")
+              if describedby <> "" then
+                  yield _ariaDescribedby describedby
+              match focus with
+              | Some focus -> yield _data ("fve-initial-focus", focus)
+              | None -> ()
+              yield
+                  _class (
+                      (if container.IsSome then
+                           "absolute inset-0 max-h-[calc(100%-2rem)] overflow-auto "
+                       else
+                           "")
+                      + "m-auto w-[min(32rem,calc(100%-2rem))] rounded-[var(--fve-radius-panel)] border-0 bg-[var(--fve-background)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]"
+                  ) ]
+
+        let content =
+            ComponentElement.render
+                "dialog"
+                defaults
+                (ComponentHtml.safeAttributes
+                    [ "id"
+                      "label"
+                      "description"
+                      "initial-focus"
+                      "container"
+                      "dismiss-on-backdrop"
+                      "open"
+                      "aria-labelledby"
+                      "aria-describedby"
+                      "aria-modal"
+ ]
+                    attributes)
+                [ div {
+                      _class "p-6"
+
+                      h2 {
+                          _id titleId
+                          _class "text-lg font-semibold"
+                          title
+                      }
+
+                      match description with
+                      | Some description ->
+                          p {
+                              _id descriptionId
+                              _class "mt-2 text-sm text-[var(--fve-muted-text)]"
+                              description
+                          }
+                      | None -> ()
+
+                      div {
+                          _class "mt-4"
+                          body
+                      }
+
+                      match Map.tryFind "footer" parts with
+                      | Some footer -> footer
+                      | None -> ()
+                  } ]
+
+        let content = match container with Some background -> NativeOverlay.contained id background dismiss content | None -> content
+        NativeOverlay.enhance "fve-dialog" id dismiss content
 
 /// <category>dialog</category>
-[<RequireQualifiedAccess>]
-module Dialog =
-    let create id title body =
-        NativeOverlay.requireText (nameof id) "A stable dialog ID is required." id
-        NativeOverlay.requireText (nameof title) "A dialog title is required." title
-        { id = id
-          title = title
-          body = body
-          description = None
-          footer = None
-          initialFocusId = None
-          dismissOnBackdrop = false
-          container = None
-          isOpen = false
-          attributes = [] }
-
-    let withDescription description (config:DialogConfig) =
-        NativeOverlay.requireText (nameof description) "A dialog description cannot be empty." description
-        { config with description = Some description }
-
-    let withFooter footer (config:DialogConfig) = { config with footer = Some footer }
-
-    let withAttributes attributes (config:DialogConfig) = { config with attributes = attributes }
-
-    let withInitialFocus initialFocusId (config:DialogConfig) =
-        NativeOverlay.requireText (nameof initialFocusId) "A dialog initial-focus ID cannot be empty." initialFocusId
-        { config with initialFocusId = Some initialFocusId }
-
-    let dismissOnBackdrop (config:DialogConfig) = { config with dismissOnBackdrop = true }
-
-    /// App-contained presentation; the named sibling background becomes inert while open.
-    let withContainer backgroundId (config:DialogConfig) =
-        NativeOverlay.requireText (nameof backgroundId) "A dialog background ID is required." backgroundId
-        { config with container=Some backgroundId }
-
-    /// Server-owned initial visibility for a contained dialog, including native fallback.
-    let withOpen isOpen (config:DialogConfig) = { config with isOpen=isOpen }
-
-    let trigger label (config:DialogConfig) =
-        match config.container with
-        | Some _ -> NativeOverlay.containedTrigger config.id (config.initialFocusId |> Option.defaultValue (config.id+"-close")) label
-        | None -> NativeOverlay.trigger config.id config.initialFocusId label
-
-    let closeButton label (config:DialogConfig) =
-        NativeOverlay.closeButton config.id $"{config.id}-close" label
-
-    let render config =
-        if config.isOpen && config.container.IsNone then invalidArg (nameof config) "withOpen requires withContainer; use the native trigger for a document-modal dialog."
-        let titleId = $"{config.id}-title"
-        let descriptionId = $"{config.id}-description"
-        let content = dialog {
-            _id config.id
-            _ariaLabelledby titleId
-            _ariaModal config.container.IsNone
-            if config.container.IsSome then _open config.isOpen
-            if config.description.IsSome then _ariaDescribedby descriptionId
-            for attribute in ComponentHtml.safeAttributes [ "id"; "class"; "open"; "aria-labelledby"; "aria-describedby"; "aria-modal"; "data-on:close"; "data-on:click" ] config.attributes do attribute
-            _dataOn ("close", NativeOverlay.restoreFocusExpression config.id)
-            if config.dismissOnBackdrop then
-                _dataOn ("click", NativeOverlay.dismissOnBackdropExpression config.id)
-            _class ((if config.container.IsSome then "absolute inset-0 max-h-[calc(100%-2rem)] overflow-auto " else "")+"m-auto w-[min(32rem,calc(100%-2rem))] rounded-[var(--fve-radius-panel)] border-0 bg-[var(--fve-surface)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]")
-            div {
-                _class "p-6"
-                h2 { _id titleId; _class "text-lg font-semibold"; config.title }
-                match config.description with
-                | Some description -> p { _id descriptionId; _class "mt-2 text-sm text-[var(--fve-muted-text)]"; description }
-                | None -> ()
-                div { _class "mt-4"; config.body }
-                match config.footer with
-                | Some footer -> div { _class "mt-6 flex justify-end gap-3"; footer }
-                | None -> ()
-            }
-        }
-        match config.container with
-        | Some background -> NativeOverlay.contained config.id background config.dismissOnBackdrop content
-        | None -> content
+[<AutoOpen>]
+module DialogDsl =
+    let fveDialog = ComponentElementBuilder(Dialog.render)
+    let fveDialogFooter = ComponentElementBuilder(Dialog.footer)
+    let fveDialogTrigger = ComponentTriggerBuilder(NativeOverlay.renderTrigger)
+    let fveDialogClose = ComponentElementBuilder(NativeOverlay.renderClose)

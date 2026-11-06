@@ -1,0 +1,12 @@
+{
+  "name": "fsharp-viewengine-example",
+  "private": true,
+  "scripts": {
+    "build:css": "tailwindcss --input input.css --output wwwroot/examples/assets/css/output.css --minify"
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.2.2",
+    "@tailwindcss/typography": "0.5.19",
+    "tailwindcss": "4.2.2"
+  }
+}

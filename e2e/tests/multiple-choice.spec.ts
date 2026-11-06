@@ -14,7 +14,7 @@ async function values(root: Locator, name: string) {
 test('multiple Select separates active and selected options and submits ordered repeated values', crossBrowser, async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/components/select')
+  await page.goto('/components/select?fixtures=1')
   const example = page.locator('#components-select-multiple')
   const trigger = example.getByRole('button', { name: 'Team members', exact: true })
   const list = example.getByRole('listbox', { name: 'Team members', exact: true })
@@ -72,10 +72,95 @@ test('multiple Select separates active and selected options and submits ordered 
   expect(errors).toEqual([])
 })
 
+test('composed Select children preserve grouped icon items, selection, and focus', crossBrowser, async ({ page }) => {
+  await page.goto('/components/select')
+  const example = page.locator('#components-select-composed')
+  const trigger = example.getByRole('combobox', { name: 'Composed status', exact: true })
+  await trigger.click()
+  const list = example.getByRole('listbox', { name: 'Composed status', exact: true })
+  await expect(example.locator('#composed-status-content')).toBeVisible()
+  await expect(list).toBeVisible()
+  await expect(trigger).toHaveAttribute('aria-controls', (await list.getAttribute('id'))!)
+  await expect(list.getByRole('group', { name: 'Current', exact: true })).toBeVisible()
+  await expect(list.getByRole('group', { name: 'Upcoming', exact: true }).getByRole('option')).toHaveCount(2)
+  for (const name of ['Active', 'Pending', 'Scheduled']) {
+    const option = list.getByRole('option', { name, exact: true })
+    await expect(option.locator('svg')).toHaveAttribute('aria-hidden', 'true')
+    await expect(option).toContainText(name)
+  }
+  const accessibility = await new AxeBuilder({ page }).include('#components-select-composed').withTags(['wcag2a', 'wcag2aa']).analyze()
+  expect(accessibility.violations).toEqual([])
+  await trigger.press('End')
+  await trigger.press('Enter')
+  await expect(trigger).toHaveText('Scheduled')
+  await expect(trigger).toBeFocused()
+  await expect.poll(() => values(example, 'composedStatus')).toEqual(['scheduled'])
+  await trigger.click()
+  await list.getByRole('option', { name: 'Pending', exact: true }).click()
+  await expect(trigger).toHaveText('Pending')
+  await expect.poll(() => values(example, 'composedStatus')).toEqual(['pending'])
+  await expect(trigger).toBeFocused()
+})
+
+test('remote Select instances isolate queries and resume a cancelled search without reopening after Escape', crossBrowser, async ({ page }) => {
+  await page.goto('/components/select?fixtures=1')
+  const example = page.locator('#components-select-search-isolation')
+  const first = example.getByRole('button', { name: 'First item', exact: true })
+  const second = example.getByRole('button', { name: 'Second item', exact: true })
+  const firstSearch = example.locator('#fve-select-firstitem-search')
+  const secondSearch = example.locator('#fve-select-seconditem-search')
+  const firstPopup = example.locator('#fve-select-firstitem-popup')
+  const secondPopup = example.locator('#fve-select-seconditem-popup')
+  const query = (url: string, key: string, value: string) => {
+    const target = new URL(url)
+    return target.pathname === '/components/items/search' && JSON.parse(target.searchParams.get('datastar') || '{}')[key] === value
+  }
+  let releaseFirst!: () => void
+  const held = new Promise<void>(resolve => { releaseFirst = resolve })
+  await page.route(url => query(url.href, 'firstitem_query', 'proj'), async route => {
+    await held
+    await route.continue().catch(() => {}) // The component may already have aborted it.
+  }, { times: 1 })
+  try {
+    await first.click()
+    const firstRequest = page.waitForRequest(request => query(request.url(), 'firstitem_query', 'proj'))
+    await firstSearch.fill('proj')
+    await expect(firstPopup.getByRole('status')).toHaveText('Loading items')
+    const pending = await firstRequest
+    const cancelled = page.waitForEvent('requestfailed', { predicate: request => request === pending })
+    await second.click()
+    releaseFirst()
+    await cancelled
+  } finally {
+    releaseFirst()
+  }
+  const secondRequest = page.waitForRequest(request => query(request.url(), 'seconditem_query', 'shared'))
+  await secondSearch.fill('shared')
+  const outgoing = new URL((await secondRequest).url())
+  const signals = JSON.parse(outgoing.searchParams.get('datastar')!)
+  expect(signals.seconditem_query).toBe('shared')
+  expect(signals).not.toHaveProperty('firstitem_query')
+  await secondPopup.getByRole('option', { name: 'Shared files', exact: true }).click()
+  await expect.poll(() => values(example, 'seconditem')).toEqual(['102'])
+  await expect.poll(() => values(example, 'firstitem')).toEqual([''])
+  await first.click()
+  await expect(firstSearch).toHaveValue('proj')
+  await firstPopup.getByRole('option', { name: 'Project notes', exact: true }).click()
+  await expect.poll(() => values(example, 'firstitem')).toEqual(['101'])
+  await expect.poll(() => values(example, 'seconditem')).toEqual(['102'])
+  await first.click()
+  await firstSearch.fill('arch')
+  await firstSearch.press('Escape')
+  // Wait beyond the documented input debounce: its delayed action must not reopen the popup.
+  await page.waitForTimeout(400)
+  await expect(first).toHaveAttribute('aria-expanded', 'false')
+  await expect(first).toBeFocused()
+})
+
 test('multiple searchable Select keeps search separate, toggles with Enter, and clears from its popup', crossBrowser, async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/components/select')
+  await page.goto('/components/select?fixtures=1')
   const example = page.locator('#components-select-search-multiple')
   const trigger = example.getByRole('button', { name: 'Search members', exact: true })
   const list = example.getByRole('listbox', { name: 'Search members', exact: true })
@@ -116,13 +201,11 @@ test('multiple searchable Select keeps search separate, toggles with Enter, and 
   expect(errors).toEqual([])
 })
 
-for (const kind of ['select']) {
+for (const kind of ['select', 'combobox']) {
   test(`multiple ${kind} validates native POST values and preserves edits through form morphs`, crossBrowser, async ({ page }) => {
-    await page.goto(`/components/${kind}`)
+    await page.goto('/components/select?fixtures=1')
     const form = page.getByRole('form', { name: kind === 'select' ? 'Project reviewers' : 'Project assignees', exact: true })
-    const control = kind === 'select'
-      ? form.getByRole('button', { name: 'Reviewers', exact: true })
-      : form.getByRole('combobox', { name: 'Assignees', exact: true })
+    const control = form.getByRole('button', { name: kind === 'select' ? 'Reviewers' : 'Assignees', exact: true })
     const submit = form.getByRole('button', { name: kind === 'select' ? 'Validate reviewers' : 'Validate assignees' })
     await submit.click()
     await expect(form.getByRole('alert')).toHaveText('Choose one to three available members.')
@@ -157,7 +240,7 @@ for (const kind of ['select']) {
 
 for (const remote of [false, true]) {
   test(`${remote ? 'remote' : 'static'} Select all reacts to clearing and changing search without changing selection`, crossBrowser, async ({ page }) => {
-    await page.goto('/components/select')
+    await page.goto('/components/select?fixtures=1')
     const example = page.locator(remote ? '#components-select-search-multiple-remote' : '#components-select-search-multiple')
     const label = remote ? 'Remote members' : 'Search members'
     await example.getByRole('button', { name: label, exact: true }).click()
@@ -193,7 +276,7 @@ for (const remote of [false, true]) {
 test('remote multiple searchable Select retains selected labels across result, empty, error, and retry morphs', crossBrowser, async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/components/select')
+  await page.goto('/components/select?fixtures=1')
   const example = page.locator('#components-select-search-multiple-remote')
   const trigger = example.getByRole('button', { name: 'Remote members', exact: true })
   await trigger.click()
@@ -236,7 +319,7 @@ test('remote multiple searchable Select cancels stale results immediately and pr
     await route.fulfill({ response })
     finished()
   })
-  await page.goto('/components/select')
+  await page.goto('/components/select?fixtures=1')
   const example = page.locator('#components-select-search-multiple-remote')
   const trigger = example.getByRole('button', { name: 'Remote members', exact: true })
   await trigger.click()
@@ -258,6 +341,8 @@ test('remote multiple searchable Select cancels stale results immediately and pr
 })
 
 test('remote whole-field morph preserves query, focus, and selections absent from results', crossBrowser, async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
   let received!: () => void
@@ -268,7 +353,7 @@ test('remote whole-field morph preserves query, focus, and selections absent fro
     await gate
     await route.fulfill({ response })
   })
-  await page.goto('/components/select')
+  await page.goto('/components/select?fixtures=1')
   const example = page.locator('#components-select-search-multiple-remote')
   const trigger = example.getByRole('button', { name: 'Remote members', exact: true })
   await trigger.click()
@@ -289,6 +374,7 @@ test('remote whole-field morph preserves query, focus, and selections absent fro
   await input.click()
   await expect(example.getByRole('option', { name: 'Jamie Lee' })).toHaveAttribute('aria-selected', 'true')
   await expect(example.getByRole('option', { name: 'Alex Morgan' })).toHaveCount(0)
+  expect(errors).toEqual([])
 })
 
 test('remote requests cancel on same-document navigation without resurrecting removed fields', crossBrowser, async ({ page }) => {
@@ -305,7 +391,7 @@ test('remote requests cancel on same-document navigation without resurrecting re
     await route.fulfill({ response })
     finished()
   })
-  await page.goto('/components/select')
+  await page.goto('/components/select?fixtures=1')
   await page.evaluate(() => { (window as any).multipleChoiceSession = 'retained' })
   const trigger = page.getByRole('button', { name: 'Remote members', exact: true })
   await trigger.click()
@@ -323,21 +409,23 @@ test('remote requests cancel on same-document navigation without resurrecting re
 })
 
 for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
-  test(`multiple Select modes remain accessible without overflow at ${width}px ${scale}x`, async ({ page }, testInfo) => {
+  test(`multiple Select modes and composed single Select remain accessible without overflow at ${width}px ${scale}x`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 1000 })
-    await page.goto('/components/select')
-    for (const [id, label] of [['components-select-multiple', 'Team members'], ['components-select-search-multiple', 'Search members']] as const) {
+    await page.goto('/components/select?fixtures=1')
+    for (const [id, label, role] of [['components-select-multiple', 'Team members', 'button'], ['components-select-search-multiple', 'Search members', 'button'], ['components-select-composed', 'Composed status', 'combobox']] as const) {
       const example = page.locator(`#${id}`)
       for (const dark of [false, true]) {
         await page.evaluate(({ dark, scale }) => {
           document.documentElement.classList.toggle('dark', dark)
           document.documentElement.style.fontSize = `${100 * scale}%`
         }, { dark, scale })
-        const control = example.getByRole('button', { name: label, exact: true })
+        const control = example.getByRole(role, { name: label, exact: true })
         await control.click()
         await expect(example.getByRole('listbox')).toBeVisible()
         await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1)
-        const box = (await example.getByRole('listbox').boundingBox())!
+        const list = example.getByRole('listbox')
+        expect(await list.evaluate(element => element.scrollWidth - element.clientWidth)).toBeLessThanOrEqual(1)
+        const box = (await list.boundingBox())!
         expect(box.x).toBeGreaterThanOrEqual(0)
         expect(box.x + box.width).toBeLessThanOrEqual(width + 1)
         expect((await new AxeBuilder({ page }).include(`#${id}`).analyze()).violations).toEqual([])

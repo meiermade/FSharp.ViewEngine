@@ -1,131 +1,42 @@
 namespace FSharp.ViewEngine.Components
 
-open System
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
-/// <category>switch</category>
-[<RequireQualifiedAccess>]
-type SwitchLayout =
-    | Inline
-    | Stacked
+module internal Switch =
+    let private flag name attributes =
+        ComponentElement.attribute name attributes |> Option.exists (fun attribute -> attribute.Value <> ValueSome "false")
 
-/// <category>switch</category>
-[<NoEquality; NoComparison>]
-type SwitchConfig =
-    private
-        { name:string
-          id:string option
-          label:string
-          description:string option
-          validation:string option
-          size:ControlSize
-          layout:SwitchLayout
-          isChecked:bool
-          isDisabled:bool
-          isPending:bool }
-
-/// <category>switch</category>
-[<RequireQualifiedAccess>]
-module Switch =
-    let create name label =
-        if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "A form name is required."
-        if String.IsNullOrWhiteSpace label then invalidArg (nameof label) "A switch label is required."
-        { name = name
-          id = None
-          label = label
-          description = None
-          validation = None
-          size = ControlSize.Medium
-          layout = SwitchLayout.Inline
-          isChecked = false
-          isDisabled = false
-          isPending = false }
-
-    let withId id (config:SwitchConfig) =
-        if String.IsNullOrWhiteSpace id then invalidArg (nameof id) "A stable switch ID is required."
-        { config with id = Some id }
-    let withDescription description (config:SwitchConfig) = { config with description = Some description }
-    let withValidation message (config:SwitchConfig) = { config with validation = Some message }
-    let withSize size (config:SwitchConfig) = { config with size = size }
-    let withLayout layout (config:SwitchConfig) = { config with layout = layout }
-    let withChecked isChecked (config:SwitchConfig) = { config with isChecked = isChecked }
-    let disabled (config:SwitchConfig) = { config with isDisabled = true }
-    let pending (config:SwitchConfig) = { config with isPending = true }
-
-    let render (config:SwitchConfig) =
-        let token = config.id |> Option.defaultValue config.name |> ComponentHtml.signalToken
-        let fieldId = $"fve-switch-{token}"
-        let descriptionId = $"{fieldId}-description"
-        let validationId = $"{fieldId}-validation"
-        let valueSignal = $"{token}_enabled"
-        let initialValue = if config.isChecked then "true" else "false"
-        let unavailable = config.isDisabled || config.isPending
-        let describedBy =
-            [ if config.description.IsSome then descriptionId
-              if config.validation.IsSome then validationId ]
-            |> String.concat " "
-        let trackSize, thumbSize, checkedTranslation =
-            match config.size with
-            | ControlSize.Small -> "h-4 w-7", "size-3", "translate-x-3"
-            | ControlSize.Medium -> "h-5 w-9", "size-4", "translate-x-4"
-            | ControlSize.Large -> "h-6 w-11", "size-5", "translate-x-5"
-        let trackClasses =
-            ComponentHtml.classes [
-                $"block {trackSize} rounded-full bg-[var(--fve-neutral-subtle)] ring-1 ring-inset transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:ring-2 peer-focus-visible:ring-offset-2"
-                if config.validation.IsSome then "ring-[var(--fve-critical-ring)] peer-focus-visible:ring-[var(--fve-critical-ring)]" else "ring-[var(--fve-border)] peer-focus-visible:ring-[var(--fve-brand-ring)]" ]
-        div {
-            _class "min-w-0 [overflow-wrap:anywhere]"
-            _dataSignals $"{{{valueSignal}: {initialValue}}}"
-            label {
-                _for fieldId
-                _class (match config.layout with SwitchLayout.Inline -> "flex min-w-0 flex-wrap cursor-pointer items-start justify-between gap-4 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50" | SwitchLayout.Stacked -> "grid min-w-0 cursor-pointer justify-items-start gap-2 text-sm text-[var(--fve-text)] has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50")
-                span { _class "min-w-0 font-medium"; config.label }
-                span {
-                    _class (match config.layout with SwitchLayout.Inline -> "ml-auto flex shrink-0 items-center gap-2" | SwitchLayout.Stacked -> "flex shrink-0 items-center gap-2")
-                    if config.isPending then ComponentHtml.loadingGlyph ControlSize.Small
-                    span {
-                        _class "relative mt-0.5 shrink-0"
-                        input {
-                            _id fieldId
-                            _type "checkbox"
-                            _name config.name
-                            _value "true"
-                            _role "switch"
-                            _checked config.isChecked
-                            _disabled unavailable
-                            _ariaChecked config.isChecked
-                            _ariaDisabled unavailable
-                            _ariaInvalid config.validation.IsSome
-                            if config.isPending then _ariaBusy true
-                            _dataAttr ("aria-checked", $"${valueSignal} ? 'true' : 'false'")
-                            _dataBind valueSignal
-                            if String.IsNullOrEmpty describedBy |> not then _ariaDescribedby describedBy
-                            _class "peer sr-only"
-                        }
-                        span {
-                            _ariaHidden "true"
-                            _class trackClasses
-                        }
-                        span {
-                            _ariaHidden "true"
-                            _dataClass (checkedTranslation, $"${valueSignal}")
-                            _class $"pointer-events-none absolute left-0.5 top-0.5 {thumbSize} translate-x-0 rounded-full bg-white shadow-sm transition-transform"
-                        }
-                    }
-                }
+    let render attributes children =
+        ComponentContent.noChildren "fveSwitch" children
+        ComponentElement.choice "type" "checkbox" ["checkbox"] attributes |> ignore
+        let track, thumb, translation =
+            match ComponentElement.size (Some Size.Medium) attributes |> Option.get with
+            | Size.ExtraSmall -> "h-3.5 w-6", "after:size-2.5", "peer-checked:after:translate-x-2.5"
+            | Size.Small -> "h-4 w-7", "after:size-3", "peer-checked:after:translate-x-3"
+            | Size.Medium -> "h-5 w-9", "after:size-4", "peer-checked:after:translate-x-4"
+            | Size.Large -> "h-6 w-11", "after:size-5", "peer-checked:after:translate-x-5"
+            | Size.ExtraLarge -> "h-7 w-13", "after:size-6", "peer-checked:after:translate-x-6"
+        let readOnly = flag "readonly" attributes
+        let defaults = [
+            _type "checkbox"; _role "switch"; _value "true"
+            _class "peer absolute inset-0 z-10 m-0 size-full cursor-pointer opacity-0 disabled:cursor-not-allowed [&[readonly]]:cursor-default"
+            if readOnly then
+                _ariaReadonly true ]
+        let controlAttributes = ComponentHtml.safeAttributes (["size"] @ if readOnly || flag "disabled" attributes then ["required"] else []) attributes
+        (Html.el "fve-switch") {
+            _class "relative mt-0.5 inline-flex shrink-0 align-middle"
+            match ComponentElement.value "id" attributes with Some id -> _id (id + "-host") | None -> ()
+            input { for attribute in ComponentElement.attributes (defaults @ ComponentHtml.outerSignals controlAttributes) do attribute }
+            span {
+                _ariaHidden true
+                _class ("pointer-events-none relative block rounded-full bg-[var(--fve-neutral-subtle)] ring-1 ring-inset ring-[var(--fve-border)] transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--fve-brand-ring)] peer-aria-invalid:ring-[var(--fve-critical-ring)] peer-disabled:opacity-50 after:absolute after:left-0.5 after:top-0.5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:content-[''] forced-colors:ring-[ButtonText] forced-colors:peer-checked:bg-[Highlight] " + track + " " + thumb + " " + translation)
             }
-            match config.description with
-            | Some description -> p { _id descriptionId; _class "mt-1 pr-12 text-sm text-[var(--fve-muted-text)]"; description }
-            | None -> ()
-            match config.validation with
-            | Some message ->
-                p {
-                    _id validationId
-                    _role "alert"
-                    _class "mt-1 pr-12 text-sm text-[var(--fve-critical-text)]"
-                    message
-                }
-            | None -> ()
         }
+
+/// <category>switch</category>
+[<AutoOpen>]
+module SwitchDsl =
+    /// Native checkbox with switch semantics. Compose its label and feedback with Field.
+    let fveSwitch = ComponentElementBuilder(Switch.render)

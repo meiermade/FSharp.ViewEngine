@@ -1,18 +1,18 @@
-import { test, expect } from '@playwright/test'
+import { test, expect } from '../fixture'
 
-for (const [context, path, label] of [
-  ['catalog', '/components/button', 'Choose color theme'],
-  ['Example viewer', '/examples/application/accounts', 'Choose color theme'],
-  ['App mode', '/examples/specification/home?appMode=1', 'Choose color theme'],
+for (const [context, path] of [
+  ['catalog', '/components/button'],
+  ['Specification', '/examples/specification'],
+  ['API documentation', '/examples/api-documentation'],
 ]) {
   test(`${context} theme menu retains keyboard selection and focus @cross-browser`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 900 })
     await page.emulateMedia({ colorScheme: 'light' })
     await page.goto(path)
-    const trigger = page.getByRole('button', { name: label, exact: true })
+    const trigger = page.getByRole('button', { name: 'Choose color theme', exact: true })
     await trigger.focus()
     await page.keyboard.press('ArrowDown')
-    const menu = page.getByRole('menu', { name: label, exact: true })
+    const menu = page.getByRole('menu', { name: 'Choose color theme', exact: true })
     const system = menu.getByRole('menuitemradio', { name: 'System', exact: true })
     await expect(system).toHaveAttribute('aria-checked', 'true')
     await expect(system).toBeFocused()

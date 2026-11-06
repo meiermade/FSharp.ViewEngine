@@ -16,7 +16,7 @@ const centers = async (trigger: Locator, option: Locator) => {
 }
 
 test('ordinary Select aligns its selected option over the closed value and tracks page scroll @cross-browser', async ({ page }) => {
-  await page.goto('/components/select')
+  await page.goto('/components/select?fixtures=1')
   const panel = page.locator('#components-select-panel-preview')
   const trigger = panel.getByRole('combobox', { name: 'Update frequency' })
   await trigger.click()
@@ -51,7 +51,7 @@ test('ordinary Select aligns its selected option over the closed value and track
 test('Select trigger-edge and touch positioning remain visible @cross-browser', async ({ browser }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true })
   const page = await context.newPage()
-  await page.goto('/components/select')
+  await page.goto('/components/select?fixtures=1')
   const selectedPanel = page.locator('#components-select-panel-preview')
   const selectedTrigger = selectedPanel.getByRole('combobox', { name: 'Update frequency' })
   await selectedTrigger.scrollIntoViewIfNeeded()

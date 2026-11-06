@@ -1,51 +1,29 @@
 namespace FSharp.ViewEngine.Components
 
-open System
 open FSharp.ViewEngine
 open type Html
-open type Datastar
 
-/// <category>avatar</category>
-[<RequireQualifiedAccess>]
-type AvatarSize = Small | Medium | Large
-
-/// <category>avatar</category>
-[<NoEquality; NoComparison>]
-type AvatarConfig = private { name:string; source:string option; fallback:string; decorative:bool; size:AvatarSize }
-
-/// <category>avatar</category>
-[<RequireQualifiedAccess>]
-module Avatar =
-    let create name fallback =
-        if String.IsNullOrWhiteSpace name then invalidArg (nameof name) "An avatar name is required."
-        if String.IsNullOrWhiteSpace fallback then invalidArg (nameof fallback) "Avatar fallback text is required."
-        { name = name; source = None; fallback = fallback; decorative = false; size = AvatarSize.Medium }
-    let withImage source (config:AvatarConfig) = { config with source = Some source }
-    let decorative (config:AvatarConfig) = { config with decorative = true }
-    let withSize size (config:AvatarConfig) = { config with size = size }
-    let render config =
+module internal Avatar =
+    let render attributes children =
+        let decorative = ComponentElement.value "aria-hidden" attributes = Some "true"
+        if not decorative then ComponentElement.required "aria-label" attributes |> ignore
+        if List.isEmpty children then invalidArg "children" "Avatar fallback content is required."
+        let size = ComponentElement.size (Some Size.Medium) attributes |> Option.get
         let sizeClass =
-            match config.size with
-            | AvatarSize.Small -> "size-8"
-            | AvatarSize.Medium -> "size-10"
-            | AvatarSize.Large -> "size-12"
-        let accessibleName = if config.decorative then None else Some config.name
-        span {
-            match accessibleName with
-            | Some name -> _role "img"; _ariaLabel name
-            | None -> _ariaHidden true
-            _class ("relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--fve-neutral-subtle)] font-semibold text-[var(--fve-neutral-text)] " + sizeClass)
-            match config.source with
-            | Some source ->
-                img {
-                    _src source
-                    _alt ""
-                    _class "size-full object-cover"
-                }
-            | None ->
-                span {
-                    _ariaHidden true
-                    _class "text-sm"
-                    config.fallback
-                }
-        }
+            match size with
+            | Size.ExtraSmall -> "size-6" | Size.Small -> "size-8" | Size.Medium -> "size-10"
+            | Size.Large -> "size-12" | Size.ExtraLarge -> "size-14"
+        let content =
+            match ComponentElement.value "src" attributes with
+            | Some source -> img { _src source; _alt ""; _class "size-full object-cover" }
+            | None -> span { _ariaHidden true; _class "text-sm"; children }
+        ComponentElement.render "span"
+            ([ _class ("relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--fve-neutral-subtle)] font-semibold text-[var(--fve-neutral-text)] " + sizeClass) ]
+             @ if decorative then [_ariaHidden true] else [_role "img"])
+            (ComponentHtml.safeAttributes ["src"; "size"] attributes) [content]
+
+/// <category>avatar</category>
+[<AutoOpen>]
+module AvatarDsl =
+    /// A native avatar with accessible naming, optional image and ordinary fallback content.
+    let fveAvatar = ComponentElementBuilder(Avatar.render)

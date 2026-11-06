@@ -5,6 +5,9 @@ const shortcut = process.platform === 'darwin' ? 'Meta+K' : 'Control+K'
 
 test('Catalog Command ranks Table in Components and navigates after morphs @cross-browser', async ({ page }) => {
   await page.goto('/components/week-calendar')
+  const searchTrigger = page.getByRole('button', { name: 'Search documentation', exact: true })
+  await expect(searchTrigger.locator('svg')).toBeVisible()
+  await expect(searchTrigger).toHaveText(/^(?:⌘K|Ctrl\+K)$/)
   await page.evaluate(() => { (window as any).__commandDocument = 'same-document' })
   await page.keyboard.press(shortcut)
   const dialog = page.getByRole('dialog', { name: 'Search documentation', exact: true })
@@ -39,7 +42,90 @@ test('Catalog Command ranks Table in Components and navigates after morphs @cros
   await input.press('Escape')
   await expect(dialog).not.toBeVisible()
   await expect(page.getByRole('button', { name: 'Search documentation', exact: true })).toBeFocused()
+
+  for (const key of ['Meta+K', 'Control+K']) {
+    await page.keyboard.press(key)
+    await expect(input).toBeFocused()
+    await expect(input).toHaveValue('')
+    await expect(table).toBeVisible()
+
+    await input.fill('no-such-document')
+    await expect(dialog.getByText('No results found.', { exact: true })).toBeVisible()
+    await page.keyboard.press(key)
+    await expect(input).toHaveValue('')
+    await expect(input).toBeFocused()
+    await expect(dialog.getByText('No results found.', { exact: true })).not.toBeVisible()
+    await expect(dialog.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+
+    await input.fill('table')
+    await input.press('Escape')
+    await expect(dialog).not.toBeVisible()
+  }
+
+  // Exercise both navigation to Select and selecting the already-current page.
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.keyboard.press(shortcut)
+    await input.fill('sel')
+    await expect(dialog.getByRole('option').first()).toHaveAttribute('href', '/components/select')
+    const navigation = page.locator('[data-fve-navigation-root]')
+    const previousDocument = await navigation.getAttribute('data-navigation-document')
+    await input.press('Enter')
+    await expect(page).toHaveURL('/components/select')
+    // The URL is already correct on the second attempt; wait for that response's committed document.
+    await expect(navigation).not.toHaveAttribute('data-navigation-document', previousDocument!)
+    await expect(dialog).not.toBeVisible()
+    await page.keyboard.press(shortcut)
+    await expect(input).toHaveValue('')
+    await expect(input).toBeFocused()
+    await expect(dialog.getByRole('option').first()).toHaveAttribute('aria-selected', 'true')
+    await input.press('Escape')
+  }
 })
+
+for (const [name, start, term, destination] of [
+  ['specification', '/examples/specification?organization=example-household&environment=production&ledger=alex', 'Example.Domain', '/examples/specification/architecture/solution/domain'],
+  ['API documentation', '/examples/api-documentation', 'Create account', '/examples/api-documentation/create-account'],
+] as const) {
+  test(`Template ${name} search supports click, shortcuts, navigation and morphs @cross-browser`, async ({ page }) => {
+    await page.goto(start)
+    await page.evaluate(() => { document.documentElement.dataset.searchDocument = 'retained' })
+    const trigger = page.getByRole('button', { name: `Search ${name}`, exact: true })
+    await expect(trigger.locator('svg')).toBeVisible()
+    await expect(trigger).toHaveText(/^(?:⌘K|Ctrl\+K)$/)
+    await trigger.click()
+    const dialog = page.getByRole('dialog', { name: `Search ${name}`, exact: true })
+    const input = dialog.getByRole('combobox', { name: `Search ${name}`, exact: true })
+    await expect(input).toBeFocused()
+    await input.fill('no-such-page')
+    await expect(dialog.getByRole('status')).toHaveText('No results found.')
+    await input.fill(term)
+    const result = dialog.getByRole('option', { name: term, exact: true })
+    await expect(result).toHaveAttribute('aria-selected', 'true')
+    await input.press('Enter')
+    await expect(page).toHaveURL(url => url.pathname === destination)
+    await expect(page.locator('html')).toHaveAttribute('data-search-document', 'retained')
+    await expect(dialog).toBeHidden()
+    if (name === 'specification') expect(new URL(page.url()).searchParams.get('ledger')).toBe('alex')
+    for (const key of ['Meta+K', 'Control+K']) {
+      await page.keyboard.press(key)
+      await expect(input).toBeFocused()
+      await expect(input).toHaveValue('')
+      await input.press('Escape')
+      await expect(dialog).toBeHidden()
+      await expect(trigger).toBeFocused()
+    }
+    await page.setViewportSize({ width: 320, height: 900 })
+    await page.locator('html').evaluate(html => html.style.fontSize = '200%')
+    await trigger.click()
+    await expect(input).toBeFocused()
+    await expect(dialog.getByRole('option').first()).toHaveCSS('white-space', 'normal')
+    const bounds = (await dialog.boundingBox())!
+    expect(bounds.x).toBeGreaterThanOrEqual(0)
+    expect(bounds.x + bounds.width).toBeLessThanOrEqual(320)
+    await input.press('Escape')
+    await expect(trigger).toBeFocused()
+  })
+}
 
 test('Command supports grouped matching, keyboard actions, unavailable and empty results @cross-browser', async ({ page }) => {
   await page.goto('/components/command')
@@ -96,4 +182,32 @@ test('Command palette stays bounded in dark 320px / 200% text @cross-browser', a
   expect((await new AxeBuilder({ page }).include('#docs-search-dialog').analyze()).violations).toEqual([])
   await dialog.getByRole('combobox').fill('no-such-document')
   await expect(dialog.getByText('No results found.', { exact: true })).toBeVisible()
+})
+
+test('Command keeps stable results in place and only changes the active option @cross-browser', async ({ page }) => {
+  await page.goto('/components/button')
+  await page.getByRole('button', { name: 'Search documentation', exact: true }).click()
+  const input = page.locator('#docs-search-input')
+  await input.fill('button')
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
+  const updates = await input.evaluate(async input => {
+    const root = input.closest('[data-fve-command]')!
+    const changes = { children: 0, selection: 0 }
+    const observer = new MutationObserver(records => {
+      for (const record of records) {
+        if (record.type === 'childList') changes.children++
+        if (record.attributeName === 'aria-selected') changes.selection++
+      }
+    })
+    observer.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ['aria-selected'] })
+    input.dispatchEvent(new Event('input', { bubbles: true }))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const unchanged = { ...changes }
+    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true }))
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const navigated = { children: changes.children - unchanged.children, selection: changes.selection - unchanged.selection }
+    observer.disconnect()
+    return { unchanged, navigated }
+  })
+  expect(updates).toEqual({ unchanged: { children: 0, selection: 0 }, navigated: { children: 0, selection: 2 } })
 })

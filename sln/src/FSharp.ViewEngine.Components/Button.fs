@@ -1,250 +1,106 @@
 namespace FSharp.ViewEngine.Components
 
 open System
+open System.Text.RegularExpressions
+open System.Text.Json
 open FSharp.ViewEngine
 open type Html
 open type Datastar
 
-/// <summary>Selects the button palette independently of its visual treatment.</summary>
 /// <category>button</category>
-[<RequireQualifiedAccess>]
-type ButtonColor =
-    | Primary
-    | Secondary
-    | Success
-    | Warning
-    | Error
-    | Info
-    | Neutral
-    | Custom of ColorPalette
+[<AutoOpen>]
+module ButtonAttributes =
+    type Html with
+        static member _iconOnly(value:bool) = Html._attr("icon-only", if value then "true" else "false")
 
-/// <summary>Selects the button’s visual treatment independently of its palette.</summary>
-/// <category>button</category>
-[<RequireQualifiedAccess>]
-type ButtonVariant =
-    | Solid
-    | Soft
-    | Outline
-    | Ghost
+module internal Button =
 
-/// <summary>Defines the visible and accessible content rendered by a Button.</summary>
-/// <category>button</category>
-[<RequireQualifiedAccess; NoEquality; NoComparison>]
-type ButtonContent =
-    /// Renders a visible text label.
-    | Text of text:string
-    /// Renders a square icon-only control with the supplied accessible name.
-    | Icon of accessibleName:string * icon:HtmlElement
-    /// Renders a decorative icon before a visible text label.
-    | IconText of icon:HtmlElement * text:string
-    /// Renders a visible text label before a decorative icon.
-    | TextIcon of text:string * icon:HtmlElement
-    /// Renders arbitrary noninteractive presentational content using ordinary button spacing.
-    | Custom of HtmlElement
+    let private indicatorSignal (attribute:HtmlAttribute) =
+        let parts = attribute.Name.ToLowerInvariant().Split([|"__"|], StringSplitOptions.None)
+        let name = parts[0]
+        let signal =
+            if name.StartsWith("data-indicator:", StringComparison.Ordinal) then
+                let camel (value:string) = Regex.Replace(value, "-([a-z])", fun (matched:Match) -> matched.Groups[1].Value.ToUpperInvariant())
+                let cases =
+                    parts |> Array.tryFindBack (fun part -> part.StartsWith("case.", StringComparison.Ordinal))
+                    |> Option.map (fun part -> part.Substring(5).Split('.'))
+                    |> Option.defaultValue [|"camel"|]
+                (name.Substring("data-indicator:".Length), cases)
+                ||> Array.fold (fun value casing ->
+                    match casing with
+                    | "camel" -> camel value
+                    | "snake" -> value.Replace('-', '_')
+                    | "pascal" when value.Length > 0 -> value.Substring(0,1).ToUpperInvariant() + camel (value.Substring(1))
+                    | _ -> value)
+                |> Some
+            elif name = "data-indicator" then Some (attribute.Value |> ValueOption.defaultValue "")
+            else None
+        signal |> Option.map (fun value ->
+            if not (Regex.IsMatch(value, @"^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$")) then
+                invalidArg "attributes" "A Datastar indicator must name a signal without '$'."
+            value)
 
-/// <summary>Maps a button to its native HTML form behavior.</summary>
-/// <category>button</category>
-[<RequireQualifiedAccess>]
-type ButtonType =
-    | Button
-    | Submit
-    | Reset
-
-/// <summary>Configuration produced and modified by the Button module.</summary>
-/// <category>button</category>
-[<NoEquality; NoComparison>]
-type ButtonConfig =
-    private
-        { content:ButtonContent
-          color:ButtonColor
-          variant:ButtonVariant
-          size:ControlSize option
-          buttonType:ButtonType
-          disabled:bool
-          pendingSignal:string option
-          className:string option
-          attributes:HtmlAttribute list }
-
-module internal ButtonStyles =
-    let buttonTypeValue = function
-        | ButtonType.Button -> "button"
-        | ButtonType.Submit -> "submit"
-        | ButtonType.Reset -> "reset"
-
-    let iconClasses = "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0"
-
-    let baseClasses =
-        iconClasses + " inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium shadow-xs outline-none transition-[color,background-color,border-color,box-shadow,translate] duration-100 motion-reduce:transition-none motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup]):not([data-fve-keyboard-pressed])]:active:translate-y-px motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup])]:data-[fve-keyboard-pressed=true]:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-
-    let loadingGlyph size =
-        span {
-            _ariaHidden "true"
-            _class ("shrink-0 animate-spin rounded-full border-2 border-current border-r-transparent motion-reduce:animate-none " +
-                match size with
-                | ControlSize.Small -> "size-3.5"
-                | ControlSize.Medium -> "size-4"
-                | ControlSize.Large -> "size-5")
-        }
-
-/// <summary>Builds and renders semantic button controls.</summary>
-/// <remarks>
-/// Icon-only content requires an accessible name; Custom content must not contain interactive controls.
-/// Custom palettes must supply contrasting foreground, background, border and focus colors in both themes.
-/// </remarks>
-/// <category>button</category>
-[<RequireQualifiedAccess>]
-module Button =
-    let private validatedContent = function
-        | ButtonContent.Text text when String.IsNullOrWhiteSpace text -> invalidArg (nameof text) "Button text is required."
-        | ButtonContent.Icon (accessibleName, _) when String.IsNullOrWhiteSpace accessibleName -> invalidArg (nameof accessibleName) "An icon-only Button requires an accessible name."
-        | ButtonContent.IconText (_, text)
-        | ButtonContent.TextIcon (text, _) when String.IsNullOrWhiteSpace text -> invalidArg (nameof text) "Button text is required."
-        | content -> content
-
-    /// <summary>Creates a native button from explicit content. Defaults to Neutral + Outline; color and appearance can be changed independently.</summary>
-    let create content =
-        { content = validatedContent content
-          color = ButtonColor.Neutral
-          variant = ButtonVariant.Outline
-          size = None
-          buttonType = ButtonType.Button
-          disabled = false
-          pendingSignal = None
-          className = None
-          attributes = [] }
-
-    /// Selects the component-owned color palette.
-    let withColor color (config:ButtonConfig) = { config with color = color }
-    /// Selects the visual treatment without changing button behavior.
-    let withVariant variant (config:ButtonConfig) = { config with variant = variant }
-    /// Overrides the inherited control size.
-    let withSize size (config:ButtonConfig) = { config with size = Some size }
-    /// Uses native submit-button behavior.
-    let asSubmit (config:ButtonConfig) = { config with buttonType = ButtonType.Submit }
-    /// Makes the button unavailable without presenting work in progress.
-    let disabled (config:ButtonConfig) = { config with disabled = true }
-    /// A consumer-owned Datastar signal, without a leading dollar sign, drives the spinner and busy state.
-    let withPendingSignal (signal:string) (config:ButtonConfig) =
-        if String.IsNullOrWhiteSpace signal || not (System.Text.RegularExpressions.Regex.IsMatch(signal, "^[a-zA-Z_][a-zA-Z0-9_]*$")) then
-            invalidArg (nameof signal) "A pending signal must be a valid Datastar identifier."
-        { config with pendingSignal = Some signal }
-    /// Adds consumer presentation classes without replacing component-owned classes.
-    let withClass className (config:ButtonConfig) = { config with className = Some className }
-    /// Adds safe consumer-authored HTML attributes.
-    let withAttributes attributes (config:ButtonConfig) = { config with attributes = attributes }
-    let internal withGroupClass className (config:ButtonConfig) = { config with className = Some(ComponentHtml.classes [ config.className |> Option.defaultValue ""; className ]) }
-
-    let private palette = function
-        | ButtonColor.Primary -> ComponentColors.primary
-        | ButtonColor.Secondary -> ComponentColors.secondary
-        | ButtonColor.Success -> ComponentColors.success
-        | ButtonColor.Warning -> ComponentColors.warning
-        | ButtonColor.Error -> ComponentColors.error
-        | ButtonColor.Info -> ComponentColors.info
-        | ButtonColor.Neutral -> ComponentColors.neutral
-        | ButtonColor.Custom colors -> colors
-
-    let internal variantClasses = function
-        | ButtonVariant.Solid -> ComponentColors.solid + " " + ComponentColors.solidInteraction
-        | ButtonVariant.Soft -> ComponentColors.soft + " " + ComponentColors.softInteraction
-        | ButtonVariant.Outline -> ComponentColors.outline + " " + ComponentColors.softInteraction
-        | ButtonVariant.Ghost -> ComponentColors.ghost + " " + ComponentColors.softInteraction
-
-    let private decorative pendingSignal (content:HtmlElement) : HtmlElement =
-        span {
-            _ariaHidden true
-            _class "shrink-0"
-            match pendingSignal with Some signal -> _dataShow ($"!${signal}") | None -> ()
-            content
-        }
-
-    let private accessibleName = function
-        | ButtonContent.Icon (name, _) -> Some name
-        | _ -> None
-
-    let private iconOnly = function
-        | ButtonContent.Icon _ -> true
-        | _ -> false
-
-    let private renderAvailable pendingSignal (content:ButtonContent) : HtmlElement =
-        match content with
-        | ButtonContent.Text text -> Html.text text
-        | ButtonContent.Icon (_, icon) -> decorative pendingSignal icon
-        | ButtonContent.IconText (icon, text) ->
-            fragment {
-                decorative pendingSignal icon
-                text
-            }
-        | ButtonContent.TextIcon (text, icon) ->
-            fragment {
-                text
-                decorative pendingSignal icon
-            }
-        | ButtonContent.Custom content -> content
-
-    let private classesFor appearance (config:ButtonConfig) =
-        ComponentHtml.classes [
-            ButtonStyles.baseClasses
-            (if iconOnly config.content then ComponentHtml.iconButtonSizeClasses config.size else ComponentHtml.sizeClasses config.size)
-            appearance
-            ComponentColors.focus
-            config.className |> Option.defaultValue "" ]
-
-    /// Renders a native destination link with Button presentation. Links cannot submit, be disabled or be pending.
-    let renderLink href (config:ButtonConfig) =
-        if String.IsNullOrWhiteSpace href then invalidArg (nameof href) "A native Button link requires a destination."
-        if config.disabled || config.pendingSignal.IsSome || config.buttonType<>ButtonType.Button then
-            invalidArg (nameof config) "Native Button links do not support disabled, pending or form-submit behavior."
-        let interaction =
-            match config.variant with
-            | ButtonVariant.Solid -> ComponentColors.solid + " hover:bg-[var(--fve-color-hover)] active:bg-[var(--fve-color-active)]"
-            | ButtonVariant.Soft -> ComponentColors.soft + " hover:bg-[var(--fve-color-soft-hover)] active:bg-[var(--fve-color-soft-active)]"
-            | ButtonVariant.Outline -> ComponentColors.outline + " hover:bg-[var(--fve-color-soft-hover)] active:bg-[var(--fve-color-soft-active)]"
-            | ButtonVariant.Ghost -> ComponentColors.ghost + " hover:bg-[var(--fve-color-soft-hover)] active:bg-[var(--fve-color-soft-active)]"
-        a {
-            _href href
-            match accessibleName config.content with Some name -> _ariaLabel name | None -> ()
-            _style (ComponentColors.style (palette config.color) config.attributes)
-            _class (classesFor interaction config)
-            for attribute in ComponentHtml.safeAttributes [ "href"; "type"; "aria-label"; "disabled"; "aria-busy"; "class"; "style" ] config.attributes do attribute
-            renderAvailable None config.content
-        }
-
-    let internal renderGroupedLink href groupClass config = config |> withGroupClass groupClass |> renderLink href
-
-    /// Renders the configured native button.
-    let render config =
-        let unavailable = config.disabled
-        button {
-            _type (ButtonStyles.buttonTypeValue config.buttonType)
-            match accessibleName config.content with Some name -> _ariaLabel name | None -> ()
-            _disabled unavailable
-            match config.pendingSignal with
-            | Some signal ->
-                _dataAttr ("disabled", if config.disabled then "true" else "$"+signal)
-                _dataAttr ("aria-busy", $"${signal} ? 'true' : null")
+    let private renderHost (authored:HtmlAttribute list) (children:HtmlElement list) =
+        let attributes =
+            authored
+            |> List.groupBy (fun item -> item.Name.ToLowerInvariant())
+            |> List.map (fun (name, items) ->
+                if name = "class" || name = "style" then
+                    let separator = if name = "style" then ";" else " "
+                    Html._attr(name, items |> List.choose (fun item -> ValueOption.toOption item.Value) |> String.concat separator)
+                else List.last items)
+        let attribute name = attributes |> List.tryFindBack (fun item -> String.Equals(item.Name, name, StringComparison.OrdinalIgnoreCase))
+        let value name = attribute name |> Option.bind (fun item -> ValueOption.toOption item.Value)
+        for name,allowed in [ "color",["primary";"secondary";"success";"warning";"error";"info";"neutral";"custom"]
+                              "variant",["solid";"soft";"outline";"ghost"]
+                              "size",["extra-small";"small";"medium";"large";"extra-large"]
+                              "icon-only",["true";"false"]
+                              "type",["button";"submit";"reset"] ] do
+            match attribute name with
+            | Some { Value = ValueSome actual } when List.contains actual allowed -> ()
             | None -> ()
-            _style (ComponentColors.style (palette config.color) config.attributes)
-            _class (classesFor (variantClasses config.variant) config)
-            if not unavailable then
-                _dataOn ("keydown", [ "capture" ], "if (evt.target === el && (evt.key === ' ' || evt.key === 'Enter') && !evt.altKey && !evt.ctrlKey && !evt.metaKey && !el.hasAttribute('aria-haspopup') && el.getAttribute('aria-disabled') !== 'true' && el.getAttribute('aria-busy') !== 'true') el.dataset.fveKeyboardPressed = 'true'")
-                // WebKit can retain native :active after a keyboard press loses focus.
-                // Keep the released marker until pointer input resumes native press styling.
-                _dataOn ("keyup", [ "capture" ], "if ((evt.key === ' ' || evt.key === 'Enter') && el.dataset.fveKeyboardPressed) el.dataset.fveKeyboardPressed = 'false'")
-                _dataOn ("blur", [ "capture" ], "if (el.dataset.fveKeyboardPressed) el.dataset.fveKeyboardPressed = 'false'")
-                _dataOn ("blur", [ "window" ], "if (el.dataset.fveKeyboardPressed) el.dataset.fveKeyboardPressed = 'false'")
-                _dataOn ("pointerdown", [ "capture" ], "delete el.dataset.fveKeyboardPressed")
-            for attribute in ComponentHtml.safeAttributes ([ "type"; "aria-label"; "disabled"; "aria-busy"; "class"; "style"; "data-fve-keyboard-pressed"; "data-on:keydown__capture"; "data-on:keyup__capture"; "data-on:blur__capture"; "data-on:blur__window"; "data-on:pointerdown__capture" ]
-                @ (if config.pendingSignal.IsSome then ["data-attr:disabled"; "data-attr:aria-busy"] else [])) config.attributes do attribute
-            match config.pendingSignal with
-            | Some signal ->
-                span {
-                    _class "inline-flex"
-                    _ariaHidden true
-                    _dataShow ($"${signal}")
-                    _style "display:none"
-                    ButtonStyles.loadingGlyph (config.size |> Option.defaultValue ControlSize.Medium)
-                }
-            | None -> ()
-            renderAvailable config.pendingSignal config.content
+            | _ -> invalidArg "attributes" $"Unsupported Button {name}."
+        if (attribute "href").IsSome then invalidArg "attributes" "Button cannot have href; use fveLink."
+        if (attribute "role").IsSome then invalidArg "attributes" "Button supplies one native button role; do not put a second role on its host."
+        if (attribute "aria-label").IsSome && (value "aria-label" |> Option.forall String.IsNullOrWhiteSpace) then
+            invalidArg "attributes" "An accessible button label cannot be empty."
+        if value "color" = Some "custom" && (attribute "palette").IsNone then
+            invalidArg "attributes" "A custom Button color requires a palette."
+        let indicator = attributes |> List.choose indicatorSignal |> List.tryLast
+        let disabledBinding =
+            if (attribute "disabled").IsSome && (indicator.IsSome || (attribute "data-attr:disabled").IsSome) then Some "true"
+            elif (attribute "data-attr:disabled").IsSome then None
+            else indicator |> Option.map (fun signal -> "$" + signal)
+        let busyBinding =
+            if (attribute "data-attr:aria-busy").IsSome then None
+            else indicator |> Option.map (fun signal -> $"${signal} ? 'true' : null")
+        (Html.el "fve-button") {
+            _attr ("data-preserve-attr", "data-rocket-host data-scope-children")
+            match disabledBinding with Some expression -> _dataAttr ("disabled", expression) | None -> ()
+            match busyBinding with Some expression -> _dataAttr ("aria-busy", expression) | None -> ()
+            for item in ComponentHtml.safeAttributes (
+                ["data-preserve-attr"]
+                @ (if disabledBinding.IsSome then ["data-attr:disabled"] else [])
+                @ (if busyBinding.IsSome then ["data-attr:aria-busy"] else [])) attributes do
+                // Caller-authored bindings remain page-owned rather than Rocket-local.
+                let family = item.Name.Split([|":";"__"|], StringSplitOptions.None) |> Array.head |> fun name -> name.ToLowerInvariant()
+                if List.contains family ["data-bind";"data-computed";"data-indicator";"data-ref"] && not (item.Name.Contains "__root") then
+                    { item with Name = item.Name + "__root" }
+                else item
+            ComponentContent.fragment children
         }
+
+    let render attributes children =
+        let element = renderHost attributes children
+        ComponentControlElement("fve-button", attributes, (fun attributes -> renderHost attributes children), element) :> HtmlElement
+
+/// <summary>Real HTML attributes and ordinary content for a Rocket-owned native button.</summary>
+/// <category>button</category>
+type ButtonBuilder internal () =
+    inherit ComponentElementBuilder(Button.render)
+
+/// <category>button</category>
+[<AutoOpen>]
+module ButtonDsl =
+    /// Render the custom-element host. Import Assets/button.js once from the application entry.
+    let fveButton = ButtonBuilder()
