@@ -106,6 +106,9 @@ for (const [name, start, term, destination] of [
     await expect(page.locator('html')).toHaveAttribute('data-search-document', 'retained')
     await expect(dialog).toBeHidden()
     if (name === 'specification') expect(new URL(page.url()).searchParams.get('ledger')).toBe('alex')
+    // The URL commits before navigation's animation-frame focus restoration.
+    // Finish that transition before starting another dialog interaction.
+    await expect(page.getByRole('main')).toBeFocused()
     for (const key of ['Meta+K', 'Control+K']) {
       await page.keyboard.press(key)
       await expect(input).toBeFocused()
