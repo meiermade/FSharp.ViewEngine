@@ -356,7 +356,7 @@ let validateCandidate (acceptedCommit:string) (commit:string) (image:string) ori
     if not (Regex.IsMatch(commit, "^[a-f0-9]{40}$")) || not (Regex.IsMatch(image, "@sha256:[a-f0-9]{64}$")) then
         invalidOp "Staging must report an exact source commit and immutable image."
     if origin <> "https://fve.meiermade.net" || not ready || commit <> acceptedCommit then
-        invalidOp "Staging identity must match the latest successful main deployment and be ready."
+        invalidOp "Staging identity must match the latest accepted main deployment and be ready."
 
 let acceptedCandidate repository githubRepository =
     let state = runProcess true "pulumi" ["-C"; Path.Combine(repository, "pulumi"); "stack"; "output"; "--json"; "--stack"; "meiermade/fsharp-view-engine/dev"]
@@ -364,7 +364,7 @@ let acceptedCandidate repository githubRepository =
     let root = document.RootElement
     let commit = root.GetProperty("releaseCommit").GetString()
     let image = root.GetProperty("imageDigest").GetString()
-    let accepted = runProcess true "gh" ["run"; "list"; "--repo"; githubRepository; "--workflow"; "deploy-staging-docs.yml"; "--branch"; "main"; "--status"; "success"; "--limit"; "1"; "--json"; "headSha"; "--jq"; ".[0].headSha"]
+    let accepted = runProcess true "gh" ["run"; "list"; "--repo"; githubRepository; "--workflow"; "deploy-staging-docs.yml"; "--branch"; "main"; "--limit"; "1"; "--json"; "headSha,status,conclusion"; "--jq"; ".[0] | if .status == \"completed\" and .conclusion == \"success\" then .headSha else error(\"Latest main staging deployment has not succeeded\") end"]
     validateCandidate accepted commit image (root.GetProperty("origin").GetString()) (root.GetProperty("e2eReady").GetBoolean())
     commit,image
 

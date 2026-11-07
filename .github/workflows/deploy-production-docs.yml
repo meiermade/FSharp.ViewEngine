@@ -243,7 +243,7 @@ jobs:
   deploy:
     name: Deploy accepted production Docs
     needs: [candidate, preview, acceptance]
-    if: ${{ always() && github.repository == 'meiermade/FSharp.ViewEngine' && github.ref == 'refs/heads/main' && !inputs.preview-only && ((github.workflow_ref == format('{0}/.github/workflows/release.yml@refs/heads/main', github.repository) && inputs.promote-docs) || (needs.candidate.result == 'success' && needs.preview.result == 'success' && needs.acceptance.result == 'success')) }}
+    if: ${{ !cancelled() && github.repository == 'meiermade/FSharp.ViewEngine' && github.ref == 'refs/heads/main' && !inputs.preview-only && ((github.workflow_ref == format('{0}/.github/workflows/release.yml@refs/heads/main', github.repository) && inputs.promote-docs) || (needs.candidate.result == 'success' && needs.preview.result == 'success' && needs.acceptance.result == 'success')) }}
     runs-on: ubuntu-latest
     environment:
       name: ${{ github.workflow_ref == format('{0}/.github/workflows/release.yml@refs/heads/main', github.repository) && 'production' || 'release' }}
@@ -251,7 +251,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    # Bound individual operations so failure and cancellation recovery can still run.
     steps:
       # Infrastructure follows the workflow revision, not an older accepted image's source.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -297,35 +296,6 @@ jobs:
         with:
           name: production-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/reviewed-production
-      - name: Record previous healthy production release
-        id: previous
-        timeout-minutes: 3
-        working-directory: ./pulumi
-        env:
-          LEGACY_PRODUCTION_COMMIT: d78cdbdee50bb6940b4e40b18350714e40151fea
-          LEGACY_PRODUCTION_CORE_VERSION: 2026.8.2
-          LEGACY_PRODUCTION_CLI_VERSION: unreleased
-        run: |
-          pulumi stack export --stack meiermade/fsharp-view-engine/prod > "$RUNNER_TEMP/production-state.json"
-          image="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].image][0] // empty' "$RUNNER_TEMP/production-state.json")"
-          commit="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].env[] | select(.name == "RELEASE_COMMIT") | .value][0] // empty' "$RUNNER_TEMP/production-state.json")"
-          core="$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
-          cli="$(pulumi stack output cliVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
-          test -n "$image"
-          test -n "$commit"
-          cli="${cli:-$LEGACY_PRODUCTION_CLI_VERSION}"
-          if [[ -z "$core" ]]; then
-            test "$commit" = "$LEGACY_PRODUCTION_COMMIT"
-            core="$LEGACY_PRODUCTION_CORE_VERSION"
-          fi
-          test -n "$core"
-          test -n "$cli"
-          {
-            echo "image=$image"
-            echo "commit=$commit"
-            echo "core=$core"
-            echo "cli=$cli"
-          } >> "$GITHUB_OUTPUT"
       - name: Promote exact accepted image
         id: deploy
         timeout-minutes: 20
@@ -383,34 +353,3 @@ jobs:
             e2e/playwright-report
             e2e/test-results
           if-no-files-found: ignore
-      - name: Restore previous production release after unsuccessful acceptance
-        id: restore
-        if: ${{ (failure() || cancelled()) && steps.deploy.outcome != 'skipped' && steps.previous.outputs.image != '' && steps.previous.outputs.commit != '' }}
-        timeout-minutes: 20
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
-        env:
-          DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}
-          RELEASE_COMMIT: ${{ steps.previous.outputs.commit }}
-          CORE_PACKAGE_VERSION: ${{ steps.previous.outputs.core }}
-          CLI_PACKAGE_VERSION: ${{ steps.previous.outputs.cli }}
-          ALLOW_UNRELEASED_PACKAGE_SNAPSHOT: ${{ steps.previous.outputs.core == 'unreleased' || steps.previous.outputs.cli == 'unreleased' }}
-        with:
-          work-dir: ./pulumi
-          command: up
-          stack-name: meiermade/fsharp-view-engine/prod
-      - name: Confirm restored production release is healthy
-        if: ${{ (failure() || cancelled()) && steps.restore.outcome == 'success' }}
-        timeout-minutes: 5
-        working-directory: ./pulumi
-        env:
-          EXPECTED_IMAGE: ${{ steps.previous.outputs.image }}
-          EXPECTED_COMMIT: ${{ steps.previous.outputs.commit }}
-          EXPECTED_CORE_VERSION: ${{ steps.previous.outputs.core }}
-          EXPECTED_CLI_VERSION: ${{ steps.previous.outputs.cli }}
-        run: |
-          test "$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_IMAGE"
-          test "$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_COMMIT"
-          test "$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_CORE_VERSION"
-          test "$(pulumi stack output cliVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_CLI_VERSION"
-          test "$(pulumi stack output origin --stack meiermade/fsharp-view-engine/prod)" = 'https://fve.meiermade.com'
-          curl --fail --silent --show-error --max-time 30 'https://fve.meiermade.com/health' >/dev/null

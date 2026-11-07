@@ -334,7 +334,6 @@ let tests =
 
         test "Explicit releases gate publication and promote the accepted digest safely" {
             let publish = workflow "release.yml"
-            let production = workflow "deploy-production-docs.yml"
             let config = repositoryFile "pulumi/src/config.ts"
             let retirementCheck = repositoryFile "e2e/scripts/verify-package-retirement.mjs"
             Expect.stringContains publish "queue: max" "explicit releases retain their serialized queue position"
@@ -344,13 +343,8 @@ let tests =
             Expect.stringContains publish "needs.candidate.outputs.bundle == 'true'" "retries reuse an already verified bundle"
             Expect.stringContains publish "image: ${{ needs.candidate.outputs.image }}" "production receives the accepted digest"
             Expect.stringContains publish "environment: release" "publication uses its protected environment"
-            Expect.isFalse (production.Contains("steps.smoke.outcome != 'success'")) "recovery remains active after canonical smoke"
-            Expect.stringContains production "(failure() || cancelled()) && steps.deploy.outcome != 'skipped'" "any unsuccessful post-mutation path restores production"
-            Expect.stringContains production "steps.previous.outputs.image" "recovery preserves the previous immutable image"
-            Expect.stringContains production "LEGACY_PRODUCTION_CLI_VERSION: unreleased" "initial recovery records the actual pre-CLI snapshot"
-            Expect.isFalse (production.Contains("FALLBACK_CORE_VERSION: ${{ inputs.coreVersion }}")) "recovery never substitutes candidate package metadata"
             Expect.stringContains config "https://fve.meiermade.com" "production has one canonical origin"
-            Expect.stringContains config "ALLOW_UNRELEASED_PACKAGE_SNAPSHOT" "rollback can represent the actual pre-CLI snapshot explicitly"
+            Expect.stringContains config "ALLOW_UNRELEASED_PACKAGE_SNAPSHOT" "Docs-only snapshots can truthfully advertise unpublished package changes"
             Expect.stringContains retirementCheck "retiredPackages" "retirement evidence covers Components and Docs"
             Expect.stringContains retirementCheck "availableVersions" "retirement evidence covers every published version"
             Expect.stringContains retirementCheck "includes('Legacy')" "retirement evidence requires the Legacy reason"
@@ -369,15 +363,8 @@ let tests =
             Expect.isFalse (deploy.Contains("stack-name: meiermade/fsharp-view-engine/prod")) "main never updates production"
             Expect.stringContains deploy "pulumi env run meiermade/fsharpviewengine/e2e-dev" "acceptance loads scoped credentials in the consuming command"
             Expect.stringContains deploy "bash scripts/test-release-smoke.sh" "main runs the same bounded smoke as production"
-            Expect.stringContains deploy "DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}" "unsuccessful acceptance restores the previous immutable image"
             Expect.stringContains deploy "queue: max" "every successful merge retains its place in the staging queue"
             Expect.stringContains deploy "cancel-in-progress: false" "a newer merge does not interrupt an active rollout"
-            Expect.stringContains deploy "if: ${{ always() }}" "workflow cancellation leaves the deployment job available for recovery"
-            Expect.stringContains deploy "failure() || cancelled()" "failure and cancellation both enter recovery"
-            Expect.stringContains deploy "steps.deploy.outcome != 'skipped'" "recovery runs whenever deployment may have mutated staging"
-            Expect.stringContains deploy "steps.restore.outcome == 'success'" "a restored release must pass readiness"
-            Expect.stringContains deploy "Confirm restored staging release is healthy" "recovery proves the previous release is serving"
-            Expect.isFalse (deploy.Contains("\n    timeout-minutes:")) "a job timeout cannot preempt bounded recovery steps"
             Expect.isFalse (deploy.Contains("workflow_call:")) "package releases do not call staging deployment"
             Expect.isFalse (deploy.Contains("secrets: inherit")) "staging does not inherit unrelated secrets"
             Expect.isFalse (deploy.Contains("playwright install --with-deps")) "staging acceptance uses the pinned browser image"
@@ -457,7 +444,10 @@ let tests =
 set -euo pipefail
 printf 'gh %s %s\n' "$1" "${2:-}" >> "$FAKE_CALLS"
 if [[ "$1" == api ]]; then printf '%s' "$FAKE_ARTIFACTS"
-elif [[ "$1 $2" == 'run list' ]]; then printf '%s' "$FAKE_ACCEPTED"
+elif [[ "$1 $2" == 'run list' ]]; then
+  if [[ " $* " == *' --status success '* ]]; then
+    jq '[.[] | select(.conclusion == "success")]' <<< "$FAKE_ACCEPTED"
+  else printf '%s' "$FAKE_ACCEPTED"; fi | jq -er "${@: -1}"
 elif [[ "$1 $2" == 'run download' ]]; then mkdir -p "${@: -1}"; cp "$FAKE_SAVED_PLAN" "${@: -1}/transaction.json"
 else exit 91; fi
 """
@@ -469,6 +459,8 @@ if [[ " $* " == *' --json '* ]]; then
 else printf '%s' "$FAKE_PUBLISHED"; fi
 """
                 let image = "registry/image@sha256:"+String.replicate 64 "b"
+                let mutable latestStatus = "completed"
+                let mutable latestConclusion = "success"
                 let run attempt artifacts staged =
                     File.WriteAllText(calls,"")
                     if File.Exists planPath then File.Delete planPath
@@ -484,7 +476,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
                         "GITHUB_REPOSITORY","meiermade/FSharp.ViewEngine"; "GITHUB_RUN_ID","4242"
                         "GITHUB_RUN_ATTEMPT",string attempt; "GITHUB_REF","refs/heads/main"; "GITHUB_SHA",commit
                         "GITHUB_OUTPUT",output; "PACKAGE_SELECTION","docs"; "FAKE_CALLS",calls
-                        "FAKE_ARTIFACTS",artifacts; "FAKE_ACCEPTED",commit; "FAKE_STAGED",staged
+                        "FAKE_ARTIFACTS",artifacts; "FAKE_ACCEPTED",sprintf "[{\"headSha\":\"%s\",\"status\":\"%s\",\"conclusion\":\"%s\"},{\"headSha\":\"%s\",\"status\":\"completed\",\"conclusion\":\"success\"}]" commit latestStatus latestConclusion commit; "FAKE_STAGED",staged
                         "FAKE_IMAGE",image; "FAKE_PUBLISHED",publishedCommit; "FAKE_SAVED_PLAN",savedPlan ] do info.Environment[key] <- value
                     use child = Process.Start info
                     let stdout = child.StandardOutput.ReadToEndAsync()
@@ -499,6 +491,14 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
                 let plan = PackagePublishing.readPlan planPath
                 Expect.equal (plan.commit,plan.image,plan.packages,plan.docsCliVersion) (commit,image,"docs","unreleased") "Docs is independent and truthful"
                 File.Copy(planPath,savedPlan)
+                for status,conclusion in ["completed","failure";"completed","cancelled";"in_progress",""] do
+                    latestStatus <- status
+                    latestConclusion <- conclusion
+                    let failed,_ = run 1 "" commit
+                    Expect.notEqual failed 0 "a failed or unfinished latest staging attempt cannot fall back to an older success for the same commit"
+                    Expect.isFalse (File.Exists planPath) "unaccepted staging never creates a release transaction"
+                latestStatus <- "completed"
+                latestConclusion <- "success"
                 let resumed,diagnostics = run 2 "release-plan-4242\npackage-release-4242\n" (String.replicate 40 "d")
                 Expect.equal resumed 0 diagnostics
                 Expect.equal (PackagePublishing.readPlan planPath) plan "newer staging cannot change the pinned transaction"
@@ -579,7 +579,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
             Expect.stringContains appConfig "https://fve.meiermade.net" "the staging origin is exact"
             Expect.stringContains appConfig "zoneId: rawCloudflareConfig.require('zoneId')" "both stacks require their ESC-projected zone ID"
             Expect.isFalse (zone.Contains("getZoneOutput")) "application stacks do not rediscover configured Cloudflare zones"
-            Expect.stringContains appConfig "DEPLOY_IMAGE must be an immutable sha256 image reference" "rollback and promotion reject mutable images"
+            Expect.stringContains appConfig "DEPLOY_IMAGE must be an immutable sha256 image reference" "promotion rejects mutable images"
             Expect.stringContains access "allowAdminsAccessPolicyId" "administrators retain normal Access authentication"
             Expect.stringContains access "ZeroTrustAccessServiceToken" "CI receives a staging-only service token"
             Expect.stringContains access "additionalSecretOutputs: ['clientSecret']" "the Access client secret remains secret"

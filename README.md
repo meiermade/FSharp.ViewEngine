@@ -45,3 +45,5 @@ Use the single catalog watcher at `http://127.0.0.1:5054`; starting it replaces 
 After editing canonical components in `sln/src/FSharp.ViewEngine.Components`, run `./fake.sh UpdateInstalledComponents` from `sln` to refresh the checked-in Docs and Example consumers. `./fake.sh CheckInstalledComponents` checks drift; `./fake.sh Test` runs tests. Normal builds use installed source without regenerating it.
 
 Pull requests run [Validate PR](.github/workflows/validate-pr.yml); merges run [Deploy staging Docs](.github/workflows/deploy-staging-docs.yml). [Release](.github/workflows/release.yml) previews production and requires approval before publishing selected packages and deploying Docs. For a Docs-only update, manually run [Deploy production Docs](.github/workflows/deploy-production-docs.yml); it previews and requires the same approval without publishing packages.
+
+Deployments are forward-only: failed runs retain diagnostics; fix the code or configuration and deploy again.

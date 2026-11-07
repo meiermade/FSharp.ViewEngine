@@ -406,7 +406,7 @@ jobs:
   production:
     name: Deploy production Docs
     needs: [candidate, publish]
-    if: ${{ always() && needs.candidate.result == 'success' && needs.publish.result == 'success' && needs.candidate.outputs.promoteDocs == 'true' }}
+    if: ${{ !cancelled() && needs.candidate.result == 'success' && needs.publish.result == 'success' && needs.candidate.outputs.promoteDocs == 'true' }}
     uses: ./.github/workflows/deploy-production-docs.yml
     permissions:
       contents: read

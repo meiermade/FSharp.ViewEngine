@@ -92,13 +92,14 @@ test('publication requires preview success even for bundle retries; rejected app
     for (const promoteDocs of ['true', 'false']) {
         for (const result of ['success', 'failure', 'cancelled', 'skipped']) {
             const needs = { candidate: { result: 'success', outputs: { promoteDocs } }, publish: { result } }
-            assert.equal(evaluate(release.jobs.production.if, { needs, always: () => true }), promoteDocs === 'true' && result === 'success')
+            assert.equal(evaluate(release.jobs.production.if, { needs, cancelled: () => false }), promoteDocs === 'true' && result === 'success')
+            assert.equal(evaluate(release.jobs.production.if, { needs, cancelled: () => true }), false)
         }
     }
 })
 
 test('manual Docs require accepted source, preview, smoke and release approval; release calls add no second gate', () => {
-    const manual = { github: github('deploy-production-docs'), inputs: emptyInputs, always: () => true, cancelled: () => false }
+    const manual = { github: github('deploy-production-docs'), inputs: emptyInputs, cancelled: () => false }
     assert.equal(evaluate(docs.jobs.candidate.if, manual), true)
     assert.equal(evaluate(production.environment.name, manual), 'release')
     for (const dependency of ['candidate', 'preview', 'acceptance']) {
@@ -108,22 +109,41 @@ test('manual Docs require accepted source, preview, smoke and release approval; 
             assert.equal(evaluate(production.if, { ...manual, needs }), result === 'success', `${dependency}/${result}`)
         }
     }
+    const accepted = { candidate: { result: 'success' }, preview: { result: 'success' }, acceptance: { result: 'success' } }
+    assert.equal(evaluate(production.if, { ...manual, needs: accepted, cancelled: () => true }), false, 'cancellation stops deployment rather than entering recovery')
     assert.equal(evaluate(preview.if, { ...manual, needs: { candidate: { result: 'success' } } }), true)
     assert.equal(evaluate(preview.if, { ...manual, needs: { candidate: { result: 'success' } }, cancelled: () => true }), false)
     for (const previewOnly of [true, false]) {
-        const called = { github: github('release'), inputs: { 'preview-only': previewOnly, 'promote-docs': true }, needs: skipped, always: () => true, cancelled: () => false }
+        const called = { github: github('release'), inputs: { 'preview-only': previewOnly, 'promote-docs': true }, needs: skipped, cancelled: () => false }
         assert.equal(evaluate(docs.jobs.candidate.if, called), false, 'release calls never repick staging')
         assert.equal(evaluate(preview.if, called), previewOnly)
         assert.equal(evaluate(production.if, called), !previewOnly, 'preview-only calls cannot deploy before approval')
         assert.equal(evaluate(production.environment.name, called), 'production', 'the caller already passed release approval')
     }
-    const otherCaller = { github: github('validate-pr'), inputs: { 'preview-only': false, 'promote-docs': true }, needs: skipped, always: () => true }
+    const otherCaller = { github: github('validate-pr'), inputs: { 'preview-only': false, 'promote-docs': true }, needs: skipped, cancelled: () => false }
     assert.equal(evaluate(production.if, otherCaller), false, 'another workflow cannot claim the release deployment path')
     const foreign = { ...otherCaller, github: { ...github('release'), repository: 'other/FSharp.ViewEngine', workflow_ref: 'other/FSharp.ViewEngine/.github/workflows/release.yml@refs/heads/main' } }
     assert.equal(evaluate(docs.jobs.candidate.if, foreign), false)
     assert.equal(evaluate(preview.if, { ...foreign, inputs: { 'preview-only': true }, cancelled: () => false }), false, 'foreign callers cannot obtain production preview credentials')
     assert.equal(evaluate(production.if, foreign), false)
     assert.equal(evaluate(production.if, { ...manual, github: github('deploy-production-docs', 'refs/heads/feature'), needs: { candidate: { result: 'success' }, preview: { result: 'success' }, acceptance: { result: 'success' } } }), false)
+})
+
+test('staging and production deploy once, fail normally and retain failure diagnostics', () => {
+    for (const job of [workflow('deploy-staging-docs').jobs.deploy, production]) {
+        const updates = job.steps.filter((step: any) => step.with?.command === 'up')
+        assert.equal(updates.length, 1, 'failure cannot trigger a second deployment to an older image')
+        assert.notEqual(updates[0]['continue-on-error'], true)
+        const smoke = job.steps.find((step: any) => step.run?.includes('test-release-smoke.sh'))
+        assert.ok(smoke)
+        assert.notEqual(smoke['continue-on-error'], true, 'an unhealthy deployment cannot become a successful run')
+        const diagnostics = job.steps.find((step: any) => step.uses?.startsWith('actions/upload-artifact@'))
+        assert.ok(diagnostics)
+        assert.equal(evaluate(diagnostics.if, { failure: () => true, cancelled: () => false }), true)
+        assert.equal(evaluate(diagnostics.if, { failure: () => false, cancelled: () => true }), true)
+    }
+    const staging = workflow('deploy-staging-docs').jobs.deploy
+    assert.equal(evaluate(staging.if, { github: github('deploy-staging-docs'), cancelled: () => true }), false)
 })
 
 for (const [coreVersion, cliVersion] of [

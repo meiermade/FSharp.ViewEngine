@@ -13,7 +13,7 @@ concurrency:
 jobs:
   deploy:
     name: Deploy protected staging candidate
-    if: ${{ always() }}
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     environment:
       name: staging
@@ -21,7 +21,6 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    # Bound individual operations instead of the job so timeout handling cannot preempt recovery.
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         timeout-minutes: 5
@@ -69,15 +68,6 @@ jobs:
         timeout-minutes: 2
         working-directory: ./pulumi
         run: pulumi stack select meiermade/fsharp-view-engine/dev --create
-      - name: Record previous healthy staging release
-        id: previous
-        timeout-minutes: 2
-        working-directory: ./pulumi
-        run: |
-          image="$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/dev 2>/dev/null || true)"
-          commit="$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/dev 2>/dev/null || true)"
-          echo "image=$image" >> "$GITHUB_OUTPUT"
-          echo "commit=$commit" >> "$GITHUB_OUTPUT"
       - name: Refresh staging deployment state
         timeout-minutes: 10
         working-directory: ./pulumi
@@ -133,27 +123,3 @@ jobs:
             e2e/playwright-report
             e2e/test-results
           if-no-files-found: ignore
-      - name: Restore previous staging release after unsuccessful acceptance
-        id: restore
-        if: ${{ (failure() || cancelled()) && steps.deploy.outcome != 'skipped' && steps.previous.outputs.image != '' && steps.previous.outputs.commit != '' }}
-        timeout-minutes: 20
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
-        env:
-          DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}
-          RELEASE_COMMIT: ${{ steps.previous.outputs.commit }}
-        with:
-          work-dir: ./pulumi
-          command: up
-          stack-name: meiermade/fsharp-view-engine/dev
-      - name: Confirm restored staging release is healthy
-        if: ${{ (failure() || cancelled()) && steps.restore.outcome == 'success' }}
-        timeout-minutes: 6
-        working-directory: ./pulumi
-        env:
-          EXPECTED_IMAGE: ${{ steps.previous.outputs.image }}
-          EXPECTED_COMMIT: ${{ steps.previous.outputs.commit }}
-        run: |
-          test "$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/dev)" = "$EXPECTED_IMAGE"
-          test "$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/dev)" = "$EXPECTED_COMMIT"
-          pulumi env run meiermade/fsharpviewengine/e2e-dev -- \
-            bash ../e2e/scripts/wait-for-staging.sh
