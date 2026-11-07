@@ -1,0 +1,421 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: Projects to release (Auto selects changed projects)
+        required: true
+        default: auto
+        type: choice
+        options:
+          - auto
+          - core
+          - cli
+          - both
+          - docs
+
+permissions:
+  contents: read
+
+concurrency:
+  # Keep staging stable while a release accepts and promotes its pinned digest.
+  group: fsharp-viewengine-delivery
+  queue: max
+  cancel-in-progress: false
+
+jobs:
+  candidate:
+    name: Pin accepted candidate and independent release versions
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    outputs:
+      commit: ${{ steps.transaction.outputs.commit }}
+      image: ${{ steps.transaction.outputs.image }}
+      packages: ${{ steps.transaction.outputs.packages }}
+      coreVersion: ${{ steps.transaction.outputs.coreVersion }}
+      cliVersion: ${{ steps.transaction.outputs.cliVersion }}
+      docsCoreVersion: ${{ steps.transaction.outputs.docsCoreVersion }}
+      docsCliVersion: ${{ steps.transaction.outputs.docsCliVersion }}
+      promoteDocs: ${{ steps.transaction.outputs.promoteDocs }}
+      bundle: ${{ steps.transaction.outputs.bundle }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore release tooling
+        working-directory: ./sln
+        run: |
+          dotnet tool restore
+          dotnet paket install
+          dotnet restore src/Build/Build.fsproj
+      - name: Authenticate Pulumi
+        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        with:
+          organization: meiermade
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:meiermade
+      - name: Setup Pulumi CLI
+        uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
+        with:
+          pulumi-version: 3.261.0
+      - name: Resolve or reuse the release transaction
+        id: transaction
+        working-directory: ./sln
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PACKAGE_SELECTION: ${{ inputs.packages }}
+          RELEASE_PLAN_PATH: ${{ runner.temp }}/transaction/transaction.json
+        run: ./fake.sh ResolveReleaseTransaction --single-target
+      - name: Pin the transaction before building or publishing
+        if: steps.transaction.outputs.newPlan == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/transaction/transaction.json
+          if-no-files-found: error
+
+  production-preview:
+    name: Preview production Docs
+    needs: candidate
+    uses: ./.github/workflows/deploy-production-docs.yml
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    with:
+      preview-only: true
+      commit: ${{ needs.candidate.outputs.commit }}
+      image: ${{ needs.candidate.outputs.image }}
+      core-version: ${{ needs.candidate.outputs.docsCoreVersion }}
+      cli-version: ${{ needs.candidate.outputs.docsCliVersion }}
+      promote-docs: ${{ needs.candidate.outputs.promoteDocs == 'true' }}
+
+  selection:
+    name: Browser selection
+    needs: candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.candidate.outputs.commit }}
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Install E2E packages
+        run: npm ci
+        working-directory: ./e2e
+      - name: Verify intentional browser selection
+        run: npm run test:selection
+        working-directory: ./e2e
+        env:
+          CF_ACCESS_CLIENT_ID: selection-must-not-inherit-client
+          CF_ACCESS_CLIENT_SECRET: selection-must-not-inherit-secret
+
+  acceptance:
+    name: Retry-free staging release smoke
+    needs: [candidate, selection]
+    if: needs.candidate.outputs.bundle != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.candidate.outputs.commit }}
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: e2e/package-lock.json
+      - name: Install E2E packages
+        run: npm ci
+        working-directory: ./e2e
+      - name: Authenticate Pulumi
+        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        with:
+          organization: meiermade
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:meiermade
+      - name: Setup Pulumi CLI
+        uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
+        with:
+          pulumi-version: 3.261.0
+      - name: Run protected staging smoke without retries
+        working-directory: ./e2e
+        env:
+          EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
+          EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
+        run: >-
+          pulumi env run meiermade/fsharpviewengine/e2e-dev --
+          bash scripts/test-release-smoke.sh
+      - name: Upload credential-free release acceptance diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: fsharp-viewengine-release-smoke
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          if-no-files-found: ignore
+
+  package:
+    name: Build and verify release bundle
+    needs: [candidate, acceptance]
+    if: needs.candidate.outputs.bundle != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.candidate.outputs.commit }}
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+      - name: Restore tools and packages
+        run: |
+          dotnet tool restore
+          dotnet paket install
+          dotnet restore FSharp.ViewEngine.slnx
+        working-directory: ./sln
+      - name: Download pinned transaction
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-plan-${{ github.run_id }}
+          path: release
+      - name: Verify unselected public Core snapshot
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'docs'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.coreVersion }}
+        run: ./fake.sh VerifyPublicPackageSnapshot --single-target
+        working-directory: ./sln
+      - name: Verify unselected public CLI snapshot
+        if: needs.candidate.outputs.packages == 'core' || needs.candidate.outputs.packages == 'docs'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.cliVersion }}
+        run: ./fake.sh VerifyPublicPackageSnapshot --single-target
+        working-directory: ./sln
+      - name: Test release source
+        run: ./fake.sh Test --single-target
+        working-directory: ./sln
+
+      - name: Prepare Core release
+        if: needs.candidate.outputs.packages == 'core' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.coreVersion }}
+          MARK_LATEST: true
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/core-release-metadata.json
+        run: ./fake.sh PrepareRelease --single-target
+        working-directory: ./sln
+      - name: Pack Core package
+        if: needs.candidate.outputs.packages == 'core' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.coreVersion }}
+        run: ./fake.sh Pack --single-target
+        working-directory: ./sln
+      - name: Verify Core package
+        if: needs.candidate.outputs.packages == 'core' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine
+        run: ./fake.sh VerifyPackage --single-target
+        working-directory: ./sln
+      - name: Stage verified Core release
+        if: needs.candidate.outputs.packages == 'core' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.coreVersion }}
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/core-release-metadata.json
+        run: |
+          mkdir -p release/core
+          cp "nugets/FSharp.ViewEngine.${PACKAGE_VERSION}.nupkg" release/core/
+          cp "nugets/FSharp.ViewEngine.${PACKAGE_VERSION}.snupkg" release/core/
+          cp "$RELEASE_METADATA_PATH" release/core/release-metadata.json
+      - name: Record Core checksums
+        if: needs.candidate.outputs.packages == 'core' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.coreVersion }}
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_DIRECTORY: ${{ github.workspace }}/release/core
+        run: ./fake.sh RecordPackageChecksums --single-target
+        working-directory: ./sln
+
+      - name: Prepare CLI package release
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.cliVersion }}
+          MARK_LATEST: false
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/cli-release-metadata.json
+        run: ./fake.sh PrepareRelease --single-target
+        working-directory: ./sln
+      - name: Pack CLI package
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.cliVersion }}
+          CORE_PACKAGE_VERSION: ${{ needs.candidate.outputs.coreVersion }}
+        run: ./fake.sh Pack --single-target
+        working-directory: ./sln
+      - name: Verify CLI package compatibility
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+        run: ./fake.sh VerifyPackage --single-target
+        working-directory: ./sln
+      - name: Stage verified CLI release
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.cliVersion }}
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/cli-release-metadata.json
+        run: |
+          mkdir -p release/cli
+          cp "nugets/FSharp.ViewEngine.Cli.${PACKAGE_VERSION}.nupkg" release/cli/
+          cp "$RELEASE_METADATA_PATH" release/cli/release-metadata.json
+      - name: Record CLI checksums
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.cliVersion }}
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_DIRECTORY: ${{ github.workspace }}/release/cli
+        run: ./fake.sh RecordPackageChecksums --single-target
+        working-directory: ./sln
+      - name: Upload verified release bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: package-release-${{ github.run_id }}
+          path: release
+          if-no-files-found: error
+
+  publish:
+    name: Publish and verify selected packages
+    needs: [candidate, selection, package, production-preview]
+    if: ${{ !cancelled() && needs.candidate.result == 'success' && needs.selection.result == 'success' && needs.production-preview.result == 'success' && (needs.package.result == 'success' || needs.candidate.outputs.bundle == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: release
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.candidate.outputs.commit }}
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+            10.0.x
+      - name: Download pinned transaction
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/transaction
+      - name: Download verified release bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: package-release-${{ github.run_id }}
+          path: ${{ runner.temp }}/release
+      - name: Verify complete release transaction identity
+        run: cmp "$RUNNER_TEMP/transaction/transaction.json" "$RUNNER_TEMP/release/transaction.json"
+      - name: Restore release tooling
+        if: needs.candidate.outputs.packages != 'docs'
+        run: |
+          dotnet tool restore
+          dotnet paket install
+          dotnet restore src/Build/Build.fsproj
+        working-directory: ./sln
+      - name: Authenticate to NuGet with GitHub OIDC
+        if: needs.candidate.outputs.packages != 'docs'
+        id: nuget-login
+        uses: NuGet/login@8d196754b4036150537f80ac539e15c2f1028841 # v1.2.0
+        with:
+          user: ${{ vars.NUGET_USER }}
+      - name: Publish FSharp.ViewEngine
+        if: needs.candidate.outputs.packages == 'core' || needs.candidate.outputs.packages == 'both'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/core
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.coreVersion }}
+          MARK_LATEST: true
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release/core/release-metadata.json
+        run: ./fake.sh PublishPackageRelease --single-target
+        working-directory: ./sln
+      - name: Verify published FSharp.ViewEngine from NuGet.org
+        if: needs.candidate.outputs.packages == 'core' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/core
+          PACKAGE_ID: FSharp.ViewEngine
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.coreVersion }}
+          MARK_LATEST: true
+        run: ./fake.sh VerifyPublishedPackageRelease --single-target
+        working-directory: ./sln
+      - name: Publish FSharp.ViewEngine.Cli
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          NUGET_API_KEY: ${{ steps.nuget-login.outputs.NUGET_API_KEY }}
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/cli
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.cliVersion }}
+          MARK_LATEST: false
+          RELEASE_METADATA_PATH: ${{ runner.temp }}/release/cli/release-metadata.json
+        run: ./fake.sh PublishPackageRelease --single-target
+        working-directory: ./sln
+      - name: Verify published FSharp.ViewEngine.Cli from NuGet.org
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
+        env:
+          PACKAGE_DIRECTORY: ${{ runner.temp }}/release/cli
+          PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERSION: ${{ needs.candidate.outputs.cliVersion }}
+          MARK_LATEST: false
+        run: ./fake.sh VerifyPublishedPackageRelease --single-target
+        working-directory: ./sln
+
+  production:
+    name: Deploy production Docs
+    needs: [candidate, publish]
+    if: ${{ always() && needs.candidate.result == 'success' && needs.publish.result == 'success' && needs.candidate.outputs.promoteDocs == 'true' }}
+    uses: ./.github/workflows/deploy-production-docs.yml
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    with:
+      preview-only: false
+      commit: ${{ needs.candidate.outputs.commit }}
+      image: ${{ needs.candidate.outputs.image }}
+      core-version: ${{ needs.candidate.outputs.docsCoreVersion }}
+      cli-version: ${{ needs.candidate.outputs.docsCliVersion }}
+      promote-docs: ${{ needs.candidate.outputs.promoteDocs == 'true' }}

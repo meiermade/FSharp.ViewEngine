@@ -279,7 +279,7 @@ let tests =
         }
 
         test "One public workflow selects a coherent package and Docs release" {
-            let publish = workflow "publish.yml"
+            let publish = workflow "release.yml"
             Expect.stringContains publish "type: choice" "package selection is a choice"
             for selection in [ "core"; "cli"; "both"; "docs" ] do
                 Expect.stringContains publish $"- {selection}" $"{selection} selection"
@@ -299,7 +299,7 @@ let tests =
         }
 
         test "Package workflow verifies one release bundle before ordered publication" {
-            let publish = workflow "publish.yml"
+            let publish = workflow "release.yml"
             let packageStart = publish.IndexOf("\n  package:", StringComparison.Ordinal)
             let publishStart = publish.IndexOf("\n  publish:", StringComparison.Ordinal)
             let productionStart = publish.IndexOf("\n  production:", StringComparison.Ordinal)
@@ -312,7 +312,7 @@ let tests =
                 "selected packages share one verified release bundle"
             Expect.stringContains publishBlock "cmp \"$RUNNER_TEMP/transaction/transaction.json\" \"$RUNNER_TEMP/release/transaction.json\"" "publication verifies the complete pinned transaction"
             Expect.isFalse (publishBlock.Contains("./fake.sh Pack")) "publication reuses verified bytes rather than repacking"
-            Expect.isFalse (publish.Contains("uses: ./.github/workflows/deploy.yml")) "release promotion remains explicit"
+            Expect.isFalse (publish.Contains("uses: ./.github/workflows/deploy-staging-docs.yml")) "release promotion remains explicit"
             Expect.isFalse (publish.Contains("secrets: inherit")) "publication does not inherit unrelated secrets"
 
             Expect.stringContains packageBlock "./fake.sh Test --single-target" "release source is tested once"
@@ -333,7 +333,8 @@ let tests =
         }
 
         test "Explicit releases gate publication and promote the accepted digest safely" {
-            let publish = workflow "publish.yml"
+            let publish = workflow "release.yml"
+            let production = workflow "deploy-production-docs.yml"
             let config = repositoryFile "pulumi/src/config.ts"
             let retirementCheck = repositoryFile "e2e/scripts/verify-package-retirement.mjs"
             Expect.stringContains publish "queue: max" "explicit releases retain their serialized queue position"
@@ -341,14 +342,13 @@ let tests =
             Expect.stringContains publish "needs: [candidate, acceptance]" "new package preparation waits for deployed acceptance"
             Expect.stringContains publish "needs.candidate.outputs.promoteDocs == 'true'" "package-only releases do not implicitly promote Docs"
             Expect.stringContains publish "needs.candidate.outputs.bundle == 'true'" "retries reuse an already verified bundle"
-            Expect.stringContains publish "DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}" "production receives the accepted digest"
+            Expect.stringContains publish "image: ${{ needs.candidate.outputs.image }}" "production receives the accepted digest"
             Expect.stringContains publish "environment: release" "publication uses its protected environment"
-            Expect.stringContains publish "name: production" "promotion uses its protected environment"
-            Expect.isFalse (publish.Contains("steps.smoke.outcome != 'success'")) "recovery remains active after canonical smoke"
-            Expect.stringContains publish "(failure() || cancelled()) && steps.deploy.outcome != 'skipped'" "any unsuccessful post-mutation path restores production"
-            Expect.stringContains publish "steps.previous.outputs.image" "recovery preserves the previous immutable image"
-            Expect.stringContains publish "LEGACY_PRODUCTION_CLI_VERSION: unreleased" "initial recovery records the actual pre-CLI snapshot"
-            Expect.isFalse (publish.Contains("FALLBACK_CORE_VERSION: ${{ inputs.coreVersion }}")) "recovery never substitutes candidate package metadata"
+            Expect.isFalse (production.Contains("steps.smoke.outcome != 'success'")) "recovery remains active after canonical smoke"
+            Expect.stringContains production "(failure() || cancelled()) && steps.deploy.outcome != 'skipped'" "any unsuccessful post-mutation path restores production"
+            Expect.stringContains production "steps.previous.outputs.image" "recovery preserves the previous immutable image"
+            Expect.stringContains production "LEGACY_PRODUCTION_CLI_VERSION: unreleased" "initial recovery records the actual pre-CLI snapshot"
+            Expect.isFalse (production.Contains("FALLBACK_CORE_VERSION: ${{ inputs.coreVersion }}")) "recovery never substitutes candidate package metadata"
             Expect.stringContains config "https://fve.meiermade.com" "production has one canonical origin"
             Expect.stringContains config "ALLOW_UNRELEASED_PACKAGE_SNAPSHOT" "rollback can represent the actual pre-CLI snapshot explicitly"
             Expect.stringContains retirementCheck "retiredPackages" "retirement evidence covers Components and Docs"
@@ -359,7 +359,7 @@ let tests =
         }
 
         test "Main deploys only a protected immutable staging candidate" {
-            let deploy = workflow "deploy.yml"
+            let deploy = workflow "deploy-staging-docs.yml"
             Expect.stringContains deploy "push:" "main changes deploy automatically"
             Expect.stringContains deploy "- main" "only main deploys automatically"
             Expect.stringContains deploy "workflow_dispatch:" "staging remains manually redeployable"
@@ -513,7 +513,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
         }
 
         test "PR browser matrix retains all regression shards" {
-            let previewShards = workflow "preview.yml" |> browserShards
+            let previewShards = workflow "validate-pr.yml" |> browserShards
             Expect.isNonEmpty previewShards "PR acceptance selects browser shards"
 
             for browser, total in [ "chromium", 6; "firefox", 3; "webkit", 3 ] do
@@ -525,7 +525,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
         }
 
         test "Privileged Pulumi preview excludes fork pull requests" {
-            let preview = workflow "preview.yml"
+            let preview = workflow "validate-pr.yml"
             let privilegedStart = preview.IndexOf("\n  preview:", StringComparison.Ordinal)
             let terminalStart = preview.IndexOf("\n  test:", StringComparison.Ordinal)
             Expect.isTrue (privilegedStart > 0 && terminalStart > privilegedStart) "terminal test follows privileged preview"
@@ -554,15 +554,15 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
 
         test "Pulumi workflows install the GKE credential plugin" {
             let expectedAction = "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1"
-            for name in [ "deploy.yml"; "preview.yml"; "publish.yml" ] do
+            for name in [ "deploy-staging-docs.yml"; "validate-pr.yml"; "deploy-production-docs.yml" ] do
                 let workflow = workflow name
                 Expect.stringContains workflow expectedAction $"{name} pins setup-gcloud"
                 Expect.stringContains workflow "install_components: gke-gcloud-auth-plugin" $"{name} installs GKE authentication"
         }
 
         test "Staging delivery uses current provider state and safe rollout boundaries" {
-            let deploy = workflow "deploy.yml"
-            let preview = workflow "preview.yml"
+            let deploy = workflow "deploy-staging-docs.yml"
+            let preview = workflow "validate-pr.yml"
             let appConfig = repositoryFile "pulumi/src/config.ts"
             let pulumiDev = repositoryFile "pulumi/Pulumi.dev.yaml"
             let access = repositoryFile "pulumi/src/cloudflare/access.ts"

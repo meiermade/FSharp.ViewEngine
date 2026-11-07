@@ -1,4 +1,4 @@
-name: Deploy documentation candidate
+name: Deploy staging Docs
 on:
   push:
     branches:

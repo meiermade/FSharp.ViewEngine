@@ -364,7 +364,7 @@ let acceptedCandidate repository githubRepository =
     let root = document.RootElement
     let commit = root.GetProperty("releaseCommit").GetString()
     let image = root.GetProperty("imageDigest").GetString()
-    let accepted = runProcess true "gh" ["run"; "list"; "--repo"; githubRepository; "--workflow"; "deploy.yml"; "--branch"; "main"; "--status"; "success"; "--limit"; "1"; "--json"; "headSha"; "--jq"; ".[0].headSha"]
+    let accepted = runProcess true "gh" ["run"; "list"; "--repo"; githubRepository; "--workflow"; "deploy-staging-docs.yml"; "--branch"; "main"; "--status"; "success"; "--limit"; "1"; "--json"; "headSha"; "--jq"; ".[0].headSha"]
     validateCandidate accepted commit image (root.GetProperty("origin").GetString()) (root.GetProperty("e2eReady").GetBoolean())
     commit,image
 
