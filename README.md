@@ -11,79 +11,37 @@
 
 A minimal, typed HTML DSL for F#. Build server-rendered HTML with computation expressions, mixing attributes, strings, and child elements in one sequence.
 
-Inspired by [Giraffe.ViewEngine](https://github.com/giraffe-fsharp/Giraffe.ViewEngine), [Feliz.ViewEngine](https://github.com/dbrattli/Feliz.ViewEngine), [Oxpecker.ViewEngine](https://github.com/Lanayx/Oxpecker), and [Bolero](https://github.com/fsbolero/Bolero).
+The [Docs site](https://fve.meiermade.com) and [source](https://github.com/meiermade/FSharp.ViewEngine/tree/main/sln/src) are the implementation references. Each [component page](https://fve.meiermade.com/components) includes focused, copyable examples. The [Examples gallery](https://fve.meiermade.com/examples) demonstrates Application, Specification, and API documentation using one [runnable financial application](sln/src/Example/README.md).
 
-[Documentation](https://fve.meiermade.com) · [Components](https://fve.meiermade.com/components) · [Examples](https://fve.meiermade.com/examples)
-
-## Install and render
+## Install
 
 ```sh
 dotnet add package FSharp.ViewEngine
 ```
 
-```fsharp
-open FSharp.ViewEngine
-open type Html
-
-let page =
-    html {
-        _lang "en"
-        head { title { "Hello" } }
-        body {
-            h1 { _class "text-xl"; "Hello from FSharp.ViewEngine" }
-            for name in ["Alice"; "Bob"] do
-                p { name }
-        }
-    }
-
-let document = Render.toHtmlDocString page
-```
-
-`Render.toString` renders fragments; `Render.toHtmlDocString` adds the HTML5 doctype. Additional targets support `StringBuilder`, `TextWriter`, and UTF-8 bytes. Ordinary text and attribute values are encoded; raw markup and executable expressions must remain developer-controlled.
-
-Core targets `net8.0` and is tested on .NET 8, 9, and 10. Portable symbols include Source Link metadata.
-
-## Components and examples
-
-Install accessible Tailwind components with Datastar interactions as source your application owns:
+For editable components, install the CLI in your repository:
 
 ```sh
 dotnet new tool-manifest
 dotnet tool install FSharp.ViewEngine.Cli
-dotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components
-dotnet fve add button input --config src/Acme.Components/fve.json
 ```
 
-Commit the tool manifest and generated source. See the [Components README](sln/src/FSharp.ViewEngine.Components/README.md) for styling and host requirements, and the [CLI README](sln/src/FSharp.ViewEngine.Cli/README.md) for safe source updates.
+Follow the [component installation guide](https://fve.meiermade.com/components/installation) for project setup and frontend builds. Use `dotnet fve --help` for commands.
 
-The [Examples gallery](https://fve.meiermade.com/examples) opens three surfaces of one [standalone consumer example](sln/src/Example/README.md): Application, Specification, and API documentation. Its checked-in CLI-installed components and Rocket/ECharts chart demonstrate editable source ownership. The surfaces share immutable financial fixtures; forms demonstrate validation, not persistence, and API contracts are illustrative.
+## Repository development
 
-## Local development
-
-Use the .NET 10 SDK, Node.js with npm, and Tailwind CSS CLI v4.2.2 on `PATH`:
+Requires the .NET 10 SDK, Node.js/npm, and Tailwind CSS CLI v4.2.2 on `PATH`:
 
 ```sh
 cd sln
 dotnet tool restore
 dotnet paket restore
+dotnet restore FSharp.ViewEngine.slnx
 ./fake.sh WatchDocs
 ```
 
-The catalog runs at `http://127.0.0.1:5054`. Run one watcher; starting it replaces the previous Docs watcher across worktrees without taking unrelated listeners. It watches F#, Tailwind, and the application JavaScript bundle. Restart after changing project references or compile items.
+Use the single catalog watcher at `http://127.0.0.1:5054`; starting it replaces the previous Docs watcher across worktrees.
 
-Docs consumes checked-in CLI-installed source in `sln/src/Docs.Components`; catalog-only code lives outside its managed `Components/` directory. After editing canonical component source, explicitly run `./fake.sh UpdateInstalledComponents` from `sln` to replace the installed Docs and Example copies. `./fake.sh CheckInstalledComponents` checks drift without writing; CI runs it before tests. Normal builds and watchers compile and bundle installed source without regenerating it.
+After editing canonical components in `sln/src/FSharp.ViewEngine.Components`, run `./fake.sh UpdateInstalledComponents` from `sln` to refresh the checked-in Docs and Example consumers. `./fake.sh CheckInstalledComponents` checks drift; `./fake.sh Test` runs tests. Normal builds use installed source without regenerating it.
 
-To run a focused browser check against that watcher:
-
-```sh
-cd e2e
-npm ci
-E2E_START_LOCAL=0 DOCS_E2E_BASE_URL=http://127.0.0.1:5054 \
-  npx playwright test tests/catalog-areas.spec.ts --project=chromium --workers=1
-```
-
-The [benchmark documentation](https://fve.meiermade.com/benchmarks) contains reproduction commands, methodology, detailed measurements, and profiling findings; results are not CI regression thresholds.
-
-## Release
-
-Merges deploy staging. The [release workflow](.github/workflows/publish.yml) defaults to changed projects; Core, CLI, Both, and Docs can also release independently. CI pins the accepted image and independent package versions; Docs promotion has no version of its own.
+Merges deploy protected staging. Package publication and production Docs promotion use the separate [release workflow](.github/workflows/publish.yml).
