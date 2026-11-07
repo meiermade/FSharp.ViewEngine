@@ -173,6 +173,60 @@ let tests =
                 if Directory.Exists directory then Directory.Delete(directory,true)
         }
 
+        test "Production preview summary distinguishes Docs promotion from package-only publication" {
+            let state : PackagePublishing.PackageState = { latestVersion=Some "2026.10.4"; changedSinceLatest=true }
+            let commit = String.replicate 40 "a"
+            let image = "registry/image@sha256:"+String.replicate 64 "b"
+            let infrastructure = String.replicate 40 "c"
+            let currentImage = "registry/image@sha256:"+String.replicate 64 "d"
+            use production = System.Text.Json.JsonDocument.Parse($"""{{"releaseCommit":"{String.replicate 40 "e"}","imageDigest":"{currentImage}","coreVersion":"2026.8.2","cliVersion":"unreleased","ciAccessClientSecret":"must-not-appear"}}""")
+            let plan selection = PackagePublishing.planRelease selection commit image (DateTimeOffset(2026,11,7,0,0,0,TimeSpan.Zero)) state state true [] []
+            let docs = PackagePublishing.releasePreviewSummary infrastructure (plan "auto") production.RootElement
+            for value in [currentImage;image;commit;infrastructure;"FSharp.ViewEngine <code>2026.11.0</code>";"FSharp.ViewEngine.Cli <code>2026.11.0</code>"] do
+                Expect.stringContains docs value "the actual candidate, production identity and selected publications are reviewable"
+            Expect.isFalse (docs.Contains("must-not-appear")) "only public identity fields reach the summary"
+            let packageOnly = PackagePublishing.releasePreviewSummary infrastructure (plan "cli") production.RootElement
+            Expect.stringContains packageOnly "No production Docs deployment is selected" "package-only releases do not invent a production deployment"
+            Expect.stringContains packageOnly $"| Immutable image | <code>{currentImage}</code> | <code>{currentImage}</code> |" "Docs keeps its actual image"
+            Expect.stringContains packageOnly "| Advertised Core version | <code>2026.8.2</code> | <code>2026.8.2</code> |" "Docs metadata does not switch to the candidate's unreleased snapshot"
+            Expect.isFalse (packageOnly.Contains(image)) "an unused candidate image is not proposed for production"
+            Expect.throws (fun () -> PackagePublishing.releasePreviewSummary "main" (plan "docs") production.RootElement |> ignore) "the infrastructure revision is immutable"
+        }
+
+        test "FAKE writes the production summary from the pinned transaction without changing it" {
+            let directory = Path.Combine(Path.GetTempPath(), $"fve-preview-summary.{Guid.NewGuid():N}")
+            Directory.CreateDirectory directory |> ignore
+            try
+                let planPath = Path.Combine(directory,"transaction.json")
+                let productionPath = Path.Combine(directory,"production.json")
+                let summaryPath = Path.Combine(directory,"summary.md")
+                let state : PackagePublishing.PackageState = { latestVersion=Some "2026.10.4"; changedSinceLatest=false }
+                let plan = PackagePublishing.planRelease "docs" (String.replicate 40 "a") ("registry/image@sha256:"+String.replicate 64 "b") DateTimeOffset.UtcNow state state true [] []
+                PackagePublishing.writePlan planPath plan
+                let pinnedBytes = File.ReadAllBytes planPath
+                File.WriteAllText(productionPath,"{}")
+                File.WriteAllText(summaryPath,"Existing summary\n")
+                let arguments = [typeof<Release.Metadata>.Assembly.Location;"--target";"WriteReleasePreviewSummary";"--single-target"]
+                let environment = [
+                    "RELEASE_PLAN_PATH",planPath; "PRODUCTION_STATE_PATH",productionPath
+                    "GITHUB_SHA",String.replicate 40 "c"; "GITHUB_STEP_SUMMARY",summaryPath
+                    "DEPLOY_IMAGE",plan.image; "RELEASE_COMMIT",plan.commit
+                    "CORE_PACKAGE_VERSION",plan.docsCoreVersion; "CLI_PACKAGE_VERSION",plan.docsCliVersion
+                    "PROMOTE_DOCS","true" ]
+                let result = runProcessWithEnvironment directory "dotnet" arguments environment
+                Expect.equal result 0 "the real FAKE entry reads the pinned files and writes the job summary"
+                Expect.equal (File.ReadAllBytes planPath) pinnedBytes "summary generation cannot reallocate release identity"
+                let summary = File.ReadAllText summaryPath
+                Expect.stringContains summary "Existing summary\n## Production release preview" "other job summary content is preserved"
+                Expect.stringContains summary "None (Docs only)" "Docs has no package version of its own"
+                Expect.stringContains summary "not recorded" "missing legacy metadata is shown truthfully rather than fabricated"
+                let drifted = environment |> List.map (fun (key,value) -> key, if key = "DEPLOY_IMAGE" then "" else value)
+                Expect.notEqual (runProcessWithEnvironment directory "dotnet" arguments drifted) 0 "a dropped or changed job output cannot silently preview a different candidate or rebuild an image"
+                Expect.equal (File.ReadAllText summaryPath) summary "mismatched preview inputs fail before writing approval evidence"
+            finally
+                Directory.Delete(directory,true)
+        }
+
         test "Accepted candidate identity is exact, protected, ready and successfully deployed" {
             let commit = String.replicate 40 "a"
             let image = "registry/image@sha256:"+String.replicate 64 "b"
@@ -302,6 +356,31 @@ let tests =
             Expect.stringContains retirementCheck "includes('Legacy')" "retirement evidence requires the Legacy reason"
             Expect.stringContains retirementCheck "FSharp.ViewEngine.Cli" "retirement evidence requires the CLI replacement"
             Expect.stringContains retirementCheck "entry.packageContent" "retirement evidence preserves pinned downloads"
+        }
+
+        test "Production release preview precedes approval and uses the deployment candidate" {
+            let publish = workflow "publish.yml"
+            let start = publish.IndexOf("\n  production-preview:", StringComparison.Ordinal)
+            let finish = publish.IndexOf("\n  selection:", start, StringComparison.Ordinal)
+            Expect.isTrue (start > 0 && finish > start) "the release has a preview job"
+            let preview = publish.Substring(start,finish-start)
+            Expect.stringContains preview "name: release-plan-${{ github.run_id }}" "preview reads the same immutable transaction as publication"
+            Expect.stringContains preview "ref: ${{ github.sha }}" "preview uses the same infrastructure revision as deployment"
+            Expect.stringContains preview "command: preview" "preview does not update infrastructure"
+            Expect.isFalse (preview.Contains("command: up")) "the pre-approval job performs no update"
+            Expect.isFalse (preview.Contains("environment: release")) "the diff is available before approval is requested"
+            Expect.stringContains preview "comment-on-summary: true" "the native Pulumi action exposes the actual diff and preview link"
+            Expect.stringContains preview "plan: ${{ runner.temp }}/production-plan.json" "preview saves its configuration and resource constraints using Pulumi's encrypted plan format"
+            Expect.stringContains preview "if-no-files-found: error" "a missing reviewed plan prevents approval eligibility"
+            Expect.stringContains publish "plan: ${{ runner.temp }}/reviewed-production/production-plan.json" "production applies the reviewed constraints rather than an unconstrained fresh update"
+            Expect.equal (publish.Split("name: production-plan-${{ github.run_id }}",StringSplitOptions.None).Length-1) 2 "preview and deployment share one run-bound saved plan"
+            Expect.stringContains preview "if: needs.candidate.outputs.promoteDocs == 'true'" "package-only releases do not preview a deployment they will not perform"
+            for field in ["image";"commit";"docsCoreVersion";"docsCliVersion"] do
+                Expect.stringContains preview ("needs.candidate.outputs."+field) "preview consumes the pinned deployment identity"
+            Expect.stringContains publish "needs: [candidate, selection, package, production-preview]" "publication waits for the diff"
+            Expect.stringContains publish "needs.production-preview.result == 'success'" "the explicit publication condition cannot bypass a failed or skipped preview"
+            for name in ["publish.yml";"deploy.yml";"deploy-infrastructure.yml"] do
+                Expect.stringContains (workflow name) "group: fsharp-viewengine-delivery" "maintenance, staging and release preserve the same serialized delivery boundary"
         }
 
         test "Main deploys only a protected immutable staging candidate" {
@@ -520,7 +599,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
             Expect.stringContains deploy "pulumi refresh --run-program" "refresh uses the current provider configuration"
             Expect.isFalse (deploy.Contains("refresh: true")) "the update does not refresh against stale provider state"
             Expect.stringContains preview "stack-name: meiermade/fsharp-view-engine/dev" "pull requests preview the isolated staging stack"
-            Expect.stringContains preview "stack-name: meiermade/fsharp-view-engine/prod" "pull requests expose any production-boundary drift without updating it"
+            Expect.isFalse (preview.Contains("stack-name: meiermade/fsharp-view-engine/prod")) "production previews belong to the pinned release, not pull requests"
             Expect.stringContains pulumiDev "fsharpviewengine/dev" "the dev stack composes only the development ESC environment"
             Expect.stringContains appConfig "https://fve.meiermade.net" "the staging origin is exact"
             Expect.stringContains appConfig "zoneId: rawCloudflareConfig.require('zoneId')" "both stacks require their ESC-projected zone ID"

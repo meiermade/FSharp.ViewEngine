@@ -83,6 +83,93 @@ jobs:
           path: ${{ runner.temp }}/transaction/transaction.json
           if-no-files-found: error
 
+  production-preview:
+    name: Preview pinned production release
+    needs: candidate
+    env:
+      DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}
+      RELEASE_COMMIT: ${{ needs.candidate.outputs.commit }}
+      CORE_PACKAGE_VERSION: ${{ needs.candidate.outputs.docsCoreVersion }}
+      CLI_PACKAGE_VERSION: ${{ needs.candidate.outputs.docsCliVersion }}
+      PROMOTE_DOCS: ${{ needs.candidate.outputs.promoteDocs }}
+      ALLOW_UNRELEASED_PACKAGE_SNAPSHOT: ${{ needs.candidate.outputs.docsCoreVersion == 'unreleased' || needs.candidate.outputs.docsCliVersion == 'unreleased' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      # Match the infrastructure revision used by the production deployment job.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.sha }}
+      - name: Setup Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: pulumi/package-lock.json
+      - name: Install GKE auth plugin
+        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
+        with:
+          install_components: gke-gcloud-auth-plugin
+      - name: Install Pulumi packages
+        run: npm ci
+        working-directory: ./pulumi
+      - name: Setup dotnet
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        with:
+          dotnet-version: 10.0.x
+      - name: Restore release tooling
+        working-directory: ./sln
+        run: |
+          dotnet tool restore
+          dotnet paket install
+          dotnet restore src/Build/Build.fsproj
+      - name: Download pinned transaction
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/transaction
+      - name: Authenticate Pulumi
+        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        with:
+          organization: meiermade
+          requested-token-type: urn:pulumi:token-type:access_token:personal
+          scope: user:meiermade
+      - name: Setup Pulumi CLI
+        uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
+        with:
+          pulumi-version: 3.261.0
+      - name: Read current production identity
+        working-directory: ./pulumi
+        run: pulumi stack output --json --stack meiermade/fsharp-view-engine/prod > "$RUNNER_TEMP/production-preview-state.json"
+      - name: Summarize pinned release for approval
+        working-directory: ./sln
+        env:
+          RELEASE_PLAN_PATH: ${{ runner.temp }}/transaction/transaction.json
+          PRODUCTION_STATE_PATH: ${{ runner.temp }}/production-preview-state.json
+        run: ./fake.sh WriteReleasePreviewSummary --single-target
+      - name: Preview actual production changes
+        if: needs.candidate.outputs.promoteDocs == 'true'
+        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
+        with:
+          work-dir: ./pulumi
+          command: preview
+          stack-name: meiermade/fsharp-view-engine/prod
+          diff: true
+          comment-on-summary: true
+          # Pulumi encrypts saved-plan secrets with the stack's secrets provider.
+          plan: ${{ runner.temp }}/production-plan.json
+      - name: Retain reviewed production plan
+        if: needs.candidate.outputs.promoteDocs == 'true'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: production-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/production-plan.json
+          if-no-files-found: error
+          overwrite: true
+
   selection:
     name: Browser selection
     needs: candidate
@@ -296,8 +383,8 @@ jobs:
 
   publish:
     name: Publish and verify selected packages
-    needs: [candidate, selection, package]
-    if: ${{ !cancelled() && needs.candidate.result == 'success' && needs.selection.result == 'success' && (needs.package.result == 'success' || needs.candidate.outputs.bundle == 'true') }}
+    needs: [candidate, selection, package, production-preview]
+    if: ${{ !cancelled() && needs.candidate.result == 'success' && needs.selection.result == 'success' && needs.production-preview.result == 'success' && (needs.package.result == 'success' || needs.candidate.outputs.bundle == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: release
@@ -439,6 +526,11 @@ jobs:
         uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
         with:
           pulumi-version: 3.261.0
+      - name: Download reviewed production plan
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: production-plan-${{ github.run_id }}
+          path: ${{ runner.temp }}/reviewed-production
       - name: Record previous healthy production release
         id: previous
         timeout-minutes: 3
@@ -482,6 +574,7 @@ jobs:
           work-dir: ./pulumi
           command: up
           stack-name: meiermade/fsharp-view-engine/prod
+          plan: ${{ runner.temp }}/reviewed-production/production-plan.json
       - name: Verify production stack outputs
         timeout-minutes: 2
         env:

@@ -7,7 +7,7 @@ permissions:
 
 # Share the release lock: maintenance must never race image promotion or rollback.
 concurrency:
-  group: fsharp-viewengine-release
+  group: fsharp-viewengine-delivery
   queue: max
   cancel-in-progress: false
 
@@ -93,9 +93,10 @@ jobs:
         timeout-minutes: 3
         working-directory: ./pulumi
         run: |
-          export CF_ACCOUNT_ID="$(pulumi config get cloudflare:accountId --stack meiermade/fsharp-view-engine/prod)"
-          export CF_ZONE_ID="$(pulumi config get cloudflare:zoneId --stack meiermade/fsharp-view-engine/prod)"
-          export CF_API_TOKEN="$(pulumi config get cloudflare:apiToken --stack meiermade/fsharp-view-engine/prod)"
+          CF_ACCOUNT_ID="$(pulumi config get cloudflare:accountId --stack meiermade/fsharp-view-engine/prod)"
+          CF_ZONE_ID="$(pulumi config get cloudflare:zoneId --stack meiermade/fsharp-view-engine/prod)"
+          CF_API_TOKEN="$(pulumi config get cloudflare:apiToken --stack meiermade/fsharp-view-engine/prod)"
+          export CF_ACCOUNT_ID CF_ZONE_ID CF_API_TOKEN
           node --input-type=module <<'NODE'
           import assert from 'node:assert/strict'
           const { CF_ACCOUNT_ID: account, CF_ZONE_ID: zone, CF_API_TOKEN: token } = process.env
