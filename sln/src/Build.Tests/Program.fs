@@ -173,6 +173,60 @@ let tests =
                 if Directory.Exists directory then Directory.Delete(directory,true)
         }
 
+        test "Production preview summary distinguishes Docs promotion from package-only publication" {
+            let state : PackagePublishing.PackageState = { latestVersion=Some "2026.10.4"; changedSinceLatest=true }
+            let commit = String.replicate 40 "a"
+            let image = "registry/image@sha256:"+String.replicate 64 "b"
+            let infrastructure = String.replicate 40 "c"
+            let currentImage = "registry/image@sha256:"+String.replicate 64 "d"
+            use production = System.Text.Json.JsonDocument.Parse($"""{{"releaseCommit":"{String.replicate 40 "e"}","imageDigest":"{currentImage}","coreVersion":"2026.8.2","cliVersion":"unreleased","ciAccessClientSecret":"must-not-appear"}}""")
+            let plan selection = PackagePublishing.planRelease selection commit image (DateTimeOffset(2026,11,7,0,0,0,TimeSpan.Zero)) state state true [] []
+            let docs = PackagePublishing.releasePreviewSummary infrastructure (plan "auto") production.RootElement
+            for value in [currentImage;image;commit;infrastructure;"FSharp.ViewEngine <code>2026.11.0</code>";"FSharp.ViewEngine.Cli <code>2026.11.0</code>"] do
+                Expect.stringContains docs value "the actual candidate, production identity and selected publications are reviewable"
+            Expect.isFalse (docs.Contains("must-not-appear")) "only public identity fields reach the summary"
+            let packageOnly = PackagePublishing.releasePreviewSummary infrastructure (plan "cli") production.RootElement
+            Expect.stringContains packageOnly "No production Docs deployment is selected" "package-only releases do not invent a production deployment"
+            Expect.stringContains packageOnly $"| Immutable image | <code>{currentImage}</code> | <code>{currentImage}</code> |" "Docs keeps its actual image"
+            Expect.stringContains packageOnly "| Advertised Core version | <code>2026.8.2</code> | <code>2026.8.2</code> |" "Docs metadata does not switch to the candidate's unreleased snapshot"
+            Expect.isFalse (packageOnly.Contains(image)) "an unused candidate image is not proposed for production"
+            Expect.throws (fun () -> PackagePublishing.releasePreviewSummary "main" (plan "docs") production.RootElement |> ignore) "the infrastructure revision is immutable"
+        }
+
+        test "FAKE writes the production summary from the pinned transaction without changing it" {
+            let directory = Path.Combine(Path.GetTempPath(), $"fve-preview-summary.{Guid.NewGuid():N}")
+            Directory.CreateDirectory directory |> ignore
+            try
+                let planPath = Path.Combine(directory,"transaction.json")
+                let productionPath = Path.Combine(directory,"production.json")
+                let summaryPath = Path.Combine(directory,"summary.md")
+                let state : PackagePublishing.PackageState = { latestVersion=Some "2026.10.4"; changedSinceLatest=false }
+                let plan = PackagePublishing.planRelease "docs" (String.replicate 40 "a") ("registry/image@sha256:"+String.replicate 64 "b") DateTimeOffset.UtcNow state state true [] []
+                PackagePublishing.writePlan planPath plan
+                let pinnedBytes = File.ReadAllBytes planPath
+                File.WriteAllText(productionPath,"{}")
+                File.WriteAllText(summaryPath,"Existing summary\n")
+                let arguments = [typeof<Release.Metadata>.Assembly.Location;"--target";"WriteReleasePreviewSummary";"--single-target"]
+                let environment = [
+                    "RELEASE_PLAN_PATH",planPath; "PRODUCTION_STATE_PATH",productionPath
+                    "GITHUB_SHA",String.replicate 40 "c"; "GITHUB_STEP_SUMMARY",summaryPath
+                    "DEPLOY_IMAGE",plan.image; "RELEASE_COMMIT",plan.commit
+                    "CORE_PACKAGE_VERSION",plan.docsCoreVersion; "CLI_PACKAGE_VERSION",plan.docsCliVersion
+                    "PROMOTE_DOCS","true" ]
+                let result = runProcessWithEnvironment directory "dotnet" arguments environment
+                Expect.equal result 0 "the real FAKE entry reads the pinned files and writes the job summary"
+                Expect.equal (File.ReadAllBytes planPath) pinnedBytes "summary generation cannot reallocate release identity"
+                let summary = File.ReadAllText summaryPath
+                Expect.stringContains summary "Existing summary\n## Production release preview" "other job summary content is preserved"
+                Expect.stringContains summary "None (Docs only)" "Docs has no package version of its own"
+                Expect.stringContains summary "not recorded" "missing legacy metadata is shown truthfully rather than fabricated"
+                let drifted = environment |> List.map (fun (key,value) -> key, if key = "DEPLOY_IMAGE" then "" else value)
+                Expect.notEqual (runProcessWithEnvironment directory "dotnet" arguments drifted) 0 "a dropped or changed job output cannot silently preview a different candidate or rebuild an image"
+                Expect.equal (File.ReadAllText summaryPath) summary "mismatched preview inputs fail before writing approval evidence"
+            finally
+                Directory.Delete(directory,true)
+        }
+
         test "Accepted candidate identity is exact, protected, ready and successfully deployed" {
             let commit = String.replicate 40 "a"
             let image = "registry/image@sha256:"+String.replicate 64 "b"
@@ -225,7 +279,7 @@ let tests =
         }
 
         test "One public workflow selects a coherent package and Docs release" {
-            let publish = workflow "publish.yml"
+            let publish = workflow "release.yml"
             Expect.stringContains publish "type: choice" "package selection is a choice"
             for selection in [ "core"; "cli"; "both"; "docs" ] do
                 Expect.stringContains publish $"- {selection}" $"{selection} selection"
@@ -245,7 +299,7 @@ let tests =
         }
 
         test "Package workflow verifies one release bundle before ordered publication" {
-            let publish = workflow "publish.yml"
+            let publish = workflow "release.yml"
             let packageStart = publish.IndexOf("\n  package:", StringComparison.Ordinal)
             let publishStart = publish.IndexOf("\n  publish:", StringComparison.Ordinal)
             let productionStart = publish.IndexOf("\n  production:", StringComparison.Ordinal)
@@ -258,7 +312,7 @@ let tests =
                 "selected packages share one verified release bundle"
             Expect.stringContains publishBlock "cmp \"$RUNNER_TEMP/transaction/transaction.json\" \"$RUNNER_TEMP/release/transaction.json\"" "publication verifies the complete pinned transaction"
             Expect.isFalse (publishBlock.Contains("./fake.sh Pack")) "publication reuses verified bytes rather than repacking"
-            Expect.isFalse (publish.Contains("uses: ./.github/workflows/deploy.yml")) "release promotion remains explicit"
+            Expect.isFalse (publish.Contains("uses: ./.github/workflows/deploy-staging-docs.yml")) "release promotion remains explicit"
             Expect.isFalse (publish.Contains("secrets: inherit")) "publication does not inherit unrelated secrets"
 
             Expect.stringContains packageBlock "./fake.sh Test --single-target" "release source is tested once"
@@ -279,7 +333,7 @@ let tests =
         }
 
         test "Explicit releases gate publication and promote the accepted digest safely" {
-            let publish = workflow "publish.yml"
+            let publish = workflow "release.yml"
             let config = repositoryFile "pulumi/src/config.ts"
             let retirementCheck = repositoryFile "e2e/scripts/verify-package-retirement.mjs"
             Expect.stringContains publish "queue: max" "explicit releases retain their serialized queue position"
@@ -287,16 +341,10 @@ let tests =
             Expect.stringContains publish "needs: [candidate, acceptance]" "new package preparation waits for deployed acceptance"
             Expect.stringContains publish "needs.candidate.outputs.promoteDocs == 'true'" "package-only releases do not implicitly promote Docs"
             Expect.stringContains publish "needs.candidate.outputs.bundle == 'true'" "retries reuse an already verified bundle"
-            Expect.stringContains publish "DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}" "production receives the accepted digest"
+            Expect.stringContains publish "image: ${{ needs.candidate.outputs.image }}" "production receives the accepted digest"
             Expect.stringContains publish "environment: release" "publication uses its protected environment"
-            Expect.stringContains publish "name: production" "promotion uses its protected environment"
-            Expect.isFalse (publish.Contains("steps.smoke.outcome != 'success'")) "recovery remains active after canonical smoke"
-            Expect.stringContains publish "(failure() || cancelled()) && steps.deploy.outcome != 'skipped'" "any unsuccessful post-mutation path restores production"
-            Expect.stringContains publish "steps.previous.outputs.image" "recovery preserves the previous immutable image"
-            Expect.stringContains publish "LEGACY_PRODUCTION_CLI_VERSION: unreleased" "initial recovery records the actual pre-CLI snapshot"
-            Expect.isFalse (publish.Contains("FALLBACK_CORE_VERSION: ${{ inputs.coreVersion }}")) "recovery never substitutes candidate package metadata"
             Expect.stringContains config "https://fve.meiermade.com" "production has one canonical origin"
-            Expect.stringContains config "ALLOW_UNRELEASED_PACKAGE_SNAPSHOT" "rollback can represent the actual pre-CLI snapshot explicitly"
+            Expect.stringContains config "ALLOW_UNRELEASED_PACKAGE_SNAPSHOT" "Docs-only snapshots can truthfully advertise unpublished package changes"
             Expect.stringContains retirementCheck "retiredPackages" "retirement evidence covers Components and Docs"
             Expect.stringContains retirementCheck "availableVersions" "retirement evidence covers every published version"
             Expect.stringContains retirementCheck "includes('Legacy')" "retirement evidence requires the Legacy reason"
@@ -305,7 +353,7 @@ let tests =
         }
 
         test "Main deploys only a protected immutable staging candidate" {
-            let deploy = workflow "deploy.yml"
+            let deploy = workflow "deploy-staging-docs.yml"
             Expect.stringContains deploy "push:" "main changes deploy automatically"
             Expect.stringContains deploy "- main" "only main deploys automatically"
             Expect.stringContains deploy "workflow_dispatch:" "staging remains manually redeployable"
@@ -315,15 +363,8 @@ let tests =
             Expect.isFalse (deploy.Contains("stack-name: meiermade/fsharp-view-engine/prod")) "main never updates production"
             Expect.stringContains deploy "pulumi env run meiermade/fsharpviewengine/e2e-dev" "acceptance loads scoped credentials in the consuming command"
             Expect.stringContains deploy "bash scripts/test-release-smoke.sh" "main runs the same bounded smoke as production"
-            Expect.stringContains deploy "DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}" "unsuccessful acceptance restores the previous immutable image"
             Expect.stringContains deploy "queue: max" "every successful merge retains its place in the staging queue"
             Expect.stringContains deploy "cancel-in-progress: false" "a newer merge does not interrupt an active rollout"
-            Expect.stringContains deploy "if: ${{ always() }}" "workflow cancellation leaves the deployment job available for recovery"
-            Expect.stringContains deploy "failure() || cancelled()" "failure and cancellation both enter recovery"
-            Expect.stringContains deploy "steps.deploy.outcome != 'skipped'" "recovery runs whenever deployment may have mutated staging"
-            Expect.stringContains deploy "steps.restore.outcome == 'success'" "a restored release must pass readiness"
-            Expect.stringContains deploy "Confirm restored staging release is healthy" "recovery proves the previous release is serving"
-            Expect.isFalse (deploy.Contains("\n    timeout-minutes:")) "a job timeout cannot preempt bounded recovery steps"
             Expect.isFalse (deploy.Contains("workflow_call:")) "package releases do not call staging deployment"
             Expect.isFalse (deploy.Contains("secrets: inherit")) "staging does not inherit unrelated secrets"
             Expect.isFalse (deploy.Contains("playwright install --with-deps")) "staging acceptance uses the pinned browser image"
@@ -402,8 +443,14 @@ let tests =
                 script "gh" """#!/usr/bin/env bash
 set -euo pipefail
 printf 'gh %s %s\n' "$1" "${2:-}" >> "$FAKE_CALLS"
-if [[ "$1" == api ]]; then printf '%s' "$FAKE_ARTIFACTS"
-elif [[ "$1 $2" == 'run list' ]]; then printf '%s' "$FAKE_ACCEPTED"
+if [[ "$1" == api && "$2" == *'/actions/workflows/'* ]]; then
+  if [[ " $* " == *' --paginate '* && " $* " == *' --slurp '* ]]; then
+    printf '%s' "$FAKE_ACCEPTED"
+  elif [[ " $* " == *' --paginate '* ]]; then jq -c '.[]' <<< "$FAKE_ACCEPTED"
+  else jq '.[0]' <<< "$FAKE_ACCEPTED"; fi
+elif [[ "$1" == api ]]; then printf '%s' "$FAKE_ARTIFACTS"
+elif [[ "$1 $2" == 'run list' ]]; then
+  jq '[.[].workflow_runs[] | select(.head_branch == "main")] | sort_by(.created_at) | reverse | .[:1] | map({headSha: .head_sha, status, conclusion})' <<< "$FAKE_ACCEPTED" | jq -er "${@: -1}"
 elif [[ "$1 $2" == 'run download' ]]; then mkdir -p "${@: -1}"; cp "$FAKE_SAVED_PLAN" "${@: -1}/transaction.json"
 else exit 91; fi
 """
@@ -415,7 +462,15 @@ if [[ " $* " == *' --json '* ]]; then
 else printf '%s' "$FAKE_PUBLISHED"; fi
 """
                 let image = "registry/image@sha256:"+String.replicate 64 "b"
+                let mutable latestStatus = "completed"
+                let mutable latestConclusion = "success"
+                let mutable newerCreatedConclusion = "success"
+                let mutable newerStarted = "2026-11-07T11:00:00Z"
                 let run attempt artifacts staged =
+                    let rerun = {| head_sha=commit; head_branch="main"; created_at="2026-11-07T10:00:00Z"; run_started_at="2026-11-07T12:00:00Z"; status=latestStatus; conclusion=latestConclusion |}
+                    let newerCreated = {| rerun with created_at="2026-11-07T11:00:00Z"; run_started_at=newerStarted; status="completed"; conclusion=newerCreatedConclusion |}
+                    let otherBranch = {| rerun with head_branch="feature"; run_started_at="2026-11-07T13:00:00Z"; status="completed"; conclusion="failure" |}
+                    let history = System.Text.Json.JsonSerializer.Serialize [| {| workflow_runs=[|newerCreated|] |}; {| workflow_runs=[|rerun|] |}; {| workflow_runs=[|otherBranch|] |} |]
                     File.WriteAllText(calls,"")
                     if File.Exists planPath then File.Delete planPath
                     let info = ProcessStartInfo("dotnet")
@@ -430,7 +485,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
                         "GITHUB_REPOSITORY","meiermade/FSharp.ViewEngine"; "GITHUB_RUN_ID","4242"
                         "GITHUB_RUN_ATTEMPT",string attempt; "GITHUB_REF","refs/heads/main"; "GITHUB_SHA",commit
                         "GITHUB_OUTPUT",output; "PACKAGE_SELECTION","docs"; "FAKE_CALLS",calls
-                        "FAKE_ARTIFACTS",artifacts; "FAKE_ACCEPTED",commit; "FAKE_STAGED",staged
+                        "FAKE_ARTIFACTS",artifacts; "FAKE_ACCEPTED",history; "FAKE_STAGED",staged
                         "FAKE_IMAGE",image; "FAKE_PUBLISHED",publishedCommit; "FAKE_SAVED_PLAN",savedPlan ] do info.Environment[key] <- value
                     use child = Process.Start info
                     let stdout = child.StandardOutput.ReadToEndAsync()
@@ -445,6 +500,20 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
                 let plan = PackagePublishing.readPlan planPath
                 Expect.equal (plan.commit,plan.image,plan.packages,plan.docsCliVersion) (commit,image,"docs","unreleased") "Docs is independent and truthful"
                 File.Copy(planPath,savedPlan)
+                for status,conclusion in ["completed","failure";"completed","cancelled";"in_progress",""] do
+                    latestStatus <- status
+                    latestConclusion <- conclusion
+                    let failed,_ = run 1 "" commit
+                    Expect.notEqual failed 0 "an older-created run retried last must not fall back to the newer-created success for the same commit, even across API pages"
+                    Expect.isFalse (File.Exists planPath) "unaccepted staging never creates a release transaction"
+                latestStatus <- "completed"
+                latestConclusion <- "success"
+                newerCreatedConclusion <- "failure"
+                let fixedAttempt,diagnostics = run 1 "" commit
+                Expect.equal fixedAttempt 0 $"The latest actual attempt succeeds even when a newer-created run previously failed: {diagnostics}"
+                newerStarted <- "2026-11-07T12:00:00Z"
+                let ambiguous,_ = run 1 "" commit
+                Expect.notEqual ambiguous 0 "a failed attempt tied for latest start time must fail closed"
                 let resumed,diagnostics = run 2 "release-plan-4242\npackage-release-4242\n" (String.replicate 40 "d")
                 Expect.equal resumed 0 diagnostics
                 Expect.equal (PackagePublishing.readPlan planPath) plan "newer staging cannot change the pinned transaction"
@@ -459,7 +528,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
         }
 
         test "PR browser matrix retains all regression shards" {
-            let previewShards = workflow "preview.yml" |> browserShards
+            let previewShards = workflow "validate-pr.yml" |> browserShards
             Expect.isNonEmpty previewShards "PR acceptance selects browser shards"
 
             for browser, total in [ "chromium", 6; "firefox", 3; "webkit", 3 ] do
@@ -471,7 +540,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
         }
 
         test "Privileged Pulumi preview excludes fork pull requests" {
-            let preview = workflow "preview.yml"
+            let preview = workflow "validate-pr.yml"
             let privilegedStart = preview.IndexOf("\n  preview:", StringComparison.Ordinal)
             let terminalStart = preview.IndexOf("\n  test:", StringComparison.Ordinal)
             Expect.isTrue (privilegedStart > 0 && terminalStart > privilegedStart) "terminal test follows privileged preview"
@@ -500,15 +569,15 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
 
         test "Pulumi workflows install the GKE credential plugin" {
             let expectedAction = "google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1"
-            for name in [ "deploy.yml"; "preview.yml"; "publish.yml" ] do
+            for name in [ "deploy-staging-docs.yml"; "validate-pr.yml"; "deploy-production-docs.yml" ] do
                 let workflow = workflow name
                 Expect.stringContains workflow expectedAction $"{name} pins setup-gcloud"
                 Expect.stringContains workflow "install_components: gke-gcloud-auth-plugin" $"{name} installs GKE authentication"
         }
 
         test "Staging delivery uses current provider state and safe rollout boundaries" {
-            let deploy = workflow "deploy.yml"
-            let preview = workflow "preview.yml"
+            let deploy = workflow "deploy-staging-docs.yml"
+            let preview = workflow "validate-pr.yml"
             let appConfig = repositoryFile "pulumi/src/config.ts"
             let pulumiDev = repositoryFile "pulumi/Pulumi.dev.yaml"
             let access = repositoryFile "pulumi/src/cloudflare/access.ts"
@@ -520,12 +589,12 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
             Expect.stringContains deploy "pulumi refresh --run-program" "refresh uses the current provider configuration"
             Expect.isFalse (deploy.Contains("refresh: true")) "the update does not refresh against stale provider state"
             Expect.stringContains preview "stack-name: meiermade/fsharp-view-engine/dev" "pull requests preview the isolated staging stack"
-            Expect.stringContains preview "stack-name: meiermade/fsharp-view-engine/prod" "pull requests expose any production-boundary drift without updating it"
+            Expect.isFalse (preview.Contains("stack-name: meiermade/fsharp-view-engine/prod")) "production previews belong to the pinned release, not pull requests"
             Expect.stringContains pulumiDev "fsharpviewengine/dev" "the dev stack composes only the development ESC environment"
             Expect.stringContains appConfig "https://fve.meiermade.net" "the staging origin is exact"
             Expect.stringContains appConfig "zoneId: rawCloudflareConfig.require('zoneId')" "both stacks require their ESC-projected zone ID"
             Expect.isFalse (zone.Contains("getZoneOutput")) "application stacks do not rediscover configured Cloudflare zones"
-            Expect.stringContains appConfig "DEPLOY_IMAGE must be an immutable sha256 image reference" "rollback and promotion reject mutable images"
+            Expect.stringContains appConfig "DEPLOY_IMAGE must be an immutable sha256 image reference" "promotion rejects mutable images"
             Expect.stringContains access "allowAdminsAccessPolicyId" "administrators retain normal Access authentication"
             Expect.stringContains access "ZeroTrustAccessServiceToken" "CI receives a staging-only service token"
             Expect.stringContains access "additionalSecretOutputs: ['clientSecret']" "the Access client secret remains secret"

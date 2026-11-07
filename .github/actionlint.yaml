@@ -1,11 +1,11 @@
 paths:
-  .github/workflows/deploy.yml:
+  .github/workflows/deploy-staging-docs.yml:
     # GitHub added concurrency.queue in May 2026; actionlint 1.7.12 has not added it yet.
     ignore:
       - 'unexpected key "queue" for "concurrency" section'
-  .github/workflows/publish.yml:
+  .github/workflows/release.yml:
     ignore:
       - 'unexpected key "queue" for "concurrency" section'
-  .github/workflows/deploy-infrastructure.yml:
+  .github/workflows/deploy-production-docs.yml:
     ignore:
       - 'unexpected key "queue" for "concurrency" section'

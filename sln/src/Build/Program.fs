@@ -143,6 +143,18 @@ Target.create "ResolveReleaseTransaction" <| fun _ ->
         $"newPlan={string (not reuse) |> _.ToLowerInvariant()}" ])
     Trace.trace $"Pinned {plan.commit} / {plan.image}: {plan.packages}; Core {plan.coreVersion}; CLI {plan.cliVersion}; promote Docs {plan.promoteDocs}"
 
+Target.create "WriteReleasePreviewSummary" <| fun _ ->
+    let plan = PackagePublishing.readPlan (Environment.environVarOrFail "RELEASE_PLAN_PATH")
+    for name, expected in [
+        "DEPLOY_IMAGE", plan.image; "RELEASE_COMMIT", plan.commit
+        "CORE_PACKAGE_VERSION", plan.docsCoreVersion; "CLI_PACKAGE_VERSION", plan.docsCliVersion
+        "PROMOTE_DOCS", plan.promoteDocs.ToString().ToLowerInvariant() ] do
+        if Environment.environVarOrFail name <> expected then
+            failwith $"Release preview {name} differs from the pinned transaction."
+    use production = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText(Environment.environVarOrFail "PRODUCTION_STATE_PATH"))
+    let summary = PackagePublishing.releasePreviewSummary (Environment.environVarOrFail "GITHUB_SHA") plan production.RootElement
+    System.IO.File.AppendAllText(Environment.environVarOrFail "GITHUB_STEP_SUMMARY", summary)
+
 Target.create "ValidateReleaseSelection" <| fun _ ->
     let selection = releaseSelection ()
     let coreState =

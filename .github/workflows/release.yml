@@ -1,4 +1,4 @@
-name: Release packages and production Docs
+name: Release
 on:
   workflow_dispatch:
     inputs:
@@ -82,6 +82,22 @@ jobs:
           name: release-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/transaction/transaction.json
           if-no-files-found: error
+
+  production-preview:
+    name: Preview production Docs
+    needs: candidate
+    uses: ./.github/workflows/deploy-production-docs.yml
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    with:
+      preview-only: true
+      commit: ${{ needs.candidate.outputs.commit }}
+      image: ${{ needs.candidate.outputs.image }}
+      core-version: ${{ needs.candidate.outputs.docsCoreVersion }}
+      cli-version: ${{ needs.candidate.outputs.docsCliVersion }}
+      promote-docs: ${{ needs.candidate.outputs.promoteDocs == 'true' }}
 
   selection:
     name: Browser selection
@@ -296,8 +312,8 @@ jobs:
 
   publish:
     name: Publish and verify selected packages
-    needs: [candidate, selection, package]
-    if: ${{ !cancelled() && needs.candidate.result == 'success' && needs.selection.result == 'success' && (needs.package.result == 'success' || needs.candidate.outputs.bundle == 'true') }}
+    needs: [candidate, selection, package, production-preview]
+    if: ${{ !cancelled() && needs.candidate.result == 'success' && needs.selection.result == 'success' && needs.production-preview.result == 'success' && (needs.package.result == 'success' || needs.candidate.outputs.bundle == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     environment: release
@@ -388,170 +404,18 @@ jobs:
         working-directory: ./sln
 
   production:
-    name: Promote accepted digest to production
+    name: Deploy production Docs
     needs: [candidate, publish]
-    if: ${{ always() && needs.candidate.result == 'success' && needs.publish.result == 'success' && needs.candidate.outputs.promoteDocs == 'true' }}
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: https://fve.meiermade.com
+    if: ${{ !cancelled() && needs.candidate.result == 'success' && needs.publish.result == 'success' && needs.candidate.outputs.promoteDocs == 'true' }}
+    uses: ./.github/workflows/deploy-production-docs.yml
     permissions:
       contents: read
+      actions: read
       id-token: write
-    # Bound individual operations so failure and cancellation recovery can still run.
-    steps:
-      # Infrastructure follows the workflow revision, not an older accepted image's source.
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        timeout-minutes: 5
-        with:
-          ref: ${{ github.sha }}
-      - name: Setup Node
-        timeout-minutes: 5
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: 24
-          cache: npm
-          cache-dependency-path: |
-            pulumi/package-lock.json
-            e2e/package-lock.json
-      - name: Install GKE auth plugin
-        timeout-minutes: 10
-        uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-        with:
-          install_components: gke-gcloud-auth-plugin
-      - name: Install Pulumi packages
-        timeout-minutes: 5
-        run: npm ci
-        working-directory: ./pulumi
-      - name: Install E2E packages
-        timeout-minutes: 5
-        run: npm ci
-        working-directory: ./e2e
-      - name: Authenticate Pulumi
-        timeout-minutes: 5
-        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
-        with:
-          organization: meiermade
-          requested-token-type: urn:pulumi:token-type:access_token:personal
-          scope: user:meiermade
-      - name: Setup Pulumi CLI
-        timeout-minutes: 5
-        uses: pulumi/setup-pulumi@b374ceb6168550de27c6eba92e01c1a774040e11 # v2.0.0
-        with:
-          pulumi-version: 3.261.0
-      - name: Record previous healthy production release
-        id: previous
-        timeout-minutes: 3
-        working-directory: ./pulumi
-        env:
-          LEGACY_PRODUCTION_COMMIT: d78cdbdee50bb6940b4e40b18350714e40151fea
-          LEGACY_PRODUCTION_CORE_VERSION: 2026.8.2
-          LEGACY_PRODUCTION_CLI_VERSION: unreleased
-        run: |
-          pulumi stack export --stack meiermade/fsharp-view-engine/prod > "$RUNNER_TEMP/production-state.json"
-          image="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].image][0] // empty' "$RUNNER_TEMP/production-state.json")"
-          commit="$(jq -r '[.deployment.resources[] | select(.type == "kubernetes:apps/v1:Deployment" and .outputs.metadata.name == "fsharpviewengine") | .outputs.spec.template.spec.containers[0].env[] | select(.name == "RELEASE_COMMIT") | .value][0] // empty' "$RUNNER_TEMP/production-state.json")"
-          core="$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
-          cli="$(pulumi stack output cliVersion --stack meiermade/fsharp-view-engine/prod 2>/dev/null || true)"
-          test -n "$image"
-          test -n "$commit"
-          cli="${cli:-$LEGACY_PRODUCTION_CLI_VERSION}"
-          if [[ -z "$core" ]]; then
-            test "$commit" = "$LEGACY_PRODUCTION_COMMIT"
-            core="$LEGACY_PRODUCTION_CORE_VERSION"
-          fi
-          test -n "$core"
-          test -n "$cli"
-          {
-            echo "image=$image"
-            echo "commit=$commit"
-            echo "core=$core"
-            echo "cli=$cli"
-          } >> "$GITHUB_OUTPUT"
-      - name: Promote exact accepted image
-        id: deploy
-        timeout-minutes: 20
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
-        env:
-          DEPLOY_IMAGE: ${{ needs.candidate.outputs.image }}
-          RELEASE_COMMIT: ${{ needs.candidate.outputs.commit }}
-          CORE_PACKAGE_VERSION: ${{ needs.candidate.outputs.docsCoreVersion }}
-          CLI_PACKAGE_VERSION: ${{ needs.candidate.outputs.docsCliVersion }}
-          ALLOW_UNRELEASED_PACKAGE_SNAPSHOT: ${{ needs.candidate.outputs.docsCoreVersion == 'unreleased' || needs.candidate.outputs.docsCliVersion == 'unreleased' }}
-        with:
-          work-dir: ./pulumi
-          command: up
-          stack-name: meiermade/fsharp-view-engine/prod
-      - name: Verify production stack outputs
-        timeout-minutes: 2
-        env:
-          EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
-          EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
-          EXPECTED_CORE_VERSION: ${{ needs.candidate.outputs.docsCoreVersion }}
-          EXPECTED_CLI_VERSION: ${{ needs.candidate.outputs.docsCliVersion }}
-          DEPLOYED_COMMIT: ${{ steps.deploy.outputs.releaseCommit }}
-          DEPLOYED_IMAGE: ${{ steps.deploy.outputs.imageDigest }}
-          DEPLOYED_ORIGIN: ${{ steps.deploy.outputs.origin }}
-          DEPLOYED_CORE_VERSION: ${{ steps.deploy.outputs.coreVersion }}
-          DEPLOYED_CLI_VERSION: ${{ steps.deploy.outputs.cliVersion }}
-        run: |
-          test "$DEPLOYED_COMMIT" = "$EXPECTED_COMMIT"
-          test "$DEPLOYED_IMAGE" = "$EXPECTED_IMAGE"
-          test "$DEPLOYED_ORIGIN" = 'https://fve.meiermade.com'
-          test "$DEPLOYED_CORE_VERSION" = "$EXPECTED_CORE_VERSION"
-          test "$DEPLOYED_CLI_VERSION" = "$EXPECTED_CLI_VERSION"
-      - name: Test canonical public production release
-        id: smoke
-        timeout-minutes: 10
-        working-directory: ./e2e
-        env:
-          DOCS_E2E_BASE_URL: https://fve.meiermade.com
-          DOCS_EXPECTED_ENVIRONMENT: production
-          DOCS_EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
-          DOCS_EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
-          EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
-          EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
-          CORE_PACKAGE_VERSION: ${{ needs.candidate.outputs.docsCoreVersion }}
-          CLI_PACKAGE_VERSION: ${{ needs.candidate.outputs.docsCliVersion }}
-        run: bash scripts/test-release-smoke.sh
-      - name: Upload production E2E diagnostics
-        if: ${{ failure() || cancelled() }}
-        timeout-minutes: 5
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: fsharp-viewengine-production-e2e
-          path: |
-            e2e/playwright-report
-            e2e/test-results
-          if-no-files-found: ignore
-      - name: Restore previous production release after unsuccessful acceptance
-        id: restore
-        if: ${{ (failure() || cancelled()) && steps.deploy.outcome != 'skipped' && steps.previous.outputs.image != '' && steps.previous.outputs.commit != '' }}
-        timeout-minutes: 20
-        uses: pulumi/actions@8e5e406f4007fca908480587cb9893c07090f58d # v7.0.0
-        env:
-          DEPLOY_IMAGE: ${{ steps.previous.outputs.image }}
-          RELEASE_COMMIT: ${{ steps.previous.outputs.commit }}
-          CORE_PACKAGE_VERSION: ${{ steps.previous.outputs.core }}
-          CLI_PACKAGE_VERSION: ${{ steps.previous.outputs.cli }}
-          ALLOW_UNRELEASED_PACKAGE_SNAPSHOT: ${{ steps.previous.outputs.core == 'unreleased' || steps.previous.outputs.cli == 'unreleased' }}
-        with:
-          work-dir: ./pulumi
-          command: up
-          stack-name: meiermade/fsharp-view-engine/prod
-      - name: Confirm restored production release is healthy
-        if: ${{ (failure() || cancelled()) && steps.restore.outcome == 'success' }}
-        timeout-minutes: 5
-        working-directory: ./pulumi
-        env:
-          EXPECTED_IMAGE: ${{ steps.previous.outputs.image }}
-          EXPECTED_COMMIT: ${{ steps.previous.outputs.commit }}
-          EXPECTED_CORE_VERSION: ${{ steps.previous.outputs.core }}
-          EXPECTED_CLI_VERSION: ${{ steps.previous.outputs.cli }}
-        run: |
-          test "$(pulumi stack output imageDigest --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_IMAGE"
-          test "$(pulumi stack output releaseCommit --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_COMMIT"
-          test "$(pulumi stack output coreVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_CORE_VERSION"
-          test "$(pulumi stack output cliVersion --stack meiermade/fsharp-view-engine/prod)" = "$EXPECTED_CLI_VERSION"
-          test "$(pulumi stack output origin --stack meiermade/fsharp-view-engine/prod)" = 'https://fve.meiermade.com'
-          curl --fail --silent --show-error --max-time 30 'https://fve.meiermade.com/health' >/dev/null
+    with:
+      preview-only: false
+      commit: ${{ needs.candidate.outputs.commit }}
+      image: ${{ needs.candidate.outputs.image }}
+      core-version: ${{ needs.candidate.outputs.docsCoreVersion }}
+      cli-version: ${{ needs.candidate.outputs.docsCliVersion }}
+      promote-docs: ${{ needs.candidate.outputs.promoteDocs == 'true' }}

@@ -172,6 +172,44 @@ let validatePinnedPlan requested commit (plan:ReleasePlan) =
     if plan.requested <> "auto" && plan.requested <> "docs" && plan.promoteDocs then
         invalidOp "Package-only transactions cannot promote Docs."
 
+let releasePreviewSummary (infrastructureCommit:string) (plan:ReleasePlan) (production:JsonElement) =
+    validatePinnedPlan plan.requested plan.commit plan
+    if not (Regex.IsMatch(infrastructureCommit, "^[a-f0-9]{40}$")) then
+        invalidArg (nameof infrastructureCommit) "The preview must identify its exact infrastructure revision."
+    let current key =
+        match production.TryGetProperty(key:string) with
+        | true, value when value.ValueKind = JsonValueKind.String -> value.GetString()
+        | _ -> "not recorded"
+    let code (value:string) = "<code>" + WebUtility.HtmlEncode(value).Replace("|", "&#124;") + "</code>"
+    let row label key proposed =
+        let target = if plan.promoteDocs then proposed else current key
+        $"| {label} | {code (current key)} | {code target} |"
+    let publications =
+        [ if plan.packages = "core" || plan.packages = "both" then $"FSharp.ViewEngine {code plan.coreVersion}"
+          if plan.packages = "cli" || plan.packages = "both" then $"FSharp.ViewEngine.Cli {code plan.cliVersion}" ]
+        |> function [] -> "None (Docs only)" | values -> String.concat ", " values
+    String.concat "\n" [
+        "## Production release preview"
+        ""
+        $"- Selected package publications: {publications}."
+        $"- Pinned accepted source: {code plan.commit}."
+        $"- Infrastructure revision: {code infrastructureCommit} (the workflow revision used for preview and deployment)."
+        ""
+        "| Production Docs identity | Current | Proposed |"
+        "| --- | --- | --- |"
+        row "Source commit" "releaseCommit" plan.commit
+        row "Immutable image" "imageDigest" plan.image
+        row "Advertised Core version" "coreVersion" plan.docsCoreVersion
+        row "Advertised CLI version" "cliVersion" plan.docsCliVersion
+        ""
+        if plan.promoteDocs then
+            "The production Pulumi diff follows below; deployment is constrained by its saved plan. Preview success and approval of the **release** environment are required before publishing packages or deploying production."
+        else
+            "**No production Docs deployment is selected.** Production keeps its current image and metadata; no retained-image infrastructure preview or update runs. Selected package publication still requires approval of the **release** environment."
+        ""
+        "Reject or cancel the waiting release to stop before publication and production deployment."
+        "" ]
+
 let validateLocalPackage (package:Package) version (packagePath:string) =
     let version = requireStableVersion "Minimum dependency version" version
     let expectedName = $"{package.Id}.{version}.nupkg"
@@ -318,7 +356,7 @@ let validateCandidate (acceptedCommit:string) (commit:string) (image:string) ori
     if not (Regex.IsMatch(commit, "^[a-f0-9]{40}$")) || not (Regex.IsMatch(image, "@sha256:[a-f0-9]{64}$")) then
         invalidOp "Staging must report an exact source commit and immutable image."
     if origin <> "https://fve.meiermade.net" || not ready || commit <> acceptedCommit then
-        invalidOp "Staging identity must match the latest successful main deployment and be ready."
+        invalidOp "Staging identity must match the latest accepted main deployment and be ready."
 
 let acceptedCandidate repository githubRepository =
     let state = runProcess true "pulumi" ["-C"; Path.Combine(repository, "pulumi"); "stack"; "output"; "--json"; "--stack"; "meiermade/fsharp-view-engine/dev"]
@@ -326,7 +364,27 @@ let acceptedCandidate repository githubRepository =
     let root = document.RootElement
     let commit = root.GetProperty("releaseCommit").GetString()
     let image = root.GetProperty("imageDigest").GetString()
-    let accepted = runProcess true "gh" ["run"; "list"; "--repo"; githubRepository; "--workflow"; "deploy.yml"; "--branch"; "main"; "--status"; "success"; "--limit"; "1"; "--json"; "headSha"; "--jq"; ".[0].headSha"]
+    // Run creation order does not change on retry. Read every page and select by attempt start time.
+    // Filter main locally: filtered Actions searches have a 1,000-run result limit.
+    let history = runProcess true "gh" ["api"; $"repos/{githubRepository}/actions/workflows/deploy-staging-docs.yml/runs?per_page=100"; "--paginate"; "--slurp"]
+    use runs = JsonDocument.Parse history
+    let latest =
+        runs.RootElement.EnumerateArray()
+        |> Seq.collect (fun page -> page.GetProperty("workflow_runs").EnumerateArray())
+        |> Seq.filter (fun run -> run.GetProperty("head_branch").GetString() = "main")
+        |> Seq.groupBy (fun run -> run.GetProperty("run_started_at").GetDateTimeOffset())
+        |> Seq.sortByDescending fst
+        |> Seq.tryHead
+    let accepted =
+        match latest with
+        | None -> invalidOp "No main staging deployment attempt exists."
+        | Some (_, attempts) ->
+            let attempts = Seq.toList attempts
+            if attempts |> List.exists (fun run -> run.GetProperty("status").GetString() <> "completed" || run.GetProperty("conclusion").GetString() <> "success") then
+                invalidOp "The latest main staging deployment attempt has not succeeded."
+            match attempts |> List.map (fun run -> run.GetProperty("head_sha").GetString()) |> List.distinct with
+            | [accepted] -> accepted
+            | _ -> invalidOp "The latest staging attempts have ambiguous source identities."
     validateCandidate accepted commit image (root.GetProperty("origin").GetString()) (root.GetProperty("e2eReady").GetBoolean())
     commit,image
 

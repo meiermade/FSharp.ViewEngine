@@ -286,6 +286,8 @@ test('Notification lifetimes use elapsed foreground time and the custom example 
 })
 
 test('Notification default lifetime pauses for hover and focus within it and survives Datastar navigation @cross-browser', async ({ page, baseURL }) => {
+  await page.clock.install()
+  await page.bringToFront()
   const navigation = await delayLocalNavigation(baseURL!)
   try {
     await page.goto(`${navigation?.origin ?? ''}/components/notification`)
@@ -293,13 +295,19 @@ test('Notification default lifetime pauses for hover and focus within it and sur
     await preview.getByRole('button', { name: 'Show notification', exact: true }).click()
     let notification = preview.locator('#saved-notification-1')
     await notification.getByRole('status').hover()
-    await page.waitForTimeout(5200)
+    await page.clock.runFor(5200)
     await expect(notification).toBeVisible()
-    await notification.getByRole('button', { name: 'Dismiss Changes saved', exact: true }).focus()
-    await preview.getByRole('button', { name: 'Show notification', exact: true }).hover()
-    await page.waitForTimeout(1200)
+    const dismiss = notification.getByRole('button', { name: 'Dismiss Changes saved', exact: true })
+    await dismiss.focus()
+    await expect(dismiss).toBeFocused()
+    const show = preview.getByRole('button', { name: 'Show notification', exact: true })
+    await show.hover()
+    await page.clock.runFor(5200)
     await expect(notification).toBeVisible()
-    await preview.getByRole('button', { name: 'Show notification', exact: true }).focus()
+    await show.focus()
+    await expect(show).toBeFocused()
+    // Expiry depends on active browser time, not CI scheduling between interval callbacks.
+    await page.clock.runFor(5000)
     await expect(notification).toHaveCount(0, { timeout: 5500 })
 
     const badgeResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/badge' && response.request().headers()['datastar-request'] === 'true')
@@ -318,7 +326,7 @@ test('Notification default lifetime pauses for hover and focus within it and sur
     await expect(notification).toHaveCount(1)
     await expect(notification.getByRole('status')).toContainText('Your changes are ready.')
     await notification.getByRole('status').hover()
-    await page.waitForTimeout(1200)
+    await page.clock.runFor(1200)
     await expect(notification).toBeVisible()
     if (navigation) expect(navigation.delayed).toEqual(['/components/badge', '/components/notification'])
   } finally {
