@@ -52,20 +52,15 @@ test('four named entry points separate PR validation, staging, release and produ
     assert.ok(!Object.values(docs.jobs).some((job: any) => job.steps.some((step: any) => step.uses?.startsWith('NuGet/login@'))))
 })
 
-test('the shared preview saves the plan consumed by the one production deployment implementation', () => {
+test('the shared preview reports production changes before an ordinary production update', () => {
     assert.equal(preview.environment, undefined, 'the diff must be available before requesting approval')
     assert.equal(previewStep.with['stack-name'], 'meiermade/fsharp-view-engine/prod')
     assert.equal(previewStep.with['comment-on-summary'], true)
     assert.equal(preview.steps[0].with.ref, production.steps[0].with.ref, 'infrastructure source is pinned identically')
     assert.ok(!preview.steps.some((step: any) => step.with?.command === 'up'))
-    const upload = preview.steps.find((step: any) => step.with?.name?.startsWith('production-plan-'))
-    const download = production.steps.find((step: any) => step.with?.name?.startsWith('production-plan-'))
-    assert.equal(upload.with.name, download.with.name)
-    assert.equal(upload.with.path, previewStep.with.plan)
-    assert.equal(upload.with['if-no-files-found'], 'error')
-    assert.equal(deploy.with.plan, `${download.with.path}/${path.posix.basename(upload.with.path)}`)
-    assert.ok(preview.steps.indexOf(upload) > preview.steps.indexOf(previewStep))
-    assert.equal(upload.if, previewStep.if)
+    assert.equal(previewStep.with.plan, undefined, 'preview is for review, not a saved execution contract')
+    assert.equal(deploy.with.command, 'up')
+    assert.equal(deploy.with.plan, undefined, 'deployment must not depend on the preview job\'s provider inputs')
     assert.equal(workflow('deploy-staging-docs').concurrency.group, release.concurrency.group)
     assert.equal(evaluate(docs.concurrency.group, { github: github('deploy-production-docs'), inputs: emptyInputs }), release.concurrency.group)
     for (const previewOnly of [true, false]) {

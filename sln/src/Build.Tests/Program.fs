@@ -185,6 +185,7 @@ let tests =
             for value in [currentImage;image;commit;infrastructure;"FSharp.ViewEngine <code>2026.11.0</code>";"FSharp.ViewEngine.Cli <code>2026.11.0</code>"] do
                 Expect.stringContains docs value "the actual candidate, production identity and selected publications are reviewable"
             Expect.isFalse (docs.Contains("must-not-appear")) "only public identity fields reach the summary"
+            Expect.isFalse (docs.Contains("saved plan")) "the preview does not claim to constrain the later update"
             let packageOnly = PackagePublishing.releasePreviewSummary infrastructure (plan "cli") production.RootElement
             Expect.stringContains packageOnly "No production Docs deployment is selected" "package-only releases do not invent a production deployment"
             Expect.stringContains packageOnly $"| Immutable image | <code>{currentImage}</code> | <code>{currentImage}</code> |" "Docs keeps its actual image"

@@ -203,7 +203,7 @@ let releasePreviewSummary (infrastructureCommit:string) (plan:ReleasePlan) (prod
         row "Advertised CLI version" "cliVersion" plan.docsCliVersion
         ""
         if plan.promoteDocs then
-            "The production Pulumi diff follows below; deployment is constrained by its saved plan. Preview success and approval of the **release** environment are required before publishing packages or deploying production."
+            "The production Pulumi diff follows below. Preview success and approval of the **release** environment are required before publishing packages or deploying production."
         else
             "**No production Docs deployment is selected.** Production keeps its current image and metadata; no retained-image infrastructure preview or update runs. Selected package publication still requires approval of the **release** environment."
         ""
