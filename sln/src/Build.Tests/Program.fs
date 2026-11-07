@@ -443,11 +443,14 @@ let tests =
                 script "gh" """#!/usr/bin/env bash
 set -euo pipefail
 printf 'gh %s %s\n' "$1" "${2:-}" >> "$FAKE_CALLS"
-if [[ "$1" == api ]]; then printf '%s' "$FAKE_ARTIFACTS"
+if [[ "$1" == api && "$2" == *'/actions/workflows/'* ]]; then
+  if [[ " $* " == *' --paginate '* && " $* " == *' --slurp '* ]]; then
+    printf '%s' "$FAKE_ACCEPTED"
+  elif [[ " $* " == *' --paginate '* ]]; then jq -c '.[]' <<< "$FAKE_ACCEPTED"
+  else jq '.[0]' <<< "$FAKE_ACCEPTED"; fi
+elif [[ "$1" == api ]]; then printf '%s' "$FAKE_ARTIFACTS"
 elif [[ "$1 $2" == 'run list' ]]; then
-  if [[ " $* " == *' --status success '* ]]; then
-    jq '[.[] | select(.conclusion == "success")]' <<< "$FAKE_ACCEPTED"
-  else printf '%s' "$FAKE_ACCEPTED"; fi | jq -er "${@: -1}"
+  jq '[.[].workflow_runs[] | select(.head_branch == "main")] | sort_by(.created_at) | reverse | .[:1] | map({headSha: .head_sha, status, conclusion})' <<< "$FAKE_ACCEPTED" | jq -er "${@: -1}"
 elif [[ "$1 $2" == 'run download' ]]; then mkdir -p "${@: -1}"; cp "$FAKE_SAVED_PLAN" "${@: -1}/transaction.json"
 else exit 91; fi
 """
@@ -461,7 +464,13 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
                 let image = "registry/image@sha256:"+String.replicate 64 "b"
                 let mutable latestStatus = "completed"
                 let mutable latestConclusion = "success"
+                let mutable newerCreatedConclusion = "success"
+                let mutable newerStarted = "2026-11-07T11:00:00Z"
                 let run attempt artifacts staged =
+                    let rerun = {| head_sha=commit; head_branch="main"; created_at="2026-11-07T10:00:00Z"; run_started_at="2026-11-07T12:00:00Z"; status=latestStatus; conclusion=latestConclusion |}
+                    let newerCreated = {| rerun with created_at="2026-11-07T11:00:00Z"; run_started_at=newerStarted; status="completed"; conclusion=newerCreatedConclusion |}
+                    let otherBranch = {| rerun with head_branch="feature"; run_started_at="2026-11-07T13:00:00Z"; status="completed"; conclusion="failure" |}
+                    let history = System.Text.Json.JsonSerializer.Serialize [| {| workflow_runs=[|newerCreated|] |}; {| workflow_runs=[|rerun|] |}; {| workflow_runs=[|otherBranch|] |} |]
                     File.WriteAllText(calls,"")
                     if File.Exists planPath then File.Delete planPath
                     let info = ProcessStartInfo("dotnet")
@@ -476,7 +485,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
                         "GITHUB_REPOSITORY","meiermade/FSharp.ViewEngine"; "GITHUB_RUN_ID","4242"
                         "GITHUB_RUN_ATTEMPT",string attempt; "GITHUB_REF","refs/heads/main"; "GITHUB_SHA",commit
                         "GITHUB_OUTPUT",output; "PACKAGE_SELECTION","docs"; "FAKE_CALLS",calls
-                        "FAKE_ARTIFACTS",artifacts; "FAKE_ACCEPTED",sprintf "[{\"headSha\":\"%s\",\"status\":\"%s\",\"conclusion\":\"%s\"},{\"headSha\":\"%s\",\"status\":\"completed\",\"conclusion\":\"success\"}]" commit latestStatus latestConclusion commit; "FAKE_STAGED",staged
+                        "FAKE_ARTIFACTS",artifacts; "FAKE_ACCEPTED",history; "FAKE_STAGED",staged
                         "FAKE_IMAGE",image; "FAKE_PUBLISHED",publishedCommit; "FAKE_SAVED_PLAN",savedPlan ] do info.Environment[key] <- value
                     use child = Process.Start info
                     let stdout = child.StandardOutput.ReadToEndAsync()
@@ -495,10 +504,16 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
                     latestStatus <- status
                     latestConclusion <- conclusion
                     let failed,_ = run 1 "" commit
-                    Expect.notEqual failed 0 "a failed or unfinished latest staging attempt cannot fall back to an older success for the same commit"
+                    Expect.notEqual failed 0 "an older-created run retried last must not fall back to the newer-created success for the same commit, even across API pages"
                     Expect.isFalse (File.Exists planPath) "unaccepted staging never creates a release transaction"
                 latestStatus <- "completed"
                 latestConclusion <- "success"
+                newerCreatedConclusion <- "failure"
+                let fixedAttempt,diagnostics = run 1 "" commit
+                Expect.equal fixedAttempt 0 $"The latest actual attempt succeeds even when a newer-created run previously failed: {diagnostics}"
+                newerStarted <- "2026-11-07T12:00:00Z"
+                let ambiguous,_ = run 1 "" commit
+                Expect.notEqual ambiguous 0 "a failed attempt tied for latest start time must fail closed"
                 let resumed,diagnostics = run 2 "release-plan-4242\npackage-release-4242\n" (String.replicate 40 "d")
                 Expect.equal resumed 0 diagnostics
                 Expect.equal (PackagePublishing.readPlan planPath) plan "newer staging cannot change the pinned transaction"

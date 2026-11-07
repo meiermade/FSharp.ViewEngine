@@ -364,7 +364,27 @@ let acceptedCandidate repository githubRepository =
     let root = document.RootElement
     let commit = root.GetProperty("releaseCommit").GetString()
     let image = root.GetProperty("imageDigest").GetString()
-    let accepted = runProcess true "gh" ["run"; "list"; "--repo"; githubRepository; "--workflow"; "deploy-staging-docs.yml"; "--branch"; "main"; "--limit"; "1"; "--json"; "headSha,status,conclusion"; "--jq"; ".[0] | if .status == \"completed\" and .conclusion == \"success\" then .headSha else error(\"Latest main staging deployment has not succeeded\") end"]
+    // Run creation order does not change on retry. Read every page and select by attempt start time.
+    // Filter main locally: filtered Actions searches have a 1,000-run result limit.
+    let history = runProcess true "gh" ["api"; $"repos/{githubRepository}/actions/workflows/deploy-staging-docs.yml/runs?per_page=100"; "--paginate"; "--slurp"]
+    use runs = JsonDocument.Parse history
+    let latest =
+        runs.RootElement.EnumerateArray()
+        |> Seq.collect (fun page -> page.GetProperty("workflow_runs").EnumerateArray())
+        |> Seq.filter (fun run -> run.GetProperty("head_branch").GetString() = "main")
+        |> Seq.groupBy (fun run -> run.GetProperty("run_started_at").GetDateTimeOffset())
+        |> Seq.sortByDescending fst
+        |> Seq.tryHead
+    let accepted =
+        match latest with
+        | None -> invalidOp "No main staging deployment attempt exists."
+        | Some (_, attempts) ->
+            let attempts = Seq.toList attempts
+            if attempts |> List.exists (fun run -> run.GetProperty("status").GetString() <> "completed" || run.GetProperty("conclusion").GetString() <> "success") then
+                invalidOp "The latest main staging deployment attempt has not succeeded."
+            match attempts |> List.map (fun run -> run.GetProperty("head_sha").GetString()) |> List.distinct with
+            | [accepted] -> accepted
+            | _ -> invalidOp "The latest staging attempts have ambiguous source identities."
     validateCandidate accepted commit image (root.GetProperty("origin").GetString()) (root.GetProperty("e2eReady").GetBoolean())
     commit,image
 
