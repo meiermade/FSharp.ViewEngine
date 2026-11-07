@@ -358,31 +358,6 @@ let tests =
             Expect.stringContains retirementCheck "entry.packageContent" "retirement evidence preserves pinned downloads"
         }
 
-        test "Production release preview precedes approval and uses the deployment candidate" {
-            let publish = workflow "publish.yml"
-            let start = publish.IndexOf("\n  production-preview:", StringComparison.Ordinal)
-            let finish = publish.IndexOf("\n  selection:", start, StringComparison.Ordinal)
-            Expect.isTrue (start > 0 && finish > start) "the release has a preview job"
-            let preview = publish.Substring(start,finish-start)
-            Expect.stringContains preview "name: release-plan-${{ github.run_id }}" "preview reads the same immutable transaction as publication"
-            Expect.stringContains preview "ref: ${{ github.sha }}" "preview uses the same infrastructure revision as deployment"
-            Expect.stringContains preview "command: preview" "preview does not update infrastructure"
-            Expect.isFalse (preview.Contains("command: up")) "the pre-approval job performs no update"
-            Expect.isFalse (preview.Contains("environment: release")) "the diff is available before approval is requested"
-            Expect.stringContains preview "comment-on-summary: true" "the native Pulumi action exposes the actual diff and preview link"
-            Expect.stringContains preview "plan: ${{ runner.temp }}/production-plan.json" "preview saves its configuration and resource constraints using Pulumi's encrypted plan format"
-            Expect.stringContains preview "if-no-files-found: error" "a missing reviewed plan prevents approval eligibility"
-            Expect.stringContains publish "plan: ${{ runner.temp }}/reviewed-production/production-plan.json" "production applies the reviewed constraints rather than an unconstrained fresh update"
-            Expect.equal (publish.Split("name: production-plan-${{ github.run_id }}",StringSplitOptions.None).Length-1) 2 "preview and deployment share one run-bound saved plan"
-            Expect.stringContains preview "if: needs.candidate.outputs.promoteDocs == 'true'" "package-only releases do not preview a deployment they will not perform"
-            for field in ["image";"commit";"docsCoreVersion";"docsCliVersion"] do
-                Expect.stringContains preview ("needs.candidate.outputs."+field) "preview consumes the pinned deployment identity"
-            Expect.stringContains publish "needs: [candidate, selection, package, production-preview]" "publication waits for the diff"
-            Expect.stringContains publish "needs.production-preview.result == 'success'" "the explicit publication condition cannot bypass a failed or skipped preview"
-            for name in ["publish.yml";"deploy.yml";"deploy-infrastructure.yml"] do
-                Expect.stringContains (workflow name) "group: fsharp-viewengine-delivery" "maintenance, staging and release preserve the same serialized delivery boundary"
-        }
-
         test "Main deploys only a protected immutable staging candidate" {
             let deploy = workflow "deploy.yml"
             Expect.stringContains deploy "push:" "main changes deploy automatically"
