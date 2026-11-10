@@ -64,7 +64,7 @@ test('DatePicker and CopyReveal icon controls honor the five inherited size pres
         await expect(control).toHaveCSS('font-size', `${size.font}px`)
         if (route === 'copy-reveal') {
           await expect(control).toHaveCSS('width', `${size.height}px`)
-          await expect(control).toHaveCSS('padding', '0px')
+          await expect(control).toHaveCSS('padding', `${(size.height - size.line) / 2 - 1}px`)
         }
       }
     }

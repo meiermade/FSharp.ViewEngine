@@ -352,7 +352,7 @@ if (control?.getClientRects().length) {
 
                                         span {
                                             _class "inline-flex items-center gap-2"
-                                            Layout.icon IconName.Plus
+                                            fveIcon { _name IconName.Plus; _variant IconVariant.Micro }
                                             "Add filter"
                                         }
                                     }
