@@ -1337,6 +1337,75 @@ let tests =
               ] do Expect.throws invalid "malformed or out-of-bounds presentation cannot create an inconsistent editor"
           }
 
+          test "Timed ranges use midnight-aligned starts even when the step does not divide an hour" {
+              let html =
+                  fveDayCalendar {
+                      _id "irregular-step"; _label "45-minute intervals"; _date (DateOnly(2026, 9, 17)); _hours (8, 18)
+                      fveCalendarRange {
+                          _name "booking"; _startTime (TimeOnly(9, 0)); _minutes 45
+                          _minuteStep 45; _durations [45]; _availableRanges [TimeOnly(9, 0), 45]
+                      }
+                  } |> Render.toString
+              Expect.stringContains html "min=\"08:15\"" "the picker interval starts on the same midnight-based grid"
+              Expect.stringContains html "max=\"17:15\"" "the final picker choice fits the duration"
+              let starts = Regex.Matches(html, "data-range-start=\"(\\d+)\"") |> Seq.map (fun matched -> int matched.Groups[1].Value) |> Seq.toList
+              Expect.equal starts [495 .. 45 .. 1035] "background choices use that same grid"
+              let partial durations =
+                  fveDayCalendar {
+                      _id "partial-step"; _label "Partial interval"; _date (DateOnly(2026, 9, 17)); _hours (8, 9)
+                      fveCalendarRange {
+                          _name "booking"; _startTime (TimeOnly(8, 51)); _minutes 9
+                          _minuteStep 59; _durations durations; _availableRanges [TimeOnly(8, 51), 9]
+                      }
+                  } |> Render.toString
+              let partialHtml = partial [9]
+              Expect.stringContains partialHtml "data-range-start=\"531\"" "a final partial slot remains selectable"
+              Expect.stringContains partialHtml "height:calc(var(--fve-calendar-minute-height)*9)" "that slot ends at the visible boundary"
+              Expect.throws (fun () -> partial [9; 60] |> ignore) "a duration with no step-aligned start in the visible hours is rejected"
+          }
+
+          test "Account overlays retain public detail context through links, validation and redirects" {
+              let detail = "/examples/application/accounts/101"
+              let publicContext =
+                  [ "range", "7"; "comparison", "optimistic"; "startDate", "2026-09-14"
+                    "endDate", "2026-09-17"; "transactionPage", "2" ]
+              let suffix = "?" + (publicContext |> List.map (fun (name, value) -> name + "=" + value) |> String.concat "&")
+              let assertContext (href:string) =
+                  let query = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Uri(Uri "https://fve.meiermade.com", href).Query)
+                  for name, value in publicContext do
+                      Expect.equal (string query[name]) value ("detail context survives: " + name)
+              let links html =
+                  Regex.Matches(html, "href=\"([^\"]+)\"") |> Seq.map (fun matched -> WebUtility.HtmlDecode matched.Groups[1].Value) |> Seq.toList
+              let status, html = routeResponse (detail + suffix)
+              Expect.equal status 200 "the selected detail renders"
+              for action in ["edit"; "delete"] do
+                  let target = links html |> List.find (fun href -> Uri(Uri "https://fve.meiermade.com", href).AbsolutePath = detail + "/" + action)
+                  assertContext target
+                  let overlayStatus, overlay = routeResponse target
+                  Expect.equal overlayStatus 200 "the overlay opens over the selected detail"
+                  let cancel = Regex.Match(overlay, "<a\\b(?=[^>]*\\bid=\"[^\"]*-cancel\")[^>]*\\bhref=\"([^\"]+)\"").Groups[1].Value |> WebUtility.HtmlDecode
+                  Expect.isNotEmpty cancel "the overlay exposes a native Cancel destination"
+                  Expect.equal (Uri(Uri "https://fve.meiermade.com", cancel).AbsolutePath) detail "Cancel returns to the account detail"
+                  assertContext cancel
+                  for name, value in publicContext do
+                      Expect.stringContains overlay ($"name=\"{name}\" value=\"{value}\"") "native editor context includes detail state"
+              let fields =
+                  [ "name", "Operating checking"; "accountType", "Asset"; "parentType", "Expense"
+                    "currency", "USD"; "subtype", "Generic"; "observedBalance", "not-required" ] @ publicContext
+              let invalidStatus, _, _, invalid, _ = postFormResponse (detail + "/edit") fields
+              Expect.equal invalidStatus 200 "failed validation renders directly"
+              for name, value in publicContext do
+                  Expect.stringContains invalid ($"name=\"{name}\" value=\"{value}\"") "validation retains the public context"
+              let valid = fields |> List.map (fun (name, value) -> name, if name = "parentType" then "Asset" else value)
+              let successStatus, destination, _, _, _ = postFormResponse (detail + "/edit") valid
+              Expect.equal successStatus 302 "successful validation closes the editor"
+              Expect.equal (Uri(Uri "https://fve.meiermade.com", destination).AbsolutePath) detail "the detail is the return destination"
+              assertContext destination
+              let deleteStatus, deleteDestination, _, _, _ = postFormResponse (detail + "/delete") (["action", "delete"] @ publicContext)
+              Expect.equal deleteStatus 302 "blocked deletion redirects with its outcome"
+              assertContext deleteDestination
+          }
+
           test "Calendar exposes focused day, week, month and year views" {
               let day = Components.calendarDayExample |> Render.toString
               let week = Components.calendarWeekExample |> Render.toString

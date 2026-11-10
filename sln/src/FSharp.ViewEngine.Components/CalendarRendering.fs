@@ -174,6 +174,10 @@ module internal CalendarRendering =
 
     let private clock value = if value = 1440 then "24:00" else TimeOnly(value / 60, value % 60).ToString("HH:mm", CultureInfo.InvariantCulture)
 
+    // Calendar starts use a midnight-based lattice, including steps that do not divide an hour.
+    let private firstRangeStart minimum step = ((minimum + step - 1) / step) * step
+    let private lastRangeStart maximum length step = ((maximum - length) / step) * step
+
     let private rangeOverlay (range:CalendarRangeConfig) =
         li {
             _class "pointer-events-none relative z-20 col-start-1 row-[var(--fve-selection-start)/span_var(--fve-selection-duration)] mx-0.5 my-px min-h-8 rounded-[var(--fve-radius-control)] border border-[var(--fve-brand-solid)] bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)] data-[valid=false]:border-dashed data-[valid=false]:border-[var(--fve-critical-text)] data-[valid=false]:bg-[var(--fve-critical-subtle)] data-[valid=false]:text-[var(--fve-critical-text)]"
@@ -191,6 +195,8 @@ module internal CalendarRendering =
         }
 
     let private rangeSurface id date startHour endHour (range:CalendarRangeConfig) (grid:HtmlElement) =
+        let first = firstRangeStart (startHour * 60) range.step
+        let last = lastRangeStart (endHour * 60) range.minutes range.step
         let settings =
             {| date = format "yyyy-MM-dd" date; start = range.start; minutes = range.minutes
                durations = List.toArray range.durations; available = range.available |> List.map (fun (start, minutes) -> [|start; minutes|]) |> List.toArray
@@ -211,8 +217,8 @@ module internal CalendarRendering =
                         _name (range.name + ".start")
                         _ariaLabel "Start time"
                         _value (TimeOnly(range.start / 60, range.start % 60))
-                        _min (TimeOnly(startHour, 0))
-                        _max (TimeOnly((endHour * 60 - range.minutes) / 60, (endHour * 60 - range.minutes) % 60))
+                        _min (TimeOnly(first / 60, first % 60))
+                        _max (TimeOnly(last / 60, last % 60))
                         _interval range.step
                         _format TimeFormat.TwentyFourHour
                         _size Size.Small
@@ -268,8 +274,8 @@ module internal CalendarRendering =
                 (intervals |> List.fold (fun hour (_, ending) -> max hour ((ending + 59) / 60)) 18))
         if intervals |> List.exists (fun (start, ending) -> start < startHour * 60 || ending > endHour * 60) then
             invalidArg "hours" "Visible hours must include every event and selection range."
-        if config.range |> Option.exists (fun range -> range.durations |> List.exists (fun length -> length > (endHour - startHour) * 60)) then
-            invalidArg "durations" "Durations must fit the visible hour range."
+        if config.range |> Option.exists (fun range -> range.durations |> List.exists (fun length -> firstRangeStart (startHour * 60) range.step + length > endHour * 60)) then
+            invalidArg "durations" "Every duration must fit a step-aligned start within the visible hours."
         let showDateHeading = config.view <> CalendarView.Day || config.showDayHeading
         let rangeLabel =
             match config.view with
@@ -442,8 +448,10 @@ module internal CalendarRendering =
                                             li {
                                                 _class "col-start-1 row-[1/-1] min-h-0"
                                                 _data("range-background", "")
-                                                for start in startHour * 60 .. range.step .. endHour * 60 - range.step do
-                                                    button { _type "button"; _tabindex -1; _ariaLabel ("Choose " + clock start); _data("range-start", string start); _class "relative block w-full after:pointer-events-none after:absolute after:inset-x-0.5 after:inset-y-px after:rounded-[var(--fve-radius-control)] hover:after:bg-[color-mix(in_srgb,var(--fve-brand-subtle)_60%,var(--fve-background))]"; _style $"height:calc(var(--fve-calendar-minute-height)*{range.step})" }
+                                                let first = firstRangeStart (startHour * 60) range.step
+                                                _style $"padding-top:calc(var(--fve-calendar-minute-height)*{first - startHour * 60})"
+                                                for start in first .. range.step .. endHour * 60 - 1 do
+                                                    button { _type "button"; _tabindex -1; _ariaLabel ("Choose " + clock start); _data("range-start", string start); _class "relative block w-full after:pointer-events-none after:absolute after:inset-x-0.5 after:inset-y-px after:rounded-[var(--fve-radius-control)] hover:after:bg-[color-mix(in_srgb,var(--fve-brand-subtle)_60%,var(--fve-background))]"; _style $"height:calc(var(--fve-calendar-minute-height)*{min range.step (endHour * 60 - start)})" }
                                             }
                                             rangeOverlay range
                                         | None -> ()

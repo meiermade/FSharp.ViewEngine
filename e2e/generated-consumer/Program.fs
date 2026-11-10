@@ -92,6 +92,34 @@ let datePicker =
         }
     }
 
+let calendarRanges =
+    section {
+        _ariaLabel "Calendar range intervals"
+        _class "grid min-w-0 gap-6"
+        for id, hours, step, start, minutes, durations in
+            [ "generated-step-range", (8, 18), 45, TimeOnly(9, 0), 45, [45]
+              "generated-duration-range", (6, 22), 30, TimeOnly(21, 30), 30, [30; 45] ] do
+            let available = [
+                for at in 0 .. step .. 1439 do
+                    for length in durations do
+                        if at >= fst hours * 60 && at + length <= snd hours * 60 then
+                            yield TimeOnly(at / 60, at % 60), length
+            ]
+            form {
+                _id (id + "-form"); _ariaLabel id; _method "get"; _action "/"
+                fveDayCalendar {
+                    _id id; _label id; _date (DateOnly(2026, 9, 17)); _hours hours
+                    _hourHeight 80; _viewportHeight 320; _dayHeading false; _fluidWidth true
+                    fveCalendarRange {
+                        _name "selection"; _startTime start; _minutes minutes
+                        _minuteStep step; _durations durations
+                        _availableRanges available
+                    }
+                }
+                Html.button { _type "reset"; "Reset range" }
+            }
+    }
+
 let structuralExamples =
     div {
         _class "grid min-w-0 gap-3"
@@ -323,6 +351,7 @@ let document =
                         popover
                         datePicker
                         structuralExamples
+                        calendarRanges
 
                         div {
                             _class "max-w-md"

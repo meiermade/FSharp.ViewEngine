@@ -27,7 +27,7 @@ rocket('fve-calendar-range', {
         duration.value = String($$.minutes);
         duration.dispatchEvent(new Event('input', { bubbles: true }));
       }
-      field('start').max = clock(settings.maximum - $$.minutes);
+      field('start').max = clock(Math.floor((settings.maximum - $$.minutes) / settings.step) * settings.step);
       host.querySelector('[data-time-input]').setCustomValidity(available ? '' : 'Choose an available start time and duration.');
       const selection = host.querySelector('[data-range-selection]');
       selection.hidden = !within;
@@ -48,7 +48,11 @@ rocket('fve-calendar-range', {
     };
     const apply = (start, length) => {
       $$.minutes = length;
-      $$.time = clock(Math.max(settings.minimum, Math.min(settings.maximum - length, start)));
+      if (start != null) {
+        const first = Math.ceil(settings.minimum / settings.step) * settings.step;
+        const last = Math.floor((settings.maximum - length) / settings.step) * settings.step;
+        $$.time = clock(Math.max(first, Math.min(last, Math.round(start / settings.step) * settings.step)));
+      }
       synchronize();
     };
     const cancel = () => {
@@ -65,13 +69,13 @@ rocket('fve-calendar-range', {
     const nearestDuration = value => settings.durations.reduce((best, length) => Math.abs(length - value) < Math.abs(best - value) ? length : best);
     host.addEventListener('change', event => {
       if (event.target === field('start')) $$.time = event.target.value;
-      else if (event.target === field('duration')) $$.minutes = Number(event.target.value);
+      else if (event.target === field('duration')) apply(minute($$.time), Number(event.target.value));
       else return;
       notify();
     }, options);
     host.addEventListener('fve-select-change', event => {
       if (event.target !== field('duration')?.closest('fve-select')) return;
-      $$.minutes = Number(event.detail.value); notify();
+      apply(minute($$.time), Number(event.detail.value)); notify();
     }, options);
     host.addEventListener('pointerdown', event => {
       const surface = grid(), part = event.target.closest('[data-range-part]')?.dataset.rangePart;

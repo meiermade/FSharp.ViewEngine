@@ -606,13 +606,13 @@
       "component": "calendar-rendering",
       "path": "Components/CalendarRendering.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "87303566029859a774f056e53be263f82fed6707914cbedbf6359fb1a85e69ba"
+      "registryChecksum": "1910850bc658150b7ce293c9cf4b9c20cb1b0751551b31431dde34735044490c"
     },
     {
       "component": "calendar-rendering",
       "path": "Components/Assets/calendar-range.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "ea0cfdaeb7f4b3db87c72e0f4d4ce8d637fbfb902628734d8a563cb0c386ab33"
+      "registryChecksum": "07411c3a881ce76c2c23978620f88487c3dec997061eb138cdf9409244925e99"
     },
     {
       "component": "day-calendar",

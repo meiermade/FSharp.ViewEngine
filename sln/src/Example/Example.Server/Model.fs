@@ -324,14 +324,19 @@ module Model =
             + querySuffix (returnWorkspacePairs query)
             + (if query.embedded then "&embedded=1" else "")
 
-    /// Public collection controls, not submitted editor values or selected record keys.
+    /// Public collection/detail context, not submitted editor values or selected record keys.
     let collectionQueryPairs (query: Query) =
         [ "search", query.search
           "accountType", query.accountType
           "status", query.status
           "account", query.account
           "sort", query.sort
-          "filters", String.concat "," query.filters ]
+          "filters", String.concat "," query.filters
+          "range", query.range
+          "comparison", query.comparison
+          "startDate", query.startDate
+          "endDate", query.endDate
+          "transactionPage", string query.transactionPage ]
 
     let collectionHref (query: Query) page =
         applicationHref query page

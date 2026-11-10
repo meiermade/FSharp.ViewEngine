@@ -70,6 +70,40 @@ test('Account detail uses shared section rhythm, paginated records and chart dat
   expect((await new AxeBuilder({ page }).include('main').analyze()).violations).toEqual([])
 })
 
+test('Account overlays preserve the selected chart, scenario and transaction page @cross-browser', async ({ page }) => {
+  const context = { range: '90', comparison: 'optimistic', startDate: '2026-07-01', endDate: '2026-09-17', transactionPage: '2' }
+  const detail = '/examples/application/accounts/101'
+  const assertContext = async (path: string) => {
+    await expect(page).toHaveURL(url => url.pathname === path && Object.entries(context).every(([key, value]) => url.searchParams.get(key) === value))
+    // Inspect the inert background as well as the returned page.
+    const dates = page.locator('form[aria-label="Chart date range"]')
+    await expect(dates.getByLabel('Start date', { exact: true })).toHaveValue(context.startDate)
+    await expect(dates.getByLabel('End date', { exact: true })).toHaveValue(context.endDate)
+    await expect(page.locator('form[aria-label="Account balance controls"] [name="comparison"]')).toHaveValue('optimistic')
+    await expect(page.locator('nav[aria-label="Account transactions"]')).toContainText('Showing 11–')
+  }
+  const edit = page.getByRole('link', { name: 'Edit account', exact: true })
+  await page.goto(detail + '?' + new URLSearchParams(context))
+  await assertContext(detail)
+  await edit.click()
+  await assertContext(detail + '/edit')
+  await page.getByRole('dialog', { name: 'Edit account', exact: true }).getByRole('link', { name: 'Cancel', exact: true }).click()
+  await assertContext(detail)
+  await edit.click()
+  await page.getByRole('dialog', { name: 'Edit account', exact: true }).getByLabel('Name', { exact: true }).focus()
+  await page.keyboard.press('Escape')
+  await assertContext(detail)
+  await page.getByRole('button', { name: 'More actions', exact: true }).click()
+  await page.getByRole('menuitem', { name: 'Delete', exact: true }).click()
+  await assertContext(detail + '/delete')
+  await page.getByRole('dialog').getByRole('link', { name: 'Cancel', exact: true }).click()
+  await assertContext(detail)
+  await edit.click()
+  await page.getByRole('dialog', { name: 'Edit account', exact: true }).getByRole('button', { name: 'Update', exact: true }).click()
+  await assertContext(detail)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
 test('Geldos owns charcoal dark neutrals without changing light mode or the catalog', async ({ page }) => {
   for (const route of ['/examples/marketing', '/examples/application/accounts/101', '/examples/specification', '/examples/api-documentation']) {
     await page.goto(route)
