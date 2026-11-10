@@ -362,7 +362,7 @@ Target.create "UpdateInstalledComponents" (fun _ ->
         |> Seq.toList
     dotnet slnDir (["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"] @ selectors @ ["--config"; "src/Docs.Components/fve.json"; "--overwrite"])
     |> Async.RunSynchronously
-    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "button"; "field"; "chart"; "checkbox"; "input-group"; "notification"; "command"; "--config"; "src/Example/Example.Components/fve.json"; "--overwrite"]
+    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "icon"; "button"; "field"; "chart"; "checkbox"; "input-group"; "notification"; "command"; "time-picker"; "section"; "disclosure"; "pagination"; "--config"; "src/Example/Example.Components/fve.json"; "--overwrite"]
     |> Async.RunSynchronously
 )
 

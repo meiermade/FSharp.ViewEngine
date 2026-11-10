@@ -2,6 +2,7 @@ namespace Docs.Pages
 
 open Docs.Common
 open FSharp.ViewEngine
+open FSharp.ViewEngine.Components
 open type Html
 open type FSharp.ViewEngine.TailwindElements
 
@@ -16,17 +17,13 @@ module TailwindElements =
     let private previewSurface content = previewSurfaceWith "" content
     let private floatingPreviewSurface content = previewSurfaceWith "twe-preview-surface-floating" content
 
-    let private chevron =
-        raw """<svg class="twe-chevron" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.168l3.71-3.938a.75.75 0 1 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd" /></svg>"""
+    let private chevron = fveIcon { _name IconName.ChevronDown; _variant IconVariant.Mini; _class "twe-chevron" }
 
-    let private searchIcon =
-        raw """<svg class="twe-field-icon" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.75"/><path d="m12 12 4 4"/></svg>"""
+    let private searchIcon = fveIcon { _name IconName.MagnifyingGlass; _size Size.Medium; _class "twe-field-icon" }
 
-    let private copyIcon =
-        raw """<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="6.5" y="6.5" width="9" height="9" rx="1.5"/><path d="M4.5 13.5h-.25A1.75 1.75 0 0 1 2.5 11.75v-7.5A1.75 1.75 0 0 1 4.25 2.5h7.5a1.75 1.75 0 0 1 1.75 1.75v.25"/></svg>"""
+    let private copyIcon = fveIcon { _name IconName.DocumentDuplicate; _size Size.Medium }
 
-    let private warningIcon =
-        raw """<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 6.5v4.25m0 2.75h.01"/><circle cx="10" cy="10" r="7.25"/></svg>"""
+    let private warningIcon = fveIcon { _name IconName.ExclamationCircle; _size Size.Medium }
 
     let private componentPreview id =
         match id with

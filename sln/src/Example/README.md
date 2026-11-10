@@ -1,6 +1,6 @@
-# Financial application example
+# Geldos examples
 
-A standalone FSharp.ViewEngine consumer with Application, Specification, and API documentation surfaces. See the [Docs gallery](https://fve.meiermade.com/examples) or the source in this directory for implementation details.
+A standalone FSharp.ViewEngine consumer with Marketing, Application, Specification, and API documentation surfaces sharing one Geldos financial model. See the [Docs gallery](https://fve.meiermade.com/examples) or the source in this directory for implementation details.
 
 ## Run
 
@@ -10,7 +10,7 @@ Requires the .NET 10 SDK. From this directory:
 dotnet run --project Example.Server
 ```
 
-At the origin printed by ASP.NET Core, open `/examples/application`, `/examples/specification`, or `/examples/api-documentation`. Browser assets and generated CSS are checked in; Node.js is not needed to run.
+At the origin printed by ASP.NET Core, open `/examples/marketing`, `/examples/application`, `/examples/specification`, or `/examples/api-documentation`. Browser assets and generated CSS are checked in; Node.js is not needed to run.
 
 ## Frontend development
 

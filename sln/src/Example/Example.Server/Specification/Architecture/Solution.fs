@@ -12,7 +12,7 @@ module internal Solution =
         graph
             [ "flowchart LR"
               "  Browser[\"Browser<br/>External runtime\"]:::person"
-              "  subgraph Product[\"Ledger solution\"]"
+              "  subgraph Product[\"Geldos solution\"]"
               "    Server[\"Example.Server<br/>Executable F# project<br/>HTML, forms, Specification and API reference\"]:::executable"
               "    Application[\"Example.Application<br/>F# library project<br/>Submission validation and batch deletion\"]:::project"
               "    Domain[\"Example.Domain<br/>F# library project<br/>Financial and workspace facts, balance and deletion rules\"]:::project"
@@ -40,7 +40,7 @@ module internal Solution =
             Layout.documentationSection
                 "projects"
                 "Projects"
-                (diagram "Ledger project dependencies and HTTP boundary" solution)
+                (diagram "Geldos project dependencies and HTTP boundary" solution)
 
             Layout.documentationSection
                 "project-inventory"

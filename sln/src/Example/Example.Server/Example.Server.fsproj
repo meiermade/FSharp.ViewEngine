@@ -67,6 +67,7 @@
     <Compile Include="Specification/Overview.fs" />
     <Compile Include="Specification.fs" />
     <Compile Include="ApiDocumentation.fs" />
+    <Compile Include="Marketing.fs" />
     <Compile Include="Routing.fs" />
     <Compile Include="Hosting.fs" />
     <Compile Include="Program.fs" />

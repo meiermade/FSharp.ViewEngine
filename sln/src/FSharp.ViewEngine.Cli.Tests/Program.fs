@@ -72,7 +72,7 @@ let tests = testList "fve" [
                         Expect.equal installed.Length (Registry.files items).Length "every required file is tracked separately"
                         for file in installed do
                             Expect.equal (Text.checksum (File.ReadAllText(Path.Combine(root,file.Path)))) file.RegistryChecksum "each copied file has its own checksum"
-        for retired in ["documentation"; "documentation-registry"; "page"; "section"; "compositions"; "app-shell"; "media-library"; "fixture"; "text-field"; "identity"; "theme-switcher"; "item"; "steps"; "button-script"; "code-block-script"; "rocket-runtime"; "native-control"] do
+        for retired in ["documentation"; "documentation-registry"; "page"; "compositions"; "app-shell"; "media-library"; "fixture"; "text-field"; "identity"; "theme-switcher"; "item"; "steps"; "button-script"; "code-block-script"; "rocket-runtime"; "native-control"] do
             match Registry.resolve registry [retired] with
             | Error _ -> ()
             | Ok _ -> failtest $"{retired} must not be an installable selector or alias."
@@ -83,6 +83,7 @@ let tests = testList "fve" [
         for requested,source in [
             "card", $"{common} Card.fs"
             "input", $"{common} FieldFoundation.fs Input.fs"
+            "icon", $"{common} IconNames.fs IconData.fs Icon.fs Assets/heroicons-LICENSE.txt Assets/heroicons.2.2.0.provenance.json Assets/bootstrap-icons-LICENSE.txt Assets/bootstrap-icons.1.13.1.provenance.json"
             "button", $"{common} {runtime} Button.fs Assets/button.js"
             "select", $"{common} {runtime} ChoiceSelection.fs Select.fs Assets/select.js"
             "button-group", $"{common} {runtime} ButtonGroup.fs Assets/scroll-region.js"
@@ -93,7 +94,11 @@ let tests = testList "fve" [
             "mermaid", $"{common} {runtime} MermaidAssets.fs Mermaid.fs Assets/mermaid.js"
             "chart", $"{common} {runtime} Chart.fs Assets/chart.js Assets/echarts.6.1.0.esm.min.js Assets/echarts-LICENSE.txt Assets/echarts-NOTICE.txt Assets/echarts.6.1.0.provenance.json"
             "command", $"{common} {runtime} Button.fs Assets/button.js NativeOverlay.fs Assets/native-overlay.js Dialog.fs Assets/dialog.js Command.fs Assets/command.js"
-            "date-picker", $"{common} {runtime} CalendarRendering.fs Assets/scroll-region.js FieldFoundation.fs Popover.fs Assets/popover.js MonthCalendar.fs Assets/calendar-selection.js DatePicker.fs Assets/date-picker.js"
+            "section", $"{common} SectionHeader.fs Section.fs"
+            "disclosure", $"{common} Disclosure.fs"
+            "time-picker", $"{common} {runtime} FieldFoundation.fs Input.fs InputGroup.fs Popover.fs Assets/popover.js TimePicker.fs Assets/time-picker.js"
+            "day-calendar", $"{common} {runtime} FieldFoundation.fs Input.fs InputGroup.fs TimePicker.fs Assets/time-picker.js Popover.fs Assets/popover.js ChoiceSelection.fs Select.fs Assets/select.js CalendarRendering.fs Assets/scroll-region.js Assets/calendar-range.js DayCalendar.fs"
+            "date-picker", $"{common} {runtime} CalendarRendering.fs Assets/scroll-region.js Assets/calendar-range.js FieldFoundation.fs Input.fs InputGroup.fs TimePicker.fs Assets/time-picker.js Popover.fs Assets/popover.js ChoiceSelection.fs Select.fs Assets/select.js MonthCalendar.fs Assets/calendar-selection.js DatePicker.fs Assets/date-picker.js"
             "color-mode", "ColorMode.fs" ] do
             withTemp <| fun root ->
                 initialize root

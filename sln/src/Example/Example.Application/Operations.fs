@@ -73,16 +73,21 @@ module Operations =
         elif request.name.Trim().Length<1 || request.name.Trim().Length>80 then Error ValidateEnvironmentError.InvalidName
         else Ok {environmentId=request.environmentId}
 
-    type ValidateProfileRequest = { name:string; email:string; timeZone:string }
+    type ValidateProfileRequest = { name:string; email:string; timeZone:string; dailySummaryTime:string }
     type ValidateProfileResponse = { accepted:bool }
     [<RequireQualifiedAccess>]
-    type ValidateProfileError = InvalidName | InvalidEmail | InvalidTimeZone
+    type ValidateProfileError = InvalidName | InvalidEmail | InvalidTimeZone | InvalidDailySummaryTime
     let validateProfile (request:ValidateProfileRequest) : Result<ValidateProfileResponse,ValidateProfileError> =
         let validEmail =
             match System.Net.Mail.MailAddress.TryCreate(request.email) with
             | true,address -> address.Address=request.email && address.Address.Contains('@')
             | _ -> false
+        let validTime =
+            match TimeOnly.TryParseExact(request.dailySummaryTime, "HH:mm", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None) with
+            | true, time -> time.Minute % 15 = 0
+            | _ -> false
         if request.name.Trim().Length<1 || request.name.Trim().Length>80 then Error ValidateProfileError.InvalidName
         elif not validEmail then Error ValidateProfileError.InvalidEmail
         elif not (List.contains request.timeZone ["America/Chicago";"America/New_York";"UTC"]) then Error ValidateProfileError.InvalidTimeZone
+        elif not validTime then Error ValidateProfileError.InvalidDailySummaryTime
         else Ok {accepted=true}

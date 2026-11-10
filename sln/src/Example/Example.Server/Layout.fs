@@ -10,7 +10,7 @@ open Ledger.Domain
 
 /// Ordinary consumer-owned markup. The same installed controls can be used by a real app or its Spec.
 module Layout =
-    let theme = ComponentsTheme.sky
+    let theme = ComponentsTheme.custom "geldos-theme"
 
     let link (href: string) (label: string) =
         a {
@@ -51,12 +51,7 @@ module Layout =
         }
 
     let section (title: string) (content: HtmlElement) =
-        section {
-            _ariaLabel title
-            _class "grid min-w-0 grid-cols-1 gap-4"
-            fveSectionHeader { _label title }
-            content
-        }
+        fveSection { _label title; content }
 
     let prose (content: HtmlElement) =
         div {
@@ -66,28 +61,23 @@ module Layout =
             content
         }
 
-    let icon (data: string) =
-        svg {
-            _viewBox "0 0 24 24"
-            _fill "none"
-            _stroke "currentColor"
-            _strokeWidth "1.5"
-            _class "size-5 shrink-0"
-            _ariaHidden true
+    let icon (name: IconName) = fveIcon { _name name; _size Size.Medium }
 
-            path {
-                _strokeLinecap "round"
-                _strokeLinejoin "round"
-                _d data
+    let sectionWithEdit (title:string) (href:string) (content:HtmlElement) =
+        fveSection {
+            _label title
+            fveSectionActions {
+                fveLink {
+                    _href href; _variant LinkVariant.Outline; _color Color.Neutral
+                    icon IconName.PencilSquare
+                    "Edit"
+                }
             }
+            content
         }
 
-    let private settingsIcon =
-        icon
-            "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.325.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.241-.438.613-.43.992a7.723 7.723 0 0 1 0 .255c-.008.378.137.75.43.991l1.004.827c.424.35.534.955.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.47 6.47 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.019-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.991a6.932 6.932 0 0 1 0-.255c.007-.38-.138-.751-.43-.992l-1.004-.827a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-
     let private organizationIcon =
-        icon "M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z"
+        icon IconName.BuildingOffice2
 
     let documentationSearch label (groups: (string * (string * string) list) list) =
         let id = "template-document-search"
@@ -104,7 +94,7 @@ module Layout =
                 _ariaLabel label
                 _title label
                 _class "flex h-8 cursor-pointer items-center gap-2 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] px-2.5 text-sm text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] max-sm:w-8 max-sm:justify-center max-sm:p-0 [&>svg]:size-4"
-                icon "m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
+                fveIcon { _name IconName.MagnifyingGlass; _size Size.Small }
                 kbd {
                     _class "hidden rounded border border-[var(--fve-border)] px-1 py-px font-mono text-xs sm:inline"
                     _dataText "navigator.userAgent.includes('Mac') ? '⌘K' : 'Ctrl+K'"
@@ -142,18 +132,17 @@ module Layout =
                 fveDropdownMenuTrigger {
                     fveButton {
                         _variant ButtonVariant.Ghost
-                        _iconOnly true
                         _ariaLabel "Choose color theme"
                         _title "Choose color theme"
                         _class "shadow-none"
 
                         span {
-                            _class "dark:hidden"
-                            icon "M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"
+                            _class "inline-flex dark:hidden"
+                            icon IconName.Sun
                         }
                         span {
-                            _class "hidden dark:block"
-                            icon "M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 2.25 12c0 5.385 4.365 9.75 9.75 9.75a9.753 9.753 0 0 0 9.752-6.748Z"
+                            _class "hidden dark:inline-flex"
+                            icon IconName.Moon
                         }
                     }
                 }
@@ -171,7 +160,7 @@ module Layout =
             }
         }
 
-    let private chevron = icon "m9 6 6 6-6 6"
+    let private chevron = icon IconName.ChevronRight
     // Safari pointer activation needs explicit trigger focus for native dialog restoration.
     let private navigationTrigger dialogId =
         fveButton {
@@ -181,7 +170,7 @@ module Layout =
             _ariaControls dialogId
             _ariaHaspopup "dialog"
             _dataOn ("click", $"el.focus(); document.getElementById('{dialogId}').showModal()")
-            icon "M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5"
+            icon IconName.Bars3
         }
 
     let private navigationClose dialogId =
@@ -190,7 +179,7 @@ module Layout =
             _ariaLabel "Close navigation"
             _autofocus true
             _dataOn ("click", $"document.getElementById('{dialogId}').close()")
-            icon "m6 6 12 12M6 18 18 6"
+            icon IconName.XMark
         }
 
     let private navigationDrawer dialogId label (content: HtmlElement) =
@@ -381,7 +370,7 @@ module Layout =
                             ledger.name
 
                             if ledger.id = workspace.ledger.id then
-                                fveDropdownMenuItemTrailing { icon "m4.5 12.75 6 6 9-13.5" }
+                                fveDropdownMenuItemTrailing { icon IconName.Check }
                         }
                 }
 
@@ -400,7 +389,7 @@ module Layout =
                     "Environment"
                     _description workspace.environment.name
                     fveDropdownMenuItemLeading {
-                        icon "M5.25 14.25h13.5m-13.5 0a3 3 0 0 1-3-3m3 3a3 3 0 1 0 0 6h13.5a3 3 0 1 0 0-6m-16.5-3a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3m-19.5 0a4.5 4.5 0 0 1 .9-2.7L5.737 5.1a3.375 3.375 0 0 1 2.7-1.35h7.126c1.062 0 2.062.5 2.7 1.35l2.587 3.45a4.5 4.5 0 0 1 .9 2.7m0 0a3 3 0 0 1-3 3m0 3h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Zm-3 6h.008v.008h-.008v-.008Zm0-6h.008v.008h-.008v-.008Z"
+                        icon IconName.ServerStack
                     }
                     fveDropdownMenuItemTrailing { chevron }
                 }
@@ -410,8 +399,7 @@ module Layout =
                     _label workspace.ledger.name
 
                     fveSideNavLeading {
-                        icon
-                            "M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25v2.25a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25v-2.25ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25h-2.25a2.25 2.25 0 0 1-2.25-2.25v-2.25Z"
+                        icon IconName.Squares2x2
                     }
 
                     menu
@@ -437,19 +425,20 @@ module Layout =
 
         fragment {
             for destination, label, image, selected in
-                [ ApplicationPage.Settings, "Settings", settingsIcon, settings
+                [ ApplicationPage.Settings, "Settings", (fveIcon { Html._name IconName.Cog6Tooth; _variant IconVariant.Mini }), settings
                   ApplicationPage.Profile, "Profile",
-                    icon "M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z",
+                    (fveIcon { Html._name IconName.UserCircle; _variant IconVariant.Mini }),
                     personalPage page ] do
-                a {
+                fveLink {
                     _href (applicationHref query destination)
+                    _variant LinkVariant.Ghost
+                    _color Color.Neutral
+                    _size Size.Medium
                     _ariaLabel label
                     _title label
-                    if selected then _ariaCurrent "true"
-                    _class (
-                        "inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-4"
-                        + if selected then " bg-[var(--fve-surface-hover)]" else ""
-                    )
+                    if selected then
+                        _ariaCurrent "true"
+                        _class "bg-[var(--fve-surface-hover)]"
                     image
                 }
         }
@@ -482,7 +471,7 @@ module Layout =
                     organization.name
 
                     if organization.id = query.workspace.organization.id then
-                        fveDropdownMenuItemTrailing { icon "m4.5 12.75 6 6 9-13.5" }
+                        fveDropdownMenuItemTrailing { icon IconName.Check }
                 }
         }
         |> fun menu ->
@@ -499,7 +488,7 @@ module Layout =
         let label =
             if personal then "Profile"
             elif settingsKey.IsSome then "Settings"
-            else "Ledger"
+            else "Geldos"
 
         let groups =
             if personal then
@@ -550,18 +539,19 @@ module Layout =
                                     url ApplicationPage.Home
                             )
 
-                            _ariaLabel "Ledger"
-                            _title "Ledger"
+                            _ariaLabel "Geldos"
+                            _title "Geldos"
                             _class
                                 "flex min-w-0 items-center gap-3 text-base font-semibold text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
 
-                            span {
-                                _ariaHidden true
-                                _class "inline-flex size-5 shrink-0 items-center justify-center text-xl text-[var(--fve-brand-text)]"
-                                "L"
+                            img {
+                                _src "/examples/assets/images/geldos.svg"
+                                _alt ""; _ariaHidden true
+                                Html._width "20"; Html._height "20"
+                                _class "size-5 shrink-0"
                             }
 
-                            span { _class "truncate"; "Ledger" }
+                            span { _class "truncate"; "Geldos" }
                         }
                     }
 
@@ -602,10 +592,10 @@ module Layout =
 
                         a {
                             _href (applicationHref (ledgerReturnQuery query) ApplicationPage.Home)
-                            _ariaLabel "Back to Ledger"
-                            _title "Back to Ledger"
+                            _ariaLabel "Back to Geldos"
+                            _title "Back to Geldos"
                             _class "-mx-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-4"
-                            icon "M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3"
+                            icon IconName.ArrowUturnLeft
                         }
 
                         h2 {
@@ -793,13 +783,12 @@ module Layout =
                     div {
                         _class "flex min-w-0 items-center gap-2.5"
 
-                        span {
-                            _ariaHidden true
-
-                            _class
-                                "grid size-7 shrink-0 place-items-center text-lg font-semibold text-[var(--fve-brand-text)]"
-
-                            "L"
+                        img {
+                            _src "/examples/assets/images/geldos.svg"
+                            _alt ""
+                            Html._width "28"
+                            Html._height "28"
+                            _class "size-7 shrink-0"
                         }
 
                         span {
@@ -868,16 +857,16 @@ module Layout =
                 _attr ("data-fve-page-scroll", "true")
 
                 _class (
-                    "min-h-0 min-w-0 flex-1 overflow-y-auto px-4 outline-none sm:px-6 lg:px-10 "
+                    "min-h-0 min-w-0 flex-1 overflow-y-auto px-4 outline-none [overflow-wrap:anywhere] sm:px-6 lg:px-10 "
                     + (if heading.IsSome then "py-10" else "py-6")
                 )
 
                 div {
                     _class (
                         if wide then
-                            "mx-auto grid min-w-0 gap-12"
+                            "mx-auto grid min-w-0 grid-cols-1 gap-12"
                         else
-                            "mx-auto grid min-w-0 max-w-4xl gap-12"
+                            "mx-auto grid min-w-0 max-w-4xl grid-cols-1 gap-12"
                     )
 
                     match heading with
@@ -1185,7 +1174,7 @@ module Layout =
             query.specification
             (if personal then "Profile"
              elif settingsKey.IsSome then "Settings"
-             else "Ledger")
+             else "Geldos")
             (fun navId mobile -> appNavigation navId mobile page current query settingsKey)
             bar
             title
@@ -1234,6 +1223,7 @@ module Layout =
 
                 documentTitle title
                 canonicalLink canonical
+                Html.link { _rel "icon"; _type "image/svg+xml"; _href "/examples/assets/images/geldos.svg" }
                 ColorMode.assetsWithNonce "financial-example-appearance" ColorMode.System nonce
 
                 Html.link {

@@ -48,7 +48,7 @@ module Specification =
             Architecture.navigation
             |> List.tryFind (fst >> (=) page)
             |> Option.map snd
-            |> Option.defaultValue "Financial specification")
+            |> Option.defaultValue "Geldos specification")
 
     let private specUrl page (query: Query) state appMode =
         specificationHref page state { query with appMode = appMode }
@@ -448,7 +448,7 @@ module Specification =
             |> Option.defaultValue "Financial workspace workflows and project contracts"
 
         Layout.documentationShell
-            "Ledger specification"
+            "Geldos specification"
             current
             (sidebar query)
             crumbs

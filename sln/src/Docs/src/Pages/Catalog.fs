@@ -35,6 +35,8 @@ module Catalog =
               (Components.frameRegistrations
                @ [ Components.pageHeaderRegistration
                    ComponentDocumentation.sectionHeaderRegistration
+                   Components.sectionRegistration
+                   Components.disclosureRegistration
                    Components.pageTopBarRegistration ])
           group
               "Code and diagrams"
@@ -94,7 +96,7 @@ module Catalog =
 
                         a {
                             _href "/examples"
-                            "Three complete example templates"
+                            "Complete Geldos examples"
                         }
                     } ]
               for section in navigation do

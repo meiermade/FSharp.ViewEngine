@@ -91,14 +91,12 @@ module AppShell =
         { config with contentLandmark = AppShellContentLandmark.Region label }
     let withAttributes attributes (config:AppShellConfig) = { config with attributes = attributes }
 
-    let private menuIcon =
-        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path fill-rule="evenodd" d="M2.75 5A.75.75 0 0 1 3.5 4.25h13a.75.75 0 0 1 0 1.5h-13A.75.75 0 0 1 2.75 5Zm0 5a.75.75 0 0 1 .75-.75h13a.75.75 0 0 1 0 1.5h-13a.75.75 0 0 1-.75-.75Zm0 5a.75.75 0 0 1 .75-.75h13a.75.75 0 0 1 0 1.5h-13a.75.75 0 0 1-.75-.75Z" clip-rule="evenodd"/></svg>"""
+    let private menuIcon = fveIcon { _name IconName.Bars3; _variant IconVariant.Mini }
 
-    let private closeIcon =
-        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z"/></svg>"""
+    let private closeIcon = fveIcon { _name IconName.XMark; _variant IconVariant.Mini }
 
     let private collapseIcon =
-        raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5 transition-transform group-data-[collapsed=true]:rotate-180" aria-hidden="true"><path fill-rule="evenodd" d="M12.78 4.22a.75.75 0 0 1 0 1.06L8.06 10l4.72 4.72a.75.75 0 1 1-1.06 1.06l-5.25-5.25a.75.75 0 0 1 0-1.06l5.25-5.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
+        fveIcon { _name IconName.ChevronLeft; _variant IconVariant.Mini; _class "transition-transform group-data-[collapsed=true]:rotate-180" }
 
     let private responsiveClasses breakpoint mediumClasses largeClasses =
         match breakpoint with

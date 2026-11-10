@@ -15,13 +15,14 @@ for (const [view, width, scale, dark] of [
       const preview = `#components-${view}-calendar-events-panel-preview`
       const calendar = page.locator(`${preview} .fve-calendar`)
       await expect(calendar).toHaveAttribute('data-view', view)
-      await expect(calendar.getByRole('link', { name: /Coastal trail lesson/ })).toBeVisible()
+      const eventControl = calendar.getByRole(view === 'month' ? 'link' : 'button', { name: /Coastal trail lesson/ })
+      await expect(eventControl).toBeVisible()
       await expect(calendar.locator('time[aria-current="date"]')).toHaveAttribute('datetime', '2026-09-17')
       const geometry = await calendar.evaluate(el => {
         const dates = el.querySelector('.fve-calendar-days')!
         const first = el.querySelector('[data-event="lesson-201"]')!.getBoundingClientRect()
         const second = el.querySelector('[data-event="camp-017"]')!.getBoundingClientRect()
-        const event = el.querySelector('[data-event="lesson-201"] a')!
+        const event = el.querySelector('[data-event="lesson-201"] .fve-calendar-event')!
         return {
           columns: getComputedStyle(dates).gridTemplateColumns.split(' ').length,
           count: el.querySelectorAll('.fve-calendar-days > [data-date]').length,
@@ -30,17 +31,31 @@ for (const [view, width, scale, dark] of [
           second: { x: second.x, y: second.y },
           scrollable: el.querySelector('.fve-calendar-body')!.scrollWidth > el.querySelector('.fve-calendar-body')!.clientWidth,
           overflow: el.scrollWidth - el.clientWidth,
+          escapedCards: [...el.querySelectorAll('.fve-calendar-day')].some(day => {
+            const bounds = day.getBoundingClientRect()
+            return [...day.querySelectorAll('.fve-calendar-event')].some(card => {
+              const box = card.getBoundingClientRect()
+              return box.left < bounds.left - 1 || box.right > bounds.right + 1
+            })
+          }),
+          titleInset: event.querySelector('strong, span:not([aria-hidden])')!.getBoundingClientRect().top - event.getBoundingClientRect().top,
           font: parseFloat(getComputedStyle(event.querySelector('strong, span:not([aria-hidden])')!).fontSize),
         }
       })
       expect(geometry.count).toBe(view === 'month' ? 35 : view === 'week' ? 7 : 1)
       expect(geometry.overflow).toBeLessThanOrEqual(1)
+      // Month all-day bars intentionally span dates; timed cards must stay in their own day.
+      if (view !== 'month') {
+        expect(geometry.escapedCards).toBe(false)
+        expect(geometry.titleInset).toBeLessThanOrEqual(8 * scale + 1)
+      }
       expect(geometry.font).toBeGreaterThanOrEqual((view === 'month' ? 12 : 14) * scale)
       expect(geometry.columns).toBe(view === 'day' ? 1 : 7)
       expect(geometry.visibleCount).toBe(geometry.count)
       if (width < 1600) expect(geometry.scrollable).toBe(true)
       if (view !== 'month') {
-        expect(geometry.first.right).toBeLessThanOrEqual(geometry.second.x)
+        expect(geometry.first.x).toBeLessThan(geometry.second.x)
+        expect(geometry.first.right).toBeGreaterThan(geometry.second.x)
         // 30-minute start difference / 90-minute duration, allowing the event gutters.
         expect(Math.abs((geometry.second.y - geometry.first.y) / (geometry.first.height + 2) - 1 / 3)).toBeLessThan(.015)
       }
@@ -49,10 +64,12 @@ for (const [view, width, scale, dark] of [
         document.documentElement.dataset.theme = dark ? 'dark' : 'light'
       }, dark)
       expect((await new AxeBuilder({ page }).include(preview).analyze()).violations).toEqual([])
-      await calendar.getByRole('link', { name: /Coastal trail lesson/ }).focus()
-      await page.keyboard.press('Enter')
-      await expect(page).toHaveURL(`/components/${view}-calendar`)
-      await expect(calendar.getByRole('link', { name: /Coastal trail lesson/ })).toBeFocused()
+      await eventControl.focus()
+      if (view === 'month') {
+        await page.keyboard.press('Enter')
+        await expect(page).toHaveURL(`/components/${view}-calendar`)
+      }
+      await expect(eventControl).toBeFocused()
     })
 }
 
@@ -67,6 +84,16 @@ test('Week calendar aligns hourly rows across empty and populated all-day column
   expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(1)
   const firstHour = await calendar.locator('.fve-calendar-hours > span').first().boundingBox()
   expect(Math.abs(firstHour!.y - tops[0])).toBeLessThanOrEqual(1)
+  const cornerIsCovered = await calendar.evaluate(async el => {
+    const body = el.querySelector<HTMLElement>('.fve-calendar-body')!
+    const hours = el.querySelector<HTMLElement>('.fve-calendar-hours')!
+    const hourHeight = hours.querySelector('span')!.getBoundingClientRect().height
+    body.scrollTop = parseFloat(getComputedStyle(hours).paddingTop) + hourHeight - 24
+    await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    const box = body.getBoundingClientRect()
+    return !!document.elementFromPoint(box.left + 25, box.top + 32)?.closest('.fve-calendar-corner')
+  })
+  expect(cornerIsCovered).toBe(true)
 })
 
 test('Day, Week and full Month keep scrollable grids on mobile @cross-browser', async ({ page }) => {

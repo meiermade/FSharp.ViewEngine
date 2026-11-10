@@ -67,7 +67,7 @@ module internal Workflow =
           "Opening an overlay SHALL preserve its originating collection/detail title, breadcrumbs, workspace, search, filters and sorting." ]
 
     let shellRules =
-        [ "Application, Specification and API documentation SHALL share the documentation's sky brand theme; success, warning and error colors SHALL remain semantic."
+        [ "Marketing, Application, Specification and API documentation SHALL share Geldos branding: its logo and emerald palette, with Noto Sans UI typography. Marketing display headings SHALL use Noto Serif. Success, warning and error colors SHALL remain semantic."
           "PageTopBar SHALL contain brand and breadcrumbs; a visible PageHeader SHALL contain the page title and page actions." ]
 
     let collectionRules =

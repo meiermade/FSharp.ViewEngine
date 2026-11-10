@@ -1109,6 +1109,234 @@ let tests =
                   "duplicate event IDs are rejected"
           }
 
+          test "Time calendars compose native controls, rounded event previews and explicit event treatments" {
+              let date = DateOnly(2026, 9, 17)
+              let html =
+                  fveDayCalendar {
+                      _id "compact-schedule"
+                      _label "Consultations"
+                      _date date
+                      _hours (6, 22)
+                      _hourHeight 80
+                      _viewportHeight 320
+                      _dayHeading false
+                      _fluidWidth true
+                      fveCalendarControls { button { _type "submit"; "Show date" } }
+                      CalendarEvent.create "closed" "Unavailable · Maintenance" date "/components/day-calendar"
+                      |> CalendarEvent.withTime (TimeOnly(10, 0)) (TimeOnly(11, 0))
+                      |> CalendarEvent.withTone CalendarEventTone.Muted
+                      |> CalendarEvent.withPreview (p { "Consumer-authored maintenance details" })
+                  } |> Render.toString
+              Expect.stringContains html "Show date" "consumer controls belong in the one calendar toolbar"
+              Expect.stringContains html "<fve-popover" "event details reuse the existing Popover"
+              Expect.stringContains html "Consumer-authored maintenance details" "the consumer owns the detail content"
+              Expect.stringContains html "href=\"/components/day-calendar\"" "the original destination remains available"
+              Expect.stringContains html "rounded-[var(--fve-radius-control)]" "event cards keep the shared rounded treatment"
+              Expect.stringContains html "data-tone=\"muted\"" "the event treatment is explicit"
+              Expect.stringContains (System.Net.WebUtility.HtmlDecode html) "Unavailable · Maintenance" "meaning stays in visible text"
+              Expect.stringContains html "--fve-calendar-hours:16" "explicit bounds do not jump with event data"
+              Expect.stringContains html "--fve-calendar-hour-height:5rem" "density scales with typography"
+              Expect.stringContains html "--fve-calendar-viewport-height:320px" "the consumer controls viewport height"
+              Expect.isFalse (html.Contains("class=\"fve-calendar-date")) "a redundant Day heading can be omitted"
+              Expect.isFalse (html.Contains("No events in this range.")) "events are real calendar content"
+              let multiDay =
+                  fveWeekCalendar {
+                      _id "multi-day-preview"; _label "All-day events"; _date date
+                      CalendarEvent.create "conference" "Conference" date "/components/week-calendar"
+                      |> CalendarEvent.withEndDate (date.AddDays 2)
+                      |> CalendarEvent.withPreview (p { "A three-day conference" })
+                  } |> Render.toString
+              let ids = System.Text.RegularExpressions.Regex.Matches(multiDay, "id=\"([^\"]+)\"") |> Seq.map (fun matched -> matched.Groups[1].Value) |> Seq.toList
+              Expect.equal ids.Length (List.distinct ids).Length "a multi-day event gives each date its own unique preview IDs"
+          }
+
+          test "Server-selected Tabs retain one stable panel and native submitters" {
+              let render selected =
+                  fveTabs {
+                      _id "server-selection-tabs"; _ariaLabel "Account view"
+                      _selection TabsSelection.Server; _value selected
+                      for value in [ "summary"; "activity" ] do
+                          fveTabsItem {
+                              _value value
+                              fveTabsTrigger { _name "tab"; _value value; value }
+                              p { value + " content" }
+                          }
+                  } |> Render.toString
+              for value, other in [ "summary", "activity"; "activity", "summary" ] do
+                  let html = render value
+                  Expect.equal (Regex.Matches(html, "role=\"tabpanel\"").Count) 1 "the server renders only the accepted panel"
+                  Expect.stringContains html "id=\"server-selection-tabs-panel\"" "changing the selection does not relocate the panel"
+                  Expect.equal (Regex.Matches(html, "aria-controls=\"server-selection-tabs-panel\"").Count) 2 "both triggers control that stable region"
+                  Expect.equal (Regex.Matches(html, "type=\"submit\"").Count) 2 "native forms work before enhancement"
+                  Expect.stringContains html (value + " content") "accepted content is present"
+                  Expect.isFalse (html.Contains(other + " content")) "unselected content is not sent"
+          }
+
+          test "Documentation header controls consume bundled icons" {
+              let status, html = routeResponse "/"
+              Expect.equal status 200 "the catalog renders normally"
+              let header = Regex.Match(html, "<header\\b[\\s\\S]*?</header>").Value
+              for glyph in [ "magnifying-glass"; "sun"; "moon"; "github" ] do
+                  Expect.stringContains header $"data-fve-icon=\"{glyph}\"" "search, appearance and repository controls use the shared Icon component"
+          }
+
+          test "The icon browser globally matches glyphs and groups all their artwork" {
+              let html = IconBrowser.render IconBrowser.batchSize "settings" |> Render.toString
+              Expect.equal (Regex.Matches(html, "data-icon-entry=").Count) 7 "semantic filtering happens before rendering"
+              Expect.equal (Regex.Matches(html, "data-fve-icon=").Count) 28 "each result contains its four artwork variants"
+              for family in [ "outline"; "solid"; "mini"; "micro" ] do
+                  Expect.equal (Regex.Matches(html, $"data-fve-icon-variant=\"{family}\"").Count) 7 "every Heroicons family is discoverable without a filter"
+              Expect.stringContains html "7 icons" "the server owns the result count"
+              let empty = IconBrowser.render IconBrowser.batchSize "doesnotexist123" |> Render.toString
+              Expect.equal (Regex.Matches(empty, "data-icon-entry=").Count) 0 "unmatched tiles are not hidden in the payload"
+              Expect.stringContains empty "No icons match your search." "empty state is server-rendered"
+          }
+
+          test "The icon browser bounds initial rendering while keeping all results reachable" {
+              let initial = IconBrowser.render 0 "" |> Render.toString
+              Expect.equal (Regex.Matches(initial, "data-icon-entry=").Count) 24 "invalid counts fall back to a bounded initial batch"
+              Expect.stringContains initial "Showing 24 of 319 icons" "the total includes Heroicons and brands"
+              Expect.stringContains initial "count=48" "the next batch has a genuine catalog destination"
+              let next = IconBrowser.render 48 "" |> Render.toString
+              Expect.equal (Regex.Matches(next, "data-icon-entry=").Count) 48 "showing more retains the previous results"
+              let all = IconBrowser.render Int32.MaxValue "" |> Render.toString
+              Expect.equal (Regex.Matches(all, "data-icon-entry=").Count) 319 "requested counts cannot exceed the available catalog"
+          }
+
+          test "The icon browser indexes every bundled name with meaningful aliases" {
+              Expect.equal (IconBrowser.entries |> Array.map _.name |> Set.ofArray) (Enum.GetValues<IconName>() |> Set.ofArray) "new bundled glyphs cannot silently disappear from the gallery"
+              for entry in IconBrowser.entries do
+                  Expect.isFalse (String.IsNullOrWhiteSpace entry.tags) $"{entry.label} needs common-use search tags"
+              for query, name in [ "settings", IconName.Cog6Tooth; "preferences", IconName.AdjustmentsHorizontal; "refresh", IconName.ArrowPath; "delete", IconName.Trash; "profile", IconName.UserCircle; "attachment", IconName.PaperClip; "money", IconName.DocumentCurrencyDollar; "COG-6-TOOTH", IconName.Cog6Tooth; "cog tooth", IconName.Cog6Tooth ] do
+                  let entry = IconBrowser.entries |> Array.find (fun entry -> entry.name = name)
+                  Expect.isTrue (IconBrowser.matches query entry) $"Searching for {query} finds {name}"
+              Expect.isEmpty (IconBrowser.entries |> Array.filter (IconBrowser.matches "doesnotexist123")) "unknown terms produce an honest empty result"
+              let settings = IconBrowser.entries |> Array.find (fun entry -> entry.name = IconName.Cog6Tooth)
+              Expect.isFalse (IconBrowser.matches "settings upload" settings) "all search words must match"
+          }
+
+          test "Icons own typed names, native artwork families and optional rendering dimensions" {
+              let variants = [ IconVariant.Outline, 24; IconVariant.Solid, 24; IconVariant.Mini, 20; IconVariant.Micro, 16 ]
+              let brands = set [ IconName.GitHub; IconName.X; IconName.LinkedIn ]
+              for name in Enum.GetValues<IconName>() |> Array.filter (fun name -> not (Set.contains name brands)) do
+                  for variant, size in variants do
+                      let html = fveIcon { _name name; _variant variant } |> Render.toString
+                      Expect.stringContains html $"viewBox=\"0 0 {size} {size}\"" "the artwork retains its native coordinate system"
+                      Expect.stringContains html "currentColor" "icons inherit their parent's color"
+                      Expect.stringContains html "aria-hidden=\"true\"" "decorative artwork does not duplicate control names"
+                      Expect.isNonEmpty (XElement.Parse(html).Elements() |> Seq.toList) "every glyph and family contains real SVG artwork"
+              let enlarged = fveIcon { _name IconName.Heart; _variant IconVariant.Micro; _size Size.ExtraLarge; _ariaLabel "Favorite" } |> Render.toString
+              Expect.stringContains enlarged "viewBox=\"0 0 16 16\"" "rendered size does not select different artwork"
+              Expect.stringContains enlarged "width:2rem;height:2rem" "the requested square scales with text"
+              Expect.stringContains enlarged "role=\"img\"" "standalone meaningful icons can be named"
+              Expect.isFalse (enlarged.Contains("aria-hidden")) "named artwork remains exposed"
+              for invalid in [ (fun () -> fveIcon { _variant IconVariant.Outline } |> ignore); (fun () -> fveIcon { _name IconName.Heart; "Unexpected child" } |> ignore) ] do
+                  Expect.throws invalid "missing identity or caller-supplied artwork fails explicitly"
+              Expect.isTrue (Catalog.componentRegistrations |> List.exists (fun page -> page.path = "/components/icon")) "Icon has an owning page and navigation entry"
+              Expect.equal (routeStatus "/components/icon") 200 "the owning route resolves"
+          }
+
+          test "Brand logos use their own silhouettes, defaults and native coordinates" {
+              for name, slug in [ IconName.GitHub, "github"; IconName.X, "x"; IconName.LinkedIn, "linkedin" ] do
+                  let html = fveIcon { _name name } |> Render.toString
+                  Expect.stringContains html $"data-fve-icon=\"{slug}\"" "the name resolves to its brand logo"
+                  Expect.stringContains html "data-fve-icon-variant=\"solid\"" "logos default to Solid"
+                  Expect.equal (fveIcon { _name name; _variant IconVariant.Solid } |> Render.toString) html "explicit Solid selects the same original artwork"
+                  Expect.stringContains html "viewBox=\"0 0 16 16\"" "original logo coordinates are retained"
+                  Expect.stringContains html "width:1.5rem;height:1.5rem" "brand logos default to a 24px display size"
+                  Expect.stringContains html "fill=\"currentColor\"" "monochrome logos inherit color"
+                  Expect.isNonEmpty (XElement.Parse(html).Elements() |> Seq.toList) "the bundled logo has real artwork"
+              let small = fveIcon { _name IconName.X; _variant IconVariant.Solid; _size Size.Small } |> Render.toString
+              Expect.stringContains small "width:1rem;height:1rem" "ordinary icon size overrides also apply to logos"
+              for variant in [ IconVariant.Outline; IconVariant.Mini; IconVariant.Micro ] do
+                  Expect.throws (fun () -> fveIcon { _name IconName.X; _variant variant } |> ignore) "logos have no invented artwork variants"
+              Expect.equal (Microsoft.FSharp.Reflection.FSharpType.GetUnionCases(typeof<IconVariant>) |> Array.map _.Name) [| "Outline"; "Solid"; "Mini"; "Micro" |] "source categories are not artwork variants"
+              let html = IconBrowser.render IconBrowser.batchSize "twitter" |> Render.toString
+              Expect.stringContains html "data-icon-entry=\"X\"" "Twitter searches find the current X logo"
+              Expect.stringContains html "1 icon" "brands are found by the same global search"
+              Expect.equal (Regex.Matches(html, "data-fve-icon=").Count) 1 "only the matching brand logo is sent"
+          }
+
+          test "Sections and disclosures expose semantic reusable layout without a browser runtime" {
+              let html =
+                  fveSectionStack {
+                      fveSection {
+                          _label "Details"; _description "Supporting copy"
+                          fveSectionActions { button { _type "button"; "Edit" } }
+                          p { "Section content" }
+                      }
+                      fveDisclosure { _label "More <information>"; _name "questions"; _open true; p { "Answer" } }
+                  } |> Render.toString
+              Expect.stringContains html "aria-label=\"Details\"" "sections have an accessible name"
+              Expect.stringContains html "data-fve-section-stack" "section composition owns its layout boundary"
+              Expect.stringContains html ">Edit</button>" "section-local actions are retained"
+              Expect.stringContains html "<details" "disclosure remains a native control"
+              Expect.stringContains html "name=\"questions\"" "native grouping is consumer-owned"
+              Expect.stringContains html "More &lt;information&gt;" "question text is escaped"
+              Expect.stringContains html "<summary" "the control is natively keyboard-operable"
+              let declarations = FSharpApiReference.forCategory "section" typeof<ButtonBuilder>
+              Expect.isTrue (declarations |> List.exists (fun value -> value.Name = "SectionDsl")) "the section page owns its public builders"
+              Expect.isFalse (declarations |> List.exists (fun value -> value.Namespace.EndsWith("Templates"))) "private catalog layout does not leak into the component API"
+          }
+
+          test "TimePicker owns typed local time, native fallback and its dedicated catalog route" {
+              let html =
+                  fveTimePicker {
+                      _id "office-appointment"; _name "appointment"; _ariaLabel "Appointment"
+                      _value (TimeOnly(13, 15)); _min (TimeOnly(8, 15)); _max (TimeOnly(18, 15))
+                      _interval 15; _format TimeFormat.TwentyFourHour; _required true
+                  } |> Render.toString
+              Expect.stringContains html "<fve-time-picker" "the picker owns its reusable lifecycle"
+              Expect.stringContains html "type=\"time\"" "the native no-JavaScript control remains available"
+              Expect.stringContains html "name=\"appointment\" value=\"13:15\"" "form values remain canonical"
+              Expect.stringContains html "Choose appointment" "the custom clock trigger is named"
+              Expect.stringContains html "data-time-option=\"13:15\"" "the list offers complete times"
+              Expect.stringContains html ">13:15</button>" "24-hour option labels do not depend on selection"
+              Expect.isTrue (Components.formControlRegistrations |> List.exists (fun page -> page.path = "/components/time-picker")) "TimePicker belongs to Form controls"
+              let _, pageHtml = routeResponse "/components/time-picker"
+              Expect.isFalse (pageHtml.Contains "time-picker-form") "the component page does not own a form workflow"
+              Expect.isFalse (pageHtml.Contains "Server-rendered time:") "workflow results belong to Application"
+              for invalid in [
+                  (fun () -> fveTimePicker { _id "bad"; _name "time"; _interval 0 } |> ignore)
+                  (fun () -> fveTimePicker { _id "bad"; _name "time"; _min (TimeOnly(18, 0)); _max (TimeOnly(8, 0)) } |> ignore)
+                  (fun () -> fveTimePicker { _id "bad"; _name "time"; _value (TimeOnly(9, 17)); _interval 30 } |> ignore)
+                  (fun () -> fveTimePicker { _id "bad"; _name "time"; _value (TimeOnly(9, 0, 1)) } |> ignore)
+              ] do Expect.throws invalid "malformed or inconsistent picker configuration is rejected"
+          }
+
+          test "Timed range selection renders native fields and validates consumer-supplied ranges" {
+              let date = DateOnly(2026, 9, 17)
+              let range start minutes durations available =
+                  fveCalendarRange { _name "booking"; _startTime start; _minutes minutes; _durations durations; _availableRanges available }
+              let render (part:HtmlElement) =
+                  fveDayCalendar {
+                      _id "selection-calendar"; _label "Choose a time"; _date date; _hours (6, 22)
+                      part
+                  } |> Render.toString
+              let html = range (TimeOnly(9, 0)) 60 [30; 60; 90] [TimeOnly(9, 0), 60] |> render
+              Expect.stringContains html "<fve-calendar-range" "the reusable client lifecycle has its own host"
+              Expect.stringContains html "name=\"booking.start\" value=\"09:00\"" "a native time input is the submitted start"
+              Expect.stringContains html "name=\"booking.minutes\"" "the duration remains a native form value"
+              for minutes in [30; 60; 90] do
+                  Expect.stringContains html ($">{minutes} minutes</option>") "every duration needs visible native fallback text, not only the initial selection"
+              Expect.stringContains html "Move selected time range" "the range has a keyboard control"
+              Expect.stringContains html "mx-0.5 my-px min-h-8 rounded-[var(--fve-radius-control)]" "the provisional card matches the rounded event treatment"
+              Expect.stringContains html "Selected time is available." "the supplied availability has visible feedback"
+              Expect.isFalse (html.Contains("No events in this range.")) "range editing can exist without events"
+              let unavailable = range (TimeOnly(10, 0)) 60 [30; 60] [TimeOnly(9, 0), 60] |> render
+              Expect.stringContains unavailable "This time is unavailable" "a provisional unavailable choice is not normalized into another time"
+              for invalid in [
+                  (fun () -> range (TimeOnly(9, 0)) 45 [30; 60] [] |> render |> ignore)
+                  (fun () -> range (TimeOnly(9, 15)) 60 [60] [] |> render |> ignore)
+                  (fun () -> range (TimeOnly(9, 0)) 60 [60] [TimeOnly(9, 0), 30] |> render |> ignore)
+                  (fun () -> range (TimeOnly(21, 30)) 90 [90] [] |> render |> ignore)
+                  (fun () -> fveWeekCalendar { _label "Week"; _date date; range (TimeOnly(9, 0)) 60 [60] [] } |> ignore)
+                  (fun () -> fveDayCalendar { _label "Missing identity"; _date date; range (TimeOnly(9, 0)) 60 [60] [] } |> ignore)
+                  (fun () -> fveDayCalendar { _label "Clipped event"; _date date; _hours (9, 10); CalendarEvent.create "outside" "Outside" date "/components/day-calendar" |> CalendarEvent.withTime (TimeOnly(10, 0)) (TimeOnly(11, 0)) } |> ignore)
+                  (fun () -> fveDayCalendar { _label "Small viewport"; _date date; _viewportHeight 100 } |> ignore)
+              ] do Expect.throws invalid "malformed or out-of-bounds presentation cannot create an inconsistent editor"
+          }
+
           test "Calendar exposes focused day, week, month and year views" {
               let day = Components.calendarDayExample |> Render.toString
               let week = Components.calendarWeekExample |> Render.toString
@@ -1297,7 +1525,7 @@ let tests =
                   Expect.stringContains html "<main" $"{page.path} semantic main"
                   Expect.stringContains html $"rel=\"canonical\" href=\"{canonical}\"" $"{page.path} canonical"
 
-                  for matched in Regex.Matches(html, @"\b(?:href|src|data-docs-preview-src)=""([^""]+)""") do
+                  for matched in Regex.Matches(html, @"(?<![\w:-])(?:href|src|data-docs-preview-src)=""([^""]+)""") do
                       let reference = WebUtility.HtmlDecode(matched.Groups[1].Value)
 
                       if
@@ -1325,7 +1553,7 @@ let tests =
               Expect.equal (referenceStatus "/not-a-documentation-route") 404 "unknown references remain unresolved"
           }
 
-          test "Navigation separates Components from the three source-authored templates" {
+          test "Navigation separates Components from source-authored examples" {
               Expect.sequenceEqual
                   (Registry.navigation |> List.map _.label)
                   [ "Getting started"
@@ -1362,10 +1590,11 @@ let tests =
 
               Expect.sequenceEqual
                   (Examples.templates |> List.map _.path)
-                  [ "/examples/specification"
+                  [ "/examples/marketing"
+                    "/examples/specification"
                     "/examples/application"
                     "/examples/api-documentation" ]
-                  "exactly three cohesive examples"
+                  "each cohesive example has its own entry point"
 
               for retired in
                   [ "Primitives"
@@ -1727,7 +1956,7 @@ after"""
               let html = Render.toString sizes.preview
               for value in ["extra-small"; "small"; "medium"; "large"; "extra-large"] do
                   Expect.stringContains html ($"size=\"{value}\"") "each shared size is demonstrated"
-              Expect.stringContains sizes.source "_iconOnly true" "the copied recipe teaches square controls without padding hacks"
+              Expect.stringContains sizes.source "fveIcon" "the copied recipe teaches ordinary square icon children"
               for key in ["button"; "dropdown-menu"; "table"] do
                   let titles = Components.examplesFor key |> List.map _.title
                   Expect.isGreaterThan (titles |> List.findIndex ((=) "Row actions")) 3 "row actions follow basic component capabilities"
@@ -2130,7 +2359,6 @@ after"""
                     "/components/interaction-and-server-state"
                     "/components/fixture"
                     "/components/app-shell"
-                    "/components/section"
                     "/components/page-examples/graph-and-trace"
                     "/docs"
                     "/docs/components"
@@ -2320,12 +2548,13 @@ after"""
                   |> View.document Registry.navigation
                   |> Render.toHtmlDocString
 
-              Expect.equal (Regex.Matches(gallery, "data-example-template=").Count) 3 "exactly three template cards"
+              Expect.equal (Regex.Matches(gallery, "data-example-template=").Count) Examples.templates.Length "every registered example has a gallery card"
 
               for path in Examples.paths do
                   let status, html = routeResponse path
                   Expect.equal status 200 path
                   Expect.stringContains html "data-example-viewer=" "separate template experience"
+                  Expect.stringContains html "data-fve-icon=\"github\"" "the source action uses the installed Icon component"
 
                   Expect.stringContains
                       html
@@ -2668,9 +2897,18 @@ after"""
                     "/examples/application/profile/edit",
                     [ "name", "Private person"
                       "email", "private@example.invalid"
-                      "timezone", "UTC" ],
+                      "timezone", "UTC"
+                      "dailySummaryTime", "13:15" ],
                     "success",
                     "Profile"
+                    "/examples/application/profile/edit",
+                    [ "name", "Private person"; "email", "private@example.invalid"; "timezone", "UTC"; "dailySummaryTime", "25:00" ],
+                    "invalid",
+                    "Choose a summary time in 15-minute intervals."
+                    "/examples/application/profile/edit",
+                    [ "name", "Private person"; "email", "private@example.invalid"; "timezone", "UTC"; "dailySummaryTime", "13:17" ],
+                    "invalid",
+                    "Choose a summary time in 15-minute intervals."
                     "/examples/application/profile/edit",
                     [ "name", "Private person"; "email", "not-an-email"; "timezone", "UTC" ],
                     "invalid",
@@ -2780,7 +3018,7 @@ after"""
 
               Expect.equal
                   resultTitle
-                  "Accounts · Application example"
+                  "Accounts · Geldos Application"
                   "opening/validating the editor keeps its collection title and host identity"
 
               for href in Regex.Matches(body, "href=\"([^\"]*)\"") |> Seq.cast<Match> do
@@ -2812,7 +3050,7 @@ after"""
 
               Expect.equal
                   resultTitle
-                  "Accounts · Application example"
+                  "Accounts · Geldos Application"
                   "the originating collection remains the background"
 
               let query =
@@ -3152,7 +3390,7 @@ after"""
                                 "file-selection"; "tabs"; "notification"; "floating-panel"
                                 "resizable"; "error-summary"; "tooltip"; "popover"
                                 "dropdown-menu"; "select"; "side-nav"
-                                "code-block"; "mermaid"; "example"; "date-picker" ] -> Some (selector + ".js")
+                                "code-block"; "mermaid"; "example"; "date-picker"; "time-picker" ] -> Some (selector + ".js")
                       | _ -> None
                   match requiredModule with
                   | Some file ->
@@ -3691,9 +3929,11 @@ after"""
                        + String.concat ", " duplicates)
 
               for path, selector in
-                  [ "/components/avatar", "avatar"
+                  [ "/components/icon", "icon"
+                    "/components/avatar", "avatar"
                     "/components/copy-reveal", "copy-reveal"
                     "/components/input", "input"
+                    "/components/time-picker", "time-picker"
                     "/components/textarea", "textarea"
                     "/components/tag-input", "tag-input"
                     "/components/drawer", "drawer"

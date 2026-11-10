@@ -23,7 +23,7 @@ module internal Overview =
                 (Layout.prose (
                     div {
                         p {
-                            "Ledger is a financial application for reviewing account balances and transactions within an organization, environment and ledger."
+                            "Geldos is a financial operating system for reviewing account balances and transactions within an organization, environment and ledger."
                         }
 
                         p {
@@ -40,7 +40,7 @@ module internal Overview =
 
                     for workflow in workflows do
                         div {
-                            Layout.link (specUrl workflow.key query "" false) workflow.label
+                            Layout.inlineLink (specUrl workflow.key query "" false) workflow.label
 
                             p {
                                 _class "mt-1 text-sm text-[var(--fve-muted-text)]"
@@ -52,7 +52,7 @@ module internal Overview =
             Layout.documentationSection
                 "system"
                 "System"
-                (Layout.prose (p { "Application, Specification and API reference share the same USD financial model." }))
+                (Layout.prose (p { "Marketing, Application, Specification and API reference share the same Geldos identity and USD financial model." }))
 
-            Layout.link (Architecture.href "architecture") "Explore the system context"
+            Layout.inlineLink (Architecture.href "architecture") "Explore the system context"
         }

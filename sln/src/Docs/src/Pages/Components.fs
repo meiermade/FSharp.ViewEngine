@@ -166,9 +166,7 @@ module Components =
               "const link = evt.target.closest?.('a[href]'); if (link && !link.hash && !link.hasAttribute('download') && !link.hasAttribute('data-fve-app-mode-launch') && !link.hasAttribute('data-review-expand') && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) evt.preventDefault()"
           ) ]
 
-    let private moreActionsIcon =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path d="M3.75 10a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0ZM8.75 10a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0ZM13.75 10a1.25 1.25 0 1 1 2.5 0 1.25 1.25 0 0 1-2.5 0Z"/></svg>"""
+    let private moreActionsIcon = fveIcon { _name IconName.EllipsisHorizontal; _variant IconVariant.Micro }
 
     type RowActionAccount = { id: int; name: string; canDelete: bool }
 
@@ -187,7 +185,6 @@ module Components =
                 fveButton {
                     _variant ButtonVariant.Ghost
                     _size Size.Small
-                    _iconOnly true
                     _class "aria-expanded:bg-[var(--fve-surface-active)]"
                     moreActionsIcon
                 }
@@ -218,7 +215,7 @@ module Components =
                 _class "flex min-w-0 flex-wrap items-center justify-between gap-3 px-3 py-2 text-sm text-[var(--fve-muted-text)]"
                 span { _class "min-w-0 flex-[1_0_min(10rem,100%)] break-words"; "Actions unavailable" }
                 fveButton {
-                    _variant ButtonVariant.Ghost; _size Size.Small; _iconOnly true; _class "ms-auto"
+                    _variant ButtonVariant.Ghost; _size Size.Small; _class "ms-auto"
                     _ariaLabel "Actions unavailable"; _disabled true; moreActionsIcon
                 }
             }
@@ -317,24 +314,18 @@ module Components =
             "Delete"
         }
 
-    let private plusIcon =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path d="M10 4.25a.75.75 0 0 1 .75.75v4.25H15a.75.75 0 0 1 0 1.5h-4.25V15a.75.75 0 0 1-1.5 0v-4.25H5a.75.75 0 0 1 0-1.5h4.25V5a.75.75 0 0 1 .75-.75Z"/></svg>"""
+    let private plusIcon = fveIcon { _name IconName.Plus; _variant IconVariant.Micro }
 
     let private refreshIcon =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M15.312 4.683A7.25 7.25 0 1 0 17.25 10a.75.75 0 0 0-1.5 0 5.75 5.75 0 1 1-1.604-3.982H12.5a.75.75 0 0 0 0 1.5h3.5a.75.75 0 0 0 .75-.75v-3.5a.75.75 0 0 0-1.5 0v1.415Z" clip-rule="evenodd"/></svg>"""
+        fveIcon { _name IconName.ArrowPath; _variant IconVariant.Micro }
 
-    let private removeIcon =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M8.75 3.5a1.25 1.25 0 0 1 2.5 0V4h3a.75.75 0 0 1 0 1.5h-.44l-.55 9.08A2.25 2.25 0 0 1 11.02 16.7H8.98a2.25 2.25 0 0 1-2.24-2.12L6.19 5.5h-.44a.75.75 0 0 1 0-1.5h3v-.5Zm-1.06 2 .54 8.99a.75.75 0 0 0 .75.71h2.04a.75.75 0 0 0 .75-.71l.54-8.99H7.69Z" clip-rule="evenodd"/></svg>"""
+    let private removeIcon = fveIcon { _name IconName.Trash; _variant IconVariant.Micro }
 
     let createIconOnlyButton =
         fveButton {
             _color Color.Primary
             _variant ButtonVariant.Solid
             _ariaLabel "Create"
-            _iconOnly true
             plusIcon
         }
 
@@ -342,7 +333,6 @@ module Components =
         fveButton {
             _variant ButtonVariant.Ghost
             _ariaLabel "Refresh"
-            _iconOnly true
             _dataIndicator "_refresh_pending"
             _dataOn ("click", "@get('/components/button/settled', {filterSignals: {exclude: /.*/}, retry: 'never'})")
             refreshIcon
@@ -353,14 +343,11 @@ module Components =
             _color Color.Error
             _variant ButtonVariant.Solid
             _ariaLabel "Remove"
-            _iconOnly true
             _disabled true
             removeIcon
         }
 
-    let private backIcon =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path fill-rule="evenodd" d="M11.53 4.47a.75.75 0 0 1 0 1.06L7.06 10l4.47 4.47a.75.75 0 1 1-1.06 1.06l-5-5a.75.75 0 0 1 0-1.06l5-5a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
+    let private backIcon = fveIcon { _name IconName.ChevronLeft; _variant IconVariant.Micro }
 
     let defaultButtonGroup =
         fveButtonGroup {
@@ -378,7 +365,6 @@ module Components =
 
                 fveButton {
                     _ariaLabel "Back"
-                    _iconOnly true
 
                     span {
                         _ariaHidden true
@@ -403,8 +389,6 @@ module Components =
 
                     fveDropdownMenuTrigger {
                         fveButton {
-                            _iconOnly true
-
                             _variant ButtonVariant.Outline
                             moreActionsIcon
                         }
@@ -883,7 +867,6 @@ module Components =
 
                               fveDropdownMenuTrigger {
                                   fveButton {
-                                      _iconOnly true
                                       _variant ButtonVariant.Ghost
 
                                       moreActionsIcon
@@ -1203,7 +1186,6 @@ module Components =
 
                               fveDropdownMenuTrigger {
                                   fveButton {
-                                      _iconOnly true
                                       _variant ButtonVariant.Ghost
 
                                       moreActionsIcon
@@ -2208,9 +2190,7 @@ module Components =
             }
         }
 
-    let emailIcon =
-        raw
-            """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-5"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5A2.25 2.25 0 0 1 19.5 19.5h-15a2.25 2.25 0 0 1-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25m19.5 0-8.578 5.498a2.25 2.25 0 0 1-2.344 0L2.25 6.75"/></svg>"""
+    let emailIcon = fveIcon { _name IconName.Envelope; _size Size.Medium }
 
     let inputWithIcon =
         fveField {
@@ -2367,7 +2347,6 @@ module Components =
 
                         fveButton {
                             _ariaLabel (name + " refresh")
-                            _iconOnly true
 
                             span {
                                 _ariaHidden true
@@ -2429,7 +2408,6 @@ module Components =
                     fveButton {
                         _size Size.Large
                         _ariaLabel "Larger refresh"
-                        _iconOnly true
 
                         span {
                             _ariaHidden true
@@ -4098,21 +4076,7 @@ module Components =
             | None -> System.Threading.Tasks.Task.FromResult None
 
     let composedStatusSelect =
-        let icon data =
-            svg {
-                _ariaHidden true
-                _class "size-4 shrink-0"
-                _viewBox "0 0 24 24"
-                _fill "none"
-                _stroke "currentColor"
-                _strokeWidth "1.5"
-
-                path {
-                    _strokeLinecap "round"
-                    _strokeLinejoin "round"
-                    _d data
-                }
-            }
+        let icon (name: IconName) = fveIcon { _name name; _size Size.Small }
 
         let active = ("active", "Active", false)
         let pendingChoice = ("pending", "Pending", false)
@@ -4143,7 +4107,7 @@ module Components =
 
                             span {
                                 _class "flex flex-wrap items-center gap-x-2 gap-y-1 font-normal"
-                                icon "m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z"
+                                icon IconName.Bolt
 
                                 span {
                                     _class "whitespace-nowrap"
@@ -4165,7 +4129,7 @@ module Components =
 
                             span {
                                 _class "flex flex-wrap items-center gap-x-2 gap-y-1 font-normal"
-                                icon "M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"
+                                icon IconName.Clock
 
                                 span {
                                     _class "whitespace-nowrap"
@@ -4183,8 +4147,7 @@ module Components =
                             span {
                                 _class "flex flex-wrap items-center gap-x-2 gap-y-1 font-normal"
 
-                                icon
-                                    "M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5m-9-6h.008v.008H12v-.008ZM12 15h.008v.008H12V15Zm0 2.25h.008v.008H12v-.008ZM9.75 15h.008v.008H9.75V15Zm0 2.25h.008v.008H9.75v-.008ZM7.5 15h.008v.008H7.5V15Zm0 2.25h.008v.008H7.5v-.008Zm6.75-4.5h.008v.008h-.008v-.008Zm0 2.25h.008v.008h-.008V15Zm0 2.25h.008v.008h-.008v-.008Zm2.25-4.5h.008v.008H16.5v-.008Zm0 2.25h.008v.008H16.5V15Z"
+                                icon IconName.CalendarDays
 
                                 span {
                                     _class "whitespace-nowrap"
@@ -4871,6 +4834,26 @@ module Components =
             }
         }
 
+    let serverTabsExampleFor selection =
+        let selected = if selection = "activity" then "activity" else "summary"
+        form {
+            _method "get"; _action "/components/tabs"
+            _data("fve-local-navigation", "true")
+            fveTabs {
+                _id "components-server-tabs"; _ariaLabel "Server-selected view"
+                _selection TabsSelection.Server
+                _value selected
+                for value, label, description in [ "summary", "Summary", "The server selected the summary."; "activity", "Activity", "The server selected recent activity." ] do
+                    fveTabsItem {
+                        _value value
+                        fveTabsTrigger { _name "tab"; _value value; label }
+                        p { description }
+                    }
+            }
+        }
+
+    let serverTabsExample = serverTabsExampleFor "summary"
+
     let verticalTabs =
         fveTabs {
             _id "components-vertical-tabs"
@@ -5141,9 +5124,7 @@ module Components =
                 }
         }
 
-    let menuLeadingIcon =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clip-rule="evenodd"/></svg>"""
+    let menuLeadingIcon = fveIcon { _name IconName.Check; _variant IconVariant.Micro }
 
     let basicDropdownMenu =
         fveDropdownMenu {
@@ -5161,8 +5142,7 @@ module Components =
             }
         }
 
-    let menuDocumentIcon =
-        raw """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-4" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6M6 3h8l4 4v14H6V3Zm8 0v4h4"/></svg>"""
+    let menuDocumentIcon = fveIcon { _name IconName.DocumentText; _size Size.Small }
 
     let iconDropdownMenu =
         fveDropdownMenu {
@@ -5370,27 +5350,9 @@ module Components =
             _alignment DropdownMenuAlignment.Start
         }
 
-    let menuOverflowIcon =
-        svg {
-            _viewBox "0 0 24 24"
-            _fill "none"
-            _stroke "currentColor"
-            _strokeWidth "1.5"
-            _ariaHidden "true"
-            _class "size-5"
+    let menuOverflowIcon = fveIcon { _name IconName.EllipsisHorizontal; _variant IconVariant.Micro }
 
-            path {
-                _strokeLinecap "round"
-                _strokeLinejoin "round"
-
-                _d
-                    "M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
-            }
-        }
-
-    let menuTrailingChevron =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M7.21 4.23a.75.75 0 0 1 1.06-.02l5.5 5.25a.75.75 0 0 1 0 1.08l-5.5 5.25a.75.75 0 0 1-1.04-1.08L12.16 10 7.23 5.29a.75.75 0 0 1-.02-1.06Z" clip-rule="evenodd"/></svg>"""
+    let menuTrailingChevron = fveIcon { _name IconName.ChevronRight; _variant IconVariant.Micro }
 
     let fullRowDropdownMenu =
         div {
@@ -5420,8 +5382,7 @@ module Components =
                                     "Side navigation"
                                 }
 
-                                raw
-                                    """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 0 1 1.06.02L10 11.17l3.71-3.94a.75.75 0 0 1 1.08 1.04l-4.25 4.5a.75.75 0 0 1-1.08 0l-4.25-4.5a.75.75 0 0 1 .02-1.06Z" clip-rule="evenodd"/></svg>"""
+                                fveIcon { _name IconName.ChevronDown; _variant IconVariant.Micro }
                             }
                         }
 
@@ -5525,7 +5486,6 @@ module Components =
 
             fveDropdownMenuTrigger {
                 fveButton {
-                    _iconOnly true
                     _variant ButtonVariant.Ghost
 
                     menuOverflowIcon
@@ -5553,8 +5513,6 @@ module Components =
 
             fveDropdownMenuTrigger {
                 fveButton {
-                    _iconOnly true
-
                     _ariaLabel "More page actions"
                     menuOverflowIcon
                     _variant ButtonVariant.Outline
@@ -6309,8 +6267,23 @@ module Components =
     let defaultPageHeader = fvePageHeader { _label "Project overview" }
 
     let defaultSection =
-        Section.create (fveSectionHeader { _label "Item details" }) (p { "Project notes · Document" })
-        |> Section.render
+        fveSection {
+            _label "Details"
+            fveSectionActions { a { _href "/components/section-header"; _class "text-sm text-[var(--fve-brand-text)] underline"; "Header reference" } }
+            p { "A section keeps its heading and content aligned." }
+        }
+
+    let sectionStackExample =
+        fveSectionStack {
+            fveSection { _label "Details"; _headingLevel SectionHeadingLevel.H3; p { "Description and properties." } }
+            fveSection { _label "History"; _headingLevel SectionHeadingLevel.H3; p { "Related activity." } }
+        }
+
+    let disclosureExample =
+        div {
+            fveDisclosure { _label "Can I change the content?"; _name "disclosure-example"; p { "Yes. Supply any semantic HTML as the disclosure body." } }
+            fveDisclosure { _label "Does this need JavaScript?"; _name "disclosure-example"; _open true; p { "No. Native details and summary own keyboard interaction and expanded state." } }
+        }
 
     let defaultPage =
         Page.create (fvePageHeader { _label "Project overview" }) (p { "Review items and recent activity." })
@@ -6510,7 +6483,6 @@ module Components =
 
                     fveDropdownMenuTrigger {
                         fveButton {
-                            _iconOnly true
                             _variant ButtonVariant.Ghost
 
                             moreActionsIcon
@@ -6546,9 +6518,7 @@ module Components =
         raw
             """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5"><path d="M10.75 2.75a.75.75 0 0 0-1.5 0V4H7.5a2.5 2.5 0 0 0 0 5h5a1 1 0 1 1 0 2h-5a1 1 0 0 1-.93-.63.75.75 0 1 0-1.4.54A2.5 2.5 0 0 0 7.5 12.5h1.75v1.75a.75.75 0 0 0 1.5 0V12.5h1.75a2.5 2.5 0 0 0 0-5h-5a1 1 0 1 1 0-2h5a1 1 0 0 1 .93.63.75.75 0 1 0 1.4-.54A2.5 2.5 0 0 0 12.5 4h-1.75V2.75Z"/></svg>"""
 
-    let private navigationGlyph =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5"><path d="M3.5 4.75A1.25 1.25 0 0 1 4.75 3.5h10.5a1.25 1.25 0 0 1 1.25 1.25v10.5a1.25 1.25 0 0 1-1.25 1.25H4.75a1.25 1.25 0 0 1-1.25-1.25V4.75Z"/></svg>"""
+    let private navigationGlyph = fveIcon { _name IconName.Stop; _variant IconVariant.Mini }
 
     let private shellItem destination (label: string) =
         fveSideNavItem {
@@ -6823,19 +6793,7 @@ module Components =
 
     let sideNavStructurePreview = div { sideNavStructureExample } |> themedSurface
 
-    let sideNavRowIcon data =
-        svg {
-            _viewBox "0 0 24 24"
-            _fill "none"
-            _stroke "currentColor"
-            _strokeWidth "1.5"
-
-            path {
-                _strokeLinecap "round"
-                _strokeLinejoin "round"
-                _d data
-            }
-        }
+    let sideNavRowIcon (name: IconName) = fveIcon { _name name; _size Size.Medium }
 
     let sideNavSlotsExample =
         let workspaceMenu =
@@ -6883,7 +6841,7 @@ module Components =
                     workspaceMenu
 
                     fveSideNavLeading {
-                        sideNavRowIcon "M3.75 3.75h6v6h-6zm10.5 0h6v6h-6zm-10.5 10.5h6v6h-6zm10.5 0h6v6h-6z"
+                        sideNavRowIcon IconName.Squares2x2
                     }
 
                     fveSideNavTrailing {
@@ -6924,8 +6882,7 @@ module Components =
                     "Settings"
 
                     fveSideNavLeading {
-                        sideNavRowIcon
-                            "M9.594 3.94c.09-.542.56-.94 1.11-.94h2.592c.55 0 1.02.398 1.11.94l.213 1.281a6.52 6.52 0 0 1 1.94 1.12l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827a6.759 6.759 0 0 1 0 2.24l1.003.827c.424.35.534.954.26 1.43l-1.296 2.247a1.125 1.125 0 0 1-1.37.491l-1.217-.456a6.57 6.57 0 0 1-1.94 1.12l-.213 1.281c-.09.543-.56.94-1.11.94h-2.592c-.55 0-1.02-.397-1.11-.94l-.213-1.281a6.52 6.52 0 0 1-1.94-1.12l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.296-2.247a1.125 1.125 0 0 1 .26-1.431l1.003-.827a6.932 6.932 0 0 1 0-2.24l-1.003-.827a1.125 1.125 0 0 1-.26-1.43l1.296-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456a6.52 6.52 0 0 1 1.94-1.12l.213-1.281ZM15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                        sideNavRowIcon IconName.Cog6Tooth
                     }
                 }
 
@@ -7074,14 +7031,7 @@ module Components =
                 )
 
                 _ariaPressed false
-
-                span {
-                    _ariaHidden true
-                    _class "inline-flex shrink-0"
-
-                    raw
-                        """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path d="M7 2.75A.75.75 0 0 1 7.75 2h4.5a.75.75 0 0 1 .75.75v4.69l1.78 1.78a.75.75 0 0 1-.53 1.28h-3.5v6.75a.75.75 0 0 1-1.5 0V10.5h-3.5a.75.75 0 0 1-.53-1.28L7 7.44V2.75Z"/></svg>"""
-                }
+                fveIcon { _name IconName.MapPin; _variant IconVariant.Micro }
             }
 
         fveSideNav {
@@ -7186,14 +7136,7 @@ module Components =
                     "click",
                     "el.setAttribute('aria-pressed', el.getAttribute('aria-pressed') !== 'true' ? 'true' : 'false')"
                 )
-
-                span {
-                    _ariaHidden true
-                    _class "inline-flex shrink-0"
-
-                    raw
-                        """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4"><path d="M7 2.75A.75.75 0 0 1 7.75 2h4.5a.75.75 0 0 1 .75.75v4.69l1.78 1.78a.75.75 0 0 1-.53 1.28h-3.5v6.75a.75.75 0 0 1-1.5 0V10.5h-3.5a.75.75 0 0 1-.53-1.28L7 7.44V2.75Z"/></svg>"""
-                }
+                fveIcon { _name IconName.MapPin; _variant IconVariant.Micro }
             }
 
         fveSideNav {
@@ -7305,7 +7248,6 @@ module Components =
 
                     fveDropdownMenuTrigger {
                         fveButton {
-                            _iconOnly true
                             _variant ButtonVariant.Ghost
 
                             moreActionsIcon
@@ -7328,7 +7270,6 @@ module Components =
 
                     fveDropdownMenuTrigger {
                         fveButton {
-                            _iconOnly true
                             _variant ButtonVariant.Ghost
 
                             moreActionsIcon
@@ -7590,7 +7531,6 @@ module Components =
 
                     fveDropdownMenuTrigger {
                         fveButton {
-                            _iconOnly true
                             _variant ButtonVariant.Ghost
 
                             moreActionsIcon
@@ -7853,7 +7793,6 @@ module Components =
 
                               fveDropdownMenuTrigger {
                                   fveButton {
-                                      _iconOnly true
                                       _variant ButtonVariant.Ghost
 
                                       moreActionsIcon
@@ -7917,7 +7856,6 @@ module Components =
 
                         fveDropdownMenuTrigger {
                             fveButton {
-                                _iconOnly true
                                 _variant ButtonVariant.Ghost
 
                                 moreActionsIcon
@@ -8754,6 +8692,9 @@ module Components =
     let buttonRegistration =
         registration "components-button" "/components/button" "Button" "Button"
 
+    let iconRegistration =
+        registration "components-icon" "/components/icon" "Icon" "Icon"
+
     let linkRegistration =
         registration "components-link" "/components/link" "Link" "Link"
 
@@ -8838,6 +8779,9 @@ module Components =
     let selectRegistration =
         registration "components-select" "/components/select" "Select" "Select"
 
+    let timePickerRegistration =
+        registration "components-time-picker" "/components/time-picker" "Time picker" "Time picker"
+
     let datePickerRegistration =
         registration "components-date-picker" "/components/date-picker" "Date picker" "Date picker"
 
@@ -8896,7 +8840,10 @@ module Components =
         applicationRegistration "components-page-header" "/components/page-header" "Page header" "Page header"
 
     let sectionRegistration =
-        applicationRegistration "components-section" "/components/section" "Section heading" "Section heading"
+        registration "components-section" "/components/section" "Section" "Section"
+
+    let disclosureRegistration =
+        registration "components-disclosure" "/components/disclosure" "Disclosure" "Disclosure"
 
     let browserRegistration =
         registration "components-browser" "/components/browser" "Browser" "Browser"
@@ -8975,7 +8922,8 @@ module Components =
           skeletonRegistration ]
 
     let dataDisplayRegistrations =
-        [ tableRegistration
+        [ iconRegistration
+          tableRegistration
           chartRegistration
           descriptionListRegistration
           metricRegistration
@@ -8997,6 +8945,7 @@ module Components =
           tagInputRegistration
           errorSummaryRegistration
           selectRegistration
+          timePickerRegistration
           datePickerRegistration
           checkboxRegistration
           switchRegistration
@@ -9017,7 +8966,7 @@ module Components =
           popoverRegistration
           tooltipRegistration ]
 
-    let compositionRegistrations = [ pageTopBarRegistration; pageHeaderRegistration ]
+    let compositionRegistrations = [ pageTopBarRegistration; pageHeaderRegistration; sectionRegistration; disclosureRegistration ]
 
     let frameRegistrations =
         [ browserRegistration; phoneRegistration; resizableRegistration ]
@@ -9061,6 +9010,94 @@ module Components =
             _dataIndicator "_basic_sync_pending"
             _dataOn ("click", "@get('/components/button/settled', {filterSignals: {exclude: /.*/}, retry: 'never'})")
             "Sync"
+        }
+
+    let iconExample = fveIcon { _name IconName.Cog6Tooth }
+
+    let brandIcons =
+        div {
+            _class "grid gap-6"
+            div {
+                _class "flex flex-wrap items-center justify-center gap-8"
+                for name in [ IconName.GitHub; IconName.X; IconName.LinkedIn ] do
+                    div {
+                        _class "grid justify-items-center gap-3"
+                        fveIcon { _name name }
+                        span { _class "text-sm"; string name }
+                    }
+            }
+            p {
+                _class "text-sm text-[var(--fve-muted-text)]"
+                "Brand artwork from "
+                a { _href "https://icons.getbootstrap.com/"; _class "text-[var(--fve-brand-text)] underline"; "Bootstrap Icons" }
+                "."
+            }
+        }
+
+    let iconFamilies =
+        div {
+            _class "flex flex-wrap items-center justify-center gap-8"
+            for label, variant in [ "Outline · 24px", IconVariant.Outline; "Solid · 24px", IconVariant.Solid; "Mini · 20px", IconVariant.Mini; "Micro · 16px", IconVariant.Micro ] do
+                div {
+                    _class "grid justify-items-center gap-3"
+                    fveIcon { _name IconName.Cog6Tooth; _variant variant }
+                    span { _class "text-sm"; label }
+                }
+        }
+
+    let iconSizes =
+        div {
+            _class "flex flex-wrap items-center justify-center gap-8"
+            for size, label in [ Size.ExtraSmall, "12px"; Size.Small, "16px"; Size.Medium, "20px"; Size.Large, "24px"; Size.ExtraLarge, "32px" ] do
+                div {
+                    _class "grid justify-items-center gap-3"
+                    fveIcon { _name IconName.Heart; _variant IconVariant.Solid; _size size }
+                    span { _class "text-sm"; label }
+                }
+        }
+
+    let linkIconVariants =
+        div {
+            _class "flex flex-wrap items-center justify-center gap-6"
+            for label, variant in [ "Text", LinkVariant.Text; "Solid", LinkVariant.Solid; "Soft", LinkVariant.Soft; "Outline", LinkVariant.Outline; "Ghost", LinkVariant.Ghost ] do
+                div {
+                    _class "grid justify-items-center gap-3"
+                    fveLink {
+                        _href "/examples/application/settings"
+                        _variant variant; _color Color.Neutral; _size Size.Medium
+                        _ariaLabel (label + " settings")
+                        fveIcon { _name IconName.Cog6Tooth; _variant IconVariant.Mini }
+                    }
+                    span { _class "text-sm"; label }
+                }
+        }
+
+    let linkIconSizes =
+        div {
+            _class "flex flex-wrap items-center justify-center gap-6"
+            for size, label in [ Size.ExtraSmall, "Extra small"; Size.Small, "Small"; Size.Medium, "Medium"; Size.Large, "Large"; Size.ExtraLarge, "Extra large" ] do
+                div {
+                    _class "grid justify-items-center gap-3"
+                    fveLink {
+                        _href "/examples/application/settings"; _variant LinkVariant.Outline; _size size
+                        _ariaLabel (label + " settings")
+                        fveIcon { _name IconName.Cog6Tooth; _variant IconVariant.Micro }
+                    }
+                    span { _class "text-sm"; label }
+                }
+        }
+
+    let buttonVisibilityExample =
+        div {
+            _class "flex flex-wrap items-center justify-center gap-4"
+            _dataSignals "{actionVisible: false}"
+            fveButton { _dataOn("click", "$actionVisible = !$actionVisible"); "Toggle action visibility" }
+            fveButton {
+                _data("show", "$actionVisible")
+                _ariaLabel "Refresh visible action"
+                _dataOn("click", "$actionVisible = false")
+                fveIcon { _name IconName.ArrowPath; _variant IconVariant.Mini }
+            }
         }
 
     let basicLink =
@@ -9143,7 +9180,7 @@ module Components =
                         label
                     }
                     fveButton {
-                        _size size; _variant ButtonVariant.Outline; _iconOnly true
+                        _size size; _variant ButtonVariant.Outline
                         _ariaLabel (label + " refresh")
                         refreshIcon
                     }
@@ -9248,15 +9285,12 @@ module Components =
                     _color Color.Secondary
                     _variant treatment
                     _ariaLabel (label + " refresh")
-                    _iconOnly true
                     refreshIcon
                 }
         }
 
     let buttonContentExamples =
-        let continueIcon =
-            raw
-                """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M7.22 14.78a.75.75 0 0 1 0-1.06L10.94 10 7.22 6.28a.75.75 0 0 1 1.06-1.06l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0Z" clip-rule="evenodd"/></svg>"""
+        let continueIcon = fveIcon { _name IconName.ChevronRight; _variant IconVariant.Micro }
 
         div {
             _class "flex flex-wrap items-center justify-center gap-3"
@@ -9264,7 +9298,6 @@ module Components =
 
             fveButton {
                 _ariaLabel "Refresh"
-                _iconOnly true
                 refreshIcon
             }
 
@@ -9983,6 +10016,33 @@ module Components =
             _readonly true
         }
 
+    let defaultTimePicker =
+        fveField {
+            fveLabel { _for "default-time"; "Time" }
+            fveTimePicker { _id "default-time"; _name "time"; _ariaLabel "Time"; _value (TimeOnly(9, 30)) }
+        }
+
+    let boundedTimePicker =
+        fveField {
+            fveLabel { _for "office-time"; "Office visit" }
+            fveTimePicker {
+                _id "office-time"; _name "office-time"; _ariaLabel "Office visit"
+                _value (TimeOnly(13, 15)); _min (TimeOnly(8, 15)); _max (TimeOnly(18, 15))
+                _interval 15; _format TimeFormat.TwentyFourHour
+            }
+            fveFieldDescription { "24-hour display, in 15-minute intervals from 08:15 to 18:15." }
+        }
+
+    let timePickerStates =
+        div {
+            _class "grid w-full min-w-0 gap-4 sm:grid-cols-2"
+            for id, label, disabled, readOnly in ["disabled-time", "Disabled", true, false; "readonly-time", "Read-only", false, true] do
+                fveField {
+                    fveLabel { _for id; label }
+                    fveTimePicker { _id id; _name id; _ariaLabel label; _value (TimeOnly(9, 0)); _disabled disabled; _readonly readOnly }
+                }
+        }
+
     let defaultDatePicker =
         fveField {
             fveLabel {
@@ -10400,8 +10460,7 @@ module Components =
             }
         }
 
-    let searchIcon =
-        raw """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.197 5.197a7.5 7.5 0 0 0 10.606 10.606Z"/></svg>"""
+    let searchIcon = fveIcon { _name IconName.MagnifyingGlass; _size Size.Small }
 
     let searchInputGroup =
         fveField {
@@ -10739,11 +10798,9 @@ module Components =
                 )
 
                 if expanded then
-                    raw
-                        """<svg class="size-2.5" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 5h6"/></svg>"""
+                    fveIcon { _name IconName.Minus; _size Size.ExtraSmall }
                 else
-                    raw
-                        """<svg class="size-2.5" viewBox="0 0 10 10" fill="currentColor"><path d="M1 1h6L1 7zm8 8H3l6-6Z"/></svg>"""
+                    fveIcon { _name IconName.ArrowsPointingOut; _size Size.ExtraSmall }
             }
         }
 
@@ -10888,6 +10945,9 @@ module Components =
             }
         )
 
+    let private connectedCalendarSurface (content: HtmlElement) =
+        connectedGallerySurface (div { _class "grid w-full min-w-0 grid-cols-1 gap-4 p-[12px] sm:p-6"; content })
+
     let private overlaySurface (content: HtmlElement) =
         gallerySurface (
             div {
@@ -10993,6 +11053,8 @@ module Components =
         | "error-summary" -> "Summarize validation errors and link users to the affected fields."
         | "select" ->
             "Choose single or multiple string values with search, keyboard, form and positioning behavior. Single selections update their named value input and emit a bubbling change event. Ordinary single selects can opt into a styled native fallback before Datastar initializes; only the active control submits a value."
+        | "icon" -> "Typed inline SVG with Heroicons artwork families, brand logos and inherited color."
+        | "time-picker" -> "Type or choose a local time with configurable intervals, bounds and 12/24-hour display."
         | "date-picker" -> "Compose a native labelled date control with popover selection and caller-owned feedback."
         | "chart" ->
             "Create line, column, bar, Sankey and other ECharts charts with ordinary F# options. The host handles lazy loading, theme, resizing and cleanup; your application owns the data and interactions."
@@ -11006,7 +11068,7 @@ module Components =
         | "breadcrumbs" -> "Show the current hierarchy with semantic links and responsive overflow."
         | "side-nav" ->
             "Compose optional header, context, scrolling content and footer slots. Use SideNavItem for links, SideNavSection for static headings, and SideNavGroup for collapsible groups. SideNavRow links have no default trailing indicator; menu rows retain a downward chevron. Add an avatar with withLeading, secondary text or email with withDescription, and optional trailing content with withTrailing. Sections use small, muted labels without indentation, and groups guide nested children with vertical lines."
-        | "tabs" -> "Switch between labelled local panels with orientation-aware keyboard navigation."
+        | "tabs" -> "Switch between labelled local or server-selected panels with orientation-aware keyboard navigation."
         | "pagination" -> "Navigate bounded result pages with current, previous, next, and compact range items."
         | "command" ->
             "Search grouped destinations and actions with ranked matching, keyboard navigation, and an optional dialog palette."
@@ -11019,7 +11081,8 @@ module Components =
             "Provide delayed supplementary text for a labelled control without replacing its accessible name."
         | "page-top-bar" -> "Compose compact page context and actions above the primary page heading."
         | "page-header" -> "Compose a page title, description, metadata, and responsive actions."
-        | "section" -> "Introduce a page section with a heading, supporting copy, and optional actions."
+        | "section" -> "Compose borderless sections with consistent heading, action and content spacing."
+        | "disclosure" -> "Expand supporting content or FAQ answers with native keyboard-accessible controls."
         | "page" -> "Compose application content from page chrome, headings, sections, and bounded layouts."
         | "collection" -> "Compose collection headings, controls, results, empty states, and pagination."
         | "detail" -> "Compose record identity, metadata, sections, and actions into a detail layout."
@@ -11725,19 +11788,7 @@ module Components =
             }
         }
 
-    let commandDocumentIcon =
-        Svg.svg {
-            _viewBox "0 0 24 24"
-            _fill "none"
-            _attr ("stroke", "currentColor")
-            _attr ("stroke-width", "1.5")
-
-            path {
-                _attr ("stroke-linecap", "round")
-                _attr ("stroke-linejoin", "round")
-                _d "M9 12h6m-6 4h6M6 3h9l3 3v15H6V3Z"
-            }
-        }
+    let commandDocumentIcon = fveIcon { _name IconName.DocumentText; _size Size.Small }
 
     let commandGroups =
         [ fveCommandGroup {
@@ -12067,9 +12118,10 @@ module Components =
 
     let calendarDayExample =
         fveDayCalendar {
+            _id "calendar-day-events"
             _label "Thursday sessions"
             _date calendarDemoDate
-            yield! (calendarDemoEvents: CalendarEvent<string> list)
+            yield! (calendarDemoEvents |> List.map (CalendarEvent.withPreview (p { "Arrive ten minutes before the session starts." })))
 
             fveCalendarToday {
                 _date calendarDemoDate
@@ -12089,9 +12141,10 @@ module Components =
 
     let calendarWeekExample =
         fveWeekCalendar {
+            _id "calendar-week-events"
             _label "Training week"
             _date calendarDemoDate
-            yield! (calendarDemoEvents: CalendarEvent<string> list)
+            yield! (calendarDemoEvents |> List.map (CalendarEvent.withPreview (p { "Arrive ten minutes before the session starts." })))
 
             fveCalendarToday {
                 _date calendarDemoDate
@@ -12107,6 +12160,159 @@ module Components =
                          _date calendarDate
                          _href (calendarDateDestination calendarDate)
                      }))
+        }
+
+    type CalendarDemoSelection =
+        { date:DateOnly; start:TimeOnly; minutes:int; submitted:bool }
+
+    let defaultCalendarSelection =
+        { date = calendarDemoDate; start = TimeOnly(9, 0); minutes = 60; submitted = false }
+
+    let calendarReviewHref weekly (date:DateOnly) (start:TimeOnly) minutes =
+        (if weekly then "/components/week-calendar" else "/components/day-calendar")
+        + "?calendarDate=" + date.ToString("yyyy-MM-dd")
+        + "&selection.start=" + Uri.EscapeDataString(start.ToString("HH:mm"))
+        + "&selection.minutes=" + string minutes
+
+    // The demo consumer owns its opening hours, occupied periods and valid duration choices.
+    let calendarAvailableRanges =
+        [ for start in 9 * 60 .. 30 .. 16 * 60 + 30 do
+              for minutes in [30; 60; 90] do
+                  if start + minutes <= 17 * 60 && (start + minutes <= 11 * 60 || start >= 12 * 60) then
+                      yield TimeOnly(start / 60, start % 60), minutes ]
+
+    let calendarAvailabilityEvents (day:DateOnly) =
+        [ CalendarEvent.create ("closed-" + string day.DayNumber) "Unavailable · Team briefing" day (calendarReviewHref false day (TimeOnly(8, 30)) 30)
+          |> CalendarEvent.withTime (TimeOnly(8, 30)) (TimeOnly(9, 0))
+          |> CalendarEvent.withTone CalendarEventTone.Muted
+          |> CalendarEvent.withPreview (p { "The team is not available during this briefing." })
+          CalendarEvent.create ("occupied-" + string day.DayNumber) "Your consultation" day (calendarReviewHref false day (TimeOnly(11, 0)) 60)
+          |> CalendarEvent.withTime (TimeOnly(11, 0)) (TimeOnly(12, 0))
+          |> CalendarEvent.withDetail "Confirmed · Unavailable for another booking"
+          |> CalendarEvent.withTone CalendarEventTone.Neutral
+          |> CalendarEvent.withPreview (p { "Choose a different time for a new consultation." }) ]
+
+    let calendarReviewControls weekly (selection:CalendarDemoSelection) =
+        fveCalendarControls {
+            form {
+                _method "get"
+                _action (if weekly then "/components/week-calendar" else "/components/day-calendar")
+                _ariaLabel "Calendar date"
+                _data("fve-local-navigation", "true")
+                _class "flex min-w-0 flex-wrap items-center gap-2"
+                label {
+                    _class "min-w-0"
+                    span { _class "sr-only"; "Calendar date" }
+                    input {
+                        _type "date"
+                        _name "calendarDate"
+                        _value (selection.date.ToString("yyyy-MM-dd"))
+                        _min "2026-09-14"
+                        _max "2026-09-20"
+                        _required true
+                        _dataOn ("change", "if (evt.target.value && evt.target.validity.valid) evt.target.form.requestSubmit()")
+                        _class "h-8 min-w-0 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] px-2 text-sm"
+                    }
+                }
+                input { _type "hidden"; _name "selection.start"; _value (selection.start.ToString("HH:mm")) }
+                input { _type "hidden"; _name "selection.minutes"; _value (string selection.minutes) }
+                noscript { button { _type "submit"; _class "min-h-8 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] px-3 text-sm"; "Show date" } }
+            }
+            nav {
+                _ariaLabel "Calendar view"
+                fveButtonGroup {
+                    _ariaLabel "Choose calendar view"
+                    for isWeek, label in [false, "Day"; true, "Week"] do
+                        fveLink {
+                            _href (calendarReviewHref isWeek selection.date selection.start selection.minutes)
+                            _variant LinkVariant.Outline
+                            if isWeek = weekly then _ariaCurrent "page"
+                            _class "aria-[current=page]:bg-[var(--fve-brand-subtle)]"
+                            label
+                        }
+                }
+            }
+        }
+
+    let calendarControlsExample weekly (selection:CalendarDemoSelection) =
+        let view = if weekly then CalendarView.Week else CalendarView.Day
+        let calendar = if weekly then fveWeekCalendar else fveDayCalendar
+        div {
+            _class "grid min-w-0 gap-3"
+            calendar {
+                _id (if weekly then "calendar-week-controls" else "calendar-day-controls")
+                _label "Consultations"
+                _date selection.date
+                _selectedDate selection.date
+                _hours (6, 22)
+                _hourHeight 80
+                _viewportHeight 400
+                _fluidWidth true
+                if not weekly then _dayHeading false
+                calendarReviewControls weekly selection
+                for day in Calendar.dates view selection.date do
+                    yield! calendarAvailabilityEvents day
+            }
+            p {
+                _role "status"
+                _id (if weekly then "calendar-week-result" else "calendar-day-controls-result")
+                _class "text-sm text-[var(--fve-muted-text)]"
+                if selection.submitted then
+                    let available = List.contains (selection.start, selection.minutes) calendarAvailableRanges
+                    (if available then "Provisional selection: " else "Unavailable selection: ")
+                    + selection.date.ToString("MMM d") + ", " + selection.start.ToString("HH:mm") + " · " + string selection.minutes + " minutes. No booking has been made."
+                else "Open an event to see its details. Use the date and view controls to navigate."
+            }
+        }
+
+    let calendarRangeExample (selection:CalendarDemoSelection) =
+        form {
+            _method "get"
+            _action "/components/day-calendar"
+            _ariaLabel "Review a consultation time"
+            _data("fve-local-navigation", "true")
+            _class "grid min-w-0 gap-3"
+            input { _type "hidden"; _name "calendarDate"; _value (selection.date.ToString("yyyy-MM-dd")) }
+            fveDayCalendar {
+                _id "calendar-time-range"
+                _label "Choose a consultation time"
+                _date selection.date
+                _hours (6, 22)
+                _hourHeight 80
+                _viewportHeight 320
+                _dayHeading false
+                _fluidWidth true
+                yield! calendarAvailabilityEvents selection.date
+                fveCalendarRange {
+                    _name "selection"
+                    _startTime selection.start
+                    _minutes selection.minutes
+                    _durations [30; 60; 90]
+                    _availableRanges calendarAvailableRanges
+                    _minuteStep 30
+                }
+            }
+            div {
+                _class "flex flex-wrap items-center gap-2"
+                fveButton { _type "submit"; _color Color.Primary; "Review time" }
+                fveButton { _type "reset"; _variant ButtonVariant.Outline; "Reset selection" }
+                noscript {
+                    button { _type "submit"; _class "min-h-8 rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] px-3 text-sm text-white"; "Review time" }
+                    button { _type "reset"; _class "min-h-8 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] px-3 text-sm"; "Reset selection" }
+                }
+            }
+            if selection.submitted then
+                p {
+                    _id "calendar-day-result"
+                    _role "status"
+                    _class "text-sm text-[var(--fve-muted-text)]"
+                    (if List.contains (selection.start, selection.minutes) calendarAvailableRanges then "Provisional selection: " else "Unavailable selection: ")
+                    + selection.start.ToString("HH:mm") + " · " + string selection.minutes + " minutes."
+                }
+            p {
+                _class "text-sm text-[var(--fve-muted-text)]"
+                "Drag the range or its top/bottom grips. With the range focused, use arrow keys to move and Shift+Arrow to change duration. The native fields also work without JavaScript."
+            }
         }
 
     let calendarMonthEvents =
@@ -13055,7 +13261,7 @@ module Components =
           "defaultCalendarEvent"
           example ]
 
-    let dayCalendarExamples =
+    let dayCalendarExamplesFor selection =
         [ sample
               "day-calendar-default"
               "Default"
@@ -13065,9 +13271,24 @@ module Components =
               "day-calendar-events"
               "Overlapping sessions"
               (calendarExampleSource "calendarDayExample")
-              (calendarSurface calendarDayExample) ]
+              (connectedCalendarSurface calendarDayExample)
+          |> note "CalendarEvent.withPreview supplies consumer-authored details using Popover. Cards overlap without moving; pointer/keyboard activation raises a card and opens its details. Escape closes the panel and returns focus. Import Assets/popover.js once."
+          sample
+              "day-calendar-controls"
+              "Compact controls"
+              ["CalendarDemoSelection"; "calendarDemoDate"; "defaultCalendarSelection"; "calendarReviewHref"; "calendarAvailableRanges"; "calendarAvailabilityEvents"; "calendarReviewControls"; "calendarControlsExample"]
+              (connectedCalendarSurface (calendarControlsExample false selection))
+          |> note "Valid date changes submit the native GET form automatically; without JavaScript, Show date remains available. Rounded event cards keep their meaning in visible text; optional details reuse Popover."
+          sample
+              "day-calendar-range"
+              "Provisional time selection"
+              ["CalendarDemoSelection"; "calendarDemoDate"; "defaultCalendarSelection"; "calendarReviewHref"; "calendarAvailableRanges"; "calendarAvailabilityEvents"; "calendarRangeExample"]
+              (connectedCalendarSurface (calendarRangeExample selection))
+          |> note "Import Assets/calendar-range.js, Assets/time-picker.js, Assets/select.js and Assets/popover.js. fveCalendarRange stays on the Day calendar page: native selection.start and selection.minutes fields submit a draft, never a booking. Duration uses FVE Select with a native fallback. fve-calendar-range-change reports date, time, end, minutes and valid; the server remains authoritative." ]
 
-    let weekCalendarExamples =
+    let dayCalendarExamples = dayCalendarExamplesFor defaultCalendarSelection
+
+    let weekCalendarExamplesFor selection =
         [ sample
               "week-calendar-default"
               "Default"
@@ -13077,7 +13298,15 @@ module Components =
               "week-calendar-events"
               "Events and date navigation"
               (calendarExampleSource "calendarWeekExample")
-              (calendarSurface calendarWeekExample) ]
+              (connectedCalendarSurface calendarWeekExample)
+          sample
+              "week-calendar-controls"
+              "Shared controls and event details"
+              ["CalendarDemoSelection"; "calendarDemoDate"; "defaultCalendarSelection"; "calendarReviewHref"; "calendarAvailableRanges"; "calendarAvailabilityEvents"; "calendarReviewControls"; "calendarControlsExample"]
+              (connectedCalendarSurface (calendarControlsExample true selection))
+          |> note "The same native controls, bounds, density and rounded event previews work in a week. The consumer owns Day/Week navigation and panel content. Import Assets/popover.js once." ]
+
+    let weekCalendarExamples = weekCalendarExamplesFor defaultCalendarSelection
 
     let yearCalendarExamples =
         [ sample
@@ -13176,12 +13405,26 @@ module Components =
           |> note
               "Scroll the rows. The loading row replaces itself with the next batch; the final batch has no loading row." ]
 
+    let timePickerExamples () =
+        [ sample "time-picker-default" "Default" ["defaultTimePicker"] (fieldSurface defaultTimePicker)
+          sample "time-picker-bounds" "24-hour display and bounds" ["boundedTimePicker"] (fieldSurface boundedTimePicker)
+          sample "time-picker-states" "Disabled and read-only" ["timePickerStates"] (fieldSurface timePickerStates)
+          |> note "Import Assets/time-picker.js and Assets/popover.js. TimeOnly values submit as HH:mm; the native time input remains usable without JavaScript. Availability and time zones belong to the application." ]
+
     let examplesFor =
         function
+        | "icon" ->
+            [ sample "icon-default" "Default" [ "iconExample" ] (centered iconExample)
+              sample "icon-families" "Heroicons families" [ "iconFamilies" ] (centered iconFamilies)
+              sample "icon-brands" "Brand logos" [ "brandIcons" ] (centered brandIcons)
+              |> note "Logos default to Solid at 24px and retain their original silhouettes and viewBoxes; _size changes their displayed size. X uses the current logo and is also searchable as Twitter."
+              |> note "Heroicons Outline and Solid use 24×24 artwork; Mini uses 20×20 and Micro 16×16. Each family has purpose-drawn paths, not just a different rendered size. Icons inherit currentColor and are decorative by default. Name an icon-only control with _ariaLabel on its Button or Link."
+              sample "icon-sizes" "Rendered-size overrides" [ "iconSizes" ] (centered iconSizes)
+              |> note "Size changes the rendered square, not the selected artwork: Extra small 12px, Small 16px, Medium 20px, Large 24px, Extra large 32px. Omit it to use the family's natural size. The bundled MIT-licensed Heroicons artwork needs no JavaScript or external request." ]
         | "button" ->
             [ sample "button-basic" "Default" [ "basicButton" ] (centered basicButton)
               sample "button-sizes" "Sizes" [ "refreshIcon"; "buttonSizeExamples" ] (centered buttonSizeExamples)
-              |> note "Extra small, Small, Medium, Large and Extra large are 24, 28, 32, 36 and 40px at the default root size. Use _iconOnly true for a square icon button, with an accessible name; its padding is independent of text buttons. Medium is the 32px application default."
+              |> note "Extra small, Small, Medium, Large and Extra large are 24, 28, 32, 36 and 40px at the default root size. A square child makes a square control: padding is symmetric and both minimum dimensions match. Supply an accessible name for icon-only controls. Medium is the 32px application default."
               sample "button-colors" "Colors" [ "buttonColorExamples" ] (centered buttonColorExamples)
               sample "button-variants" "Variants" [ "buttonVariantExamples" ] (centered buttonVariantExamples)
               sample "button-pending" "Pending" [ "pendingSyncButton" ] (centered pendingSyncButton)
@@ -13226,15 +13469,20 @@ module Components =
                   "Disabled icon-only"
                   [ "removeIcon"; "disabledRemoveIconOnlyButton" ]
                   (centered disabledRemoveIconOnlyButton)
+              sample "button-visibility" "Datastar visibility" [ "buttonVisibilityExample" ] (centered buttonVisibilityExample)
+              |> note "The caller owns data-show. Toggle visibility without changing Button presentation or its native control."
               sample "button-row-actions" "Row actions"
                   [ "RowActionAccount"; "rowActionAccounts"; "moreActionsIcon"; "rowActionMenu"; "rowActionButtons" ]
                   (connectedGallerySurface (div { _class "p-3 sm:p-6"; rowActionButtons }))
-              |> note "Use a 28px Small ghost button with _iconOnly true and a horizontal ellipsis. Name it for its record; preserve hover contrast on hovered and selected backgrounds. Open, Edit and Delete navigate to the working Application example." ]
+              |> note "Use a 28px Small ghost button with a square horizontal-ellipsis icon child. Name it for its record; preserve hover contrast on hovered and selected backgrounds. Open, Edit and Delete navigate to the working Application example." ]
         | "link" ->
             [ sample "link-basic" "Default" [ "basicLink" ] (connectedCentered basicLink)
               sample "link-sizes" "Sizes" [ "linkSizeExamples" ] (connectedCentered linkSizeExamples)
               sample "link-colors" "Colors" [ "linkColorExamples" ] (connectedCentered linkColorExamples)
               sample "link-variants" "Variants" [ "linkVariantExamples" ] (connectedCentered linkVariantExamples)
+              sample "link-icon-variants" "Icon-only variants" [ "linkIconVariants" ] (connectedCentered linkIconVariants)
+              sample "link-icon-sizes" "Icon-only sizes" [ "linkIconSizes" ] (connectedCentered linkIconSizes)
+              |> note "Use an ordinary Link with a square Icon child and an accessible name. Control variants add symmetric padding and matching minimum dimensions; Text keeps the icon's own dimensions without control padding. Icon-only links retain native navigation, modified clicks and focus behavior."
               sample "link-new-tab" "Native new-tab navigation" [ "newTabLink" ] (connectedCentered newTabLink) ]
         | "button-group" ->
             [ sample "button-group-default" "Default" [ "defaultButtonGroup" ] (centered defaultButtonGroup)
@@ -13814,6 +14062,7 @@ module Components =
                     "interactiveChart" ]
                   interactiveChart
               sample "chart-empty" "Empty data" [ "emptyChart" ] emptyChart ]
+        | "time-picker" -> timePickerExamples ()
         | "date-picker" ->
             [ sample "date-picker-default" "Default" [ "defaultDatePicker" ] (fieldSurface defaultDatePicker)
               sample "date-picker" "Clearable single date" [ "basicDatePicker" ] (fieldSurface basicDatePicker)
@@ -13905,6 +14154,12 @@ module Components =
                   (centered verticalToggleGroup) ]
         | "tabs" ->
             [ sample "tabs" "Default" [ "codePreviewTabs" ] (fieldSurface codePreviewTabs)
+              sample
+                  "tabs-server"
+                  "Server-owned selection"
+                  [ "serverTabsExampleFor"; "serverTabsExample" ]
+                  (connectedCentered serverTabsExample)
+              |> note "_selection TabsSelection.Server submits the trigger's native form. Only the accepted panel is rendered, with one stable panel ID; the current panel stays visible until the server responds. Use ordinary GET forms or your application's Datastar form enhancement."
               sample
                   "tabs-underlined"
                   "Underlined tabs with refresh"
@@ -14132,7 +14387,11 @@ module Components =
                   (themedSurface pageHeaderLayoutExample) ]
         | "section" ->
             [ sample "section-default" "Default" [ "defaultSection" ] (detailsSurface defaultSection)
-              sample "section-headerless" "Without a visible heading" [ "periodNote" ] (detailsSurface periodNote) ]
+              sample "section-stack" "Section spacing" [ "sectionStackExample" ] (detailsSurface sectionStackExample)
+              |> note "fveSection uses 16px between its header and content. fveSectionStack uses 48px between sections, increasing to 64px inside a wide fve-shell container. Actions belong in fveSectionActions; use SectionHeadingLevel.H3 when nesting sections." ]
+        | "disclosure" ->
+            [ sample "disclosure-default" "Independent or grouped questions" [ "disclosureExample" ] (detailsSurface disclosureExample)
+              |> note "Use _name to group questions so opening one closes its peers, or omit it for independent disclosures. The native control needs no JavaScript asset." ]
         | "browser" ->
             [ sample "browser-default" "Default" [ "defaultBrowser" ] (centered defaultBrowser)
               sample "browser" "With an address bar" [ "browserWithAddress" ] (centered browserWithAddress)
@@ -14411,6 +14670,18 @@ let page =
                         "The tool manifest pins the registry version. Review the diff before updating installed source: fve add preserves local edits; --overwrite replaces them only when you explicitly choose it. Commit the tool manifest and installed source together." ] ]
 
     let buttonPage = gallery buttonRegistration (examplesFor "button")
+    let iconPageFor count search =
+        let page = gallery iconRegistration (examplesFor "icon")
+        { page with
+            descriptionContent = Some(span {
+                "Typed inline SVG with "
+                a { _href "https://heroicons.com/"; _class "text-[var(--fve-brand-text)] underline underline-offset-2"; "Heroicons" }
+                " artwork families, brand logos and inherited color."
+            })
+            lead = IconBrowser.render count search :: page.lead }
+
+    let iconPage = iconPageFor IconBrowser.batchSize ""
+
     let linkPage = gallery linkRegistration (examplesFor "link")
     let buttonGroupPage = gallery buttonGroupRegistration (examplesFor "button-group")
     let badgePage = gallery badgeRegistration (examplesFor "badge")
@@ -14454,6 +14725,7 @@ let page =
     let notificationPage = gallery notificationRegistration (examplesFor "notification")
     let selectPage = gallery selectRegistration (examplesFor "select")
     let selectFixturePage = gallery selectRegistration (examplesFor "select-fixtures")
+    let timePickerPage = gallery timePickerRegistration (timePickerExamples ())
     let datePickerPage = gallery datePickerRegistration (examplesFor "date-picker")
     let checkboxPage = gallery checkboxRegistration (examplesFor "checkbox")
     let switchPage = gallery switchRegistration (examplesFor "switch")
@@ -14464,7 +14736,15 @@ let page =
     let toggleGroupPage = gallery toggleGroupRegistration (examplesFor "toggle-group")
     let breadcrumbsPage = gallery breadcrumbsRegistration (examplesFor "breadcrumbs")
     let sideNavPage = gallery sideNavRegistration (examplesFor "side-nav")
-    let tabsPage = gallery tabsRegistration (examplesFor "tabs")
+    let tabsPageFor selected =
+        examplesFor "tabs"
+        |> List.map (fun example ->
+            if example.id = "components-tabs-server" then
+                { example with preview = connectedCentered (serverTabsExampleFor selected) }
+            else example)
+        |> gallery tabsRegistration
+
+    let tabsPage = tabsPageFor "summary"
     let radioGroupPage = gallery radioGroupRegistration (examplesFor "radio-group")
     let choiceCardsPage = gallery choiceCardsRegistration (examplesFor "choice-cards")
 
@@ -14483,6 +14763,7 @@ let page =
     let pageTopBarPage = gallery pageTopBarRegistration (examplesFor "page-top-bar")
     let pageHeaderPage = gallery pageHeaderRegistration (examplesFor "page-header")
     let sectionPage = gallery sectionRegistration (examplesFor "section")
+    let disclosurePage = gallery disclosureRegistration (examplesFor "disclosure")
     let browserPage = gallery browserRegistration (examplesFor "browser")
     let resizablePage = gallery resizableRegistration (examplesFor "resizable")
     let phonePage = gallery phoneRegistration (examplesFor "phone")
@@ -14525,8 +14806,10 @@ let page =
         gallery bottomNavigationRegistration (examplesFor "bottom-navigation")
 
     let messagePage = gallery messageRegistration (examplesFor "message")
-    let dayCalendarPage = gallery dayCalendarRegistration dayCalendarExamples
-    let weekCalendarPage = gallery weekCalendarRegistration weekCalendarExamples
+    let dayCalendarPageFor selection = gallery dayCalendarRegistration (dayCalendarExamplesFor selection)
+    let weekCalendarPageFor selection = gallery weekCalendarRegistration (weekCalendarExamplesFor selection)
+    let dayCalendarPage = dayCalendarPageFor defaultCalendarSelection
+    let weekCalendarPage = weekCalendarPageFor defaultCalendarSelection
 
     let monthCalendarPage =
         gallery monthCalendarRegistration (examplesFor "month-calendar")
@@ -14542,6 +14825,7 @@ let page =
     let private pages =
         [ installationRegistration.path, installationPage
           buttonRegistration.path, buttonPage
+          iconRegistration.path, iconPage
           linkRegistration.path, linkPage
           buttonGroupRegistration.path, buttonGroupPage
           badgeRegistration.path, badgePage
@@ -14569,6 +14853,7 @@ let page =
           noticeRegistration.path, noticePage
           notificationRegistration.path, notificationPage
           selectRegistration.path, selectPage
+          timePickerRegistration.path, timePickerPage
           datePickerRegistration.path, datePickerPage
           checkboxRegistration.path, checkboxPage
           switchRegistration.path, switchPage
@@ -14589,6 +14874,7 @@ let page =
           pageTopBarRegistration.path, pageTopBarPage
           pageHeaderRegistration.path, pageHeaderPage
           sectionRegistration.path, sectionPage
+          disclosureRegistration.path, disclosurePage
           browserRegistration.path, browserPage
           resizableRegistration.path, resizablePage
           phoneRegistration.path, phonePage

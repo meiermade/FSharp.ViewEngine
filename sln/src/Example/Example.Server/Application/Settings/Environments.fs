@@ -16,8 +16,8 @@ module internal SettingsEnvironments =
         let table title headings rows =
             RecordTable.render title [ _mobileLayout MobileLayout.Records ] headings rows []
 
-        div {
-            _class "grid min-w-0 w-full gap-6"
+        fveSectionStack {
+            _class "w-full"
 
             table
                 "Organization environments"

@@ -36,7 +36,7 @@ module internal Home =
             }
         }
 
-    let home (query: Query) =
+    let balanceHistory page showAccountSelector (query: Query) =
         let data =
             Ledger.Home.readHome
                 { records = query.records
@@ -133,7 +133,7 @@ module internal Home =
               "range", string data.periodDays
               "comparison", data.comparison ]
 
-        let resetHref = applicationHref query ApplicationPage.Home + querySuffix pairs
+        let resetHref = applicationHref query page + querySuffix pairs
 
         let rangeChange =
             $"""
@@ -157,17 +157,16 @@ if (extent?.length === 2 && extent.every(Number.isFinite)) {{
 
             form {
                 _method "get"
-                _action (applicationHref query ApplicationPage.Home)
-                _ariaLabel "Home balance controls"
+                _action (applicationHref query page)
+                _ariaLabel (if showAccountSelector then "Home balance controls" else "Account balance controls")
                 _class "flex min-w-0 flex-wrap items-end gap-3"
                 contextFields query
 
-                select
-                    query
-                    "account"
-                    "Account"
-                    (string data.account.id)
-                    (query.records.accounts |> List.map (fun account -> string account.id, account.name))
+                if showAccountSelector then
+                    select query "account" "Account" (string data.account.id)
+                        (query.records.accounts |> List.map (fun account -> string account.id, account.name))
+                else
+                    hidden "account" (string data.account.id)
 
                 select
                     query
@@ -191,7 +190,7 @@ if (extent?.length === 2 && extent.every(Number.isFinite)) {{
             div {
                 _id (elementId query "home-chart")
 
-                fveCard {
+                div {
                     div {
                         _class "grid min-w-0 grid-cols-1 gap-4 [overflow-wrap:anywhere]"
 
@@ -250,7 +249,7 @@ form.requestSubmit();"""
                             form {
                                 _id rangeFormId
                                 _method "get"
-                                _action (applicationHref query ApplicationPage.Home)
+                                _action (applicationHref query page)
                                 _ariaLabel "Chart date range"
                                 _attr ("data-fve-local-navigation", "true")
                                 _class "flex min-w-0 flex-wrap items-end gap-3"
@@ -338,13 +337,14 @@ form.requestSubmit();"""
                 }
             }
 
-            Layout.section
-                "Transactions"
+        }
+
+    let home (query:Query) =
+        let data = Ledger.Home.readHome { records=query.records; account=query.account; period=query.range; comparison=query.comparison; startDate=query.startDate; endDate=query.endDate }
+        fveSectionStack {
+            balanceHistory ApplicationPage.Home true query
+            Layout.section "Transactions"
                 (if data.transactions.IsEmpty then
-                     fveEmptyState {
-                         _label "No transactions in this date range"
-                         _description "Choose different dates or reset zoom."
-                     }
-                 else
-                     transactionTable query "Transactions for the selected account" data.transactions false)
+                     fveEmptyState { _label "No transactions in this date range"; _description "Choose different dates or reset zoom." }
+                 else transactionTable query "Transactions for the selected account" data.transactions false)
         }

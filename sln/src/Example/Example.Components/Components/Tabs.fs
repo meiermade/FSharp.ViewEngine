@@ -9,11 +9,17 @@ open type Datastar
 [<RequireQualifiedAccess>]
 type TabsVariant = Segmented | Underlined
 
+/// <summary>Local panels or server-owned selection through native form submissions.</summary>
+/// <category>tabs</category>
+[<RequireQualifiedAccess>]
+type TabsSelection = Local | Server
+
 /// <category>tabs</category>
 [<AutoOpen>]
 module TabsAttributes =
     type Html with
         static member _variant(value:TabsVariant) = Html._attr("variant", if value = TabsVariant.Segmented then "segmented" else "underlined")
+        static member _selection(value:TabsSelection) = Html._attr("selection", if value = TabsSelection.Server then "server" else "local")
 
 type internal TabsTriggerElement(attributes:HtmlAttribute list, children:HtmlElement list) =
     inherit HtmlElement()
@@ -64,12 +70,15 @@ module internal Tabs =
         if not (available |> List.exists (fun item -> item.Value = selected)) then invalidArg "value" "The selected tab must exist and be enabled."
         let horizontal = ComponentElement.choice "orientation" "horizontal" ["horizontal"; "vertical"] attributes = "horizontal"
         let variant = ComponentElement.choice "variant" "segmented" ["segmented"; "underlined"] attributes
+        let server = ComponentElement.choice "selection" "local" ["local"; "server"] attributes = "server"
         let nativeId fallback authored =
             let id = ComponentElement.value "id" authored |> Option.defaultValue fallback
             if String.IsNullOrWhiteSpace id || (id |> Seq.exists Char.IsWhiteSpace) then invalidArg "id" "Native tab and panel IDs must be stable and contain no whitespace."
             id
         let tabId (item:TabsItemElement) = nativeId ($"{id}-tab-{ComponentHtml.optionToken item.Value}") item.Trigger.Attributes
-        let panelId (item:TabsItemElement) = nativeId ($"{id}-panel-{ComponentHtml.optionToken item.Value}") item.Attributes
+        let panelId (item:TabsItemElement) =
+            if server then nativeId ($"{id}-panel") (items |> List.find (fun item -> item.Value = selected)).Attributes
+            else nativeId ($"{id}-panel-{ComponentHtml.optionToken item.Value}") item.Attributes
         let listClasses, tabClasses =
             if variant = "segmented" then
                 "inline-flex min-w-0 max-w-full items-center gap-1 overflow-x-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-surface-subtle)] p-1",
@@ -89,7 +98,7 @@ module internal Tabs =
                     let initialSelected = item.Value = selected
                     let defaults = [
                         yield _id (tabId item)
-                        yield _type "button"
+                        yield _type (if server then "submit" else "button")
                         yield _role "tab"
                         yield _ariaControls (panelId item)
                         yield _ariaSelected initialSelected
@@ -104,14 +113,21 @@ module internal Tabs =
                     ComponentElement.render "button" defaults (ComponentHtml.outerSignals nativeAttributes) item.Trigger.Children
             }
         let panels =
-            items |> List.map (fun item ->
+            items |> List.choose (fun item ->
                 let initialSelected = item.Value = selected
-                ComponentElement.render "div"
-                    [_id (panelId item); _role "tabpanel"; _ariaLabelledby (tabId item); _tabindex 0; _hidden (not initialSelected); _dataPreserveAttr "hidden"; _class ((if horizontal then "mt-4 min-w-0 max-w-full" else "min-w-0") + " outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]")]
-                    (ComponentHtml.safeAttributes ["role"; "aria-labelledby"; "hidden"; "data-attr:hidden"; "data-preserve-attr"] item.Attributes) item.Children)
+                if server && not initialSelected then None
+                else
+                    ComponentElement.render "div"
+                        [ _id (panelId item); _role "tabpanel"; _ariaLabelledby (tabId item); _tabindex 0
+                          if not server then
+                              _hidden (not initialSelected)
+                              _dataPreserveAttr "hidden"
+                          _class ((if horizontal then "mt-4 min-w-0 max-w-full" else "min-w-0") + " outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]") ]
+                        (ComponentHtml.safeAttributes ["role"; "aria-labelledby"; "hidden"; "data-attr:hidden"; "data-preserve-attr"] item.Attributes) item.Children
+                    |> Some)
         ComponentElement.render "fve-tabs"
-            [_id id; _value selected; _attr("orientation", if horizontal then "horizontal" else "vertical"); _class (if horizontal then "block min-w-0 w-full max-w-full" else "grid min-w-0 max-w-full gap-4 sm:grid-cols-[auto_minmax(0,1fr)]")]
-            (ComponentHtml.safeAttributes ["value"; "variant"; "orientation"; "aria-label"; "aria-labelledby"] attributes |> ComponentHtml.outerSignals) (tabList :: panels)
+            [_id id; _value selected; _attr("selection", if server then "server" else "local"); _attr("orientation", if horizontal then "horizontal" else "vertical"); _class (if horizontal then "block min-w-0 w-full max-w-full" else "grid min-w-0 max-w-full gap-4 sm:grid-cols-[auto_minmax(0,1fr)]")]
+            (ComponentHtml.safeAttributes ["value"; "variant"; "selection"; "orientation"; "aria-label"; "aria-labelledby"] attributes |> ComponentHtml.outerSignals) (tabList :: panels)
 
 /// <category>tabs</category>
 [<AutoOpen>]

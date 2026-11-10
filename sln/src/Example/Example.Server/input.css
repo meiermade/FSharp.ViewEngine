@@ -18,6 +18,7 @@
 
 @theme {
   --font-sans: "Noto Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Noto Serif", ui-serif, Georgia, serif;
   --font-mono: "Noto Sans Mono", ui-monospace, monospace;
 }
 
@@ -35,6 +36,55 @@
   font-weight: 100 900;
   font-display: swap;
   src: url("/examples/assets/fonts/noto-sans-latin-italic.woff2") format("woff2");
+}
+
+/* Product-owned palette; the catalog retains its independent theme. */
+.geldos-theme {
+  --fve-brand-solid: #047857;
+  --fve-brand-hover: #065f46;
+  --fve-brand-active: #064e3b;
+  --fve-brand-text: #065f46;
+  --fve-brand-ring: #047857;
+  --fve-brand-subtle: #ecfdf5;
+}
+.dark .geldos-theme:not([data-fve-color-mode="light"]),
+.geldos-theme.dark,
+.geldos-theme[data-fve-color-mode="dark"] {
+  --fve-background: #141414;
+  --fve-surface: #1c1c1c;
+  --fve-surface-subtle: #242424;
+  --fve-surface-hover: #242424;
+  --fve-surface-active: #303030;
+  --fve-text: #f5f5f4;
+  --fve-muted-text: #a3a3a3;
+  --fve-border: #363636;
+  --fve-overlay-backdrop: rgb(0 0 0 / 60%);
+  --fve-neutral-subtle: #242424;
+  --fve-neutral-text: #d4d4d4;
+  --fve-neutral-ring: #a3a3a3;
+  --fve-neutral-solid: #d4d4d4;
+  --fve-neutral-hover: #e5e5e5;
+  --fve-neutral-active: #f5f5f4;
+  --fve-neutral-on-solid: #141414;
+  --fve-neutral-soft: #242424;
+  --fve-neutral-soft-hover: #303030;
+  --fve-neutral-soft-active: #363636;
+  --fve-neutral-border: #a3a3a3;
+  --fve-neutral-focus: #a3a3a3;
+  --fve-brand-solid: #10b981;
+  --fve-brand-hover: #34d399;
+  --fve-brand-active: #6ee7b7;
+  --fve-brand-text: #6ee7b7;
+  --fve-brand-ring: #34d399;
+  --fve-brand-subtle: #022c22;
+}
+
+@font-face {
+  font-family: "Noto Serif";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/examples/assets/fonts/noto-serif-latin.woff2") format("woff2");
 }
 
 @font-face {

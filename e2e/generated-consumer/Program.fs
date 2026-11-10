@@ -21,7 +21,6 @@ let refreshIcon =
 let iconButton =
     fveButton {
         _ariaLabel "Refresh accounts"
-        _iconOnly true
         _size Size.Small
 
         span {
@@ -39,7 +38,6 @@ let sizeExamples =
         for size, label in [ Size.ExtraSmall, "XS"; Size.Small, "S"; Size.Medium, "M"; Size.Large, "L"; Size.ExtraLarge, "XL" ] do
             fveButton {
                 _size size
-                _iconOnly true
                 _ariaLabel ("Size " + label)
                 refreshIcon
             }

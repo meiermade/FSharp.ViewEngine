@@ -175,6 +175,7 @@ module ComponentInstallation =
         | "page-header" -> "button"
         | "description-list" -> "badge"
         | "file-selection" -> "field"
+        | "time-picker" -> "field"
         | "date-picker" -> "field button"
         | "month-calendar" -> "button"
         | "notice"
@@ -188,7 +189,7 @@ module ComponentInstallation =
         let installed = closure selector
 
         let additional =
-            (exampleCandidates selector).Split(' ', StringSplitOptions.RemoveEmptyEntries)
+            (exampleCandidates selector + " icon").Split(' ', StringSplitOptions.RemoveEmptyEntries)
             |> Array.filter (fun name ->
                 let builder = "fve" + Path.GetFileNameWithoutExtension(registry[name].file)
 

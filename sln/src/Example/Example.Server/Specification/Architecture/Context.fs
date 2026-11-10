@@ -13,7 +13,7 @@ module internal Context =
             [ "flowchart LR"
               "  Operator[\"Financial operator<br/>Person<br/>Reviews accounts and activity\"]:::person"
               "  Developer[\"Application developer<br/>Person<br/>Reviews workflows and HTTP contracts\"]:::person"
-              "  Ledger[\"Ledger<br/>Software system<br/>Financial application, executable specification and API reference\"]:::system"
+              "  Ledger[\"Geldos<br/>Software system<br/>Financial application, executable specification and API reference\"]:::system"
               "  Operator -->|Uses financial pages| Ledger"
               "  Developer -->|Reviews specification and cURL examples| Ledger"
               "  class Ledger navigable"
@@ -27,19 +27,19 @@ module internal Context =
     let render () =
         div {
             _class "grid gap-12"
-            Layout.documentationSection "system-context" "System context" (diagram "Ledger system context" context)
+            Layout.documentationSection "system-context" "System context" (diagram "Geldos system context" context)
 
             Layout.documentationSection
                 "system-boundary"
                 "System boundary"
                 (Layout.prose (
                     p {
-                        "Ledger provides a financial workspace, an executable specification and a cURL API reference over one shared set of USD account and transaction fixtures."
+                        "Geldos provides a financial workspace, an executable specification and a cURL API reference over one shared set of USD account and transaction fixtures."
                     }
                 ))
 
             rules
                 [ "The three surfaces SHALL describe the same accounts, transactions and workspace contexts."
                   "Financial submissions SHALL validate finite outcomes without durably retaining private values or mutating the seeded records."
-                  "The Ledger node SHALL open the Solution overview." ]
+                  "The Geldos node SHALL open the Solution overview." ]
         }

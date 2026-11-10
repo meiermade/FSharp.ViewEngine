@@ -6,13 +6,13 @@ open System
 open FSharp.ViewEngine
 open type Html
 
-/// <category>section</category>
+/// <exclude />
 [<RequireQualifiedAccess>]
 type SectionSurface =
     | Plain
     | Panel
 
-/// <category>section</category>
+/// <exclude />
 [<NoEquality; NoComparison>]
 type SectionConfig =
     private
@@ -21,7 +21,7 @@ type SectionConfig =
           content:HtmlElement
           surface:SectionSurface }
 
-/// <category>section</category>
+/// <exclude />
 [<RequireQualifiedAccess>]
 module Section =
     let create (header:HtmlElement) content =

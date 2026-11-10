@@ -16,11 +16,12 @@ module internal ViewProfile =
         let appearanceId = elementId query "template-appearance"
         let appearanceSignal = appearanceId.Replace('-', '_') + "_value"
 
-        div {
-            _class "grid min-w-0 w-full gap-8"
+        fveSectionStack {
+            _class "w-full"
 
-            Layout.section
+            Layout.sectionWithEdit
                 "Details"
+                (applicationHref query ApplicationPage.EditProfile)
                 (div {
                     _class "grid grid-cols-[auto_minmax(0,1fr)] items-start gap-5"
 

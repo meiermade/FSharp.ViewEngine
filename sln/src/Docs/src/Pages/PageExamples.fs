@@ -471,8 +471,7 @@ module PageExamples =
                         _ariaHidden true
                         _class "inline-flex shrink-0"
 
-                        raw
-                            """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" d="M4 10h12"/></svg>"""
+                        fveIcon { _name IconName.Minus; _size Size.Small }
                     }
                 }
 
@@ -484,8 +483,7 @@ module PageExamples =
                         _ariaHidden true
                         _class "inline-flex shrink-0"
 
-                        raw
-                            """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" d="M4 10h12M10 4v12"/></svg>"""
+                        fveIcon { _name IconName.Plus; _size Size.Small }
                     }
                 }
 
@@ -497,8 +495,7 @@ module PageExamples =
                         _ariaHidden true
                         _class "inline-flex shrink-0"
 
-                        raw
-                            """<svg class="size-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M4 7V3m0 4h4M4 7a6 6 0 1 1-1 6"/></svg>"""
+                        fveIcon { _name IconName.ArrowPath; _size Size.Small }
                     }
                 }
 

@@ -62,17 +62,18 @@
       <Compile Include="Components/FloatingPanel.fs" />
       <Compile Include="Components/Tooltip.fs" />
       <Compile Include="Components/Popover.fs" />
+      <Compile Include="Components/Select.fs" />
+      <Compile Include="Components/Input.fs" />
+      <Compile Include="Components/InputGroup.fs" />
+      <Compile Include="Components/TimePicker.fs" />
       <Compile Include="Components/CalendarRendering.fs" />
       <Compile Include="Components/DayCalendar.fs" />
       <Compile Include="Components/WeekCalendar.fs" />
       <Compile Include="Components/MonthCalendar.fs" />
       <Compile Include="Components/Message.fs" />
-      <Compile Include="Components/Input.fs" />
       <Compile Include="Components/Textarea.fs" />
       <Compile Include="Components/ErrorSummary.fs" />
       <Compile Include="Components/CopyReveal.fs" />
-      <Compile Include="Components/InputGroup.fs" />
-      <Compile Include="Components/Select.fs" />
       <Compile Include="Components/ButtonGroup.fs" />
       <Compile Include="Components/YearCalendar.fs" />
       <Compile Include="Components/DatePicker.fs" />
@@ -81,6 +82,11 @@
       <Compile Include="Components/Dialog.fs" />
       <Compile Include="Components/Drawer.fs" />
       <Compile Include="Components/Command.fs" />
+      <Compile Include="Components/Section.fs" />
+      <Compile Include="Components/Disclosure.fs" />
+      <Compile Include="Components/IconNames.fs" />
+      <Compile Include="Components/IconData.fs" />
+      <Compile Include="Components/Icon.fs" />
       <None Include="fve.json" />
       <None Include="Components/Assets/datastar-LICENSE.txt" />
       <None Include="Components/Assets/datastar-rocket.1.0.4.js" />
@@ -111,16 +117,22 @@
       <None Include="Components/Assets/tooltip.js" />
       <None Include="Components/Assets/popover.js" />
       <None Include="Components/Assets/scroll-region.js" />
+      <None Include="Components/Assets/select.js" />
+      <None Include="Components/Assets/time-picker.js" />
+      <None Include="Components/Assets/calendar-range.js" />
       <None Include="Components/Assets/calendar-selection.js" />
       <None Include="Components/Assets/error-summary.js" />
       <None Include="Components/Assets/copy-reveal.js" />
-      <None Include="Components/Assets/select.js" />
       <None Include="Components/Assets/date-picker.js" />
       <None Include="Components/Assets/breadcrumbs.js" />
       <None Include="Components/Assets/native-overlay.js" />
       <None Include="Components/Assets/dialog.js" />
       <None Include="Components/Assets/drawer.js" />
       <None Include="Components/Assets/command.js" />
+      <None Include="Components/Assets/heroicons-LICENSE.txt" />
+      <None Include="Components/Assets/heroicons.2.2.0.provenance.json" />
+      <None Include="Components/Assets/bootstrap-icons-LICENSE.txt" />
+      <None Include="Components/Assets/bootstrap-icons.1.13.1.provenance.json" />
   </ItemGroup>
   <!-- fve:components:end -->
   <ItemGroup>

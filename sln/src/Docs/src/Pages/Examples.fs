@@ -10,6 +10,7 @@ open type Html
 module Examples =
     [<RequireQualifiedAccess>]
     type Template =
+        | Marketing
         | Application
         | Specification
         | ApiDocumentation
@@ -22,7 +23,12 @@ module Examples =
           screenshot: string }
 
     let templates =
-        [ { template = Template.Specification
+        [ { template = Template.Marketing
+            name = "Marketing"
+            path = "/examples/marketing"
+            description = "A complete Geldos product site with responsive navigation, product visuals, hosting options, pricing and FAQs."
+            screenshot = "/images/examples/marketing.png" }
+          { template = Template.Specification
             name = "Specification"
             path = "/examples/specification"
             description =
@@ -54,14 +60,14 @@ module Examples =
     let gallery =
         DocumentationPage.create registration.id registration.title
         |> DocumentationPage.withDescription
-            "Three complete source-authored templates. Copy the pages and make the structure your own."
+            "Complete source-authored examples, built around Geldos. Copy the pages and make the structure your own."
         |> DocumentationPage.withRightRail NoRail
         |> DocumentationPage.withSections
             [ DocumentationSection.create
                   "templates"
                   "Templates"
                   [ div {
-                        _class "grid min-w-0 gap-8 lg:grid-cols-3"
+                        _class "grid min-w-0 gap-8 md:grid-cols-2"
 
                         for template in templates do
                             a {
@@ -112,6 +118,7 @@ module Examples =
     let paths =
         [ for item in templates do
               yield item.path
+          yield! Example.Server.Marketing.paths
           yield!
               Example.Server.Application.navigation
               |> List.map fst

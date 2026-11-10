@@ -7,9 +7,7 @@ open type Datastar
 
 /// Consumer-owned review links. Browser/Phone own frame presentation, not destinations or state.
 module AppMode =
-    let private icon path =
-        raw
-            $"<svg class=\"size-4 shrink-0\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"{path}\"/></svg>"
+    let private icon (name: IconName) = fveIcon { _name name; _size Size.Small }
 
     let windowControl id label expanded href =
         let action = (if expanded then "Restore " else "Expand ") + label
@@ -39,11 +37,9 @@ module AppMode =
                 )
 
                 if expanded then
-                    raw
-                        """<svg class="size-2.5" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M2 5h6"/></svg>"""
+                    fveIcon { _name IconName.Minus; _size Size.ExtraSmall }
                 else
-                    raw
-                        """<svg class="size-2.5" viewBox="0 0 10 10" fill="currentColor"><path d="M1 1h6L1 7zm8 8H3l6-6Z"/></svg>"""
+                    fveIcon { _name IconName.ArrowsPointingOut; _size Size.ExtraSmall }
             }
         }
 
@@ -54,18 +50,18 @@ module AppMode =
         (previous: (string * string) option)
         (next: (string * string) option)
         =
-        let direction (label: string) path (destination: (string * string) option) =
+        let direction (label: string) (name: IconName) (destination: (string * string) option) =
             match destination with
-            | Some(name, href) ->
+            | Some(destinationName, href) ->
                 a {
                     _href href
-                    _ariaLabel (label + ": " + name)
-                    _title (label + ": " + name)
+                    _ariaLabel (label + ": " + destinationName)
+                    _title (label + ": " + destinationName)
 
                     _class
                         "grid size-8 shrink-0 place-items-center rounded-md hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-5"
 
-                    icon path
+                    fveIcon { _name name; _size Size.Medium }
                 }
             | None ->
                 span {
@@ -76,14 +72,14 @@ module AppMode =
                     _class
                         "grid size-8 shrink-0 place-items-center text-[var(--fve-muted-text)] opacity-50 [&_svg]:size-5"
 
-                    icon path
+                    fveIcon { _name name; _size Size.Medium }
                 }
 
         nav {
             _ariaLabel "App mode controls"
             _data ("example-app-controls", "true")
             _class "flex min-w-0 max-w-full items-center gap-1 text-sm"
-            direction "Previous" "M19.5 12h-15m0 0 6.75 6.75M4.5 12l6.75-6.75" previous
+            direction "Previous" IconName.ArrowLeft previous
 
             fveDropdownMenu {
                 _id (id + "-states")
@@ -107,7 +103,7 @@ module AppMode =
                                 label
                             }
 
-                            icon "m6 9 6 6 6-6"
+                            icon IconName.ChevronDown
                         }
 
                 }
@@ -118,11 +114,11 @@ module AppMode =
                         name
 
                         if current then
-                            fveDropdownMenuItemTrailing { icon "m4.5 12.75 6 6 9-13.5" }
+                            fveDropdownMenuItemTrailing { icon IconName.Check }
                     }
             }
 
-            direction "Next" "M4.5 12h15m0 0-6.75-6.75M19.5 12l-6.75 6.75" next
+            direction "Next" IconName.ArrowRight next
 
             noscript {
                 for name, href, _ in states do

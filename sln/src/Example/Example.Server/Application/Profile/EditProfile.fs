@@ -44,7 +44,8 @@ module internal EditProfile =
                                      "not-an-email"
                                  else
                                      "andrew@meiermade.com")
-                              timeZone = "America/Chicago" }
+                              timeZone = "America/Chicago"
+                              dailySummaryTime = "09:00" }
 
                     let error =
                         if query.state = "invalid" then
@@ -237,12 +238,36 @@ module internal EditProfile =
                             }
                         | None -> ()
                     }
+
+                    let timeId = elementId query "template-profile-summary-time"
+                    let invalidTime = error = Some(Error Ledger.Operations.ValidateProfileError.InvalidDailySummaryTime)
+                    fveField {
+                        fveLabel { _for timeId; "Daily summary time" }
+                        fveTimePicker {
+                            _id timeId; _name "dailySummaryTime"; _ariaLabel "Daily summary time"
+                            _interval 15; _required true
+                            _ariaInvalid invalidTime
+                            _ariaDescribedby (timeId + "-description" + (if invalidTime then " " + timeId + "-validation" else ""))
+                            match TimeOnly.TryParseExact(request.dailySummaryTime, "HH:mm", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None) with
+                            | true, time when time.Minute % 15 = 0 -> _value time
+                            | _ -> ()
+                        }
+                        fveFieldDescription { _id (timeId + "-description"); "Daily ledger summary, in your selected time zone." }
+                        if invalidTime then
+                            fveFieldError { _id (timeId + "-validation"); "Choose a summary time in 15-minute intervals." }
+                    }
                 }
             }
 
         let actions =
-            fragment {
+            div {
+                _class "flex min-w-0 max-w-full flex-wrap justify-end gap-3"
                 cancelLink query page (elementId query (editorId + "-cancel"))
+                button {
+                    _type "reset"; _form formId
+                    _class "min-h-[var(--fve-control-min-height)] rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] px-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                    "Reset changes"
+                }
 
                 formSubmit
                     Color.Primary

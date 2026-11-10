@@ -7,8 +7,7 @@ const appearances = {
   outline: '[--fve-control-border-width:1px] border border-[color-mix(in_srgb,var(--fve-color-border)_20%,transparent)] bg-transparent text-[var(--fve-color-text)] enabled:hover:bg-[var(--fve-color-soft-hover)] enabled:active:bg-[var(--fve-color-soft-active)]',
   ghost: 'bg-transparent text-[var(--fve-color-text)] enabled:hover:bg-[var(--fve-color-soft-hover)] enabled:active:bg-[var(--fve-color-soft-active)]',
 };
-const textGeometry = 'px-[max(0px,calc(var(--fve-control-padding-inline)-var(--fve-control-border-width,0px)))] py-[max(0px,calc(var(--fve-control-padding-block)-var(--fve-control-border-width,0px)))]';
-const iconGeometry = 'size-[var(--fve-control-min-height)] p-0';
+const geometry = 'min-w-[var(--fve-control-min-height)] p-[max(0px,calc((var(--fve-control-min-height)-var(--fve-control-line-height))/2-var(--fve-control-border-width,0px)))]';
 const sizes = {
   '': '',
   'extra-small': 'fve-control-extra-small [--fve-control-min-height:1.5rem] [--fve-control-icon-size:0.75rem] [--fve-control-padding-block:0.25rem] [--fve-control-padding-inline:0.5rem] [--fve-control-font-size:0.75rem] [--fve-control-line-height:1rem]',
@@ -60,7 +59,6 @@ rocket('fve-button', {
     size: oneOf(...Object.keys(sizes)).default(''),
     palette: json.default(null),
     disabled: bool.default(false),
-    iconOnly: bool.default(false),
     type: oneOf('button', 'submit', 'reset').default('button'),
   }),
   render: ({ html, host }) => {
@@ -77,10 +75,11 @@ rocket('fve-button', {
     const previousStyle = host.style.display === 'contents' ? host.querySelector(':scope > button[data-fve-button-control]')?.style : host.style;
     let display = previousStyle?.display ?? '';
     let displayPriority = previousStyle?.getPropertyPriority('display') ?? '';
-    host.style.display = 'contents';
+    if (host.style.display !== 'none') host.style.display = 'contents';
     const sync = () => {
       if (!host.isConnected) return;
-      if (host.style.display !== 'contents') {
+      // Datastar owns visibility. Never undo display:none or its style observer will undo us.
+      if (host.style.display !== 'contents' && host.style.display !== 'none') {
         display = host.style.display;
         displayPriority = host.style.getPropertyPriority('display');
         host.style.display = 'contents';
@@ -93,7 +92,7 @@ rocket('fve-button', {
       const controlId = host.getAttribute('data-fve-control-id');
       if (controlId) control.id = controlId;
       else control.removeAttribute('id');
-      control.className = `${base} ${props.iconOnly ? iconGeometry : textGeometry} ${appearances[props.variant]} ${sizes[props.size]} ${host.getAttribute('class') ?? ''}`;
+      control.className = `${base} ${geometry} ${appearances[props.variant]} ${sizes[props.size]} ${host.getAttribute('class') ?? ''}`;
       const colors = props.color === 'custom' && validPalette(props.palette) ? props.palette : palette(props.color === 'custom' ? 'neutral' : props.color);
       control.style.cssText = '';
       for (const [key, name] of Object.entries(fields)) control.style.setProperty(`--fve-color-${name}`, `light-dark(${colors.light[key]},${colors.dark[key]})`);

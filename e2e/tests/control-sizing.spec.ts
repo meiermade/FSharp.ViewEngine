@@ -36,7 +36,7 @@ test('Button sizes coordinate text and icon-only geometry without padding confli
   await page.goto('/components/button')
   const example = page.locator('#components-button-sizes-panel-preview')
   for (const [name, height, font, icon] of [
-    ['Extra small', 24, 12, 12], ['Small', 28, 14, 16], ['Medium', 32, 14, 16], ['Large', 36, 14, 20], ['Extra large', 40, 14, 20],
+    ['Extra small', 24, 12, 16], ['Small', 28, 14, 16], ['Medium', 32, 14, 16], ['Large', 36, 14, 16], ['Extra large', 40, 14, 16],
   ] as const) {
     const text = example.getByRole('button', { name, exact: true })
     const square = example.getByRole('button', { name: `${name} refresh`, exact: true })
@@ -44,18 +44,18 @@ test('Button sizes coordinate text and icon-only geometry without padding confli
     await expect(text).toHaveCSS('font-size', `${font}px`)
     await expect(square).toHaveCSS('height', `${height}px`)
     await expect(square).toHaveCSS('width', `${height}px`)
-    await expect(square).toHaveCSS('padding', '0px')
+    expect(await square.evaluate(el => { const css = getComputedStyle(el); return css.paddingLeft === css.paddingTop && css.paddingRight === css.paddingBottom })).toBe(true)
     await expect(square.locator('svg')).toHaveCSS('width', `${icon}px`)
   }
   const square = example.getByRole('button', { name: 'Small refresh', exact: true })
   await square.evaluate(el => el.parentElement!.setAttribute('size', 'extra-large'))
   await expect(square).toHaveCSS('width', '40px')
   await expect(square).toHaveCSS('height', '40px')
-  await square.evaluate(el => el.parentElement!.setAttribute('icon-only', 'false'))
-  await expect(square).toHaveCSS('padding-left', '13px') // Outline border is included in the size's inset.
-  await square.evaluate(el => el.parentElement!.setAttribute('icon-only', 'true'))
-  await expect(square).toHaveCSS('padding', '0px')
-  await expect(square).toHaveCSS('width', '40px')
+  await expect(square).toHaveCSS('padding-left', '9px') // The outline border is included in symmetric insets.
+  await expect(square.locator('svg')).toHaveCSS('width', '16px') // The child retains its own size.
+  await square.locator('svg').evaluate(el => { el.style.width = '2rem'; el.style.height = '2rem' })
+  await expect(square).toHaveCSS('width', '52px')
+  await expect(square).toHaveCSS('height', '52px')
 })
 
 test('row-action recipes match the application compact trigger and row typography @cross-browser', async ({ page }) => {
@@ -86,7 +86,7 @@ test('application page and section headers keep a clear hierarchy without crowdi
     const header = page.locator('[data-fve-page-header="true"]')
     const title = header.getByRole('heading', { level: 1, name: 'Operating checking', exact: true })
     const section = page.getByRole('heading', { level: 2, name: 'Transactions', exact: true })
-    const edit = header.getByRole('link', { name: 'Edit account', exact: true })
+    const edit = page.getByRole('region', { name: 'Details', exact: true }).getByRole('link', { name: 'Edit account', exact: true })
     await expect(title).toHaveCSS('font-size', '30px')
     await expect(section).toHaveCSS('font-size', '24px')
     await expect(edit).toBeInViewport()
@@ -94,7 +94,7 @@ test('application page and section headers keep a clear hierarchy without crowdi
     const titleBounds = (await title.boundingBox())!
     const actionBounds = (await edit.boundingBox())!
     expect(actionBounds.height).toBe(32)
-    expect(titleBounds.x + titleBounds.width <= actionBounds.x || titleBounds.y + titleBounds.height <= actionBounds.y).toBe(true)
+    expect(titleBounds.y + titleBounds.height <= actionBounds.y).toBe(true)
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
   }
 })

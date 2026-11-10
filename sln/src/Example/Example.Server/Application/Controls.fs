@@ -81,15 +81,15 @@ module internal Controls =
     let formSubmit color (attributes: HtmlAttribute list) (label: string) =
         let palette =
             if color = Color.Error then
-                "bg-[var(--fve-critical-solid)] hover:bg-[var(--fve-critical-hover)]"
+                "bg-[var(--fve-critical-solid)] text-white hover:bg-[var(--fve-critical-hover)]"
             else
-                "bg-[var(--fve-brand-solid)] hover:bg-[var(--fve-brand-hover)]"
+                "bg-[var(--fve-brand-solid)] text-[light-dark(white,#101828)] hover:bg-[var(--fve-brand-hover)]"
 
         button {
             _type "submit"
 
             _class (
-                "group relative inline-flex min-h-[var(--fve-control-min-height)] max-w-full items-center justify-center gap-2 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:pointer-events-none disabled:opacity-50 "
+                "group relative inline-flex min-h-[var(--fve-control-min-height)] max-w-full items-center justify-center gap-2 rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:pointer-events-none disabled:opacity-50 "
                 + palette
             )
 

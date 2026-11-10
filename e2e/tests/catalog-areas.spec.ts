@@ -22,7 +22,7 @@ test('flat component catalog preserves enhanced navigation and history', crossBr
   expect(errors).toEqual([])
 })
 
-test('search reaches a dedicated component and Examples exposes exactly three templates', crossBrowser, async ({ page }) => {
+test('search reaches a dedicated component and Examples exposes the Geldos experiences', crossBrowser, async ({ page }) => {
   await page.goto('/components')
   await page.getByRole('button', { name: 'Search documentation', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Search documentation', exact: true })
@@ -34,8 +34,8 @@ test('search reaches a dedicated component and Examples exposes exactly three te
   await expect(page.getByRole('heading', { name: 'Page top bar', level: 1, exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Examples', exact: true }).click()
   const cards = page.locator('a[data-example-template]')
-  await expect(cards).toHaveCount(3)
-  for (const path of ['/examples/application', '/examples/specification', '/examples/api-documentation']) {
+  await expect(cards).toHaveCount(4)
+  for (const path of ['/examples/marketing', '/examples/application', '/examples/specification', '/examples/api-documentation']) {
     await expect(cards.and(page.locator(`a[href="${path}"]`))).toBeVisible()
   }
 })

@@ -1,7 +1,7 @@
 import { test, expect, specProduct } from '../fixture'
 
 for (const scenario of [
-  { path: '/examples/application/accounts', label: 'Ledger', link: 'Transactions', destination: '/examples/application/transactions' },
+  { path: '/examples/application/accounts', label: 'Geldos', link: 'Transactions', destination: '/examples/application/transactions' },
   { path: '/examples/application/settings/general', label: 'Settings', link: 'Users', destination: '/examples/application/settings/users' },
   { path: '/examples/application/profile', label: 'Profile', link: 'Organizations', destination: '/examples/application/profile/organizations' },
   { path: '/examples/specification/accounts/view-accounts', label: 'Documentation', link: 'Overview', destination: '/examples/specification' },
@@ -47,7 +47,7 @@ for (const scenario of [
     await expect(drawer).toBeVisible()
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
     if (scenario.label === 'Settings' || scenario.label === 'Profile') {
-      await expect(drawer.getByRole('link', { name: 'Ledger', exact: true })).toBeVisible()
+      await expect(drawer.getByRole('link', { name: 'Geldos', exact: true })).toBeVisible()
       const area = drawer.getByRole('heading', { name: scenario.label, level: 2, exact: true })
       await expect(area).toBeVisible()
       expect(await area.evaluate(el => el.closest('a, button'))).toBeNull()
@@ -55,7 +55,7 @@ for (const scenario of [
       await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
       await expect.poll(() => area.locator('span').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
       expect(await drawer.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true)
-      await drawer.getByRole('link', { name: 'Back to Ledger', exact: true }).click()
+      await drawer.getByRole('link', { name: 'Back to Geldos', exact: true }).click()
       await expect(page.getByRole('heading', { name: 'Home', level: 1, exact: true })).toBeVisible()
       await expect(drawer).toBeHidden()
     } else if (scenario.label === 'Documentation') {
@@ -103,7 +103,7 @@ test('gallery opens isolated consumer templates with GitHub source and native hi
   await expect(source).toHaveText('')
   await app.getByRole('link', { name: 'Profile', exact: true }).click()
   await app.getByRole('radiogroup', { name: 'Appearance', exact: true }).getByText('Dark', { exact: true }).click()
-  await app.getByRole('link', { name: 'Back to Ledger', exact: true }).click()
+  await app.getByRole('link', { name: 'Back to Geldos', exact: true }).click()
   await app.locator('#template-desktop-navigation').getByRole('link', { name: 'Accounts', exact: true }).click()
   await expect(app.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
   await app.getByRole('link', { name: 'Operating checking', exact: true }).click()
@@ -159,7 +159,8 @@ test('spec App mode follows an exact account through validation cancel and curre
   await dialog.getByRole('button', { name: 'Update', exact: true }).click()
   await expect(dialog).toHaveCount(0)
   await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
-  await product.locator('[data-fve-page-header="true"]').getByRole('link', { name: 'Delete', exact: true }).click()
+  await product.locator('[data-fve-page-header="true"]').getByRole('button', { name: 'More actions', exact: true }).click()
+  await product.getByRole('menuitem', { name: 'Delete', exact: true }).click()
   const deletion = product.getByRole('dialog', { name: 'Delete Unassigned expense?', exact: true })
   await expect(deletion).toBeVisible()
   await expect(deletion.getByRole('link', { name: /^Restore / })).toHaveCount(0)
@@ -180,10 +181,13 @@ for (const scenario of [
     const workspace = 'organization=example-household&environment=production&ledger=alex'
     await page.goto(`/examples/application/${scenario.path}?${workspace}`)
     const header = page.locator('[data-fve-page-header="true"]')
-    const remove = header.getByRole('link', { name: 'Delete', exact: true })
+    const more = header.getByRole('button', { name: 'More actions', exact: true })
+    await expect(more).toBeVisible()
+    await expect(header.getByRole('link', { name: 'Edit account', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('region', { name: 'Details', exact: true }).getByRole('link', { name: 'Edit account', exact: true })).toHaveCount(scenario.blocked ? 1 : 0)
+    await more.click()
+    const remove = page.getByRole('menuitem', { name: 'Delete', exact: true })
     await expect(remove).toBeVisible()
-    await expect(header.getByRole('button', { name: 'More actions', exact: true })).toHaveCount(0)
-    await expect(header.getByRole('link', { name: 'Edit account', exact: true })).toHaveCount(scenario.blocked ? 1 : 0)
     await remove.focus()
     await page.keyboard.press('Enter')
     const dialog = page.getByRole('dialog', { name: `Delete ${scenario.title}?`, exact: true })
@@ -196,7 +200,7 @@ for (const scenario of [
       await expect(dialog).toHaveCount(0)
       await expect(page).toHaveURL(url => url.pathname === `/examples/application/${scenario.path}`)
       await expect(page.getByRole('heading', { name: scenario.title, level: 1, exact: true })).toBeVisible()
-      await expect(header.getByRole('link', { name: 'Delete', exact: true })).toBeVisible()
+      await expect(more).toBeVisible()
     } else {
       await dialog.getByRole('button', { name: 'Delete', exact: true }).click()
       await expect(dialog).toHaveCount(0)
@@ -267,7 +271,7 @@ test('workspace menu and appearance preferences survive App mode document naviga
   await expect(product.getByRole('button', { name: 'Choose color theme', exact: true })).toHaveCount(0)
   await product.getByRole('link', { name: 'Profile', exact: true }).click()
   await product.getByRole('radiogroup', { name: 'Appearance', exact: true }).getByText('Dark', { exact: true }).click()
-  await product.getByRole('link', { name: 'Back to Ledger', exact: true }).click()
+  await product.getByRole('link', { name: 'Back to Geldos', exact: true }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
   await product.getByRole('button', { name: 'Open workspace menu: Alex', exact: true }).click()
   await product.getByRole('menuitem', { name: 'Jordan', exact: true }).click()
@@ -356,9 +360,9 @@ for (const { saved, choice, activation } of [
 
 test('rendered architecture nodes navigate from system context to project contracts', async ({ page }) => {
   await page.goto('/examples/specification/architecture')
-  await page.getByRole('region', { name: 'Ledger system context', exact: true }).locator('svg a').click()
+  await page.getByRole('region', { name: 'Geldos system context', exact: true }).locator('svg a').click()
   await expect(page).toHaveURL(/architecture\/solution/)
-  await page.getByRole('region', { name: 'Ledger project dependencies and HTTP boundary', exact: true }).locator('svg a').filter({ hasText: 'Example.Application' }).click()
+  await page.getByRole('region', { name: 'Geldos project dependencies and HTTP boundary', exact: true }).locator('svg a').filter({ hasText: 'Example.Application' }).click()
   await expect(page).toHaveURL(/architecture\/solution\/application/)
   await expect(page.getByRole('heading', { name: 'Operations', exact: true })).toBeVisible()
   await expect(page.getByText(/Example.Application\/Operations.fs validates/)).toBeVisible()

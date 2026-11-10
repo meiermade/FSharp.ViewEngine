@@ -7,18 +7,20 @@ rocket('fve-tabs', {
     let queued = false, disposed = false;
     const tabs = () => [...host.querySelectorAll('[data-fve-tab-value]')].filter(tab => tab.closest('fve-tabs') === host);
     const available = () => tabs().filter(tab => !tab.disabled && tab.getAttribute('aria-disabled') !== 'true');
+    const serverSelected = () => host.getAttribute('selection') === 'server';
     $$('selected', host.getAttribute('value'));
     const observe = () => observer.observe(host, { childList: true, subtree: true, attributes: true, attributeFilter: ['value', 'disabled', 'aria-disabled', 'data-fve-tab-value'] });
     const synchronize = () => {
       observer.disconnect();
       const enabled = available();
+      if (serverSelected()) $$.selected = host.getAttribute('value');
       if (!enabled.some(tab => tab.dataset.fveTabValue === $$.selected)) $$.selected = enabled[0]?.dataset.fveTabValue;
       for (const tab of tabs()) {
         const selected = tab.dataset.fveTabValue === $$.selected;
         tab.setAttribute('aria-selected', String(selected));
         tab.tabIndex = selected ? 0 : -1;
         const panel = host.ownerDocument.getElementById(tab.getAttribute('aria-controls'));
-        if (panel && host.contains(panel)) panel.hidden = !selected;
+        if (!serverSelected() && panel && host.contains(panel)) panel.hidden = !selected;
       }
       observe();
     };
@@ -33,6 +35,11 @@ rocket('fve-tabs', {
     });
     const choose = (tab, focus = false) => {
       if (!available().includes(tab)) return;
+      if (serverSelected()) {
+        if (focus) tab.focus();
+        tab.click();
+        return;
+      }
       $$.selected = tab.dataset.fveTabValue;
       synchronize();
       if (focus) tab.focus();
@@ -40,7 +47,7 @@ rocket('fve-tabs', {
     };
     host.addEventListener('click', event => {
       const tab = event.target.closest('[data-fve-tab-value]');
-      if (tab?.closest('fve-tabs') === host && !event.defaultPrevented) choose(tab);
+      if (tab?.closest('fve-tabs') === host && !event.defaultPrevented && !serverSelected()) choose(tab);
     }, { signal: events.signal });
     host.addEventListener('keydown', event => {
       const tab = event.target.closest('[data-fve-tab-value]');

@@ -100,6 +100,7 @@ module Model =
           startDate: string
           endDate: string
           status: string
+          transactionPage: int
           appMode: bool
           specState: string
           resource: string
@@ -128,6 +129,7 @@ module Model =
           startDate = ""
           endDate = ""
           status = "all"
+          transactionPage = 1
           appMode = false
           specState = ""
           resource = ""
@@ -163,6 +165,7 @@ module Model =
           startDate = value "startDate"
           endDate = value "endDate"
           status = fallback "status" "all"
+          transactionPage = (match Int32.TryParse(value "transactionPage") with true, page when page > 0 -> page | _ -> 1)
           appMode = (value "appMode" = "1" || value "fveAppMode" = "app")
           specState = value "specState"
           resource = value "resource"

@@ -175,6 +175,12 @@ rocket('fve-select', {
       else { changed([{ value, label }]); $$.query = ''; $$.open = false; synchronize(); trigger().focus(); }
     };
     host.addEventListener('input', event => {
+      // A composed control may update the native fallback without committing a user change.
+      if (event.target === nativeControl()) {
+        const item = event.target.selectedOptions[0];
+        $$.selected = item ? [{ value: item.value, label: item.textContent }] : [];
+        synchronize(); return;
+      }
       if (event.target !== search() || settings.unavailable) return;
       const query = event.target.value;
       abort(); $$.query = query; $$.active = ''; $$.open = true;
