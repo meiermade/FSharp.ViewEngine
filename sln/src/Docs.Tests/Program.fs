@@ -2729,6 +2729,31 @@ after"""
                       "expanded review does not initialize hidden documentation diagrams"
           }
 
+          test "Specification Browser addresses round-trip period, scenario and date selections" {
+              let inputValue name (html:string) =
+                  let input = Regex.Matches(html, "<input\\b[^>]*>") |> Seq.find (fun matched -> Regex.IsMatch(matched.Value, "\\bname=\"" + Regex.Escape(name) + "\""))
+                  Regex.Match(input.Value, "\\bvalue=\"([^\"]*)\"").Groups[1].Value |> WebUtility.HtmlDecode
+              for suffix, period, scenario, first, last in
+                  [ "specState=period", "30", "expected", "2026-08-20", "2026-09-18"
+                    "specState=scenario", "90", "pessimistic", "2026-06-21", "2026-09-18"
+                    "specState=scenario&range=7&comparison=optimistic&startDate=2026-09-14&endDate=2026-09-17", "7", "optimistic", "2026-09-14", "2026-09-17" ] do
+                  let status, html = routeResponse ("/examples/specification/home?" + suffix)
+                  Expect.equal status 200 "the Specification selection resolves"
+                  let address = Regex.Match(html, "data-browser-url=\"([^\"]+)\"").Groups[1].Value |> WebUtility.HtmlDecode
+                  Expect.isNotEmpty address "the Browser advertises a real product address"
+                  let parameters = Microsoft.AspNetCore.WebUtilities.QueryHelpers.ParseQuery(Uri(Uri "https://fve.meiermade.com", address).Query)
+                  for KeyValue(name, values) in parameters do
+                      Expect.equal values.Count 1 ("each advertised query key occurs once: " + name)
+                  let source = Regex.Match(html, "<iframe[^>]+src=\"([^\"]+)\"").Groups[1].Value |> WebUtility.HtmlDecode
+                  let sourceStatus, displayed = routeResponse source
+                  let productStatus, product = routeResponse address
+                  Expect.equal sourceStatus 200 "the embedded product resolves"
+                  Expect.equal productStatus 200 "the advertised product address resolves"
+                  for name, value in ["range", period; "comparison", scenario; "startDate", first; "endDate", last] do
+                      Expect.equal (inputValue name displayed) value ("the Specification displays the selected " + name)
+                      Expect.equal (inputValue name product) value ("opening the address retains the selected " + name)
+          }
+
           test "Specification frames complete product documents without duplicating review chrome" {
               for page in Example.Server.Specification.workflowPages do
                   let status, html = routeResponse ("/examples/specification/" + page)

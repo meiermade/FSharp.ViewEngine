@@ -172,14 +172,6 @@ module Specification =
                       yield key, value
               if addressQuery.state <> "" then
                   yield "state", addressQuery.state
-              if addressQuery.range <> "90" then
-                  yield "range", addressQuery.range
-              if addressQuery.comparison <> "expected" then
-                  yield "comparison", addressQuery.comparison
-              if addressQuery.startDate <> "" then
-                  yield "startDate", addressQuery.startDate
-              if addressQuery.endDate <> "" then
-                  yield "endDate", addressQuery.endDate
               if addressQuery.overlayFrom <> "" then
                   yield "from", addressQuery.overlayFrom ]
 
