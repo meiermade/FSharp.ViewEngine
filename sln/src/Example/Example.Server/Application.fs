@@ -36,18 +36,20 @@ module Application =
         | "billing" -> SettingsBilling.render query
         | _ -> SettingsGeneral.render query
 
-    let private recordActions query editPage deletePage =
-        div {
-            _class "flex min-w-0 max-w-full items-center gap-2"
-
-            match editPage with
-            | Some page -> Layout.secondaryLink (collectionHref query page) "Edit account"
-            | None -> ()
-
-            fveLink {
-                _variant LinkVariant.Outline
-                _color Color.Error
+    let private recordActions query deletePage =
+        fveDropdownMenu {
+            _id (elementId query "record-actions")
+            _ariaLabel "More actions"
+            fveDropdownMenuTrigger {
+                _class (Controls.rowActionClass + " ring-1 ring-inset ring-[var(--fve-border)]")
+                fun (attributes:HtmlAttribute list) -> button {
+                    for attribute in attributes do attribute
+                    fveIcon { _name IconName.EllipsisHorizontal; _variant IconVariant.Micro }
+                }
+            }
+            fveDropdownMenuItem {
                 _href (collectionHref query deletePage)
+                _color Color.Error
                 "Delete"
             }
         }
@@ -71,7 +73,7 @@ module Application =
             | ApplicationPage.Transaction id -> ViewTransaction.transactionDetail query id
             | ApplicationPage.Settings -> SettingsGeneral.render query
             | ApplicationPage.SettingsSection key -> settings query key
-            | ApplicationPage.Environment id -> ViewEnvironment.environmentDetail id
+            | ApplicationPage.Environment id -> ViewEnvironment.environmentDetail query id
             | ApplicationPage.Profile -> ViewProfile.profile query
             | ApplicationPage.ProfileOrganizations -> ProfileOrganizations.profileOrganizations query
             | _ -> text ""
@@ -90,22 +92,9 @@ module Application =
             | ApplicationPage.Account id ->
                 recordActions
                     { query with overlayFrom = "" }
-                    (Some(ApplicationPage.EditAccount id))
                     (ApplicationPage.DeleteAccount id)
             | ApplicationPage.Transaction id ->
-                recordActions { query with overlayFrom = "" } None (ApplicationPage.DeleteTransaction id)
-            | ApplicationPage.Environment id ->
-                Layout.secondaryLink (url (ApplicationPage.EditEnvironment id)) "Edit environment"
-            | ApplicationPage.Profile
-            | ApplicationPage.Settings
-            | ApplicationPage.SettingsSection "general" ->
-                fveLink {
-                    _variant LinkVariant.Outline
-                    _color Color.Neutral
-                    _href (url (if background = ApplicationPage.Profile then ApplicationPage.EditProfile else ApplicationPage.EditOrganization))
-                    Layout.icon "m16.862 4.487 1.687-1.688a1.875 1.875 0 0 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125M18 14.25v4.875A1.875 1.875 0 0 1 16.125 21H4.875A1.875 1.875 0 0 1 3 19.125V7.875A1.875 1.875 0 0 1 4.875 6H9.75"
-                    "Edit"
-                }
+                recordActions { query with overlayFrom = "" } (ApplicationPage.DeleteTransaction id)
             | ApplicationPage.SettingsSection "api-clients" ->
                 fveLink {
                     _variant LinkVariant.Outline
@@ -116,8 +105,7 @@ module Application =
                     _title "Opens in a new tab"
                     "API Docs"
 
-                    Layout.icon
-                        "M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-7.5M21 3v7.5"
+                    Layout.icon IconName.ArrowTopRightOnSquare
                 }
             | _ -> text ""
 

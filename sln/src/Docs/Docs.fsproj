@@ -17,6 +17,7 @@
     <Compile Include="src\Pages\Appearance.fs" />
     <Compile Include="src\Pages\ComponentGuideExamples.fs" />
     <Compile Include="src\Pages\ComponentInstallation.fs" />
+    <Compile Include="src\Pages\IconBrowser.fs" />
     <Compile Include="src\Pages\Components.fs" />
     <Compile Include="src\Pages\ComponentDocumentation.fs" />
     <Compile Include="src\Pages\Examples.fs" />

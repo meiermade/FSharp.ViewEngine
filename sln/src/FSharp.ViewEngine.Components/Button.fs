@@ -7,12 +7,6 @@ open FSharp.ViewEngine
 open type Html
 open type Datastar
 
-/// <category>button</category>
-[<AutoOpen>]
-module ButtonAttributes =
-    type Html with
-        static member _iconOnly(value:bool) = Html._attr("icon-only", if value then "true" else "false")
-
 module internal Button =
 
     let private indicatorSignal (attribute:HtmlAttribute) =
@@ -54,7 +48,6 @@ module internal Button =
         for name,allowed in [ "color",["primary";"secondary";"success";"warning";"error";"info";"neutral";"custom"]
                               "variant",["solid";"soft";"outline";"ghost"]
                               "size",["extra-small";"small";"medium";"large";"extra-large"]
-                              "icon-only",["true";"false"]
                               "type",["button";"submit";"reset"] ] do
             match attribute name with
             | Some { Value = ValueSome actual } when List.contains actual allowed -> ()

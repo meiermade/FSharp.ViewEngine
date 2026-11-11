@@ -11,7 +11,7 @@
 
 A minimal, typed HTML DSL for F#. Build server-rendered HTML with computation expressions, mixing attributes, strings, and child elements in one sequence.
 
-The [Docs site](https://fve.meiermade.com) and [source](https://github.com/meiermade/FSharp.ViewEngine/tree/main/sln/src) are the implementation references. Each [component page](https://fve.meiermade.com/components) includes focused, copyable examples. The [Examples gallery](https://fve.meiermade.com/examples) demonstrates Application, Specification, and API documentation using one [runnable financial application](sln/src/Example/README.md).
+The [Docs site](https://fve.meiermade.com) and [source](https://github.com/meiermade/FSharp.ViewEngine/tree/main/sln/src) are the implementation references. Each [component page](https://fve.meiermade.com/components) includes focused, copyable examples. The [Examples gallery](https://fve.meiermade.com/examples) demonstrates Marketing, Application, Specification, and API documentation using one [runnable Geldos example](sln/src/Example/README.md).
 
 ## Install
 

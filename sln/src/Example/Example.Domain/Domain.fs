@@ -2,7 +2,7 @@ namespace Ledger
 
 open System
 
-/// Immutable USD financial fixtures and workspace facts shared by all three examples.
+/// Immutable USD financial fixtures and workspace facts shared by the Geldos examples.
 module Domain =
     [<RequireQualifiedAccess>]
     type AccountType = Asset | Liability | Equity | Revenue | Expense

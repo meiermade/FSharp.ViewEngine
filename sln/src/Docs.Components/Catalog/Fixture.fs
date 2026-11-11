@@ -193,8 +193,7 @@ module Fixture =
                 _class
                     "absolute top-3 right-3 z-2 grid size-8 cursor-pointer place-items-center rounded-md border border-[var(--fve-border)] bg-[var(--fve-surface)] text-[var(--fve-text)] shadow-sm hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&>svg]:size-4"
 
-                raw
-                    """<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M7.25 3.75h-3.5v3.5M12.75 3.75h3.5v3.5M7.25 16.25h-3.5v-3.5M12.75 16.25h3.5v-3.5"/></svg>"""
+                fveIcon { _name IconName.ArrowsPointingOut; _size Size.Small }
             }
 
             value.embeddedContent
@@ -235,9 +234,7 @@ module Fixture =
             }
         }
 
-    let private reviewIcon path =
-        raw
-            $"<svg class=\"size-4 shrink-0\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" aria-hidden=\"true\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" d=\"{path}\"/></svg>"
+    let private reviewIcon (name: IconName) = fveIcon { _name name; _size Size.Small }
 
     /// Full-viewport product content with a compact floating review strip. The consumer owns routing and preference persistence.
     let renderAppMode (exitHref: string) (value: FixtureConfig) =
@@ -295,25 +292,25 @@ module Fixture =
             fragment {
                 span {
                     _dataShow $"${appearance} == 'system'"
+                    _class "inline-flex"
 
-                    reviewIcon
-                        "M9 17.25v3m6-3v3M6 20.25h12M4.5 3.75h15A1.5 1.5 0 0 1 21 5.25v10.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 15.75V5.25a1.5 1.5 0 0 1 1.5-1.5Z"
+                    reviewIcon IconName.ComputerDesktop
                 }
 
                 span {
                     _dataShow $"${appearance} == 'light'"
+                    _class "inline-flex"
                     _style "display:none"
 
-                    reviewIcon
-                        "M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"
+                    reviewIcon IconName.Sun
                 }
 
                 span {
                     _dataShow $"${appearance} == 'dark'"
+                    _class "inline-flex"
                     _style "display:none"
 
-                    reviewIcon
-                        "M21.752 15.002A9.718 9.718 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 2.25 12c0 5.385 4.365 9.75 9.75 9.75a9.753 9.753 0 0 0 9.752-6.748Z"
+                    reviewIcon IconName.Moon
                 }
             }
 
@@ -363,7 +360,7 @@ module Fixture =
                 )
 
                 if hasWorkflow then
-                    direction "Previous" (reviewIcon "m15 18-6-6 6-6") value.previous
+                    direction "Previous" (reviewIcon IconName.ChevronLeft) value.previous
 
                 if not value.states.IsEmpty then
                     fveDropdownMenu {
@@ -378,7 +375,7 @@ module Fixture =
                                     currentLabel
                                 }
 
-                                reviewIcon "m8.25 9.75 3.75 3.75 3.75-3.75"
+                                reviewIcon IconName.ChevronDown
                             }
                         }
 
@@ -388,7 +385,7 @@ module Fixture =
                                 state.label
 
                                 if state.current then
-                                    fveDropdownMenuItemTrailing { reviewIcon "m4.5 12.75 6 6 9-13.5" }
+                                    fveDropdownMenuItemTrailing { reviewIcon IconName.Check }
                             }
 
                         _id (controlsId + "-state")
@@ -401,7 +398,7 @@ module Fixture =
                     }
 
                 if hasWorkflow then
-                    direction "Next" (reviewIcon "m9 6 6 6-6 6") value.next
+                    direction "Next" (reviewIcon IconName.ChevronRight) value.next
 
                 span {
                     _ariaHidden true
@@ -451,13 +448,13 @@ module Fixture =
 
                         span {
                             _dataShow $"!${dock}"
-                            reviewIcon "M12 19.5v-15m-6 6 6-6 6 6"
+                            reviewIcon IconName.ArrowUp
                         }
 
                         span {
                             _dataShow $"${dock}"
                             _style "display:none"
-                            reviewIcon "M12 4.5v15m6-6-6 6-6-6"
+                            reviewIcon IconName.ArrowDown
                         }
                     }
                 }
@@ -468,7 +465,7 @@ module Fixture =
                     _ariaLabel "Exit App mode"
                     _title "Exit App mode"
                     _class iconLinkClass
-                    reviewIcon "m6 6 12 12M6 18 18 6"
+                    reviewIcon IconName.XMark
                 }
 
                 noscript {

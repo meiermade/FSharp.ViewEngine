@@ -313,7 +313,7 @@ if (control?.getClientRects().length) {
                                 }
                                 fveInputGroupAddon {
                                     _ariaHidden true
-                                    raw """<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.197 5.197a7.5 7.5 0 0 0 10.606 10.606Z"/></svg>"""
+                                    fveIcon { _name IconName.MagnifyingGlass; _size Size.Small }
                                 }
                                 fveInputGroupAddon {
                                     _position InputGroupPosition.InlineEnd
@@ -323,7 +323,7 @@ if (control?.getClientRects().length) {
                                         _ariaLabel ("Clear Search " + kind)
                                         _class "flex size-6 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
                                         _dataOn ("click", "const field = el.closest('[data-collection-search]').querySelector('input'); if (!field.disabled && !field.readOnly) { field.value = ''; field.focus(); field.dispatchEvent(new Event('input', {bubbles: true})); field.dispatchEvent(new Event('change', {bubbles: true})); }")
-                                        raw """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 0 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z"/></svg>"""
+                                        fveIcon { _name IconName.XMark; _variant IconVariant.Micro }
                                     }
                                 }
                             }
@@ -352,7 +352,7 @@ if (control?.getClientRects().length) {
 
                                         span {
                                             _class "inline-flex items-center gap-2"
-                                            Layout.icon "M12 4.5v15m7.5-7.5h-15"
+                                            fveIcon { _name IconName.Plus; _variant IconVariant.Micro }
                                             "Add filter"
                                         }
                                     }
@@ -538,7 +538,7 @@ form.requestSubmit();
                                                             summary
                                                         }
 
-                                                        Layout.icon "m19.5 8.25-7.5 7.5-7.5-7.5"
+                                                        Layout.icon IconName.ChevronDown
                                                     }
                                                 }
 
@@ -579,7 +579,7 @@ form.requestSubmit();
                                         span {
                                             _ariaHidden true
                                             _class "inline-flex shrink-0"
-                                            Layout.icon "m6 6 12 12M6 18 18 6"
+                                            Layout.icon IconName.XMark
                                         }
                                     }
                                 }

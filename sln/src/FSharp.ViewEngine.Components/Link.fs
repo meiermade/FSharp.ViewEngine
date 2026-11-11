@@ -29,11 +29,13 @@ module internal Link =
         let classes = ComponentHtml.classes [
             if variant = "text" then
                 ActionStyles.iconClasses
+                "inline-flex items-center gap-2"
                 ComponentHtml.controlSizeClass size
                 if size.IsSome then "text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)]"
             else
                 ActionStyles.baseClasses
-                ComponentHtml.sizeClasses size
+                ComponentHtml.controlSizeClass size
+                ActionStyles.geometryClasses
             appearance
             ComponentColors.focus ]
         ComponentElement.render "a"

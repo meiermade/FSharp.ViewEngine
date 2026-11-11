@@ -104,20 +104,7 @@ module SearchView =
                 _class
                     "flex h-8 cursor-pointer items-center gap-2 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] px-2.5 text-sm text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] max-sm:w-8 max-sm:justify-center max-sm:p-0"
 
-                svg {
-                    _viewBox "0 0 24 24"
-                    _fill "none"
-                    _ariaHidden true
-                    _class "size-4 shrink-0"
-                    _attr ("stroke", "currentColor")
-                    _attr ("stroke-width", "1.5")
-
-                    path {
-                        _attr ("stroke-linecap", "round")
-                        _attr ("stroke-linejoin", "round")
-                        _d "m21 21-4.34-4.34M11 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16Z"
-                    }
-                }
+                fveIcon { _name IconName.MagnifyingGlass; _size Size.Small }
 
                 kbd {
                     _class "hidden rounded border border-[var(--fve-border)] px-1 py-px font-mono text-xs sm:inline"

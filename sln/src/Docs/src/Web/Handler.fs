@@ -77,6 +77,22 @@ module Handler =
                 page)
             (View.navigationPageWithPage mode Registry.navigation registration page)
 
+    let private calendarSelection (context: Microsoft.AspNetCore.Http.HttpContext) : Components.CalendarDemoSelection =
+        let query key = context.Request.Query[key].ToString()
+        let defaults = Components.defaultCalendarSelection
+        let date =
+            match DateOnly.TryParseExact(query "calendarDate", "yyyy-MM-dd", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None) with
+            | true, value when value >= DateOnly(2026, 9, 14) && value <= DateOnly(2026, 9, 20) -> value
+            | _ -> defaults.date
+        let parsedTime = TimeOnly.TryParseExact(query "selection.start", "HH:mm", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None)
+        let parsedMinutes = Int32.TryParse(query "selection.minutes")
+        let minutes = match parsedMinutes with true, value when List.contains value [30; 60; 90] -> value | _ -> defaults.minutes
+        let start, submitted =
+            match parsedTime, parsedMinutes with
+            | (true, time), (true, duration) when List.contains duration [30; 60; 90] && time.Hour * 60 + time.Minute >= 360 && time.Hour * 60 + time.Minute + duration <= 1320 && time.Minute % 30 = 0 -> time, true
+            | _ -> defaults.start, false
+        { date = date; start = start; minutes = minutes; submitted = submitted }
+
     let render (page: DocPage) : HttpHandler =
         fun next context ->
             let intent = Navigation.tryIntent context
@@ -102,6 +118,25 @@ module Handler =
                             docsPage
                             root)
                         (root, View.contentMetadata Registry.navigation page docsPage)
+                elif page.id = Components.iconRegistration.id then
+                    let count =
+                        match Int32.TryParse(context.Request.Query["count"].ToString()) with
+                        | true, count -> count
+                        | _ -> IconBrowser.batchSize
+                    let search = context.Request.Query["search"].ToString()
+                    if intent = Some Example.Server.Navigation.Filter then
+                        Navigation.respond
+                            Example.Server.Navigation.Review
+                            (IconBrowser.render count search |> Render.toString)
+                            (View.contentMetadata Registry.navigation page Components.iconPage |> Render.toString)
+                    else
+                        respondWithPage intent context page (Components.iconPageFor count search)
+                elif page.id = Components.tabsRegistration.id then
+                    respondWithPage intent context page (Components.tabsPageFor (context.Request.Query["tab"].ToString()))
+                elif page.id = Components.dayCalendarRegistration.id then
+                    respondWithPage intent context page (Components.dayCalendarPageFor (calendarSelection context))
+                elif page.id = Components.weekCalendarRegistration.id then
+                    respondWithPage intent context page (Components.weekCalendarPageFor (calendarSelection context))
                 elif
                     page.id = Components.selectRegistration.id
                     && context.Request.Query["fixtures"].ToString() = "1"

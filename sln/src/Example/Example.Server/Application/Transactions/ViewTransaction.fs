@@ -16,10 +16,8 @@ module internal ViewTransaction =
         let transaction = findTransaction id
         let account = findAccount transaction.accountId
 
-        div {
-            _class "grid max-w-3xl gap-6"
-
-            fveDescriptionList {
+        fveSectionStack {
+            Layout.section "Details" (fveDescriptionList {
                 fveDescriptionListItem {
                     _label "Date"
                     date transaction.date
@@ -52,5 +50,5 @@ module internal ViewTransaction =
                 }
 
                 _columns DescriptionListColumns.Three
-            }
+            })
         }

@@ -47,6 +47,14 @@
       <Compile Include="Components/Dialog.fs" />
       <Compile Include="Components/Drawer.fs" />
       <Compile Include="Components/Command.fs" />
+      <Compile Include="Components/Popover.fs" />
+      <Compile Include="Components/TimePicker.fs" />
+      <Compile Include="Components/Section.fs" />
+      <Compile Include="Components/Disclosure.fs" />
+      <Compile Include="Components/Pagination.fs" />
+      <Compile Include="Components/IconNames.fs" />
+      <Compile Include="Components/IconData.fs" />
+      <Compile Include="Components/Icon.fs" />
       <None Include="fve.json" />
       <None Include="Components/Assets/datastar-LICENSE.txt" />
       <None Include="Components/Assets/datastar-rocket.1.0.4.js" />
@@ -73,6 +81,12 @@
       <None Include="Components/Assets/dialog.js" />
       <None Include="Components/Assets/drawer.js" />
       <None Include="Components/Assets/command.js" />
+      <None Include="Components/Assets/popover.js" />
+      <None Include="Components/Assets/time-picker.js" />
+      <None Include="Components/Assets/heroicons-LICENSE.txt" />
+      <None Include="Components/Assets/heroicons.2.2.0.provenance.json" />
+      <None Include="Components/Assets/bootstrap-icons-LICENSE.txt" />
+      <None Include="Components/Assets/bootstrap-icons.1.13.1.provenance.json" />
   </ItemGroup>
   <!-- fve:components:end -->
   <ItemGroup>

@@ -66,11 +66,11 @@ test('packed fve output renders a styled accessible generated consumer', async (
   await expect(iconButton.locator('svg')).toHaveCount(1)
   await expect(iconButton).toHaveCSS('width', '28px')
   await expect(iconButton).toHaveCSS('height', '28px')
-  for (const [label, pixels] of [['XS', 24], ['S', 28], ['M', 32], ['L', 36], ['XL', 40]] as const) {
+  for (const [label, pixels, padding] of [['XS', 24, 3], ['S', 28, 3], ['M', 32, 5], ['L', 36, 7], ['XL', 40, 9]] as const) {
     const square = page.locator('#generated-button-sizes').getByRole('button', { name: `Size ${label}`, exact: true })
     await expect(square).toHaveCSS('width', `${pixels}px`)
     await expect(square).toHaveCSS('height', `${pixels}px`)
-    await expect(square).toHaveCSS('padding', '0px')
+    await expect(square).toHaveCSS('padding', `${padding}px`)
   }
   await expect(page.getByRole('button', { name: 'Refresh balances', exact: true }).locator('svg')).toHaveCount(1)
   await expect(page.getByRole('button', { name: 'Sync now', exact: true }).locator('svg')).toHaveCount(1)

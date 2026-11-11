@@ -12,10 +12,10 @@ open Ledger.Domain
 open Controls
 
 module internal ViewEnvironment =
-    let environmentDetail id =
+    let environmentDetail (query:Query) id =
         let environment = findEnvironment id
 
-        fveDescriptionList {
+        Layout.sectionWithEdit "Details" (applicationHref query (ApplicationPage.EditEnvironment id)) (fveDescriptionList {
             fveDescriptionListItem {
                 _label "Name"
                 environment.name
@@ -36,4 +36,4 @@ module internal ViewEnvironment =
             }
 
             _columns DescriptionListColumns.Three
-        }
+        })

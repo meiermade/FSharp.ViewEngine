@@ -338,6 +338,8 @@ module internal ComponentColors =
     let softInteraction = "enabled:hover:bg-[var(--fve-color-soft-hover)] enabled:active:bg-[var(--fve-color-soft-active)]"
     let focus = "focus-visible:ring-[var(--fve-color-focus)] focus-visible:ring-offset-[var(--fve-surface)]"
 module internal ActionStyles =
+    let geometryClasses = "min-h-[var(--fve-control-min-height)] min-w-[var(--fve-control-min-height)] p-[max(0px,calc((var(--fve-control-min-height)-var(--fve-control-line-height))/2-var(--fve-control-border-width,0px)))] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)]"
+
     let iconClasses = "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0"
 
     let baseClasses =
@@ -347,7 +349,7 @@ module internal ControlGroup =
     // A logical segment exports geometry to marked native controls, regardless of wrapper depth.
     // Popovers and dialogs are independent surfaces, not segments of their opener's group.
     let private controls =
-        "[&_[data-fve-group-control]]:relative [&_[data-fve-group-control]:focus-visible]:z-10 [&_[data-fve-group-control]]:[border-start-start-radius:var(--fve-group-radius-ss,var(--fve-radius-control))] [&_[data-fve-group-control]]:[border-start-end-radius:var(--fve-group-radius-se,var(--fve-radius-control))] [&_[data-fve-group-control]]:[border-end-start-radius:var(--fve-group-radius-es,var(--fve-radius-control))] [&_[data-fve-group-control]]:[border-end-end-radius:var(--fve-group-radius-ee,var(--fve-radius-control))] [&_[data-fve-group-control=outline]]:[border-inline-start-width:var(--fve-group-border-inline-start,1px)] [&_[data-fve-group-control=outline]]:[border-block-start-width:var(--fve-group-border-block-start,1px)]"
+        "[&_[data-fve-group-control]]:relative [&_[data-fve-group-control]]:shrink-0 [&_[data-fve-group-control]:focus-visible]:z-10 [&_[data-fve-group-control]]:[border-start-start-radius:var(--fve-group-radius-ss,var(--fve-radius-control))] [&_[data-fve-group-control]]:[border-start-end-radius:var(--fve-group-radius-se,var(--fve-radius-control))] [&_[data-fve-group-control]]:[border-end-start-radius:var(--fve-group-radius-es,var(--fve-radius-control))] [&_[data-fve-group-control]]:[border-end-end-radius:var(--fve-group-radius-ee,var(--fve-radius-control))] [&_[data-fve-group-control=outline]]:[border-inline-start-width:var(--fve-group-border-inline-start,1px)] [&_[data-fve-group-control=outline]]:[border-block-start-width:var(--fve-group-border-block-start,1px)]"
 
     let private surfaces =
         "[&_:is([popover],dialog)]:[--fve-group-radius-ss:initial] [&_:is([popover],dialog)]:[--fve-group-radius-se:initial] [&_:is([popover],dialog)]:[--fve-group-radius-es:initial] [&_:is([popover],dialog)]:[--fve-group-radius-ee:initial] [&_:is([popover],dialog)]:[--fve-group-border-inline-start:initial] [&_:is([popover],dialog)]:[--fve-group-border-block-start:initial]"
@@ -413,9 +415,6 @@ module internal ComponentHtml =
 
     let sizeClasses size =
         classes [ controlSizeClass size; "min-h-[var(--fve-control-min-height)] px-[max(0px,calc(var(--fve-control-padding-inline)-var(--fve-control-border-width,0px)))] py-[max(0px,calc(var(--fve-control-padding-block)-var(--fve-control-border-width,0px)))] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)]" ]
-
-    let iconButtonSizeClasses size =
-        classes [ controlSizeClass size; "size-[var(--fve-control-min-height)] p-0" ]
 
     let loadingGlyph size =
         let sizeClass =

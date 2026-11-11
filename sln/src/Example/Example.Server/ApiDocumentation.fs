@@ -28,7 +28,7 @@ module ApiDocumentation =
         | "list-transactions" -> "List transactions"
         | "get-transaction" -> "Get transaction"
         | "delete-transaction" -> "Delete transaction"
-        | _ -> "Ledger API reference"
+        | _ -> "Geldos API reference"
 
     let private pretty (source: string) =
         use document = JsonDocument.Parse source
@@ -108,7 +108,7 @@ module ApiDocumentation =
                 _style "--fve-docs-code-surface:var(--fve-surface-subtle)"
 
                 _class (
-                    (ComponentsTheme.sky
+                    (Layout.theme
                      |> ComponentsTheme.withDensity Density.Compact
                      |> ComponentsTheme.withControlSize Size.Small
                      |> ComponentsTheme.className)
@@ -507,7 +507,7 @@ module ApiDocumentation =
               "Transactions", navigation |> List.skip 5 ]
 
         Layout.shell
-            "Ledger API"
+            "Geldos API"
             current
             groups
             (title page)

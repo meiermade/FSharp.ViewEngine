@@ -16,11 +16,12 @@ module internal SettingsGeneral =
         let table title headings rows =
             RecordTable.render title [ _mobileLayout MobileLayout.Records ] headings rows []
 
-        div {
-            _class "grid min-w-0 w-full gap-6"
+        fveSectionStack {
+            _class "w-full"
 
-            Layout.section
+            Layout.sectionWithEdit
                 "Details"
+                (applicationHref query ApplicationPage.EditOrganization)
                 (fveDescriptionList {
                     fveDescriptionListItem {
                         _label "Name"

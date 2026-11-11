@@ -59,7 +59,6 @@ module internal CopyReveal =
                     _title initialLabel
                     _attr ("data-fve-copy-reveal-action", "reveal")
                     if iconButtons then
-                        _iconOnly true
                         _ariaLabel initialLabel
                         span { _ariaHidden true; _class "inline-flex shrink-0"; revealIcon }
                     else span { _attr ("data-fve-copy-reveal-label", ""); initialLabel }
@@ -69,7 +68,6 @@ module internal CopyReveal =
                     _title "Copy"
                     _attr ("data-fve-copy-reveal-action", "copy")
                     if iconButtons then
-                        _iconOnly true
                         _ariaLabel "Copy"
                         span { _ariaHidden true; _class "inline-flex shrink-0"; copyIcon }
                     else "Copy"

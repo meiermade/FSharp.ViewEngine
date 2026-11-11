@@ -404,6 +404,8 @@ test('button groups keep compact seams, separate independent groups, and operate
 
   await page.setViewportSize({ width: 320, height: 1000 })
   await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
+  // Segments must retain their intrinsic widths rather than compress labels to avoid scrolling.
+  expect(await message.evaluate(el => el.scrollWidth - el.clientWidth)).toBeGreaterThan(0)
   const frame = (await preview.boundingBox())!
   const region = (await message.boundingBox())!
   expect(region.x).toBeGreaterThanOrEqual(frame.x)

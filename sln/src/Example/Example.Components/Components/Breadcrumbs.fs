@@ -72,7 +72,6 @@ module internal Breadcrumbs =
                                     _alignment DropdownMenuAlignment.Start
                                     fveDropdownMenuTrigger {
                                         fveButton {
-                                            _iconOnly true
                                             _variant ButtonVariant.Ghost
                                             _class "shadow-none"
                                             overflowIcon

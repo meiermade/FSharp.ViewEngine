@@ -159,49 +159,17 @@ module DocsSite =
     let withSearch search (site: DocsSite<'destination>) = { site with search = search }
 
 module private Icons =
-    let menu =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 5.75A.75.75 0 0 1 2.75 5h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 5.75Zm0 4A.75.75 0 0 1 2.75 9h14.5a.75.75 0 0 1 0 1.5H2.75A.75.75 0 0 1 2 9.75Zm.75 3.25a.75.75 0 0 0 0 1.5h14.5a.75.75 0 0 0 0-1.5H2.75Z" clip-rule="evenodd"/></svg>"""
-
-    let close =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 1 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z"/></svg>"""
-
-    let chevron =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
-
-    let breadcrumbChevron =
-        raw
-            """<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M6.22 4.22a.75.75 0 0 1 1.06 0l3.25 3.25a.75.75 0 0 1 0 1.06l-3.25 3.25a.75.75 0 0 1-1.06-1.06L8.94 8 6.22 5.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
-
-    let ellipsis =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M3.75 8.75a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Zm6.25 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Zm6.25 0a1.25 1.25 0 1 0 0 2.5 1.25 1.25 0 0 0 0-2.5Z"/></svg>"""
-
-    let externalLink =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10.75 2a.75.75 0 0 0 0 1.5h4.69l-7.97 7.97a.75.75 0 0 0 1.06 1.06l7.97-7.97v4.69a.75.75 0 0 0 1.5 0v-6.5a.75.75 0 0 0-.75-.75h-6.5Z"/><path d="M3.5 5.5a2 2 0 0 1 2-2H8a.75.75 0 0 1 0 1.5H5.5a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5h9a.5.5 0 0 0 .5-.5V12a.75.75 0 0 1 1.5 0v2.5a2 2 0 0 1-2 2h-9a2 2 0 0 1-2-2v-9Z"/></svg>"""
-
-    let github =
-        raw
-            """<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82A7.65 7.65 0 0 1 8 3.86c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg>"""
-
-    let sun =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M10 2a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 2Zm0 5a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0 8a.75.75 0 0 1 .75.75v1.5a.75.75 0 0 1-1.5 0v-1.5A.75.75 0 0 1 10 15ZM4.34 4.34a.75.75 0 0 1 1.06 0l1.06 1.06A.75.75 0 1 1 5.4 6.46L4.34 5.4a.75.75 0 0 1 0-1.06Zm9.2 9.2a.75.75 0 0 1 1.06 0l1.06 1.06a.75.75 0 1 1-1.06 1.06l-1.06-1.06a.75.75 0 0 1 0-1.06ZM2 10a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 2 10Zm13 0a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5h-1.5A.75.75 0 0 1 15 10Zm-.4-5.66a.75.75 0 0 1 1.06 1.06L14.6 6.46a.75.75 0 1 1-1.06-1.06l1.06-1.06ZM5.4 13.54a.75.75 0 0 1 1.06 1.06L5.4 15.66a.75.75 0 1 1-1.06-1.06l1.06-1.06Z"/></svg>"""
-
-    let moon =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path d="M17.293 13.293A8 8 0 0 1 6.707 2.707a8.001 8.001 0 1 0 10.586 10.586Z"/></svg>"""
-
-    let monitor =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M2 4.75A1.75 1.75 0 0 1 3.75 3h12.5A1.75 1.75 0 0 1 18 4.75v8.5A1.75 1.75 0 0 1 16.25 15h-5.5v1.5h2a.75.75 0 0 1 0 1.5h-5.5a.75.75 0 0 1 0-1.5h2V15h-5.5A1.75 1.75 0 0 1 2 13.25v-8.5Zm1.5 0v8.5c0 .14.11.25.25.25h12.5c.14 0 .25-.11.25-.25v-8.5a.25.25 0 0 0-.25-.25H3.75a.25.25 0 0 0-.25.25Z" clip-rule="evenodd"/></svg>"""
-
-    let check =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M16.7 5.3a.75.75 0 0 1 0 1.06l-8 8a.75.75 0 0 1-1.06 0l-4-4A.75.75 0 0 1 4.7 9.3l3.47 3.47 7.47-7.47a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
+    let menu = fveIcon { _name IconName.Bars3; _variant IconVariant.Mini }
+    let close = fveIcon { _name IconName.XMark; _variant IconVariant.Mini }
+    let chevron = fveIcon { _name IconName.ChevronRight; _variant IconVariant.Mini }
+    let breadcrumbChevron = fveIcon { _name IconName.ChevronRight; _variant IconVariant.Micro }
+    let ellipsis = fveIcon { _name IconName.EllipsisHorizontal; _variant IconVariant.Mini }
+    let externalLink = fveIcon { _name IconName.ArrowTopRightOnSquare; _variant IconVariant.Micro }
+    let github = fveIcon { _name IconName.GitHub; _size Size.Medium }
+    let sun = fveIcon { _name IconName.Sun; _variant IconVariant.Mini }
+    let moon = fveIcon { _name IconName.Moon; _variant IconVariant.Mini }
+    let monitor = fveIcon { _name IconName.ComputerDesktop; _variant IconVariant.Mini }
+    let check = fveIcon { _name IconName.Check; _variant IconVariant.Mini }
 
 module private ViewHelpers =
     let jsString (value: string) = JsonSerializer.Serialize(value)
@@ -211,7 +179,7 @@ module private ViewHelpers =
 
 module private ViewStyles =
     let iconButton =
-        "grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-transparent bg-transparent p-1.5 text-[var(--fve-muted-text)] no-underline hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-[1.125rem]"
+        "grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-transparent bg-transparent p-1 text-[var(--fve-muted-text)] no-underline hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-[1.125rem]"
 
     let sectionContent = "flex flex-col gap-4 text-[var(--fve-text)]"
 
@@ -295,12 +263,12 @@ module private ColorModeView =
                             _class ViewStyles.iconButton
 
                             span {
-                                _class "dark:hidden"
+                                _class "inline-flex dark:hidden"
                                 Icons.sun
                             }
 
                             span {
-                                _class "hidden dark:block"
+                                _class "hidden dark:inline-flex"
                                 Icons.moon
                             }
                         }
@@ -365,7 +333,7 @@ module private NavigationView =
                     fveSideNavBadge {
                         span {
                             _id $"nav-{id}-hint"
-                            _class "size-4 [&>svg]:size-4"
+                            _class "flex size-4 items-center justify-center"
                             _title "Opens in a new tab"
                             Icons.externalLink
 
@@ -895,29 +863,25 @@ module DocsView =
     let page (site: DocsSite<'destination>) (docPage: DocumentationPageConfig) =
         pageWithNavigation site (defaultBreadcrumbs site docPage) site.navigation docPage
 
-    let private previousIcon =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
+    let private previousIcon = fveIcon { _name IconName.ChevronLeft; _variant IconVariant.Mini }
 
-    let private nextIcon =
-        raw
-            """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
+    let private nextIcon = fveIcon { _name IconName.ChevronRight; _variant IconVariant.Mini }
 
     let private dockIcons =
         fragment {
             span {
                 _dataShow "!$appModeDockTop"
+                _class "inline-flex"
 
-                raw
-                    """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M10.53 4.47a.75.75 0 0 0-1.06 0l-4.25 4.25a.75.75 0 0 0 1.06 1.06L9.25 6.81V15a.75.75 0 0 0 1.5 0V6.81l2.97 2.97a.75.75 0 1 0 1.06-1.06l-4.25-4.25Z" clip-rule="evenodd"/></svg>"""
+                fveIcon { _name IconName.ArrowUp; _variant IconVariant.Mini }
             }
 
             span {
                 _dataShow "$appModeDockTop"
+                _class "inline-flex"
                 _style "display:none"
 
-                raw
-                    """<svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9.47 15.53a.75.75 0 0 0 1.06 0l4.25-4.25a.75.75 0 1 0-1.06-1.06l-2.97 2.97V5a.75.75 0 0 0-1.5 0v8.19l-2.97-2.97a.75.75 0 1 0-1.06 1.06l4.25 4.25Z" clip-rule="evenodd"/></svg>"""
+                fveIcon { _name IconName.ArrowDown; _variant IconVariant.Mini }
             }
         }
 

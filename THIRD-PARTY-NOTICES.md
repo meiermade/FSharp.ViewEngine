@@ -1,5 +1,12 @@
 # Third-party notices
 
+## Bootstrap Icons
+
+The GitHub, X and LinkedIn brand logos use unmodified SVG artwork from Bootstrap Icons 1.13.1, distributed under the MIT license.
+
+Source: https://github.com/twbs/icons
+Full license: [bootstrap-icons-LICENSE.txt](sln/src/FSharp.ViewEngine.Components/Assets/bootstrap-icons-LICENSE.txt)
+
 ## Heroicons
 
 The catalog's Heroicons SVG examples, including the envelope used by the Input gallery, are distributed under the following license. These icons are separate from the proprietary Tailwind Plus UI-block implementations, which are not redistributed here.

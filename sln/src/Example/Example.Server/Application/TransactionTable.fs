@@ -109,8 +109,7 @@ module internal TransactionTable =
                                               for attribute in triggerAttributes do
                                                   attribute
 
-                                              Layout.icon
-                                                  "M6.75 12a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm6 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"
+                                              fveIcon { _name IconName.EllipsisHorizontal; _variant IconVariant.Micro }
                                           }
 
                                   }

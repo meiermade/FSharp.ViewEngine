@@ -1,190 +1,91 @@
 namespace Example.Server.ApplicationPages
 
-open System
 open FSharp.ViewEngine
 open Example.Components
 open Example.Server
 open type Html
-open type Svg
-open type Datastar
 open Model
 open Ledger.Domain
-open Controls
 open TransactionTable
 
 module internal ViewAccount =
-    let chart (query: Query) =
-        let selected =
-            query.records.accounts
-            |> List.tryFind (fun account -> string account.id = query.account)
-            |> Option.defaultValue query.records.accounts.Head
+    let accountDetail (query:Query) id =
+        let account = query.records.accounts |> List.find (fun account -> account.id = id)
+        let query = { query with account = string id }
+        let page = ApplicationPage.Account id
+        let data = Ledger.Home.readHome { records=query.records; account=query.account; period=query.range; comparison=query.comparison; startDate=query.startDate; endDate=query.endDate }
+        let related = query.records.accounts |> List.filter (fun row -> row.id <> id && row.accountType = account.accountType)
+        let transactions = data.transactions |> List.sortByDescending (fun row -> row.date, row.id)
+        let pages = max 1 ((transactions.Length + 9) / 10)
+        let current = min pages query.transactionPage
+        let rows = transactions |> List.skip ((current - 1) * 10) |> List.truncate 10
+        let viewAll = applicationHref query ApplicationPage.Transactions + querySuffix ["account", string id; "startDate", query.startDate; "endDate", query.endDate]
+        let pageHref number =
+            applicationHref query page + querySuffix ["range", query.range; "comparison", query.comparison; "startDate", query.startDate; "endDate", query.endDate; "transactionPage", string number] + "#account-transactions"
 
-        let range =
-            match query.range with
-            | "30" -> 30
-            | "7" -> 7
-            | _ -> 90
-
-        let endDate = DateOnly(2026, 9, 18)
-        let startDate = endDate.AddDays(-range)
-
-        let balanceAt at =
-            selected.openingBalance
-            + (query.records.transactions
-               |> List.filter (fun transaction -> transaction.accountId = selected.id && transaction.date <= at)
-               |> List.sumBy _.amount)
-
-        let actual =
-            [ for index in 0..8 ->
-                  startDate.AddDays(range * index / 8), balanceAt (startDate.AddDays(range * index / 8)) ]
-
-        let factor =
-            match query.comparison with
-            | "optimistic" -> 1.5M
-            | "pessimistic" -> -0.5M
-            | _ -> 1M
-
-        let scenario =
-            [ for index in 0..8 ->
-                  startDate.AddDays(range * index / 8), selected.openingBalance + decimal index * 120M * factor ]
-
-        let values = (actual @ scenario) |> List.map snd
-        let lower = (List.min values) - 500M
-        let upper = (List.max values) + 500M
-
-        let point index value =
-            $"{40 + index * 90},{210 - int ((value - lower) / (upper - lower) * 170M)}"
-
-        let points values =
-            values
-            |> List.mapi (fun index (_, value) -> point index value)
-            |> String.concat " "
-
-        fveCard {
-            div {
-                _class "grid gap-4"
-
-                div {
-                    _class "flex flex-wrap items-start justify-between gap-3"
-
-                    div {
-                        p {
-                            _class "text-xs text-[var(--fve-muted-text)]"
-                            "Balance · " + selected.name
-                        }
-
-                        p {
-                            _class "mt-1 text-2xl font-semibold tabular-nums"
-                            money (balance query.records selected)
-                        }
-                    }
-
-                    div {
-                        _class "flex gap-4 text-xs text-[var(--fve-muted-text)]"
-
-                        span {
-                            _class "text-[var(--fve-brand-text)]"
-                            "━ Actual"
-                        }
-
-                        span {
-                            "┄ "
-                            + (match query.comparison with
-                               | "optimistic" -> "Optimistic"
-                               | "pessimistic" -> "Pessimistic"
-                               | _ -> "Expected")
-                            + " scenario"
-                        }
+        fveSectionStack {
+            fveSection {
+                _label "Details"
+                fveSectionActions {
+                    fveLink {
+                        _href (collectionHref { query with overlayFrom="" } (ApplicationPage.EditAccount id))
+                        _ariaLabel "Edit account"; _variant LinkVariant.Outline
+                        Layout.icon IconName.PencilSquare
+                        "Edit"
                     }
                 }
-
-                svg {
-                    _viewBox "0 0 800 240"
-                    _role "img"
-                    _ariaLabel ("Actual and scenario balances for " + selected.name)
-                    _class "h-56 w-full"
-                    Svg.titleElement { "Actual and scenario balances." }
-
-                    for y in [ 40; 125; 210 ] do
-                        line {
-                            _x1 "40"
-                            _x2 "760"
-                            _y1 (string y)
-                            _y2 (string y)
-                            _stroke "var(--fve-border)"
-                        }
-
-                    polyline {
-                        _points (points scenario)
-                        _fill "none"
-                        _stroke "var(--fve-muted-text)"
-                        _strokeWidth "2"
-                        _strokeDasharray "6 5"
-                    }
-
-                    polyline {
-                        _points (points actual)
-                        _fill "none"
-                        _stroke "var(--fve-brand-solid)"
-                        _strokeWidth "3"
-                    }
-                }
-
-                div {
-                    _class "flex justify-between text-xs text-[var(--fve-muted-text)]"
-                    span { date startDate }
-                    span { date endDate }
+                fveDescriptionList {
+                    _columns DescriptionListColumns.Three
+                    fveDescriptionListItem { _label "Type"; string account.accountType }
+                    fveDescriptionListItem { _label "Commodity"; account.currency }
+                    fveDescriptionListItem { _label "Parent account"; Controls.groupLabel account.accountType }
+                    fveDescriptionListItem { _label "Source"; "Manual" }
+                    fveDescriptionListItem { _label "Month-end observed balance"; "Not required" }
+                    fveDescriptionListItem { _label "Balance"; money (balance query.records account) }
                 }
             }
-        }
-
-    let accountDetail (query: Query) id =
-        let account = findAccount id
-
-        div {
-            _class "grid gap-6"
-
-            fveDescriptionList {
-                fveDescriptionListItem {
-                    _label "Type"
-                    string account.accountType
-                }
-
-                fveDescriptionListItem {
-                    _label "Commodity"
-                    "USD"
-                }
-
-                fveDescriptionListItem {
-                    _label "Parent account"
-                    groupLabel account.accountType
-                }
-
-                fveDescriptionListItem {
-                    _label "Source"
-                    "Manual"
-                }
-
-                fveDescriptionListItem {
-                    _label "Month-end observed balance"
-                    "Not required"
-                }
-
-                fveDescriptionListItem {
-                    _label "Balance"
-                    money (balance query.records account)
-                }
-
-                _columns DescriptionListColumns.Three
+            fveSection {
+                _label "Balance history"
+                _description "Compare actual and projected balances. Zoom the chart to focus the transaction history below."
+                Home.balanceHistory page false query
             }
-
-            chart { query with account = string id }
-
-            Layout.section
-                "Transactions"
-                (transactionTable
-                    query
-                    (account.name + " transactions")
-                    (query.records.transactions |> List.filter (fun transaction -> transaction.accountId = id))
-                    false)
+            fveSection {
+                _label "Related accounts"
+                _description ("Other " + string account.accountType + " accounts in this ledger.")
+                fveSectionActions { Layout.secondaryLink (applicationHref query ApplicationPage.Accounts + querySuffix ["accountType", string account.accountType]) "View all" }
+                if related.IsEmpty then
+                    fveEmptyState { _label "No related accounts"; _description "Other accounts of the same type will appear here." }
+                else
+                    fveTable {
+                        _ariaLabel ("Related " + string account.accountType + " accounts")
+                        _mobileLayout MobileLayout.Records
+                        fveTableCaption { "Related accounts" }
+                        fveTableHeader { fveTableRow { fveTableHead { "Account" }; fveTableHead { "Type" }; fveTableHead { _class "text-right"; "Balance" } } }
+                        fveTableBody {
+                            for row in related do
+                                fveTableRow {
+                                    fveTableHead { _scope "row"; _mobile Mobile.Primary; Layout.inlineLink (applicationHref query (ApplicationPage.Account row.id)) row.name }
+                                    fveTableCell { _label "Type"; string row.accountType }
+                                    fveTableCell { _label "Balance"; _class "text-right"; money (balance query.records row) }
+                                }
+                        }
+                    }
+            }
+            fveSection {
+                _id "account-transactions"; _label "Transactions"
+                _description (date data.visibleStart + " – " + date data.visibleEnd)
+                fveSectionActions { Layout.secondaryLink viewAll "View all" }
+                if transactions.IsEmpty then
+                    fveEmptyState { _label "No transactions in this date range"; _description "Choose different dates or reset zoom." }
+                else
+                    transactionTable query (account.name + " transactions") rows false
+                    footer {
+                        fvePagination {
+                            _ariaLabel "Account transactions"; _variant PaginationVariant.PreviousNextOnly
+                            fvePaginationSummary { $"Showing {(current - 1) * 10 + 1}–{(current - 1) * 10 + rows.Length} of {transactions.Length} transactions" }
+                            fvePaginationPrevious { if current > 1 then _href (pageHref (current - 1)) }
+                            fvePaginationNext { if current < pages then _href (pageHref (current + 1)) }
+                        }
+                    }
+            }
         }

@@ -23,6 +23,8 @@ import '../../Components/Assets/command.js';
 import '../../Components/Assets/dropdown-menu.js';
 import '../../Components/Assets/select.js';
 import '../../Components/Assets/calendar-selection.js';
+import '../../Components/Assets/calendar-range.js';
+import '../../Components/Assets/time-picker.js';
 import '../../Components/Assets/date-picker.js';
 import '../../Components/Assets/scroll-region.js';
 import '../../Components/Assets/side-nav.js';

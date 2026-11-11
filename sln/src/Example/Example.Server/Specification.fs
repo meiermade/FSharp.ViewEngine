@@ -48,7 +48,7 @@ module Specification =
             Architecture.navigation
             |> List.tryFind (fst >> (=) page)
             |> Option.map snd
-            |> Option.defaultValue "Financial specification")
+            |> Option.defaultValue "Geldos specification")
 
     let private specUrl page (query: Query) state appMode =
         specificationHref page state { query with appMode = appMode }
@@ -172,14 +172,6 @@ module Specification =
                       yield key, value
               if addressQuery.state <> "" then
                   yield "state", addressQuery.state
-              if addressQuery.range <> "90" then
-                  yield "range", addressQuery.range
-              if addressQuery.comparison <> "expected" then
-                  yield "comparison", addressQuery.comparison
-              if addressQuery.startDate <> "" then
-                  yield "startDate", addressQuery.startDate
-              if addressQuery.endDate <> "" then
-                  yield "endDate", addressQuery.endDate
               if addressQuery.overlayFrom <> "" then
                   yield "from", addressQuery.overlayFrom ]
 
@@ -448,7 +440,7 @@ module Specification =
             |> Option.defaultValue "Financial workspace workflows and project contracts"
 
         Layout.documentationShell
-            "Ledger specification"
+            "Geldos specification"
             current
             (sidebar query)
             crumbs

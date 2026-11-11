@@ -23,13 +23,13 @@ module internal Profile =
             validateSequence
                 "/examples/application/profile/edit"
                 "/examples/application/profile/edit"
-                "validateProfile (name, email, timeZone)"
+                "validateProfile (name, email, timeZone, dailySummaryTime)"
             + "\n  Operator->>Browser: Choose System, Light or Dark\n  Browser->>Browser: Apply and store local appearance preference"
           rules =
             [ "The top-right Profile icon link SHALL open a personal Profile area containing General and Organizations, with a return to the prior Ledger workspace. Its sidebar SHALL NOT repeat the avatar or identity block."
               "General SHALL show a Details section; its pencil Edit link SHALL open the Edit profile Drawer with Update and Cancel."
               "Appearance SHALL stay on Profile → General as compact System, Light and Dark radio choices styled like tabs, applying immediately and independently of the edit Drawer. Top navigation SHALL NOT duplicate the appearance selector."
               "Organization memberships and roles SHALL appear on Organizations, with real destinations for each organization's Settings."
-              "Name SHALL contain 1–80 characters; email SHALL be valid and time zone SHALL be available."
+              "Name SHALL contain 1–80 characters; email SHALL be valid and time zone SHALL be available. Daily summary time SHALL be a local HH:mm value in 15-minute intervals; Reset changes SHALL restore the editor's initial values."
               "Profile submissions SHALL NOT retain private values outside a private, no-store field-error response."
               "Editor dismissal and navigation SHALL leave directly without unsaved-change prompts." ] }

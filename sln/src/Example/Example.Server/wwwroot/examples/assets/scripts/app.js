@@ -10,6 +10,8 @@ import './command.js';
 import './drawer.js';
 import './dropdown-menu.js';
 import './select.js';
+import './popover.js';
+import './time-picker.js';
 import './scroll-region.js';
 import './side-nav.js';
 import './code-block.js';
