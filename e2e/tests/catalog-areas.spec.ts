@@ -34,9 +34,44 @@ test('search reaches a dedicated component and Examples exposes the Geldos exper
   await expect(page.getByRole('heading', { name: 'Page top bar', level: 1, exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Examples', exact: true }).click()
   const cards = page.locator('a[data-example-template]')
-  await expect(cards).toHaveCount(4)
-  for (const path of ['/examples/marketing', '/examples/application', '/examples/specification', '/examples/api-documentation']) {
+  await expect(cards).toHaveCount(5)
+  for (const path of ['/examples/marketing', '/examples/presentation', '/examples/application', '/examples/specification', '/examples/api-documentation']) {
     await expect(cards.and(page.locator(`a[href="${path}"]`))).toBeVisible()
+  }
+  const presentation = cards.and(page.locator('a[href="/examples/presentation"]'))
+  await expect(presentation).toHaveAttribute('target', '_blank')
+  const popupPromise = page.waitForEvent('popup')
+  await presentation.click()
+  const popup = await popupPromise
+  await expect(popup.getByRole('heading', { name: 'Geldos · Treasury review', exact: true })).toBeVisible()
+  await expect(popup.getByRole('link', { name: 'View example source on GitHub' })).toHaveAttribute('href', /^https:\/\/github\.com\/meiermade\/FSharp\.ViewEngine/)
+  await expect(popup.getByRole('link', { name: 'Application', exact: true })).toHaveAttribute('href', '/examples/application')
+  await popup.close()
+})
+
+test('example previews follow Docs appearance rather than OS or example preferences', crossBrowser, async ({ page }) => {
+  await page.goto('/examples')
+  await page.evaluate(async () => {
+    await document.fonts.ready
+    localStorage.setItem('financial-example-appearance', 'light')
+  })
+  const cards = page.locator('a[data-example-template]')
+  await expect(cards).toHaveCount(5)
+  const dimensions = new Map<string, { width: number, height: number }>()
+  for (const [os, mode] of [['light', 'dark'], ['dark', 'light'], ['light', 'dark']] as const) {
+    await page.emulateMedia({ colorScheme: os })
+    await page.evaluate(mode => (window as any).fveColorMode.set(mode), mode)
+    for (const card of await cards.all()) {
+      const name = (await card.getAttribute('href'))!.split('/').pop()!
+      const image = card.getByRole('img')
+      await expect(image).toHaveCount(1)
+      await expect(image).toHaveAttribute('src', `/images/examples/${name}${mode === 'dark' ? '-dark' : ''}.png`)
+      await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth === 1200 && el.naturalHeight === 800)).toBe(true)
+      const box = (await image.boundingBox())!
+      const current = { width: box.width, height: box.height }
+      if (dimensions.has(name)) expect(current).toEqual(dimensions.get(name))
+      dimensions.set(name, current)
+    }
   }
 })
 

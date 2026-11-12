@@ -15,6 +15,7 @@
     <Compile Include="src\Pages\Showcase.fs" />
     <Compile Include="src\Pages\PageExamples.fs" />
     <Compile Include="src\Pages\Appearance.fs" />
+    <Compile Include="src\Pages\ThemeTokens.fs" />
     <Compile Include="src\Pages\ComponentGuideExamples.fs" />
     <Compile Include="src\Pages\ComponentInstallation.fs" />
     <Compile Include="src\Pages\IconBrowser.fs" />
@@ -25,6 +26,8 @@
     <Compile Include="src\Pages\Home.fs" />
     <Compile Include="src\Pages\Installation.fs" />
     <Compile Include="src\Pages\CoreGuides.fs" />
+    <Compile Include="src\Pages\Scripting.fs" />
+    <Compile Include="src\Pages\Presentations.fs" />
     <Compile Include="src\Pages\Custom.fs" />
     <Compile Include="src\Pages\Usage.fs" />
     <Compile Include="src\Pages\Alpine.fs" />

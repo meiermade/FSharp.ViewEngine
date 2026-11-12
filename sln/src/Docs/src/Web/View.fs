@@ -282,16 +282,12 @@ module View =
 
     let private legacyPage (page: DocPage) =
         let subtitle, nodes =
-            match page.id, page.nodes with
-            | "home", DocNode.Paragraph content :: remaining -> Some content, remaining
+            match page.nodes with
+            | DocNode.Paragraph content :: remaining -> Some content, remaining
             | _ -> None, page.nodes
 
         let description =
-            page.nodes
-            |> List.tryPick (function
-                | DocNode.Paragraph content -> Some(inlineText content)
-                | _ -> None)
-            |> Option.defaultValue page.title
+            subtitle |> Option.map inlineText |> Option.defaultValue page.title
 
         let rendered =
             DocumentationPage.create page.id page.title
@@ -302,11 +298,12 @@ module View =
                     browserTitle = Some page.browserTitle
                     socialImage = Some "https://fve.meiermade.com/social-card.png" }
 
+        let rendered =
+            match subtitle with
+            | Some content -> rendered |> DocumentationPage.withDescriptionContent (fragment { for item in content do renderInline item })
+            | None -> rendered
+
         if page.id = "home" then
-            let rendered =
-                match subtitle with
-                | Some content -> rendered |> DocumentationPage.withDescriptionContent (fragment { for item in content do renderInline item })
-                | None -> rendered
             rendered
             |> DocumentationPage.withHeadingAdornment (
                 div {
@@ -366,26 +363,25 @@ module View =
         (registration: DocPage)
         (docsPage: DocumentationPageConfig)
         =
-        let search =
+        let pageEntries =
             registeredPages sections
             |> List.map (fun (page: DocPage) ->
-                let entry =
-                    DocsSearchEntry.create page.path (resolvePage page) [ page.category; page.navLabel ]
-
-                let isComponent =
-                    (Components.allRegistrations |> List.exists (fun item -> item.path = page.path))
-                    && page.path <> Components.overviewRegistration.path
-                    && page.path <> Components.installationRegistration.path
-                    && not (Components.guideRegistrations |> List.exists (fun item -> item.path = page.path))
-                    && not (page.path.StartsWith("/components/page-examples/", StringComparison.Ordinal))
-                    || (ComponentDocumentation.registrations
-                        |> List.exists (fun item -> item.path = page.path))
-
-                if isComponent then
-                    entry |> DocsSearchEntry.withGroup "Components"
-                else
-                    entry)
-            |> DocsSearch.index
+                let group =
+                    if Catalog.componentRegistrations |> List.exists (fun item -> item.id = page.id) then "Components"
+                    elif page.category = "Guides" then "Guides"
+                    else "Pages"
+                DocsSearchEntry.create page.path (resolvePage page) [ page.category; page.navLabel ]
+                |> DocsSearchEntry.withGroup group)
+        let exampleEntries =
+            Examples.templates
+            |> List.map (fun template ->
+                let page =
+                    DocumentationPage.create (template.path.Trim('/').Replace('/', '-')) template.name
+                    |> DocumentationPage.withDescription template.description
+                DocsSearchEntry.create template.path page [ "example"; "examples"; "Geldos" ]
+                |> DocsSearchEntry.withGroup "Examples"
+                |> DocsSearchEntry.inNewTab)
+        let search = DocsSearch.index (pageEntries @ exampleEntries)
 
         let site = site sections search
 

@@ -330,6 +330,26 @@ let tests =
               Expect.stringContains avatar "aria-hidden=\"true\"" "decorative avatars stay hidden"
           }
 
+          test "Avatar retains native fallback content and gives image policy to the image" {
+              let html =
+                  fveAvatar {
+                      _ariaLabel "Alex Morgan"
+                      _src "/android-chrome-512x512.png"
+                      _referrerpolicy "no-referrer"
+                      "AM"
+                  } |> Render.toString
+              Expect.stringContains html ">AM</span>" "supplying a source never drops the native fallback"
+              Expect.stringContains html "<img" "the image is available to the component enhancement"
+              let image = Regex.Match(html, "<img[^>]+>").Value
+              Expect.stringContains image "referrerpolicy=\"no-referrer\"" "the actual request receives its policy"
+              Expect.stringContains image "hidden" "the fallback owns first paint and no-JavaScript rendering"
+              let host = Regex.Match(html, "<fve-avatar[^>]+>").Value
+              Expect.isFalse (host.Contains "referrerpolicy") "image attributes do not leak onto the wrapper"
+              Expect.stringContains host "role=\"img\"" "one named wrapper owns the accessible image semantics"
+              let empty = fveAvatar { _ariaLabel "Alex Morgan"; _src " "; "AM" } |> Render.toString
+              Expect.isFalse (empty.Contains "<img") "an empty source keeps the fallback without making a request"
+          }
+
           test "typed component attributes preserve their HTML wire values and native overloads" {
               for name, values in
                   [ "color",
@@ -543,11 +563,11 @@ let tests =
                     "&lt;Expenses&gt;"
                     "Last updated today"
                     "type=\"submit\""
-                    ">Save</fve-button>" ] do
+                    ">Save<" ] do
                   Expect.stringContains html expected "the public builder composes real HTML"
 
               let positions =
-                  [ "<img"; "<h2>Accounts</h2>"; "Cash &amp; savings"; ">Save</fve-button>" ]
+                  [ "<img"; "<h2>Accounts</h2>"; "Cash &amp; savings"; ">Save<" ]
                   |> List.map (fun marker -> html.IndexOf(marker, System.StringComparison.Ordinal))
 
               Expect.equal
@@ -588,7 +608,7 @@ let tests =
                   Expect.isFalse (emptyParts.Contains region) "empty optional regions do not render wrappers"
           }
 
-          test "button host owns authored attributes and request state without generating native internals" {
+          test "button host owns request state while submit controls retain native form semantics" {
               let html =
                   fveButton {
                       _color Color.Primary
@@ -622,8 +642,10 @@ let tests =
                     "size=\"small\"" ] do
                   Expect.stringContains html expected "the builder preserves native and Datastar behavior"
 
-              Expect.equal (Regex.Matches(html, " type=").Count) 1 "native attributes have one authored owner"
-              Expect.isFalse (html.Contains "<button") "Rocket, not F#, creates the native control"
+              let host = Regex.Match(html, "<fve-button[^>]*>").Value
+              Expect.equal (Regex.Matches(host, " type=").Count) 1 "the host owns the enhanced submission contract"
+              Expect.equal (Regex.Matches(html, "<button[ >]").Count) 1 "one native submit control is available before enhancement"
+              Expect.equal (Regex.Matches(html, "data-indicator:_sync_pending").Count) 1 "request state is not duplicated on the native fallback"
               Expect.isFalse (html.Contains "data-fve-button-spinner") "Rocket owns the spinner markup"
 
               let disabled =
@@ -765,7 +787,7 @@ let tests =
                   "color=\"primary\" variant=\"solid\" size=\"small\""
                   "named helpers produce real observed attributes"
 
-              Expect.isFalse (html.Contains "<button") "the renderer emits a thin custom-element host"
+              Expect.equal (Regex.Matches(html, "<button[ >]").Count) 1 "the submit fallback is enhanced rather than duplicated"
 
               Expect.stringContains
                   html

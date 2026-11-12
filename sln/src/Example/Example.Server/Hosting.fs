@@ -12,6 +12,8 @@ open StarFederation.Datastar.DependencyInjection
 open Giraffe
 open FSharp.ViewEngine
 open Example.Components
+open Example.Components.Views
+open Request
 open Example.Server
 open Model
 open Ledger.Domain
@@ -48,16 +50,17 @@ let sourceUrl =
         repository + "/tree/" + Uri.EscapeDataString(commit) + "/sln/src/Example"
 
 let private sourceLink =
-    Html.a {
+    fveLink {
+        Html._variant LinkVariant.Ghost
+        Html._color Color.Neutral
+        Html._size Size.Medium
         Html._href sourceUrl
         Html._target "_blank"
         Html._rel "noopener"
         Html._ariaLabel "View example source on GitHub"
         Html._title "View example source on GitHub"
-        Html._class
-            "inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-4"
 
-        fveIcon { Html._name IconName.GitHub; Html._size Size.Small }
+        fveIcon { Html._name IconName.GitHub; Html._size Size.Medium }
     }
 
 let private actions embedded = if embedded then [] else [ sourceLink ]
@@ -103,6 +106,8 @@ let private render (context: HttpContext) (title: string) content =
             "Specification"
         elif context.Request.Path.StartsWithSegments(PathString "/examples/marketing") then
             "Marketing"
+        elif context.Request.Path = PathString "/examples/presentation" then
+            "Presentation"
         else
             "API documentation"
 
@@ -135,7 +140,7 @@ let private render (context: HttpContext) (title: string) content =
             metadata
     | None ->
         content
-        |> Layout.documentWithNonce (nonce context) canonical embedded title
+        |> Layout.documentWithNonce Navigation.enhancement.initialScript Navigation.bodyAttributes (nonce context) canonical embedded title
         |> Render.toHtmlDocString
         |> htmlString
 
@@ -171,6 +176,8 @@ let private pages: HttpHandler =
                 (ApiDocumentation.renderWithActions (actions false) page)
                 next
                 context
+        | _ when path.TrimEnd('/') = "/examples/presentation" ->
+            render context "Treasury review" (Example.Presentation.View.render Layout.theme (actions false)) next context
         | _ when List.contains (path.TrimEnd('/')) Marketing.paths ->
             render context (Marketing.title path) (Marketing.render (path.TrimEnd('/')) (actions false)) next context
         | _ -> System.Threading.Tasks.Task.FromResult None

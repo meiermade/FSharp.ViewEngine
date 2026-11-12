@@ -9,11 +9,11 @@ module Cli =
         if String.IsNullOrWhiteSpace value then fallback else value
 
     let create (registry:ComponentRegistry) (output:CommandOutput) =
-        let root = RootCommand("Install and compare consumer-owned FSharp.ViewEngine component source.")
+        let root = RootCommand("Install editable FSharp.ViewEngine components and build standalone HTML scripts.")
 
-        let initCommand = Command("init", "Initialize or select a consumer-owned F# Components project.")
+        let initCommand = Command("init", "Initialize or select a consumer-owned F# Components project or script.")
         let projectArgument = Argument<string>("project")
-        projectArgument.Description <- "Path to the Components .fsproj file."
+        projectArgument.Description <- "Path to the Components .fsproj or standalone .fsx file."
         let namespaceOption = Option<string>("--namespace")
         namespaceOption.Description <- "Namespace root for copied component source. Defaults to the project name."
         let frameworkOption = Option<string>("--framework")
@@ -54,6 +54,19 @@ module Cli =
             Commands.diff registry output
                 { Config = result.GetValue diffConfigOption |> optionValue ConsumerProject.ConfigFileName })
         root.Add(diffCommand)
+
+        let buildCommand = Command("build", "Render the configured F# script and build its CSS and browser bundle.")
+        let buildConfigOption = Option<string>("--config")
+        buildConfigOption.Description <- "Path to fve.json. Defaults to ./fve.json."
+        let openOption = Option<bool>("--open")
+        openOption.Description <- "Open the generated HTML in the default browser after a successful build."
+        buildCommand.Add(buildConfigOption)
+        buildCommand.Add(openOption)
+        buildCommand.SetAction(fun result ->
+            Commands.build registry output
+                { Config = result.GetValue buildConfigOption |> optionValue ConsumerProject.ConfigFileName
+                  Open = result.GetValue openOption })
+        root.Add(buildCommand)
         root
 
 module Program =

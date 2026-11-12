@@ -11,6 +11,7 @@ type private CommandContent =
     { label:string
       keywords:string list
       description:string option
+      matchAnchor:string option
       leading:HtmlElement option
       shortcut:string option
       disabled:bool
@@ -47,6 +48,8 @@ module CommandAttributes =
         static member _keywords(values:string list) = Html._attr("keywords", System.Text.Json.JsonSerializer.Serialize values)
         static member _shortcut(value:string) = Html._attr("shortcut", value)
         static member _emptyLabel(value:string) = Html._attr("empty-label", value)
+        /// Contextual results appear after ordinary matches and require a query word matching this anchor.
+        static member _matchAnchor(value:string) = Html._attr("match-anchor", value)
 
 type internal CommandItemElement(item:CommandItem) =
     inherit HtmlElement()
@@ -84,12 +87,13 @@ module internal CommandParts =
             label = label
             keywords = keywords
             description = optional "description"
+            matchAnchor = optional "match-anchor"
             leading = Map.tryFind "leading" parts
             shortcut = optional "shortcut"
             disabled = flag "disabled" attributes
             readOnly = flag "readonly" attributes || flag "aria-disabled" attributes
             body = if body.IsEmpty then Html.text label else ComponentContent.fragment body
-            attributes = ComponentHtml.safeAttributes ["label"; "keywords"; "description"; "shortcut"; "disabled"; "readonly"; "aria-disabled"] attributes }
+            attributes = ComponentHtml.safeAttributes ["label"; "keywords"; "description"; "match-anchor"; "shortcut"; "disabled"; "readonly"; "aria-disabled"] attributes }
         let item =
             match ComponentElement.value "href" attributes with
             | Some href -> Link(content, href)
@@ -196,9 +200,10 @@ module Command =
                                 _data ("fve-command-label", content.label)
                                 _data ("fve-command-keywords", String.concat " " content.keywords)
                                 _data ("fve-command-description", defaultArg content.description "")
+                                match content.matchAnchor with Some anchor -> _data ("fve-command-match-anchor", anchor) | None -> ()
                                 _data ("fve-command-order", string itemIndex)
                                 _ariaDisabled unavailable
-                                _class "flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-[var(--fve-radius-control)] border-0 bg-transparent px-2 py-1.5 text-left text-sm text-[var(--fve-text)] no-underline outline-none aria-selected:bg-[var(--fve-surface-active)] hover:bg-[var(--fve-surface-hover)] aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
+                                _class "flex min-h-8 w-full cursor-pointer items-center gap-2 rounded-[var(--fve-radius-control)] border-0 bg-transparent px-2 py-1.5 text-left text-sm text-[var(--fve-text)] no-underline outline-none aria-selected:bg-[var(--fve-surface-active)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] aria-disabled:cursor-not-allowed aria-disabled:opacity-50"
                             ]
                             let authored =
                                 ComponentHtml.safeAttributes ["id"; "type"; "role"; "href"; "aria-selected"; "tabindex"; "data-fve-command-item"; "data-fve-command-label"; "data-fve-command-keywords"; "data-fve-command-description"; "data-fve-command-order"; "data-on:pointermove"; "data-on:click"] content.attributes

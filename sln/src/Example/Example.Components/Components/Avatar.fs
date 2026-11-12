@@ -1,5 +1,6 @@
 namespace Example.Components
 
+open System
 open FSharp.ViewEngine
 open type Html
 
@@ -13,17 +14,27 @@ module internal Avatar =
             match size with
             | Size.ExtraSmall -> "size-6" | Size.Small -> "size-8" | Size.Medium -> "size-10"
             | Size.Large -> "size-12" | Size.ExtraLarge -> "size-14"
-        let content =
-            match ComponentElement.value "src" attributes with
-            | Some source -> img { _src source; _alt ""; _class "size-full object-cover" }
-            | None -> span { _ariaHidden true; _class "text-sm"; children }
-        ComponentElement.render "span"
+        let content = [
+            yield span { _ariaHidden true; _class "text-sm"; children }
+            match ComponentElement.value "src" attributes |> Option.filter (String.IsNullOrWhiteSpace >> not) with
+            | Some source ->
+                yield img {
+                    _src source; _alt ""; _hidden true
+                    _data ("fve-avatar-image", "true")
+                    _class "absolute inset-0 size-full object-cover"
+                    match ComponentElement.value "referrerpolicy" attributes with
+                    | Some policy -> _referrerpolicy policy
+                    | None -> ()
+                }
+            | None -> ()
+        ]
+        ComponentElement.render "fve-avatar"
             ([ _class ("relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--fve-neutral-subtle)] font-semibold text-[var(--fve-neutral-text)] " + sizeClass) ]
              @ if decorative then [_ariaHidden true] else [_role "img"])
-            (ComponentHtml.safeAttributes ["src"; "size"] attributes) [content]
+            (ComponentHtml.safeAttributes ["src"; "size"; "referrerpolicy"] attributes) content
 
 /// <category>avatar</category>
 [<AutoOpen>]
 module AvatarDsl =
-    /// A native avatar with accessible naming, optional image and ordinary fallback content.
+    /// An accessible avatar with native fallback content; Assets/avatar.js reveals successfully loaded images.
     let fveAvatar = ComponentElementBuilder(Avatar.render)

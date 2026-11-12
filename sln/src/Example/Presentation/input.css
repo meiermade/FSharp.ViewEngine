@@ -1,0 +1,5 @@
+@import "tailwindcss";
+@source "./Components/**/*.fs";
+@source "./Components/Assets/*.js";
+@source "./View.fs";
+@source "./deck.fsx";

@@ -31,7 +31,7 @@ module internal Switch =
             input { for attribute in ComponentElement.attributes (defaults @ ComponentHtml.outerSignals controlAttributes) do attribute }
             span {
                 _ariaHidden true
-                _class ("pointer-events-none relative block rounded-full bg-[var(--fve-neutral-subtle)] ring-1 ring-inset ring-[var(--fve-border)] transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--fve-brand-ring)] peer-aria-invalid:ring-[var(--fve-critical-ring)] peer-disabled:opacity-50 after:absolute after:left-0.5 after:top-0.5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:content-[''] forced-colors:ring-[ButtonText] forced-colors:peer-checked:bg-[Highlight] " + track + " " + thumb + " " + translation)
+                _class ("pointer-events-none relative block rounded-full bg-[var(--fve-neutral-subtle)] ring-1 ring-inset ring-[var(--fve-border)] peer-[:enabled:not(:checked):not([readonly]):not([aria-invalid=true]):hover]:ring-[var(--fve-muted-text)] transition-colors peer-checked:bg-[var(--fve-brand-solid)] peer-checked:ring-[var(--fve-brand-solid)] peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[var(--fve-brand-ring)] peer-aria-invalid:ring-[var(--fve-critical-ring)] peer-disabled:opacity-50 after:absolute after:left-0.5 after:top-0.5 after:rounded-full after:bg-white after:shadow-sm after:transition-transform after:content-[''] forced-colors:ring-[ButtonText] forced-colors:peer-checked:bg-[Highlight] " + track + " " + thumb + " " + translation)
             }
         }
 

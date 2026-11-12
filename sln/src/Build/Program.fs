@@ -362,12 +362,14 @@ Target.create "UpdateInstalledComponents" (fun _ ->
         |> Seq.toList
     dotnet slnDir (["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"] @ selectors @ ["--config"; "src/Docs.Components/fve.json"; "--overwrite"])
     |> Async.RunSynchronously
-    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "icon"; "button"; "field"; "chart"; "checkbox"; "input-group"; "notification"; "command"; "time-picker"; "section"; "disclosure"; "pagination"; "--config"; "src/Example/Example.Components/fve.json"; "--overwrite"]
+    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "icon"; "button"; "field"; "chart"; "checkbox"; "input-group"; "notification"; "command"; "time-picker"; "section"; "disclosure"; "pagination"; "presentation"; "--config"; "src/Example/Example.Components/fve.json"; "--overwrite"]
+    |> Async.RunSynchronously
+    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "presentation"; "--config"; "src/Example/Presentation/fve.json"; "--overwrite"]
     |> Async.RunSynchronously
 )
 
 Target.create "CheckInstalledComponents" (fun _ ->
-    for config in ["src/Docs.Components/fve.json"; "src/Example/Example.Components/fve.json"] do
+    for config in ["src/Docs.Components/fve.json"; "src/Example/Example.Components/fve.json"; "src/Example/Presentation/fve.json"] do
         dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "diff"; "--config"; config]
         |> Async.RunSynchronously
 )

@@ -3,6 +3,7 @@ namespace Example.Components
 open System
 open FSharp.ViewEngine
 open type Html
+open type Datastar
 
 /// <category>select</category>
 [<RequireQualifiedAccess>]
@@ -59,7 +60,7 @@ module internal Select =
         button {
             _type "button"; _role "option"; _tabindex -1
             _disabled choice.disabled; _ariaDisabled choice.disabled; _ariaSelected false
-            Html._attr("data-preserve-attr", "id aria-selected aria-disabled disabled data-active")
+            _dataPreserveAttr "id aria-selected aria-disabled disabled data-active"
             if choice.disabled then _attr("data-fve-option-disabled", "")
             _attr("data-fve-option-label", choice.label.ToLowerInvariant())
             _attr("data-fve-option-value", choice.value)
@@ -109,7 +110,7 @@ module internal Select =
             div {
                 _attr("data-fve-select-options", ""); _role "listbox"; _tabindex 0
                 match ownerId with Some id -> _id(id + "-options") | None -> ()
-                Html._attr("data-preserve-attr", "id aria-label aria-multiselectable aria-required aria-busy aria-activedescendant")
+                _dataPreserveAttr "id aria-label aria-multiselectable aria-required aria-busy aria-activedescendant"
                 _class "min-h-0 overflow-auto outline-none"
                 if failure.IsNone then for child in children do child
             }
@@ -163,7 +164,7 @@ module internal Select =
                    initial = initial
                    query = config.query |> Option.defaultValue "" |}
         let describedBy = ComponentElement.value "aria-describedby" config.attributes |> Option.defaultValue ""
-        let triggerClasses = ComponentHtml.classes [ComponentHtml.popupFieldClasses; "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] border bg-[var(--fve-surface)] px-3 py-[max(0px,calc(var(--fve-control-padding-block)-1px))] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] outline-none hover:bg-[var(--fve-surface-hover)] disabled:cursor-not-allowed disabled:opacity-50"; if config.invalid then "border-[var(--fve-critical-ring)]" else "border-[var(--fve-border)]"]
+        let triggerClasses = ComponentHtml.classes [ComponentHtml.popupFieldClasses; "fve-popup-field fve-popup-control group flex min-h-[var(--fve-control-min-height)] w-full items-center justify-between gap-3 rounded-[var(--fve-radius-control)] border bg-[var(--fve-surface)] px-3 py-[max(0px,calc(var(--fve-control-padding-block)-1px))] text-left text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-normal text-[var(--fve-text)] outline-none [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] disabled:cursor-not-allowed disabled:opacity-50"; if config.invalid then "border-[var(--fve-critical-ring)]" else "border-[var(--fve-border)]"]
         (Html.el "fve-select") {
             _id(fieldId + "-field"); _attr("settings", settings)
             _attr("data-fve-select", instanceId); _attr("data-fve-select-field", fieldId); _attr("data-fve-select-trigger", triggerId)
@@ -184,7 +185,7 @@ module internal Select =
                     raw """<svg viewBox="0 0 20 20" fill="currentColor" class="pointer-events-none absolute right-3 top-1/2 size-4 -translate-y-1/2 text-[var(--fve-muted-text)]" aria-hidden="true"><path fill-rule="evenodd" d="M5.22 7.22a.75.75 0 0 1 1.06 0L10 10.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 8.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
                 }
             div {
-                _attr("data-fve-select-values", ""); _class "hidden"; Html._attr("data-ignore-morph", "")
+                _attr("data-fve-select-values", ""); _class "hidden"; _dataIgnoreMorph
                 if not config.isMultiple then
                     input { _id(fieldId + "-value"); _type "hidden"; _name config.name; _value(config.selected |> Option.defaultValue ""); _disabled(config.isDisabled || (config.nativeFallback && not config.isReadOnly)) }
                 else for item in initial do input { _type "hidden"; _name config.name; _value item.value; _disabled config.isDisabled }

@@ -33,6 +33,7 @@
     <Compile Include="Domain.fs" />
     <Compile Include="Registry.fs" />
     <Compile Include="Project.fs" />
+    <Compile Include="ScriptBuild.fs" />
     <Compile Include="Commands.fs" />
     <Compile Include="Program.fs" />
     <Content Include="paket.references" Pack="false" />

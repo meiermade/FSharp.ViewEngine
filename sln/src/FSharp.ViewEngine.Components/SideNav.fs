@@ -143,7 +143,7 @@ module internal SideNavRow =
                 _class (
                     ComponentHtml.classes
                         [ ComponentHtml.popupControlClasses
-                          "flex min-h-10 w-full shrink-0 items-center px-4 py-2 text-sm leading-5 font-semibold no-underline hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]"
+                          "flex min-h-10 w-full shrink-0 items-center px-4 py-2 text-sm leading-5 font-semibold no-underline [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] "
                           if row.current then
                               "bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)]"
                           else
@@ -170,7 +170,7 @@ module internal SideNavRow =
                                   ComponentElement.render
                                       "button"
                                       [ _class
-                                            "flex min-h-10 w-full items-center rounded-none px-4 py-2 text-left text-sm leading-5 font-semibold text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]" ]
+                                            "flex min-h-10 w-full items-center rounded-none px-4 py-2 text-left text-sm leading-5 font-semibold text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] " ]
                                       attributes
                                       [ body true ]),
                               NoopElement()
@@ -443,7 +443,7 @@ module internal SideNavView =
                   if current then
                       "bg-[var(--fve-brand-subtle)] font-semibold text-[var(--fve-brand-text)]"
                   else
-                      "text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]" ]
+                      "text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] " ]
 
         let rec renderItem path (item: SideNavNode<'destination>) =
             let itemId = item.id |> Option.defaultValue (config.id + "-item-" + path)
@@ -560,6 +560,7 @@ module internal SideNavView =
                         match item.expandedSignal with
                         | Some signal ->
                             _attr ("data-fve-side-nav-external", "")
+                            // Core 2026.8.2 has no object/modifier overload; keyed HTML attributes lose caller-owned casing.
                             _attr ("data-signals__ifmissing", $"{{{signal}: {expanded}}}")
                             _dataAttr ("open", $"${signal}")
                             _dataOn ("fve-side-nav-toggle", $"${signal} = evt.detail.open")
@@ -884,7 +885,6 @@ module SideNavAttributes =
                 | SideNavWidth.Wide -> "wide"
             )
 
-        static member _persistenceKey(value: string) = Html._attr ("persistence-key", value)
         static member _expandedSignal(value: string) = Html._attr ("expanded-signal", value)
 
 module internal SideNavElements =
@@ -1124,3 +1124,62 @@ module SideNavDsl =
 
     let fveSideNavTrailing =
         ComponentElementBuilder(SideNavElements.decoration "trailing")
+
+/// <summary>Optional first-paint restoration for native SideNav disclosures.</summary>
+/// <category>side-nav</category>
+[<RequireQualifiedAccess>]
+module SideNavPreferences =
+    /// Include once in the head, before the application module. The host owns its CSP nonce.
+    /// Saved choices are per-tab; native server defaults remain when storage is unavailable.
+    let assetsWithNonce nonce =
+        script {
+            match nonce with Some value -> _attr("nonce", value) | None -> ()
+            raw """
+(() => {
+  const selector = 'details[data-fve-side-nav-group]:not([data-fve-side-nav-external])';
+  const initialized = new WeakSet();
+  const key = (host, group) => 'fve-side-nav:' + host.getAttribute('persistence-key') + ':group:' + group.dataset.fveSideNavGroup;
+  const synchronize = group => group.querySelector(':scope > summary')?.setAttribute('aria-expanded', String(group.open));
+  const restore = group => {
+    const host = group.closest('fve-side-nav');
+    if (!host || !group.matches(selector)) return;
+    if (!initialized.has(group)) {
+      initialized.add(group);
+      try {
+        const saved = sessionStorage.getItem(key(host, group));
+        if (saved === 'true' || saved === 'false') group.open = saved === 'true';
+      } catch {}
+      // The module adopts this native state, including interaction before it loads.
+      group.dataset.fveSideNavPrepared = key(host, group);
+    }
+    synchronize(group);
+  };
+  const observer = new MutationObserver(records => {
+    for (const record of records) for (const node of record.addedNodes) {
+      if (!(node instanceof Element)) continue;
+      if (node.matches(selector)) restore(node);
+      node.querySelectorAll(selector).forEach(restore);
+      const group = node.closest(selector);
+      if (group) restore(group);
+    }
+  });
+  const toggle = event => {
+    const group = event.target;
+    if (!group.matches?.(selector)) return;
+    restore(group);
+    const host = group.closest('fve-side-nav');
+    if (host?.getClientRects().length) try { sessionStorage.setItem(key(host, group), String(group.open)); } catch {}
+    synchronize(group);
+  };
+  observer.observe(document.documentElement, {childList: true, subtree: true});
+  document.addEventListener('toggle', toggle, true);
+  document.addEventListener('DOMContentLoaded', () => {
+    observer.disconnect();
+    document.removeEventListener('toggle', toggle, true);
+  }, {once: true});
+})();
+"""
+        }
+
+    /// Initialize first-paint disclosure restoration when no nonce is required.
+    let assets () = assetsWithNonce None

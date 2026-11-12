@@ -23,6 +23,9 @@ type AddRequest =
 [<NoEquality; NoComparison>]
 type DiffRequest = { Config:string }
 
+[<NoEquality; NoComparison>]
+type BuildRequest = { Config:string; Open:bool }
+
 [<RequireQualifiedAccess>]
 module Commands =
     let private fail (output:CommandOutput) (message:string) =
@@ -74,18 +77,21 @@ module Commands =
                     | Ok _ -> fail output $"'{configPath}' already selects a different project or namespace."
                 else
                     let projectExisted = File.Exists projectPath
-                    if not projectExisted then ConsumerProject.createProject projectPath validNamespace targetFramework
-                    match ConsumerProject.updateProject projectPath [] [] false with
+                    if not projectExisted then ConsumerProject.createConsumer projectPath validNamespace targetFramework
+                    match ConsumerProject.initializeConsumer projectPath validNamespace with
                     | Error message ->
                         if not projectExisted && File.Exists projectPath then File.Delete projectPath
                         fail output message
                     | Ok () ->
+                        if Path.GetExtension(projectPath).Equals(".fsx", StringComparison.OrdinalIgnoreCase) then
+                            ConsumerProject.createScriptStylesheet projectPath
                         { SchemaVersion = 1
                           RegistryVersion = registry.Version
                           Project = Path.GetFileName projectPath
                           Namespace = validNamespace
                           Components = [||]
-                          Files = [||] }
+                          Files = [||]
+                          Modules = [||] }
                         |> ConsumerProject.writeConfiguration configPath
                         output.Out.WriteLine($"Initialized {projectPath}")
                         output.Out.WriteLine($"Tailwind source: {ConsumerProject.ComponentsDirectory}/**/*.fs")
@@ -115,6 +121,7 @@ module Commands =
                                 { Component = file.Component
                                   FileName = fileName
                                   Compile = Path.GetExtension(fileName) = ".fs"
+                                  Module = false
                                   Source = "" }))
                         |> Array.toList
                     let mutable conflicts = []
@@ -162,7 +169,7 @@ module Commands =
                         output.Error.WriteLine("No files were changed. Re-run with --overwrite only if replacing those files is intended.")
                         2
                     else
-                        match ConsumerProject.updateProject projectPath previousFiles (Registry.files selected) request.Overwrite with
+                        match ConsumerProject.updateConsumer projectPath configuration.Namespace previousFiles (Registry.files selected) request.Overwrite with
                         | Error message -> fail output message
                         | Ok () ->
                             for (_, path, source, _, _, shouldWrite, _, previousPath, removePrevious) in planned do
@@ -182,7 +189,8 @@ module Commands =
                             { configuration with
                                 RegistryVersion = registry.Version
                                 Components = List.toArray requested
-                                Files = Array.append nonComponentFiles (List.toArray componentFiles) }
+                                Files = Array.append nonComponentFiles (List.toArray componentFiles)
+                                Modules = Registry.files selected |> List.filter _.Module |> List.map (fun item -> ConsumerProject.relativeSourcePath item.FileName) |> List.toArray }
                             |> ConsumerProject.writeConfiguration configPath
                             for name in requested do
                                 if not (Array.contains name configuration.Components) then
@@ -190,6 +198,27 @@ module Commands =
                             if requested |> List.forall (fun name -> Array.contains name configuration.Components) then
                                 output.Out.WriteLine("All selected components are already installed.")
                             0
+
+    let build (registry:ComponentRegistry) (output:CommandOutput) (request:BuildRequest) =
+        try
+            let configPath = Path.GetFullPath request.Config
+            match ConsumerProject.readConfiguration configPath with
+            | Error message -> fail output message
+            | Ok configuration ->
+                let root = Path.GetDirectoryName configPath
+                let modules =
+                    if not (isNull configuration.Modules) then configuration.Modules
+                    else
+                        // Pre-build manifests did not record entry modules. Use only files actually installed.
+                        let known = Registry.files registry.Components |> List.filter _.Module |> List.map (fun file -> Path.GetFileName file.FileName) |> Set.ofList
+                        configuration.Files |> Array.filter (fun file -> Set.contains (Path.GetFileName file.Path) known) |> Array.map _.Path
+                let options =
+                    { ProjectPath = Path.GetFullPath(Path.Combine(root, configuration.Project))
+                      Modules = modules |> Array.map (fun path -> Path.GetFullPath(Path.Combine(root, path)))
+                      Open = request.Open }
+                ScriptBuild.build output.Out options
+                0
+        with exceptionValue -> fail output exceptionValue.Message
 
     let diff (registry:ComponentRegistry) (output:CommandOutput) (request:DiffRequest) =
         let configPath = Path.GetFullPath request.Config

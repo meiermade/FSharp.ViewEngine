@@ -207,7 +207,7 @@ module Components =
             for index, account in rowActionAccounts |> List.indexed do
                 div {
                     _class ("flex min-w-0 flex-wrap items-center justify-between gap-3 rounded px-3 py-2 " +
-                        (if index = 1 then "bg-[var(--fve-brand-subtle)]" else "hover:bg-[var(--fve-surface-hover)]"))
+                        (if index = 1 then "bg-[var(--fve-brand-subtle)]" else "[&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))]"))
                     span { _class "min-w-0 flex-[1_0_min(10rem,100%)] break-words text-sm"; account.name }
                     rowActionMenu "button-row-actions" account
                 }
@@ -1289,6 +1289,15 @@ module Components =
             fveTableBody { teamTableRows teamMembers }
         }
 
+    let hoverTeamTable =
+        fveTable {
+            _ariaLabel "Team members with hover highlighting"
+            _hoverRows true
+            _style "--fve-table-row-hover:var(--fve-brand-subtle)"
+            teamTableHeader
+            fveTableBody { teamTableRows teamMembers }
+        }
+
     let memberStatusTable =
         fveTable {
             _ariaLabel "Team member status"
@@ -2129,7 +2138,7 @@ module Components =
           _dataOn ("blur", validate)
           _dataOn ("input", $"if ({checkedState}) {{ {refresh} }}")
           _dataOn ("invalid", validate)
-          _dataOn ("reset__window", $"if (evt.target === el.form) queueMicrotask(() => {{ if (!evt.defaultPrevented) {{ {checkedState} = false; {error} = ''; }} }})")
+          _dataOn ("reset", ["window"], $"if (evt.target === el.form) queueMicrotask(() => {{ if (!evt.defaultPrevented) {{ {checkedState} = false; {error} = ''; }} }})")
           _dataAttr ("aria-invalid", error + " ? 'true' : null")
           if initiallyShown then _dataInit validate ]
 
@@ -4979,7 +4988,7 @@ module Components =
                 fveTabsTrigger { "Settings" }
 
                 a {
-                    _href "/components/theming"
+                    _href "/guides/theming"
                     _class "font-medium text-[var(--fve-brand-text)]"
                     "Review appearance settings"
                 }
@@ -5367,7 +5376,7 @@ module Components =
                 fveDropdownMenuTrigger {
 
                     _class
-                        "flex min-h-10 w-full items-center rounded-none px-4 py-2 text-left text-sm leading-5 font-semibold text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] active:bg-[var(--fve-surface-active)]"
+                        "flex min-h-10 w-full items-center rounded-none px-4 py-2 text-left text-sm leading-5 font-semibold text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] "
 
                     fun (triggerAttributes: HtmlAttribute list) ->
                         button {
@@ -5431,7 +5440,7 @@ module Components =
                     _id "workspace-menu-control"
 
                     _class
-                        "inline-flex items-center justify-center rounded-full border border-[var(--fve-border)] p-1.5 text-sm font-medium text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                        "inline-flex items-center justify-center rounded-full border border-[var(--fve-border)] p-1.5 text-sm font-medium text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
 
                     _dataOn ("click", "$customMenuClicks++")
 
@@ -6285,6 +6294,41 @@ module Components =
             fveDisclosure { _label "Does this need JavaScript?"; _name "disclosure-example"; _open true; p { "No. Native details and summary own keyboard interaction and expanded state." } }
         }
 
+    let defaultSlide =
+        fveSlide {
+            fveSlideHeader {
+                fveSlideTitle { "One frame. Your content." }
+                fveSlideSubtitle { "A consistent title, content region and footer for every slide." }
+            }
+            fveSlideContent {
+                div {
+                    _class "grid grid-cols-2 gap-[2cqw]"
+                    div { h3 { _class "m-0 text-[length:2cqw] font-semibold"; "Structure" }; p { "Compose ordinary F# HTML inside the content region." } }
+                    div { h3 { _class "m-0 text-[length:2cqw] font-semibold"; "Consistency" }; p { "Keep spacing and typography in the shared frame." } }
+                }
+            }
+            fveSlideFooter { "Prepared for discussion" }
+        }
+
+    let coverSlide =
+        fveSlide {
+            _variant SlideVariant.Cover
+            fveSlideHeader {
+                fveSlideTitle { "Make the next decision clear." }
+                fveSlideSubtitle { "A cover uses the same canvas, header and footer regions." }
+            }
+            fveSlideContent {
+                p { _class "max-w-[50cqw] text-[length:2.5cqw]"; "Use the space for one idea, not a smaller font." }
+            }
+        }
+
+    let presentationExample =
+        fvePresentation {
+            _label "A two-slide presentation"
+            coverSlide
+            defaultSlide
+        }
+
     let defaultPage =
         Page.create (fvePageHeader { _label "Project overview" }) (p { "Review items and recent activity." })
         |> Page.render
@@ -6688,7 +6732,7 @@ module Components =
     let defaultSideNavUrl =
         function
         | Overview -> "/components/side-nav"
-        | Settings -> "/components/theming"
+        | Settings -> "/guides/theming"
 
     let defaultSideNav =
         fveSideNav {
@@ -8845,6 +8889,12 @@ module Components =
     let disclosureRegistration =
         registration "components-disclosure" "/components/disclosure" "Disclosure" "Disclosure"
 
+    let slideRegistration =
+        registration "components-slide" "/components/slide" "Slide" "Slide"
+
+    let presentationRegistration =
+        registration "components-presentation" "/components/presentation" "Presentation" "Presentation"
+
     let browserRegistration =
         registration "components-browser" "/components/browser" "Browser" "Browser"
 
@@ -8899,10 +8949,14 @@ module Components =
             "Account management"
 
     let interactionRegistration =
-        packageRegistration "components-interaction" "/components/using-signals" "Using signals" "Using signals"
+        { packageRegistration "components-interaction" "/guides/using-signals" "Using signals" "Using signals" with
+            category = "Guides"
+            aliases = ["/components/using-signals"] }
 
     let themingRegistration =
-        packageRegistration "components-theming" "/components/theming" "Theming" "Theming"
+        { packageRegistration "components-theming" "/guides/theming" "Theming" "Theming" with
+            category = "Guides"
+            aliases = ["/components/theming"] }
 
     let actionRegistrations =
         [ buttonRegistration
@@ -8969,7 +9023,7 @@ module Components =
     let compositionRegistrations = [ pageTopBarRegistration; pageHeaderRegistration; sectionRegistration; disclosureRegistration ]
 
     let frameRegistrations =
-        [ browserRegistration; phoneRegistration; resizableRegistration ]
+        [ browserRegistration; phoneRegistration; resizableRegistration; slideRegistration; presentationRegistration ]
 
     let applicationNavigationRegistrations = [ bottomNavigationRegistration ]
     let applicationWorkflowRegistrations = [ messageRegistration ]
@@ -9093,7 +9147,7 @@ module Components =
             _dataSignals "{actionVisible: false}"
             fveButton { _dataOn("click", "$actionVisible = !$actionVisible"); "Toggle action visibility" }
             fveButton {
-                _data("show", "$actionVisible")
+                _dataShow "$actionVisible"
                 _ariaLabel "Refresh visible action"
                 _dataOn("click", "$actionVisible = false")
                 fveIcon { _name IconName.ArrowPath; _variant IconVariant.Mini }
@@ -9221,6 +9275,47 @@ module Components =
                     label
                 }
         }
+
+    let actionColors =
+        [ Color.Primary, "Primary"; Color.Secondary, "Secondary"; Color.Success, "Success"
+          Color.Warning, "Warning"; Color.Error, "Error"; Color.Info, "Info"; Color.Neutral, "Neutral" ]
+
+    let actionPaletteGrid (rows: (string * HtmlElement list) list) =
+        div {
+            _class "grid min-w-0 w-full gap-6"
+            for label, controls in rows do
+                div {
+                    _data("action-variant", label.ToLowerInvariant())
+                    _class "grid min-w-0 gap-3"
+                    h3 { _class "text-sm font-semibold"; label }
+                    div { _class "flex min-w-0 flex-wrap items-center gap-3"; yield! controls }
+                }
+        }
+
+    let buttonPaletteExamples =
+        [ for variant, treatment in [ "Solid", ButtonVariant.Solid; "Soft", ButtonVariant.Soft; "Outline", ButtonVariant.Outline; "Ghost", ButtonVariant.Ghost ] do
+              variant,
+              [ for color, label in actionColors do
+                    fveButton {
+                        _variant treatment; _color color
+                        _ariaLabel (variant + " " + label)
+                        _data("action-color", label.ToLowerInvariant())
+                        label
+                    } ] ]
+        |> actionPaletteGrid
+
+    let linkPaletteExamples =
+        [ for variant, treatment in [ "Text", LinkVariant.Text; "Solid", LinkVariant.Solid; "Soft", LinkVariant.Soft; "Outline", LinkVariant.Outline; "Ghost", LinkVariant.Ghost ] do
+              variant,
+              [ for color, label in actionColors do
+                    fveLink {
+                        _href "/components/link"
+                        _variant treatment; _color color
+                        _ariaLabel (variant + " " + label)
+                        _data("action-color", label.ToLowerInvariant())
+                        label
+                    } ] ]
+        |> actionPaletteGrid
 
     let customButtonPalette: ColorPalette =
         { light =
@@ -9500,7 +9595,7 @@ module Components =
             }
 
             fveBottomNavigationItem {
-                _href "/components/theming"
+                _href "/guides/theming"
                 "Settings"
             }
 
@@ -10759,14 +10854,18 @@ module Components =
                else
                    "Phone fixture")
 
-        a {
-            _id ("fve-fixture-" + id + (if expanded then "-restorer" else "-launcher"))
+        let separator = if path.Contains('?') then "&" else "?"
 
+        fveLink {
+            _id ("fve-fixture-" + id + (if expanded then "-restorer" else "-launcher"))
+            _variant LinkVariant.Outline
+            _color Color.Neutral
+            _size Size.Small
             _href (
                 if expanded then
-                    path + "?fveAppReturn=" + id
+                    path + separator + "fveAppReturn=" + id
                 else
-                    path + "?expanded=1"
+                    path + separator + "expanded=1"
             )
 
             _ariaLabel label
@@ -10783,24 +10882,9 @@ module Components =
                     + ") { el.focus({preventScroll:true}); el.scrollIntoView({block:'center'}) }"
                 )
 
-            _class
-                "grid size-8 shrink-0 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
-
-            span {
-                _ariaHidden true
-
-                _class (
-                    "grid size-3.5 place-items-center rounded-full "
-                    + (if expanded then
-                           "bg-[#febc2e] text-[#995700]"
-                       else
-                           "bg-[#28c840] text-[#0b6523]")
-                )
-
-                if expanded then
-                    fveIcon { _name IconName.Minus; _size Size.ExtraSmall }
-                else
-                    fveIcon { _name IconName.ArrowsPointingOut; _size Size.ExtraSmall }
+            fveIcon {
+                _name (if expanded then IconName.ArrowsPointingIn else IconName.ArrowsPointingOut)
+                _variant IconVariant.Mini
             }
         }
 
@@ -10808,9 +10892,9 @@ module Components =
         let signal = "_" + id.Replace('-', '_') + "_mode"
 
         div {
-            _attr ("data-signals__ifmissing", $"{{{signal}: window.fveColorMode.current()}}")
+            _dataSignals (signal, ["ifmissing"], "window.fveColorMode.current()")
             _dataInit $"${signal} = window.fveColorMode.current()"
-            _dataOn ("fve-color-mode__window", $"${signal} = window.fveColorMode.current()")
+            _dataOn ("fve-color-mode", ["window"], $"${signal} = window.fveColorMode.current()")
 
             fveDropdownMenu {
                 _id id
@@ -10818,16 +10902,11 @@ module Components =
                 fveDropdownMenuTrigger {
                     _ariaLabel "Choose fixture theme"
 
-                    fun (attributes: HtmlAttribute list) ->
-                        button {
-                            for attribute in attributes do
-                                attribute
-
-                            _class
-                                "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-2 text-sm font-medium text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
-
-                            "Theme"
-                        }
+                    fveButton {
+                        _variant ButtonVariant.Outline
+                        _size Size.Small
+                        "Theme"
+                    }
                 }
 
                 for value, caption in [ "system", "System"; "light", "Light"; "dark", "Dark" ] do
@@ -10843,28 +10922,92 @@ module Components =
             }
         }
 
-    let browserReviewFrame expanded =
+    let browserReviewStates =
+        [ "summary", "Summary", "An overview of the content under review."
+          "details", "Details", "Supporting details for the same content."
+          "empty", "Empty", "No items to display in this state." ]
+
+    let browserReviewHref expanded state =
+        "/components/browser?state=" + state + (if expanded then "&expanded=1" else "")
+
+    let browserReviewDirection expanded state offset =
+        let index = browserReviewStates |> List.findIndex (fun (key, _, _) -> key = state)
+        let label, icon = if offset < 0 then "Back", IconName.ChevronLeft else "Forward", IconName.ChevronRight
+        let content = fveIcon { _name icon; _variant IconVariant.Mini }
+        match List.tryItem (index + offset) browserReviewStates with
+        | Some (key, _, _) ->
+            fveLink {
+                _href (browserReviewHref expanded key)
+                _data ("fve-local-navigation", "true")
+                _variant LinkVariant.Outline
+                _color Color.Neutral
+                _size Size.Small
+                _ariaLabel label
+                _title label
+                content
+            }
+        | None ->
+            fveButton {
+                _variant ButtonVariant.Outline
+                _size Size.Small
+                _disabled true
+                _ariaLabel label
+                _title label
+                content
+            }
+
+    let browserReviewFrame expanded requested =
+        let state, title, description =
+            browserReviewStates
+            |> List.tryFind (fun (key, _, _) -> key = requested)
+            |> Option.defaultValue browserReviewStates.Head
         fveBrowser {
+            _id "browser-review-frame"
             _expanded expanded
-            _address "/components/browser"
+            _address (browserReviewHref expanded state)
+            _data ("review-state", state)
+
+            fveBrowserWindowControls {
+                _class "w-48 max-w-full gap-1"
+                browserReviewDirection expanded state -1
+                fveDropdownMenu {
+                    _id "browser-review-state"
+                    _class "min-w-0 flex-1"
+                    fveDropdownMenuTrigger {
+                        _ariaLabel ("Review state: " + title)
+                        fveButton {
+                            _variant ButtonVariant.Outline
+                            _size Size.Small
+                            _class "w-full justify-between"
+                            span { _class "min-w-0 truncate"; title }
+                            fveIcon { _name IconName.ChevronDown; _variant IconVariant.Mini }
+                        }
+                    }
+                    for key, label, _ in browserReviewStates do
+                        fveDropdownMenuItem {
+                            _href (browserReviewHref expanded key)
+                            _data ("fve-local-navigation", "true")
+                            _ariaCurrent (if key = state then "true" else "false")
+                            label
+                            if key = state then
+                                fveDropdownMenuItemTrailing { fveIcon { _name IconName.Check; _variant IconVariant.Mini } }
+                        }
+                }
+                browserReviewDirection expanded state 1
+            }
 
             div {
                 _class "grid min-h-64 content-center gap-3 p-6 text-center"
-
-                strong {
-                    _class "text-lg"
-                    "Content preview"
-                }
-
-                p { "One frame at either size." }
+                strong { _class "text-lg"; title }
+                p { description }
             }
 
-            fveBrowserWindowControls { fixtureWindowControl "/components/browser" "browser-review" expanded }
-
-            fveBrowserToolbarActions { fixtureAppearance "browser-review-theme" }
+            fveBrowserToolbarActions {
+                fixtureWindowControl (browserReviewHref false state) "browser-review" expanded
+            }
         }
 
-    let browserWithControls = browserReviewFrame false
+    let browserWithControls = browserReviewFrame false "summary"
 
     let phoneReviewFrame expanded =
         fvePhone {
@@ -10910,12 +11053,12 @@ module Components =
 
     let phoneWithControls = phoneReviewFrame false
 
-    let expandedReviewFixture phone =
+    let expandedReviewFixture phone state =
         div {
             _id "docs-navigation-root"
             _data ("fve-navigation-root", "true")
             _data ("fve-app-mode-root", "true")
-            _dataOn ("keydown__window", Example.Server.Navigation.enhancement.appModeExitAction)
+            _dataOn ("keydown", ["window"], Example.Server.Navigation.enhancement.appModeExitAction)
 
             main {
                 _id "main-content"
@@ -10925,7 +11068,7 @@ module Components =
                 if phone then
                     phoneReviewFrame true
                 else
-                    browserReviewFrame true
+                    browserReviewFrame true state
             }
         }
 
@@ -11088,6 +11231,8 @@ module Components =
         | "detail" -> "Compose record identity, metadata, sections, and actions into a detail layout."
         | "app-shell" -> "Frame application navigation, responsive chrome, content, and optional mobile destinations."
         | "form-layouts" -> "Arrange complete fields into consistent stacked, inline, and responsive form layouts."
+        | "slide" -> "Compose a 16:9 HTML canvas with reusable title, subtitle, content, footer and numbering regions."
+        | "presentation" -> "Separate and number slides, with an expand/restore viewer and keyboard navigation."
         | "browser" -> "Frame rendered content with a truthful browser title and address."
         | "phone" -> "Frame rendered content in a neutral responsive phone viewport."
         | "resizable" -> "Split content into pointer- and keyboard-resizable horizontal or vertical panels."
@@ -11214,7 +11359,10 @@ module Components =
                             prose
                                 "Preferences use sessionStorage and default to the stable SideNav ID. Use _persistenceKey to separate unrelated navigation trees that reuse an ID, or to share preferences between responsive presentations of one tree. Give groups stable _id values when their order changes; otherwise their structural position and label identify them."
                             prose
-                                "_expandedSignal keeps the host responsible for initializing and persisting that group's state. When storage is unavailable, toggles still work in the current document. Without Datastar, native links and details/summary remain usable, but cross-document preferences are not restored." ]
+                                "Include SideNavPreferences.assetsWithNonce once in the document head before the application module to restore saved disclosures before the first paint. Pass the host's CSP nonce, or use SideNavPreferences.assets() when no nonce is required. The initializer also preserves native toggles made while the application module is loading."
+                            code "fsharp" "head {\n    SideNavPreferences.assetsWithNonce (Some nonce)\n    // Your stylesheet and application module follow.\n}"
+                            prose
+                                "_expandedSignal keeps the host responsible for initializing and persisting that group's state. When storage is unavailable, toggles still work in the current document. Without JavaScript, native links and details/summary retain their server-rendered defaults, but browser preferences are not restored." ]
                   if registration.id = appShellRegistration.id then
                       titledSection
                           "complete-pages"
@@ -11657,7 +11805,7 @@ module Components =
                 _dataSignals "{_pdf_selection_error: ''}"
                 _dataOn ("change", pdfSelectionValidation)
                 _dataOn ("invalid", pdfSelectionValidation)
-                _dataOn ("reset__window", "if (evt.target === el.form) queueMicrotask(() => { if (!evt.defaultPrevented) { el.setCustomValidity(''); $_pdf_selection_error = ''; } })")
+                _dataOn ("reset", ["window"], "if (evt.target === el.form) queueMicrotask(() => { if (!evt.defaultPrevented) { el.setCustomValidity(''); $_pdf_selection_error = ''; } })")
                 _dataAttr ("aria-invalid", "$_pdf_selection_error ? 'true' : null")
                 _dataAttr ("aria-describedby", "$_pdf_selection_error ? 'required-file-help required-file-error' : 'required-file-help'")
             }
@@ -11716,8 +11864,16 @@ module Components =
         fveAvatar {
             _ariaLabel "FSharp.ViewEngine"
             _src "/android-chrome-512x512.png"
+            _referrerpolicy "no-referrer"
             _size Size.Large
             "FV"
+        }
+
+    let failedAvatarImageExample =
+        fveAvatar {
+            _ariaLabel "Unavailable profile image"
+            _src "data:image/png;base64,broken"
+            "AM"
         }
 
     let decorativeAvatarExample =
@@ -11830,6 +11986,26 @@ module Components =
 
             for group in commandGroups do
                 group
+        }
+
+    let contextualCommand =
+        fveCommand {
+            _id "command-context"
+            _ariaLabel "Search page topics"
+            _placeholder "Try presentations or PDF…"
+            fveCommandGroup {
+                _label "Guides"
+                fveCommandItem {
+                    _href "/guides/presentations"
+                    _keywords ["print"; "PDF"]
+                    "Presentations"
+                }
+                fveCommandItem {
+                    _href "/guides/presentations#printing"
+                    _matchAnchor "Print PDF"
+                    "Presentations · Print or save as PDF"
+                }
+            }
         }
 
     let commandActionsExample =
@@ -12296,10 +12472,6 @@ module Components =
                 _class "flex flex-wrap items-center gap-2"
                 fveButton { _type "submit"; _color Color.Primary; "Review time" }
                 fveButton { _type "reset"; _variant ButtonVariant.Outline; "Reset selection" }
-                noscript {
-                    button { _type "submit"; _class "min-h-8 rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] px-3 text-sm text-white"; "Review time" }
-                    button { _type "reset"; _class "min-h-8 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] px-3 text-sm"; "Reset selection" }
-                }
             }
             if selection.submitted then
                 p {
@@ -13331,7 +13503,7 @@ module Components =
                 "simpleTeamTable" ]
               (detailsSurface simpleTeamTable)
           |> note
-              "Import Assets/table.js from your application entry. Table creates a custom-element host; rows and cells remain native HTML."
+              "Import Assets/table.js from your application entry. Table creates a custom-element host; rows and cells remain native HTML. Row hover highlighting is off by default."
           sample
               "table-comfortable"
               "Comfortable rows"
@@ -13341,6 +13513,12 @@ module Components =
                 "teamTableRows"
                 "comfortableTeamTable" ]
               (detailsSurface comfortableTeamTable)
+          sample
+              "table-hover"
+              "Hover highlighting"
+              [ "TeamMember"; "teamMembers"; "teamTableHeader"; "teamTableRows"; "hoverTeamTable" ]
+              (detailsSurface hoverTeamTable)
+          |> note "Use _hoverRows true to opt in. The optional --fve-table-row-hover token changes only this table. By default, hover composites a subtle dark/light wash into the table’s opaque background; sticky cells reuse the same color. Selected rows keep their selected background, and keyboard focus remains independent."
           sample
               "table-status"
               "With status values"
@@ -13423,10 +13601,13 @@ module Components =
               |> note "Size changes the rendered square, not the selected artwork: Extra small 12px, Small 16px, Medium 20px, Large 24px, Extra large 32px. Omit it to use the family's natural size. The bundled MIT-licensed Heroicons artwork needs no JavaScript or external request." ]
         | "button" ->
             [ sample "button-basic" "Default" [ "basicButton" ] (centered basicButton)
+              |> note "Submit and reset Buttons include a styled native form control before enhancement, so browser validation and form submission work without JavaScript. Rocket enhances that same content with pending and interaction behavior."
               sample "button-sizes" "Sizes" [ "refreshIcon"; "buttonSizeExamples" ] (centered buttonSizeExamples)
-              |> note "Extra small, Small, Medium, Large and Extra large are 24, 28, 32, 36 and 40px at the default root size. A square child makes a square control: padding is symmetric and both minimum dimensions match. Supply an accessible name for icon-only controls. Medium is the 32px application default."
+              |> note "Extra small, Small, Medium, Large and Extra large are 24, 28, 32, 36 and 40px at the default root size. Horizontal and vertical padding follow the shared size tokens independently, with borders included in the insets. Content determines width; icon-only controls do not need to be square. Supply an accessible name for icon-only controls. Medium is the 32px application default."
               sample "button-colors" "Colors" [ "buttonColorExamples" ] (centered buttonColorExamples)
               sample "button-variants" "Variants" [ "buttonVariantExamples" ] (centered buttonVariantExamples)
+              sample "button-color-variants" "All color variants" [ "actionColors"; "actionPaletteGrid"; "buttonPaletteExamples" ] (fieldSurface buttonPaletteExamples)
+              |> note "Compare each variant’s idle, hover and pressed state. Solid and tinted fills retain their color identity; text/icons stay opaque. Focus, selected and unavailable states remain independent. Custom palettes keep their explicit authored colors."
               sample "button-pending" "Pending" [ "pendingSyncButton" ] (centered pendingSyncButton)
               |> note "Click Sync to see its loading state."
               sample
@@ -13474,15 +13655,17 @@ module Components =
               sample "button-row-actions" "Row actions"
                   [ "RowActionAccount"; "rowActionAccounts"; "moreActionsIcon"; "rowActionMenu"; "rowActionButtons" ]
                   (connectedGallerySurface (div { _class "p-3 sm:p-6"; rowActionButtons }))
-              |> note "Use a 28px Small ghost button with a square horizontal-ellipsis icon child. Name it for its record; preserve hover contrast on hovered and selected backgrounds. Open, Edit and Delete navigate to the working Application example." ]
+              |> note "Use a 28px-high Small ghost button with a horizontal-ellipsis icon child and the default control padding. Name it for its record; preserve hover contrast on hovered and selected backgrounds. Open, Edit and Delete navigate to the working Application example." ]
         | "link" ->
             [ sample "link-basic" "Default" [ "basicLink" ] (connectedCentered basicLink)
               sample "link-sizes" "Sizes" [ "linkSizeExamples" ] (connectedCentered linkSizeExamples)
               sample "link-colors" "Colors" [ "linkColorExamples" ] (connectedCentered linkColorExamples)
               sample "link-variants" "Variants" [ "linkVariantExamples" ] (connectedCentered linkVariantExamples)
+              sample "link-color-variants" "All color variants" [ "actionColors"; "actionPaletteGrid"; "linkPaletteExamples" ] (connectedCentered linkPaletteExamples)
+              |> note "Hover and press retain native link behavior. Text links strengthen their foreground/underline; control-like variants use the same action palette as Button. Custom palette colors remain consumer-owned."
               sample "link-icon-variants" "Icon-only variants" [ "linkIconVariants" ] (connectedCentered linkIconVariants)
               sample "link-icon-sizes" "Icon-only sizes" [ "linkIconSizes" ] (connectedCentered linkIconSizes)
-              |> note "Use an ordinary Link with a square Icon child and an accessible name. Control variants add symmetric padding and matching minimum dimensions; Text keeps the icon's own dimensions without control padding. Icon-only links retain native navigation, modified clicks and focus behavior."
+              |> note "Use an ordinary Link with a square Icon child and an accessible name. Control variants use the same horizontal/vertical padding and minimum height as Button; Text keeps the icon's own dimensions without control padding. Icon-only links retain native navigation, modified clicks and focus behavior."
               sample "link-new-tab" "Native new-tab navigation" [ "newTabLink" ] (connectedCentered newTabLink) ]
         | "button-group" ->
             [ sample "button-group-default" "Default" [ "defaultButtonGroup" ] (centered defaultButtonGroup)
@@ -13542,7 +13725,8 @@ module Components =
                   "resizable-vertical"
                   "Vertical split panels"
                   [ "verticalResizablePanels" ]
-                  (detailsSurface verticalResizablePanels) ]
+                  (detailsSurface verticalResizablePanels)
+              |> note "Use _persistenceKey with a stable, unique key to remember the panel size on this browser, including after navigation or expansion/restoration. Omit it for transient sizing. Stored values outside the current bounds are ignored; resizing still works when browser storage is unavailable." ]
         | "tooltip" ->
             [ sample "tooltip" "Default" [ "basicTooltip" ] (centered basicTooltip)
               sample "tooltip-described" "Existing description" [ "describedTooltip" ] (centered describedTooltip)
@@ -13630,6 +13814,8 @@ module Components =
                   [ "avatarFallbackExample" ]
                   (centered avatarFallbackExample)
               sample "avatar-image" "Image" [ "avatarImageExample" ] (centered avatarImageExample)
+              |> note "Import Assets/avatar.js to display successfully loaded images. The supplied fallback remains visible while loading, after failure, or when JavaScript is unavailable. _referrerpolicy is forwarded to the image; the caller chooses the policy. The wrapper supplies one accessible name."
+              sample "avatar-image-failed" "Image unavailable" [ "failedAvatarImageExample" ] (centered failedAvatarImageExample)
               sample "avatar-decorative" "Decorative" [ "decorativeAvatarExample" ] (centered decorativeAvatarExample) ]
         | "copy-reveal" ->
             [ sample "copy-reveal" "Default" [ "copyRevealExample" ] (fieldSurface copyRevealExample)
@@ -14247,6 +14433,8 @@ module Components =
                   "Groups, icons and shortcuts"
                   [ "commandDocumentIcon"; "commandGroups"; "groupedCommand" ]
                   (fieldSurface groupedCommand)
+              sample "command-context" "Contextual page links" [ "contextualCommand" ] (fieldSurface contextualCommand)
+              |> note "Use _matchAnchor for contextual results such as section links. They stay hidden for an empty query or a parent-name-only match, require a query word matching the anchor, and appear after ordinary matches. The full label and keywords still support combined searches."
               sample
                   "command-actions"
                   "Actions and disabled items"
@@ -14377,7 +14565,8 @@ module Components =
                   "page-top-bar-shell"
                   "Full-width shell bar"
                   [ "shellTopBarExample" ]
-                  (shellTopBarExample |> themedSurface) ]
+                  (shellTopBarExample |> themedSurface)
+              |> note "Set --fve-shell-sidebar-width on the bar or its containing region to match the consumer-owned sidebar. The brand region defaults to 15rem and appears at wide shell sizes." ]
         | "page-header" ->
             [ sample "page-header-default" "Default" [ "defaultPageHeader" ] (detailsSurface defaultPageHeader)
               sample
@@ -14392,19 +14581,30 @@ module Components =
         | "disclosure" ->
             [ sample "disclosure-default" "Independent or grouped questions" [ "disclosureExample" ] (detailsSurface disclosureExample)
               |> note "Use _name to group questions so opening one closes its peers, or omit it for independent disclosures. The native control needs no JavaScript asset." ]
+        | "slide" ->
+            [ sample "slide-default" "Content slide" [ "defaultSlide" ] defaultSlide
+              sample "slide-cover" "Cover" [ "coverSlide" ] coverSlide
+              |> note "Slides keep a 16:9 canvas, up to 1280px wide at the default root size. Below 768px, the frame scrolls horizontally instead of making text unreadably small. Body content scrolls when it exceeds the reserved region; it is not automatically shrunk. Printing gives each slide a full-bleed 1280×720 page with its backgrounds and metadata. Split overflowing content across slides before printing; paper cannot scroll. Use relative sizing for child layouts."
+              |> note "SlideHeader owns the title/subtitle composition. SlideFooter supplies footer copy; SlideBranding supplies the slide’s logo or wordmark. Numbering is automatic inside Presentation. To style the number, place fveSlideNumber as a direct slide child. A standalone slide is numbered 01." ]
+        | "presentation" ->
+            [ sample "presentation-default" "Separated slides and presentation mode" [ "defaultSlide"; "coverSlide"; "presentationExample" ] presentationExample
+              |> note "Presentation accepts Slide children and numbers them in source order. Each slide owns its branding and footer; use an ordinary F# function for repeated configuration. Import the installed Assets/presentation.js module for the viewer. The stacked view shows only Expand; previous/next, position and Restore appear in expanded mode. Expanded mode fits one slide to the viewport, with controls aligned to the canvas’s right edge above a consistent gap; use Left/Right, Home/End and Escape. Stacked slides remain readable without JavaScript. Reused slides do not retain their previous deck position."
+              |> note "Use the Presentations guide at /guides/presentations for deck composition, standalone authoring and printing. Choose Print or Save as PDF in your browser for one 16:9 page per slide, without the viewer controls or surrounding host chrome. The active theme is preserved. Printing from the expanded viewer restores its current slide and focus afterward. Print styles also work without JavaScript; no PowerPoint or separate PDF converter is required." ]
         | "browser" ->
             [ sample "browser-default" "Default" [ "defaultBrowser" ] (centered defaultBrowser)
               sample "browser" "With an address bar" [ "browserWithAddress" ] (centered browserWithAddress)
               sample
                   "browser-review"
                   "Review controls and expansion"
-                  [ "fixtureAppearance"
-                    "fixtureWindowControl"
+                  [ "fixtureWindowControl"
+                    "browserReviewStates"
+                    "browserReviewHref"
+                    "browserReviewDirection"
                     "browserReviewFrame"
                     "browserWithControls" ]
-                  (themedSurface browserWithControls)
+                  (connectedGallerySurface (div { _class "p-3 sm:p-6"; browserWithControls }))
               |> note
-                  "Install color-mode and dropdown-menu, and initialize ColorMode.assets once in the host head as shown in Theming. withWindowControls and withToolbarActions accept host-owned links/controls; withExpanded fills the viewport without dropping the address bar. Your host owns the expanded URL, review state, journey and documentation visibility. See the Specification page example for the complete review composition." ]
+                  "Back/Forward links and the state menu navigate between real server-rendered states. The address and selected state remain accurate when expanded or restored. The fixed-width navigation group keeps the state selector between Back and Forward without shifting the arrows. Browser inherits its host’s theme. Install button, link, icon and dropdown-menu; import Assets/button.js and Assets/dropdown-menu.js. fveBrowserWindowControls and fveBrowserToolbarActions accept host-owned controls; _expanded fills the viewport. The host reads the state and expanded query parameters and renders browserReviewFrame; Browser itself does not own routes or history." ]
         | "phone" ->
             [ sample "phone-default" "Default" [ "defaultPhone" ] (centered defaultPhone)
               sample "phone" "With screen content" [ "phoneWithContent" ] (centered phoneWithContent)
@@ -14762,9 +14962,33 @@ let page =
     let popoverPage = gallery popoverRegistration (examplesFor "popover")
     let pageTopBarPage = gallery pageTopBarRegistration (examplesFor "page-top-bar")
     let pageHeaderPage = gallery pageHeaderRegistration (examplesFor "page-header")
+    let private scriptGuideLink =
+        p {
+            a {
+                _href "/guides/presentations"
+                _class "text-[var(--fve-brand-text)] underline underline-offset-4"
+                "Build a presentation and print or save it as PDF."
+            }
+        }
+
+    let slidePage =
+        let page = gallery slideRegistration (examplesFor "slide")
+        { page with lead = page.lead @ [scriptGuideLink] }
+
+    let presentationPage =
+        let page = gallery presentationRegistration (examplesFor "presentation")
+        { page with lead = page.lead @ [scriptGuideLink] }
     let sectionPage = gallery sectionRegistration (examplesFor "section")
     let disclosurePage = gallery disclosureRegistration (examplesFor "disclosure")
-    let browserPage = gallery browserRegistration (examplesFor "browser")
+    let browserPageFor state =
+        examplesFor "browser"
+        |> List.map (fun example ->
+            if example.id = "components-browser-review" then
+                { example with preview = connectedGallerySurface (div { _class "p-3 sm:p-6"; browserReviewFrame false state }) }
+            else example)
+        |> gallery browserRegistration
+
+    let browserPage = browserPageFor "summary"
     let resizablePage = gallery resizableRegistration (examplesFor "resizable")
     let phonePage = gallery phoneRegistration (examplesFor "phone")
     let pagePage = gallery pageRegistration (examplesFor "page")
@@ -14820,6 +15044,7 @@ let page =
         gallery mediaLibraryRegistration (examplesFor "media-library")
 
     let interactionPage = ComponentGuideExamples.signalsPage interactionRegistration
+    let themingPageFor state = ComponentGuideExamples.themingPageFor state themingRegistration
     let themingPage = ComponentGuideExamples.themingPage themingRegistration
 
     let private pages =
@@ -14873,6 +15098,8 @@ let page =
           popoverRegistration.path, popoverPage
           pageTopBarRegistration.path, pageTopBarPage
           pageHeaderRegistration.path, pageHeaderPage
+          slideRegistration.path, slidePage
+          presentationRegistration.path, presentationPage
           sectionRegistration.path, sectionPage
           disclosureRegistration.path, disclosurePage
           browserRegistration.path, browserPage

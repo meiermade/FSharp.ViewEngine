@@ -121,7 +121,8 @@ for (const surface of ['application', 'specification'] as const) {
       await expect(link.locator('svg[aria-hidden=true]')).toHaveCount(1)
       await expect(link).toHaveText('')
       const bounds = (await link.boundingBox())!
-      expect([bounds.width, bounds.height]).toEqual([32, 32])
+      expect([bounds.width, bounds.height]).toEqual([40, 32])
+      expect(await link.evaluate(el => { const s = getComputedStyle(el); return [parseFloat(s.paddingLeft), parseFloat(s.paddingTop)] })).toEqual([10, 6])
       expect(await link.evaluate(el => el.getBoundingClientRect().y)).toBeLessThan(48)
     }
     await expect(product.getByRole('button', { name: 'Choose color theme', exact: true })).toHaveCount(0)

@@ -75,6 +75,15 @@ module ComponentGuideExamples =
             fveButton { "Rounded action" }
         }
 
+    let scopedTokens =
+        div {
+            _id "theming-scoped-controls"
+            _class (ComponentsTheme.className ComponentsTheme.emerald + " grid gap-4")
+            _style "--fve-radius-control:0.75rem;--fve-hover-wash:light-dark(rgb(0 0 0 / 0.07),rgb(255 255 255 / 0.12));--fve-pressed-wash:light-dark(rgb(0 0 0 / 0.12),rgb(255 255 255 / 0.18));--fve-primary-hover:light-dark(#166534,#34d399);--fve-primary-active:light-dark(#14532d,#10b981)"
+            fveButton { _color Color.Primary; _variant ButtonVariant.Solid; "Save changes" }
+            fveLink { _href "/components/button"; _color Color.Neutral; _variant LinkVariant.Outline; "Button reference" }
+        }
+
     let appearanceHead =
         head {
             ColorMode.assets "my-app-appearance" ColorMode.System
@@ -88,7 +97,7 @@ module ComponentGuideExamples =
     let appearancePicker =
         fveRadioGroup {
             _dataSignals "{_guide_appearance: window.fveColorMode.current()}"
-            _dataOn ("fve-color-mode__window", "$_guide_appearance = window.fveColorMode.current()")
+            _dataOn ("fve-color-mode", ["window"], "$_guide_appearance = window.fveColorMode.current()")
             yield! ColorMode.nativeChoiceAttributes
             fveFieldLegend { "Appearance" }
 
@@ -119,13 +128,14 @@ module ComponentGuideExamples =
               [ "usingSignals"
                 "themedControls"
                 "customRadius"
+                "scopedTokens"
                 "appearanceHead"
                 "appearancePicker" ] do
               "guide-" + name, source name ]
 
     let private prose (text: string) =
         p {
-            _class "m-0 text-base leading-relaxed text-[var(--fve-muted-text)]"
+            _class "m-0 text-base leading-relaxed text-[var(--fve-muted-text)] [overflow-wrap:anywhere]"
             text
         }
 
@@ -185,7 +195,7 @@ module ComponentGuideExamples =
                         ". Validate submitted values and permissions on the server."
                     } ] ]
 
-    let themingPage (registration: DocPage) =
+    let themingPageFor state (registration: DocPage) =
         DocumentationPage.create registration.id registration.title
         |> DocumentationPage.withDescription
             "Apply a shared theme, override a token, and let the user choose light, dark or system appearance."
@@ -202,6 +212,13 @@ module ComponentGuideExamples =
                   [ example "customRadius" "Custom control radius" customRadius
                     prose
                         "Use ordinary classes and semantic CSS variables for local changes. Edit the installed source when the component structure itself needs to change."
+                    prose "Neutral interactive controls paint a translucent background wash without fading their content or replacing their selected color. --fve-hover-wash defaults to black at 5% in light mode and white at 10% in dark mode; --fve-pressed-wash uses 10% and 15%. Override these on the owning region, not the opaque --fve-surface or --fve-surface-hover tokens."
+                    code "css" ".quiet-region {\n  --fve-hover-wash: light-dark(rgb(0 0 0 / 0.05), rgb(255 255 255 / 0.10));\n  --fve-pressed-wash: light-dark(rgb(0 0 0 / 0.10), rgb(255 255 255 / 0.15));\n}"
+                    p {
+                        "Table rows keep an opaque hover fill so sticky cells match. Use "
+                        link "/components/table#components-table-hover" "Table’s --fve-table-row-hover override"
+                        " for a table-specific color."
+                    }
                     p {
                         "For an action-specific color palette, see "
                         link "/components/button" "Button"
@@ -209,6 +226,24 @@ module ComponentGuideExamples =
                         link "/components/installation#updating" "update instructions"
                         " explain how local edits are preserved."
                     } ]
+              DocumentationSection.create
+                  "scoped-overrides"
+                  "Scope CSS variables to a region"
+                  [ prose "Put overrides on the owning ComponentsTheme region or the specific component. A nested theme resets its own defaults; an explicit component _size or _density can set more-local values. Ordinary inherited overrides never need a new theme or a JavaScript observer."
+                    example "scopedTokens" "Scoped light/dark overrides" scopedTokens
+                    prose "The F# example uses _style for locality. The equivalent stylesheet can target the same region ID; light-dark() follows that region’s color-scheme, including manual appearance preferences."
+                    code "css" "#theming-scoped-controls {\n  --fve-radius-control: 0.75rem;\n  --fve-hover-wash: light-dark(rgb(0 0 0 / 0.07), rgb(255 255 255 / 0.12));\n  --fve-pressed-wash: light-dark(rgb(0 0 0 / 0.12), rgb(255 255 255 / 0.18));\n  --fve-primary-hover: light-dark(#166534, #34d399);\n  --fve-primary-active: light-dark(#14532d, #10b981);\n}" ]
+              DocumentationSection.create
+                  "css-variables"
+                  "CSS-variable reference"
+                  [ prose "These are the supported customization variables. Defaults below come from ComponentsTheme.sky with its default Medium controls and Comfortable density, before application overrides. Other named themes change the brand values; changing appearance selects the corresponding mode. The catalog itself uses Compact density."
+                    prose "Search by variable name, purpose or scope, or filter to theme defaults, action palettes or component overrides. Each variable appears once, with ten results per page."
+                    prose "Each of the seven built-in action colors has independently overridable fields. The reference reads the actual palette fallbacks and shared Sky semantic defaults; var(...) defaults follow the owning theme. Neutral, Warning and Info text variables also serve their corresponding semantic controls. Neutral Outline/Ghost actions use the shared background-wash tokens instead of the opaque Soft fills. Color.Custom uses its supplied ColorPalette, rather than these built-in token defaults."
+                    ThemeTokens.reference state ]
+              DocumentationSection.create
+                  "internal-variables"
+                  "Internal variables"
+                  [ prose "Variables prefixed --fve-internal- are component-managed implementation details. Use the customization variables listed above." ]
               DocumentationSection.create
                   "appearance"
                   "Add an appearance picker"
@@ -221,22 +256,18 @@ module ComponentGuideExamples =
                     prose
                         "The radios bind to the saved preference and follow changes from other controls. System stays selected while the operating system decides the resolved appearance. This preview uses the catalog's existing preference."
                     p {
+                        _class "[overflow-wrap:anywhere]"
                         "For a nonce-enabled host, use ColorMode.assetsWithNonce and the existing "
                         link "/extensions/datastar#content-security-policy" "CSP setup"
                         ". The "
-                        link "/components/theming/document" "complete runnable example"
+                        link "/guides/theming/document" "complete runnable example"
                         " is available separately."
                     } ]
               DocumentationSection.create
                   "api-reference"
                   "Theme API"
-                  [ details {
-                        summary {
-                            _class "cursor-pointer font-semibold text-[var(--fve-brand-text)]"
-                            "Shared theme types and helpers"
-                        }
-
-                        fveFSharpApiReference {
-                            yield! FSharpApiReference.forCategory "theming" (typeof<ButtonBuilder>)
-                        }
+                  [ fveFSharpApiReference {
+                        yield! FSharpApiReference.forCategory "theming" (typeof<ButtonBuilder>)
                     } ] ]
+
+    let themingPage registration = themingPageFor (ThemeTokens.select "" "all" 1) registration

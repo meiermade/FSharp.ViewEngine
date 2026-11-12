@@ -226,11 +226,18 @@ let tests =
             let index = DocsSearch.index [ entry ]
             let rendered = SearchView.render index |> Render.toString
 
-            Expect.sequenceEqual index[0].keywords [ "serialization" ] "consumer keywords"
+            Expect.sequenceEqual index[0].keywords [ "serialization" ] "page keywords do not inherit every section topic"
             Expect.stringContains rendered "aria-label=\"Search documentation\"" "search dialog label"
             Expect.stringContains rendered "data-fve-command-item" "shared command result metadata"
             Expect.equal index[1].description "" "section results do not repeat page-wide description matches"
-            Expect.equal index[0].group "Search results" "the consumer can group page results"
+            Expect.equal index[0].group "Pages" "ordinary page results have a useful default group"
+            Expect.equal index[1].group "Sections" "deep links are secondary to all page groups"
+            Expect.equal index[1].sectionTitle (Some "Render output") "section matching has an explicit anchor"
+            Expect.stringContains rendered "data-fve-command-match-anchor=\"Render output\"" "deep links require a relevant heading match"
+            let example = DocsSearchEntry.create "/examples/presentation" page [] |> DocsSearchEntry.withGroup "Examples" |> DocsSearchEntry.inNewTab
+            let exampleHtml = DocsSearch.index [example] |> SearchView.render |> Render.toString
+            Expect.stringContains exampleHtml "target=\"_blank\"" "examples retain native new-tab destinations"
+            Expect.stringContains exampleHtml "rel=\"noopener\"" "new-tab results do not retain an opener"
             Expect.stringContains rendered "href=\"/guide#render\"" "heading deep link"
             Expect.stringContains rendered "Ctrl+K" "keyboard shortcut hint"
         }

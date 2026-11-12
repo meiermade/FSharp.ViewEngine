@@ -32,15 +32,29 @@ let add root names =
     let code,_,error = invoke (["add"] @ names @ ["--config"; configPath root])
     Expect.equal code 0 error
 
+let runDotnet root arguments =
+    let start = System.Diagnostics.ProcessStartInfo("dotnet")
+    start.WorkingDirectory <- root
+    for argument in arguments do start.ArgumentList.Add argument
+    start.RedirectStandardOutput <- true
+    start.RedirectStandardError <- true
+    use child = System.Diagnostics.Process.Start start
+    let stdout,stderr = child.StandardOutput.ReadToEndAsync(),child.StandardError.ReadToEndAsync()
+    if not (child.WaitForExit 90000) then child.Kill true; failtest "dotnet did not finish"
+    child.ExitCode,stdout.Result + stderr.Result
+
 let tests = testList "fve" [
     testCase "help and parser expose the typed command contract" <| fun _ ->
         let code,output,error = invoke ["--help"]
         Expect.equal code 0 error
-        for value in ["init <project>"; "add <components>"; "diff"] do Expect.stringContains output value "public command"
+        for value in ["init <project>"; "add <components>"; "diff"; "build"] do Expect.stringContains output value "public command"
         Expect.equal (output.Split("--version").Length-1) 1 "one version option"
         let code,output,error = invoke ["add"; "--help"]
         Expect.equal code 0 error
         for value in ["--overwrite"; "--config"] do Expect.stringContains output value "source ownership options"
+        let code,output,error = invoke ["build"; "--help"]
+        Expect.equal code 0 error
+        for value in ["--open"; "--config"] do Expect.stringContains output value "script build options"
         for arguments in [["add"]; ["wat"]] do
             let code,_,_ = invoke arguments
             Expect.notEqual code 0 "missing and unknown inputs fail"
@@ -80,10 +94,11 @@ let tests = testList "fve" [
     testCase "independent controls install complete narrow file boundaries" <| fun _ ->
         let common = "ComponentBuilder.fs Foundation.fs"
         let runtime = "Assets/datastar-LICENSE.txt Assets/datastar-rocket.1.0.4.js"
+        let icons = "IconNames.fs IconData.fs Icon.fs Assets/heroicons-LICENSE.txt Assets/heroicons.2.2.0.provenance.json Assets/bootstrap-icons-LICENSE.txt Assets/bootstrap-icons.1.13.1.provenance.json"
         for requested,source in [
             "card", $"{common} Card.fs"
             "input", $"{common} FieldFoundation.fs Input.fs"
-            "icon", $"{common} IconNames.fs IconData.fs Icon.fs Assets/heroicons-LICENSE.txt Assets/heroicons.2.2.0.provenance.json Assets/bootstrap-icons-LICENSE.txt Assets/bootstrap-icons.1.13.1.provenance.json"
+            "icon", $"{common} {icons}"
             "button", $"{common} {runtime} Button.fs Assets/button.js"
             "select", $"{common} {runtime} ChoiceSelection.fs Select.fs Assets/select.js"
             "button-group", $"{common} {runtime} ButtonGroup.fs Assets/scroll-region.js"
@@ -96,6 +111,8 @@ let tests = testList "fve" [
             "command", $"{common} {runtime} Button.fs Assets/button.js NativeOverlay.fs Assets/native-overlay.js Dialog.fs Assets/dialog.js Command.fs Assets/command.js"
             "section", $"{common} SectionHeader.fs Section.fs"
             "disclosure", $"{common} Disclosure.fs"
+            "slide", $"{common} Slide.fs"
+            "presentation", $"{common} {runtime} {icons} Button.fs Assets/button.js Slide.fs Presentation.fs Assets/presentation.js"
             "time-picker", $"{common} {runtime} FieldFoundation.fs Input.fs InputGroup.fs Popover.fs Assets/popover.js TimePicker.fs Assets/time-picker.js"
             "day-calendar", $"{common} {runtime} FieldFoundation.fs Input.fs InputGroup.fs TimePicker.fs Assets/time-picker.js Popover.fs Assets/popover.js ChoiceSelection.fs Select.fs Assets/select.js CalendarRendering.fs Assets/scroll-region.js Assets/calendar-range.js DayCalendar.fs"
             "date-picker", $"{common} {runtime} CalendarRendering.fs Assets/scroll-region.js Assets/calendar-range.js FieldFoundation.fs Input.fs InputGroup.fs TimePicker.fs Assets/time-picker.js Popover.fs Assets/popover.js ChoiceSelection.fs Select.fs Assets/select.js MonthCalendar.fs Assets/calendar-selection.js DatePicker.fs Assets/date-picker.js"
@@ -200,7 +217,7 @@ let tests = testList "fve" [
         withTemp <| fun root ->
             initialize root
             add root ["button"]
-            let helper = { Component="button"; FileName="Assets/button-helper.js"; Compile=false; Source="export const enhanced = true;" }
+            let helper = { Component="button"; FileName="Assets/button-helper.js"; Compile=false; Module=false; Source="export const enhanced = true;" }
             let next = { registry with Components = registry.Components |> List.map (fun item -> if item.Name = "button" then { item with Files = item.Files @ [helper] } else item) }
             File.AppendAllText(componentPath root "Assets/button.js","\n// keep this\n")
             use stdout = new StringWriter()
@@ -211,6 +228,139 @@ let tests = testList "fve" [
             Expect.equal (Commands.add next output { Config=configPath root; Components=["button"]; Overwrite=false }) 0 (stderr.ToString())
             Expect.equal (File.ReadAllText(componentPath root "Assets/button-helper.js")) helper.Source "new file installed"
             Expect.stringContains (File.ReadAllText(componentPath root "Assets/button.js")) "keep this" "customization preserved"
+
+    testCase "scripts install ordered source, execute in FSI and protect authored content" <| fun _ ->
+        withTemp <| fun root ->
+            let script = Path.Combine(root, "deck.fsx")
+            let original = "#!/usr/bin/env -S dotnet fsi\n// My authored content\n"
+            File.WriteAllText(script, original)
+            let code,_,error = invoke ["init"; script; "--namespace"; "Deck"]
+            Expect.equal code 0 error
+            Expect.isTrue ((File.ReadAllText script).StartsWith("#!/usr/bin/env -S dotnet fsi\n")) "a shebang stays first"
+            let initialized = File.ReadAllText script
+            File.WriteAllText(script, original)
+            let code,_,error = invoke ["add"; "presentation"; "--config"; configPath root]
+            Expect.equal code 2 "even the first installation protects a removed managed block"
+            Expect.stringContains error "managed script block is missing" "the repair is explicit"
+            Expect.equal (File.ReadAllText script) original "a missing block does not silently reappear"
+            Expect.isFalse (Directory.Exists(Path.Combine(root, "Components"))) "no partial component writes"
+            File.WriteAllText(script, initialized)
+            add root ["presentation"]
+            let consumer = """
+open FSharp.ViewEngine
+open type Html
+let deck = fvePresentation {
+    _label "Script deck"
+    fveSlide { fveSlideHeader { fveSlideTitle { "<Budget>" } } }
+    fveSlide { fveSlideHeader { fveSlideTitle { "Next" } } }
+}
+System.IO.File.WriteAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__, "result.html"), Render.toString deck)
+"""
+            File.AppendAllText(script, consumer)
+            add root ["presentation"]
+            Expect.stringContains (File.ReadAllText script) consumer "consumer body remains byte-for-byte intact"
+            Expect.isEmpty (Directory.GetFiles(root, "*.fsproj")) "a script needs no project"
+            let code,sdks = runDotnet root ["--list-sdks"]
+            Expect.equal code 0 sdks
+            let versions = sdks.Split('\n', StringSplitOptions.RemoveEmptyEntries) |> Array.map (fun line -> line.Split(' ')[0])
+            for major in ["9."; "10."] do
+                let version =
+                    versions |> Array.filter (fun version -> version.StartsWith(major, StringComparison.Ordinal))
+                    |> Array.tryLast |> Option.defaultWith (fun () -> failtest $"Install a .NET {major} SDK to test supported script authoring.")
+                File.WriteAllText(Path.Combine(root, "global.json"), System.Text.Json.JsonSerializer.Serialize {|sdk={|version=version; rollForward="disable"|}|})
+                let code,output = runDotnet root ["fsi"; "--exec"; script]
+                Expect.equal code 0 $"SDK {version}: {output}"
+            let html = File.ReadAllText(Path.Combine(root, "result.html"))
+            Expect.stringContains html "&lt;Budget&gt;" "normal script values remain encoded"
+            Expect.stringContains html "Slide 2 of 2" "actual installed components run and number correctly"
+            let modified = (File.ReadAllText script).Replace("open Deck", "open Deck // customized")
+            File.WriteAllText(script, modified)
+            let code,_,error = invoke ["add"; "card"; "--config"; configPath root]
+            Expect.equal code 2 "managed script edits fail closed"
+            Expect.stringContains error "managed script block was modified" "ownership boundary is explicit"
+            Expect.equal (File.ReadAllText script) modified "failed installation preserves the script"
+            Expect.isFalse (File.Exists(componentPath root "Card.fs")) "no partial source write"
+            let code,_,error = invoke ["add"; "card"; "--config"; configPath root; "--overwrite"]
+            Expect.equal code 0 error
+            Expect.stringContains (File.ReadAllText script) consumer "explicit replacement still preserves consumer code"
+
+    testCase "script build uses installed source, preserves inputs and restores outputs on failure" <| fun _ ->
+        withTemp <| fun root ->
+            File.WriteAllText(Path.Combine(root,"global.json"), """{"sdk":{"version":"10.0.100","rollForward":"latestFeature"}}""")
+            let script = Path.Combine(root,"cash review.fsx")
+            let code,_,error = invoke ["init"; script; "--namespace"; "Deck"]
+            Expect.equal code 0 error
+            add root ["presentation"]
+            let modulePath = componentPath root "Assets/presentation.js"
+            File.AppendAllText(modulePath,"\nwindow.__consumerBuild = true;\n")
+            let inputs = [script; configPath root; Path.Combine(root,"input.css"); modulePath] |> List.map (fun path -> path,File.ReadAllText path)
+            let code,output,error = invoke ["build"; "--config"; configPath root]
+            Expect.equal code 0 error
+            Expect.stringContains output "cash review.html" "output path is reported"
+            let html,css,js = Path.ChangeExtension(script,".html"),Path.ChangeExtension(script,".css"),Path.ChangeExtension(script,".js")
+            Expect.stringContains (File.ReadAllText html) "cash%20review.css" "starter references the matching URL-encoded stylesheet"
+            Expect.stringContains (File.ReadAllText html) "cash%20review.js" "starter references the matching classic bundle"
+            Expect.stringContains (File.ReadAllText css) "font-semibold" "authored script classes are scanned"
+            Expect.stringContains (File.ReadAllText js) "__consumerBuild" "the bundle reads edited installed JavaScript, not registry source"
+            for path,source in inputs do Expect.equal (File.ReadAllText path) source "build leaves all authored inputs and manifests untouched"
+            ConsumerProject.writeConfiguration (configPath root) {configuration root with Modules=null}
+            let code,output,error = invoke ["build"; "--config"; configPath root]
+            Expect.equal code 0 error
+            Expect.isFalse (output.Contains "Preparing Tailwind") "a repeated build uses the pinned tool cache"
+            Expect.stringContains (File.ReadAllText js) "__consumerBuild" "older manifests resolve only installed entry modules"
+            let outputs = [html;css;js] |> List.map (fun path -> path,File.ReadAllText path)
+            File.AppendAllText(script,"\n(failwith \"Authored failure\" : unit)\n")
+            let code,_,error = invoke ["build"; "--config"; configPath root]
+            Expect.equal code 2 "script failure is not success"
+            Expect.stringContains error "Authored failure" "the actual script error is retained"
+            for path,source in outputs do Expect.equal (File.ReadAllText path) source "script failure retains the last successful outputs"
+            File.WriteAllText(script,snd inputs[0])
+            File.WriteAllText(Path.Combine(root,"input.css"), "@import \"missing-fve-build-package\";")
+            let code,_,error = invoke ["build"; "--config"; configPath root]
+            Expect.equal code 2 "CSS failure is not success"
+            Expect.stringContains error "missing-fve-build-package" "tool diagnostics identify the failure"
+            for path,source in outputs do Expect.equal (File.ReadAllText path) source "asset failure retains the last successful outputs"
+            File.WriteAllText(Path.Combine(root,"input.css"),snd inputs[2])
+            File.AppendAllText(modulePath,"\nexport const = ;\n")
+            let code,_,error = invoke ["build"; "--config"; configPath root]
+            Expect.equal code 2 "bundle failure is not success"
+            Expect.stringContains error "presentation.js" "bundler diagnostics name the edited module"
+            for path,source in outputs do Expect.equal (File.ReadAllText path) source "bundle failure retains successful outputs"
+            File.WriteAllText(modulePath,snd inputs[3])
+            File.AppendAllText(script,"\nFile.Delete output\n")
+            let code,_,error = invoke ["build"; "--config"; configPath root]
+            Expect.equal code 2 "a successful script exit without output cannot reuse stale HTML"
+            Expect.stringContains error "No HTML output" "missing output is explicit"
+            for path,source in outputs do Expect.equal (File.ReadAllText path) source "missing output retains the last successful build"
+            Expect.isEmpty (Directory.GetFiles(root,".fve-*")) "temporary build artifacts are cleaned up"
+
+    testCase "build rejects project consumers and missing inputs without changing source" <| fun _ ->
+        withTemp <| fun root ->
+            initialize root
+            let code,_,error = invoke ["build"; "--config"; configPath root]
+            Expect.equal code 2 "project builds keep their normal dotnet boundary"
+            Expect.stringContains error "dotnet build" "the supported project command is explicit"
+        withTemp <| fun root ->
+            let script=Path.Combine(root,"deck.fsx")
+            let code,_,error=invoke ["init";script]
+            Expect.equal code 0 error
+            File.Delete(Path.Combine(root,"input.css"))
+            let source=File.ReadAllText script
+            let code,_,error=invoke ["build";"--config";configPath root]
+            Expect.equal code 2 "a missing authored stylesheet fails preflight"
+            Expect.stringContains error "input.css" "missing input is named"
+            Expect.equal (File.ReadAllText script) source "build cannot repair or replace authored inputs"
+
+    testCase "initializing an existing Core script does not introduce a second package reference" <| fun _ ->
+        withTemp <| fun root ->
+            let script = Path.Combine(root, "existing.fsx")
+            let original = "#r \"nuget: FSharp.ViewEngine, 2026.2.5\"\n// Existing authored deck\n"
+            File.WriteAllText(script, original)
+            let code,_,error = invoke ["init"; script; "--namespace"; "Deck"]
+            Expect.equal code 2 "Core reference ownership must be explicit"
+            Expect.stringContains error "Remove that #r directive" "the migration action is clear"
+            Expect.equal (File.ReadAllText script) original "existing source is untouched"
+            Expect.isFalse (File.Exists(configPath root)) "initialization creates no partial configuration"
 
     testCase "unmanaged conflicts and unavailable selectors preserve initialized state" <| fun _ ->
         withTemp <| fun root ->

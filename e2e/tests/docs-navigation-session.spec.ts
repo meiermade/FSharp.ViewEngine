@@ -261,6 +261,69 @@ test('sidebar preserves expanded groups and scroll during navigation morphs @cro
   await expect(sidebar.getByLabel('Toggle Feedback section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
 })
 
+test('saved sidebar disclosures are restored before the application bundle can paint @cross-browser', async ({ page }) => {
+  await page.goto('/components/select')
+  const form = page.getByLabel('Toggle Form controls section', { exact: true })
+  await expect(form).toHaveAttribute('aria-expanded', 'true')
+  await form.click()
+  await expect(form).toHaveAttribute('aria-expanded', 'false')
+  const guides = page.getByLabel('Toggle Guides section', { exact: true })
+  await guides.click()
+  await expect(guides).toHaveAttribute('aria-expanded', 'true')
+  let release!: () => void
+  const gate = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/assets/app.js', async route => { await gate; await route.continue().catch(() => {}) })
+  try {
+    await page.reload({ waitUntil: 'commit' })
+    await page.locator('#side-nav').waitFor({ state: 'visible' })
+    // Force layout before releasing the bundle. WebKit can withhold animation frames
+    // until a deferred module finishes, so waiting for rAF here would deadlock the gate.
+    const initial = await page.locator('#side-nav').evaluate(nav => {
+      nav.getBoundingClientRect()
+      return ['Toggle Form controls section', 'Toggle Guides section'].map(label => {
+        const summary = nav.querySelector(`summary[aria-label="${label}"]`)!
+        return { expanded: summary.getAttribute('aria-expanded'), open: (summary.parentElement as HTMLDetailsElement).open }
+      })
+    })
+    expect(initial).toEqual([{ expanded: 'false', open: false }, { expanded: 'true', open: true }])
+    // Activate the native summary without rAF-dependent pointer actionability checks:
+    // WebKit may not paint until the deliberately blocked module is released.
+    // Pointer operation is covered above and in the native no-JavaScript journey.
+    await form.evaluate(el => (el as HTMLElement).click())
+    await expect(form.locator('..')).toHaveAttribute('open', '')
+  } finally { release() }
+  await page.waitForLoadState('domcontentloaded')
+  await expect(form).toHaveAttribute('aria-expanded', 'true')
+  await expect(guides).toHaveAttribute('aria-expanded', 'true')
+})
+
+test('sidebar first-paint preparation keeps native defaults when storage or JavaScript is unavailable @cross-browser', async ({ browser, baseURL }) => {
+  const blocked = await browser.newContext({ baseURL })
+  await blocked.addInitScript(() => {
+    Object.defineProperty(Storage.prototype, 'getItem', { value() { throw new DOMException('Unavailable', 'SecurityError') } })
+    Object.defineProperty(Storage.prototype, 'setItem', { value() { throw new DOMException('Unavailable', 'SecurityError') } })
+  })
+  const page = await blocked.newPage(), errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto('/components/select')
+  const form = page.getByLabel('Toggle Form controls section', { exact: true })
+  await expect(form).toHaveAttribute('aria-expanded', 'true')
+  await form.click()
+  await expect(form).toHaveAttribute('aria-expanded', 'false')
+  await page.reload()
+  await expect(form).toHaveAttribute('aria-expanded', 'true')
+  expect(errors).toEqual([])
+  await blocked.close()
+
+  const native = await browser.newContext({ baseURL, javaScriptEnabled: false }), plain = await native.newPage()
+  await plain.goto('/components/select')
+  const group = plain.getByLabel('Toggle Form controls section', { exact: true }).locator('..')
+  await expect(group).toHaveAttribute('open', '')
+  await group.locator(':scope > summary').click()
+  await expect(group).not.toHaveAttribute('open', '')
+  await native.close()
+})
+
 test('rapid navigation keeps the latest server-rendered destination', async ({ page }) => {
   await page.goto('/components/button')
   let releaseSelect: () => void = () => {}

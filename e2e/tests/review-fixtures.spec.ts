@@ -13,14 +13,18 @@ for (const kind of ['Browser', 'Phone']) {
     await expect(page.locator('html')).toHaveAttribute('data-review-session', 'retained')
     const frame = page.locator(kind === 'Browser' ? '[data-fve-browser-expanded=true]' : '[data-fve-phone-expanded=true]')
     await expect(frame).toBeVisible()
-    if (kind === 'Browser') await expect(frame.locator('[data-fve-browser-address]')).toHaveText('/components/browser')
+    if (kind === 'Browser') await expect(frame.locator('[data-fve-browser-address]')).toHaveText('/components/browser?state=summary&expanded=1')
     else {
       await expect(frame.locator('[data-fve-browser-address]')).toHaveCount(0)
       expect(await frame.locator('[data-fve-phone-toolbar]').evaluate(el => !!el.closest('[data-fve-phone-screen]'))).toBe(false)
     }
-    await frame.getByRole('button', { name: 'Choose fixture theme', exact: true }).click()
-    await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click()
-    await expect(page.locator('html')).toHaveClass(/dark/)
+    if (kind === 'Phone') {
+      await frame.getByRole('button', { name: 'Choose fixture theme', exact: true }).click()
+      await page.getByRole('menuitemradio', { name: 'Dark', exact: true }).click()
+      await expect(page.locator('html')).toHaveClass(/dark/)
+    } else {
+      await expect(frame.getByRole('button', { name: 'Choose fixture theme', exact: true })).toHaveCount(0)
+    }
     await page.reload()
     await page.keyboard.press('Escape')
     await expect(page).toHaveURL(url => !url.searchParams.has('expanded'))
@@ -33,6 +37,95 @@ for (const kind of ['Browser', 'Phone']) {
     expect(errors).toEqual([])
   })
 }
+
+for (const kind of ['Browser', 'Phone']) {
+  test(`${kind} restore retains documentation panel widths and functional resize handles @cross-browser`, async ({ page }) => {
+    await page.goto(`/components/${kind.toLowerCase()}`)
+    const handle = page.getByRole('separator', { name: 'Resize Documentation navigation width', exact: true })
+    await handle.focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(handle).toHaveAttribute('aria-valuenow', '21')
+    for (let cycle = 0; cycle < 2; cycle++) {
+      await page.getByRole('link', { name: `Expand ${kind} fixture`, exact: true }).click()
+      await expect(page).toHaveURL(/expanded=1/)
+      await page.getByRole('link', { name: `Restore ${kind} fixture`, exact: true }).click()
+      await expect(page).toHaveURL(url => !url.searchParams.has('expanded'))
+      await expect(handle).toHaveAttribute('aria-valuenow', String(21 + cycle * 2))
+      await handle.focus()
+      await page.keyboard.press('ArrowRight')
+      await expect(handle).toHaveAttribute('aria-valuenow', String(23 + cycle * 2))
+    }
+    const leading = page.locator('#docs-navigation-panels-leading')
+    const before = (await leading.boundingBox())!.width
+    const box = (await handle.boundingBox())!
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2, { steps: 4 })
+    await page.mouse.up()
+    await expect.poll(async () => (await leading.boundingBox())!.width).toBeGreaterThan(before + 15)
+  })
+}
+
+test('Browser review states use real links, local patches and accurate addresses in both sizes @cross-browser', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto('/components/browser')
+  await page.locator('#main-content').evaluate(el => { (window as any).browserReviewArticle = el })
+  const frame = page.locator('#browser-review-frame')
+  const address = frame.locator('[data-fve-browser-address]')
+  await expect(frame.getByRole('button', { name: 'Back', exact: true })).toBeDisabled()
+  await page.evaluate(() => document.fonts.ready)
+  const geometry = async () => {
+    const [bar, back, state, forward] = await Promise.all([
+      frame.locator('[data-fve-browser-toolbar]'),
+      frame.getByRole('link', { name: 'Back', exact: true }).or(frame.getByRole('button', { name: 'Back', exact: true })),
+      frame.getByRole('button', { name: /^Review state:/ }),
+      frame.getByRole('link', { name: 'Forward', exact: true }).or(frame.getByRole('button', { name: 'Forward', exact: true }))
+    ].map(control => control.boundingBox()))
+    expect(state!.x).toBeGreaterThan(back!.x + back!.width)
+    expect(state!.x + state!.width).toBeLessThan(forward!.x)
+    return { forward: forward!.x - bar!.x, selectorWidth: state!.width }
+  }
+  const initial = await geometry()
+  const stableNavigation = async () => {
+    await expect(frame.getByRole('button', { name: 'Choose fixture theme', exact: true })).toHaveCount(0)
+    await expect.poll(async () => {
+      const current = await geometry()
+      return Math.abs(current.forward - initial.forward) + Math.abs(current.selectorWidth - initial.selectorWidth)
+    }).toBeLessThan(1)
+  }
+  await frame.getByRole('link', { name: 'Forward', exact: true }).click()
+  await expect(page).toHaveURL(/state=details/)
+  await expect(frame).toHaveAttribute('data-review-state', 'details')
+  await expect(address).toHaveText('/components/browser?state=details')
+  await stableNavigation()
+  expect(await page.locator('#main-content').evaluate(el => el === (window as any).browserReviewArticle)).toBe(true)
+  await frame.getByRole('button', { name: 'Review state: Details', exact: true }).click()
+  await frame.getByRole('menuitem', { name: 'Empty', exact: true }).click()
+  await expect(frame).toHaveAttribute('data-review-state', 'empty')
+  await expect(frame.getByRole('button', { name: 'Forward', exact: true })).toBeDisabled()
+  await stableNavigation()
+  await frame.getByRole('link', { name: 'Expand Browser fixture', exact: true }).click()
+  await expect(page).toHaveURL(/state=empty&expanded=1/)
+  await expect(address).toHaveText('/components/browser?state=empty&expanded=1')
+  await stableNavigation()
+  await frame.getByRole('button', { name: 'Review state: Empty', exact: true }).click()
+  await frame.getByRole('menuitem', { name: 'Summary', exact: true }).click()
+  await expect(frame).toHaveAttribute('data-review-state', 'summary')
+  await expect(page).toHaveURL(/state=summary&expanded=1/)
+  await stableNavigation()
+  await expect(frame.getByRole('button', { name: 'Back', exact: true })).toBeDisabled()
+  await frame.getByRole('link', { name: 'Restore Browser fixture', exact: true }).click()
+  await expect(page).toHaveURL(url => url.searchParams.get('state') === 'summary' && !url.searchParams.has('expanded'))
+  await expect(address).toHaveText('/components/browser?state=summary')
+  await stableNavigation()
+  await page.goBack()
+  await expect(page.locator('[data-fve-browser-expanded=true]')).toBeVisible()
+  await expect(frame).toHaveAttribute('data-review-state', 'summary')
+  await page.goForward()
+  await expect(frame.getByRole('link', { name: 'Expand Browser fixture', exact: true })).toBeVisible()
+  expect(errors).toEqual([])
+})
 
 test('fixture state and authored journey remain separate, with scroll and focus restored @cross-browser', async ({ page }) => {
   await page.goto('/examples/specification/accounts/view-accounts')
@@ -221,6 +314,10 @@ test.describe('native frame links', () => {
   for (const kind of ['Browser', 'Phone']) {
     test(`${kind} frame links have a genuine no-JavaScript fallback @cross-browser`, async ({ page }) => {
       await page.goto(`/components/${kind.toLowerCase()}`)
+      if (kind === 'Browser') {
+        await page.locator('#browser-review-frame').getByRole('link', { name: 'Forward', exact: true }).click()
+        await expect(page).toHaveURL(/state=details/)
+      }
       await page.getByRole('link', { name: `Expand ${kind} fixture`, exact: true }).click()
       await expect(page).toHaveURL(/expanded=1/)
       await page.getByRole('link', { name: `Restore ${kind} fixture`, exact: true }).click()

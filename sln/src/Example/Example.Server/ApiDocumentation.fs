@@ -3,6 +3,8 @@ namespace Example.Server
 open System.Text.Json
 open FSharp.ViewEngine
 open Example.Components
+open Example.Components.Views
+open Request
 open type Html
 open Model
 open Ledger.Domain

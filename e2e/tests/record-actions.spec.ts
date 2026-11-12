@@ -127,8 +127,16 @@ test('row-action hover, open and keyboard focus stay distinct on collection rows
       for (const selected of [false, true]) {
         const choice = row.getByRole('checkbox', { name: `Select ${record}`, exact: true })
         await choice.setChecked(selected)
+        await page.mouse.move(0, 0)
+        const idle = await trigger.evaluate(button => getComputedStyle(button).backgroundImage)
         await trigger.hover()
-        expect(await trigger.evaluate(button => getComputedStyle(button).backgroundColor)).not.toBe(await row.evaluate(row => getComputedStyle(row).backgroundColor))
+        const hover = await trigger.evaluate(button => getComputedStyle(button).backgroundImage)
+        expect(hover).not.toBe(idle)
+        await page.mouse.down()
+        expect(await trigger.evaluate(button => getComputedStyle(button).backgroundImage)).not.toBe(hover)
+        await page.mouse.move(0, 0)
+        await page.mouse.up()
+        await expect(trigger).toHaveAttribute('aria-expanded', 'false')
       }
       await trigger.click()
       await expect(trigger).toHaveAttribute('aria-expanded', 'true')
@@ -140,6 +148,10 @@ test('row-action hover, open and keyboard focus stay distinct on collection rows
       await page.keyboard.press(browserName === 'webkit' ? 'Alt+Tab' : 'Tab')
       await expect(trigger).toBeFocused()
       await expect(trigger).toHaveCSS('outline-style', 'solid')
+      await trigger.evaluate(button => { (button as HTMLButtonElement).disabled = true })
+      await trigger.hover({ force: true })
+      await expect(trigger).toHaveCSS('background-image', 'none')
+      await expect(trigger).toBeDisabled()
     }
   }
 })

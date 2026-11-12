@@ -3,6 +3,7 @@ namespace Docs.Pages
 open Docs.Common
 open FSharp.ViewEngine
 open type Html
+open type FSharp.ViewEngine.Datastar
 
 module Htmx =
     let private completeExampleSource = """form {
@@ -25,7 +26,7 @@ module Htmx =
             _style "min-height:12rem;border-radius:.65rem;background:#f8fafc;padding:1.5rem;color:#0f172a"
             p { _style "margin:0 0 1rem;color:#64748b;font-size:.8rem"; "Rendered initial state. The documentation host does not connect this fixture to a search endpoint." }
             form {
-                _data("on:submit", "evt.preventDefault()")
+                _dataOn ("submit", "evt.preventDefault()")
                 _style "display:flex;gap:.5rem"
                 input { _type "search"; _name "query"; _placeholder "Search"; _style "min-width:0;flex:1;border:1px solid #cbd5e1;border-radius:.45rem;background:white;padding:.65rem .75rem;color:#0f172a" }
                 button { _type "submit"; _style "border:0;border-radius:.45rem;background:#0f172a;padding:.65rem 1rem;color:white;font-weight:650"; "Search" }

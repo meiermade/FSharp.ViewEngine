@@ -37,6 +37,24 @@ test('Marketing is a standalone Geldos example with connected product navigation
   await site.close()
 })
 
+test('Marketing product screenshot follows the chosen theme without changing its geometry @cross-browser', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light' })
+  await page.goto('/examples/marketing')
+  await page.evaluate(() => document.fonts.ready)
+  const image = page.getByRole('img', { name: /Geldos showing account balances/ })
+  let geometry: { width: number, height: number } | undefined
+  for (const mode of ['dark', 'light', 'dark']) {
+    await page.evaluate(mode => (window as any).fveColorMode.set(mode), mode)
+    await expect(image).toHaveCount(1)
+    await expect(image).toHaveAttribute('src', `/examples/assets/images/geldos-overview${mode === 'dark' ? '-dark' : ''}.png`)
+    await expect.poll(() => image.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth === 1440 && el.naturalHeight === 960)).toBe(true)
+    const box = (await image.boundingBox())!
+    const current = { width: box.width, height: box.height }
+    if (geometry) expect(current).toEqual(geometry)
+    geometry = current
+  }
+})
+
 test('Account detail uses shared section rhythm, paginated records and chart date navigation @cross-browser', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1100 })
   await page.goto('/examples/application/accounts/101')

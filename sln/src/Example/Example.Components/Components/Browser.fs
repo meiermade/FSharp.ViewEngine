@@ -32,14 +32,7 @@ module internal Browser =
                     _data("fve-browser-toolbar", "true")
                     match Map.tryFind "controls" parts with
                     | Some controls -> controls
-                    | None ->
-                        div {
-                            _ariaHidden true
-                            _class "flex shrink-0 gap-1.5"
-                            span { _class "size-2.5 rounded-full bg-red-400" }
-                            span { _class "size-2.5 rounded-full bg-amber-400" }
-                            span { _class "size-2.5 rounded-full bg-emerald-400" }
-                        }
+                    | None -> ()
                     match address with
                     | Some address ->
                         div {

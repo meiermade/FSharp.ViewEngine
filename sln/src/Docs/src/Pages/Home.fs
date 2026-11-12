@@ -3,6 +3,7 @@ namespace Docs.Pages
 open Docs.Common
 open FSharp.ViewEngine
 open type Html
+open type FSharp.ViewEngine.Datastar
 
 module Home =
     let private quickExampleSource = """open FSharp.ViewEngine
@@ -45,17 +46,17 @@ let myPage =
 
     let private quickExamplePreview =
         div {
-            _data("signals", "{showContent: false}")
+            _dataSignals "{showContent: false}"
             _style "min-height:12rem;border-radius:.65rem;background:#f3f4f6;padding:1.5rem;color:#111827"
             h3 { _style "margin:0 0 1rem;color:#2563eb;font-size:1.5rem"; "Welcome!" }
             button {
                 _type "button"
-                _data("on:click", "$showContent = !$showContent")
+                _dataOn ("click", "$showContent = !$showContent")
                 _style "border:0;border-radius:.4rem;background:#3b82f6;padding:.6rem .9rem;color:white;font-weight:650;cursor:pointer"
                 "Toggle Content"
             }
             div {
-                _data("show", "$showContent")
+                _dataShow "$showContent"
                 _style "display:none;margin-top:1rem"
                 "Content loaded with Datastar."
             }

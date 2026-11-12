@@ -3,6 +3,7 @@
 @source "../Example.Components/Components/Assets/**/*.js";
 @source not "../Example.Components/Components/Assets/echarts.6.1.0.esm.min.js";
 @source "./**/*.fs";
+@source "../Presentation/View.fs";
 @source not "./obj/**";
 @source not "./bin/**";
 @plugin "@tailwindcss/typography";
@@ -63,8 +64,8 @@
   --fve-neutral-text: #d4d4d4;
   --fve-neutral-ring: #a3a3a3;
   --fve-neutral-solid: #d4d4d4;
-  --fve-neutral-hover: #e5e5e5;
-  --fve-neutral-active: #f5f5f4;
+  --fve-neutral-hover: #b4b4b4;
+  --fve-neutral-active: #959595;
   --fve-neutral-on-solid: #141414;
   --fve-neutral-soft: #242424;
   --fve-neutral-soft-hover: #303030;

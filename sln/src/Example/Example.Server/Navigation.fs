@@ -126,9 +126,9 @@ $navigationTarget = evt.detail.href;
         [ _dataSignals "{sideNavOpen: false, navigationPending: false, navigationTarget: ''}"
           _dataOn ("click", enhancement.clickAction)
           _dataOn ("submit", enhancement.submitAction)
-          _dataOn ("popstate__window", enhancement.restoreAction)
+          _dataOn ("popstate", ["window"], enhancement.restoreAction)
           _dataOn ("datastar-fetch", enhancement.fetchLifecycle)
-          _dataOn ("fve-fixture-location__window", fixtureAction) ]
+          _dataOn ("fve-fixture-location", ["window"], fixtureAction) ]
 
     let private clientSequence (context:HttpContext) =
         match Guid.TryParse(context.Request.Headers[clientHeader].ToString()), Int64.TryParse(context.Request.Headers[sequenceHeader].ToString()) with

@@ -1,6 +1,37 @@
 import { test, expect } from '../fixture'
 import AxeBuilder from '@axe-core/playwright'
 
+test('example toolbar actions share color and scale while preserving link and menu semantics', async ({ page }) => {
+  for (const colorScheme of ['light', 'dark'] as const) {
+    await page.emulateMedia({ colorScheme })
+    for (const route of ['application/accounts', 'specification', 'api-documentation']) {
+      await page.setViewportSize({ width: 1440, height: 900 })
+      await page.goto('/examples/' + route)
+      const source = page.getByRole('link', { name: 'View example source on GitHub', exact: true })
+      const peer = route.startsWith('application')
+        ? page.getByRole('link', { name: 'Settings', exact: true })
+        : page.getByRole('button', { name: 'Choose color theme', exact: true })
+      await expect(source.locator('svg')).toHaveCSS('width', '20px')
+      await expect(source.locator('svg')).toHaveCSS('color', await peer.locator('svg:visible').evaluate(el => getComputedStyle(el).color))
+      await expect(source).toHaveAttribute('target', '_blank')
+      await expect(source).toHaveAttribute('rel', /noopener/)
+      await expect(source).toHaveAttribute('href', /^https:\/\/github\.com\/meiermade\/FSharp\.ViewEngine(?:\/|$)/)
+      if (!route.startsWith('application')) {
+        await expect(peer.locator('svg:visible')).toHaveAttribute('data-fve-icon-variant', 'mini')
+      }
+      await page.setViewportSize({ width: 390, height: 844 })
+      const navigation = page.getByRole('button', { name: 'Open navigation', exact: true })
+      await expect(navigation.locator('svg')).toHaveAttribute('data-fve-icon-variant', 'mini')
+      await navigation.click()
+      const dialog = page.getByRole('dialog', { name: / navigation$/ })
+      await expect(dialog).toBeVisible()
+      await expect(dialog.getByRole('button', { name: 'Close navigation', exact: true }).locator('svg')).toHaveAttribute('data-fve-icon-variant', 'mini')
+      await page.keyboard.press('Escape')
+      await expect(navigation).toBeFocused()
+    }
+  }
+})
+
 test('Icon families retain their artwork and square native dimensions @cross-browser', async ({ page }) => {
   await page.goto('/components/icon')
   const example = page.locator('#components-icon-families-panel-preview')
@@ -19,22 +50,21 @@ test('Icon families retain their artwork and square native dimensions @cross-bro
   expect((await new AxeBuilder({ page }).include('main').analyze()).violations).toEqual([])
 })
 
-test('ordinary icon links follow square content while retaining native navigation @cross-browser', async ({ page }) => {
+test('ordinary icon links retain natural padding and native navigation @cross-browser', async ({ page }) => {
   await page.goto('/components/link')
   const variants = page.locator('#components-link-icon-variants-panel-preview')
   for (const name of ['Text', 'Solid', 'Soft', 'Outline', 'Ghost']) {
     const link = variants.getByRole('link', { name: `${name} settings`, exact: true })
-    const expected = name === 'Text' ? 20 : 32
-    await expect(link).toHaveCSS('width', `${expected}px`)
-    await expect(link).toHaveCSS('height', `${expected}px`)
+    await expect(link).toHaveCSS('width', name === 'Text' ? '20px' : '40px')
+    await expect(link).toHaveCSS('height', name === 'Text' ? '20px' : '32px')
     await expect(link.locator('svg')).toHaveCSS('width', '20px')
     await expect(link).toHaveAttribute('href', '/examples/application/settings')
   }
   const sizes = page.locator('#components-link-icon-sizes-panel-preview')
-  for (const [name, dimension] of [['Extra small', 24], ['Small', 28], ['Medium', 32], ['Large', 36], ['Extra large', 40]] as const) {
+  for (const [name, width, height] of [['Extra small', 32, 24], ['Small', 32, 28], ['Medium', 36, 32], ['Large', 40, 36], ['Extra large', 44, 40]] as const) {
     const link = sizes.getByRole('link', { name: `${name} settings`, exact: true })
-    await expect(link).toHaveCSS('width', `${dimension}px`)
-    await expect(link).toHaveCSS('height', `${dimension}px`)
+    await expect(link).toHaveCSS('width', `${width}px`)
+    await expect(link).toHaveCSS('height', `${height}px`)
   }
   const destination = variants.getByRole('link', { name: 'Ghost settings', exact: true })
   await destination.focus()

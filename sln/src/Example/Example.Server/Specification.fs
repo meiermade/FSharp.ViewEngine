@@ -3,6 +3,8 @@ namespace Example.Server
 open System
 open FSharp.ViewEngine
 open Example.Components
+open Example.Components.Views
+open Request
 open type Html
 open type Datastar
 open Model

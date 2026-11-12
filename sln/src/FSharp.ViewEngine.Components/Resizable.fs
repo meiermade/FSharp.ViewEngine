@@ -57,7 +57,7 @@ module internal Resizable =
             "flex min-w-0 overflow-hidden"
             if not horizontal then "flex-col"
             if framed then (if horizontal then "min-h-64" else "min-h-96") + " rounded-[var(--fve-radius-panel)] ring-1 ring-inset ring-[var(--fve-border)]" else "min-h-0" ]
-        let handleClasses = "group relative z-10 flex shrink-0 touch-none items-center justify-center outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)] " + (if horizontal then "cursor-col-resize " else "cursor-row-resize ") + (if framed then (if horizontal then "w-2 " else "h-2 ") + "bg-[var(--fve-surface-subtle)]" else (if horizontal then "w-1 " else "h-1 ") + "bg-[var(--fve-border)]")
+        let handleClasses = "group relative z-10 flex shrink-0 touch-none items-center justify-center outline-none [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)] " + (if horizontal then "cursor-col-resize " else "cursor-row-resize ") + (if framed then (if horizontal then "w-2 " else "h-2 ") + "bg-[var(--fve-surface-subtle)]" else (if horizontal then "w-1 " else "h-1 ") + "bg-[var(--fve-border)]")
         let grip = span { _ariaHidden true; _class (if horizontal then "h-8 w-1 rounded-full bg-[var(--fve-border)] group-hover:bg-[var(--fve-muted-text)]" else "h-1 w-8 rounded-full bg-[var(--fve-border)] group-hover:bg-[var(--fve-muted-text)]") }
         let handleDefaults = [
             yield _role "separator"

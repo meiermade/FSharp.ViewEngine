@@ -1,4 +1,5 @@
 import '../../Docs.Components/Components/Assets/button.js';
+import '../../Docs.Components/Components/Assets/avatar.js';
 import '../../Docs.Components/Components/Assets/checkbox.js';
 import '../../Docs.Components/Components/Assets/switch.js';
 import '../../Docs.Components/Components/Assets/radio.js';
@@ -10,6 +11,7 @@ import '../../Docs.Components/Components/Assets/copy-reveal.js';
 import '../../Docs.Components/Components/Assets/notification.js';
 import '../../Docs.Components/Components/Assets/floating-panel.js';
 import '../../Docs.Components/Components/Assets/resizable.js';
+import '../../Docs.Components/Components/Assets/presentation.js';
 import '../../Docs.Components/Components/Assets/tooltip.js';
 import '../../Docs.Components/Components/Assets/popover.js';
 import '../../Docs.Components/Components/Assets/dialog.js';

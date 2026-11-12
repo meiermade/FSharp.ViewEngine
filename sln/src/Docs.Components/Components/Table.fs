@@ -28,6 +28,7 @@ module TableAttributes =
         static member _mobile(value:Mobile) =
             Html._attr("data-mobile-cell", match value with Mobile.Field -> "field" | Mobile.Primary -> "primary" | Mobile.Summary -> "summary" | Mobile.Actions -> "actions")
         static member _scrollRows(value:bool) = Html._attr("scroll-rows", if value then "true" else "false")
+        static member _hoverRows(value:bool) = Html._attr("hover-rows", if value then "true" else "false")
 
 [<NoEquality; NoComparison>]
 type internal TableElementConfig = private { children:HtmlElement list; attributes:HtmlAttribute list }
@@ -40,7 +41,7 @@ module internal TableElements =
     let render config =
         if value "aria-label" config |> Option.forall String.IsNullOrWhiteSpace then
             invalidArg "attributes" "An accessible Table label is required."
-        for name, allowed in ["density", ["compact"; "comfortable"]; "surface", ["plain"; "panel"]; "mobile-layout", ["scroll"; "records"]; "scroll-rows", ["true"; "false"]] do
+        for name, allowed in ["density", ["compact"; "comfortable"]; "surface", ["plain"; "panel"]; "mobile-layout", ["scroll"; "records"]; "scroll-rows", ["true"; "false"]; "hover-rows", ["true"; "false"]] do
             match attribute name config with
             | None -> ()
             | Some { Value = ValueSome value } when List.contains value allowed -> ()

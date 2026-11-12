@@ -1,11 +1,11 @@
 import { test, expect } from '../fixture'
 
 test('theming teaches focused recipes and leaves complete setup in Installation', { tag: '@cross-browser' }, async ({ page }) => {
-  await page.goto('/components/theming#appearance')
-  await expect(page).toHaveURL(/\/components\/theming#appearance$/)
+  await page.goto('/guides/theming#appearance')
+  await expect(page).toHaveURL(/\/guides\/theming#appearance$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Theming', exact: true })).toBeVisible()
   await expect(page.locator('a[href="/components/theme-switcher"]')).toHaveCount(0)
-  await expect(page.getByRole('link', { name: 'complete runnable example', exact: true })).toHaveAttribute('href', '/components/theming/document')
+  await expect(page.getByRole('link', { name: 'complete runnable example', exact: true })).toHaveAttribute('href', '/guides/theming/document')
   const source = page.locator('#appearance').locator('..')
   await expect(source).toContainText('ColorMode.assets "my-app-appearance" ColorMode.System')
   await expect(source).toContainText('/css/output.css')
@@ -24,8 +24,8 @@ test('theming teaches focused recipes and leaves complete setup in Installation'
 })
 
 test('Using signals demonstrates value binding, reactive attributes and a button action', { tag: '@cross-browser' }, async ({ page }) => {
-  await page.goto('/components/using-signals')
-  await expect(page).toHaveURL(/\/components\/using-signals$/)
+  await page.goto('/guides/using-signals')
+  await expect(page).toHaveURL(/\/guides\/using-signals$/)
   const example = page.locator('[data-docs-example="true"]').first()
   await expect(example.getByRole('tab')).toHaveText(['Preview', 'Code'])
   await expect(example.locator('[data-docs-example-title]')).toHaveClass('sr-only')

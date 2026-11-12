@@ -32,42 +32,43 @@ for (const width of [1440, 390]) {
 }
 
 
-test('Button sizes coordinate text and icon-only geometry without padding conflicts @cross-browser', async ({ page }) => {
+test('Button sizes give text and icons independent comfortable horizontal and vertical insets @cross-browser', async ({ page }) => {
   await page.goto('/components/button')
   const example = page.locator('#components-button-sizes-panel-preview')
-  for (const [name, height, font, icon] of [
-    ['Extra small', 24, 12, 16], ['Small', 28, 14, 16], ['Medium', 32, 14, 16], ['Large', 36, 14, 16], ['Extra large', 40, 14, 16],
+  for (const [name, height, font, inline, block] of [
+    ['Extra small', 24, 12, 8, 4], ['Small', 28, 14, 8, 4], ['Medium', 32, 14, 10, 6], ['Large', 36, 14, 12, 8], ['Extra large', 40, 14, 14, 10],
   ] as const) {
     const text = example.getByRole('button', { name, exact: true })
-    const square = example.getByRole('button', { name: `${name} refresh`, exact: true })
+    const iconOnly = example.getByRole('button', { name: `${name} refresh`, exact: true })
     await expect(text).toHaveCSS('height', `${height}px`)
     await expect(text).toHaveCSS('font-size', `${font}px`)
-    await expect(square).toHaveCSS('height', `${height}px`)
-    await expect(square).toHaveCSS('width', `${height}px`)
-    expect(await square.evaluate(el => { const css = getComputedStyle(el); return css.paddingLeft === css.paddingTop && css.paddingRight === css.paddingBottom })).toBe(true)
-    await expect(square.locator('svg')).toHaveCSS('width', `${icon}px`)
+    await expect(iconOnly).toHaveCSS('height', `${height}px`)
+    for (const control of [text, iconOnly]) {
+      const insets = await control.evaluate(el => { const s = getComputedStyle(el); return { inline: parseFloat(s.paddingLeft) + parseFloat(s.borderLeftWidth), block: parseFloat(s.paddingTop) + parseFloat(s.borderTopWidth) } })
+      expect(insets).toEqual({ inline, block })
+    }
+    await expect(iconOnly.locator('svg')).toHaveCSS('width', '16px')
   }
-  const square = example.getByRole('button', { name: 'Small refresh', exact: true })
-  await square.evaluate(el => el.parentElement!.setAttribute('size', 'extra-large'))
-  await expect(square).toHaveCSS('width', '40px')
-  await expect(square).toHaveCSS('height', '40px')
-  await expect(square).toHaveCSS('padding-left', '9px') // The outline border is included in symmetric insets.
-  await expect(square.locator('svg')).toHaveCSS('width', '16px') // The child retains its own size.
-  await square.locator('svg').evaluate(el => { el.style.width = '2rem'; el.style.height = '2rem' })
-  await expect(square).toHaveCSS('width', '52px')
-  await expect(square).toHaveCSS('height', '52px')
+  const iconOnly = example.getByRole('button', { name: 'Small refresh', exact: true })
+  await iconOnly.evaluate(el => el.parentElement!.setAttribute('size', 'extra-large'))
+  await expect(iconOnly).toHaveCSS('height', '40px')
+  await expect(iconOnly).toHaveCSS('padding-left', '13px')
+  await expect(iconOnly.locator('svg')).toHaveCSS('width', '16px') // Content keeps its own size; geometry does not inspect it.
+  await iconOnly.locator('svg').evaluate(el => { el.style.width = '2rem'; el.style.height = '2rem' })
+  await expect(iconOnly).toHaveCSS('width', '60px')
+  await expect(iconOnly).toHaveCSS('height', '52px')
 })
 
-test('row-action recipes match the application compact trigger and row typography @cross-browser', async ({ page }) => {
-  for (const [path, selector] of [
-    ['/examples/application/accounts', 'main'],
-    ['/components/button', '#components-button-row-actions'],
-    ['/components/dropdown-menu', '#components-dropdown-menu-row-actions'],
-    ['/components/table', '#components-table-row-actions'],
+test('row-action recipes retain compact height, comfortable content and working menus @cross-browser', async ({ page }) => {
+  for (const [path, selector, width] of [
+    ['/examples/application/accounts', 'main', 28], // Native progressive menu trigger keeps its explicit compact slot.
+    ['/components/button', '#components-button-row-actions', 32],
+    ['/components/dropdown-menu', '#components-dropdown-menu-row-actions', 32],
+    ['/components/table', '#components-table-row-actions', 32],
   ]) {
     await page.goto(path)
     const trigger = page.locator(selector).getByRole('button', { name: 'Actions for Unassigned expense', exact: true })
-    await expect(trigger).toHaveCSS('width', '28px')
+    await expect(trigger).toHaveCSS('width', `${width}px`)
     await expect(trigger).toHaveCSS('height', '28px')
     await expect(trigger.locator('svg')).toHaveCSS('width', '16px')
     await trigger.click()
