@@ -48,7 +48,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - name: Setup dotnet
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 10.0.x
       - name: Restore release tooling
@@ -58,7 +58,7 @@ jobs:
           dotnet paket install
           dotnet restore src/Build/Build.fsproj
       - name: Authenticate Pulumi
-        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        uses: pulumi/auth-actions@273044cc19e63ea565285da8edd4e059126a0bdb # v2.1.2
         with:
           organization: meiermade
           requested-token-type: urn:pulumi:token-type:access_token:personal
@@ -77,7 +77,7 @@ jobs:
         run: ./fake.sh ResolveReleaseTransaction --single-target
       - name: Pin the transaction before building or publishing
         if: steps.transaction.outputs.newPlan == 'true'
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/transaction/transaction.json
@@ -109,7 +109,7 @@ jobs:
         with:
           ref: ${{ needs.candidate.outputs.commit }}
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -138,7 +138,7 @@ jobs:
         with:
           ref: ${{ needs.candidate.outputs.commit }}
       - name: Setup Node
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24
           cache: npm
@@ -147,7 +147,7 @@ jobs:
         run: npm ci
         working-directory: ./e2e
       - name: Authenticate Pulumi
-        uses: pulumi/auth-actions@141415910c3beb54e03b48e9057c204c97b956f2 # v2.1.0
+        uses: pulumi/auth-actions@273044cc19e63ea565285da8edd4e059126a0bdb # v2.1.2
         with:
           organization: meiermade
           requested-token-type: urn:pulumi:token-type:access_token:personal
@@ -166,7 +166,7 @@ jobs:
           bash scripts/test-release-smoke.sh
       - name: Upload credential-free release acceptance diagnostics
         if: failure()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: fsharp-viewengine-release-smoke
           path: |
@@ -187,7 +187,7 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - name: Setup dotnet
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: |
             8.0.x
@@ -200,7 +200,7 @@ jobs:
           dotnet restore FSharp.ViewEngine.slnx
         working-directory: ./sln
       - name: Download pinned transaction
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-plan-${{ github.run_id }}
           path: release
@@ -304,7 +304,7 @@ jobs:
         run: ./fake.sh RecordPackageChecksums --single-target
         working-directory: ./sln
       - name: Upload verified release bundle
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package-release-${{ github.run_id }}
           path: release
@@ -327,19 +327,19 @@ jobs:
           fetch-depth: 0
           fetch-tags: true
       - name: Setup dotnet
-        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: |
             8.0.x
             9.0.x
             10.0.x
       - name: Download pinned transaction
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: release-plan-${{ github.run_id }}
           path: ${{ runner.temp }}/transaction
       - name: Download verified release bundle
-        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: package-release-${{ github.run_id }}
           path: ${{ runner.temp }}/release
