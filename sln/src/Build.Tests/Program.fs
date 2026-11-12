@@ -532,7 +532,7 @@ else printf '%s' "$FAKE_PUBLISHED"; fi
             let previewShards = workflow "validate-pr.yml" |> browserShards
             Expect.isNonEmpty previewShards "PR acceptance selects browser shards"
 
-            for browser, total in [ "chromium", 6; "firefox", 3; "webkit", 3 ] do
+            for browser, total in [ "chromium", 8; "firefox", 5; "webkit", 5 ] do
                 let shards = previewShards |> List.filter (fun shard -> shard.browser = browser)
                 let totals = shards |> List.map _.total |> List.distinct
                 Expect.equal totals [ total ] $"{browser} retains its full shard total"

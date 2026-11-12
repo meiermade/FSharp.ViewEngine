@@ -161,30 +161,36 @@ jobs:
           - label: chromium 8/8
             browser: chromium
             shard: 8/8
-          - label: firefox 1/4
+          - label: firefox 1/5
             browser: firefox
-            shard: 1/4
-          - label: firefox 2/4
+            shard: 1/5
+          - label: firefox 2/5
             browser: firefox
-            shard: 2/4
-          - label: firefox 3/4
+            shard: 2/5
+          - label: firefox 3/5
             browser: firefox
-            shard: 3/4
-          - label: firefox 4/4
+            shard: 3/5
+          - label: firefox 4/5
             browser: firefox
-            shard: 4/4
-          - label: webkit 1/4
+            shard: 4/5
+          - label: firefox 5/5
+            browser: firefox
+            shard: 5/5
+          - label: webkit 1/5
             browser: webkit
-            shard: 1/4
-          - label: webkit 2/4
+            shard: 1/5
+          - label: webkit 2/5
             browser: webkit
-            shard: 2/4
-          - label: webkit 3/4
+            shard: 2/5
+          - label: webkit 3/5
             browser: webkit
-            shard: 3/4
-          - label: webkit 4/4
+            shard: 3/5
+          - label: webkit 4/5
             browser: webkit
-            shard: 4/4
+            shard: 4/5
+          - label: webkit 5/5
+            browser: webkit
+            shard: 5/5
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Setup Node
