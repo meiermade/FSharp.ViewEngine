@@ -232,7 +232,8 @@ test('Representative Components pages provide focused examples, navigation, inte
   const pressedBackgrounds = async (control: Locator) => {
     const settledBackground = () => control.evaluate(async element => {
       await Promise.all(element.getAnimations().map(animation => animation.finished))
-      return getComputedStyle(element).backgroundColor
+      const style = getComputedStyle(element)
+      return JSON.stringify({ color: style.backgroundColor, image: style.backgroundImage })
     })
     await control.hover()
     const hover = await settledBackground()
@@ -281,9 +282,9 @@ test('Representative Components pages provide focused examples, navigation, inte
     const navigationItem = page.locator('#nav-home')
     const restingBackground = await navigationItem.evaluate(element => getComputedStyle(element).backgroundColor)
     await navigationItem.hover()
-    const expectedHover = await resolvedBackground(docsRoot, '--fve-surface-hover')
-    await expect.poll(() => navigationItem.evaluate(element => getComputedStyle(element).backgroundColor)).toBe(expectedHover)
-    expect(expectedHover).not.toBe(restingBackground)
+    const wash = await resolvedBackground(docsRoot, '--fve-hover-wash')
+    await expect(navigationItem).toHaveCSS('background-image', `linear-gradient(${wash}, ${wash})`)
+    await expect(navigationItem).toHaveCSS('background-color', restingBackground)
     await page.locator('main h1').first().hover()
   }
 

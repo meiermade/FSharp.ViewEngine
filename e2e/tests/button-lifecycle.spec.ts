@@ -138,9 +138,9 @@ test('new Rocket buttons keep their settled border during Dialog/Drawer navigati
   })
   expect(new Set(frames.map(frame => frame.id))).toEqual(new Set(['default-dialog-trigger', 'default-drawer-trigger']))
   expect(frames.filter(frame => frame.border !== border)).toEqual([])
-  await drawer.evaluate(button => button.addEventListener('transitionrun', event => {
-    if ((event as TransitionEvent).propertyName === 'background-color') button.setAttribute('data-hover-transition', 'true')
-  }))
+  await page.mouse.move(0, 0)
+  const restingFill = await drawer.evaluate(button => getComputedStyle(button).backgroundImage)
   await drawer.hover()
-  await expect(drawer).toHaveAttribute('data-hover-transition', 'true')
+  await expect(drawer).not.toHaveCSS('background-image', restingFill)
+  await expect(drawer).toHaveCSS('border-top-color', border)
 })

@@ -209,7 +209,11 @@ test('table examples preserve scrolling and one-tree mobile records across theme
         }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
-      expect((await new AxeBuilder({ page }).include('[data-docs-layout="gallery"]').analyze()).violations).toEqual([])
+      // Audit the whole gallery once per theme; narrower passes focus on the changing layouts.
+      const audit = new AxeBuilder({ page })
+      if (width === 1440) audit.include('[data-docs-layout="gallery"]')
+      else audit.include('#components-table-panel-preview').include('#components-table-mobile')
+      expect((await audit.analyze()).violations).toEqual([])
       await page.locator(width === 1440 ? '#components-table-panel-preview' : '#components-table-mobile').evaluate(element => element.scrollIntoView({ block: 'start' }))
       await page.screenshot({ path: testInfo.outputPath(`tables-${theme.toLowerCase()}-${width}-${scale}x.png`) })
     }

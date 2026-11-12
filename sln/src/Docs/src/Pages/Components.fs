@@ -12472,10 +12472,6 @@ module Components =
                 _class "flex flex-wrap items-center gap-2"
                 fveButton { _type "submit"; _color Color.Primary; "Review time" }
                 fveButton { _type "reset"; _variant ButtonVariant.Outline; "Reset selection" }
-                noscript {
-                    button { _type "submit"; _class "min-h-8 rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-solid)] px-3 text-sm text-white"; "Review time" }
-                    button { _type "reset"; _class "min-h-8 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] px-3 text-sm"; "Reset selection" }
-                }
             }
             if selection.submitted then
                 p {

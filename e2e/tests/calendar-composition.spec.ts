@@ -217,6 +217,8 @@ test.describe('time range without JavaScript', () => {
     const form = page.getByRole('form', { name: 'Review a consultation time' })
     await form.getByRole('textbox', { name: 'Start time', exact: true }).fill('13:00')
     await form.getByRole('combobox', { name: 'Duration', exact: true }).selectOption('90')
+    await expect(form.getByRole('button', { name: 'Review time', exact: true })).toHaveCount(1)
+    await expect(form.getByRole('button', { name: 'Reset selection', exact: true })).toHaveCount(1)
     await form.getByRole('button', { name: 'Review time', exact: true }).click()
     await expect(page).toHaveURL(url => url.searchParams.get('selection.start') === '13:00' && url.searchParams.get('selection.minutes') === '90')
     await expect(page.locator('#calendar-day-result')).toContainText('13:00 · 90 minutes')
