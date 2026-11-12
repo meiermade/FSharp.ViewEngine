@@ -1,0 +1,111 @@
+{
+  "schemaVersion": 1,
+  "registryVersion": "0.0.0-local",
+  "project": "deck.fsx",
+  "namespace": "Example.Components",
+  "components": [
+    "presentation"
+  ],
+  "files": [
+    {
+      "component": "component-builder",
+      "path": "Components/ComponentBuilder.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "5dcdb95a80b053783ab8d099e03e388899d81ab8fa9d4eb6fec5524f35a1315f"
+    },
+    {
+      "component": "foundation",
+      "path": "Components/Foundation.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "e297866debcd1551aaead8d1383fe7782ed8b17e7426a85663945ab72d87257c"
+    },
+    {
+      "component": "slide",
+      "path": "Components/Slide.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "d1df6d8da6c0f849522355b7659cfdb72063b37c42b649b6498a3a8c4ad7d019"
+    },
+    {
+      "component": "rocket-runtime",
+      "path": "Components/Assets/datastar-LICENSE.txt",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "17da0e216d3c6a819526f5b72a6a44d84d34bcd9beb4191ac6af89c1508ef08f"
+    },
+    {
+      "component": "rocket-runtime",
+      "path": "Components/Assets/datastar-rocket.1.0.4.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "881e5c95fcce231fb1538e55bf6e6da4ffa13a7866c3d65370265fe5862ab877"
+    },
+    {
+      "component": "button",
+      "path": "Components/Assets/button.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "3bfddf2df083779c7b03e43531293bd68df50ff110f000b72ce16cf05e2d6573"
+    },
+    {
+      "component": "button",
+      "path": "Components/Button.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "264fca7690cd80074a4dbc4131e8a39471492bc752a6bbb83df2642f56e69109"
+    },
+    {
+      "component": "icon",
+      "path": "Components/IconNames.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "fd0ac62ebca6224123ae0c3ff5220558ab976ed5977620cfd213aef34749bf43"
+    },
+    {
+      "component": "icon",
+      "path": "Components/IconData.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "d2dbff7abb66de7fdf1fd314354b965716122b56935bcf04eb021c35ba2e61da"
+    },
+    {
+      "component": "icon",
+      "path": "Components/Icon.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "0828ae2c8431cfca770b6a84f1cf5727d2cf4e97b6f081233a89eb1f8e64cb68"
+    },
+    {
+      "component": "icon",
+      "path": "Components/Assets/heroicons-LICENSE.txt",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "60e0b68c0f35c078eef3a5d29419d0b03ff84ec1df9c3f9d6e39a519a5ae7985"
+    },
+    {
+      "component": "icon",
+      "path": "Components/Assets/heroicons.2.2.0.provenance.json",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "9df87ee3fa1beb2c9271125af4a3d895f200d509dca8707ac07a66e0e0b2f009"
+    },
+    {
+      "component": "icon",
+      "path": "Components/Assets/bootstrap-icons-LICENSE.txt",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "0fb3e11bd57e896c5a512afd64864d28a37de45d19835016c87ca1ad19ead969"
+    },
+    {
+      "component": "icon",
+      "path": "Components/Assets/bootstrap-icons.1.13.1.provenance.json",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "2b2c3862713fd35ae1c8943483fec9dbccda528028dacb1b770e7e11651a97f0"
+    },
+    {
+      "component": "presentation",
+      "path": "Components/Assets/presentation.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "c2a8ece3e994c38e989d83a7a7913bcda387e606f9772e420393a53fa6176e52"
+    },
+    {
+      "component": "presentation",
+      "path": "Components/Presentation.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "c49036f419b51ff4d57bd30f546b9bfb10d44e7b3e2ad1f05d3cacb65cb60065"
+    }
+  ],
+  "modules": [
+    "Components/Assets/button.js",
+    "Components/Assets/presentation.js"
+  ]
+}

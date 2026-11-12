@@ -132,7 +132,7 @@ module PageExamples =
             _href href
 
             _class
-                "inline-flex min-h-8 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-1.5 text-sm font-medium leading-5 text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                "inline-flex min-h-8 items-center justify-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 py-1.5 text-sm font-medium leading-5 text-[var(--fve-text)] ring-1 ring-inset ring-[var(--fve-border)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
 
             label
         }
@@ -1926,7 +1926,7 @@ module PageExamples =
                                     _ariaCurrent "page"
 
                                 _class
-                                    "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-3 py-1 text-sm font-medium no-underline hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] aria-[current=page]:bg-[var(--fve-brand-subtle)] aria-[current=page]:text-[var(--fve-brand-text)]"
+                                    "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] px-3 py-1 text-sm font-medium no-underline [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] aria-[current=page]:bg-[var(--fve-brand-subtle)] aria-[current=page]:text-[var(--fve-brand-text)]"
 
                                 label
                             }

@@ -97,17 +97,24 @@ module Handler =
         fun next context ->
             let intent = Navigation.tryIntent context
             let mode = appMode context
+            let browserState = context.Request.Query["state"].ToString()
+            let expanded = context.Request.Query["expanded"].ToString() = "1"
 
             let response =
-                if
+                if page.id = Components.browserRegistration.id && intent = Some Example.Server.Navigation.Filter then
+                    Navigation.respond
+                        Example.Server.Navigation.Filter
+                        (Components.browserReviewFrame expanded browserState |> Render.toString)
+                        (View.contentMetadata Registry.navigation page Components.browserPage |> Render.toString)
+                elif
                     (page.id = Components.browserRegistration.id
                      || page.id = Components.phoneRegistration.id)
-                    && context.Request.Query["expanded"].ToString() = "1"
+                    && expanded
                 then
                     let docsPage = DocumentationPage.create page.id page.title
 
                     let root =
-                        Components.expandedReviewFixture (page.id = Components.phoneRegistration.id)
+                        Components.expandedReviewFixture (page.id = Components.phoneRegistration.id) browserState
 
                     respond
                         intent
@@ -118,6 +125,8 @@ module Handler =
                             docsPage
                             root)
                         (root, View.contentMetadata Registry.navigation page docsPage)
+                elif page.id = Components.browserRegistration.id then
+                    respondWithPage intent context page (Components.browserPageFor browserState)
                 elif page.id = Components.iconRegistration.id then
                     let count =
                         match Int32.TryParse(context.Request.Query["count"].ToString()) with
@@ -131,6 +140,20 @@ module Handler =
                             (View.contentMetadata Registry.navigation page Components.iconPage |> Render.toString)
                     else
                         respondWithPage intent context page (Components.iconPageFor count search)
+                elif page.id = Components.themingRegistration.id then
+                    let query key = context.Request.Query[key].ToString()
+                    let requestedPage =
+                        match Int32.TryParse(query "tokenPage") with
+                        | true, number -> number
+                        | _ -> 1
+                    let state = ThemeTokens.select (query "tokenSearch") (query "tokenGroup") requestedPage
+                    if intent = Some Example.Server.Navigation.Filter then
+                        Navigation.respond
+                            Example.Server.Navigation.Filter
+                            (ThemeTokens.reference state |> Render.toString)
+                            (View.contentMetadata Registry.navigation page Components.themingPage |> Render.toString)
+                    else
+                        respondWithPage intent context page (Components.themingPageFor state)
                 elif page.id = Components.tabsRegistration.id then
                     respondWithPage intent context page (Components.tabsPageFor (context.Request.Query["tab"].ToString()))
                 elif page.id = Components.dayCalendarRegistration.id then
@@ -793,7 +816,7 @@ module Handler =
               >=> setHttpHeader "Content-Type" "text/plain; charset=utf-8"
               >=> setBodyFromString robots
               GET
-              >=> route "/components/theming/document"
+              >=> choose [ route "/guides/theming/document"; route "/components/theming/document" ]
               >=> (fun next context ->
                   Appearance.appearanceDocument (Example.Server.Hosting.nonce context)
                   |> Render.toHtmlDocString

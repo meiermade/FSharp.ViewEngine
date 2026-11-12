@@ -11,6 +11,7 @@ module Examples =
     [<RequireQualifiedAccess>]
     type Template =
         | Marketing
+        | Presentation
         | Application
         | Specification
         | ApiDocumentation
@@ -20,32 +21,43 @@ module Examples =
           name: string
           path: string
           description: string
-          screenshot: string }
+          screenshot: string
+          darkScreenshot: string }
 
     let templates =
         [ { template = Template.Marketing
             name = "Marketing"
             path = "/examples/marketing"
             description = "A complete Geldos product site with responsive navigation, product visuals, hosting options, pricing and FAQs."
-            screenshot = "/images/examples/marketing.png" }
+            screenshot = "/images/examples/marketing.png"
+            darkScreenshot = "/images/examples/marketing-dark.png" }
+          { template = Template.Presentation
+            name = "Presentation"
+            path = "/examples/presentation"
+            description = "An HTML treasury review with separated slides, an expand/restore viewer, standalone F# authoring and Print/Save as PDF."
+            screenshot = "/images/examples/presentation.png"
+            darkScreenshot = "/images/examples/presentation-dark.png" }
           { template = Template.Specification
             name = "Specification"
             path = "/examples/specification"
             description =
               "The Docs-shaped Spec shell: readable articles, contents rails, wide workflow fixtures, App mode, sequence diagrams, and rules."
-            screenshot = "/images/examples/specification.png" }
+            screenshot = "/images/examples/specification.png"
+            darkScreenshot = "/images/examples/specification-dark.png" }
           { template = Template.Application
             name = "Application"
             path = "/examples/application"
             description =
               "A financial application with Home, Accounts, Transactions, workspace selection, Settings, and Profile."
-            screenshot = "/images/examples/application.png" }
+            screenshot = "/images/examples/application.png"
+            darkScreenshot = "/images/examples/application-dark.png" }
           { template = Template.ApiDocumentation
             name = "API documentation"
             path = "/examples/api-documentation"
             description =
               "A resource-grouped API reference with descriptions and parameters beside cURL requests and JSON responses."
-            screenshot = "/images/examples/api-documentation.png" } ]
+            screenshot = "/images/examples/api-documentation.png"
+            darkScreenshot = "/images/examples/api-documentation-dark.png" } ]
 
     let registration: DocPage =
         { id = "examples-gallery"
@@ -80,15 +92,16 @@ module Examples =
                                 _class
                                     "group grid min-w-0 content-start gap-4 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--fve-brand-ring)]"
 
-                                img {
-                                    _src template.screenshot
-                                    _alt (template.name + " template preview")
-                                    _width "1200"
-                                    _height "800"
-
-                                    _class
-                                        "aspect-[3/2] w-full rounded-xl border border-[var(--fve-border)] object-cover object-top transition-shadow group-hover:shadow-lg"
-                                }
+                                for source, visibility in
+                                    [ template.screenshot, "dark:hidden"
+                                      template.darkScreenshot, "hidden dark:block" ] do
+                                    img {
+                                        _src source
+                                        _alt (template.name + " template preview")
+                                        _width "1200"
+                                        _height "800"
+                                        _class ("aspect-[3/2] w-full rounded-xl border border-[var(--fve-border)] object-cover object-top transition-shadow group-hover:shadow-lg " + visibility)
+                                    }
 
                                 div {
                                     _class "grid gap-2"
@@ -124,21 +137,15 @@ module Examples =
               |> List.map fst
               |> List.filter ((<>) "/examples/application")
           for account in Ledger.Domain.accounts do
-              yield Example.Server.Model.applicationUrl (Example.Server.Model.ApplicationPage.Account account.id)
-              yield Example.Server.Model.applicationUrl (Example.Server.Model.ApplicationPage.EditAccount account.id)
-              yield Example.Server.Model.applicationUrl (Example.Server.Model.ApplicationPage.DeleteAccount account.id)
+              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.Account account.id)
+              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.EditAccount account.id)
+              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.DeleteAccount account.id)
           for environment in Ledger.Domain.environments do
-              yield
-                  Example.Server.Model.applicationUrl (Example.Server.Model.ApplicationPage.Environment environment.id)
-
-              yield
-                  Example.Server.Model.applicationUrl (
-                      Example.Server.Model.ApplicationPage.EditEnvironment environment.id
-                  )
-          yield Example.Server.Model.applicationUrl Example.Server.Model.ApplicationPage.CreateAccount
+              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.Environment environment.id)
+              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.EditEnvironment environment.id)
+          yield Example.Components.Views.Model.applicationUrl Example.Components.Views.Model.ApplicationPage.CreateAccount
           for transaction in Ledger.Domain.transactions do
-              yield
-                  Example.Server.Model.applicationUrl (Example.Server.Model.ApplicationPage.Transaction transaction.id)
+              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.Transaction transaction.id)
           yield!
               Example.Server.Specification.navigation
               |> List.map fst

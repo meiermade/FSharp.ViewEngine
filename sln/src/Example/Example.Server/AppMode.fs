@@ -2,6 +2,7 @@ namespace Example.Server
 
 open FSharp.ViewEngine
 open Example.Components
+open Example.Components.Views
 open type Html
 open type Datastar
 
@@ -12,7 +13,10 @@ module AppMode =
     let windowControl id label expanded href =
         let action = (if expanded then "Restore " else "Expand ") + label
 
-        a {
+        fveLink {
+            _variant LinkVariant.Outline
+            _color Color.Neutral
+            _size Size.Small
             _id ("fve-fixture-" + id + (if expanded then "-restorer" else "-launcher"))
             _href href
             _ariaLabel action
@@ -22,24 +26,9 @@ module AppMode =
             if expanded then
                 _data ("fve-app-mode-exit", "true")
 
-            _class
-                "grid size-8 shrink-0 place-items-center rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
-
-            span {
-                _ariaHidden true
-
-                _class (
-                    "grid size-3.5 place-items-center rounded-full "
-                    + (if expanded then
-                           "bg-[#febc2e] text-[#995700]"
-                       else
-                           "bg-[#28c840] text-[#0b6523]")
-                )
-
-                if expanded then
-                    fveIcon { _name IconName.Minus; _size Size.ExtraSmall }
-                else
-                    fveIcon { _name IconName.ArrowsPointingOut; _size Size.ExtraSmall }
+            fveIcon {
+                _name (if expanded then IconName.ArrowsPointingIn else IconName.ArrowsPointingOut)
+                _variant IconVariant.Mini
             }
         }
 
@@ -59,7 +48,7 @@ module AppMode =
                     _title (label + ": " + destinationName)
 
                     _class
-                        "grid size-8 shrink-0 place-items-center rounded-md hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-5"
+                        "grid size-8 shrink-0 place-items-center rounded-md [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-5"
 
                     fveIcon { _name name; _size Size.Medium }
                 }
@@ -89,7 +78,7 @@ module AppMode =
                 fveDropdownMenuTrigger {
 
                     _class
-                        "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0 inline-flex min-w-0 min-h-[var(--fve-control-min-height)] items-center justify-center gap-2 rounded-[var(--fve-radius-control)] ring-1 ring-inset ring-[var(--fve-border)] bg-transparent px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                        "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0 inline-flex min-w-0 min-h-[var(--fve-control-min-height)] items-center justify-center gap-2 rounded-[var(--fve-radius-control)] ring-1 ring-inset ring-[var(--fve-border)] bg-transparent px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
 
                     _style "max-width:min(14rem,50vw);--fve-control-icon-size:1rem"
 

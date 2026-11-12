@@ -23,7 +23,7 @@ module internal ToggleButton =
             match appearance with
             | "soft" -> "bg-[var(--fve-surface-subtle)]"
             | "ghost" -> "bg-transparent"
-            | _ -> "[--fve-control-border-width:1px] border border-[var(--fve-border)] bg-[var(--fve-surface)]"
+            | _ -> "[--fve-internal-control-border-width:1px] border border-[var(--fve-border)] bg-[var(--fve-surface)]"
         let size = ComponentElement.size None attributes
         let readOnly = ComponentElement.attribute "readonly" attributes |> Option.exists (fun attribute -> attribute.Value <> ValueSome "false")
         let defaults = [
@@ -31,7 +31,7 @@ module internal ToggleButton =
             _data ("fve-group-control", if appearance = "outline" then "outline" else "plain")
             _ariaPressed false
             if readOnly then _ariaDisabled true
-            _class ("inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium text-[var(--fve-text)] outline-none transition-colors hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-brand-subtle)] aria-pressed:text-[var(--fve-brand-text)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 " + ComponentHtml.sizeClasses size + " " + variant) ]
+            _class ("inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium text-[var(--fve-text)] outline-none transition-colors [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-brand-subtle)] aria-pressed:text-[var(--fve-brand-text)] disabled:pointer-events-none disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0 " + ComponentHtml.sizeClasses size + " " + variant) ]
         let content = ComponentElement.render "button" defaults (ComponentHtml.safeAttributes ["size"; "variant"; "readonly"] attributes |> ComponentHtml.outerSignals) children
         let hostAttributes = [
             _class "contents"

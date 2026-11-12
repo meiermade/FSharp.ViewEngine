@@ -162,7 +162,7 @@ module AppShell =
                     _dataAttr ("title", $"${collapsedSignal} ? 'Expand navigation' : 'Collapse navigation'")
                     _dataAttr ("data-collapsed", $"${collapsedSignal} ? 'true' : 'false'")
                     _dataOn ("click", $"${collapsedSignal} = !${collapsedSignal}")
-                    _class (ComponentHtml.classes [ ComponentHtml.popupControlClasses; "group hidden size-[var(--fve-control-min-height)] shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)]"; responsiveClasses config.breakpoint "md:inline-flex" "lg:inline-flex" ])
+                    _class (ComponentHtml.classes [ ComponentHtml.popupControlClasses; "group hidden size-[var(--fve-control-min-height)] shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)]"; responsiveClasses config.breakpoint "md:inline-flex" "lg:inline-flex" ])
                     collapseIcon
                 }
             else empty

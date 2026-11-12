@@ -179,7 +179,7 @@ module private ViewHelpers =
 
 module private ViewStyles =
     let iconButton =
-        "grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-transparent bg-transparent p-1 text-[var(--fve-muted-text)] no-underline hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-[1.125rem]"
+        "grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-transparent bg-transparent p-1 text-[var(--fve-muted-text)] no-underline [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-[1.125rem]"
 
     let sectionContent = "flex flex-col gap-4 text-[var(--fve-text)]"
 
@@ -245,9 +245,9 @@ module private ColorModeView =
 
     let render defaultMode =
         div {
-            _attr ("data-signals__ifmissing", "{_docs_color_mode_mode: window.fveColorMode.current()}")
+            _dataSignals ("_docs_color_mode_mode", ["ifmissing"], "window.fveColorMode.current()")
             _dataInit "$_docs_color_mode_mode = window.fveColorMode.current()"
-            _dataOn ("fve-color-mode__window", "$_docs_color_mode_mode = window.fveColorMode.current()")
+            _dataOn ("fve-color-mode", ["window"], "$_docs_color_mode_mode = window.fveColorMode.current()")
 
             fveDropdownMenu {
                 _id "docs-color-mode"
@@ -304,7 +304,7 @@ module private RepositoryView =
                 _href url
 
                 _class
-                    "shrink-0 rounded-lg border border-[var(--fve-border)] bg-[var(--fve-surface)] px-3 py-1.5 text-sm font-semibold text-[var(--fve-muted-text)] no-underline shadow-sm hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                    "shrink-0 rounded-lg border border-[var(--fve-border)] bg-[var(--fve-surface)] px-3 py-1.5 text-sm font-semibold text-[var(--fve-muted-text)] no-underline shadow-sm [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
 
                 label
             }
@@ -408,14 +408,14 @@ module private NavigationView =
                 _ariaLabel "Close navigation"
                 _class $"{ViewStyles.iconButton} lg:hidden"
                 _data ("docs-nav-close", "true")
-                _data ("on:click", "$sideNavOpen = false; window.fsharpDocsMobileNav.close()")
+                _dataOn ("click", "$sideNavOpen = false; window.fsharpDocsMobileNav.close()")
                 Icons.close
             }
 
         SideNavView.render
             "fixed inset-y-0 left-0 z-50 flex hidden h-dvh w-[min(18rem,calc(100vw-3rem))] flex-col border-r border-[var(--fve-border)] bg-[var(--fve-background)] shadow-xl lg:relative lg:flex lg:h-full lg:w-full lg:shadow-none"
             [ _ariaLabel "Documentation navigation"
-              _data ("class:hidden", "!$sideNavOpen")
+              _dataClass ("hidden", "!$sideNavOpen")
               _data ("docs-side-nav", "true") ]
             (Some close)
             None
@@ -444,9 +444,9 @@ module private NavigationView =
                     _type "button"
                     _ariaLabel "Open navigation"
                     _ariaControls "side-nav"
-                    _data ("attr:aria-expanded", "$sideNavOpen ? 'true' : 'false'")
+                    _dataAttr ("aria-expanded", "$sideNavOpen ? 'true' : 'false'")
                     _class $"{ViewStyles.iconButton} lg:hidden"
-                    _data ("on:click", "$sideNavOpen = true; window.fsharpDocsMobileNav.open(evt.currentTarget)")
+                    _dataOn ("click", "$sideNavOpen = true; window.fsharpDocsMobileNav.open(evt.currentTarget)")
                     Icons.menu
                 }
 
@@ -548,7 +548,7 @@ module private PagerView =
             _href link.href
 
             _class
-                $"flex min-w-0 flex-col gap-1 rounded-xl border border-[var(--fve-border)] bg-[var(--fve-surface)] p-4 text-[var(--fve-text)] no-underline shadow-sm hover:border-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] {linkAlignment}"
+                $"flex min-w-0 flex-col gap-1 rounded-xl border border-[var(--fve-border)] bg-[var(--fve-surface)] p-4 text-[var(--fve-text)] no-underline shadow-sm hover:border-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] {linkAlignment}"
 
             span {
                 _class
@@ -717,7 +717,7 @@ module DocsView =
     let sideNav (site: DocsSite<'destination>) (page: DocumentationPageConfig) = sideNavWith site site.navigation page
 
     let private railResizeHandle =
-        "group relative z-10 hidden w-1 shrink-0 touch-none cursor-col-resize items-center justify-center bg-[var(--fve-border)] outline-none hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+        "group relative z-10 hidden w-1 shrink-0 touch-none cursor-col-resize items-center justify-center bg-[var(--fve-border)] outline-none [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
 
     let pageContentWith (site: DocsSite<'destination>) (breadcrumbs: Breadcrumb list) (page: DocumentationPageConfig) =
         let items = tocItems page
@@ -769,6 +769,7 @@ module DocsView =
                             _minSize 55
                             _maxSize 85
                             _initialSize 80
+                            _persistenceKey "fsharp-viewengine-docs-toc-width"
                             _class "h-full w-full max-xl:contents"
 
                             fveResizablePanel {
@@ -833,8 +834,8 @@ module DocsView =
                 _ariaLabel "Close navigation overlay"
                 _class "fixed inset-0 z-40 hidden border-0 bg-black/50 backdrop-blur-[2px] lg:hidden"
                 _data ("docs-overlay", "true")
-                _data ("class:hidden", "!$sideNavOpen")
-                _data ("on:click", "$sideNavOpen = false; window.fsharpDocsMobileNav.close()")
+                _dataClass ("hidden", "!$sideNavOpen")
+                _dataOn ("click", "$sideNavOpen = false; window.fsharpDocsMobileNav.close()")
             }
 
             fveResizable {
@@ -844,6 +845,7 @@ module DocsView =
                 _minSize 12
                 _maxSize 28
                 _initialSize 19
+                _persistenceKey "fsharp-viewengine-docs-navigation-width"
                 _class "h-full w-full"
 
                 fveResizablePanel {
@@ -942,7 +944,7 @@ module DocsView =
                     "window.fsharpDocsDockObserver?.disconnect(); const measure = () => { if (!el.isConnected) { observer.disconnect(); return }; const root = document.getElementById('fve-app-mode-root'); if (!root) return; const rect = el.getBoundingClientRect(); const mobile = matchMedia('(width < 48rem)').matches; const top = mobile && el.dataset.fveAppDock === 'top'; root.style.top = top ? (rect.bottom + 8) + 'px' : '0px'; root.style.bottom = !mobile || top ? '0px' : (innerHeight - rect.top + 8) + 'px' }; const observer = new ResizeObserver(measure); window.fsharpDocsDockObserver = observer; el.fveMeasureDock = measure; observer.observe(el)"
 
                 _dataEffect "$appModeDockTop; requestAnimationFrame(() => el.fveMeasureDock?.())"
-                _dataOn ("resize__window", "el.fveMeasureDock?.()")
+                _dataOn ("resize", ["window"], "el.fveMeasureDock?.()")
                 _dataAttr ("data-fve-app-dock", "$appModeDockTop ? 'top' : 'bottom'")
 
                 _dataAttr (
@@ -1192,7 +1194,7 @@ module DocsView =
         div {
             _id "docs-navigation-root"
             _attr ("data-fve-navigation-root", "true")
-            _data ("init", initialize)
+            _dataInit initialize
 
             match renderMode with
             | Fullscreen request ->
@@ -1507,6 +1509,7 @@ window.fsharpDocsMobileNav = {
 
                 documentMetadata site docPage
                 ColorMode.assetsWithNonce $"{site.storageKey}-color-mode" colorMode site.assets.nonce
+                SideNavPreferences.assetsWithNonce site.assets.nonce
 
                 match site.assets.prismStylesheet with
                 | Some stylesheet ->
@@ -1567,21 +1570,21 @@ window.fsharpDocsMobileNav = {
                         + " m-0 [--fve-docs-code-surface:color-mix(in_oklch,var(--fve-background)_72%,var(--fve-surface-subtle))] bg-[var(--fve-background)] font-sans text-[var(--fve-text)] antialiased"
                 )
 
-                _data ("signals", signals)
-                _data ("on:fve-color-mode__window", "$colorMode = window.fveColorMode.current()")
+                _dataSignals signals
+                _dataOn ("fve-color-mode", ["window"], "$colorMode = window.fveColorMode.current()")
 
                 match site.assets.navigation with
                 | Some enhancement ->
-                    _data ("on:click", enhancement.clickAction)
-                    _data ("on:submit", enhancement.submitAction)
-                    _data ("on:popstate__window", enhancement.restoreAction)
-                    _data ("on:datastar-fetch", enhancement.fetchLifecycle)
+                    _dataOn ("click", enhancement.clickAction)
+                    _dataOn ("submit", enhancement.submitAction)
+                    _dataOn ("popstate", ["window"], enhancement.restoreAction)
+                    _dataOn ("datastar-fetch", enhancement.fetchLifecycle)
                 | None -> ()
 
                 match activeAppMode, site.assets.navigation with
                 | Some(request, _), Some enhancement ->
                     _attr ("data-fve-app-mode-frame", AppMode.frameId request)
-                    _data ("on:keydown__window", enhancement.appModeExitAction)
+                    _dataOn ("keydown", ["window"], enhancement.appModeExitAction)
                 | Some(request, _), None -> _attr ("data-fve-app-mode-frame", AppMode.frameId request)
                 | None, _ ->
                     _data (

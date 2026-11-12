@@ -180,7 +180,7 @@ module internal CalendarRendering =
 
     let private rangeOverlay (range:CalendarRangeConfig) =
         li {
-            _class "pointer-events-none relative z-20 col-start-1 row-[var(--fve-selection-start)/span_var(--fve-selection-duration)] mx-0.5 my-px min-h-8 rounded-[var(--fve-radius-control)] border border-[var(--fve-brand-solid)] bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)] data-[valid=false]:border-dashed data-[valid=false]:border-[var(--fve-critical-text)] data-[valid=false]:bg-[var(--fve-critical-subtle)] data-[valid=false]:text-[var(--fve-critical-text)]"
+            _class "pointer-events-none relative z-20 col-start-1 row-[var(--fve-internal-selection-start)/span_var(--fve-internal-selection-duration)] mx-0.5 my-px min-h-8 rounded-[var(--fve-radius-control)] border border-[var(--fve-brand-solid)] bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)] data-[valid=false]:border-dashed data-[valid=false]:border-[var(--fve-critical-text)] data-[valid=false]:bg-[var(--fve-critical-subtle)] data-[valid=false]:text-[var(--fve-critical-text)]"
             _data("range-selection", "true")
             _data("valid", string (List.contains (range.start, range.minutes) range.available) |> _.ToLowerInvariant())
             span { _data("range-part", "start"); _ariaHidden true; _class "pointer-events-auto absolute inset-x-0 -top-1 z-10 flex h-3 cursor-ns-resize touch-none justify-center"; span { _class "mt-1 h-1 w-7 rounded-full bg-current" } }
@@ -205,7 +205,7 @@ module internal CalendarRendering =
             _id (id + "-range")
             _class "block min-w-0"
             _attr("settings", System.Text.Json.JsonSerializer.Serialize settings)
-            _style $"--fve-selection-start:{range.start - startHour * 60 + 1};--fve-selection-duration:{range.minutes}"
+            _style $"--fve-internal-selection-start:{range.start - startHour * 60 + 1};--fve-internal-selection-duration:{range.minutes}"
             grid
             div {
                 _class "grid min-w-0 grid-cols-1 items-end gap-3 pt-3 @min-[28rem]/fve-calendar:grid-cols-2"
@@ -283,7 +283,7 @@ module internal CalendarRendering =
             | CalendarView.Day -> format "dddd, MMMM d, yyyy" config.date
             | CalendarView.Week -> format "MMMM d" days.Head + "–" + format "MMMM d, yyyy" (List.last days)
             | CalendarView.Year -> string config.date.Year
-        let control = "inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+        let control = "inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
         let dateHeading date =
             let today = config.today |> Option.exists (fun (value, _) -> value = date)
             let selected = config.selectedDate = Some date
@@ -313,12 +313,12 @@ module internal CalendarRendering =
                 | None -> CalendarEvent.allDayLabel event
             let tone =
                 match event.tone with
-                | CalendarEventTone.Brand -> "[--fve-calendar-event-fill:var(--fve-brand-subtle)] [--fve-calendar-event-ink:var(--fve-brand-text)]"
-                | CalendarEventTone.Neutral -> "[--fve-calendar-event-fill:var(--fve-neutral-subtle)] [--fve-calendar-event-ink:var(--fve-text)]"
-                | CalendarEventTone.Muted -> "[--fve-calendar-event-fill:var(--fve-surface-subtle)] [--fve-calendar-event-ink:var(--fve-muted-text)]"
+                | CalendarEventTone.Brand -> "[--fve-internal-calendar-event-fill:var(--fve-brand-subtle)] [--fve-internal-calendar-event-ink:var(--fve-brand-text)]"
+                | CalendarEventTone.Neutral -> "[--fve-internal-calendar-event-fill:var(--fve-neutral-subtle)] [--fve-internal-calendar-event-ink:var(--fve-text)]"
+                | CalendarEventTone.Muted -> "[--fve-internal-calendar-event-fill:var(--fve-surface-subtle)] [--fve-internal-calendar-event-ink:var(--fve-muted-text)]"
             let cardAttributes =
                 [ _data("tone", string event.tone |> _.ToLowerInvariant())
-                  _class ("fve-calendar-event flex h-full w-full min-w-0 flex-col items-start justify-start overflow-x-hidden overflow-y-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-calendar-event-fill)] p-2 text-left text-[var(--fve-calendar-event-ink)] ring-1 ring-inset ring-[var(--fve-border)] aria-[expanded=true]:ring-2 aria-[expanded=true]:ring-[var(--fve-brand-ring)] " + tone + " no-underline hover:bg-[color-mix(in_srgb,var(--fve-calendar-event-fill)_88%,var(--fve-calendar-event-ink))] aria-[expanded=true]:bg-[color-mix(in_srgb,var(--fve-calendar-event-fill)_80%,var(--fve-calendar-event-ink))] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]") ]
+                  _class ("fve-calendar-event flex h-full w-full min-w-0 flex-col items-start justify-start overflow-x-hidden overflow-y-auto rounded-[var(--fve-radius-control)] bg-[var(--fve-internal-calendar-event-fill)] p-2 text-left text-[var(--fve-internal-calendar-event-ink)] ring-1 ring-inset ring-[var(--fve-border)] aria-[expanded=true]:ring-2 aria-[expanded=true]:ring-[var(--fve-brand-ring)] " + tone + " no-underline hover:bg-[color-mix(in_srgb,var(--fve-internal-calendar-event-fill)_88%,var(--fve-internal-calendar-event-ink))] aria-[expanded=true]:bg-[color-mix(in_srgb,var(--fve-internal-calendar-event-fill)_80%,var(--fve-internal-calendar-event-ink))] focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]") ]
             let cardContent =
                 [ strong { _class "block w-full shrink-0 whitespace-normal text-sm font-medium"; event.title }
                   span { _class "block w-full shrink-0 text-xs"; timeLabel }
@@ -349,7 +349,7 @@ module internal CalendarRendering =
                                 _attr("popovertarget", previewId + "-content")
                                 _attr("popovertargetaction", "hide")
                                 _ariaLabel "Close event details"
-                                _class "grid size-8 shrink-0 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] @max-[24rem]/fve-calendar:self-end"
+                                _class "grid size-8 shrink-0 place-items-center rounded-[var(--fve-radius-control)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] @max-[24rem]/fve-calendar:self-end"
                                 raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-5" aria-hidden="true"><path d="M5.22 5.22a.75.75 0 0 1 1.06 0L10 8.94l3.72-3.72a.75.75 0 0 1 1.06 1.06L11.06 10l3.72 3.72a.75.75 0 0 1-1.06 1.06L10 11.06l-3.72 3.72a.75.75 0 0 1-1.06-1.06L8.94 10 5.22 6.28a.75.75 0 0 1 0-1.06Z"/></svg>"""
                             }
                         }
@@ -407,7 +407,7 @@ module internal CalendarRendering =
                         let hourHeight = (float config.hourHeight / 16.).ToString("0.########", CultureInfo.InvariantCulture)
                         let minuteHeight = (float config.hourHeight / 960.).ToString("0.########", CultureInfo.InvariantCulture)
                         let headingHeight = if showDateHeading then "4rem" else "0rem"
-                        _style ($"--fve-calendar-hours:{endHour - startHour};--fve-calendar-days:{days.Length};--fve-calendar-all-day-rows:{allDayRows};--fve-calendar-hour-height:{hourHeight}rem;--fve-calendar-minute-height:{minuteHeight}rem;--fve-calendar-heading-height:{headingHeight}" + (config.viewportHeight |> Option.map (fun value -> $";--fve-calendar-viewport-height:{value}px") |> Option.defaultValue ""))
+                        _style ($"--fve-internal-calendar-hours:{endHour - startHour};--fve-internal-calendar-days:{days.Length};--fve-internal-calendar-all-day-rows:{allDayRows};--fve-internal-calendar-hour-height:{hourHeight}rem;--fve-internal-calendar-minute-height:{minuteHeight}rem;--fve-internal-calendar-heading-height:{headingHeight}" + (config.viewportHeight |> Option.map (fun value -> $";--fve-calendar-viewport-height:{value}px") |> Option.defaultValue ""))
                         _tabindex 0
                         _role "region"
                         _attr("scroll-axis", "both")
@@ -416,13 +416,13 @@ module internal CalendarRendering =
                             div { _class "fve-calendar-corner sticky top-0 left-0 z-50 col-start-1 row-start-1 h-16 self-start border-b border-[var(--fve-border)] bg-[var(--fve-background)]"; _ariaHidden true }
                         if timed then
                             div {
-                                _class "fve-calendar-hours sticky left-0 z-40 col-start-1 row-start-1 grid w-14 self-start bg-[var(--fve-background)] pt-[calc(var(--fve-calendar-heading-height)+var(--fve-calendar-all-day-rows)*4rem)] text-xs text-[var(--fve-muted-text)]"
+                                _class "fve-calendar-hours sticky left-0 z-40 col-start-1 row-start-1 grid w-14 self-start bg-[var(--fve-background)] pt-[calc(var(--fve-internal-calendar-heading-height)+var(--fve-internal-calendar-all-day-rows)*4rem)] text-xs text-[var(--fve-muted-text)]"
                                 _ariaHidden "true"
                                 for hour in startHour .. endHour - 1 do
-                                    span { _class "h-[var(--fve-calendar-hour-height)] p-1 text-center"; TimeOnly(hour, 0).ToString("h tt", CultureInfo.InvariantCulture) }
+                                    span { _class "h-[var(--fve-internal-calendar-hour-height)] p-1 text-center"; TimeOnly(hour, 0).ToString("h tt", CultureInfo.InvariantCulture) }
                             }
                         ol {
-                            _class ("fve-calendar-days m-0 grid list-none p-0 " + (if timed then "col-start-2 row-start-1 grid-cols-[repeat(var(--fve-calendar-days),minmax(0,1fr))]" + (if config.view = CalendarView.Day then (if config.fluidWidth then "" else " min-w-80") else " min-w-[112rem] @min-[48rem]/fve-calendar:min-w-[56rem]") else "min-w-[56rem] grid-cols-7 gap-px bg-[var(--fve-border)]"))
+                            _class ("fve-calendar-days m-0 grid list-none p-0 " + (if timed then "col-start-2 row-start-1 grid-cols-[repeat(var(--fve-internal-calendar-days),minmax(0,1fr))]" + (if config.view = CalendarView.Day then (if config.fluidWidth then "" else " min-w-80") else " min-w-[112rem] @min-[48rem]/fve-calendar:min-w-[56rem]") else "min-w-[56rem] grid-cols-7 gap-px bg-[var(--fve-border)]"))
                             _ariaLabel (config.label + " dates")
                             for date in days do
                                 let dayEvents = events |> List.filter (CalendarEvent.occursOn date)
@@ -435,13 +435,13 @@ module internal CalendarRendering =
                                     _attr ("data-outside", if date.Month <> config.date.Month then "true" else "false")
                                     if showDateHeading then dateHeading date
                                     ol {
-                                        _class ("fve-calendar-all-day m-0 grid grid-cols-1 list-none gap-1.5 p-0 " + (if timed then "h-[calc(var(--fve-calendar-all-day-rows)*4rem)] overflow-auto" else "[&:not(:empty)]:mb-1.5"))
+                                        _class ("fve-calendar-all-day m-0 grid grid-cols-1 list-none gap-1.5 p-0 " + (if timed then "h-[calc(var(--fve-internal-calendar-all-day-rows)*4rem)] overflow-auto" else "[&:not(:empty)]:mb-1.5"))
                                         _ariaLabel (format "dddd, MMMM d" date + " all-day events")
                                         for event in dayEvents |> List.filter (fun event -> event.time.IsNone) do
                                             li { _attr ("data-event", event.id); eventContent date event }
                                     }
                                     let eventsGrid = ol {
-                                        _class ("fve-calendar-events relative m-0 grid grid-cols-1 list-none p-0 " + (if timed then "grid-rows-[repeat(calc(var(--fve-calendar-hours)*60),var(--fve-calendar-minute-height))] gap-0 bg-[repeating-linear-gradient(to_bottom,color-mix(in_srgb,var(--fve-border)_60%,transparent)_0_1px,transparent_1px_var(--fve-calendar-hour-height))]" else "gap-1.5"))
+                                        _class ("fve-calendar-events relative m-0 grid grid-cols-1 list-none p-0 " + (if timed then "grid-rows-[repeat(calc(var(--fve-internal-calendar-hours)*60),var(--fve-internal-calendar-minute-height))] gap-0 bg-[repeating-linear-gradient(to_bottom,color-mix(in_srgb,var(--fve-border)_60%,transparent)_0_1px,transparent_1px_var(--fve-internal-calendar-hour-height))]" else "gap-1.5"))
                                         _ariaLabel (format "dddd, MMMM d" date + " timed events")
                                         match config.range with
                                         | Some range ->
@@ -449,9 +449,9 @@ module internal CalendarRendering =
                                                 _class "col-start-1 row-[1/-1] min-h-0"
                                                 _data("range-background", "")
                                                 let first = firstRangeStart (startHour * 60) range.step
-                                                _style $"padding-top:calc(var(--fve-calendar-minute-height)*{first - startHour * 60})"
+                                                _style $"padding-top:calc(var(--fve-internal-calendar-minute-height)*{first - startHour * 60})"
                                                 for start in first .. range.step .. endHour * 60 - 1 do
-                                                    button { _type "button"; _tabindex -1; _ariaLabel ("Choose " + clock start); _data("range-start", string start); _class "relative block w-full after:pointer-events-none after:absolute after:inset-x-0.5 after:inset-y-px after:rounded-[var(--fve-radius-control)] hover:after:bg-[color-mix(in_srgb,var(--fve-brand-subtle)_60%,var(--fve-background))]"; _style $"height:calc(var(--fve-calendar-minute-height)*{min range.step (endHour * 60 - start)})" }
+                                                    button { _type "button"; _tabindex -1; _ariaLabel ("Choose " + clock start); _data("range-start", string start); _class "relative block w-full after:pointer-events-none after:absolute after:inset-x-0.5 after:inset-y-px after:rounded-[var(--fve-radius-control)] hover:after:bg-[color-mix(in_srgb,var(--fve-brand-subtle)_60%,var(--fve-background))]"; _style $"height:calc(var(--fve-internal-calendar-minute-height)*{min range.step (endHour * 60 - start)})" }
                                             }
                                             rangeOverlay range
                                         | None -> ()
@@ -459,11 +459,11 @@ module internal CalendarRendering =
                                             li {
                                                 _attr ("data-event", event.id)
                                                 _attr ("data-timed", "true")
-                                                if timed then _class "relative z-0 col-start-1 row-[var(--fve-calendar-start)/span_var(--fve-calendar-duration)] my-px ml-[calc((var(--fve-calendar-lane)-1)*100%/(var(--fve-calendar-lanes)+1)+2px)] min-h-0 w-[calc(200%/(var(--fve-calendar-lanes)+1)-4px)] focus-within:z-30 has-[:popover-open]:z-30"
+                                                if timed then _class "relative z-0 col-start-1 row-[var(--fve-internal-calendar-start)/span_var(--fve-internal-calendar-duration)] my-px ml-[calc((var(--fve-internal-calendar-lane)-1)*100%/(var(--fve-internal-calendar-lanes)+1)+2px)] min-h-0 w-[calc(200%/(var(--fve-internal-calendar-lanes)+1)-4px)] focus-within:z-30 has-[:popover-open]:z-30"
                                                 match event.time with
                                                 | Some (start, finish) ->
                                                     let lane, count = lanes[event.id]
-                                                    _style $"--fve-calendar-start:{minute start - startHour * 60 + 1};--fve-calendar-duration:{minute finish - minute start};--fve-calendar-lane:{lane};--fve-calendar-lanes:{count}"
+                                                    _style $"--fve-internal-calendar-start:{minute start - startHour * 60 + 1};--fve-internal-calendar-duration:{minute finish - minute start};--fve-internal-calendar-lane:{lane};--fve-internal-calendar-lanes:{count}"
                                                 | None -> ()
                                                 eventContent date event
                                             }

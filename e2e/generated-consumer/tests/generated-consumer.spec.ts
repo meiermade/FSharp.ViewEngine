@@ -64,13 +64,13 @@ test('packed fve output renders a styled accessible generated consumer', async (
   const iconButton = page.getByRole('button', { name: 'Refresh accounts', exact: true })
   await expect(iconButton).toBeVisible()
   await expect(iconButton.locator('svg')).toHaveCount(1)
-  await expect(iconButton).toHaveCSS('width', '28px')
+  await expect(iconButton).toHaveCSS('width', '32px')
   await expect(iconButton).toHaveCSS('height', '28px')
-  for (const [label, pixels, padding] of [['XS', 24, 3], ['S', 28, 3], ['M', 32, 5], ['L', 36, 7], ['XL', 40, 9]] as const) {
-    const square = page.locator('#generated-button-sizes').getByRole('button', { name: `Size ${label}`, exact: true })
-    await expect(square).toHaveCSS('width', `${pixels}px`)
-    await expect(square).toHaveCSS('height', `${pixels}px`)
-    await expect(square).toHaveCSS('padding', `${padding}px`)
+  for (const [label, pixels, inline, block] of [['XS', 24, 7, 3], ['S', 28, 7, 3], ['M', 32, 9, 5], ['L', 36, 11, 7], ['XL', 40, 13, 9]] as const) {
+    const control = page.locator('#generated-button-sizes').getByRole('button', { name: `Size ${label}`, exact: true })
+    await expect(control).toHaveCSS('height', `${pixels}px`)
+    await expect(control).toHaveCSS('padding-left', `${inline}px`)
+    await expect(control).toHaveCSS('padding-top', `${block}px`)
   }
   await expect(page.getByRole('button', { name: 'Refresh balances', exact: true }).locator('svg')).toHaveCount(1)
   await expect(page.getByRole('button', { name: 'Sync now', exact: true }).locator('svg')).toHaveCount(1)

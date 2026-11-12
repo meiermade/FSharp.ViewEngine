@@ -155,7 +155,7 @@ let private referenceStatus (reference: string) =
 let tests =
     testList
         "Direct F# documentation"
-        [ testCase "Introduction uses one linked subtitle and begins its sections with Design"
+        [ testCase "Article introductions render once and preserve linked subtitles"
           <| fun _ ->
               let status, html = routeResponse "/"
               Expect.equal status 200 "Introduction renders"
@@ -166,6 +166,26 @@ let tests =
               for href in [ "https://github.com/giraffe-fsharp/Giraffe.ViewEngine"; "https://github.com/dbrattli/Feliz.ViewEngine"; "https://github.com/Lanayx/Oxpecker"; "https://github.com/fsbolero/Bolero" ] do
                   Expect.stringContains subtitle ($"href=\"{href}\"") "inspiration links belong to the subtitle"
               Expect.stringContains main "id=\"design\"" "Design remains the first outlined section"
+              let paragraphText value =
+                  Regex.Replace(WebUtility.HtmlDecode(Regex.Replace(value, "<[^>]+>", "")), @"\s+", " ").Trim()
+              for page in Registry.all do
+                  match page.nodes with
+                  | DocNode.Paragraph _ :: remaining ->
+                      let _, html = routeResponse page.path
+                      let main = html.Substring(html.IndexOf("<main", StringComparison.Ordinal))
+                      let paragraphs = Regex.Matches(main, "(?s)<p\\b[^>]*>(.*?)</p>") |> Seq.cast<Match> |> Seq.map (fun m -> paragraphText m.Groups[1].Value) |> Seq.toList
+                      let subtitle = List.head paragraphs
+                      Expect.equal (paragraphs |> List.filter ((=) subtitle) |> List.length) 1 $"{page.path} renders its opening paragraph only in the page subtitle"
+                      match remaining with
+                      | DocNode.Heading _ :: _ -> Expect.isFalse (main.Contains "id=\"overview\"") $"{page.path} does not synthesize an empty Overview"
+                      | _ -> ()
+                  | _ -> ()
+              let _, htmx = routeResponse "/extensions/htmx"
+              let subtitle = Regex.Match(htmx, "(?s)<h1[^>]*>HTMX</h1>(.*?)</section>").Groups[1].Value
+              Expect.stringContains subtitle "https://v2-0v2-0.htmx.org/reference/" "article subtitle retains its authored link"
+              let _, scripting = routeResponse "/getting-started/scripts"
+              Expect.stringContains scripting "id=\"prerequisites\"" "script setup information has its own meaningful section"
+              Expect.isFalse (scripting.Contains "id=\"overview\"") "script prerequisites do not become a generic Overview"
 
           testCase "page-example mutation boundaries reject foreign origins, unsupported forms, and oversized bodies"
           <| fun _ ->
@@ -1012,17 +1032,17 @@ let tests =
 
               Expect.stringContains
                   timedDay
-                  "--fve-calendar-lane:2;--fve-calendar-lanes:2"
+                  "--fve-internal-calendar-lane:2;--fve-internal-calendar-lanes:2"
                   "overlap has a separate lane"
 
               Expect.stringContains
                   timedDay
-                  "--fve-calendar-start:121;--fve-calendar-duration:120;--fve-calendar-lane:1;--fve-calendar-lanes:2"
+                  "--fve-internal-calendar-start:121;--fve-internal-calendar-duration:120;--fve-internal-calendar-lane:1;--fve-internal-calendar-lanes:2"
                   "connected overlap reuses the ended first lane"
 
               Expect.stringContains
                   timedDay
-                  "--fve-calendar-start:241;--fve-calendar-duration:30;--fve-calendar-lane:1;--fve-calendar-lanes:1"
+                  "--fve-internal-calendar-start:241;--fve-internal-calendar-duration:30;--fve-internal-calendar-lane:1;--fve-internal-calendar-lanes:1"
                   "adjacent non-overlap regains full width"
 
               let start = DateOnly(2026, 9, 18)
@@ -1134,8 +1154,8 @@ let tests =
               Expect.stringContains html "rounded-[var(--fve-radius-control)]" "event cards keep the shared rounded treatment"
               Expect.stringContains html "data-tone=\"muted\"" "the event treatment is explicit"
               Expect.stringContains (System.Net.WebUtility.HtmlDecode html) "Unavailable · Maintenance" "meaning stays in visible text"
-              Expect.stringContains html "--fve-calendar-hours:16" "explicit bounds do not jump with event data"
-              Expect.stringContains html "--fve-calendar-hour-height:5rem" "density scales with typography"
+              Expect.stringContains html "--fve-internal-calendar-hours:16" "explicit bounds do not jump with event data"
+              Expect.stringContains html "--fve-internal-calendar-hour-height:5rem" "density scales with typography"
               Expect.stringContains html "--fve-calendar-viewport-height:320px" "the consumer controls viewport height"
               Expect.isFalse (html.Contains("class=\"fve-calendar-date")) "a redundant Day heading can be omitted"
               Expect.isFalse (html.Contains("No events in this range.")) "events are real calendar content"
@@ -1257,6 +1277,37 @@ let tests =
               Expect.equal (Regex.Matches(html, "data-fve-icon=").Count) 1 "only the matching brand logo is sent"
           }
 
+          test "Slides own their metadata and receive fresh presentation numbering" {
+              let slide =
+                  fveSlide {
+                      fveSlideHeader { fveSlideTitle { "<Position>" }; fveSlideSubtitle { "A consistent frame" } }
+                      fveSlideContent { p { "Body" } }
+                      fveSlideBranding { "Local brand" }
+                      fveSlideFooter { "Local footer" }
+                  }
+              let deck =
+                  fvePresentation {
+                      _label "Financial review"
+                      slide
+                      fveSlide { fveSlideFooter { "Next footer" }; fveSlideContent { "Next" } }
+                  } |> Render.toString
+              Expect.stringContains deck "&lt;Position&gt;" "titles use normal encoded HTML"
+              Expect.stringContains deck "Slide 1 of 2" "first slide has a semantic position"
+              Expect.stringContains deck "Slide 2 of 2" "source order controls numbering"
+              Expect.equal (Regex.Matches(deck, "Local brand").Count) 1 "branding belongs only to its slide"
+              Expect.equal (Regex.Matches(deck, "Local footer").Count) 1 "footer belongs only to its slide"
+              Expect.stringContains deck "Next footer" "each slide owns its own configuration"
+              Expect.stringContains (Render.toString slide) "Slide 1 of 1" "reusing a slide does not retain old deck context"
+              for invalid in [
+                  (fun () -> fvePresentation { _label "Empty" } |> ignore)
+                  (fun () -> fvePresentation { _label "Wrong child"; p { "Not a slide" } } |> ignore)
+                  (fun () -> fveSlide { fveSlideHeader { "First" }; fveSlideHeader { "Second" } } |> Render.toString |> ignore)
+                  (fun () -> fveSlide { fveSlideContent { "Body" }; p { "Ambiguous body" } } |> Render.toString |> ignore)
+              ] do Expect.throws invalid "inconsistent structural configurations are rejected"
+              for route in ["/components/slide"; "/components/presentation"; "/getting-started/scripts"; "/examples/presentation"] do
+                  Expect.equal (routeStatus route) 200 "each public authoring destination resolves"
+          }
+
           test "Sections and disclosures expose semantic reusable layout without a browser runtime" {
               let html =
                   fveSectionStack {
@@ -1360,7 +1411,7 @@ let tests =
                   } |> Render.toString
               let partialHtml = partial [9]
               Expect.stringContains partialHtml "data-range-start=\"531\"" "a final partial slot remains selectable"
-              Expect.stringContains partialHtml "height:calc(var(--fve-calendar-minute-height)*9)" "that slot ends at the visible boundary"
+              Expect.stringContains partialHtml "height:calc(var(--fve-internal-calendar-minute-height)*9)" "that slot ends at the visible boundary"
               Expect.throws (fun () -> partial [9; 60] |> ignore) "a duration with no step-aligned start in the visible hours is rejected"
           }
 
@@ -1629,6 +1680,7 @@ let tests =
                     "Core concepts"
                     "Integrations"
                     "Components"
+                    "Guides"
                     "Project"
                     "Examples" ]
                   "public information architecture"
@@ -1638,8 +1690,7 @@ let tests =
 
               Expect.sequenceEqual
                   (components.sections |> List.map _.label)
-                  [ "Guides"
-                    "Actions"
+                  [ "Actions"
                     "Feedback"
                     "Data display"
                     "Form controls"
@@ -1648,6 +1699,32 @@ let tests =
                     "Layout"
                     "Code and diagrams" ]
                   "focused component groups"
+
+              let guides = Registry.navigation |> List.find (fun section -> section.label = "Guides")
+              Expect.sequenceEqual
+                  (guides.pages |> List.map _.path)
+                  [ "/guides/scripts"; "/guides/giraffe"; "/guides/using-signals"; "/guides/theming"; "/guides/presentations" ]
+                  "workflow guides follow Components, independently of component families"
+              for guide in guides.pages do
+                  Expect.equal guide.category "Guides" "guide metadata matches its navigation group"
+                  let status, html = routeResponse guide.path
+                  Expect.equal status 200 "canonical guide route renders"
+                  let main = html.Substring(html.IndexOf("<main", StringComparison.Ordinal))
+                  let contentAccordions =
+                      Regex.Matches(main, "<details\\b[^>]*>")
+                      |> Seq.cast<Match>
+                      |> Seq.filter (fun item -> not (item.Value.Contains "data-docs-mobile-toc"))
+                  Expect.isEmpty contentAccordions $"{guide.path} does not hide guide content in accordions"
+                  for alias in guide.aliases do
+                      Expect.equal (routeStatus alias) 200 "previous guide URLs remain working aliases"
+              let _, scripts = routeResponse "/guides/scripts"
+              Expect.isFalse (scripts.Contains "fvePresentation {") "the script guide teaches general HTML authoring, not a deck"
+              Expect.stringContains scripts "fveCard {" "the standalone recipe uses an ordinary component"
+              let _, presentationGuide = routeResponse "/guides/presentations"
+              Expect.stringContains presentationGuide "fvePresentation {" "the presentation guide owns deck composition"
+              Expect.stringContains presentationGuide "id=\"printing\"" "the presentation guide owns print/PDF instructions"
+              Expect.equal (routeStatus "/guides/theming/document") 200 "the runnable appearance document has a guide-owned URL"
+              Expect.equal (routeStatus "/components/theming/document") 200 "the runnable document keeps its old URL"
 
               let examples =
                   Registry.navigation |> List.find (fun section -> section.label = "Examples")
@@ -1660,6 +1737,7 @@ let tests =
               Expect.sequenceEqual
                   (Examples.templates |> List.map _.path)
                   [ "/examples/marketing"
+                    "/examples/presentation"
                     "/examples/specification"
                     "/examples/application"
                     "/examples/api-documentation" ]
@@ -1709,6 +1787,11 @@ let tests =
                   Catalog.overviewPage
                   |> FSharp.ViewEngine.Components.Templates.DocsView.content
                   |> Render.toString
+
+              let introduction = Regex.Match(root, "(?s)<h1[^>]*>Components</h1>(.*?)</section>").Groups[1].Value
+              Expect.stringContains introduction "https://ui.shadcn.com/" "source-first inspiration is credited before setup instructions"
+              Expect.stringContains introduction "editable F# and JavaScript source" "the ownership model is explained in the introduction"
+              Expect.stringContains introduction "Use the defaults" "source customization is optional"
 
               for family in families do
                   Expect.stringContains
@@ -2460,6 +2543,62 @@ after"""
                   Expect.isFalse (exported.Contains name) "retired builders and types are not compatibility aliases"
           }
 
+          test "Theming owns an inventory-backed public CSS variable reference and scoped examples" {
+              let page = Components.tryPage "/guides/theming" |> Option.get
+              let html = View.document Registry.navigation Components.themingRegistration |> Render.toHtmlDocString
+              Expect.equal ThemeTokens.palettes.Length 70 "all seven action palettes expose their ten override fields"
+              let state = ThemeTokens.select "" "all" 1
+              let referenceHtml =
+                  [1 .. state.pageCount]
+                  |> List.map (fun number -> ThemeTokens.select "" "all" number |> ThemeTokens.reference |> Render.toString)
+                  |> String.concat ""
+              Expect.equal (ThemeTokens.all |> List.map _.name |> List.distinct |> List.length) ThemeTokens.all.Length "semantic/action aliases appear once"
+              for row in ThemeTokens.all do
+                  Expect.stringContains referenceHtml ($"data-css-token=\"{row.name}\"") $"documented variable {row.name}"
+                  Expect.isNonEmpty row.purpose $"{row.name} has a purpose"
+                  Expect.isNonEmpty row.scope $"{row.name} has an owning scope"
+                  Expect.isNonEmpty row.light $"{row.name} has a light default"
+                  Expect.isNonEmpty row.dark $"{row.name} has a dark default"
+              for name in ["--fve-hover-wash"; "--fve-primary-active"; "--fve-table-row-hover"; "--fve-chart-height"; "--fve-slide-cover-background"; "--fve-calendar-viewport-height"; "--fve-card-inset"; "--fve-shell-sidebar-width"] do
+                  Expect.isTrue (ThemeTokens.all |> List.exists (fun token -> token.name = name)) $"public override {name}"
+              Expect.isFalse (ThemeTokens.all |> List.exists (fun token -> token.name.StartsWith("--fve-internal-", StringComparison.Ordinal))) "internal variables never appear as supported overrides"
+              Expect.stringContains html "Variables prefixed --fve-internal- are component-managed implementation details." "one naming convention replaces the list of exceptions"
+              Expect.stringContains html "theming-scoped-controls" "the reference has a rendered local example"
+              Expect.stringContains html "light-dark(" "paired mode overrides are copyable"
+              Expect.isTrue (page.sections |> List.exists (fun section -> section.id = "internal-variables")) "runtime variables are explicitly distinguished"
+          }
+
+          test "CSS reference search, groups and pagination select the supported inventory" {
+              let first = ThemeTokens.select "" "all" 0
+              Expect.equal first.page 1 "non-positive pages use the first page"
+              Expect.equal first.rows.Length 10 "the reference has ten variables per page"
+              let last = ThemeTokens.select "" "all" Int32.MaxValue
+              Expect.equal last.page first.pageCount "out-of-range pages clamp to the last page"
+              Expect.isTrue (last.rows.Length > 0 && last.rows.Length <= 10) "last page contains only remaining variables"
+              let actions = ThemeTokens.select "" "actions" 1
+              Expect.equal actions.total 70 "all palette fields are accessible through the action filter"
+              let chart = ThemeTokens.select "CHART plot" "components" 9
+              Expect.equal (chart.rows |> List.map _.name) ["--fve-chart-height"] "search combines case-insensitive words across name, purpose and scope"
+              Expect.equal chart.page 1 "filtering clamps the selected page"
+              let empty = ThemeTokens.select "no-such-variable" "theme" 999
+              Expect.equal (empty.total, empty.page, empty.pageCount, empty.rows.Length) (0, 1, 1, 0) "empty results have no phantom pages"
+              Expect.equal (ThemeTokens.select "" "invalid" 1).group "all" "unknown groups fall back to the complete inventory"
+              let scoped = ThemeTokens.select "sticky" "components" 1
+              Expect.equal (scoped.rows |> List.map _.name) ["--fve-table-row-hover"] "scope and purpose are searchable"
+              let encoded = ThemeTokens.select "<>&?" "all" 1 |> fun state -> ThemeTokens.href state 1
+              Expect.stringContains encoded "tokenSearch=%3C%3E%26%3F" "search is encoded as a query value"
+          }
+
+          test "SideNav first-paint assets use the host nonce and precede the deferred application" {
+              let assets = SideNavPreferences.assetsWithNonce (Some "side-nav-nonce") |> Render.toString
+              Expect.stringContains assets "nonce=\"side-nav-nonce\"" "the initializer uses the caller's CSP nonce"
+              Expect.isFalse (assets.Contains("type=\"module\"")) "pre-paint preparation does not wait for modules"
+              let html = View.documentWithPageForAndNonce (Some "page-nonce") None Registry.navigation Components.sideNavRegistration Components.sideNavPage |> Render.toHtmlDocString
+              let early = html.IndexOf("group.dataset.fveSideNavPrepared", StringComparison.Ordinal)
+              let bundle = html.IndexOf("src=\"/assets/app.js\"", StringComparison.Ordinal)
+              Expect.isTrue (early >= 0 && early < bundle) "native preference preparation runs in the head before the application"
+          }
+
           test "Appearance is documented as a focused guide with a separate runnable document" {
               Expect.isFalse
                   (Catalog.componentRegistrations
@@ -2468,10 +2607,10 @@ after"""
 
               Expect.isTrue
                   (Components.guideRegistrations
-                   |> List.exists (fun page -> page.path = "/components/theming"))
+                   |> List.exists (fun page -> page.path = "/guides/theming"))
                   "appearance belongs in Guides"
 
-              let page = Components.tryPage "/components/theming" |> Option.get
+              let page = Components.tryPage "/guides/theming" |> Option.get
 
               Expect.equal page.sections.Head.id "theme" "the guide leads with a focused working theme example"
 
@@ -2727,6 +2866,21 @@ after"""
                   Expect.isFalse
                       (Regex.IsMatch(html, "<div[^>]*data-docs-diagram="))
                       "expanded review does not initialize hidden documentation diagrams"
+          }
+
+          test "Browser review states keep addresses and navigation server-owned" {
+              for expanded in [false; true] do
+                  for state in ["summary"; "details"; "empty"] do
+                      let html = Components.browserReviewFrame expanded state |> Render.toString
+                      let href = Components.browserReviewHref expanded state |> System.Net.WebUtility.HtmlEncode
+                      Expect.stringContains html ($"data-browser-url=\"{href}\"") "the displayed address resolves to the rendered state"
+                      Expect.stringContains html ($"data-review-state=\"{state}\"") "the server chooses the state"
+                      Expect.stringContains html "aria-label=\"Back\"" "back is always represented, including its disabled boundary"
+                      Expect.stringContains html "aria-label=\"Forward\"" "forward is always represented, including its disabled boundary"
+                      Expect.stringContains html "Review state:" "the current state remains selectable at either size"
+              let fallback = Components.browserReviewFrame false "unrecognized" |> Render.toString
+              Expect.stringContains fallback "data-review-state=\"summary\"" "unknown states use the first supported state"
+              Expect.isFalse (fallback.Contains("unrecognized")) "unsupported input does not become a displayed or navigable address"
           }
 
           test "Specification Browser addresses round-trip period, scenario and date selections" {
@@ -3276,7 +3430,13 @@ after"""
                   "Example.Components"
                   "the running example uses installed editable source"
 
-              for assembly in [ owned; typeof<Example.Server.Model.Query>.Assembly ] do
+              Expect.equal typeof<Example.Components.Views.Model.Query>.Assembly owned "product view inputs live with the installed consumer controls"
+              Expect.isNotNull (owned.GetType "Example.Components.Views.Product") "the app and Spec use the shared product renderer"
+              let viewDependencies = owned.GetReferencedAssemblies() |> Seq.map _.Name |> Set.ofSeq
+              for forbidden in ["Example.Server"; "Giraffe"; "Microsoft.AspNetCore.Http"] do
+                  Expect.isFalse (viewDependencies.Contains forbidden) "shared product views do not depend on the HTTP host"
+
+              for assembly in [ owned; typeof<Example.Server.Navigation.Intent>.Assembly ] do
                   let dependencies = assembly.GetReferencedAssemblies() |> Seq.map _.Name |> Set.ofSeq
                   Expect.isFalse (dependencies.Contains "Docs") "the example runs without the catalog"
 
@@ -3478,11 +3638,11 @@ after"""
                       | "month-calendar" | "year-calendar" -> Some "calendar-selection.js"
                       | selector when
                           List.contains selector
-                              [ "button"; "copy-reveal"; "dialog"; "drawer"; "command"
+                              [ "avatar"; "button"; "copy-reveal"; "dialog"; "drawer"; "command"
                                 "table"; "chart"; "tag-input"; "breadcrumbs"
                                 "checkbox"; "switch"; "toggle-button"; "toggle-group"
                                 "file-selection"; "tabs"; "notification"; "floating-panel"
-                                "resizable"; "error-summary"; "tooltip"; "popover"
+                                "resizable"; "presentation"; "error-summary"; "tooltip"; "popover"
                                 "dropdown-menu"; "select"; "side-nav"
                                 "code-block"; "mermaid"; "example"; "date-picker"; "time-picker" ] -> Some (selector + ".js")
                       | _ -> None
@@ -4124,12 +4284,12 @@ after"""
                   "only component-specific, example-led guides remain"
 
               let theming = render Components.themingRegistration
-              Expect.stringContains theming "rel=\"prev\" href=\"/components/using-signals\"" "theming follows signals"
+              Expect.stringContains theming "rel=\"prev\" href=\"/guides/using-signals\"" "theming follows signals"
 
               Expect.stringContains
                   theming
-                  "rel=\"next\" href=\"/components/button\""
-                  "focused components follow the two guides"
+                  "rel=\"next\" href=\"/guides/presentations\""
+                  "the presentation workflow follows theming in Guides"
 
               Expect.stringContains installation "id=\"updating\"" "installation owns source updates"
 
@@ -5922,7 +6082,7 @@ after"""
 
               Expect.stringContains
                   subtleBadgeOutline
-                  "color-mix(in_srgb,var(--fve-color-border)_20%,transparent)"
+                  "color-mix(in_srgb,var(--fve-internal-color-border)_20%,transparent)"
                   "Badge and Button outlines share the subtle palette border"
 
               let loading =
@@ -5976,6 +6136,25 @@ after"""
               Expect.stringContains emptyState "justify-items-center" "EmptyState retains its base presentation"
           }
 
+          test "Submit and reset Buttons provide native form semantics before enhancement" {
+              for kind in ["submit"; "reset"] do
+                  let html =
+                      fveButton {
+                          _type kind
+                          _name "action"
+                          _value "save"
+                          _form "account-editor"
+                          _disabled true
+                          "Save <draft>"
+                      } |> Render.toString
+                  let native = Regex.Match(html, "<button[^>]*>").Value
+                  for expected in [$"type=\"{kind}\""; "name=\"action\""; "value=\"save\""; "form=\"account-editor\""; "disabled"] do
+                      Expect.stringContains native expected "the actual native control owns the form attributes"
+                  Expect.equal (Regex.Matches(html, "<button[ >]").Count) 1 "one native control, enhanced by the existing Button runtime"
+                  Expect.stringContains html "Save &lt;draft&gt;" "fallback content remains encoded"
+                  Expect.equal (Regex.Matches(html, "Save &lt;draft&gt;").Count) 1 "fallback does not duplicate visible content"
+          }
+
           test "Button serializes palette data and preserves consumer attributes and encoded content" {
               let custom =
                   fveButton {
@@ -6004,13 +6183,21 @@ after"""
 
               for generated in
                   [ "<button"
-                    "--fve-color-solid"
+                    "--fve-internal-color-solid"
                     "data-fve-button-spinner"
                     "data-fve-button-content" ] do
                   Expect.isFalse (custom.Contains generated) "rendered HTML does not contain Rocket-owned internals"
           }
 
           test "Table records, selection, canvas, and optional section headers preserve their contracts" {
+              let defaults = Components.simpleTeamTable |> Render.toString
+              Expect.isFalse (defaults.Contains "hover-rows=\"true\"") "row hover is not enabled by default"
+              let hover = Components.hoverTeamTable |> Render.toString
+              Expect.stringContains hover "hover-rows=\"true\"" "row hover is an explicit typed opt-in"
+              Expect.stringContains hover "--fve-table-row-hover:var(--fve-brand-subtle)" "table-scoped hover color remains consumer-owned"
+              let disabled = fveTable { _ariaLabel "No hover"; _hoverRows false } |> Render.toString
+              Expect.stringContains disabled "hover-rows=\"false\"" "row hover can be explicitly disabled"
+              Expect.throws (fun () -> fveTable { _ariaLabel "Invalid hover"; _attr("hover-rows", "sometimes") } |> ignore) "invalid hover configuration fails at rendering"
               let html = Components.selectableTeamTable |> Render.toString
               Expect.equal (Regex.Matches(html, "<fve-table ").Count) 1 "one presentation host owns the native parts"
               Expect.stringContains html "name=\"memberIds\"" "application-owned native checkboxes submit record keys"
@@ -8164,8 +8351,14 @@ after"""
               Expect.equal (routeStatus "/extensions/tailwind") 404 "removed route returns not found"
           }
 
-          test "Catalog pages do not maintain compatibility aliases" {
-              Expect.isEmpty Registry.aliases "only current destinations are registered"
+          test "Only relocated guide URLs retain compatibility aliases" {
+              Expect.sequenceEqual
+                  (Registry.aliases |> List.sort)
+                  ([ "/getting-started/scripts", "/guides/scripts"
+                     "/usage", "/guides/giraffe"
+                     "/components/using-signals", "/guides/using-signals"
+                     "/components/theming", "/guides/theming" ] |> List.sort)
+                  "the guide move preserves existing links without restoring unrelated retired routes"
           } ]
 
 [<EntryPoint>]

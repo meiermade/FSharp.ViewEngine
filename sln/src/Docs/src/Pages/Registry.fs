@@ -14,11 +14,14 @@ module Registry =
             pages = [ CoreGuides.elementsAndAttributes; CoreGuides.composition; CoreGuides.rendering; CoreGuides.encoding; CoreGuides.accessibility; Custom.page ]
             sections = [] }
           { label = "Integrations"
-            pages = [ Usage.page; Svg.page; Datastar.page; Htmx.page; Alpine.page; TailwindElements.page ]
+            pages = [ Svg.page; Datastar.page; Htmx.page; Alpine.page; TailwindElements.page ]
             sections = [] }
           { label = "Components"
             pages = [ Components.overviewRegistration; Components.installationRegistration ]
-            sections = [ { label = "Guides"; pages = Components.guideRegistrations; sections = [] } ] @ Catalog.navigation } ]
+            sections = Catalog.navigation }
+          { label = "Guides"
+            pages = [ Scripting.page; Usage.page; Components.interactionRegistration; Components.themingRegistration; Presentations.page ]
+            sections = [] } ]
         @ [ { label = "Project"
               pages = [ Benchmarks.page ]
               sections = [] }

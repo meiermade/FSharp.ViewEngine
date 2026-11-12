@@ -66,12 +66,16 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Resizable.fs" FveFile="Resizable.fs" FveName="resizable" FveDependencies="rocket-runtime;foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)BottomNavigation.fs" FveFile="BottomNavigation.fs" FveName="bottom-navigation" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)FieldFoundation.fs" FveFile="FieldFoundation.fs" FveName="field-foundation" FveDependencies="foundation;component-builder" FveInternal="true" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Avatar.fs" FveFile="Avatar.fs" FveName="avatar" FveDependencies="foundation;component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Avatar.fs" FveFile="Avatar.fs" FveName="avatar" FveDependencies="foundation;component-builder;rocket-runtime" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/avatar.js" FveFile="Assets/avatar.js" FveOwner="avatar" FveModule="true" />
     <FveComponent Include="$(MSBuildThisFileDirectory)PageTopBar.fs" FveFile="PageTopBar.fs" FveName="page-top-bar" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)PageHeader.fs" FveFile="PageHeader.fs" FveName="page-header" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)SectionHeader.fs" FveFile="SectionHeader.fs" FveName="section-header" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Section.fs" FveFile="Section.fs" FveName="section" FveDependencies="section-header" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Disclosure.fs" FveFile="Disclosure.fs" FveName="disclosure" FveDependencies="foundation;component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Slide.fs" FveFile="Slide.fs" FveName="slide" FveDependencies="foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/presentation.js" FveFile="Assets/presentation.js" FveOwner="presentation" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Presentation.fs" FveFile="Presentation.fs" FveName="presentation" FveDependencies="slide;button;icon" />
     <FveComponent Include="$(MSBuildThisFileDirectory)FSharpApiReference.fs" FveFile="FSharpApiReference.fs" FveName="fsharp-api-reference" FveDependencies="code-block" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Callout.fs" FveFile="Callout.fs" FveName="callout" FveDependencies="foundation;component-builder" />
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/example.js" FveFile="Assets/example.js" FveOwner="example" FveModule="true" />

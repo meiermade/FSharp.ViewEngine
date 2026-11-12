@@ -3,6 +3,7 @@ namespace Docs.Pages
 open Docs.Common
 open FSharp.ViewEngine
 open type Html
+open type FSharp.ViewEngine.Datastar
 
 module Datastar =
     let private completeExampleSource = """div {
@@ -21,17 +22,17 @@ module Datastar =
 
     let private completeExamplePreview =
         div {
-            _data("signals", "{query: ''}")
+            _dataSignals "{query: ''}"
             _style "min-height:12rem;border-radius:.65rem;background:#f8fafc;padding:1.5rem;color:#0f172a"
             label { _for "datastar-preview-query"; _style "display:block;margin-bottom:.5rem;font-weight:650"; "Search" }
             input {
                 _id "datastar-preview-query"
                 _type "search"
                 _placeholder "Type to update the preview"
-                _data("bind", "query")
+                _dataBind "query"
                 _style "width:100%;border:1px solid #cbd5e1;border-radius:.45rem;background:white;padding:.65rem .75rem;color:#0f172a"
             }
-            p { _style "margin:1rem 0 0;color:#475569"; "Current query: "; strong { _data("text", "$query || 'None'") } }
+            p { _style "margin:1rem 0 0;color:#475569"; "Current query: "; strong { _dataText "$query || 'None'" } }
         }
 
     let private section id title =

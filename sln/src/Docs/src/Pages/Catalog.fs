@@ -47,10 +47,22 @@ module Catalog =
 
     let componentRegistrations = navigation |> List.collect _.pages
 
+    let private overviewDescription =
+        "Opinionated, Tailwind-styled components for F#, with Datastar-powered interactivity."
+
     let overviewPage =
         DocumentationPage.create Components.overviewRegistration.id "Components"
-        |> DocumentationPage.withDescription
-            "Opinionated, Tailwind-styled components for F#, with Datastar-powered interactivity. Install editable source and customize it in your application."
+        |> DocumentationPage.withDescription overviewDescription
+        |> DocumentationPage.withDescriptionContent (fragment {
+            overviewDescription
+            " Inspired by "
+            a {
+                _href "https://ui.shadcn.com/"
+                _class "font-semibold text-[var(--fve-brand-text)] underline underline-offset-2"
+                "shadcn/ui"
+            }
+            "’s source-first approach, components are installed into your project as editable F# and JavaScript source. Use the defaults, or customize the code when needed."
+        })
         |> DocumentationPage.withSections
             [ DocumentationSection.create
                   "start"
@@ -88,7 +100,7 @@ module Catalog =
                         " · "
 
                         a {
-                            _href "/components/theming"
+                            _href "/guides/theming"
                             "Theming"
                         }
 

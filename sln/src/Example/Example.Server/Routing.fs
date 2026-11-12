@@ -1,7 +1,7 @@
 namespace Example.Server
 
 open System
-open Model
+open Example.Components.Views.Model
 open Ledger.Domain
 
 module Routing =

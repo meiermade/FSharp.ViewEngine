@@ -55,6 +55,8 @@
       <Compile Include="Components/IconNames.fs" />
       <Compile Include="Components/IconData.fs" />
       <Compile Include="Components/Icon.fs" />
+      <Compile Include="Components/Slide.fs" />
+      <Compile Include="Components/Presentation.fs" />
       <None Include="fve.json" />
       <None Include="Components/Assets/datastar-LICENSE.txt" />
       <None Include="Components/Assets/datastar-rocket.1.0.4.js" />
@@ -71,6 +73,7 @@
       <None Include="Components/Assets/checkbox.js" />
       <None Include="Components/Assets/tabs.js" />
       <None Include="Components/Assets/resizable.js" />
+      <None Include="Components/Assets/avatar.js" />
       <None Include="Components/Assets/notification.js" />
       <None Include="Components/Assets/dropdown-menu.js" />
       <None Include="Components/Assets/side-nav.js" />
@@ -87,9 +90,41 @@
       <None Include="Components/Assets/heroicons.2.2.0.provenance.json" />
       <None Include="Components/Assets/bootstrap-icons-LICENSE.txt" />
       <None Include="Components/Assets/bootstrap-icons.1.13.1.provenance.json" />
+      <None Include="Components/Assets/presentation.js" />
   </ItemGroup>
   <!-- fve:components:end -->
   <ItemGroup>
     <PackageReference Include="FSharp.ViewEngine" Version="2026.8.2" />
+    <ProjectReference Include="../Example.Application/Example.Application.fsproj" />
+    <Compile Include="Views/Model.fs" />
+    <Compile Include="Views/Layout.fs" />
+    <Compile Include="Views/RecordTable.fs" />
+    <Compile Include="Views/Pages/Controls.fs" />
+    <Compile Include="Views/Pages/TransactionTable.fs" />
+    <Compile Include="Views/Pages/Collection.fs" />
+    <Compile Include="Views/Pages/Home.fs" />
+    <Compile Include="Views/Pages/Accounts/ViewAccounts.fs" />
+    <Compile Include="Views/Pages/Accounts/ViewAccount.fs" />
+    <Compile Include="Views/Pages/Transactions/ViewTransactions.fs" />
+    <Compile Include="Views/Pages/Transactions/ViewTransaction.fs" />
+    <Compile Include="Views/Pages/Settings/ViewEnvironment.fs" />
+    <Compile Include="Views/Pages/Profile/Organizations.fs" />
+    <Compile Include="Views/Pages/Profile/ViewProfile.fs" />
+    <Compile Include="Views/Pages/Overlay.fs" />
+    <Compile Include="Views/Pages/Accounts/AccountEditor.fs" />
+    <Compile Include="Views/Pages/Accounts/CreateAccount.fs" />
+    <Compile Include="Views/Pages/Accounts/UpdateAccount.fs" />
+    <Compile Include="Views/Pages/Accounts/DeleteAccount.fs" />
+    <Compile Include="Views/Pages/Transactions/DeleteTransaction.fs" />
+    <Compile Include="Views/Pages/Settings/Environments.fs" />
+    <Compile Include="Views/Pages/Settings/Users.fs" />
+    <Compile Include="Views/Pages/Settings/ApiClients.fs" />
+    <Compile Include="Views/Pages/Settings/Ledgers.fs" />
+    <Compile Include="Views/Pages/Settings/Billing.fs" />
+    <Compile Include="Views/Pages/Settings/General.fs" />
+    <Compile Include="Views/Pages/Settings/EditOrganization.fs" />
+    <Compile Include="Views/Pages/Settings/EditEnvironment.fs" />
+    <Compile Include="Views/Pages/Profile/EditProfile.fs" />
+    <Compile Include="Views/Product.fs" />
   </ItemGroup>
 </Project>

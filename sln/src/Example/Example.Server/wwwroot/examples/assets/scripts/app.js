@@ -1,10 +1,12 @@
 import './spec-fixture.js';
 import './balance-chart.js';
 import './button.js';
+import './avatar.js';
 import './checkbox.js';
 import './notification.js';
 import './tabs.js';
 import './resizable.js';
+import './presentation.js';
 import './dialog.js';
 import './command.js';
 import './drawer.js';

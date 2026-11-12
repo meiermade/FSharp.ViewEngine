@@ -2,6 +2,7 @@ namespace Example.Server
 
 open FSharp.ViewEngine
 open Example.Components
+open Example.Components.Views
 open type Html
 
 module Architecture =

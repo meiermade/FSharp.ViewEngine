@@ -82,6 +82,27 @@ test('Rocket Button rebuilds server-morphed content and remains interactive with
   await expect(button).toBeEnabled()
 })
 
+test('Application submit uses shared Button padding and native GET semantics without JavaScript @cross-browser', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, baseURL })
+  try {
+    const page = await context.newPage()
+    await page.goto('/examples/application')
+    const form = page.getByRole('form', { name: 'Home balance controls', exact: true })
+    const apply = form.getByRole('button', { name: 'Apply', exact: true })
+    await expect(apply).toHaveCSS('height', '32px')
+    await expect(apply).toHaveCSS('padding-left', '10px')
+    await expect(apply).toHaveCSS('padding-top', '6px')
+    await apply.click()
+    await expect(page).toHaveURL(url => url.searchParams.get('range') === '90')
+    await expect(page.getByRole('heading', { name: 'Home', level: 1, exact: true })).toBeVisible()
+    const dates = page.getByRole('form', { name: 'Chart date range', exact: true })
+    await dates.getByLabel('Start date', { exact: true }).fill('2026-09-14')
+    await dates.getByLabel('End date', { exact: true }).fill('2026-09-17')
+    await dates.getByRole('button', { name: 'Apply range', exact: true }).click()
+    await expect(page).toHaveURL(url => url.searchParams.get('startDate') === '2026-09-14' && url.searchParams.get('endDate') === '2026-09-17')
+  } finally { await context.close() }
+})
+
 test('new Rocket buttons keep their settled border during Dialog/Drawer navigation @cross-browser', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' })
   await page.goto('/components/drawer')

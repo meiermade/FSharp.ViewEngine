@@ -282,7 +282,7 @@ module internal MonthCalendarSelectionRendering =
                     _attr ("data-fve-calendar-action", "previous")
 
                     _class
-                        "col-start-1 @max-[14rem]/calendar:row-start-2 grid size-9 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                        "col-start-1 @max-[14rem]/calendar:row-start-2 grid size-9 place-items-center rounded-[var(--fve-radius-control)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
 
                     raw
                         """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>"""
@@ -317,7 +317,7 @@ module internal MonthCalendarSelectionRendering =
                                 _attr ("data-fve-calendar-month", "")
 
                                 _class
-                                    "h-8 w-20 appearance-none rounded-[var(--fve-radius-control)] bg-transparent py-1 pr-6 pl-2 text-sm font-medium hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                                    "h-8 w-20 appearance-none rounded-[var(--fve-radius-control)] bg-transparent py-1 pr-6 pl-2 text-sm font-medium [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
 
                                 for month in 1..12 do
                                     let value = month.ToString("00", CultureInfo.InvariantCulture)
@@ -346,7 +346,7 @@ module internal MonthCalendarSelectionRendering =
                                 _attr ("data-fve-calendar-year", "")
 
                                 _class
-                                    "h-8 w-20 appearance-none rounded-[var(--fve-radius-control)] bg-transparent py-1 pr-6 pl-2 text-sm font-medium hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                                    "h-8 w-20 appearance-none rounded-[var(--fve-radius-control)] bg-transparent py-1 pr-6 pl-2 text-sm font-medium [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
 
                                 for year in minimumYear..maximumYear do
                                     option {
@@ -371,7 +371,7 @@ module internal MonthCalendarSelectionRendering =
                     _attr ("data-fve-calendar-action", "next")
 
                     _class
-                        "col-start-3 @max-[14rem]/calendar:row-start-2 grid size-9 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                        "col-start-3 @max-[14rem]/calendar:row-start-2 grid size-9 place-items-center rounded-[var(--fve-radius-control)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
 
                     raw
                         """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>"""
@@ -416,13 +416,13 @@ module internal MonthCalendarSelectionRendering =
                     _attr ("data-in-range", if inRange then "true" else "false")
 
                     _class
-                        "grid min-h-9 min-w-0 place-items-center rounded-[var(--fve-radius-control)] text-sm tabular-nums [&[aria-current=date]:not([aria-selected=true]):not([data-in-range=true])]:bg-[var(--fve-surface-hover)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-30 data-[outside=true]:text-[var(--fve-muted-text)] data-[in-range=true]:rounded-none data-[in-range=true]:bg-[var(--fve-brand-subtle)] aria-selected:bg-[var(--fve-brand-solid)] aria-selected:text-white"
+                        "grid min-h-9 min-w-0 place-items-center rounded-[var(--fve-radius-control)] text-sm tabular-nums [&[aria-current=date]:not([aria-selected=true]):not([data-in-range=true])]:bg-[var(--fve-surface-hover)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:cursor-not-allowed disabled:opacity-30 data-[outside=true]:text-[var(--fve-muted-text)] data-[in-range=true]:rounded-none data-[in-range=true]:bg-[var(--fve-brand-subtle)] aria-selected:bg-[var(--fve-brand-solid)] aria-selected:text-white"
 
                     string date.Day
                 })
 
             if config.clearable || config.today.IsSome then
-                let actionClass = "rounded-[var(--fve-radius-control)] px-2 py-1 text-sm font-medium text-[var(--fve-brand-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                let actionClass = "rounded-[var(--fve-radius-control)] px-2 py-1 text-sm font-medium text-[var(--fve-brand-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
                 div {
                     _class "flex min-w-0 items-center justify-between gap-2"
                     if config.clearable then
@@ -676,7 +676,7 @@ module internal MonthCalendar =
                         "previous"
                         [ _ariaLabel "Previous month"
                           _class
-                              "grid size-9 shrink-0 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]" ]
+                              "grid size-9 shrink-0 place-items-center rounded-[var(--fve-radius-control)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]" ]
                         [ raw
                               """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg>""" ]
                         config
@@ -692,7 +692,7 @@ module internal MonthCalendar =
                         "next"
                         [ _ariaLabel "Next month"
                           _class
-                              "grid size-9 shrink-0 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]" ]
+                              "grid size-9 shrink-0 place-items-center rounded-[var(--fve-radius-control)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]" ]
                         [ raw
                               """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 1 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/></svg>""" ]
                         config
@@ -780,7 +780,7 @@ module internal MonthCalendar =
                                   _ariaLabel ((if selected then "Selected: " else "Show ") + label)
                                   _class (
                                       classes
-                                      + "no-underline hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                                      + "no-underline [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
                                   ) ]
                                 (CalendarRendering.dateAttributes date config)
                                 [ content ]
@@ -852,11 +852,11 @@ module internal MonthCalendar =
                 _class (
                     "fve-calendar-event min-w-0 rounded-[var(--fve-radius-control)] no-underline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] "
                     + (if not compact then
-                           "block p-2 hover:bg-[var(--fve-surface-hover)]"
+                           "block p-2 [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))]"
                        elif event.time.IsNone then
-                           "absolute inset-y-0 left-0 flex h-7 items-center gap-1 overflow-hidden bg-[var(--fve-brand-text)] px-1.5 text-[light-dark(white,#101828)] hover:opacity-90"
+                           "absolute inset-y-0 left-0 flex h-7 items-center gap-1 overflow-hidden bg-[var(--fve-brand-text)] px-1.5 text-[light-dark(white,#101828)] hover:bg-[color-mix(in_srgb,var(--fve-brand-text)_90%,light-dark(white,black))]"
                        else
-                           "flex h-7 w-full items-center gap-1 overflow-hidden px-1.5 hover:bg-[var(--fve-surface-hover)]")
+                           "flex h-7 w-full items-center gap-1 overflow-hidden px-1.5 [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))]")
                     + continuationClasses
                 )
 
@@ -1075,7 +1075,7 @@ module internal MonthCalendar =
                                             _ariaLabel "Close day events"
 
                                             _class
-                                                "grid size-8 shrink-0 place-items-center rounded-[var(--fve-radius-control)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                                                "grid size-8 shrink-0 place-items-center rounded-[var(--fve-radius-control)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
 
                                             _popovertarget popupId
                                             _attr("popovertargetaction", "hide")
@@ -1105,7 +1105,7 @@ module internal MonthCalendar =
                                         _ariaLabel (($"Show all {events.Length} events for {label}"))
 
                                         _class (
-                                            "inline-flex min-h-7 items-center rounded-[var(--fve-radius-control)] px-1.5 text-xs font-medium text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                                            "inline-flex min-h-7 items-center rounded-[var(--fve-radius-control)] px-1.5 text-xs font-medium text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
                                         )
 
                                         fun (triggerAttributes: HtmlAttribute list) ->

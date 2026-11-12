@@ -20,13 +20,15 @@ type Configuration =
       Project:string
       Namespace:string
       Components:string array
-      Files:InstalledFile array }
+      Files:InstalledFile array
+      Modules:string array }
 
 [<NoEquality; NoComparison>]
 type RegistryFile =
     { Component:string
       FileName:string
       Compile:bool
+      Module:bool
       Source:string }
 
 [<NoEquality; NoComparison>]
@@ -70,6 +72,6 @@ module Validation =
         else Ok value
 
     let projectPath (value:string) =
-        if String.IsNullOrWhiteSpace value || not (String.Equals(Path.GetExtension value, ".fsproj", StringComparison.OrdinalIgnoreCase)) then
-            Error "A .fsproj path is required."
+        if String.IsNullOrWhiteSpace value || not (List.exists (fun extension -> String.Equals(Path.GetExtension value, extension, StringComparison.OrdinalIgnoreCase)) [".fsproj"; ".fsx"]) then
+            Error "A .fsproj or .fsx path is required."
         else Ok (Path.GetFullPath value)

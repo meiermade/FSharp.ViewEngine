@@ -39,7 +39,7 @@ module internal Tooltip =
             | None -> 400
             | Some value -> match Int32.TryParse value with true, delay when delay >= 0 && delay <= 2000 -> delay | _ -> invalidArg "delay" "Tooltip delay must be between zero and 2000 milliseconds."
         let contentId = id + "-content"
-        let anchor = "--fve-tooltip-" + ComponentHtml.signalToken id
+        let anchor = "--fve-internal-tooltip-" + ComponentHtml.signalToken id
         let position =
             match ComponentElement.choice "side" "top" ["top"; "bottom"; "start"; "end"] attributes with
             | "start" -> "left"

@@ -99,7 +99,7 @@ module internal TimePicker =
                                     for attribute in forwarded do attribute
                                     _ariaLabel ("Choose " + label.ToLowerInvariant())
                                     _disabled (disabled || readOnly)
-                                    _class "grid size-[calc(var(--fve-control-min-height)-2px)] shrink-0 place-items-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                                    _class "grid size-[calc(var(--fve-control-min-height)-2px)] shrink-0 place-items-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
                                     _data("time-toggle", "")
                                     raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-[var(--fve-control-icon-size)]" aria-hidden="true"><path fill-rule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16Zm.75-12.5a.75.75 0 0 0-1.5 0v4.75c0 .199.079.39.22.53l2.5 2.5a.75.75 0 1 0 1.06-1.06l-2.28-2.28V5.5Z" clip-rule="evenodd"/></svg>"""
                                 }

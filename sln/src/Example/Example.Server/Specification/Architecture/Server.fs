@@ -2,6 +2,7 @@ namespace Example.Server.ArchitecturePages
 
 open FSharp.ViewEngine
 open Example.Components
+open Example.Components.Views
 open Example.Server
 open type Html
 
@@ -17,7 +18,7 @@ module internal Server =
     let render () =
         contracts
             "HTTP surfaces"
-            "Example.Server.fsproj builds the standalone host. Model.fs and Routing.fs own URLs; Layout.fs and Application/ own the product shell and page views; Specification/ owns workflow states, sequences, rules and architecture pages; ApiDocumentation.fs renders the HTTP reference; Hosting.fs adapts native forms to Application operations."
+            "Example.Server.fsproj builds the standalone host. Model.fs and Routing.fs parse HTTP inputs and dispatch URLs; Application.fs invokes use cases and supplies the shared Example.Components/Views renderers; Specification/ owns workflow states, sequences, rules and architecture pages; ApiDocumentation.fs renders the HTTP reference; Hosting.fs adapts native forms to Application operations."
             [ "Example.Application and Example.Components; Giraffe at the HTTP edge." ]
             "// GET /examples/application/accounts\n// GET /examples/application/accounts/{id}\n// GET /examples/specification/accounts/view-accounts\n// GET /examples/specification/accounts/view-account?resource=101\n// POST /examples/application/accounts/new\n// POST /examples/application/accounts/{id}/edit\n// POST /examples/application/accounts/{id}/delete\n// GET /examples/api-documentation"
             [ "GET requests SHALL render the product selected by the URL."

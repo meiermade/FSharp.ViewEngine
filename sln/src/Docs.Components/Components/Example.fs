@@ -79,7 +79,7 @@ module internal Example =
                             _title "Desktop preview"
                             _ariaPressed true
                             _attr("data-fve-example-width", "100%")
-                            _class "grid size-8 place-items-center rounded-md text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-surface-hover)] aria-pressed:text-[var(--fve-text)]"
+                            _class "grid size-8 place-items-center rounded-md text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-surface-hover)] aria-pressed:text-[var(--fve-text)]"
                             raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M2.5 4A1.5 1.5 0 0 1 4 2.5h12A1.5 1.5 0 0 1 17.5 4v8A1.5 1.5 0 0 1 16 13.5h-5.25V16h2.5a.75.75 0 0 1 0 1.5h-6.5a.75.75 0 0 1 0-1.5h2.5v-2.5H4A1.5 1.5 0 0 1 2.5 12V4Zm1.5 0v8h12V4H4Z" clip-rule="evenodd"/></svg>"""
                         }
                         button {
@@ -88,7 +88,7 @@ module internal Example =
                             _title "Mobile preview"
                             _ariaPressed false
                             _attr("data-fve-example-width", "390px")
-                            _class "grid size-8 place-items-center rounded-md text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-surface-hover)] aria-pressed:text-[var(--fve-text)]"
+                            _class "grid size-8 place-items-center rounded-md text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] aria-pressed:bg-[var(--fve-surface-hover)] aria-pressed:text-[var(--fve-text)]"
                             raw """<svg viewBox="0 0 20 20" fill="currentColor" class="size-4" aria-hidden="true"><path fill-rule="evenodd" d="M6.25 1.75A2.25 2.25 0 0 0 4 4v12a2.25 2.25 0 0 0 2.25 2.25h7.5A2.25 2.25 0 0 0 16 16V4a2.25 2.25 0 0 0-2.25-2.25h-7.5ZM5.5 4c0-.414.336-.75.75-.75h7.5c.414 0 .75.336.75.75v10.5h-9V4Zm0 12v-.25h9V16a.75.75 0 0 1-.75.75h-7.5A.75.75 0 0 1 5.5 16Z" clip-rule="evenodd"/></svg>"""
                         }
                     }

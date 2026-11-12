@@ -265,23 +265,22 @@ test('action palettes retain contrast, independent overrides and mode-aware cust
   await expect(lead).toHaveAttribute('aria-busy', 'true')
   await expect(lead).toBeEnabled()
   const colors = page.locator('#components-button-colors-panel-preview').getByRole('button')
-  const variants = page.locator('#components-button-variants-panel-preview').getByRole('button')
   const custom = page.locator('#components-button-custom-panel-preview').getByRole('button')
   await expect(colors).toHaveCount(7)
   for (const dark of [false, true]) {
     await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
-    for (const controls of [colors, variants, custom]) {
-      for (const control of await controls.all()) {
-        await page.mouse.move(0, 0)
-        await expect.poll(() => contrast(control)).toBeGreaterThanOrEqual(4.5)
-        const before = await control.evaluate(el => getComputedStyle(el).backgroundColor)
-        await control.hover()
-        await expect.poll(() => control.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(before)
-        await expect.poll(() => contrast(control)).toBeGreaterThanOrEqual(4.5)
-        await page.mouse.down()
-        await expect.poll(() => contrast(control)).toBeGreaterThanOrEqual(4.5)
-        await page.mouse.up()
-      }
+    // Built-in palette visibility/contrast lives in action-palettes.spec.ts.
+    // This journey owns authored Custom palettes and independent overrides.
+    for (const control of await custom.all()) {
+      await page.mouse.move(0, 0)
+      await expect.poll(() => contrast(control)).toBeGreaterThanOrEqual(4.5)
+      const before = await control.evaluate(el => getComputedStyle(el).backgroundColor)
+      await control.hover()
+      await expect.poll(() => control.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(before)
+      await expect.poll(() => contrast(control)).toBeGreaterThanOrEqual(4.5)
+      await page.mouse.down()
+      await expect.poll(() => contrast(control)).toBeGreaterThanOrEqual(4.5)
+      await page.mouse.up()
     }
     const pending = page.locator('#components-button-error-pending-panel-preview').getByRole('button')
     await pending.click()
@@ -448,6 +447,12 @@ test('Link variants retain native keyboard and new-tab navigation @cross-browser
   await expect(variants.getByRole('link')).toHaveCount(5)
   await expect(variants.getByRole('button')).toHaveCount(0)
   await expect(variants.getByRole('link', { name: 'Solid', exact: true })).toHaveJSProperty('tagName', 'A')
+  for (const name of ['Solid', 'Soft', 'Outline', 'Ghost']) {
+    const control = variants.getByRole('link', { name, exact: true })
+    await expect(control).toHaveCSS('height', '32px')
+    expect(await control.evaluate(el => { const s = getComputedStyle(el); return [parseFloat(s.paddingLeft) + parseFloat(s.borderLeftWidth), parseFloat(s.paddingTop) + parseFloat(s.borderTopWidth)] })).toEqual([10, 6])
+  }
+  await expect(plain).toHaveCSS('padding-left', '0px')
 
   const newTab = page.locator('#components-link-new-tab-panel-preview').getByRole('link', { name: 'Open examples in a new tab', exact: true })
   const opened = page.waitForEvent('popup')

@@ -87,6 +87,8 @@
       <Compile Include="Components/IconNames.fs" />
       <Compile Include="Components/IconData.fs" />
       <Compile Include="Components/Icon.fs" />
+      <Compile Include="Components/Slide.fs" />
+      <Compile Include="Components/Presentation.fs" />
       <None Include="fve.json" />
       <None Include="Components/Assets/datastar-LICENSE.txt" />
       <None Include="Components/Assets/datastar-rocket.1.0.4.js" />
@@ -108,6 +110,7 @@
       <None Include="Components/Assets/toggle-button.js" />
       <None Include="Components/Assets/tabs.js" />
       <None Include="Components/Assets/resizable.js" />
+      <None Include="Components/Assets/avatar.js" />
       <None Include="Components/Assets/example.js" />
       <None Include="Components/Assets/notification.js" />
       <None Include="Components/Assets/toggle-group.js" />
@@ -133,6 +136,7 @@
       <None Include="Components/Assets/heroicons.2.2.0.provenance.json" />
       <None Include="Components/Assets/bootstrap-icons-LICENSE.txt" />
       <None Include="Components/Assets/bootstrap-icons.1.13.1.provenance.json" />
+      <None Include="Components/Assets/presentation.js" />
   </ItemGroup>
   <!-- fve:components:end -->
   <ItemGroup>

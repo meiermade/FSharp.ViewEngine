@@ -30,8 +30,11 @@ rocket('fve-side-nav', {
         if (initialized.get(group) !== policy) {
           initialized.set(group, policy);
           if (!group.hasAttribute('data-fve-side-nav-external')) try {
-            const saved = sessionStorage.getItem(key);
-            group.open = saved === 'true' || saved === 'false' ? saved === 'true' : group.dataset.fveSideNavDefaultOpen === 'true';
+            if (group.dataset.fveSideNavPrepared !== key) {
+              const saved = sessionStorage.getItem(key);
+              group.open = saved === 'true' || saved === 'false' ? saved === 'true' : group.dataset.fveSideNavDefaultOpen === 'true';
+            }
+            delete group.dataset.fveSideNavPrepared;
             sessionStorage.setItem(key, String(group.open));
           } catch {}
         }

@@ -2,13 +2,14 @@ import { rocket } from './datastar-rocket.1.0.4.js';
 
 // Rocket owns lifecycle; native rows and caller-owned state remain intact.
 // Rows/cells remain native HTML and new rows inherit these descendant styles.
+// Composite row hover against its actual opaque surface once; sticky cells reuse that same color.
 const layout = [
-  '@container/fve-table block w-full min-w-0 max-w-full [--fve-table-background:var(--fve-background)] data-[surface=panel]:[--fve-table-background:var(--fve-surface)] data-[scroll-rows=true]:flex data-[scroll-rows=true]:min-h-0 data-[scroll-rows=true]:flex-1 data-[scroll-rows=true]:flex-col',
-  '[&_.fve-table-grid]:w-full [&_.fve-table-grid]:border-collapse [&_.fve-table-grid_thead]:bg-[var(--fve-table-background)] [&_.fve-table-grid_tr]:border-b [&_.fve-table-grid_tr]:border-[var(--fve-border)]',
+  '@container/fve-table block w-full min-w-0 max-w-full [--fve-internal-table-background:var(--fve-background)] data-[surface=panel]:[--fve-internal-table-background:var(--fve-surface)] data-[scroll-rows=true]:flex data-[scroll-rows=true]:min-h-0 data-[scroll-rows=true]:flex-1 data-[scroll-rows=true]:flex-col',
+  '[&_.fve-table-grid]:w-full [&_.fve-table-grid]:border-collapse [&_.fve-table-grid_thead]:bg-[var(--fve-internal-table-background)] [&_.fve-table-grid_tr]:border-b [&_.fve-table-grid_tr]:border-[var(--fve-border)]',
   '[&_.fve-table-cell]:whitespace-nowrap [&_.fve-table-cell]:px-[var(--fve-table-padding-inline,0.75rem)] [&_.fve-table-cell]:py-[var(--fve-table-padding-block-compact,0.25rem)] data-[density=comfortable]:[&_.fve-table-cell]:py-[var(--fve-table-padding-block-comfortable,0.75rem)]',
-  '[&_.fve-table-row]:[--fve-row-background:var(--fve-table-background)] [&_.fve-table-row]:bg-[var(--fve-row-background)] [&_.fve-table-row:hover]:[--fve-row-background:var(--fve-surface-hover)] [&_.fve-table-row[data-selected=true]]:[--fve-row-background:var(--fve-brand-subtle)]',
+  '[&_.fve-table-row]:[--fve-internal-row-background:var(--fve-internal-table-background)] [&_.fve-table-row]:bg-[var(--fve-internal-row-background)] data-[hover-rows=true]:[&>.fve-table-scroll>.fve-table-grid>tbody>.fve-table-row:not([data-selected=true]):hover]:[--fve-internal-row-background:var(--fve-table-row-hover,light-dark(color-mix(in_srgb,var(--fve-internal-table-background)_95%,black),color-mix(in_srgb,var(--fve-internal-table-background)_90%,white)))] [&_.fve-table-row[data-selected=true]]:[--fve-internal-row-background:var(--fve-brand-subtle)]',
   '[&_.fve-table-sort-control]:inline-flex [&_.fve-table-sort-control]:items-center [&_.fve-table-sort-control]:gap-1 [&_.fve-table-sort-control]:rounded-[var(--fve-radius-control)] [&_.fve-table-sort-control]:text-inherit [&_.fve-table-sort-control]:no-underline [&_.fve-table-sort-control:hover]:underline [&_.fve-table-sort-control:focus-visible]:outline-2 [&_.fve-table-sort-control:focus-visible]:outline-offset-2 [&_.fve-table-sort-control:focus-visible]:outline-[var(--fve-brand-ring)]',
-  '[&_[data-fve-sticky-cell=true]]:sticky [&_[data-fve-sticky-cell=true]]:right-0 [&_[data-fve-sticky-cell=true]]:z-10 [&_[data-fve-sticky-cell=true]]:bg-[var(--fve-row-background,var(--fve-table-background))]',
+  '[&_[data-fve-sticky-cell=true]]:sticky [&_[data-fve-sticky-cell=true]]:right-0 [&_[data-fve-sticky-cell=true]]:z-10 [&_[data-fve-sticky-cell=true]]:bg-[var(--fve-internal-row-background,var(--fve-internal-table-background))]',
   '[&_.fve-table-checkbox]:size-4 [&_.fve-table-checkbox]:accent-[var(--fve-brand-solid)] [&_.fve-table-checkbox]:align-middle [&_.fve-table-checkbox]:focus-visible:outline-2 [&_.fve-table-checkbox]:focus-visible:outline-offset-2 [&_.fve-table-checkbox]:focus-visible:outline-[var(--fve-brand-ring)]',
   '@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-scroll]:overflow-x-visible',
   '@max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:flex @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:flex-wrap @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:gap-4 @max-[40rem]/fve-table:[&.fve-table-records_.fve-table-mobile-sort]:p-3',
@@ -36,7 +37,7 @@ rocket('fve-table', {
   mode: 'light', scope: false,
   setup: ({ host, cleanup }) => {
     let syncing = false, pending = false, disposed = false, focusId;
-    const attributes = ['density', 'surface', 'mobile-layout', 'scroll-rows', 'aria-label', 'aria-labelledby', 'aria-describedby', 'class'];
+    const attributes = ['density', 'surface', 'mobile-layout', 'scroll-rows', 'hover-rows', 'aria-label', 'aria-labelledby', 'aria-describedby', 'class'];
     const observer = new MutationObserver(records => {
       if (records.some(record => record.type === 'childList' || record.target === host)) schedule();
     });
@@ -68,13 +69,14 @@ rocket('fve-table', {
       if (layoutClasses.some(name => !host.classList.contains(name))) host.classList.add(...layoutClasses);
       setAttributeIfChanged(host, 'data-density', host.getAttribute('density') ?? 'compact');
       setAttributeIfChanged(host, 'data-surface', host.getAttribute('surface') ?? 'plain');
+      setAttributeIfChanged(host, 'data-hover-rows', String(host.getAttribute('hover-rows') === 'true'));
       host.classList.toggle('fve-table-records', host.getAttribute('mobile-layout') === 'records');
       const bounded = host.getAttribute('scroll-rows') === 'true';
       setAttributeIfChanged(host, 'data-scroll-rows', String(bounded));
       let scroll = host.querySelector(':scope > .fve-table-scroll');
       if (!scroll) {
         scroll = document.createElement('div');
-        scroll.className = 'fve-table-scroll relative bg-[var(--fve-table-background)]';
+        scroll.className = 'fve-table-scroll relative bg-[var(--fve-internal-table-background)]';
         scroll.setAttribute('role', 'region');
         scroll.tabIndex = 0;
         host.append(scroll);

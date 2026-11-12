@@ -31,7 +31,7 @@ module internal BottomNavigationView =
                                 if current then yield _ariaCurrent "page"
                                 yield _class (ComponentHtml.classes [
                                     "flex min-w-0 flex-1 flex-col items-center justify-center gap-1 px-2 py-2 text-center text-xs font-semibold no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--fve-brand-ring)]"
-                                    if current then "bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)]" else "text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] active:bg-[var(--fve-surface-active)]" ]) ]
+                                    if current then "bg-[var(--fve-brand-subtle)] text-[var(--fve-brand-text)]" else "text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] " ]) ]
                             ComponentElement.render "a" defaults (ComponentHtml.safeAttributes ["href"; "aria-current"] item.attributes) [
                                 match item.leading with Some leading -> yield span { _ariaHidden true; _class "flex size-5 shrink-0 items-center justify-center"; leading } | None -> ()
                                 yield span { _class "max-w-full truncate"; item.body } ]

@@ -5,6 +5,7 @@ const examples = [
   ['components-table-panel-preview', 'Default'],
   ['components-table-row-actions-panel-preview', 'Row actions'],
   ['components-table-comfortable-panel-preview', 'Comfortable rows'],
+  ['components-table-hover-panel-preview', 'Hover highlighting'],
   ['components-table-status-panel-preview', 'With status values'],
   ['components-table-selection-panel-preview', 'With checkboxes'],
   ['components-table-scrollable-panel-preview', 'Scrollable rows and sticky headings'],
@@ -38,6 +39,73 @@ test('table examples render focused native semantics', async ({ page }) => {
   await expect(page.locator('#components-table-status .docs-components-preview').getByText('Invited', { exact: true })).toBeVisible()
   await expect(page.locator('#components-table-empty .docs-components-preview').getByText('No team members', { exact: true })).toBeVisible()
   await expect(page.locator('#components-table-empty .docs-components-preview').getByRole('region', { name: 'Empty team members', exact: true })).toBeVisible()
+})
+
+test('table row hover is opt-in, scoped and independent of selection @cross-browser', async ({ page }) => {
+  await page.goto('/components/table')
+  const plain = page.locator('#components-table-panel-preview fve-table')
+  const plainRow = plain.locator('tbody tr').first()
+  const baseline = await plainRow.evaluate(el => getComputedStyle(el).backgroundColor)
+  await plainRow.hover()
+  await expect(plainRow).toHaveCSS('background-color', baseline)
+  await expect(plain).toHaveAttribute('data-hover-rows', 'false')
+
+  const table = page.locator('#components-table-hover-panel-preview fve-table')
+  const row = table.locator('tbody tr').first()
+  await row.scrollIntoViewIfNeeded()
+  await page.mouse.move(0, 0)
+  const normal = await row.evaluate(el => getComputedStyle(el).backgroundColor)
+  await row.hover()
+  await expect.poll(() => row.evaluate(el => getComputedStyle(el).backgroundColor)).not.toBe(normal)
+  await table.evaluate(el => {
+    el.style.removeProperty('--fve-table-row-hover')
+    el.style.setProperty('--fve-background', 'rgb(40, 80, 120)')
+    el.style.setProperty('--fve-surface', 'rgb(40, 80, 120)')
+    el.style.colorScheme = 'light'
+  })
+  const base = 'rgb(40, 80, 120)'
+  await expect.poll(() => row.evaluate(el => {
+    const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d')!
+    ctx.fillStyle = getComputedStyle(el).backgroundColor
+    ctx.fillRect(0, 0, 1, 1)
+    return [...ctx.getImageData(0, 0, 1, 1).data]
+  })).toEqual([38, 76, 114, 255])
+  const sticky = row.locator('td').last()
+  await sticky.evaluate(el => el.setAttribute('data-fve-sticky-cell', 'true'))
+  const composited = await row.evaluate(el => getComputedStyle(el).backgroundColor)
+  await expect(sticky).toHaveCSS('background-color', composited)
+  await table.evaluate(el => { el.style.colorScheme = 'dark' })
+  const dark = await row.evaluate(el => getComputedStyle(el).backgroundColor)
+  expect(dark).not.toBe(composited)
+  await expect(sticky).toHaveCSS('background-color', dark)
+  const alpha = await sticky.evaluate(el => {
+    const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d')!
+    ctx.fillStyle = getComputedStyle(el).backgroundColor
+    ctx.fillRect(0, 0, 1, 1)
+    return ctx.getImageData(0, 0, 1, 1).data[3]
+  })
+  expect(alpha).toBe(255)
+  await table.evaluate(el => { el.style.colorScheme = 'light'; el.style.setProperty('--fve-table-row-hover', 'rgb(180, 90, 220)') })
+  await expect(row).toHaveCSS('background-color', 'rgb(180, 90, 220)')
+  await expect(sticky).toHaveCSS('background-color', 'rgb(180, 90, 220)')
+  await table.evaluate(el => el.setAttribute('hover-rows', 'false'))
+  await expect(row).toHaveCSS('background-color', base)
+  await expect(sticky).toHaveCSS('background-color', base)
+  await table.evaluate(el => el.setAttribute('hover-rows', 'true'))
+  await row.evaluate(el => el.setAttribute('data-selected', 'true'))
+  await page.mouse.move(0, 0)
+  const selected = await row.evaluate(el => getComputedStyle(el).backgroundColor)
+  await row.hover()
+  await expect(row).toHaveCSS('background-color', selected)
+  await expect(sticky).toHaveCSS('background-color', selected)
+  expect(selected).not.toBe('rgb(180, 90, 220)')
+  await row.evaluate(el => el.removeAttribute('data-selected'))
+  await row.evaluate(el => { const next = el.cloneNode(true) as HTMLElement; next.querySelector('th')!.textContent = 'New member'; el.parentElement!.append(next) })
+  const inserted = table.getByRole('row', { name: /New member/ })
+  await inserted.hover()
+  await expect(inserted).toHaveCSS('background-color', 'rgb(180, 90, 220)')
+  await table.evaluate(el => el.setAttribute('hover-rows', 'false'))
+  await expect(inserted).toHaveCSS('background-color', base)
 })
 
 test('sortable table headers expose current state and leave ordering to the consumer route @cross-browser', async ({ page }) => {

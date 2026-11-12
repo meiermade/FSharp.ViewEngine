@@ -430,6 +430,10 @@ where currency = 'USD' and balance > 0;"""
                         _language "fsharp"
                         items.Head.source
                     }
+                    if key = "card" then
+                        p {
+                            "Use _size for the standard padding scale. For a custom inset, put _style \"--fve-card-inset:1rem\" on fveCard; the header, body and footer share it. The Card supplies its own local default, so set this override on the Card rather than an ancestor."
+                        }
                     if key = "mermaid" then
                         p {
                             "Sequence constructors belong to this component. Only render trusted diagrams; CSP does not sanitize source or authorize arbitrary URLs."

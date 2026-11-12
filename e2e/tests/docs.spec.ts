@@ -1431,7 +1431,8 @@ test('desktop table of contents tracks the visible section and survives Docs nav
 
   await page.locator('#nav-accessibility').click()
   await expect(page).toHaveURL('/guides/accessibility')
-  await expect(page.locator('[data-docs-toc-rail="true"] a[href="#overview"]')).toHaveAttribute('aria-current', 'location')
+  await expect(page.locator('[data-docs-toc-rail="true"] a[href="#overview"]')).toHaveCount(0)
+  await expect(page.locator('[data-docs-toc-rail="true"] a[href="#prefer-native-html"]')).toHaveAttribute('aria-current', 'location')
 })
 
 test('desktop table of contents follows the final visible section after font loading and text reflow', async ({ page }) => {

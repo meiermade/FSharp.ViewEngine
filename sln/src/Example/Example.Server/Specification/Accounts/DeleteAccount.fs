@@ -1,7 +1,7 @@
 namespace Example.Server.SpecificationPages
 
 open Example.Server
-open Model
+open Example.Components.Views.Model
 open Workflow
 
 module internal DeleteAccount =

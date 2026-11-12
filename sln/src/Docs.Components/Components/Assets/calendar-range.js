@@ -32,8 +32,8 @@ rocket('fve-calendar-range', {
       const selection = host.querySelector('[data-range-selection]');
       selection.hidden = !within;
       selection.dataset.valid = String(available);
-      host.style.setProperty('--fve-selection-start', String((start ?? settings.minimum) - settings.minimum + 1));
-      host.style.setProperty('--fve-selection-duration', String($$.minutes));
+      host.style.setProperty('--fve-internal-selection-start', String((start ?? settings.minimum) - settings.minimum + 1));
+      host.style.setProperty('--fve-internal-selection-duration', String($$.minutes));
       text(host.querySelector('[data-range-label]'), within ? `${clock(start)}–${clock(start + $$.minutes)}` : 'Choose a start time');
       text(host.querySelector('[data-range-status]'), available ? 'Selected time is available.' : 'This time is unavailable. Choose another start time or duration.');
       const move = host.querySelector('[data-range-part=move]');

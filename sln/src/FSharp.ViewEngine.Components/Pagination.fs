@@ -23,7 +23,7 @@ type internal PaginationPart(kind:string, pages:(int * bool) list, element:HtmlE
 
 module internal Pagination =
     let private part kind pages element = PaginationPart(kind, pages, element) :> HtmlElement
-    let private linkClasses = "inline-flex min-h-9 items-center justify-center rounded-[var(--fve-radius-control)] px-3 text-sm font-medium text-[var(--fve-text)] no-underline border border-[var(--fve-border)] hover:bg-[var(--fve-surface-hover)] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
+    let private linkClasses = "inline-flex min-h-9 items-center justify-center rounded-[var(--fve-radius-control)] px-3 text-sm font-medium text-[var(--fve-text)] no-underline border border-[var(--fve-border)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:ring-2 focus-visible:ring-[var(--fve-brand-ring)]"
     let edge kind attributes children =
         let href = ComponentElement.value "href" attributes
         let children = if List.isEmpty children then [text (if kind = "previous" then "Previous" else "Next")] else children

@@ -53,12 +53,12 @@ let main args =
 
     let page =
         { id = "usage"
-          path = "/usage"
-          aliases = []
-          navLabel = "Giraffe"
-          category = "Integrations"
-          title = "Giraffe"
-          browserTitle = "Giraffe · FSharp.ViewEngine"
+          path = "/guides/giraffe"
+          aliases = ["/usage"]
+          navLabel = "Giraffe integration"
+          category = "Guides"
+          title = "Giraffe integration"
+          browserTitle = "Giraffe integration · FSharp.ViewEngine"
           nodes = [
             Paragraph [ Text "FSharp.ViewEngine integrates with "; Link("Giraffe", "https://giraffe.wiki/"); Text " by rendering elements to an HTML string and returning it via Giraffe's "; InlineContent.Code "htmlString"; Text " handler." ];
             Heading { id = "minimal-example"; title = "Minimal Example"; level = 2 };

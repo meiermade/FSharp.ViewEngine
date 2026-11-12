@@ -53,6 +53,7 @@ module Registry =
                         { Component = name
                           FileName = fileName
                           Compile = entry.Name.LocalName = "FveComponent"
+                          Module = attribute "FveModule" entry = "true"
                           Source = resource $"FSharp.ViewEngine.Cli.Registry.{Path.GetFileName fileName}" }) })
         let names = components |> List.map _.Name |> Set.ofList
         if names.Count <> components.Length then invalidOp "Registry component names must be unique."

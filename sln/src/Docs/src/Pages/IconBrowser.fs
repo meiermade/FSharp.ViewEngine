@@ -275,15 +275,15 @@ module IconBrowser =
             _class "@container/icon-browser grid min-w-0 grid-cols-1 gap-4"
             _dataSignals "{iconSearchPending: false, iconCopied: '', iconCopyError: false, iconMoreScroll: -1}"
             // WebKit can clamp the scrolling list while mounted controls are morphed.
-            _dataOn("fve-navigation-complete__document", "if ($iconMoreScroll >= 0) { document.getElementById('icon-grid').scrollTop = $iconMoreScroll; $iconMoreScroll = -1 }")
-            _dataOn("submit__capture", "$iconSearchPending = false; $iconCopied = ''; $iconCopyError = false; $iconMoreScroll = -1")
+            _dataOn("fve-navigation-complete", ["document"], "if ($iconMoreScroll >= 0) { document.getElementById('icon-grid').scrollTop = $iconMoreScroll; $iconMoreScroll = -1 }")
+            _dataOn("submit", ["capture"], "$iconSearchPending = false; $iconCopied = ''; $iconCopyError = false; $iconMoreScroll = -1")
             h2 { _class "text-xl font-semibold"; "Browse icons" }
             p { _class "text-base leading-7 text-[var(--fve-muted-text)]"; "Search all icons by name or use. Select a variant to copy its F#." }
             form {
                 _id "icon-filter-form"; _method "get"; _action "/components/icon"
                 _data("fve-local-navigation", "true")
                 _dataOn("input", "$iconSearchPending = true; $iconMoreScroll = -1; window.fveNavigationController?.abort(); document.getElementById('icon-grid').scrollTop = 0")
-                _dataOn("input__debounce.150ms", "if ($iconSearchPending) { el.requestSubmit() }")
+                _dataOn("input", ["debounce.150ms"], "if ($iconSearchPending) { el.requestSubmit() }")
                 fveField {
                     fveLabel { _for "icon-search"; "Search icons" }
                     fveInput { _id "icon-search"; _name "search"; _type "search"; _value query; _maxlength "256"; _placeholder "Search" }

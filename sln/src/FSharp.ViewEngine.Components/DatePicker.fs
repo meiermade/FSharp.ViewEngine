@@ -44,7 +44,7 @@ module internal DatePicker =
             fvePopoverTrigger {
 
                 _class (
-                    "inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] [--fve-control-border-width:1px] border border-[var(--fve-border)] bg-[var(--fve-surface)] font-medium text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50 "
+                    "inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] [--fve-internal-control-border-width:1px] border border-[var(--fve-border)] bg-[var(--fve-surface)] font-medium text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50 "
                     + ComponentHtml.sizeClasses size)
 
                 for attribute in MonthSelectionElements.nativeAttributes attributes |> ComponentHtml.safeAttributes ["size"] do

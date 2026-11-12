@@ -17,7 +17,7 @@ module internal RadioGroup =
         let readOnly = flag "readonly"
         let defaults = [
             _type "radio"
-            _class "mt-0.5 size-5 shrink-0 cursor-pointer appearance-none rounded-full border border-[var(--fve-border)] bg-[var(--fve-surface)] checked:border-[var(--fve-brand-solid)] checked:bg-[radial-gradient(var(--fve-brand-solid)_0_45%,transparent_50%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] aria-invalid:border-[var(--fve-critical-ring)] disabled:cursor-not-allowed disabled:opacity-50 [&[readonly]]:cursor-default forced-colors:appearance-auto forced-colors:bg-none"
+            _class "mt-0.5 size-5 shrink-0 cursor-pointer appearance-none rounded-full border border-[var(--fve-border)] not-checked:not-disabled:not-aria-disabled:not-aria-invalid:[&:not([readonly])]:hover:border-[var(--fve-muted-text)] bg-[var(--fve-surface)] checked:border-[var(--fve-brand-solid)] checked:bg-[radial-gradient(var(--fve-brand-solid)_0_45%,transparent_50%)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] aria-invalid:border-[var(--fve-critical-ring)] disabled:cursor-not-allowed disabled:opacity-50 [&[readonly]]:cursor-default forced-colors:appearance-auto forced-colors:bg-none"
             if readOnly then
                 _ariaDisabled true ]
         (Html.el "fve-radio") {

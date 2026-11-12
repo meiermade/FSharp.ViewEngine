@@ -1,7 +1,7 @@
 import { test, expect } from '../fixture'
 import AxeBuilder from '@axe-core/playwright'
 
-const representativeComponents = ['button', 'select', 'page-top-bar', 'textarea'] as const
+const representativeComponents = ['button', 'select', 'page-top-bar', 'textarea', 'slide', 'presentation'] as const
 
 test('representative component galleries share complete copyable code behavior', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-write'])
@@ -32,10 +32,12 @@ test('representative component galleries share complete copyable code behavior',
     await expect(mobilePreset).toHaveAttribute('aria-pressed', 'true')
     await expect(frame).toHaveCSS('width', '390px')
     const handle = example.getByRole('separator', { name: /^Resize .+ preview$/ })
-    const handleBox = await handle.boundingBox()
-    await page.mouse.move(handleBox!.x + handleBox!.width / 2, handleBox!.y + handleBox!.height / 2)
+    const handleBox = (await handle.boundingBox())!
+    // A tall preview's full-height resize bar can have its center below the viewport.
+    const handleY = (Math.max(0, handleBox.y) + Math.min(page.viewportSize()!.height, handleBox.y + handleBox.height)) / 2
+    await page.mouse.move(handleBox.x + handleBox.width / 2, handleY)
     await page.mouse.down()
-    await page.mouse.move(handleBox!.x - 40, handleBox!.y + handleBox!.height / 2)
+    await page.mouse.move(handleBox.x - 40, handleY)
     await page.mouse.up()
     await expect.poll(() => frame.evaluate(element => element.getBoundingClientRect().width)).toBeLessThan(390)
     await handle.focus()

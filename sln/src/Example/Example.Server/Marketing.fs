@@ -2,6 +2,7 @@ namespace Example.Server
 
 open FSharp.ViewEngine
 open Example.Components
+open Example.Components.Views
 open type Html
 
 /// Product copy, branding, prices and destinations belong to this consumer.
@@ -112,7 +113,12 @@ module Marketing =
             img {
                 _src "/examples/assets/images/geldos-overview.png"
                 _alt "Geldos showing account balances, a financial forecast and recent transactions"
-                _width "1440"; _height "960"; _class "h-auto w-full"
+                _width "1440"; _height "960"; _class "h-auto w-full dark:hidden"
+            }
+            img {
+                _src "/examples/assets/images/geldos-overview-dark.png"
+                _alt "Geldos showing account balances, a financial forecast and recent transactions"
+                _width "1440"; _height "960"; _class "hidden h-auto w-full dark:block"
             }
         }
 
@@ -156,7 +162,6 @@ module Marketing =
             div {
                 _class "rounded-xl bg-[var(--fve-brand-subtle)] px-5 py-10 sm:px-10"
                 h2 { _class "max-w-2xl font-serif text-3xl font-medium tracking-tight sm:text-4xl"; "Put your finances in one system." }
-                p { _class "mt-4 max-w-2xl text-base leading-7 text-[var(--fve-muted-text)]"; "Banking, investing, accounting, planning and reporting. All integrated. All in one place." }
                 div { _class "mt-7"; cta signup "Sign up" }
             }
         }

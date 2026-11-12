@@ -11,3 +11,6 @@ BenchmarkDotNet.Artifacts/
 nugets/
 sln/src/Docs/wwwroot/assets/
 sln/src/Docs/out/
+sln/src/Example/Presentation/deck.html
+sln/src/Example/Presentation/deck.css
+sln/src/Example/Presentation/deck.js

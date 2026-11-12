@@ -5,6 +5,7 @@ open System.Text.Json
 open System.Text.RegularExpressions
 open FSharp.ViewEngine
 open type Html
+open type Datastar
 
 module internal Chart =
     let json = JsonSerializerOptions(PropertyNamingPolicy = JsonNamingPolicy.CamelCase)
@@ -39,7 +40,7 @@ module internal Chart =
             "fve-chart"
             [ _role "img"
               _class "block min-w-0"
-              _attr ("data-preserve-attr", "data-ready data-rocket-host") ]
+              _dataPreserveAttr "data-ready data-rocket-host" ]
             (ComponentHtml.safeAttributes [ "data-preserve-attr" ] attributes)
             children
 

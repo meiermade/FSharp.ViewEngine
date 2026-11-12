@@ -191,7 +191,7 @@ module Fixture =
                 _title $"Open {value.label} in App mode"
 
                 _class
-                    "absolute top-3 right-3 z-2 grid size-8 cursor-pointer place-items-center rounded-md border border-[var(--fve-border)] bg-[var(--fve-surface)] text-[var(--fve-text)] shadow-sm hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&>svg]:size-4"
+                    "absolute top-3 right-3 z-2 grid size-8 cursor-pointer place-items-center rounded-md border border-[var(--fve-border)] bg-[var(--fve-surface)] text-[var(--fve-text)] shadow-sm [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&>svg]:size-4"
 
                 fveIcon { _name IconName.ArrowsPointingOut; _size Size.Small }
             }
@@ -248,7 +248,7 @@ module Fixture =
         let controlsId = $"fve-fixture-{value.id}-review"
 
         let iconLinkClass =
-            "grid size-8 shrink-0 place-items-center rounded-[var(--fve-radius-control)] text-[var(--fve-text)] no-underline hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+            "grid size-8 shrink-0 place-items-center rounded-[var(--fve-radius-control)] text-[var(--fve-text)] no-underline [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
 
         let direction (label: string) (icon: HtmlElement) (link: FixtureLink option) =
             match link with
@@ -342,7 +342,7 @@ module Fixture =
                 _attr ("data-fve-color-mode", "dark")
                 _dataSignals $"{{{dock}: false, {appearance}: 'system', {dark}: false}}"
                 _dataInit initialize
-                _dataOn ("pagehide__window", "el._fveFixtureAppearance?.disconnect()")
+                _dataOn ("pagehide", ["window"], "el._fveFixtureAppearance?.disconnect()")
                 _dataAttr ("data-fve-app-dock", $"${dock} ? 'top' : 'bottom'")
                 _dataAttr ("data-fve-color-mode", $"${dark} ? 'light' : 'dark'")
                 // Preserve the review envelope before either native or host-enhanced link activation.

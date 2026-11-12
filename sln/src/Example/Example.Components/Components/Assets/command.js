@@ -24,6 +24,8 @@ rocket('fve-command', {
       for (const group of host.querySelectorAll('[data-fve-command-group]')) {
         const entries = [...group.querySelectorAll('[data-fve-command-item]')];
         const score = item => {
+          const anchor = item.dataset.fveCommandMatchAnchor;
+          if (anchor !== undefined && !terms.some(term => words(anchor).some(word => word.startsWith(term)))) return Infinity;
           if (!query) return 0;
           const label = item.dataset.fveCommandLabel.toLowerCase(), labels = words(label);
           const keywords = words(item.dataset.fveCommandKeywords), description = words(item.dataset.fveCommandDescription);
@@ -34,7 +36,7 @@ rocket('fve-command', {
           if (terms.length && terms.every(term => [...labels, ...keywords, ...description].includes(term))) return 4;
           return Infinity;
         };
-        const ranked = entries.map(item => ({ item, score: score(item) })).sort((a, b) => a.score - b.score || Number(a.item.dataset.fveCommandOrder) - Number(b.item.dataset.fveCommandOrder));
+        const ranked = entries.map(item => ({ item, score: score(item) })).sort((a, b) => Number(a.item.hasAttribute('data-fve-command-match-anchor')) - Number(b.item.hasAttribute('data-fve-command-match-anchor')) || a.score - b.score || Number(a.item.dataset.fveCommandOrder) - Number(b.item.dataset.fveCommandOrder));
         let cursor = entries[0] || null;
         for (const entry of ranked) {
           const hidden = !Number.isFinite(entry.score);

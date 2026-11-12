@@ -12,9 +12,9 @@ module Appearance =
         [ ColorMode.System, "System"; ColorMode.Light, "Light"; ColorMode.Dark, "Dark" ]
 
     let appearanceBindings (signal: string) =
-        [ _attr ("data-signals__ifmissing", $"{{{signal}: window.fveColorMode.current()}}")
+        [ _dataSignals (signal, ["ifmissing"], "window.fveColorMode.current()")
           _dataInit $"${signal} = window.fveColorMode.current()"
-          _dataOn ("fve-color-mode__window", $"${signal} = window.fveColorMode.current()") ]
+          _dataOn ("fve-color-mode", ["window"], $"${signal} = window.fveColorMode.current()") ]
 
     let appearanceIcon =
         span {
@@ -58,7 +58,7 @@ module Appearance =
                 _ariaLabel "Choose appearance"
 
                 _class
-                    "inline-flex size-10 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                    "inline-flex size-10 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
 
                 appearanceIcon
             })
@@ -133,7 +133,7 @@ module Appearance =
 
                         span {
                             _class
-                                "block min-h-[var(--fve-control-min-height)] rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] peer-checked:bg-[var(--fve-surface)] peer-checked:text-[var(--fve-brand-text)] peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-[var(--fve-brand-ring)] forced-colors:peer-focus-visible:outline-2 forced-colors:peer-focus-visible:outline-[Highlight]"
+                                "block min-h-[var(--fve-control-min-height)] rounded-[var(--fve-radius-control)] px-3 py-2 text-sm font-semibold text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] peer-checked:bg-[var(--fve-surface)] peer-checked:text-[var(--fve-brand-text)] peer-checked:shadow-sm peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-[var(--fve-brand-ring)] forced-colors:peer-focus-visible:outline-2 forced-colors:peer-focus-visible:outline-[Highlight]"
 
                             caption
                         }
@@ -210,7 +210,7 @@ module Appearance =
                     }
 
                     a {
-                        _href "/components/theming"
+                        _href "/guides/theming"
                         _class "text-[var(--fve-brand-text)] underline"
                         "Read the Theming guide"
                     }

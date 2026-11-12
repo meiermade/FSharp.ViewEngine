@@ -39,7 +39,7 @@ module internal Notification =
             let classes = "pointer-events-auto relative grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)] bg-[var(--fve-surface)] p-4 text-[var(--fve-text)] shadow-lg [overflow-wrap:anywhere] transition-[transform,opacity] duration-200 motion-reduce:transition-none @max-[20rem]/fve-notification:grid-cols-1 @max-[20rem]/fve-notification:gap-y-2 @max-[20rem]/fve-notification:p-3"
             for attribute in ComponentElement.attributes ([_id config.id; _style (ComponentColors.style config.colors []); _class classes] @ config.attributes) do attribute
             span {
-                _class "mt-0.5 inline-flex size-7 items-center justify-center rounded-full bg-[var(--fve-color-soft)] text-[var(--fve-color-text)] @max-[20rem]/fve-notification:hidden"
+                _class "mt-0.5 inline-flex size-7 items-center justify-center rounded-full bg-[var(--fve-internal-color-soft)] text-[var(--fve-internal-color-text)] @max-[20rem]/fve-notification:hidden"
                 colorIcon config.kind
             }
             div {
@@ -55,7 +55,7 @@ module internal Notification =
                 _type "button"
                 _ariaLabel ("Dismiss " + config.title)
                 _attr ("data-fve-notification-dismiss", "true")
-                _class "inline-flex size-8 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] hover:bg-[var(--fve-surface-hover)] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-color-focus)] @max-[20rem]/fve-notification:col-start-1 @max-[20rem]/fve-notification:row-start-1 @max-[20rem]/fve-notification:justify-self-end"
+                _class "inline-flex size-8 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-internal-color-focus)] @max-[20rem]/fve-notification:col-start-1 @max-[20rem]/fve-notification:row-start-1 @max-[20rem]/fve-notification:justify-self-end"
                 closeIcon
             }
             match config.actions with

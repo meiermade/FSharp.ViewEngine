@@ -66,7 +66,7 @@ module internal RecordSelection =
 
         { attributes =
             [ _id id
-              _attr ("data-signals__ifmissing", "{" + signal + ":" + json initial + "}")
+              _dataSignals (signal, ["ifmissing"], json initial)
               _dataEffect
                   $"if ({selected}.some(key => !{json keys}.includes(key))) {{ {selected} = {selected}.filter(key => {json keys}.includes(key)); }} el.dispatchEvent(new CustomEvent('fve-table-selection-change', {{bubbles:true, detail:{{keys:Array.from({selected})}}}}))"
               _dataOn ("fve-selection-clear", selected + " = []") ]

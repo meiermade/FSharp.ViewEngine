@@ -8,7 +8,7 @@ open Microsoft.AspNetCore.DataProtection
 open Microsoft.AspNetCore.Http
 open Ledger.Domain
 open Ledger.Operations
-open Model
+open Example.Components.Views.Model
 
 /// Protected workspace session state contains fixture deletions and one consumable action result.
 module internal DemoState =

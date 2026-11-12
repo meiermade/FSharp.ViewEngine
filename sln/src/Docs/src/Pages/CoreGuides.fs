@@ -157,7 +157,7 @@ let rendered =
     }
     |> Render.toHtmlDocString""");
             Heading { id = "application-boundaries"; title = "Application boundaries"; level = 2 };
-            Paragraph [ Text "FSharp.ViewEngine has no web-framework dependency. Pass the resulting string to your framework's normal HTML response API. See the "; Link("Giraffe integration", "/usage"); Text " for a complete server example." ] ] }
+            Paragraph [ Text "FSharp.ViewEngine has no web-framework dependency. Pass the resulting string to your framework's normal HTML response API. See the "; Link("Giraffe integration", "/guides/giraffe"); Text " for a complete server example." ] ] }
 
     let encoding =
         { id = "encoding"
