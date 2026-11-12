@@ -20,12 +20,15 @@ async function openComponentGallery(page: Page, path: string, heading: string) {
   await gotoAfterDocsAssetSettlement(page, path)
   await expect(page.getByRole('heading', { level: 1, name: heading, exact: true })).toBeVisible()
   const examples = page.locator('[data-docs-layout="gallery"] [data-docs-example="true"]')
-  expect(await examples.count()).toBeGreaterThan(0)
-  for (const example of await examples.all()) {
-    const preview = example.locator(':scope > [data-docs-example-toolbar="true"]').getByRole('tab', { name: 'Preview', exact: true })
-    await expect(preview).toHaveAttribute('aria-selected', 'true')
-    await expect(page.locator(`#${await preview.getAttribute('aria-controls')}`)).toBeVisible()
-  }
+  const count = await examples.count()
+  expect(count).toBeGreaterThan(0)
+  const previews = examples.locator(':scope > [data-docs-example-toolbar="true"]').getByRole('tab', { name: 'Preview', exact: true })
+  await expect(previews).toHaveCount(count)
+  await expect(previews.and(page.locator('[aria-selected="true"]'))).toHaveCount(count)
+  // Batch the same per-example checks instead of making several browser round trips for every panel.
+  const panels = await previews.evaluateAll(elements => elements.map(element => element.getAttribute('aria-controls')))
+  expect(panels.every(Boolean)).toBe(true)
+  await expect(page.locator(panels.map(id => `[id=${JSON.stringify(id)}]:visible`).join(', '))).toHaveCount(count)
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), path).toBe(true)
   return page.locator('[data-docs-layout="gallery"] [data-docs-example-preview="true"] .fve-components')
 }

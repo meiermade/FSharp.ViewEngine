@@ -29,12 +29,25 @@ test('HTML presentations retain their frame, numbering and accessible canvas acr
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true)
       const viewport = page.locator('[data-fve-slide-viewport]').first()
       if (layout.width < 768) {
-        await viewport.evaluate(el => { el.scrollLeft = 0 })
+        await viewport.scrollIntoViewIfNeeded()
+        await viewport.evaluate(el => {
+          if (!el.scrollLeft) return
+          return new Promise<void>(resolve => {
+            el.addEventListener('scrollend', () => resolve(), { once: true })
+            el.scrollLeft = 0
+          })
+        })
         await viewport.focus()
-        // macOS WebKit can cancel native scrolling on a brief key tap.
+        await expect(viewport).toBeFocused()
+        await viewport.evaluate(el => {
+          el.removeAttribute('data-pan-settled')
+          el.addEventListener('scrollend', () => el.setAttribute('data-pan-settled', 'true'), { once: true })
+        })
+        // Hold the key through the first scroll frame, then settle native panning before resizing again.
         await page.keyboard.down('ArrowRight')
         try { await expect.poll(() => viewport.evaluate(el => el.scrollLeft)).toBeGreaterThan(0) }
         finally { await page.keyboard.up('ArrowRight') }
+        await expect(viewport).toHaveAttribute('data-pan-settled', 'true')
       }
       await viewport.evaluate(el => { el.scrollLeft = el.scrollWidth })
       const visible = (await viewport.boundingBox())!, number = (await slides.first().locator('[data-fve-slide-number]').boundingBox())!
