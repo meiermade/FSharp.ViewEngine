@@ -84,7 +84,7 @@ for (const [browser, shardCount, completeSelection] of [
 }
 
 const releaseSmoke = listSelected(['tests/release-smoke.spec.ts'])
-for (const [browser, count] of [['chromium', 4], ['firefox', 1], ['webkit', 1]]) {
+for (const [browser, count] of [['chromium', 5], ['firefox', 1], ['webkit', 1]]) {
   if (releaseSmoke.get(browser).length !== count) fail(`${browser} shared smoke must select ${count} intentional checks`)
   if (releaseSmoke.get(browser).some(name => !selected.get(browser).includes(name))) {
     fail(`${browser} shared smoke is missing from PR coverage`)
@@ -96,5 +96,5 @@ if (JSON.stringify(releaseSmoke.get('firefox')) !== JSON.stringify(releaseSmoke.
 
 if (!process.exitCode) {
   console.log(`PR E2E selection verified: Chromium ${chromium.length}, Firefox ${firefox.length}, WebKit ${webkit.length}`)
-  console.log('Shared smoke selection verified: Chromium 4, Firefox 1, WebKit 1; Access check applies only to staging')
+  console.log('Shared smoke selection verified: Chromium 5, Firefox 1, WebKit 1; Access check applies only to staging, scanner WAF check only to production')
 }
