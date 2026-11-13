@@ -33,7 +33,8 @@ const expression = [
     `(${p} contains "/vendor")`,
     `(${p} contains "/invoker")`,
     `(${p} contains "/balancer-manager")`,
-    `(${p} contains "/login")`,
+    // This exact public demo page is not an authentication endpoint.
+    `(${p} contains "/login" and http.request.uri.path ne "/examples/marketing/login")`,
 
     // Credential and config probes
     `(${p} contains "/credentials")`,

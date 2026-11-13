@@ -44,6 +44,20 @@ test('discovery endpoints advertise canonical public documentation', async ({ re
   expect(await robots.text()).toContain(`Sitemap: ${canonicalOrigin}/sitemap.xml`)
 })
 
+test('production permits the Marketing login example while blocking scanner probes', async ({ request }) => {
+  test.skip(expectedEnvironment !== 'production', 'The custom scanner WAF applies only to production')
+  expect(configuredOrigin).toBe(canonicalOrigin)
+  for (const path of ['/examples/marketing/login', '/examples/marketing/login?datastar=%7B%7D']) {
+    const response = await request.get(path, { maxRedirects: 0 })
+    expect(response.status(), path).toBe(200)
+    expect(await response.text()).toContain('Log in to Geldos')
+  }
+  for (const path of ['/login', '/examples/marketing/login/', '/examples/marketing/login.php', '/examples/marketing/LOGIN', '/examples/marketing%2Flogin', '/admin', '/.env']) {
+    const response = await request.get(path, { maxRedirects: 0 })
+    expect(response.status(), path).toBe(403)
+  }
+})
+
 test('essential rendered assets and critical read-only navigation work @cross-browser', async ({ page }) => {
   const pageErrors: Error[] = []
   const writes: string[] = []
