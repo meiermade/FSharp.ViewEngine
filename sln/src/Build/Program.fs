@@ -393,6 +393,7 @@ Target.create "WatchDocs" (fun _ ->
                 ["watch"; "run"; "--no-restore"; "--no-launch-profile"; "--non-interactive"]
             |> CreateProcess.setEnvironmentVariable "DOCS_SERVER_URL" docsUrl
             |> CreateProcess.setEnvironmentVariable "DOCS_PUBLIC_ORIGIN" docsUrl
+            |> CreateProcess.setEnvironmentVariable "ASPNETCORE_ENVIRONMENT" "Development"
             // Avoid recursive native FileSystemWatcher failures on macOS.
             |> CreateProcess.setEnvironmentVariable "DOTNET_USE_POLLING_FILE_WATCHER" "1"
             |> CreateProcess.withWorkingDirectory docsDir
