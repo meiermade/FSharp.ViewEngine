@@ -152,13 +152,14 @@ let private verifyCliContents (archive:ZipArchive) =
           "tools/net8.0/any/FSharp.ViewEngine.Cli.runtimeconfig.json" ] do
         if not (entries.Contains required) then fail $"CLI package is missing {required}"
 
-let private runExecutable (workDirectory:string) (executable:string) (arguments:string list) =
+let private runExecutable (environment:(string * string) list) (workDirectory:string) (executable:string) (arguments:string list) =
     let startInfo = ProcessStartInfo(executable)
     startInfo.WorkingDirectory <- workDirectory
     startInfo.UseShellExecute <- false
     startInfo.RedirectStandardOutput <- true
     startInfo.RedirectStandardError <- true
     for argument in arguments do startInfo.ArgumentList.Add argument
+    for name,value in environment do startInfo.Environment[name] <- value
     use childProcess = Process.Start startInfo
     let output = childProcess.StandardOutput.ReadToEndAsync()
     let error = childProcess.StandardError.ReadToEndAsync()
@@ -167,12 +168,24 @@ let private runExecutable (workDirectory:string) (executable:string) (arguments:
         fail $"{executable} failed with exit code {childProcess.ExitCode}.{Environment.NewLine}{output.Result}{Environment.NewLine}{error.Result}"
     output.Result.Trim()
 
-let private verifyCliInstallation (runDotnet:string -> string list -> unit) (packagePath:string) (version:string) repositoryCommit =
+let private verifyCliInstallation (packagePath:string) (version:string) repositoryCommit =
     let packageDirectory = Path.GetDirectoryName packagePath
     let workDirectory = Path.Combine(Path.GetTempPath(), $"fsharp-viewengine-cli-package.{Guid.NewGuid():N}")
     Directory.CreateDirectory workDirectory |> ignore
 
     try
+        // Same-version local tools must never resolve an earlier candidate from the machine cache.
+        let run = runExecutable [ "DOTNET_CLI_HOME", Path.Combine(workDirectory, "home"); "NUGET_PACKAGES", Path.Combine(workDirectory, "packages") ]
+        let runDotnet directory arguments = run directory "dotnet" arguments |> printfn "%s"
+        if Environment.GetEnvironmentVariable "PACKAGE_VERIFY_NET11_ONLY" = "1" then
+            let sdk = run workDirectory "dotnet" [ "--version" ]
+            let runtimes = run workDirectory "dotnet" [ "--list-runtimes" ]
+            if not (sdk.StartsWith("11.", StringComparison.Ordinal))
+               || String.IsNullOrWhiteSpace runtimes
+               || (runtimes.Split('\n', StringSplitOptions.RemoveEmptyEntries) |> Array.exists (fun line -> not (Regex.IsMatch(line, @"^\S+ 11\.")))) then
+                fail $"CLI verification requires SDK 11 and only runtime 11. SDK: {sdk}; runtimes: {runtimes}"
+            printfn "Verified SDK %s with only .NET 11 runtimes: %s" sdk runtimes
+
         let manifestDirectory = Path.Combine(workDirectory, "manifest")
         Directory.CreateDirectory manifestDirectory |> ignore
         runDotnet manifestDirectory [ "new"; "tool-manifest" ]
@@ -181,7 +194,7 @@ let private verifyCliInstallation (runDotnet:string -> string list -> unit) (pac
 
         let projectPath = Path.Combine(manifestDirectory, "Acme.Components.fsproj")
         let configPath = Path.Combine(manifestDirectory, "fve.json")
-        runDotnet manifestDirectory [ "fve"; "init"; projectPath; "--namespace"; "Acme.Components"; "--framework"; "net8.0" ]
+        runDotnet manifestDirectory [ "fve"; "init"; projectPath; "--namespace"; "Acme.Components" ]
         runDotnet manifestDirectory [ "fve"; "add"; "button"; "input"; "--config"; configPath ]
         runDotnet manifestDirectory [ "restore"; projectPath; "--source"; packageDirectory; "--source"; "https://api.nuget.org/v3/index.json" ]
         runDotnet manifestDirectory [ "build"; projectPath; "--no-restore" ]
@@ -189,7 +202,7 @@ let private verifyCliInstallation (runDotnet:string -> string list -> unit) (pac
         let toolDirectory = Path.Combine(workDirectory, "tool-path")
         runDotnet workDirectory [ "tool"; "install"; "FSharp.ViewEngine.Cli"; "--version"; version; "--add-source"; packageDirectory; "--tool-path"; toolDirectory ]
         let executable = Path.Combine(toolDirectory, if OperatingSystem.IsWindows() then "fve.exe" else "fve")
-        let actualVersion = runExecutable workDirectory executable [ "--version" ]
+        let actualVersion = run workDirectory executable [ "--version" ]
         let expectedVersion = $"{version}+{repositoryCommit}"
         if actualVersion <> expectedVersion then
             fail $"Expected CLI version {expectedVersion}, found {actualVersion}"
@@ -224,7 +237,7 @@ let private verifyCommonPackageMetadata packageId (archive:ZipArchive) =
 let private testFrameworks () =
     let configured =
         match Environment.GetEnvironmentVariable "PACKAGE_TEST_FRAMEWORKS" with
-        | value when String.IsNullOrWhiteSpace value -> "net8.0 net9.0 net10.0"
+        | value when String.IsNullOrWhiteSpace value -> "net10.0 net11.0"
         | value -> value
 
     Regex.Split(configured.Trim(), "\\s+")
@@ -317,7 +330,7 @@ let verify runDotnet packagePath =
         verifyCommonPackageMetadata cliPackageId packageArchive
         verifyCliContents packageArchive
         let repositoryCommit = repositoryMetadata packageArchive
-        verifyCliInstallation runDotnet packagePath version repositoryCommit
+        verifyCliInstallation packagePath version repositoryCommit
     elif PackagePublishing.belongsToPackage corePackageId packagePath then
         let packageDirectory = Path.GetDirectoryName packagePath
         let version = packageVersion corePackageId packagePath
@@ -337,7 +350,16 @@ let verify runDotnet packagePath =
 
             for framework in testFrameworks () do
                 let projectDirectory = Path.Combine(workDirectory, framework)
-                runDotnet workDirectory [ "new"; "console"; "--language"; "F#"; "--framework"; framework; "--output"; projectDirectory; "--no-restore" ]
+                Directory.CreateDirectory projectDirectory |> ignore
+                let major = framework.Substring(3).Split('.')[0]
+                let sdk =
+                    (runExecutable [] workDirectory "dotnet" [ "--list-sdks" ]).Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                    |> Array.map (fun line -> line.Split(' ')[0])
+                    |> Array.filter (fun version -> version.StartsWith($"{major}.", StringComparison.Ordinal))
+                    |> Array.tryLast
+                    |> Option.defaultWith (fun () -> fail $"SDK {major} is required for package verification")
+                File.WriteAllText(Path.Combine(projectDirectory, "global.json"), JsonSerializer.Serialize {|sdk={|version=sdk; rollForward="disable"|}|})
+                runDotnet projectDirectory [ "new"; "console"; "--language"; "F#"; "--framework"; framework; "--output"; projectDirectory; "--no-restore" ]
                 File.WriteAllText(Path.Combine(projectDirectory, "Program.fs"), viewEngineConsumerProgram)
 
                 runDotnet projectDirectory [ "add"; "package"; corePackageId; "--version"; version; "--source"; packageDirectory; "--no-restore" ]

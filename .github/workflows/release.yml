@@ -50,7 +50,7 @@ jobs:
       - name: Setup dotnet
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
-          dotnet-version: 10.0.x
+          dotnet-version: 11.0.x
       - name: Restore release tooling
         working-directory: ./sln
         run: |
@@ -190,9 +190,8 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: |
-            8.0.x
-            9.0.x
             10.0.x
+            11.0.x
       - name: Restore tools and packages
         run: |
           dotnet tool restore
@@ -280,10 +279,18 @@ jobs:
           CORE_PACKAGE_VERSION: ${{ needs.candidate.outputs.coreVersion }}
         run: ./fake.sh Pack --single-target
         working-directory: ./sln
+      - name: Setup isolated .NET 11-only CLI host
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/fve-dotnet11-only
+        with:
+          dotnet-version: 11.0.x
       - name: Verify CLI package compatibility
         if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
         env:
           PACKAGE_ID: FSharp.ViewEngine.Cli
+          PACKAGE_VERIFY_NET11_ONLY: '1'
         run: ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
       - name: Stage verified CLI release
@@ -330,9 +337,8 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: |
-            8.0.x
-            9.0.x
             10.0.x
+            11.0.x
       - name: Download pinned transaction
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -393,9 +399,17 @@ jobs:
           RELEASE_METADATA_PATH: ${{ runner.temp }}/release/cli/release-metadata.json
         run: ./fake.sh PublishPackageRelease --single-target
         working-directory: ./sln
+      - name: Setup isolated .NET 11-only published CLI host
+        if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/fve-dotnet11-only
+        with:
+          dotnet-version: 11.0.x
       - name: Verify published FSharp.ViewEngine.Cli from NuGet.org
         if: needs.candidate.outputs.packages == 'cli' || needs.candidate.outputs.packages == 'both'
         env:
+          PACKAGE_VERIFY_NET11_ONLY: '1'
           PACKAGE_DIRECTORY: ${{ runner.temp }}/release/cli
           PACKAGE_ID: FSharp.ViewEngine.Cli
           PACKAGE_VERSION: ${{ needs.candidate.outputs.cliVersion }}

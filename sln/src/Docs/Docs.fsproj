@@ -1,56 +1,276 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <NoWarn>$(NoWarn);NU1510</NoWarn>
     <UseAppHost>false</UseAppHost>
+    <!-- Browser modules are owned by esbuild, not the SDK's Blazor JS initializer pipeline. -->
+    <JSModulesEnabled>false</JSModulesEnabled>
     <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/node_modules/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <Content Include="paket.references" />
-    <Compile Include="src\Common\Config.fs" />
-    <Compile Include="src\Common\Model.fs" />
-    <Compile Include="src\Common\SourceRegion.fs" />
-    <Compile Include="src\Common\RecordTable.fs" />
-    <Compile Include="src\Pages\Showcase.fs" />
-    <Compile Include="src\Pages\PageExamples.fs" />
-    <Compile Include="src\Pages\Appearance.fs" />
-    <Compile Include="src\Pages\ThemeTokens.fs" />
-    <Compile Include="src\Pages\ComponentGuideExamples.fs" />
-    <Compile Include="src\Pages\ComponentInstallation.fs" />
-    <Compile Include="src\Pages\IconBrowser.fs" />
-    <Compile Include="src\Pages\Components.fs" />
-    <Compile Include="src\Pages\ComponentDocumentation.fs" />
-    <Compile Include="src\Pages\Examples.fs" />
-    <Compile Include="src\Pages\Catalog.fs" />
-    <Compile Include="src\Pages\Home.fs" />
-    <Compile Include="src\Pages\Installation.fs" />
-    <Compile Include="src\Pages\CoreGuides.fs" />
-    <Compile Include="src\Pages\Scripting.fs" />
-    <Compile Include="src\Pages\Presentations.fs" />
-    <Compile Include="src\Pages\Custom.fs" />
-    <Compile Include="src\Pages\Usage.fs" />
-    <Compile Include="src\Pages\Alpine.fs" />
-    <Compile Include="src\Pages\Datastar.fs" />
-    <Compile Include="src\Pages\Htmx.fs" />
-    <Compile Include="src\Pages\Svg.fs" />
-    <Compile Include="src\Pages\TailwindElements.fs" />
-    <Compile Include="src\Pages\Benchmarks.fs" />
-    <Compile Include="src\Pages\Registry.fs" />
-    <Compile Include="src\Web\Navigation.fs" />
-    <Compile Include="src\Web\View.fs" />
-    <Compile Include="src\Web\Handler.fs" />
-    <Compile Include="src\Program.fs" />
+    <Compile Include="Config.fs" />
+    <Compile Include="Common/Model.fs" />
+    <Compile Include="Common/SourceRegion.fs" />
+    <Compile Include="Common/RecordTable.fs" />
+    <Compile Include="Common/Navigation.fs" />
+    <Compile Include="Common/Handler.fs" />
+    <Compile Include="Common/Registration.fs" />
+    <Compile Include="Common/ComponentInstallation.fs" />
+    <Compile Include="Common/SharedExamples.fs" />
+    <Compile Include="Common/SamplesExamples.fs" />
+    <Compile Include="Common/SourceListsExamples.fs" />
+    <Compile Include="Common/ChoicesExamples.fs" />
+    <Compile Include="Common/CalendarExamples.fs" />
+    <Compile Include="Common/CalendarSourceExamples.fs" />
+    <Compile Include="Common/FramesExamples.fs" />
+    <Compile Include="Common/IntegrationsExamples.fs" />
+    <Compile Include="Common/LedgerExamples.fs" />
+    <Compile Include="Common/Gallery.fs" />
+    <Compile Include="Common/BlockExamples.fs" />
+    <Compile Include="ComponentPages/Compositions/View.fs" />
+    <Compile Include="ComponentPages/Compositions/Handler.fs" />
+    <Compile Include="ComponentPages/Compositions/Page.fs" />
+    <Compile Include="ComponentPages/Icon/Browser.fs" />
+    <Compile Include="ComponentPages/Icon/View.fs" />
+    <Compile Include="ComponentPages/Button/View.fs" />
+    <Compile Include="ComponentPages/Button/Handler.fs" />
+    <Compile Include="ComponentPages/ButtonGroup/View.fs" />
+    <Compile Include="ComponentPages/Badge/View.fs" />
+    <Compile Include="ComponentPages/Kbd/View.fs" />
+    <Compile Include="ComponentPages/Separator/View.fs" />
+    <Compile Include="ComponentPages/Skeleton/View.fs" />
+    <Compile Include="ComponentPages/LoadingIndicator/View.fs" />
+    <Compile Include="ComponentPages/EmptyState/View.fs" />
+    <Compile Include="ComponentPages/SideNav/View.fs" />
+    <Compile Include="ComponentPages/PageTopBar/View.fs" />
+    <Compile Include="ComponentPages/Table/View.fs" />
+    <Compile Include="ComponentPages/Table/Handler.fs" />
+    <Compile Include="ComponentPages/DescriptionList/View.fs" />
+    <Compile Include="ComponentPages/Metric/View.fs" />
+    <Compile Include="ComponentPages/Pagination/View.fs" />
+    <Compile Include="ComponentPages/Pagination/Handler.fs" />
+    <Compile Include="ComponentPages/FormLayouts/View.fs" />
+    <Compile Include="ComponentPages/FormLayouts/Handler.fs" />
+    <Compile Include="ComponentPages/Input/View.fs" />
+    <Compile Include="ComponentPages/TagInput/View.fs" />
+    <Compile Include="ComponentPages/TagInput/Handler.fs" />
+    <Compile Include="ComponentPages/Textarea/View.fs" />
+    <Compile Include="ComponentPages/ErrorSummary/View.fs" />
+    <Compile Include="ComponentPages/Notice/View.fs" />
+    <Compile Include="ComponentPages/Select/View.fs" />
+    <Compile Include="ComponentPages/Select/Handler.fs" />
+    <Compile Include="ComponentPages/Checkbox/View.fs" />
+    <Compile Include="ComponentPages/Checkbox/Handler.fs" />
+    <Compile Include="ComponentPages/ToggleButton/View.fs" />
+    <Compile Include="ComponentPages/Switch/View.fs" />
+    <Compile Include="ComponentPages/Switch/Handler.fs" />
+    <Compile Include="ComponentPages/RadioGroup/View.fs" />
+    <Compile Include="ComponentPages/RadioGroup/Handler.fs" />
+    <Compile Include="ComponentPages/ChoiceCards/View.fs" />
+    <Compile Include="ComponentPages/ToggleGroup/View.fs" />
+    <Compile Include="ComponentPages/ToggleGroup/Handler.fs" />
+    <Compile Include="ComponentPages/Tabs/View.fs" />
+    <Compile Include="ComponentPages/Tabs/Handler.fs" />
+    <Compile Include="ComponentPages/DropdownMenu/View.fs" />
+    <Compile Include="ComponentPages/DropdownMenu/Handler.fs" />
+    <Compile Include="ComponentPages/Drawer/View.fs" />
+    <Compile Include="ComponentPages/Drawer/Handler.fs" />
+    <Compile Include="ComponentPages/Dialog/View.fs" />
+    <Compile Include="ComponentPages/Dialog/Handler.fs" />
+    <Compile Include="ComponentPages/PageHeader/View.fs" />
+    <Compile Include="ComponentPages/Section/View.fs" />
+    <Compile Include="ComponentPages/Disclosure/View.fs" />
+    <Compile Include="ComponentPages/Slide/View.fs" />
+    <Compile Include="ComponentPages/Presentation/View.fs" />
+    <Compile Include="ComponentPages/Page/View.fs" />
+    <Compile Include="ComponentPages/Collection/View.fs" />
+    <Compile Include="ComponentPages/Detail/View.fs" />
+    <Compile Include="ComponentPages/Breadcrumbs/View.fs" />
+    <Compile Include="ComponentPages/Link/View.fs" />
+    <Compile Include="ComponentPages/BottomNavigation/View.fs" />
+    <Compile Include="ComponentPages/Resizable/View.fs" />
+    <Compile Include="ComponentPages/Tooltip/View.fs" />
+    <Compile Include="ComponentPages/Popover/View.fs" />
+    <Compile Include="ComponentPages/MonthCalendar/View.fs" />
+    <Compile Include="ComponentPages/TimePicker/View.fs" />
+    <Compile Include="ComponentPages/DatePicker/View.fs" />
+    <Compile Include="ComponentPages/Field/View.fs" />
+    <Compile Include="ComponentPages/InputGroup/View.fs" />
+    <Compile Include="ComponentPages/InputGroup/Handler.fs" />
+    <Compile Include="ComponentPages/Message/View.fs" />
+    <Compile Include="ComponentPages/Browser/View.fs" />
+    <Compile Include="ComponentPages/Phone/View.fs" />
+    <Compile Include="ComponentPages/FloatingPanel/View.fs" />
+    <Compile Include="ComponentPages/Notification/View.fs" />
+    <Compile Include="ComponentPages/Notification/Handler.fs" />
+    <Compile Include="ComponentPages/Progress/View.fs" />
+    <Compile Include="ComponentPages/Progress/Handler.fs" />
+    <Compile Include="ComponentPages/FileSelection/View.fs" />
+    <Compile Include="ComponentPages/Avatar/View.fs" />
+    <Compile Include="ComponentPages/CopyReveal/View.fs" />
+    <Compile Include="ComponentPages/Command/View.fs" />
+    <Compile Include="ComponentPages/Chart/View.fs" />
+    <Compile Include="ComponentPages/DayCalendar/View.fs" />
+    <Compile Include="ComponentPages/WeekCalendar/View.fs" />
+    <Compile Include="ComponentPages/YearCalendar/View.fs" />
+    <Compile Include="ComponentPages/MediaLibrary/View.fs" />
+    <Compile Include="ComponentPages/AppShell/View.fs" />
+    <Compile Include="ComponentPages/Installation/View.fs" />
+    <Compile Include="ComponentPages/Card/View.fs" />
+    <Compile Include="ComponentPages/SectionHeader/View.fs" />
+    <Compile Include="ComponentPages/FieldGroup/View.fs" />
+    <Compile Include="ComponentPages/CodeBlock/View.fs" />
+    <Compile Include="ComponentPages/Callout/View.fs" />
+    <Compile Include="ComponentPages/Mermaid/View.fs" />
+    <Compile Include="ComponentPages/Example/View.fs" />
+    <Compile Include="ComponentPages/FSharpApiReference/View.fs" />
+    <Compile Include="ComponentPages/AccountManagement/Examples.fs" />
+    <Compile Include="ComponentPages/AccountManagement/View.fs" />
+    <Compile Include="ComponentPages/AccountManagement/Handler.fs" />
+    <Compile Include="Guides/Appearance.fs" />
+    <Compile Include="Guides/ThemeTokens.fs" />
+    <Compile Include="Guides/ComponentExamples.fs" />
+    <Compile Include="Guides/ComponentPages.fs" />
+    <Compile Include="Guides/Installation.fs" />
+    <Compile Include="Guides/CoreGuides.fs" />
+    <Compile Include="Guides/Scripting.fs" />
+    <Compile Include="Guides/Presentations.fs" />
+    <Compile Include="Guides/Custom.fs" />
+    <Compile Include="Guides/Usage.fs" />
+    <Compile Include="Guides/Alpine.fs" />
+    <Compile Include="Guides/Datastar.fs" />
+    <Compile Include="Guides/Htmx.fs" />
+    <Compile Include="Guides/Svg.fs" />
+    <Compile Include="Guides/TailwindElements.fs" />
+    <Compile Include="Guides/Benchmarks.fs" />
+    <Compile Include="Examples/Showcase.fs" />
+    <Compile Include="Examples/View.fs" />
+    <Compile Include="Catalog/ComponentRegistry.fs" />
+    <Compile Include="Catalog/ComponentPages.fs" />
+    <Compile Include="Catalog/Blocks.fs" />
+    <Compile Include="Catalog/Navigation.fs" />
+    <Compile Include="Catalog/Home.fs" />
+    <Compile Include="Catalog/Registry.fs" />
+    <Compile Include="Catalog/View.fs" />
+    <Compile Include="Catalog/FrameReview.fs" />
+    <Compile Include="Catalog/Response.fs" />
+    <Compile Include="Catalog/Handler.fs" />
+    <Compile Include="Discovery/Handler.fs" />
+    <Compile Include="Health/Handler.fs" />
+    <Compile Include="Host.fs" />
+    <Compile Include="Program.fs" />
   </ItemGroup>
 
+  <!-- These are build inputs, not a second set of F# project-tree source items. -->
+  <Target Name="EmbedDocumentationSources" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true'">
+    <ItemGroup>
+    <EmbeddedResource Include="Common/LedgerExamples.fs" LogicalName="Docs.ComponentSources.0000.Ledger.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Card/View.fs" LogicalName="Docs.BlockSources.000.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/SectionHeader/View.fs" LogicalName="Docs.BlockSources.001.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/FieldGroup/View.fs" LogicalName="Docs.BlockSources.002.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/CodeBlock/View.fs" LogicalName="Docs.BlockSources.003.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Callout/View.fs" LogicalName="Docs.BlockSources.004.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Mermaid/View.fs" LogicalName="Docs.BlockSources.005.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Example/View.fs" LogicalName="Docs.BlockSources.006.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/FSharpApiReference/View.fs" LogicalName="Docs.BlockSources.007.fs" Visible="false" />
+    <EmbeddedResource Include="Examples/Showcase.fs" LogicalName="Docs.Pages.Showcase.fs" Visible="false" />
+    <EmbeddedResource Include="Guides/Appearance.fs" LogicalName="Docs.Pages.Appearance.fs" Visible="false" />
+    <EmbeddedResource Include="Guides/ComponentExamples.fs" LogicalName="Docs.Pages.ComponentGuideExamples.fs" Visible="false" />
+    <EmbeddedResource Include="Common/SharedExamples.fs" LogicalName="Docs.ComponentSources.000.Shared.fs" Visible="false" />
+    <EmbeddedResource Include="Common/SamplesExamples.fs" LogicalName="Docs.ComponentSources.001.Samples.fs" Visible="false" />
+    <EmbeddedResource Include="Catalog/ComponentRegistry.fs" LogicalName="Docs.ComponentSources.002.Registry.fs" Visible="false" />
+    <EmbeddedResource Include="Common/Gallery.fs" LogicalName="Docs.ComponentSources.003.Gallery.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Button/View.fs" LogicalName="Docs.ComponentSources.004.Button.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/ButtonGroup/View.fs" LogicalName="Docs.ComponentSources.005.ButtonGroup.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Badge/View.fs" LogicalName="Docs.ComponentSources.006.Badge.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Kbd/View.fs" LogicalName="Docs.ComponentSources.007.Kbd.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Separator/View.fs" LogicalName="Docs.ComponentSources.008.Separator.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Skeleton/View.fs" LogicalName="Docs.ComponentSources.009.Skeleton.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/LoadingIndicator/View.fs" LogicalName="Docs.ComponentSources.010.LoadingIndicator.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/EmptyState/View.fs" LogicalName="Docs.ComponentSources.011.EmptyState.fs" Visible="false" />
+    <EmbeddedResource Include="Common/SourceListsExamples.fs" LogicalName="Docs.ComponentSources.012.SourceLists.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/SideNav/View.fs" LogicalName="Docs.ComponentSources.013.SideNav.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/PageTopBar/View.fs" LogicalName="Docs.ComponentSources.014.PageTopBar.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/AccountManagement/Examples.fs" LogicalName="Docs.ComponentSources.015.AccountManagementExamples.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Table/View.fs" LogicalName="Docs.ComponentSources.016.Table.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Table/Handler.fs" LogicalName="Docs.ComponentSources.017.TableHandler.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/DescriptionList/View.fs" LogicalName="Docs.ComponentSources.018.DescriptionList.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Metric/View.fs" LogicalName="Docs.ComponentSources.019.Metric.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Pagination/View.fs" LogicalName="Docs.ComponentSources.020.Pagination.fs" Visible="false" />
+    <EmbeddedResource Include="Common/ChoicesExamples.fs" LogicalName="Docs.ComponentSources.021.Choices.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/FormLayouts/View.fs" LogicalName="Docs.ComponentSources.022.FormLayouts.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Input/View.fs" LogicalName="Docs.ComponentSources.023.Input.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/TagInput/View.fs" LogicalName="Docs.ComponentSources.024.TagInput.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Textarea/View.fs" LogicalName="Docs.ComponentSources.025.Textarea.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/ErrorSummary/View.fs" LogicalName="Docs.ComponentSources.026.ErrorSummary.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Notice/View.fs" LogicalName="Docs.ComponentSources.027.Notice.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Select/View.fs" LogicalName="Docs.ComponentSources.028.Select.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Select/Handler.fs" LogicalName="Docs.ComponentSources.029.SelectHandler.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Checkbox/View.fs" LogicalName="Docs.ComponentSources.030.Checkbox.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/ToggleButton/View.fs" LogicalName="Docs.ComponentSources.031.ToggleButton.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Switch/View.fs" LogicalName="Docs.ComponentSources.032.Switch.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/RadioGroup/View.fs" LogicalName="Docs.ComponentSources.033.RadioGroup.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/ChoiceCards/View.fs" LogicalName="Docs.ComponentSources.034.ChoiceCards.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/ToggleGroup/View.fs" LogicalName="Docs.ComponentSources.035.ToggleGroup.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Tabs/View.fs" LogicalName="Docs.ComponentSources.036.Tabs.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/DropdownMenu/View.fs" LogicalName="Docs.ComponentSources.037.DropdownMenu.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Drawer/View.fs" LogicalName="Docs.ComponentSources.038.Drawer.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Dialog/View.fs" LogicalName="Docs.ComponentSources.039.Dialog.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/PageHeader/View.fs" LogicalName="Docs.ComponentSources.040.PageHeader.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Section/View.fs" LogicalName="Docs.ComponentSources.041.Section.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Disclosure/View.fs" LogicalName="Docs.ComponentSources.042.Disclosure.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Slide/View.fs" LogicalName="Docs.ComponentSources.043.Slide.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Presentation/View.fs" LogicalName="Docs.ComponentSources.044.Presentation.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Page/View.fs" LogicalName="Docs.ComponentSources.045.Page.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Collection/View.fs" LogicalName="Docs.ComponentSources.046.Collection.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Detail/View.fs" LogicalName="Docs.ComponentSources.047.Detail.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Breadcrumbs/View.fs" LogicalName="Docs.ComponentSources.048.Breadcrumbs.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/AccountManagement/View.fs" LogicalName="Docs.ComponentSources.049.AccountManagement.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Icon/View.fs" LogicalName="Docs.ComponentSources.050.Icon.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Link/View.fs" LogicalName="Docs.ComponentSources.051.Link.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/BottomNavigation/View.fs" LogicalName="Docs.ComponentSources.052.BottomNavigation.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Resizable/View.fs" LogicalName="Docs.ComponentSources.053.Resizable.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Tooltip/View.fs" LogicalName="Docs.ComponentSources.054.Tooltip.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Popover/View.fs" LogicalName="Docs.ComponentSources.055.Popover.fs" Visible="false" />
+    <EmbeddedResource Include="Common/CalendarExamples.fs" LogicalName="Docs.ComponentSources.056.Calendar.fs" Visible="false" />
+    <EmbeddedResource Include="Common/CalendarSourceExamples.fs" LogicalName="Docs.ComponentSources.057.CalendarSource.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/MonthCalendar/View.fs" LogicalName="Docs.ComponentSources.058.MonthCalendar.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/TimePicker/View.fs" LogicalName="Docs.ComponentSources.059.TimePicker.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/DatePicker/View.fs" LogicalName="Docs.ComponentSources.060.DatePicker.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Field/View.fs" LogicalName="Docs.ComponentSources.061.Field.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/InputGroup/View.fs" LogicalName="Docs.ComponentSources.062.InputGroup.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/InputGroup/Handler.fs" LogicalName="Docs.ComponentSources.063.InputGroupHandler.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Message/View.fs" LogicalName="Docs.ComponentSources.064.Message.fs" Visible="false" />
+    <EmbeddedResource Include="Common/FramesExamples.fs" LogicalName="Docs.ComponentSources.065.Frames.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Browser/View.fs" LogicalName="Docs.ComponentSources.066.Browser.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Phone/View.fs" LogicalName="Docs.ComponentSources.067.Phone.fs" Visible="false" />
+    <EmbeddedResource Include="Catalog/FrameReview.fs" LogicalName="Docs.ComponentSources.068.FrameReview.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/FloatingPanel/View.fs" LogicalName="Docs.ComponentSources.069.FloatingPanel.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Notification/View.fs" LogicalName="Docs.ComponentSources.070.Notification.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Progress/View.fs" LogicalName="Docs.ComponentSources.071.Progress.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Progress/Handler.fs" LogicalName="Docs.ComponentSources.072.ProgressHandler.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/FileSelection/View.fs" LogicalName="Docs.ComponentSources.073.FileSelection.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Avatar/View.fs" LogicalName="Docs.ComponentSources.074.Avatar.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/CopyReveal/View.fs" LogicalName="Docs.ComponentSources.075.CopyReveal.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Command/View.fs" LogicalName="Docs.ComponentSources.076.Command.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Chart/View.fs" LogicalName="Docs.ComponentSources.077.Chart.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/DayCalendar/View.fs" LogicalName="Docs.ComponentSources.078.DayCalendar.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/WeekCalendar/View.fs" LogicalName="Docs.ComponentSources.079.WeekCalendar.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/YearCalendar/View.fs" LogicalName="Docs.ComponentSources.080.YearCalendar.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/MediaLibrary/View.fs" LogicalName="Docs.ComponentSources.081.MediaLibrary.fs" Visible="false" />
+    <EmbeddedResource Include="Common/IntegrationsExamples.fs" LogicalName="Docs.ComponentSources.082.Integrations.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/AppShell/View.fs" LogicalName="Docs.ComponentSources.083.AppShell.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Compositions/Page.fs" LogicalName="Docs.ComponentSources.084.PageExamples.fs" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Installation/View.fs" LogicalName="Docs.ComponentSources.085.Installation.fs" Visible="false" />
+    <EmbeddedResource Include="Guides/ComponentPages.fs" LogicalName="Docs.ComponentSources.086.Guides.fs" Visible="false" />
+    <EmbeddedResource Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.Registry.props" LogicalName="Docs.ComponentRegistry.props" Visible="false" />
+    <EmbeddedResource Include="ComponentPages/Compositions/View.fs" LogicalName="Docs.Pages.PageExamples.fs" Visible="false" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
-    <EmbeddedResource Include="src\Pages\ComponentDocumentation.fs" LogicalName="Docs.Pages.ComponentDocumentation.fs" />
-    <EmbeddedResource Include="src\Pages\Showcase.fs" LogicalName="Docs.Pages.Showcase.fs" />
-    <EmbeddedResource Include="src\Pages\Appearance.fs" LogicalName="Docs.Pages.Appearance.fs" />
-    <EmbeddedResource Include="src\Pages\ComponentGuideExamples.fs" LogicalName="Docs.Pages.ComponentGuideExamples.fs" />
-    <EmbeddedResource Include="src\Pages\Components.fs" LogicalName="Docs.Pages.Components.fs" />
-    <EmbeddedResource Include="..\FSharp.ViewEngine.Components\FSharp.ViewEngine.Components.Registry.props" LogicalName="Docs.ComponentRegistry.props" />
-    <EmbeddedResource Include="src\Pages\PageExamples.fs" LogicalName="Docs.Pages.PageExamples.fs" />
     <Content Update="package.json;package-lock.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
     <Content Include="input.css">
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>

@@ -6,9 +6,11 @@ A standalone FSharp.ViewEngine consumer with Marketing, Application, Presentatio
 
 `Example.Components/Views/` owns the product shell, screens, tables and editors used by both Application and Specification. `Example.Components/Components/` contains the CLI-installed controls; updates do not replace `Views/`. Server parses HTTP inputs, runs Application use cases and passes typed data, validation outcomes and navigation behavior to the shared renderer. Specification adds workflow rules, fixture states and review chrome, not a second copy of the product views.
 
+`Example.Server/` is organized by HTTP feature. `Common/` owns document/SSE responses and form boundaries; Product handlers share execution between Application and Specification routes. `Config.fs` and `Services.fs` construct host settings and ephemeral demo-session protection, `Host.fs` configures middleware/assets, and `Program.fs` composes routes. Specification, Marketing, API documentation and Presentation keep their own route and presentation code.
+
 ## Run
 
-Requires the .NET 10 SDK. From this directory:
+Requires the .NET 11 SDK. From this directory:
 
 ```sh
 dotnet run --project Example.Server
@@ -18,7 +20,7 @@ At the origin printed by ASP.NET Core, open `/examples/marketing`, `/examples/ap
 
 ## Standalone presentation script
 
-With a .NET 10 SDK, Node.js 20+/npm and the FSharp.ViewEngine CLI installed:
+With a .NET 11 SDK, Node.js 20+/npm and the FSharp.ViewEngine CLI installed:
 
 ```sh
 cd Presentation

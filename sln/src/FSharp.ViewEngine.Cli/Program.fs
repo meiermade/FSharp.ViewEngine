@@ -17,7 +17,7 @@ module Cli =
         let namespaceOption = Option<string>("--namespace")
         namespaceOption.Description <- "Namespace root for copied component source. Defaults to the project name."
         let frameworkOption = Option<string>("--framework")
-        frameworkOption.Description <- "Target framework for a newly created project: net8.0, net9.0, or net10.0."
+        frameworkOption.Description <- "Target framework for a newly created project: net8.0, net9.0, net10.0, or net11.0 (default). Existing projects keep their target framework."
         initCommand.Add(projectArgument)
         initCommand.Add(namespaceOption)
         initCommand.Add(frameworkOption)
@@ -25,7 +25,7 @@ module Cli =
             Commands.init registry output
                 { Project = result.GetRequiredValue projectArgument
                   Namespace = result.GetValue namespaceOption |> Option.ofObj
-                  Framework = result.GetValue frameworkOption |> optionValue "net8.0" })
+                  Framework = result.GetValue frameworkOption |> optionValue "net11.0" })
         root.Add(initCommand)
 
         let addCommand = Command("add", "Add selected components and their transitive source dependencies.")

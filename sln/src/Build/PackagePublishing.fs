@@ -318,7 +318,7 @@ let private symbolsUrl (packageId:string) (version:string) =
     let fileName = $"{packageId.ToLowerInvariant()}.{version}.snupkg"
     $"https://globalcdn.nuget.org/symbol-packages/{fileName}"
 
-let packageStateSinceLatestTag repository tagPattern tagPrefix paths =
+let packageStateSinceLatestTag repository tagPattern (tagPrefix:string) paths =
     let tags =
         runProcess true "git" [ "-C"; repository; "tag"; "--list"; tagPattern; "--sort=-version:refname" ]
         |> fun value -> value.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries)

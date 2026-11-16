@@ -19,6 +19,8 @@ npm ci --prefix "$sln_dir/src/Docs"
 esbuild_bin="$sln_dir/src/Docs/node_modules/.bin/esbuild"
 rm -rf "$output_dir"
 mkdir -p "$output_dir/.nuget/packages"
+# NuGet's project graph needs one path identity, including macOS /tmp aliases.
+output_dir="$(cd "$output_dir" && pwd -P)"
 (
   cd "$sln_dir"
   PACKAGE_ID=FSharp.ViewEngine PACKAGE_VERSION="$core_version" ./fake.sh Pack --single-target
@@ -39,7 +41,7 @@ restore_build() {
   dotnet restore "$1" --source "$nugets_dir" --source https://api.nuget.org/v3/index.json
   dotnet build "$1" --configuration Release --no-restore
 }
-for framework in net8.0 net9.0 net10.0; do
+for framework in net10.0 net11.0; do
   consumer_dir="$output_dir/$framework"
   sdk_major="${framework#net}"; sdk_major="${sdk_major%%.*}"
   sdk_version="$(dotnet --list-sdks | awk -v prefix="$sdk_major." '$1 ~ "^" prefix { version = $1 } END { print version }')"
@@ -89,18 +91,18 @@ EOF
 done
 
 # Build the checked-in consumer as-is; no namespace rewriting or generated ZIP tree.
-template_dir="$output_dir/templates-net10.0"
+template_dir="$output_dir/templates-net11.0"
 example_sources="$sln_dir/src/Example"
 mkdir -p "$template_dir"
 tar --exclude=bin --exclude=obj --exclude=node_modules -C "$example_sources" -cf - . | tar -C "$template_dir" -xf -
-cp "$output_dir/net10.0/global.json" "$template_dir/global.json"
+cp "$output_dir/net11.0/global.json" "$template_dir/global.json"
 (
   cd "$template_dir"
   dotnet fve add button --config Example.Components/fve.json --overwrite
   restore_build Example.Server/Example.Server.fsproj
 )
 
-visual_dir="$output_dir/net10.0"
+visual_dir="$output_dir/net11.0"
 mkdir -p "$visual_dir/App/wwwroot/scripts"
 for asset in prism.1.29.0.min.js prism-fsharp.1.29.0.min.js prism-python.1.29.0.min.js prism-typescript.1.29.0.min.js prism-bash.1.29.0.min.js prism-sql.1.29.0.min.js; do
   cp "$sln_dir/src/Docs/wwwroot/scripts/$asset" "$visual_dir/App/wwwroot/scripts/$asset"

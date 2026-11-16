@@ -5,6 +5,10 @@ open Fake.IO
 open Fake.IO.FileSystemOperators
 open Fake.IO.Globbing.Operators
 
+// dotnet run exports its SDK paths; nested consumers must select their own SDK via global.json.
+for name in [ "MSBuildSDKsPath"; "MSBuildExtensionsPath" ] do
+    System.Environment.SetEnvironmentVariable(name, null)
+
 System.Environment.GetCommandLineArgs()
 |> Array.tail
 |> Array.toList
@@ -284,7 +288,7 @@ Target.create "VerifyPublishedPackageRelease" <| fun _ ->
 Target.create "CleanNugets" <| fun _ -> Shell.cleanDir nugetsDir
 
 Target.create "Test" <| fun _ ->
-    ["net8.0"; "net9.0"; "net10.0"]
+    ["net10.0"; "net11.0"]
     |> List.iter (fun tfm ->
         dotnet testsDir ["run"; "--framework"; tfm]
         |> Async.RunSynchronously
