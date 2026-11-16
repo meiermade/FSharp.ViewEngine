@@ -61,7 +61,10 @@ jobs:
         env:
           PACKAGE_ID: FSharp.ViewEngine.Cli
           PACKAGE_VERIFY_NET11_ONLY: '1'
-        run: ./fake.sh VerifyPackage --single-target
+        run: |
+          # setup-dotnet also installs LTS; keep only runtime 11 in this disposable host.
+          find "${{ runner.temp }}/fve-dotnet11-only/shared" -mindepth 2 -maxdepth 2 -type d ! -name '11.*' -exec rm -rf {} +
+          ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
 
   selection:

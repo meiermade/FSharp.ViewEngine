@@ -4,10 +4,16 @@
     <TargetFramework>net11.0</TargetFramework>
     <NoWarn>$(NoWarn);NU1510</NoWarn>
     <UseAppHost>false</UseAppHost>
-    <!-- Browser modules are owned by esbuild, not the SDK's Blazor JS initializer pipeline. -->
-    <JSModulesEnabled>false</JSModulesEnabled>
     <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/node_modules/**</DefaultItemExcludes>
   </PropertyGroup>
+  <!-- Override the Web SDK defaults when assets are defined: keep browser refresh without
+       Blazor initialization or filename collisions with the referenced web host. -->
+  <Target Name="ConfigureHotReloadBrowserTools" BeforeTargets="_DefineHotReloadBrowserToolsAssetsCore">
+    <PropertyGroup>
+      <HotReloadBrowserToolsAssetPrefix>$(MSBuildProjectName).HotReload</HotReloadBrowserToolsAssetPrefix>
+      <HotReloadBrowserToolsRegisterInitializerAsJSModule>false</HotReloadBrowserToolsRegisterInitializerAsJSModule>
+    </PropertyGroup>
+  </Target>
   <ItemGroup>
     <Content Include="paket.references" />
     <Compile Include="Config.fs" />
