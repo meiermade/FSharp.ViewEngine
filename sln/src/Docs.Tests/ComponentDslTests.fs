@@ -146,7 +146,7 @@ let tests =
                   let path = "/components/" + key
 
                   let page =
-                      Docs.Pages.Components.tryPage path
+                      Docs.Catalog.ComponentCatalog.tryPage path
                       |> Option.orElseWith (fun () -> Docs.Pages.ComponentDocumentation.tryPage path)
                       |> Option.get
 
@@ -170,7 +170,7 @@ let tests =
                           0
                           "the example teaches usage without explanatory paragraphs"
 
-              for example in Docs.Pages.Components.examplesFor "button" do
+              for example in Docs.Catalog.ComponentCatalog.examplesFor "button" do
                   Expect.isFalse
                       (example.source.Contains "ButtonContent")
                       $"{example.title} composes ordinary children without content modes"
@@ -191,7 +191,7 @@ let tests =
                       (Regex.IsMatch(example.source, @"\bCard\.(?:create|render|with\w+|header|footer|media|size)\b"))
                       $"{example.title} teaches scoped Card operations rather than option functions"
 
-              for example in Docs.Pages.Components.examplesFor "select" do
+              for example in Docs.Catalog.ComponentCatalog.examplesFor "select" do
                   Expect.isTrue
                       (Regex.IsMatch(example.source, @"\bfve(?:Multi)?Select\s*\{"))
                       $"{example.title} supplies a complete Select CE"

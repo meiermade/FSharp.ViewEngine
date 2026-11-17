@@ -1,5 +1,8 @@
 @import "tailwindcss";
-@source "./src/**/*.fs";
+@source "./**/*.fs";
+@source not "./bin/**";
+@source not "./obj/**";
+@source not "./node_modules/**";
 @source "../Docs.Components/**/*.fs";
 @source "../Docs.Components/Components/Assets/**/*.js";
 @source not "../Docs.Components/Components/Assets/echarts.6.1.0.esm.min.js";
@@ -864,7 +867,7 @@
 .docs-comparison-row {
   display: grid;
   min-width: 0;
-  grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 2fr) minmax(7rem, auto);
+  grid-template-columns: minmax(10rem, 1fr) minmax(10rem, 2fr);
   align-items: center;
   gap: 0.75rem;
 }
@@ -882,8 +885,7 @@
   overflow-wrap: anywhere;
 }
 
-.docs-comparison-value,
-.docs-comparison-note {
+.docs-comparison-value {
   color: var(--fve-muted-text);
   font-family: var(--docs-font-mono);
   font-size: 0.75rem;
@@ -924,15 +926,7 @@
   }
 
   .docs-comparison-row {
-    grid-template-columns: 1fr auto;
-    gap: 0.4rem 0.75rem;
-  }
-
-  .docs-comparison-labels {
-    grid-column: 1 / -1;
-  }
-
-  .docs-comparison-note {
-    text-align: right;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4rem;
   }
 }

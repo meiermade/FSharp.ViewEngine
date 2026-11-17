@@ -62,6 +62,15 @@ let tests = testList "fve" [
         Expect.equal code 0 error
         Expect.isGreaterThan (output.Trim().Length) 0 "generated version"
 
+    testCase "new projects default to net11.0 and retain explicit framework choices" <| fun _ ->
+        for framework in [None; Some "net10.0"; Some "net11.0"] do
+            withTemp <| fun root ->
+                let arguments = ["init"; projectPath root] @ (framework |> Option.map (fun value -> ["--framework"; value]) |> Option.defaultValue [])
+                let code,_,error = invoke arguments
+                Expect.equal code 0 error
+                let expected = framework |> Option.defaultValue "net11.0"
+                Expect.stringContains (File.ReadAllText(projectPath root)) $"<TargetFramework>{expected}</TargetFramework>" "new project target"
+
     testCase "components own ordered files and resolve only public selectors" <| fun _ ->
         for item in registry.Components do
             Expect.isNonEmpty item.Files "every owner has source"
@@ -143,11 +152,14 @@ let tests = testList "fve" [
     testCase "existing projects and misplaced managed blocks keep consumer source last" <| fun _ ->
         withTemp <| fun root ->
             let project = projectPath root
-            File.WriteAllText(project,"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net8.0</TargetFramework></PropertyGroup><ItemGroup><Compile Include=\"FinanceComponents.fs\" /></ItemGroup></Project>")
+            File.WriteAllText(project,"<Project Sdk=\"Microsoft.NET.Sdk\"><PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup><ItemGroup><Compile Include=\"FinanceComponents.fs\" /></ItemGroup></Project>")
             File.WriteAllText(Path.Combine(root,"FinanceComponents.fs"),"namespace FinanceComponents")
-            initialize root
+            let code,_,error = invoke ["init"; project; "--namespace"; "Acme.Components"]
+            Expect.equal code 0 error
             add root ["button"]
             let initialized = File.ReadAllText project
+            Expect.stringContains initialized "<TargetFramework>net10.0</TargetFramework>" "init and add preserve an existing framework despite the net11.0 default"
+            Expect.equal (File.ReadAllText(Path.Combine(root,"FinanceComponents.fs"))) "namespace FinanceComponents" "authored source is untouched"
             Expect.stringContains initialized "<None Include=\"Components/Assets/button.js\" />" "editable JavaScript"
             Expect.isFalse (initialized.Contains "<Compile Include=\"Components/Assets/") "assets are not compiled"
             let script = File.ReadAllText(componentPath root "Assets/button.js")
@@ -263,7 +275,7 @@ System.IO.File.WriteAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__, "result
             let code,sdks = runDotnet root ["--list-sdks"]
             Expect.equal code 0 sdks
             let versions = sdks.Split('\n', StringSplitOptions.RemoveEmptyEntries) |> Array.map (fun line -> line.Split(' ')[0])
-            for major in ["9."; "10."] do
+            for major in ["10."; "11."] do
                 let version =
                     versions |> Array.filter (fun version -> version.StartsWith(major, StringComparison.Ordinal))
                     |> Array.tryLast |> Option.defaultWith (fun () -> failtest $"Install a .NET {major} SDK to test supported script authoring.")
@@ -286,7 +298,7 @@ System.IO.File.WriteAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__, "result
 
     testCase "script build uses installed source, preserves inputs and restores outputs on failure" <| fun _ ->
         withTemp <| fun root ->
-            File.WriteAllText(Path.Combine(root,"global.json"), """{"sdk":{"version":"10.0.100","rollForward":"latestFeature"}}""")
+            File.WriteAllText(Path.Combine(root,"global.json"), """{"sdk":{"version":"11.0.100","rollForward":"latestFeature"}}""")
             let script = Path.Combine(root,"cash review.fsx")
             let code,_,error = invoke ["init"; script; "--namespace"; "Deck"]
             Expect.equal code 0 error

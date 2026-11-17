@@ -1,20 +1,38 @@
 <Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <UseAppHost>false</UseAppHost>
     <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/node_modules/**</DefaultItemExcludes>
   </PropertyGroup>
+  <!-- Override the Web SDK defaults when assets are defined: keep browser refresh without
+       Blazor initialization or filename collisions with the referencing web host. -->
+  <Target Name="ConfigureHotReloadBrowserTools" BeforeTargets="_DefineHotReloadBrowserToolsAssetsCore">
+    <PropertyGroup>
+      <HotReloadBrowserToolsAssetPrefix>$(MSBuildProjectName).HotReload</HotReloadBrowserToolsAssetPrefix>
+      <HotReloadBrowserToolsRegisterInitializerAsJSModule>false</HotReloadBrowserToolsRegisterInitializerAsJSModule>
+    </PropertyGroup>
+  </Target>
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="10.0.102" />
     <ProjectReference Include="../Example.Components/Example.Components.fsproj" />
     <ProjectReference Include="../Example.Application/Example.Application.fsproj" />
     <PackageReference Include="Giraffe" Version="8.3.0" />
     <PackageReference Include="StarFederation.Datastar" Version="1.4.0" />
-    <Compile Include="Model.fs" />
-    <Compile Include="DemoState.fs" />
-    <Compile Include="Navigation.fs" />
-    <Compile Include="AppMode.fs" />
-    <Compile Include="Application.fs" />
+    <Compile Include="Config.fs" />
+    <Compile Include="Services.fs" />
+    <Compile Include="Common/Request.fs" />
+    <Compile Include="Common/Navigation.fs" />
+    <Compile Include="Common/View.fs" />
+    <Compile Include="Common/Handler.fs" />
+    <Compile Include="Product/Session.fs" />
+    <Compile Include="Product/Submission.fs" />
+    <Compile Include="Product/Collection.fs" />
+    <Compile Include="Product/Accounts/Handler.fs" />
+    <Compile Include="Product/Transactions/Handler.fs" />
+    <Compile Include="Product/Settings/Handler.fs" />
+    <Compile Include="Product/Profile/Handler.fs" />
+    <Compile Include="Product/Handler.fs" />
+    <Compile Include="Specification/AppMode.fs" />
     <Compile Include="Specification/Architecture/Presentation.fs" />
     <Compile Include="Specification/Architecture/Context.fs" />
     <Compile Include="Specification/Architecture/Solution.fs" />
@@ -22,27 +40,30 @@
     <Compile Include="Specification/Architecture/Application.fs" />
     <Compile Include="Specification/Architecture/Components.fs" />
     <Compile Include="Specification/Architecture/Server.fs" />
-    <Compile Include="Architecture.fs" />
-    <Compile Include="Specification/Workflow.fs" />
-    <Compile Include="Specification/Home.fs" />
-    <Compile Include="Specification/Accounts/ViewAccounts.fs" />
-    <Compile Include="Specification/Accounts/ViewAccount.fs" />
-    <Compile Include="Specification/Accounts/CreateAccount.fs" />
-    <Compile Include="Specification/Accounts/UpdateAccount.fs" />
-    <Compile Include="Specification/Accounts/DeleteAccount.fs" />
-    <Compile Include="Specification/Transactions/ViewTransactions.fs" />
-    <Compile Include="Specification/Transactions/ViewTransaction.fs" />
-    <Compile Include="Specification/Transactions/DeleteTransaction.fs" />
-    <Compile Include="Specification/Workspace.fs" />
-    <Compile Include="Specification/Settings.fs" />
-    <Compile Include="Specification/Profile.fs" />
-    <Compile Include="Specification/Overview.fs" />
-    <Compile Include="Specification.fs" />
-    <Compile Include="ApiDocumentation.fs" />
-    <Compile Include="Marketing.fs" />
-    <Compile Include="../Presentation/View.fs" />
-    <Compile Include="Routing.fs" />
-    <Compile Include="Hosting.fs" />
+    <Compile Include="Specification/Architecture/View.fs" />
+    <Compile Include="Specification/Workflows/Workflow.fs" />
+    <Compile Include="Specification/Workflows/Home.fs" />
+    <Compile Include="Specification/Workflows/Accounts/ViewAccounts.fs" />
+    <Compile Include="Specification/Workflows/Accounts/ViewAccount.fs" />
+    <Compile Include="Specification/Workflows/Accounts/CreateAccount.fs" />
+    <Compile Include="Specification/Workflows/Accounts/UpdateAccount.fs" />
+    <Compile Include="Specification/Workflows/Accounts/DeleteAccount.fs" />
+    <Compile Include="Specification/Workflows/Transactions/ViewTransactions.fs" />
+    <Compile Include="Specification/Workflows/Transactions/ViewTransaction.fs" />
+    <Compile Include="Specification/Workflows/Transactions/DeleteTransaction.fs" />
+    <Compile Include="Specification/Workflows/Workspace.fs" />
+    <Compile Include="Specification/Workflows/Settings.fs" />
+    <Compile Include="Specification/Workflows/Profile.fs" />
+    <Compile Include="Specification/Workflows/Overview.fs" />
+    <Compile Include="Specification/View.fs" />
+    <Compile Include="Specification/Handler.fs" />
+    <Compile Include="ApiDocumentation/View.fs" />
+    <Compile Include="ApiDocumentation/Handler.fs" />
+    <Compile Include="Marketing/View.fs" />
+    <Compile Include="Marketing/Handler.fs" />
+    <Compile Include="../Presentation/View.fs" Link="Presentation/View.fs" />
+    <Compile Include="Presentation/Handler.fs" />
+    <Compile Include="Host.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -25,7 +25,7 @@ export default defineConfig({
   },
   webServer: {
     command: `dotnet run --project App/GeneratedConsumer.fsproj --configuration Release --no-build -- --urls ${baseURL}`,
-    cwd: path.join(generatedRoot, 'net10.0'),
+    cwd: path.join(generatedRoot, 'net11.0'),
     env: { ...process.env, ASPNETCORE_URLS: baseURL },
     url: `${baseURL}/health`,
     timeout: 120_000,

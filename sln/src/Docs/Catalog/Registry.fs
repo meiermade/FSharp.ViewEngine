@@ -1,0 +1,37 @@
+namespace Docs.Pages
+
+open Docs.Common
+
+module Registry =
+    let releasesUrl = "https://github.com/meiermade/FSharp.ViewEngine/releases"
+    let packagesUrl = "https://www.nuget.org/packages?q=FSharp.ViewEngine"
+
+    let navigation =
+        [ { label = "Getting started"
+            pages = [ Home.page; Installation.page; CoreGuides.firstView ]
+            sections = [] }
+          { label = "Core concepts"
+            pages = [ CoreGuides.elementsAndAttributes; CoreGuides.composition; CoreGuides.rendering; CoreGuides.encoding; CoreGuides.accessibility; Custom.page ]
+            sections = [] }
+          { label = "Integrations"
+            pages = [ Svg.page; Datastar.page; Htmx.page; Alpine.page; TailwindElements.page ]
+            sections = [] }
+          { label = "Components"
+            pages = [ Docs.Catalog.ComponentRegistry.overviewRegistration; Docs.ComponentPages.Installation.View.installationRegistration ]
+            sections = Catalog.navigation }
+          { label = "Guides"
+            pages = [ Scripting.page; Usage.page; Docs.Guides.ComponentPages.interactionRegistration; Docs.Guides.ComponentPages.themingRegistration; Presentations.page ]
+            sections = [] } ]
+        @ [ { label = "Project"
+              pages = [ Benchmarks.page ]
+              sections = [] }
+            { label = "Examples"; pages = [ Examples.registration ]; sections = [] } ]
+
+    let rec private sectionPages section =
+        section.pages @ (section.sections |> List.collect sectionPages)
+
+    let all = navigation |> List.collect sectionPages
+
+    let aliases =
+        all
+        |> List.collect (fun page -> page.aliases |> List.map (fun alias -> alias, page.path))

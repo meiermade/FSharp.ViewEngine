@@ -18,9 +18,8 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: |
-            8.0.x
-            9.0.x
             10.0.x
+            11.0.x
       - name: Install Tools
         run: dotnet tool restore
         working-directory: ./sln
@@ -52,10 +51,20 @@ jobs:
           PACKAGE_VERSION: 0.0.1-preview
         run: ./fake.sh Pack --single-target
         working-directory: ./sln
+      - name: Setup isolated .NET 11-only host
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
+        env:
+          DOTNET_INSTALL_DIR: ${{ runner.temp }}/fve-dotnet11-only
+        with:
+          dotnet-version: 11.0.x
       - name: Verify CLI package compatibility
         env:
           PACKAGE_ID: FSharp.ViewEngine.Cli
-        run: ./fake.sh VerifyPackage --single-target
+          PACKAGE_VERIFY_NET11_ONLY: '1'
+        run: |
+          # setup-dotnet also installs LTS; keep only runtime 11 in this disposable host.
+          find "${{ runner.temp }}/fve-dotnet11-only/shared" -mindepth 2 -maxdepth 2 -type d ! -name '11.*' -exec rm -rf {} +
+          ./fake.sh VerifyPackage --single-target
         working-directory: ./sln
 
   selection:
@@ -90,9 +99,8 @@ jobs:
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
         with:
           dotnet-version: |
-            8.0.x
-            9.0.x
             10.0.x
+            11.0.x
       - name: Setup Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:

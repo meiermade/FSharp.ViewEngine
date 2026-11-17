@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises'
 import AxeBuilder from '@axe-core/playwright'
 import { expect, test, type APIRequestContext, type Locator, type Page } from '@playwright/test'
 
@@ -2053,12 +2054,32 @@ test('representative component examples default to complete styled previews', as
   expect(browserErrors).toEqual([])
 })
 
+test('benchmark raw results download natively without replacing the document', crossBrowser, async ({ page }) => {
+  await page.goto('/benchmarks')
+  const link = page.getByRole('link', { name: 'Download the raw benchmark results and environment metadata' })
+  await expect(link).toHaveAttribute('href', '/benchmarks/results.json')
+  await expect(link).toHaveAttribute('download', '')
+  const pending = page.waitForEvent('download')
+  await link.click()
+  const download = await pending
+  expect(download.suggestedFilename()).toMatch(/\.json$/)
+  const file = await download.path()
+  expect(file).not.toBeNull()
+  const results = JSON.parse(await readFile(file!, 'utf8'))
+  expect(results.reports.length).toBeGreaterThan(0)
+  expect(results.reports.every((report: { Benchmarks: unknown[] }) => report.Benchmarks.length > 0)).toBe(true)
+  await expect(page).toHaveURL(/\/benchmarks$/)
+  await expect(page.getByRole('heading', { name: 'Benchmarks', exact: true })).toBeVisible()
+})
+
 test('benchmark comparison remains legible in light and dark themes', async ({ page }) => {
   for (const theme of ['light', 'dark'] as const) {
     await page.addInitScript(selected => localStorage.setItem('fsharp-viewengine-docs-navigation-color-mode', selected), theme)
     await page.goto('/benchmarks', { waitUntil: 'domcontentloaded' })
     const chart = page.locator('.docs-comparison-chart')
     await expect(chart).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Rendering performance', exact: true })).toBeVisible()
+    await expect(page.locator('main')).not.toContainText(/baseline|× as long|the other engines/i)
     const colors = await chart.evaluate(element => {
       const style = getComputedStyle(element)
       const text = element.querySelector('.docs-comparison-labels strong')!
@@ -2076,7 +2097,8 @@ test('benchmark tables remain readable without page overflow on mobile', async (
   const comparison = page.getByRole('figure', { name: 'Build and render comparison' })
   await expect(comparison).toBeVisible()
   await expect(comparison).toContainText('FSharp.ViewEngine')
-  await expect(page.getByRole('table').first()).toBeVisible()
+  await expect(page.getByRole('table')).toHaveCount(1)
+  await expect(page.getByRole('table')).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
 })
 

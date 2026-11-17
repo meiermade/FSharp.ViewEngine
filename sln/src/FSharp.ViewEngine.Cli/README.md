@@ -12,7 +12,9 @@ dotnet fve --help
 
 See the [installation guide](https://fve.meiermade.com/components/installation), [component pages](https://fve.meiermade.com/components), and [CLI source](https://github.com/meiermade/FSharp.ViewEngine/tree/main/sln/src/FSharp.ViewEngine.Cli).
 
-Standalone F# scripts are also supported. Use a .NET 10 SDK for script execution (project consumers still support .NET 8/9/10):
+New project consumers default to `net11.0`; use `--framework net10.0` for .NET 10. Existing projects retain their target framework. The CLI runs with .NET 10 or 11; older target choices remain available for existing consumers but are no longer actively tested.
+
+Standalone F# scripts are also supported with SDK 10 or 11. Use SDK 11 for new scripts:
 
 ```sh
 dotnet fve init deck.fsx

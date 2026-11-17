@@ -17,6 +17,8 @@ open type Html
 open type Datastar
 open Docs.Common
 open Docs.Pages
+open Docs.Catalog
+open Docs.ComponentPages.Icon
 open Docs.Web
 
 type private ShellTestDestination =
@@ -25,6 +27,11 @@ type private ShellTestDestination =
     | Account of int
     | Reports
     | Settings
+
+let private exampleServices = Example.Server.Config.load () |> Example.Server.Services.create
+let private exampleRoutes = Example.Server.Program.routes exampleServices
+let private getRoutes = choose [ exampleRoutes; Handler.routes ]
+let private postRoutes = choose [ exampleRoutes; Handler.postRoutes ]
 
 let private mutationStatus path (origin: string) (contentType: string) contentLength =
     let context = DefaultHttpContext()
@@ -39,7 +46,7 @@ let private mutationStatus path (origin: string) (contentType: string) contentLe
     context.Response.Body <- new MemoryStream()
     let next: HttpFunc = fun current -> task { return Some current }
 
-    Handler.postRoutes next context
+    postRoutes next context
     |> Async.AwaitTask
     |> Async.RunSynchronously
     |> ignore
@@ -72,7 +79,7 @@ let private postFormResponse (reference: string) (fields: (string * string) list
     context.Response.Body <- new MemoryStream()
     let next: HttpFunc = fun current -> task { return Some current }
 
-    Handler.postRoutes next context
+    postRoutes next context
     |> Async.AwaitTask
     |> Async.RunSynchronously
     |> ignore
@@ -120,7 +127,7 @@ let private routeResponseWithCookie (reference: string) (cookie: string) =
 
     try
         let result =
-            Handler.routes next context |> Async.AwaitTask |> Async.RunSynchronously
+            getRoutes next context |> Async.AwaitTask |> Async.RunSynchronously
 
         context.Response.Body.Position <- 0L
         use reader = new StreamReader(context.Response.Body)
@@ -462,7 +469,7 @@ let tests =
               Expect.stringContains resizable "role=\"separator\"" "resizable layout exposes its handle as a separator"
 
               let resizablePageHtml =
-                  View.documentWithPage Registry.navigation Components.resizableRegistration Components.resizablePage
+                  View.documentWithPage Registry.navigation Docs.ComponentPages.Resizable.View.resizableRegistration Docs.ComponentPages.Resizable.View.resizablePage
                   |> Render.toHtmlDocString
 
               Expect.stringContains
@@ -900,7 +907,7 @@ let tests =
               Expect.stringContains tags "aria-label=\"Remove reviewed\"" "removal has a native accessible name"
               Expect.isFalse (tags.Contains("<label")) "the application owns labels and field feedback"
 
-              let calendar = Components.calendarWeekExample |> Render.toString
+              let calendar = Docs.ComponentPages.WeekCalendar.View.calendarWeekExample |> Render.toString
               Expect.stringContains calendar "data-view=\"week\"" "calendar renders one focused view"
 
               Expect.isFalse
@@ -951,7 +958,7 @@ let tests =
 
               Expect.stringContains unavailableCalendar "Schedule unavailable." "unavailable calendar state is explicit"
 
-              let media = Components.mediaLibraryExample |> Render.toString
+              let media = Docs.ComponentPages.MediaLibrary.View.mediaLibraryExample |> Render.toString
 
               Expect.stringContains
                   media
@@ -1343,7 +1350,7 @@ let tests =
               Expect.stringContains html "Choose appointment" "the custom clock trigger is named"
               Expect.stringContains html "data-time-option=\"13:15\"" "the list offers complete times"
               Expect.stringContains html ">13:15</button>" "24-hour option labels do not depend on selection"
-              Expect.isTrue (Components.formControlRegistrations |> List.exists (fun page -> page.path = "/components/time-picker")) "TimePicker belongs to Form controls"
+              Expect.isTrue (Docs.Catalog.ComponentRegistry.formControlRegistrations |> List.exists (fun page -> page.path = "/components/time-picker")) "TimePicker belongs to Form controls"
               let _, pageHtml = routeResponse "/components/time-picker"
               Expect.isFalse (pageHtml.Contains "time-picker-form") "the component page does not own a form workflow"
               Expect.isFalse (pageHtml.Contains "Server-rendered time:") "workflow results belong to Application"
@@ -1458,10 +1465,10 @@ let tests =
           }
 
           test "Calendar exposes focused day, week, month and year views" {
-              let day = Components.calendarDayExample |> Render.toString
-              let week = Components.calendarWeekExample |> Render.toString
-              let month = Components.calendarMonthExample |> Render.toString
-              let year = Components.calendarYearExample |> Render.toString
+              let day = Docs.ComponentPages.DayCalendar.View.calendarDayExample |> Render.toString
+              let week = Docs.ComponentPages.WeekCalendar.View.calendarWeekExample |> Render.toString
+              let month = Docs.ComponentPages.MonthCalendar.View.calendarMonthExample |> Render.toString
+              let year = Docs.ComponentPages.YearCalendar.View.calendarYearExample |> Render.toString
               Expect.stringContains day "data-view=\"day\"" "day is a dedicated view"
               Expect.stringContains week "data-view=\"week\"" "week is a dedicated view"
               Expect.stringContains month "data-view=\"month\"" "month is a dedicated view"
@@ -1487,13 +1494,13 @@ let tests =
                   "year date destinations summarize matching events"
 
               for registration in
-                  [ Components.dayCalendarRegistration
-                    Components.weekCalendarRegistration
-                    Components.monthCalendarRegistration
-                    Components.yearCalendarRegistration ] do
+                  [ Docs.ComponentPages.DayCalendar.View.dayCalendarRegistration
+                    Docs.ComponentPages.WeekCalendar.View.weekCalendarRegistration
+                    Docs.ComponentPages.MonthCalendar.View.monthCalendarRegistration
+                    Docs.ComponentPages.YearCalendar.View.yearCalendarRegistration ] do
                   Expect.equal registration.category "Components" "calendar components are shared data display"
 
-              let compact = Components.compactMonthCalendar |> Render.toString
+              let compact = Docs.ComponentPages.MonthCalendar.View.compactMonthCalendar |> Render.toString
 
               Expect.equal
                   (Regex.Matches(compact, "role=\"gridcell\"").Count)
@@ -1603,7 +1610,7 @@ let tests =
               Expect.equal (routeStatus "/components/link") 200 "Link owns a real documentation route"
 
               Expect.isTrue
-                  (Components.actionRegistrations
+                  (Docs.Catalog.ComponentRegistry.actionRegistrations
                    |> List.exists (fun page -> page.path = "/components/link"))
                   "Link is discoverable under Actions"
 
@@ -1846,8 +1853,8 @@ let tests =
           }
 
           test "Public discovery contains canonical pages and excludes aliases and previews" {
-              let sitemap = Handler.sitemap
-              let robots = Handler.robots
+              let sitemap = Docs.Discovery.Handler.sitemap
+              let robots = Docs.Discovery.Handler.robots
 
               for page in Registry.all do
                   Expect.stringContains sitemap $"<loc>https://fve.meiermade.com{page.path}</loc>" page.path
@@ -1889,7 +1896,7 @@ let tests =
                               Some Examples.gallery
                           else
                               None)
-                      |> Option.orElseWith (fun () -> Components.tryPage page.path)
+                      |> Option.orElseWith (fun () -> ComponentCatalog.tryPage page.path)
                       |> Option.isNone
                   then
                       let description =
@@ -2083,14 +2090,14 @@ after"""
           }
 
           test "Popover and Dropdown menu teach distinct content and menu compositions" {
-              let popovers = Components.examplesFor "popover"
+              let popovers = ComponentCatalog.examplesFor "popover"
               Expect.sequenceEqual (popovers |> List.map _.title)
                   ["Content panel"; "With form"; "Side and alignment"; "Custom native trigger"]
                   "ordinary Button triggers and content precede the native factory"
               for example in popovers |> List.take 3 do
                   Expect.stringContains example.source "fvePopoverTrigger { fveButton" "basic recipes reuse Button"
                   Expect.isFalse (example.source.Contains "triggerAttributes") "standard examples do not recreate native Button presentation"
-              let menus = Components.examplesFor "dropdown-menu" |> List.map _.title
+              let menus = ComponentCatalog.examplesFor "dropdown-menu" |> List.map _.title
               Expect.sequenceEqual (menus |> List.skip 1 |> List.take 6)
                   ["Icons"; "Keyboard hints"; "Checkboxes"; "Radio choices"; "Disabled items"; "Destructive action"]
                   "focused capabilities precede complex recipes"
@@ -2101,7 +2108,7 @@ after"""
           }
 
           test "Button documentation leads with sizes, colors and variants before compositions" {
-              let examples = Components.examplesFor "button"
+              let examples = ComponentCatalog.examplesFor "button"
               Expect.sequenceEqual (examples |> List.skip 1 |> List.take 3 |> List.map _.title)
                   ["Sizes"; "Colors"; "Variants"] "fundamentals precede state and composition recipes"
               let sizes = examples |> List.find (fun example -> example.title = "Sizes")
@@ -2110,12 +2117,12 @@ after"""
                   Expect.stringContains html ($"size=\"{value}\"") "each shared size is demonstrated"
               Expect.stringContains sizes.source "fveIcon" "the copied recipe teaches ordinary square icon children"
               for key in ["button"; "dropdown-menu"; "table"] do
-                  let titles = Components.examplesFor key |> List.map _.title
+                  let titles = ComponentCatalog.examplesFor key |> List.map _.title
                   Expect.isGreaterThan (titles |> List.findIndex ((=) "Row actions")) 3 "row actions follow basic component capabilities"
           }
 
           test "Input examples render individual native fields and templates submit complete forms" {
-              let examples = Components.examplesFor "input"
+              let examples = ComponentCatalog.examplesFor "input"
 
               let sizing =
                   examples
@@ -2536,7 +2543,7 @@ after"""
 
           test "Retired row and workflow compositions have no public catalog or API" {
               for path in [ "/components/item"; "/components/steps" ] do
-                  Expect.isNone (Components.tryPage path) "there is no replacement component page"
+                  Expect.isNone (ComponentCatalog.tryPage path) "there is no replacement component page"
                   Expect.isFalse (Catalog.componentRegistrations |> List.exists (fun page -> page.path = path)) "retired compositions do not appear in navigation"
               let exported = typeof<CardBuilder>.Assembly.GetExportedTypes() |> Array.map _.Name |> Set.ofArray
               for name in [ "ItemVariant"; "StepState"; "ItemDsl"; "StepsDsl"; "ItemAttributes"; "StepAttributes" ] do
@@ -2544,8 +2551,8 @@ after"""
           }
 
           test "Theming owns an inventory-backed public CSS variable reference and scoped examples" {
-              let page = Components.tryPage "/guides/theming" |> Option.get
-              let html = View.document Registry.navigation Components.themingRegistration |> Render.toHtmlDocString
+              let page = ComponentCatalog.tryPage "/guides/theming" |> Option.get
+              let html = View.document Registry.navigation Docs.Guides.ComponentPages.themingRegistration |> Render.toHtmlDocString
               Expect.equal ThemeTokens.palettes.Length 70 "all seven action palettes expose their ten override fields"
               let state = ThemeTokens.select "" "all" 1
               let referenceHtml =
@@ -2593,7 +2600,7 @@ after"""
               let assets = SideNavPreferences.assetsWithNonce (Some "side-nav-nonce") |> Render.toString
               Expect.stringContains assets "nonce=\"side-nav-nonce\"" "the initializer uses the caller's CSP nonce"
               Expect.isFalse (assets.Contains("type=\"module\"")) "pre-paint preparation does not wait for modules"
-              let html = View.documentWithPageForAndNonce (Some "page-nonce") None Registry.navigation Components.sideNavRegistration Components.sideNavPage |> Render.toHtmlDocString
+              let html = View.documentWithPageForAndNonce (Some "page-nonce") None Registry.navigation Docs.ComponentPages.SideNav.View.sideNavRegistration Docs.ComponentPages.SideNav.View.sideNavPage |> Render.toHtmlDocString
               let early = html.IndexOf("group.dataset.fveSideNavPrepared", StringComparison.Ordinal)
               let bundle = html.IndexOf("src=\"/assets/app.js\"", StringComparison.Ordinal)
               Expect.isTrue (early >= 0 && early < bundle) "native preference preparation runs in the head before the application"
@@ -2606,11 +2613,11 @@ after"""
                   "appearance is not an installable UI component"
 
               Expect.isTrue
-                  (Components.guideRegistrations
+                  (Docs.Catalog.ComponentRegistry.guideRegistrations
                    |> List.exists (fun page -> page.path = "/guides/theming"))
                   "appearance belongs in Guides"
 
-              let page = Components.tryPage "/guides/theming" |> Option.get
+              let page = ComponentCatalog.tryPage "/guides/theming" |> Option.get
 
               Expect.equal page.sections.Head.id "theme" "the guide leads with a focused working theme example"
 
@@ -2666,7 +2673,7 @@ after"""
               System.IO.Directory.CreateDirectory directory |> ignore
 
               try
-                  let examples = Components.allExamples () @ ComponentDocumentation.allExamples ()
+                  let examples = ComponentCatalog.allExamples () @ ComponentDocumentation.allExamples ()
 
                   let sources =
                       (examples |> List.map (fun example -> example.id, example.source))
@@ -2674,7 +2681,7 @@ after"""
                       @ ComponentGuideExamples.copiedSources ()
                       @ ([ "typography"; "step-input"; "step-input-help" ]
                          |> List.map (fun id ->
-                             "content-" + id, Components.exampleImports + "\n\n" + Showcase.sourceFor id))
+                             "content-" + id, Docs.Common.SamplesExamples.exampleImports + "\n\n" + Showcase.sourceFor id))
 
                   let samples =
                       sources
@@ -2775,7 +2782,7 @@ after"""
 
                   Expect.stringContains
                       html
-                      ("href=\"" + Example.Server.Hosting.sourceUrl + "\"")
+                      ("href=\"" + exampleServices.config.sourceUrl + "\"")
                       "the top bar links to the real consumer project"
 
                   Expect.stringContains
@@ -2871,14 +2878,14 @@ after"""
           test "Browser review states keep addresses and navigation server-owned" {
               for expanded in [false; true] do
                   for state in ["summary"; "details"; "empty"] do
-                      let html = Components.browserReviewFrame expanded state |> Render.toString
-                      let href = Components.browserReviewHref expanded state |> System.Net.WebUtility.HtmlEncode
+                      let html = Docs.ComponentPages.Browser.View.browserReviewFrame expanded state |> Render.toString
+                      let href = Docs.ComponentPages.Browser.View.browserReviewHref expanded state |> System.Net.WebUtility.HtmlEncode
                       Expect.stringContains html ($"data-browser-url=\"{href}\"") "the displayed address resolves to the rendered state"
                       Expect.stringContains html ($"data-review-state=\"{state}\"") "the server chooses the state"
                       Expect.stringContains html "aria-label=\"Back\"" "back is always represented, including its disabled boundary"
                       Expect.stringContains html "aria-label=\"Forward\"" "forward is always represented, including its disabled boundary"
                       Expect.stringContains html "Review state:" "the current state remains selectable at either size"
-              let fallback = Components.browserReviewFrame false "unrecognized" |> Render.toString
+              let fallback = Docs.ComponentPages.Browser.View.browserReviewFrame false "unrecognized" |> Render.toString
               Expect.stringContains fallback "data-review-state=\"summary\"" "unknown states use the first supported state"
               Expect.isFalse (fallback.Contains("unrecognized")) "unsupported input does not become a displayed or navigable address"
           }
@@ -2909,7 +2916,7 @@ after"""
           }
 
           test "Specification frames complete product documents without duplicating review chrome" {
-              for page in Example.Server.Specification.workflowPages do
+              for page in Example.Server.Specification.View.workflowPages do
                   let status, html = routeResponse ("/examples/specification/" + page)
                   Expect.equal status 200 "the owning review page resolves"
                   let fixture = Regex.Match(html, "<iframe[^>]+src=\"([^\"]+)\"")
@@ -2979,7 +2986,7 @@ after"""
               let next: HttpFunc = fun current -> task { return Some current }
 
               try
-                  let result = Handler.postRoutes next context |> Async.AwaitTask |> Async.RunSynchronously
+                  let result = postRoutes next context |> Async.AwaitTask |> Async.RunSynchronously
                   Expect.isSome result "the registered progress route handles the request"
                   Expect.stringContains context.Response.ContentType "text/event-stream" "one streaming response"
                   context.Response.Body.Position <- 0L
@@ -3436,7 +3443,7 @@ after"""
               for forbidden in ["Example.Server"; "Giraffe"; "Microsoft.AspNetCore.Http"] do
                   Expect.isFalse (viewDependencies.Contains forbidden) "shared product views do not depend on the HTTP host"
 
-              for assembly in [ owned; typeof<Example.Server.Navigation.Intent>.Assembly ] do
+              for assembly in [ owned; typeof<Example.Server.Common.Navigation.Intent>.Assembly ] do
                   let dependencies = assembly.GetReferencedAssemblies() |> Seq.map _.Name |> Set.ofSeq
                   Expect.isFalse (dependencies.Contains "Docs") "the example runs without the catalog"
 
@@ -3456,7 +3463,7 @@ after"""
                   context.Response.Body <- new MemoryStream()
                   let next: HttpFunc = fun current -> task { return Some current }
 
-                  Example.Server.Hosting.routes next context
+                  Example.Server.Program.routes exampleServices next context
                   |> Async.AwaitTask
                   |> Async.RunSynchronously
                   |> ignore
@@ -3575,21 +3582,21 @@ after"""
           test
               "Every reusable component page leads with use, teaches installation and usage, and ends with its curated API" {
               let allComponentPages =
-                  Components.actionRegistrations
-                  @ Components.feedbackRegistrations
-                  @ Components.dataDisplayRegistrations
-                  @ Components.formControlRegistrations
-                  @ Components.navigationRegistrations
-                  @ Components.overlayRegistrations
-                  @ Components.compositionRegistrations
-                  @ Components.frameRegistrations
-                  @ Components.applicationNavigationRegistrations
-                  @ Components.applicationWorkflowRegistrations
-                  @ Components.applicationResourceRegistrations
+                  Docs.Catalog.ComponentRegistry.actionRegistrations
+                  @ Docs.Catalog.ComponentRegistry.feedbackRegistrations
+                  @ Docs.Catalog.ComponentRegistry.dataDisplayRegistrations
+                  @ Docs.Catalog.ComponentRegistry.formControlRegistrations
+                  @ Docs.Catalog.ComponentRegistry.navigationRegistrations
+                  @ Docs.Catalog.ComponentRegistry.overlayRegistrations
+                  @ Docs.Catalog.ComponentRegistry.compositionRegistrations
+                  @ Docs.Catalog.ComponentRegistry.frameRegistrations
+                  @ Docs.Catalog.ComponentRegistry.applicationNavigationRegistrations
+                  @ Docs.Catalog.ComponentRegistry.applicationWorkflowRegistrations
+                  @ Docs.Catalog.ComponentRegistry.applicationResourceRegistrations
 
               let apiComponentPages =
                   allComponentPages
-                  |> List.filter (fun registration -> registration.id <> Components.formLayoutsRegistration.id)
+                  |> List.filter (fun registration -> registration.id <> Docs.ComponentPages.FormLayouts.View.formLayoutsRegistration.id)
 
               let renderContent (content: HtmlElement list) = fragment { content } |> Render.toString
 
@@ -3661,7 +3668,7 @@ after"""
                       Expect.stringContains html "Mermaid.assets" "Mermaid shows its actual head setup, not an invented import"
 
               for registration in allComponentPages do
-                  let page = Components.tryPage registration.path |> Option.get
+                  let page = ComponentCatalog.tryPage registration.path |> Option.get
                   assertInstallation registration page
 
                   Expect.isFalse
@@ -3685,7 +3692,7 @@ after"""
                   | _ -> failtest $"{registration.title} does not use the shared On this page rail"
 
               for registration in apiComponentPages do
-                  let page = Components.tryPage registration.path |> Option.get
+                  let page = ComponentCatalog.tryPage registration.path |> Option.get
                   let reference = List.last page.sections
                   Expect.equal reference.id "api-reference" $"{registration.title} puts its curated public API last"
                   let html = renderContent reference.content
@@ -3728,14 +3735,14 @@ after"""
                       "val "
                       $"Documentation {registration.title} exposes public function signatures"
 
-              for registration in [ Components.noticeRegistration; Components.themingRegistration ] do
-                  let page = Components.tryPage registration.path |> Option.get
+              for registration in [ Docs.ComponentPages.Notice.View.noticeRegistration; Docs.Guides.ComponentPages.themingRegistration ] do
+                  let page = ComponentCatalog.tryPage registration.path |> Option.get
 
                   Expect.isTrue
                       (page.sections |> List.exists (fun section -> section.id = "api-reference"))
                       $"{registration.title} owns its shared public declarations without forcing the API ahead of setup"
 
-              let chartPage = Components.tryPage "/components/chart" |> Option.get
+              let chartPage = ComponentCatalog.tryPage "/components/chart" |> Option.get
               let chartSection id =
                   chartPage.sections |> List.find (fun section -> section.id = id) |> _.content |> renderContent
               Expect.isFalse ((chartSection "installation").Contains "button.js") "Chart itself does not require Button's module"
@@ -3745,7 +3752,7 @@ after"""
               Expect.isFalse ((System.Net.WebUtility.HtmlDecode(chartSection "usage")).Contains "import '../../Acme.Components") "Chart's import belongs to Installation, not Usage"
 
               let buttonReference =
-                  Components.tryPage "/components/button"
+                  ComponentCatalog.tryPage "/components/button"
                   |> Option.get
                   |> _.sections
                   |> List.last
@@ -3779,7 +3786,7 @@ after"""
                       "Button API does not advertise retired styling operations or enums"
 
               let linkReference =
-                  Components.tryPage "/components/link"
+                  ComponentCatalog.tryPage "/components/link"
                   |> Option.get
                   |> _.sections
                   |> List.last
@@ -3805,7 +3812,7 @@ after"""
                   Expect.isFalse (linkReference.Contains unrelated) "Link does not inherit Button configuration"
 
               let selectReference =
-                  Components.tryPage "/components/select"
+                  ComponentCatalog.tryPage "/components/select"
                   |> Option.get
                   |> _.sections
                   |> List.last
@@ -3844,7 +3851,7 @@ after"""
                     [ "| Link of"; "| Action of"; "| Radio of"; "| Checkbox of"; "| Group of" ]
                     "/components/button-group", "", [ "| Button of"; "| Menu of" ] ] do
                   let reference =
-                      Components.tryPage path
+                      ComponentCatalog.tryPage path
                       |> Option.get
                       |> _.sections
                       |> List.last
@@ -3858,7 +3865,7 @@ after"""
                       Expect.isFalse (reference.Contains helper) $"{path} never advertises private helper types"
 
               let buttonGroupReference =
-                  Components.tryPage "/components/button-group"
+                  ComponentCatalog.tryPage "/components/button-group"
                   |> Option.get
                   |> _.sections
                   |> List.last
@@ -3947,25 +3954,25 @@ after"""
               let render registration =
                   registration |> View.document Registry.navigation |> Render.toHtmlDocString
 
-              let overview = render Components.overviewRegistration
-              let installation = render Components.installationRegistration
+              let overview = render Docs.Catalog.ComponentRegistry.overviewRegistration
+              let installation = render Docs.ComponentPages.Installation.View.installationRegistration
 
               let componentRegistrations =
-                  Components.actionRegistrations
-                  @ Components.feedbackRegistrations
-                  @ Components.dataDisplayRegistrations
-                  @ Components.formControlRegistrations
-                  @ Components.navigationRegistrations
-                  @ Components.overlayRegistrations
-                  @ Components.compositionRegistrations
-                  @ Components.frameRegistrations
-                  @ Components.applicationNavigationRegistrations
-                  @ Components.applicationWorkflowRegistrations
-                  @ Components.applicationResourceRegistrations
-                  @ Components.pageExampleRegistrations
+                  Docs.Catalog.ComponentRegistry.actionRegistrations
+                  @ Docs.Catalog.ComponentRegistry.feedbackRegistrations
+                  @ Docs.Catalog.ComponentRegistry.dataDisplayRegistrations
+                  @ Docs.Catalog.ComponentRegistry.formControlRegistrations
+                  @ Docs.Catalog.ComponentRegistry.navigationRegistrations
+                  @ Docs.Catalog.ComponentRegistry.overlayRegistrations
+                  @ Docs.Catalog.ComponentRegistry.compositionRegistrations
+                  @ Docs.Catalog.ComponentRegistry.frameRegistrations
+                  @ Docs.Catalog.ComponentRegistry.applicationNavigationRegistrations
+                  @ Docs.Catalog.ComponentRegistry.applicationWorkflowRegistrations
+                  @ Docs.Catalog.ComponentRegistry.applicationResourceRegistrations
+                  @ Docs.Catalog.ComponentRegistry.pageExampleRegistrations
 
               let renderedComponents = componentRegistrations |> List.map render
-              let renderedGuides = Components.guideRegistrations |> List.map render
+              let renderedGuides = Docs.Catalog.ComponentRegistry.guideRegistrations |> List.map render
 
               let renderedDocumentationControls =
                   ComponentDocumentation.registrations |> List.map render
@@ -3985,7 +3992,7 @@ after"""
               Expect.equal (routeStatus "/components/chart") 200 "Chart has its own documentation route"
 
               Expect.isTrue
-                  (Components.dataDisplayRegistrations
+                  (Docs.Catalog.ComponentRegistry.dataDisplayRegistrations
                    |> List.exists (fun page -> page.path = "/components/chart"))
                   "Chart belongs to Data display"
 
@@ -4064,7 +4071,7 @@ after"""
                       setup
                       "default setup covers CSS, JavaScript, development watchers and a themed view"
 
-              let button = render Components.buttonRegistration
+              let button = render Docs.ComponentPages.Button.View.buttonRegistration
 
               Expect.isFalse
                   (button.Contains "id=\"runtime\"")
@@ -4103,7 +4110,7 @@ after"""
 
                       Expect.stringContains html "id=\"usage\"" $"{registration.path} has copyable usage"
 
-                      for example in Components.examplesFor (registration.path.Substring("/components/".Length)) do
+                      for example in ComponentCatalog.examplesFor (registration.path.Substring("/components/".Length)) do
                           let financialCopy =
                               @"\b(accounts?|transactions?|ledger|treasury|balances?|reconciliation|reconcile|statements?|invoice|payroll|receivables|USD|finance|financial|tax)\b"
 
@@ -4157,7 +4164,7 @@ after"""
                       - 1
 
                   let expectedExamples =
-                      Components.examplesFor (registration.path.Substring("/components/".Length))
+                      ComponentCatalog.examplesFor (registration.path.Substring("/components/".Length))
                       |> List.length
 
                   Expect.equal
@@ -4195,13 +4202,13 @@ after"""
                     "/components/page-top-bar", "page-top-bar" ] do
                   Expect.stringContains
                       (render (
-                          Components.allRegistrations
+                          Docs.Catalog.ComponentRegistry.allRegistrations
                           |> List.find (fun registration -> registration.path = path)
                       ))
                       $"dotnet fve add {selector} "
                       $"{path} installs its owning source selector"
 
-              for registration, html in List.zip Components.guideRegistrations renderedGuides do
+              for registration, html in List.zip Docs.Catalog.ComponentRegistry.guideRegistrations renderedGuides do
                   Expect.stringContains
                       html
                       "data-docs-layout=\"article\""
@@ -4279,11 +4286,11 @@ after"""
                   "overview continues to installation"
 
               Expect.equal
-                  (Components.guideRegistrations |> List.map _.title)
+                  (Docs.Catalog.ComponentRegistry.guideRegistrations |> List.map _.title)
                   [ "Using signals"; "Theming" ]
                   "only component-specific, example-led guides remain"
 
-              let theming = render Components.themingRegistration
+              let theming = render Docs.Guides.ComponentPages.themingRegistration
               Expect.stringContains theming "rel=\"prev\" href=\"/guides/using-signals\"" "theming follows signals"
 
               Expect.stringContains
@@ -5647,7 +5654,7 @@ after"""
                       expected
                       "ordinary styling, descriptions and lifecycle actions compose with owned behavior"
 
-              let confirmationHtml = Components.itemDeletionDialog |> Render.toString
+              let confirmationHtml = Docs.ComponentPages.Dialog.View.itemDeletionDialog |> Render.toString
 
               Expect.stringContains
                   confirmationHtml
@@ -5687,7 +5694,7 @@ after"""
                   "pending presentation reads the real request signal"
 
               let validationHtml =
-                  Components.itemDeletionContent (Some "The value is still referenced.")
+                  Docs.ComponentPages.Dialog.View.itemDeletionContent (Some "The value is still referenced.")
                   |> Render.toString
 
               Expect.stringContains validationHtml "role=\"alert\"" "server validation is announced"
@@ -6159,7 +6166,7 @@ after"""
               let custom =
                   fveButton {
                       _color Color.Custom
-                      _palette Components.customButtonPalette
+                      _palette Docs.ComponentPages.Button.View.customButtonPalette
                       _variant ButtonVariant.Soft
                       _style "margin:1px"
                       "Save <draft>"
@@ -6190,15 +6197,15 @@ after"""
           }
 
           test "Table records, selection, canvas, and optional section headers preserve their contracts" {
-              let defaults = Components.simpleTeamTable |> Render.toString
+              let defaults = Docs.ComponentPages.Table.View.simpleTeamTable |> Render.toString
               Expect.isFalse (defaults.Contains "hover-rows=\"true\"") "row hover is not enabled by default"
-              let hover = Components.hoverTeamTable |> Render.toString
+              let hover = Docs.ComponentPages.Table.View.hoverTeamTable |> Render.toString
               Expect.stringContains hover "hover-rows=\"true\"" "row hover is an explicit typed opt-in"
               Expect.stringContains hover "--fve-table-row-hover:var(--fve-brand-subtle)" "table-scoped hover color remains consumer-owned"
               let disabled = fveTable { _ariaLabel "No hover"; _hoverRows false } |> Render.toString
               Expect.stringContains disabled "hover-rows=\"false\"" "row hover can be explicitly disabled"
               Expect.throws (fun () -> fveTable { _ariaLabel "Invalid hover"; _attr("hover-rows", "sometimes") } |> ignore) "invalid hover configuration fails at rendering"
-              let html = Components.selectableTeamTable |> Render.toString
+              let html = Docs.ComponentPages.Table.View.selectableTeamTable |> Render.toString
               Expect.equal (Regex.Matches(html, "<fve-table ").Count) 1 "one presentation host owns the native parts"
               Expect.stringContains html "name=\"memberIds\"" "application-owned native checkboxes submit record keys"
               Expect.stringContains html "el.indeterminate" "the application composes its mixed select-all state"
@@ -6256,7 +6263,7 @@ after"""
 
               Expect.stringContains sortedHtml "mobile-layout=\"records\"" "record presentation is explicitly requested"
               Expect.stringContains sortedHtml "data-mobile-cell=\"primary\"" "the caller selects its primary cell"
-              let empty = Components.emptyTeamTable |> Render.toString
+              let empty = Docs.ComponentPages.Table.View.emptyTeamTable |> Render.toString
               Expect.stringContains empty "No team members" "empty content remains caller-owned"
 
               let sectionHtml =
@@ -6688,8 +6695,8 @@ after"""
                   "Pagination rejects multiple current pages"
 
               let paginationPage3Html =
-                  Components.paginationPageFor 3
-                  |> View.documentWithPage Registry.navigation Components.paginationRegistration
+                  Docs.ComponentPages.Pagination.View.paginationPageFor 3
+                  |> View.documentWithPage Registry.navigation Docs.ComponentPages.Pagination.View.paginationRegistration
                   |> Render.toHtmlDocString
 
               Expect.stringContains
@@ -6708,8 +6715,8 @@ after"""
                   "Docs pagination links to a targeted local next page"
 
               let paginationPage8Html =
-                  Components.paginationPageFor 99
-                  |> View.documentWithPage Registry.navigation Components.paginationRegistration
+                  Docs.ComponentPages.Pagination.View.paginationPageFor 99
+                  |> View.documentWithPage Registry.navigation Docs.ComponentPages.Pagination.View.paginationRegistration
                   |> Render.toHtmlDocString
 
               Expect.stringContains
@@ -7142,14 +7149,14 @@ after"""
                       |> ignore)
                   "DropdownMenu content cannot be empty"
 
-              let docsMenuHtml = Components.dropdownMenuRegion false |> Render.toString
+              let docsMenuHtml = Docs.ComponentPages.DropdownMenu.View.dropdownMenuRegion false |> Render.toString
 
               Expect.stringContains
                   docsMenuHtml
                   "href=\"/components/dropdown-menu#components-dropdown-menu\""
                   "Docs menu uses a real local typed destination"
 
-              let patchedHtml = Components.patchedDropdownMenuRegion |> Render.toString
+              let patchedHtml = Docs.ComponentPages.DropdownMenu.View.patchedDropdownMenuRegion |> Render.toString
 
               Expect.stringContains
                   patchedHtml
@@ -7332,7 +7339,7 @@ after"""
           }
 
           test "Select examples each teach one control with complete remote source" {
-              let examples = Components.examplesFor "select"
+              let examples = ComponentCatalog.examplesFor "select"
 
               Expect.sequenceEqual
                   (examples |> List.map _.title)
@@ -7396,7 +7403,7 @@ after"""
                       (remote.source.Contains unrelated)
                       "copied remote source excludes other modes and regression-fixture wiring"
 
-              let page = Components.tryPage "/components/select" |> Option.get
+              let page = ComponentCatalog.tryPage "/components/select" |> Option.get
               let html = fragment { page.sections |> List.collect _.content } |> Render.toString
 
               Expect.isFalse

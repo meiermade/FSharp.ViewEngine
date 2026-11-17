@@ -37,8 +37,8 @@ module Commands =
 
     let private framework (value:string) =
         match value with
-        | "net8.0" | "net9.0" | "net10.0" -> Ok value
-        | _ -> Error "--framework must be net8.0, net9.0, or net10.0."
+        | "net8.0" | "net9.0" | "net10.0" | "net11.0" -> Ok value
+        | _ -> Error "--framework must be net8.0, net9.0, net10.0, or net11.0."
 
     let private installedComponentNames (registry:ComponentRegistry) (configuration:Configuration) =
         let byName = registry.Components |> Seq.map (fun item -> item.Name, item) |> Map.ofSeq

@@ -332,14 +332,14 @@ module FelizApi =
                                     prop.id "signup"
                                     prop.className "form"
                                     prop.children [
-                                        Html.label [ prop.htmlFor "email"; prop.children [ Html.text "Email" ] ]
+                                        Html.label [ prop.for' "email"; prop.children [ Html.text "Email" ] ]
                                         Html.input [
                                             prop.id "email"
                                             prop.name "email"
                                             prop.type' "email"
                                             prop.placeholder "name@fve.meiermade.com"
                                         ]
-                                        Html.label [ prop.htmlFor "plan"; prop.children [ Html.text "Plan" ] ]
+                                        Html.label [ prop.for' "plan"; prop.children [ Html.text "Plan" ] ]
                                         Html.select [
                                             prop.id "plan"
                                             prop.name "plan"
@@ -350,7 +350,7 @@ module FelizApi =
                                             ]
                                         ]
                                         Html.label [
-                                            prop.htmlFor "terms"
+                                            prop.for' "terms"
                                             prop.children [
                                                 Html.input [ prop.id "terms"; prop.type' "checkbox"; prop.isChecked true ]
                                                 Html.text " Accept terms"

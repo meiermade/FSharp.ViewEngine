@@ -30,7 +30,7 @@ Follow the [component installation guide](https://fve.meiermade.com/components/i
 
 ## Repository development
 
-Requires the .NET 10 SDK, Node.js/npm, and Tailwind CSS CLI v4.2.2 on `PATH`:
+Requires the .NET 11 SDK (.NET 10 also installed for compatibility tests), Node.js/npm, and Tailwind CSS CLI v4.2.2 on `PATH`:
 
 ```sh
 cd sln

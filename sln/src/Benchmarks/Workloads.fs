@@ -136,6 +136,19 @@ module Validation =
         countFrom 0 0
 
     let run () =
+        let comparisonDocuments =
+            [ Benchmarks.ViewEngineApi.buildDocument () |> Render.toHtmlDocString
+              Benchmarks.OxpeckerApi.buildDocument () |> Oxpecker.ViewEngine.Render.toHtmlDocString
+              Benchmarks.GiraffeApi.buildDocument () |> Giraffe.ViewEngine.RenderView.AsString.htmlDocument
+              Benchmarks.FelizApi.buildDocument () |> Feliz.ViewEngine.Render.htmlDocument ]
+            // These renderers use equivalent spellings for checked and the copyright character.
+            |> List.map (fun html ->
+                html.Replace(" checked=\"true\"", " checked", System.StringComparison.Ordinal)
+                    .Replace("&#169;", "©", System.StringComparison.Ordinal))
+
+        if comparisonDocuments |> List.distinct |> List.length <> 1 then
+            failwith "All comparison engines must render the same document, including native label associations."
+
         let encoded = AttributeValues.render AttributeValues.encoded
         if encoded.Contains("\"<tag>\"", System.StringComparison.Ordinal)
            || not (encoded.Contains("&quot;", System.StringComparison.Ordinal))
