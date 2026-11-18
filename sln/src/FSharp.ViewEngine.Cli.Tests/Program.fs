@@ -460,6 +460,10 @@ System.IO.File.WriteAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__, "result
                 Expect.equal (File.ReadAllText target) "installed source" "the owned path is replaced"
                 Expect.equal (File.ReadAllText victim) "external content" "existing hardlink targets are never opened for writing"
                 Expect.equal (File.ReadAllText(target + ".fve-tmp")) "external content" "predictable staging paths are not reused"
+                let occupied = Path.Combine(root, "occupied.fs")
+                Directory.CreateDirectory occupied |> ignore
+                Expect.throws (fun () -> Text.writeAtomic occupied "cannot replace a directory") "failed moves propagate"
+                Expect.sequenceEqual (Directory.GetFiles(root, "*.fve-tmp")) [|target + ".fve-tmp"|] "failed moves clean up only their own staging file"
 
     testCase "initializing an existing Core script does not introduce a second package reference" <| fun _ ->
         withTemp <| fun root ->

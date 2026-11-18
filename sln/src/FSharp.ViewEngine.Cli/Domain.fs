@@ -59,12 +59,14 @@ module Text =
         let directory = Path.GetDirectoryName path
         Directory.CreateDirectory directory |> ignore
         let temporary = path + "." + Guid.NewGuid().ToString("N") + ".fve-tmp"
-        use staged = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None)
+        let staged = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None)
         try
             staged.Write(Encoding.UTF8.GetBytes(normalize content))
             staged.Dispose()
             File.Move(temporary, path, true)
-        finally File.Delete temporary
+        finally
+            staged.Dispose()
+            File.Delete temporary
 
 [<RequireQualifiedAccess>]
 module Validation =
