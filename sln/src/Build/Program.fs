@@ -45,16 +45,21 @@ let exec workDir cmd args =
 
 let dotnet workdir args = exec workdir "dotnet" args
 
-let buildDocsJs () =
-    exec docsDir "npm" ["ci"] |> Async.RunSynchronously
-    exec docsDir "npm" ["run"; "build:js"] |> Async.RunSynchronously
+let restoreFrontendTools directory =
+    exec directory "npm" ["ci"] |> Async.RunSynchronously
 
-let tailwindcss workDir args =
-    // The standalone CLI's native Oxide loader fails with FAKE's bare command on Linux.
-    let executable =
-        ProcessUtils.tryFindFileOnPath "tailwindcss"
-        |> Option.defaultWith (fun () -> failwith "tailwindcss is required on PATH.")
-    exec workDir executable args
+let frontendTool directory name =
+    let extension = if Environment.isWindows then ".cmd" else ""
+    directory </> "node_modules" </> ".bin" </> (name + extension)
+
+let buildDocsJs watch =
+    exec docsDir (frontendTool slnDir "esbuild")
+        (["js/app.js"; "js/appearance.js"; "--bundle"; "--format=esm"; "--splitting";
+          "--outdir=wwwroot/assets"; "--metafile=obj/components-assets.json"; "--minify"]
+         @ (if watch then ["--watch=forever"] else []))
+
+let tailwindcss toolsDirectory workDir args =
+    exec workDir (frontendTool toolsDirectory "tailwindcss") args
 
 let packageProject (package:PackagePublishing.Package) =
     srcDir </> package.Id </> $"{package.Id}.fsproj"
@@ -95,7 +100,7 @@ let getVersion () =
 
 let corePaths = [ "sln/src/FSharp.ViewEngine" ]
 let cliPaths = [ "sln/src/FSharp.ViewEngine.Cli"; "sln/src/FSharp.ViewEngine.Components" ]
-let docsPaths = [ "sln/src/Docs"; "sln/src/FSharp.ViewEngine.Components"; "sln/src/FSharp.ViewEngine"; "sln/Dockerfile" ]
+let docsPaths = [ "sln/src/Docs"; "sln/src/FSharp.ViewEngine.Components"; "sln/src/FSharp.ViewEngine"; "sln/src/Build"; "sln/Dockerfile"; "sln/package.json"; "sln/package-lock.json" ]
 
 Target.create "ResolveReleaseTransaction" <| fun _ ->
     let requested = Environment.environVarOrDefault "PACKAGE_SELECTION" "auto"
@@ -294,7 +299,9 @@ Target.create "Test" <| fun _ ->
         |> Async.RunSynchronously
     )
 
-    buildDocsJs ()
+    // Release callers use --single-target, so Test owns its asset prerequisites too.
+    restoreFrontendTools slnDir
+    buildDocsJs false |> Async.RunSynchronously
     dotnet docsTestsDir ["run"]
     |> Async.RunSynchronously
 
@@ -378,15 +385,27 @@ Target.create "CheckInstalledComponents" (fun _ ->
         |> Async.RunSynchronously
 )
 
-Target.create "BuildDocsJs" (fun _ -> buildDocsJs ())
+Target.create "RestoreFrontendTools" (fun _ -> restoreFrontendTools slnDir)
+Target.create "RestoreExampleFrontend" (fun _ -> restoreFrontendTools exampleServerDir)
+
+Target.create "BuildDocsJs" (fun _ -> buildDocsJs false |> Async.RunSynchronously)
+
+Target.create "VerifyTailwind" (fun _ ->
+    TailwindContracts.verify
+        (fun input output ->
+            tailwindcss slnDir slnDir ["--input"; input; "--output"; output; "--minify"]
+            |> Async.RunSynchronously)
+        (srcDir </> "FSharp.ViewEngine.Components"))
 
 Target.create "WatchDocs" (fun _ ->
     let docsUrl = WatchDocs.defaultUrl
 
     WatchDocs.runExclusiveWatcher "WatchDocs" docsUrl <| fun () ->
         Trace.trace $"Starting the FSharp.ViewEngine Docs at {docsUrl}"
-        exec docsDir "npm" ["ci"] |> Async.RunSynchronously
-        exec docsDir "npm" ["run"; "build:js"] |> Async.RunSynchronously
+        // Restore only after replacing the previous watcher, which may still hold these tools open.
+        restoreFrontendTools slnDir
+        restoreFrontendTools exampleServerDir
+        buildDocsJs false |> Async.RunSynchronously
 
         let watchApp =
             CreateProcess.fromRawCommand "dotnet"
@@ -404,16 +423,16 @@ Target.create "WatchDocs" (fun _ ->
 
         let watchCss =
             // Imported package stylesheets are siblings of Docs, so watch their common root.
-            tailwindcss (System.IO.Path.GetDirectoryName docsDir)
+            tailwindcss slnDir srcDir
                 [ "--input"; "Docs/input.css"; "--output"; "Docs/wwwroot/css/output.css"
                   "--watch=always"; "--minify" ]
 
         let watchExampleCss =
-            tailwindcss srcDir
+            tailwindcss exampleServerDir srcDir
                 [ "--input"; "Example/Example.Server/input.css"; "--output"; "Example/Example.Server/wwwroot/examples/assets/css/output.css"
                   "--watch=always"; "--minify" ]
 
-        let watchJs = exec docsDir "npm" ["run"; "watch:js"]
+        let watchJs = buildDocsJs true
 
         Async.Parallel [| watchApp; watchCss; watchExampleCss; watchJs |]
         |> Async.RunSynchronously
@@ -429,10 +448,12 @@ Target.create "BenchmarkSmoke" <| fun parameters ->
     |> Async.RunSynchronously
 
 Target.create "BuildDocsCss" <| fun _ ->
-    Async.Parallel [|
-        tailwindcss docsDir [ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ]
-        tailwindcss exampleServerDir [ "--input"; "input.css"; "--output"; "wwwroot/examples/assets/css/output.css"; "--minify" ]
-    |] |> Async.RunSynchronously |> ignore
+    tailwindcss slnDir docsDir [ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ]
+    |> Async.RunSynchronously
+
+Target.create "BuildExampleCss" <| fun _ ->
+    tailwindcss exampleServerDir exampleServerDir [ "--input"; "input.css"; "--output"; "wwwroot/examples/assets/css/output.css"; "--minify" ]
+    |> Async.RunSynchronously
 
 Target.create "PublishDocs" <| fun _ ->
     dotnet docsDir [
@@ -447,8 +468,14 @@ Target.create "Default" (fun _ -> Target.listAvailable())
 "Test" ==>! "Pack"
 "CleanNugets" ==>! "Pack"
 "Pack" ==>! "VerifyPackage"
+"RestoreFrontendTools" ==>! "BuildDocsCss"
+"RestoreFrontendTools" ==>! "BuildDocsJs"
+"RestoreFrontendTools" ==>! "VerifyTailwind"
+"RestoreExampleFrontend" ==>! "BuildExampleCss"
 "BuildDocsCss" ==>! "PublishDocs"
 "BuildDocsJs" ==>! "PublishDocs"
+"BuildExampleCss" ==>! "PublishDocs"
+"VerifyTailwind" ==>! "PublishDocs"
 "CheckInstalledComponents" ==>! "Test"
 
 Target.runOrDefaultWithArguments "Default"

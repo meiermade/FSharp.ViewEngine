@@ -4,9 +4,6 @@
   "allowScripts": {
     "@parcel/watcher": false
   },
-  "scripts": {
-    "build:css": "tailwindcss --input input.css --output wwwroot/examples/assets/css/output.css --minify"
-  },
   "overrides": {
     "@tailwindcss/typography": {
       "postcss-selector-parser": "6.1.6"

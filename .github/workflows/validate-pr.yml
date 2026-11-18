@@ -106,7 +106,9 @@ jobs:
         with:
           node-version: 24
           cache: npm
-          cache-dependency-path: e2e/package-lock.json
+          cache-dependency-path: |
+            e2e/package-lock.json
+            sln/package-lock.json
       - name: Install repository dependencies
         run: |
           dotnet tool restore
@@ -118,11 +120,6 @@ jobs:
           npm ci
           npx playwright install --with-deps chromium
         working-directory: ./e2e
-      - name: Install Tailwind CSS
-        run: |
-          curl -fsSLo "$RUNNER_TEMP/tailwindcss" https://github.com/tailwindlabs/tailwindcss/releases/download/v4.2.2/tailwindcss-linux-x64
-          chmod +x "$RUNNER_TEMP/tailwindcss"
-          echo "TAILWINDCSS_BIN=$RUNNER_TEMP/tailwindcss" >> "$GITHUB_ENV"
       - name: Generate, build, and render an isolated consumer
         run: npm run test:generated-consumer
         working-directory: ./e2e
