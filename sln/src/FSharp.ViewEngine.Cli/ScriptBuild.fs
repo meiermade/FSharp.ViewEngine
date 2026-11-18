@@ -78,7 +78,8 @@ module ScriptBuild =
                     if isNull target then npm else target.FullName
             if not (File.Exists npmCli) then invalidOp "Could not locate npm-cli.js. Install Node.js with npm and retry."
             let dependencies = packages |> dict
-            let manifest = JsonSerializer.Serialize({| ``private`` = true; dependencies = dependencies |})
+            let allowScripts = dict [ $"esbuild@{EsbuildVersion}", true; "@parcel/watcher", false ]
+            let manifest = JsonSerializer.Serialize({| ``private`` = true; dependencies = dependencies; allowScripts = allowScripts |})
             Text.writeAtomic (Path.Combine(directory, "package.json")) manifest
             output.WriteLine($"Preparing Tailwind {TailwindVersion} and esbuild {EsbuildVersion} (cached for later builds)...")
             let install = if File.Exists(Path.Combine(directory, "package-lock.json")) then "ci" else "install"

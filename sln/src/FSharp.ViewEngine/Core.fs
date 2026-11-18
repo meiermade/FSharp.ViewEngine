@@ -107,8 +107,9 @@ type FragmentElement(elements:HtmlElement seq) =
 type CommentElement(value:string) =
     inherit HtmlElement()
     do
-        if isNull value || value.Contains("--") || value.EndsWith("-", StringComparison.Ordinal) then
-            invalidArg (nameof value) "HTML comments cannot be null, contain '--', or end with '-'."
+        if isNull value || value.Contains("--") || value.EndsWith("-", StringComparison.Ordinal)
+           || value.StartsWith(">", StringComparison.Ordinal) || value.StartsWith("->", StringComparison.Ordinal) then
+            invalidArg (nameof value) "HTML comments cannot be null, start with '>' or '->', contain '--', or end with '-'."
     override _.Render(sb) = sb.Append("<!--").Append(value).Append("-->") |> ignore
 
 module private RenderHelpers =

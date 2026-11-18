@@ -192,6 +192,87 @@ let tests = testList "fve" [
             Expect.equal code 0 error
             Expect.isFalse ((File.ReadAllText project).Contains "ConsumerOwned.fs") "explicit overwrite restores managed source"
 
+    testCase "crafted manifest paths fail before any installation or deletion" <| fun _ ->
+        withTemp <| fun sandbox ->
+            let root = Path.Combine(sandbox, "consumer")
+            Directory.CreateDirectory root |> ignore
+            initialize root
+            let before = configuration root
+            let originalProject = File.ReadAllText(projectPath root)
+            let victim = Path.Combine(sandbox, "Avatar.fs")
+            let content = "keep this outside the consumer\n"
+            File.WriteAllText(victim, content)
+            let file path = { Component="avatar"; Path=path; RegistryVersion=before.RegistryVersion; RegistryChecksum=Text.checksum content }
+            let invalid = [
+                { before with Files=[|file "../Avatar.fs"|] }
+                { before with Files=[|file victim|] }
+                { before with Files=[|file "..\\Avatar.fs"|] }
+                { before with Project="../Outside.fsproj" }
+                { before with Modules=[|"../Avatar.fs"|] }
+                { before with Namespace="Injected\nmodule Payload" }
+                { before with Files=null }
+            ]
+            for manifest in invalid do
+                ConsumerProject.writeConfiguration (configPath root) manifest
+                let config = File.ReadAllText(configPath root)
+                for arguments in [["add"; "avatar"]; ["add"; "avatar"; "--overwrite"]; ["diff"]; ["build"]] do
+                    let code,_,error = invoke (arguments @ ["--config"; configPath root])
+                    Expect.equal code 2 error
+                    Expect.equal (File.ReadAllText victim) content "outside file survives even explicit overwrite"
+                    Expect.equal (File.ReadAllText(projectPath root)) originalProject "project is unchanged"
+                    Expect.equal (File.ReadAllText(configPath root)) config "manifest is unchanged"
+                    Expect.isFalse (Directory.Exists(Path.Combine(root, "Components"))) "no partial source writes"
+
+    testCase "installation rejects directory, file and configuration symlink escapes" <| fun _ ->
+        let kinds = ["directory"; "file"; "project"; "configuration"] @ (if OperatingSystem.IsWindows() then [] else ["backslash-directory"])
+        for kind in kinds do
+            withTemp <| fun sandbox ->
+                let root = Path.Combine(sandbox, "consumer")
+                let outside = Path.Combine(sandbox, "outside")
+                Directory.CreateDirectory root |> ignore
+                Directory.CreateDirectory outside |> ignore
+                initialize root
+                let victim = Path.Combine(outside, "Avatar.fs")
+                File.WriteAllText(victim, "outside content")
+                match kind with
+                | "directory" -> Directory.CreateSymbolicLink(Path.Combine(root, "Components"), outside) |> ignore
+                | "backslash-directory" ->
+                    Directory.CreateSymbolicLink(Path.Combine(root, "Components\\Legacy"), outside) |> ignore
+                    let before = configuration root
+                    let file = { Component="avatar"; Path="Components\\Legacy/Avatar.fs"; RegistryVersion=before.RegistryVersion; RegistryChecksum=Text.checksum "outside content" }
+                    ConsumerProject.writeConfiguration (configPath root) { before with Files=[|file|] }
+                | "file" ->
+                    Directory.CreateDirectory(Path.Combine(root, "Components")) |> ignore
+                    File.CreateSymbolicLink(componentPath root "Avatar.fs", victim) |> ignore
+                | "project" ->
+                    File.Delete(projectPath root)
+                    File.CreateSymbolicLink(projectPath root, victim) |> ignore
+                | _ ->
+                    let externalConfig = Path.Combine(outside, "fve.json")
+                    File.Move(configPath root, externalConfig)
+                    File.CreateSymbolicLink(configPath root, externalConfig) |> ignore
+                let project = File.ReadAllText(projectPath root)
+                let config = File.ReadAllText(configPath root)
+                let code,_,error = invoke ["add"; "avatar"; "--overwrite"; "--config"; configPath root]
+                Expect.equal code 2 error
+                Expect.isNonEmpty error "unsafe path rejection is explicit"
+                Expect.equal (File.ReadAllText victim) "outside content" "external target survives"
+                Expect.equal (File.ReadAllText(projectPath root)) project "project is untouched"
+                Expect.equal (File.ReadAllText(configPath root)) config "manifest is untouched"
+                Expect.isFalse (File.Exists(componentPath root "Foundation.fs")) "all paths are checked before writes"
+
+    testCase "initialization rejects an existing linked consumer before creating configuration" <| fun _ ->
+        withTemp <| fun sandbox ->
+            let root = Path.Combine(sandbox, "consumer")
+            Directory.CreateDirectory root |> ignore
+            let victim = Path.Combine(sandbox, "outside.fsproj")
+            File.WriteAllText(victim, "<Project></Project>")
+            File.CreateSymbolicLink(projectPath root, victim) |> ignore
+            let code,_,error = invoke ["init"; projectPath root]
+            Expect.equal code 2 error
+            Expect.equal (File.ReadAllText victim) "<Project></Project>" "linked project is never edited"
+            Expect.isFalse (File.Exists(configPath root)) "no partial configuration"
+
     testCase "repeat add preserves independently edited files and upgrades file-based manifests" <| fun _ ->
         withTemp <| fun root ->
             initialize root
@@ -362,6 +443,27 @@ System.IO.File.WriteAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__, "result
             Expect.equal code 2 "a missing authored stylesheet fails preflight"
             Expect.stringContains error "input.css" "missing input is named"
             Expect.equal (File.ReadAllText script) source "build cannot repair or replace authored inputs"
+
+    testCase "atomic writes never truncate existing target or staging hardlinks" <| fun _ ->
+        if not (OperatingSystem.IsWindows()) then
+            withTemp <| fun root ->
+                let victim, target = Path.Combine(root, "outside.txt"), Path.Combine(root, "owned.fs")
+                File.WriteAllText(victim, "external content")
+                for link in [target; target + ".fve-tmp"] do
+                    let start = System.Diagnostics.ProcessStartInfo("ln")
+                    start.ArgumentList.Add victim
+                    start.ArgumentList.Add link
+                    use child = System.Diagnostics.Process.Start start
+                    child.WaitForExit()
+                    Expect.equal child.ExitCode 0 "hardlink fixture created"
+                Text.writeAtomic target "installed source"
+                Expect.equal (File.ReadAllText target) "installed source" "the owned path is replaced"
+                Expect.equal (File.ReadAllText victim) "external content" "existing hardlink targets are never opened for writing"
+                Expect.equal (File.ReadAllText(target + ".fve-tmp")) "external content" "predictable staging paths are not reused"
+                let occupied = Path.Combine(root, "occupied.fs")
+                Directory.CreateDirectory occupied |> ignore
+                Expect.throws (fun () -> Text.writeAtomic occupied "cannot replace a directory") "failed moves propagate"
+                Expect.sequenceEqual (Directory.GetFiles(root, "*.fve-tmp")) [|target + ".fve-tmp"|] "failed moves clean up only their own staging file"
 
     testCase "initializing an existing Core script does not introduce a second package reference" <| fun _ ->
         withTemp <| fun root ->

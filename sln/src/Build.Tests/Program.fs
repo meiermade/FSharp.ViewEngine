@@ -50,6 +50,28 @@ let private browserShards workflow =
 
 let tests =
     testList "Package publishing" [
+        test "Tailwind contracts reject missing selectors and retired styles" {
+            TailwindContracts.checkOutput "Fixture" [".required"] [".retired"] ".required{display:block}"
+            Expect.throws
+                (fun () -> TailwindContracts.checkOutput "Fixture" [".required"] [".retired"] ".unrelated{}")
+                "missing component CSS fails verification"
+            Expect.throws
+                (fun () -> TailwindContracts.checkOutput "Fixture" [".required"] [".retired"] ".required{}.retired{}")
+                "retired CSS fails verification"
+        }
+
+        test "Tailwind contracts clean temporary CSS when compilation fails" {
+            let outputs = ResizeArray<string>()
+            Expect.throws
+                (fun () ->
+                    TailwindContracts.verify
+                        (fun _ output -> outputs.Add output; failwith "Compiler failed")
+                        (Path.GetTempPath()))
+                "compiler failure is not swallowed"
+            Expect.equal outputs.Count 1 "the compiler received a temporary output"
+            Expect.isFalse (File.Exists outputs[0]) "failed compilation leaves no temporary file"
+        }
+
         test "WatchDocs owns a stable loopback review URL" {
             Expect.equal WatchDocs.defaultUrl "http://127.0.0.1:5054" "Docs has one stable product-specific URL"
             for invalid in [ "https://localhost:5054"; "http://localhost:5054"; "http://127.0.0.1:5054/path"; "http://127.0.0.1:5054?state=ready" ] do

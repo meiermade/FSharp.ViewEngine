@@ -12,11 +12,10 @@ core_version="${GENERATED_CORE_VERSION:-0.0.0-generated}"
 cli_version="${GENERATED_CLI_VERSION:-0.0.1-generated}"
 fsharp_core_version="$(grep -Eo '<FveFSharpCorePackageVersion>[^<]+' "$sln_dir/src/FSharp.ViewEngine.Cli/FSharp.ViewEngine.Cli.fsproj" | cut -d'>' -f2)"
 nugets_dir="$repo_dir/nugets"
-tailwindcss_bin="${TAILWINDCSS_BIN:-$(command -v tailwindcss || true)}"
-[[ -n "$tailwindcss_bin" ]] || { echo 'tailwindcss is required.' >&2; exit 1; }
-# Reuse the repository's pinned browser-build tooling for this installed-source fixture.
-npm ci --prefix "$sln_dir/src/Docs"
-esbuild_bin="$sln_dir/src/Docs/node_modules/.bin/esbuild"
+# Reuse the repository's pinned frontend tools for this installed-source fixture.
+(cd "$sln_dir"; ./fake.sh RestoreFrontendTools --single-target)
+tailwindcss_bin="${TAILWINDCSS_BIN:-$sln_dir/node_modules/.bin/tailwindcss}"
+esbuild_bin="$sln_dir/node_modules/.bin/esbuild"
 rm -rf "$output_dir"
 mkdir -p "$output_dir/.nuget/packages"
 # NuGet's project graph needs one path identity, including macOS /tmp aliases.
@@ -104,7 +103,7 @@ cp "$output_dir/net11.0/global.json" "$template_dir/global.json"
 
 visual_dir="$output_dir/net11.0"
 mkdir -p "$visual_dir/App/wwwroot/scripts"
-for asset in prism.1.29.0.min.js prism-fsharp.1.29.0.min.js prism-python.1.29.0.min.js prism-typescript.1.29.0.min.js prism-bash.1.29.0.min.js prism-sql.1.29.0.min.js; do
+for asset in prism.1.30.0.min.js prism-fsharp.1.30.0.min.js prism-python.1.30.0.min.js prism-typescript.1.30.0.min.js prism-bash.1.30.0.min.js prism-sql.1.30.0.min.js; do
   cp "$sln_dir/src/Docs/wwwroot/scripts/$asset" "$visual_dir/App/wwwroot/scripts/$asset"
 done
 cp "$fixture_dir/GeneratedConsumer.fsproj" "$visual_dir/App/GeneratedConsumer.fsproj"
@@ -113,7 +112,7 @@ cp "$fixture_dir/input.css" "$visual_dir/App/input.css"
 mkdir -p "$visual_dir/App/js"
 cp "$fixture_dir/app.js" "$visual_dir/App/js/app.js"
 "$esbuild_bin" "$visual_dir/App/js/app.js" --bundle --format=esm --splitting --outdir="$visual_dir/App/wwwroot/assets" --minify
-"$tailwindcss_bin" --input "$visual_dir/App/input.css" --output "$visual_dir/App/wwwroot/output.css" --minify
+NODE_PATH="$sln_dir/node_modules" "$tailwindcss_bin" --input "$visual_dir/App/input.css" --output "$visual_dir/App/wwwroot/output.css" --minify
 (cd "$visual_dir/App"; restore_build GeneratedConsumer.fsproj)
 (cd "$visual_dir"; dotnet new sln --name GeneratedConsumer --format slnx --force >/dev/null; dotnet sln GeneratedConsumer.slnx add Acme.Components.fsproj App/GeneratedConsumer.fsproj >/dev/null)
 printf 'Generated consumer solution is ready at %s/GeneratedConsumer.slnx\n' "$visual_dir"

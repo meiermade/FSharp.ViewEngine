@@ -47,6 +47,8 @@ pulumi.runtime.setMocks({
 
 before(async () => {
     const stack = await import('../index')
+    assert.equal(stack.ciAccessClientId, undefined, 'production does not export empty secret credentials')
+    assert.equal(stack.ciAccessClientSecret, undefined, 'there is no empty value for the action to mask')
     await Promise.all([
         new Promise<void>(resolve => stack.imageDigest.apply(() => resolve())),
         new Promise<void>(resolve => stack.deploymentName.apply(() => resolve())),

@@ -8370,4 +8370,4 @@ after"""
 
 [<EntryPoint>]
 let main args =
-    runTestsWithCLIArgs [] args (testList "Docs" [ ComponentDslTests.tests; tests ])
+    runTestsWithCLIArgs [] args (testList "Docs" [ ComponentDslTests.tests; NavigationTests.tests; tests ])

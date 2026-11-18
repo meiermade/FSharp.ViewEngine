@@ -5,7 +5,6 @@ import * as config from '../config'
 import { provider } from './provider'
 
 const registryUri = config.dockerConfig.registryUri
-const registryHost = registryUri.split('/')[0]
 const isGitHubActions = !!process.env.GITHUB_ACTIONS
 
 export const image = config.deploymentImage
@@ -22,11 +21,6 @@ export const image = config.deploymentImage
         ],
         push: true,
         buildOnPreview: false,
-        registries: [{
-            address: registryHost,
-            username: 'oauth2accesstoken',
-            password: config.dockerConfig.registryAccessToken,
-        }],
         cacheFrom: isGitHubActions ? [{ gha: {} }] : [],
         cacheTo: isGitHubActions ? [{ gha: { mode: dockerBuild.CacheMode.Max, ignoreError: true } }] : [],
     }, {

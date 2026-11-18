@@ -400,12 +400,12 @@ let codeDocument highlighting =
 
             let prismScripts =
                 if highlighting then
-                    [ "/scripts/prism.1.29.0.min.js"
-                      "/scripts/prism-fsharp.1.29.0.min.js"
-                      "/scripts/prism-python.1.29.0.min.js"
-                      "/scripts/prism-typescript.1.29.0.min.js"
-                      "/scripts/prism-bash.1.29.0.min.js"
-                      "/scripts/prism-sql.1.29.0.min.js" ]
+                    [ "/scripts/prism.1.30.0.min.js"
+                      "/scripts/prism-fsharp.1.30.0.min.js"
+                      "/scripts/prism-python.1.30.0.min.js"
+                      "/scripts/prism-typescript.1.30.0.min.js"
+                      "/scripts/prism-bash.1.30.0.min.js"
+                      "/scripts/prism-sql.1.30.0.min.js" ]
                 else
                     []
 

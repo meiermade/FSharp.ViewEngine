@@ -1234,14 +1234,14 @@ module Layout =
 
                 CodeBlock.assetsWithNonce
                     None
-                    [ "/examples/assets/scripts/prism.1.29.0.min.js"
-                      "/examples/assets/scripts/prism-fsharp.1.29.0.min.js"
-                      "/examples/assets/scripts/prism-sql.1.29.0.min.js"
-                      "/examples/assets/scripts/prism-bash.1.29.0.min.js"
-                      "/examples/assets/scripts/prism-json.1.29.0.min.js" ]
+                    [ "/examples/assets/scripts/prism.1.30.0.min.js"
+                      "/examples/assets/scripts/prism-fsharp.1.30.0.min.js"
+                      "/examples/assets/scripts/prism-sql.1.30.0.min.js"
+                      "/examples/assets/scripts/prism-bash.1.30.0.min.js"
+                      "/examples/assets/scripts/prism-json.1.30.0.min.js" ]
                     nonce
 
-                Mermaid.assetsWithNonce "/examples/assets/scripts/mermaid.11.16.0.min.js" nonce
+                Mermaid.assetsWithNonce "/examples/assets/scripts/mermaid.11.16.1.min.js" nonce
 
                 script {
                     match nonce with

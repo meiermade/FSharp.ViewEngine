@@ -61,10 +61,11 @@ module Commands =
         | Error message, _ | _, Error message -> fail output message
         | Ok projectPath, Ok targetFramework ->
             let namespaceName = request.Namespace |> Option.defaultWith (fun () -> defaultNamespace projectPath)
-            match Validation.namespaceName namespaceName with
-            | Error message -> fail output message
-            | Ok validNamespace ->
-                let root = Path.GetDirectoryName projectPath
+            let root = Path.GetDirectoryName projectPath
+            let paths = [Path.GetFileName projectPath; ConsumerProject.ConfigFileName; "input.css"]
+            match Validation.namespaceName namespaceName, Validation.consumerPaths root paths with
+            | Error message, _ | _, Error message -> fail output message
+            | Ok validNamespace, Ok () ->
                 let configPath = ConsumerProject.configPath projectPath
                 if File.Exists configPath then
                     match ConsumerProject.readConfiguration configPath with
@@ -104,10 +105,17 @@ module Commands =
         | Ok configuration when request.Components.IsEmpty -> fail output "At least one component is required."
         | Ok configuration ->
             let requested = installedComponentNames registry configuration @ request.Components |> List.distinct
-            match Registry.resolve registry requested with
+            let root = Path.GetDirectoryName configPath
+            let selection =
+                Registry.resolve registry requested
+                |> Result.bind (fun selected ->
+                    Registry.files selected
+                    |> List.map (fun file -> ConsumerProject.relativeSourcePath file.FileName)
+                    |> Validation.consumerPaths root
+                    |> Result.map (fun () -> selected))
+            match selection with
             | Error message -> fail output message
             | Ok selected ->
-                let root = Path.GetDirectoryName configPath
                 let projectPath = Path.GetFullPath(Path.Combine(root, configuration.Project))
                 if not (File.Exists projectPath) then fail output $"Project '{projectPath}' was not found."
                 else

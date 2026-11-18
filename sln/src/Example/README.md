@@ -31,11 +31,10 @@ The CLI builds and opens `deck.html`, with adjacent CSS and a classic JavaScript
 
 ## Frontend development
 
-Requires Node.js/npm:
+Requires Node.js/npm. From the repository's `sln` directory:
 
 ```sh
-npm ci --prefix Example.Server
-npm run build:css --prefix Example.Server
+./fake.sh BuildExampleCss
 ```
 
 For catalog review, run `./fake.sh WatchDocs` from the repository's `sln` directory. Its single host at `http://127.0.0.1:5054` serves these same routes and watches their source and assets.
