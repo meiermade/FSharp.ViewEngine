@@ -18,6 +18,8 @@
     <Content Include="paket.references" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Docs.Components is a package consumer; its transitive binary must not shadow the Core source under test. -->
+    <PackageReference Include="FSharp.ViewEngine" Version="2026.8.2" ExcludeAssets="all" />
     <ProjectReference Include="..\FSharp.ViewEngine\FSharp.ViewEngine.fsproj" />
     <ProjectReference Include="..\Docs.Components\Docs.Components.fsproj" />
   </ItemGroup>

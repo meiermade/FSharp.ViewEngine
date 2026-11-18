@@ -10,7 +10,7 @@ open Docs.Common.BlockExamples
 
 module View =
     let mermaidHead pageNonce =
-        Mermaid.assetsWithNonce "/scripts/mermaid.11.16.0.min.js" (Some pageNonce)
+        Mermaid.assetsWithNonce "/scripts/mermaid.11.16.1.min.js" (Some pageNonce)
 
     let mermaid =
         fveMermaid { "flowchart LR\n  Input[Input] --> Validate[Validate]\n  Validate --> Result[Result]" }

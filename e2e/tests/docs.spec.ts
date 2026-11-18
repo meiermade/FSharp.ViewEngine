@@ -1195,10 +1195,10 @@ test('health and pinned application assets are available', async ({ request }) =
 
   const assets = [
     ['/scripts/datastar.1.0.4.js', 'Datastar v1.0.4'],
-    ['/scripts/mermaid.11.16.0.min.js', 'mermaid'],
-    ['/scripts/prism.1.29.0.min.js', 'Prism'],
-    ['/scripts/prism-fsharp.1.29.0.min.js', 'fsharp'],
-    ['/css/prism-tomorrow.1.29.0.min.css', 'code[class*=language-]'],
+    ['/scripts/mermaid.11.16.1.min.js', 'mermaid'],
+    ['/scripts/prism.1.30.0.min.js', 'Prism'],
+    ['/scripts/prism-fsharp.1.30.0.min.js', 'fsharp'],
+    ['/css/prism-tomorrow.1.30.0.min.css', 'code[class*=language-]'],
     ['/fonts/noto-sans-latin.woff2', 'wOF2'],
     ['/fonts/noto-sans-mono-latin.woff2', 'wOF2'],
   ] as const
@@ -1584,14 +1584,14 @@ test('active-document Prism failures remain observable', async ({ page }) => {
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   )
-  await page.route('**/scripts/prism.1.29.0.min.js', route => route.abort('failed'))
+  await page.route('**/scripts/prism.1.30.0.min.js', route => route.abort('failed'))
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
 
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
 
   await expect(page.getByRole('heading', { level: 1, name: 'Custom Elements & Attributes' })).toBeVisible()
-  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.29.0.min.js'))).toBe(true)
+  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.30.0.min.js'))).toBe(true)
 })
 
 test('hidden active-document Prism failures remain observable', crossBrowser, async ({ page }) => {
@@ -1601,14 +1601,14 @@ test('hidden active-document Prism failures remain observable', crossBrowser, as
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   )
-  await page.route('**/scripts/prism.1.29.0.min.js', route => route.abort('failed'))
+  await page.route('**/scripts/prism.1.30.0.min.js', route => route.abort('failed'))
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
 
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
 
   expect(await page.evaluate(() => ({ visibility: document.visibilityState, unloading: (window as any).fsharpDocsCode?.unloading }))).toEqual({ visibility: 'hidden', unloading: false })
-  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.29.0.min.js'))).toBe(true)
+  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.30.0.min.js'))).toBe(true)
 })
 
 test('Code block guide renders plain output and highlights every documented language', async ({ page }) => {
@@ -1807,7 +1807,7 @@ test('delayed Mermaid loading shows accessible pending content and never raw sou
   let releaseAsset: (() => void) | undefined
   const assetGate = new Promise<void>(resolve => { releaseAsset = resolve })
   let intercepted = false
-  await page.route('**/scripts/mermaid.11.16.0.min.js', async route => {
+  await page.route('**/scripts/mermaid.11.16.1.min.js', async route => {
     intercepted = true
     await assetGate
     await route.continue()
@@ -1832,7 +1832,7 @@ test('delayed Mermaid loading shows accessible pending content and never raw sou
 test('an unavailable Mermaid asset shows the accessible deterministic failure state', async ({ page }) => {
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
-  await page.route('**/scripts/mermaid.11.16.0.min.js', route => route.abort('failed'))
+  await page.route('**/scripts/mermaid.11.16.1.min.js', route => route.abort('failed'))
 
   await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
   const diagram = page.locator('main [data-docs-diagram="true"]').first()

@@ -1,7 +1,6 @@
 namespace Example.Server.Common
 
 open System
-open System.Collections.Concurrent
 open System.Collections.Generic
 open System.Text.Json
 open FSharp.ViewEngine
@@ -11,6 +10,33 @@ open Microsoft.Extensions.DependencyInjection
 open StarFederation.Datastar.DependencyInjection
 open type Html
 open type Datastar
+
+/// Absolute expiry and FIFO eviction bound client-controlled state, including repeated updates to one client.
+type internal NavigationSequences(capacity:int, lifetime:TimeSpan, now:unit -> DateTimeOffset) =
+    let entries = Dictionary<Guid, int64 * DateTimeOffset>()
+    let order = Queue<Guid>()
+    let gate = obj()
+    let removeOldest () = entries.Remove(order.Dequeue()) |> ignore
+    let expire time =
+        while order.Count > 0 && snd entries[order.Peek()] <= time do removeOldest ()
+
+    member _.Record(client, sequence) =
+        lock gate (fun () ->
+            let time = now ()
+            expire time
+            match entries.TryGetValue client with
+            | true, (current, expires) -> entries[client] <- max current sequence, expires
+            | _ ->
+                if entries.Count >= capacity then removeOldest ()
+                entries.Add(client, (sequence, time + lifetime))
+                order.Enqueue client)
+
+    member _.IsLatest(client, sequence) =
+        lock gate (fun () ->
+            expire (now ())
+            match entries.TryGetValue client with
+            | true, (latest, _) -> latest = sequence
+            | _ -> false)
 
 /// Consumer-owned progressive navigation, also used by the catalog host.
 module Navigation =
@@ -27,7 +53,7 @@ module Navigation =
     let private intentHeader = "X-FVE-Navigation-Intent"
     let private clientHeader = "X-FVE-Navigation-Client"
     let private sequenceHeader = "X-FVE-Navigation-Sequence"
-    let private latestSequences = ConcurrentDictionary<Guid, int64>()
+    let private latestSequences = NavigationSequences(4096, TimeSpan.FromMinutes 10., fun () -> DateTimeOffset.UtcNow)
 
     let private requestOptions intent =
         $"{{ filterSignals: {{ exclude: /.*/ }}, headers: {{ '{intentHeader}': '{intent}', '{clientHeader}': document.body.dataset.navigationClient, '{sequenceHeader}': (document.body.dataset.navigationSequence = String((Number(document.body.dataset.navigationSequence) || 0) + 1)) }}, requestCancellation: window.fveNavigationController, retry: 'never', retryMaxCount: 0 }}"
@@ -137,10 +163,7 @@ $navigationTarget = evt.detail.href;
 
     let private isLatestIntent context =
         match clientSequence context with
-        | Some(client, sequence) ->
-            match latestSequences.TryGetValue client with
-            | true, latest -> latest = sequence
-            | _ -> false
+        | Some(client, sequence) -> latestSequences.IsLatest(client, sequence)
         | None -> true
 
     let tryIntent (context:HttpContext) =
@@ -155,7 +178,7 @@ $navigationTarget = evt.detail.href;
                 | _ -> None
         if intent.IsSome then
             match clientSequence context with
-            | Some(client, sequence) -> latestSequences.AddOrUpdate(client, sequence, fun _ current -> max current sequence) |> ignore
+            | Some(client, sequence) -> latestSequences.Record(client, sequence)
             | None -> ()
         intent
 

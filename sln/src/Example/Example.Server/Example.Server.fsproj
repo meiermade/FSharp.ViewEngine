@@ -13,6 +13,7 @@
     </PropertyGroup>
   </Target>
   <ItemGroup>
+    <InternalsVisibleTo Include="Docs.Tests" />
     <PackageReference Update="FSharp.Core" Version="10.0.102" />
     <ProjectReference Include="../Example.Components/Example.Components.fsproj" />
     <ProjectReference Include="../Example.Application/Example.Application.fsproj" />

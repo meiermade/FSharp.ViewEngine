@@ -93,6 +93,14 @@ test('builds one immutable candidate image and publishes staging outputs', async
     assert.deepEqual(image.inputs.platforms, ['linux/amd64'])
     assert.equal(image.inputs.push, true)
     assert.equal(image.inputs.buildOnPreview, false)
+    assert.equal(image.inputs.registries, undefined, 'image inputs must not retain expiring registry tokens')
+    const registries = resource('pulumi:providers:docker-build', 'default').inputs.registries
+    assert.equal(pulumi.runtime.isRpcSecret(registries), true, 'provider authentication remains secret')
+    assert.deepEqual(JSON.parse(pulumi.runtime.unwrapRpcSecret(registries)), [{
+        address: 'us-east1-docker.pkg.dev',
+        username: 'oauth2accesstoken',
+        password: 'registry-token',
+    }], 'the configured provider owns current registry authentication for build and refresh')
     assert.equal(resolvedImage, imageRef)
     assert.equal(resolvedReady, true)
     assert.equal(stackOutputs.origin, 'https://fve.meiermade.net')

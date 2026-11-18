@@ -9,7 +9,8 @@ WORKDIR /app
 
 # Resolve Tailwind and Typography from the shared build root for both consumers.
 ENV PATH="/app/node_modules/.bin:${PATH}"
-RUN npm install --no-save tailwindcss@4.2.2 @tailwindcss/cli@4.2.2 @tailwindcss/typography@0.5.19
+COPY src/Example/Example.Server/package.json src/Example/Example.Server/package-lock.json ./
+RUN npm ci
 
 # restore tools
 COPY .config .config

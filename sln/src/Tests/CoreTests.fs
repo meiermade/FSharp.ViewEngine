@@ -268,6 +268,13 @@ let tests =
         Expect.throwsT<System.ArgumentException> (fun () -> Html.comment "invalid -- comment" |> ignore) "comments reject invalid double hyphens"
     }
 
+    test "Comments reject markup-escaping delimiters and retain ordinary text" {
+        for value in [ null; "invalid -- comment"; "trailing-"; "><script>alert(1)</script>"; "-><img src=x onerror=alert(1)>" ] do
+            Expect.throwsT<System.ArgumentException> (fun () -> Html.comment value |> ignore) "invalid comment must fail before rendering"
+        for value in [ ""; "safe > note"; "- safe"; "<script>not executable</script>" ] do
+            Expect.equal (Html.comment value |> Render.toString) ("<!--" + value + "-->") "valid comment stays intact"
+    }
+
     test "Html.empty (NoopElement) renders nothing" {
         let actual = div { empty } |> Render.toString
         Expect.equal actual "<div></div>" "empty renders nothing"

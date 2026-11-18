@@ -18,7 +18,7 @@ type Html =
     static member text (v: string) = TextElement(v) :> HtmlElement
     /// Builds an ordered sequence of sibling nodes without emitting a wrapper element.
     static member val fragment = FragmentBuilder() with get
-    /// Creates a validated HTML comment. Values containing `--` or ending in `-` are rejected.
+    /// Creates a validated HTML comment. Values starting with `>` or `->`, containing `--`, or ending in `-` are rejected.
     static member comment (value:string) = CommentElement(value) :> HtmlElement
     /// Creates a regular custom element. The developer-controlled name is emitted without validation.
     static member el (name: string) = TagBuilder(name)

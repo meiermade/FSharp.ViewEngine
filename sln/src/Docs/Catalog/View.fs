@@ -233,10 +233,10 @@ module View =
             productStylesheets = [ "/css/output.css" ]
             prismScripts =
                 DocsAssets.defaults.prismScripts
-                @ [ "/scripts/prism-bash.1.29.0.min.js"
-                    "/scripts/prism-json.1.29.0.min.js"
-                    "/scripts/prism-python.1.29.0.min.js"
-                    "/scripts/prism-typescript.1.29.0.min.js" ]
+                @ [ "/scripts/prism-bash.1.30.0.min.js"
+                    "/scripts/prism-json.1.30.0.min.js"
+                    "/scripts/prism-python.1.30.0.min.js"
+                    "/scripts/prism-typescript.1.30.0.min.js" ]
             navigation = Some Docs.Web.Navigation.enhancement
             additionalHead =
                 [ link {

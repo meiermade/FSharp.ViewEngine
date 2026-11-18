@@ -58,9 +58,13 @@ module Text =
     let writeAtomic (path:string) (content:string) =
         let directory = Path.GetDirectoryName path
         Directory.CreateDirectory directory |> ignore
-        let temporary = path + ".fve-tmp"
-        File.WriteAllText(temporary, normalize content, UTF8Encoding(false))
-        File.Move(temporary, path, true)
+        let temporary = path + "." + Guid.NewGuid().ToString("N") + ".fve-tmp"
+        use staged = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None)
+        try
+            staged.Write(Encoding.UTF8.GetBytes(normalize content))
+            staged.Dispose()
+            File.Move(temporary, path, true)
+        finally File.Delete temporary
 
 [<RequireQualifiedAccess>]
 module Validation =
@@ -70,6 +74,30 @@ module Validation =
         if String.IsNullOrWhiteSpace value || not (namespacePattern.IsMatch value) then
             Error $"'{value}' is not a valid F# namespace."
         else Ok value
+
+    /// Reject traversal and symbolic links below the selected consumer root.
+    let consumerPaths (root:string) (paths:string seq) =
+        try
+            let root = Path.GetFullPath root
+            let validate (value:string) =
+                if String.IsNullOrWhiteSpace value then invalidArg "path" "Consumer paths cannot be empty."
+                let parts = value.Split('/')
+                // Manifests are portable forward-slash paths. Do not validate a normalized path and then use a different Unix filename.
+                if Path.IsPathRooted value || value.Contains(':') || value.Contains('\\')
+                   || (parts |> Array.exists (fun part -> part = "" || part = "." || part.EndsWith(".", StringComparison.Ordinal) || part.EndsWith(" ", StringComparison.Ordinal))) then
+                    invalidArg "path" $"Consumer path '{value}' must stay within the consumer directory."
+                let mutable current = root
+                for part in parts do
+                    current <- Path.Combine(current, part)
+                    let entry:FileSystemInfo =
+                        if Directory.Exists current then DirectoryInfo(current) else FileInfo(current)
+                    if not (isNull entry.LinkTarget) then
+                        invalidArg "path" $"Consumer path '{value}' contains a symbolic link."
+            for path in paths do validate path
+            Ok ()
+        with :? ArgumentException as error -> Error error.Message
+           | :? IOException as error -> Error error.Message
+           | :? UnauthorizedAccessException as error -> Error error.Message
 
     let projectPath (value:string) =
         if String.IsNullOrWhiteSpace value || not (List.exists (fun extension -> String.Equals(Path.GetExtension value, extension, StringComparison.OrdinalIgnoreCase)) [".fsproj"; ".fsx"]) then

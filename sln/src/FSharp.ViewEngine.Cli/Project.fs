@@ -36,14 +36,31 @@ module ConsumerProject =
     let configPath (projectPath:string) = Path.Combine(Path.GetDirectoryName projectPath, ConfigFileName)
 
     let readConfiguration (path:string) =
-        if not (File.Exists path) then Error $"Configuration '{path}' was not found. Run 'fve init' first."
-        else
-            try
+        try
+            let path = Path.GetFullPath path
+            let root = Path.GetDirectoryName path
+            match Validation.consumerPaths root [Path.GetFileName path] with
+            | Error message -> Error message
+            | Ok () when not (File.Exists path) -> Error $"Configuration '{path}' was not found. Run 'fve init' first."
+            | Ok () ->
                 let configuration = JsonSerializer.Deserialize<Configuration>(File.ReadAllText path, jsonOptions)
                 if isNull (box configuration) || configuration.SchemaVersion <> 1 then
                     Error $"Configuration '{path}' uses an unsupported schema."
-                else Ok configuration
-            with exceptionValue -> Error $"Could not read configuration '{path}': {exceptionValue.Message}"
+                elif isNull configuration.Components || isNull configuration.Files
+                     || (configuration.Components |> Array.exists String.IsNullOrWhiteSpace)
+                     || (configuration.Files |> Array.exists (fun file -> isNull (box file) || String.IsNullOrWhiteSpace file.Component)) then
+                    Error $"Configuration '{path}' has invalid component or file entries."
+                else
+                    match Validation.namespaceName configuration.Namespace, Validation.projectPath configuration.Project with
+                    | Error message, _ | _, Error message -> Error message
+                    | Ok _, Ok _ ->
+                        let paths = seq {
+                            yield configuration.Project
+                            for file in configuration.Files do yield file.Path
+                            if not (isNull configuration.Modules) then yield! configuration.Modules
+                        }
+                        Validation.consumerPaths root paths |> Result.map (fun () -> configuration)
+        with exceptionValue -> Error $"Could not read configuration '{path}': {exceptionValue.Message}"
 
     let writeConfiguration (path:string) (configuration:Configuration) =
         JsonSerializer.Serialize(configuration, jsonOptions) + "\n" |> Text.writeAtomic path

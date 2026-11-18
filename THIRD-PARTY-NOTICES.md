@@ -1,5 +1,19 @@
 # Third-party notices
 
+## PrismJS
+
+PrismJS 1.30.0 and its language grammars/theme are vendored from the `prismjs@1.30.0` npm package under the MIT license. The default `prism.js` bundle is minified with esbuild 0.28.2; language modules and the theme are unmodified.
+
+Source: https://github.com/PrismJS/prism/tree/v1.30.0
+Full license: [prism-LICENSE.txt](sln/src/Docs/wwwroot/scripts/prism-LICENSE.txt)
+
+## Mermaid
+
+Mermaid 11.16.1 is vendored unmodified from `mermaid@11.16.1/dist/mermaid.min.js`, under the MIT license.
+
+Source: https://github.com/mermaid-js/mermaid/tree/mermaid%4011.16.1
+Full license: [mermaid-LICENSE.txt](sln/src/Docs/wwwroot/scripts/mermaid-LICENSE.txt)
+
 ## Bootstrap Icons
 
 The GitHub, X and LinkedIn brand logos use unmodified SVG artwork from Bootstrap Icons 1.13.1, distributed under the MIT license.

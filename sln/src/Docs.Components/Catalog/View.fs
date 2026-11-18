@@ -43,10 +43,10 @@ module DocsAssets =
         { productStylesheets = [ "/css/compiled.css" ]
           prismStylesheet = None
           prismScripts =
-            [ "/scripts/prism.1.29.0.min.js"
-              "/scripts/prism-fsharp.1.29.0.min.js"
-              "/scripts/prism-sql.1.29.0.min.js" ]
-          mermaidScript = Some "/scripts/mermaid.11.16.0.min.js"
+            [ "/scripts/prism.1.30.0.min.js"
+              "/scripts/prism-fsharp.1.30.0.min.js"
+              "/scripts/prism-sql.1.30.0.min.js" ]
+          mermaidScript = Some "/scripts/mermaid.11.16.1.min.js"
           datastarScript = Some "/assets/app.js"
           mermaidSecurityLevel = "antiscript"
           nonce = None

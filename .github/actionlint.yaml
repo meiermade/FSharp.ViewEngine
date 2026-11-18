@@ -1,3 +1,7 @@
+# actionlint 1.7.12 predates this generally available hosted-runner label.
+self-hosted-runner:
+  labels:
+    - ubuntu-26.04
 paths:
   .github/workflows/deploy-staging-docs.yml:
     # GitHub added concurrency.queue in May 2026; actionlint 1.7.12 has not added it yet.

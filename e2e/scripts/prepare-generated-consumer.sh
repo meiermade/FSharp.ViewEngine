@@ -104,7 +104,7 @@ cp "$output_dir/net11.0/global.json" "$template_dir/global.json"
 
 visual_dir="$output_dir/net11.0"
 mkdir -p "$visual_dir/App/wwwroot/scripts"
-for asset in prism.1.29.0.min.js prism-fsharp.1.29.0.min.js prism-python.1.29.0.min.js prism-typescript.1.29.0.min.js prism-bash.1.29.0.min.js prism-sql.1.29.0.min.js; do
+for asset in prism.1.30.0.min.js prism-fsharp.1.30.0.min.js prism-python.1.30.0.min.js prism-typescript.1.30.0.min.js prism-bash.1.30.0.min.js prism-sql.1.30.0.min.js; do
   cp "$sln_dir/src/Docs/wwwroot/scripts/$asset" "$visual_dir/App/wwwroot/scripts/$asset"
 done
 cp "$fixture_dir/GeneratedConsumer.fsproj" "$visual_dir/App/GeneratedConsumer.fsproj"
