@@ -92,11 +92,11 @@ test('essential rendered assets and critical read-only navigation work @cross-br
   }
 
   // A real GET journey exercises the deployed navigation runtime without review-state permutations or submissions.
-  await page.evaluate(() => { document.documentElement.dataset.smokeNavigation = 'retained' })
+  const profileDocument = page.waitForResponse(response => response.request().isNavigationRequest() && response.frame() === page.mainFrame() && new URL(response.url()).pathname === '/examples/specification/profile')
   await page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link', { name: 'View profile', exact: true }).click()
+  expect((await profileDocument).headers()['content-type']).toContain('text/html')
   await expect(page).toHaveURL(url => url.pathname === '/examples/specification/profile')
   await expect(specProduct(page).getByRole('heading', { name: 'General', exact: true, level: 1 })).toBeVisible()
-  await expect(page.locator('html')).toHaveAttribute('data-smoke-navigation', 'retained')
   // Retain the engine-sensitive Select/focus check on both deployment origins.
   await page.goto('/components/select')
   const panel = page.locator('#components-select-default-panel-preview')

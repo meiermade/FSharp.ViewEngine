@@ -1,10 +1,9 @@
 import { test, expect } from '../fixture'
 
-test('top-level Guides keep workflows separate and support enhanced navigation, history and search @cross-browser', async ({ page }) => {
+test('top-level Guides keep workflows separate and support native navigation, history and search @cross-browser', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/guides/scripts')
-  await page.evaluate(() => { (window as any).guideDocument = 'retained' })
   const navigation = page.locator('#side-nav')
   for (const [name, path] of [
     ['Standalone F# scripts', '/guides/scripts'], ['Giraffe integration', '/guides/giraffe'],
@@ -36,9 +35,10 @@ test('top-level Guides keep workflows separate and support enhanced navigation, 
   await dialog.getByRole('combobox').fill('Standalone F# scripts')
   const scripts = dialog.locator('[data-fve-command-item][href="/guides/scripts"]')
   await expect(scripts).toBeVisible()
+  const documentResponse = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/guides/scripts')
   await scripts.focus()
   await page.keyboard.press('Enter')
+  expect((await documentResponse).headers()['content-type']).toContain('text/html')
   await expect(page).toHaveURL('/guides/scripts')
-  expect(await page.evaluate(() => (window as any).guideDocument)).toBe('retained')
   expect(errors).toEqual([])
 })
