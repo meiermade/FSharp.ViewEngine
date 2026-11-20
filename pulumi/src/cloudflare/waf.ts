@@ -51,7 +51,7 @@ const expression = [
     `(${p} contains ".jsp")`,
     `(${p} contains ".cgi")`,
     `(${p} contains ".yml")`,
-    `(${p} contains ".xml" and ${p} ne "/sitemap.xml")`,
+    `(${p} contains ".xml" and ${p} ne "/sitemap.xml" and http.request.uri.path ne "/examples/sitemap.xml")`,
     `(${p} contains ".bak")`,
     `(${p} contains ".rb")`,
 

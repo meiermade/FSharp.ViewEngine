@@ -51,6 +51,7 @@ test('discovery endpoints advertise canonical public documentation', async ({ re
   expect(await robots.text()).toContain(`Sitemap: ${canonicalOrigin}/sitemap.xml`)
   const examples = await request.get('/examples/sitemap.xml')
   expect(examples.status()).toBe(200)
+  expect(examples.headers()['content-type']).toContain('application/xml')
   expect(await examples.text()).toContain(`<loc>${configuredOrigin}/examples/application</loc>`)
 })
 
@@ -62,7 +63,7 @@ test('production permits the Marketing login example while blocking scanner prob
     expect(response.status(), path).toBe(200)
     expect(await response.text()).toContain('Log in to Geldos')
   }
-  for (const path of ['/login', '/examples/marketing/login/', '/examples/marketing/login.php', '/examples/marketing/LOGIN', '/examples/marketing%2Flogin', '/admin', '/.env']) {
+  for (const path of ['/login', '/examples/marketing/login/', '/examples/marketing/login.php', '/examples/marketing/LOGIN', '/examples/marketing%2Flogin', '/admin', '/.env', '/examples/not-a-sitemap.xml']) {
     const response = await request.get(path, { maxRedirects: 0 })
     expect(response.status(), path).toBe(403)
   }
