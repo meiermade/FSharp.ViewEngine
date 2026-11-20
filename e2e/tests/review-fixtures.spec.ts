@@ -273,15 +273,33 @@ test('native product history mirrors one review entry and Escape preserves the c
   await page.goBack()
   await expect(product.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
   await expect(page).toHaveURL(/accounts\/view-accounts/)
-  await page.goForward()
-  await expect(product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 })).toBeVisible()
-  await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
-  await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toHaveCount(0)
-  await product.locator('html').evaluate(el => { el.dataset.historyDocument = 'retained' })
-  await product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 }).click()
-  await page.keyboard.press('Escape')
-  await expect(page).toHaveURL(url => !url.searchParams.has('appMode'))
-  await expect(product.locator('html')).toHaveAttribute('data-history-document', 'retained')
+  const oldRestoreLink = page.getByRole('link', { name: /^Restore View accounts/ })
+  await expect(oldRestoreLink).toBeVisible()
+
+  // Forward restores the live product before the surrounding review chrome finishes updating.
+  let release!: () => void
+  const held = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/accounts/view-account?*', async route => {
+    if (['review', 'restore'].includes(route.request().headers()['x-fve-interaction'])) await held
+    await route.continue()
+  })
+  try {
+    await page.goForward()
+    const account = product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 })
+    await expect(account).toBeVisible()
+    await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
+    await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toHaveCount(0)
+    await expect(oldRestoreLink).toBeVisible()
+    await product.locator('html').evaluate(el => { el.dataset.historyDocument = 'retained' })
+    await account.click()
+    await page.keyboard.press('Escape')
+    const expand = page.getByRole('link', { name: /^Expand View account ·/ })
+    await expect(expand).toBeFocused()
+    await expect(page).toHaveURL(url => url.pathname.endsWith('/view-account') && url.searchParams.get('resource') === '105' && !url.searchParams.has('appMode'))
+    await expect(product.locator('html')).toHaveAttribute('data-history-document', 'retained')
+  } finally {
+    release()
+  }
 })
 
 test('a slow review response cannot rewrite the fixture history entry visited after Back @cross-browser', async ({ page }) => {
