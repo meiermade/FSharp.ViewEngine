@@ -74,16 +74,24 @@ if (fixtureDocument && parent !== window) {
   document.addEventListener('click', event => {
     const link = event.target.closest?.('a[href]');
     if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
-    const target = new URL(link.href, location.href);
+    let target = new URL(link.href, location.href);
     if (target.origin !== location.origin || target.hash) return;
-    hostIntent = identity(target.href);
     if (link.hasAttribute('data-review-expand')) {
+      // The active fixture URL can be ahead of the review chrome. Toggle only its presentation.
+      const expand = link.dataset.reviewExpand === 'true';
+      target = new URL(location.href);
+      target.hash = '';
+      target.searchParams.delete('fveAppReturn');
+      if (expand) target.searchParams.set('appMode', '1');
+      else target.searchParams.delete('appMode');
+      link.href = target.href;
       const page = scrollRoot();
-      if (link.dataset.reviewExpand === 'true') dockScroll = [page?.scrollLeft ?? 0, page?.scrollTop ?? 0];
+      if (expand) dockScroll = [page?.scrollLeft ?? 0, page?.scrollTop ?? 0];
       try {
         productScroll = [...frame().contentDocument.querySelectorAll('[data-fve-page-scroll], .fve-table-scroll')].map(node => [node, node.scrollLeft, node.scrollTop]);
       } catch { productScroll = []; }
     }
+    hostIntent = identity(target.href);
   }, true);
 
   window.addEventListener('message', event => {
