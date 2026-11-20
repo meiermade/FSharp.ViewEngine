@@ -55,6 +55,6 @@ let render (context: HttpContext) (title: string) content =
             metadata
     | None ->
         content
-        |> Layout.documentWithNonce Navigation.initialScript Navigation.bodyAttributes (nonce context) canonical embedded title
+        |> Layout.documentWithNonce BrowserAssets.stylesheet BrowserAssets.script Navigation.initialScript Navigation.bodyAttributes (nonce context) canonical embedded title
         |> Render.toHtmlDocString
         |> htmlString

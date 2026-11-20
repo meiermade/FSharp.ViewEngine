@@ -68,7 +68,13 @@ test('production permits the Marketing login example while blocking scanner prob
   }
 })
 
-test('essential rendered assets and critical read-only navigation work @cross-browser', async ({ page }) => {
+test('essential rendered assets and critical read-only navigation work @cross-browser', async ({ page, browserName }) => {
+  const expectPublishedAssets = expectedEnvironment !== 'local'
+  const delivered = new Set<string>()
+  page.on('response', response => {
+    const url = new URL(response.url())
+    if (url.origin === configuredOrigin && response.ok()) delivered.add(url.pathname)
+  })
   const pageErrors: Error[] = []
   const writes: string[] = []
   page.on('pageerror', error => pageErrors.push(error))
@@ -80,6 +86,18 @@ test('essential rendered assets and critical read-only navigation work @cross-br
     const response = await page.goto(path)
     expect(response?.status(), path).toBe(200)
     await expect(page.locator('main')).toBeVisible()
+    if (expectPublishedAssets && (path === '/' || path === '/examples/application')) {
+      const prefix = path === '/' ? '' : '/examples'
+      const app = page.locator(`head script[type="module"][src^="${prefix}/js/app"]`)
+      const css = page.locator(`head link[rel="stylesheet"][href^="${prefix}/css/output"]`)
+      await expect(app).toHaveAttribute('src', new RegExp(`^${prefix}/js/app-[A-Z0-9]{8}\\.js$`))
+      await expect(css).toHaveAttribute('href', new RegExp(`^${prefix}/css/output-[0-9a-f]{16}\\.css$`))
+      await expect.poll(async () => delivered.has((await app.getAttribute('src'))!) && delivered.has((await css.getAttribute('href'))!)).toBe(true)
+      if (path === '/examples/application') {
+        await expect(page.locator('#home-balance-chart')).toHaveAttribute('data-ready', 'true')
+        expect([...delivered]).toContainEqual(expect.stringMatching(/^\/examples\/js\/chart-[A-Z0-9]{8}\.js$/))
+      }
+    }
     if (path === '/') {
       const paragraph = page.locator('[data-docs-section-content="true"] > p').first()
       await expect(paragraph).toHaveCSS('font-size', '16px')
@@ -97,6 +115,25 @@ test('essential rendered assets and critical read-only navigation work @cross-br
   expect((await profileDocument).headers()['content-type']).toContain('text/html')
   await expect(page).toHaveURL(url => url.pathname === '/examples/specification/profile')
   await expect(specProduct(page).getByRole('heading', { name: 'General', exact: true, level: 1 })).toBeVisible()
+  if (expectedEnvironment === 'staging' && browserName === 'chromium') {
+    await page.goto('/examples/specification/accounts/view-accounts?appMode=1')
+    const product = specProduct(page)
+    const account = product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 })
+    await product.getByRole('button', { name: 'Expand Expenses', exact: true }).click()
+    await product.getByRole('link', { name: 'Unassigned expense', exact: true }).click()
+    await expect(page).toHaveURL(/\/view-account\?.*resource=105.*appMode=1/)
+    await page.goBack()
+    await expect(product.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
+    await page.goForward()
+    await expect(account).toBeVisible()
+    await expect(page).toHaveURL(/\/view-account\?.*resource=105.*appMode=1/)
+    await product.locator('html').evaluate(el => { el.dataset.stagingDocument = 'retained' })
+    await account.click()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('link', { name: /^Expand View account ·/ })).toBeFocused()
+    await expect(page).toHaveURL(url => url.pathname.endsWith('/view-account') && url.searchParams.get('resource') === '105' && !url.searchParams.has('appMode'))
+    await expect(product.locator('html')).toHaveAttribute('data-staging-document', 'retained')
+  }
   // Retain the engine-sensitive Select/focus check on both deployment origins.
   await page.goto('/components/select')
   const panel = page.locator('#components-select-default-panel-preview')
@@ -123,9 +160,6 @@ test('essential rendered assets and critical read-only navigation work @cross-br
   await page.getByRole('link', { name: 'Button', exact: true }).first().click()
   await expect(page).toHaveURL(/\/components\/button$/)
   await expect(page.getByRole('heading', { name: 'Button', level: 1, exact: true })).toBeVisible()
-  const stylesheet = await page.request.get('/css/output.css')
-  expect(stylesheet.ok()).toBe(true)
-  expect(stylesheet.headers()['content-type']).toContain('text/css')
   const identity = await page.request.get('/health')
   expect(identity.status()).toBe(200)
   const health = await identity.json()

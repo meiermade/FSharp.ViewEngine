@@ -1,10 +1,11 @@
 import { test, expect } from '@playwright/test'
 
 test('Rocket enhancement keeps caller bindings outside private per-instance state @cross-browser', async ({ page }) => {
-  await page.route('**/js/app.js', route => route.fulfill({ status: 200, contentType: 'text/javascript', body: "export * from '/examples/js/datastar-rocket.1.0.4.js';" }))
+  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: "export * from '/examples/js/datastar-rocket.1.0.4.js';" }))
   await page.goto('/components/card')
-  await page.evaluate(async () => {
-    const runtime = await import('/js/app.js' as string)
+  const bundle = await page.locator('script[type="module"][src^="/js/app"]').getAttribute('src')
+  await page.evaluate(async bundleUrl => {
+    const runtime = await import(bundleUrl!)
     runtime.rocket('fve-caller-scope-probe', {
       mode: 'light', scope: false,
       setup: ({ host, $$, effect, cleanup }: any) => {
@@ -18,7 +19,7 @@ test('Rocket enhancement keeps caller bindings outside private per-instance stat
     const fragment = document.createElement('section')
     fragment.innerHTML = `<fve-caller-scope-probe id="scope-first"><div data-signals="{callerDraft: 'Caller draft'}"><input aria-label="Caller draft" data-bind="callerDraft"><button type="button">First instance</button></div></fve-caller-scope-probe><fve-caller-scope-probe id="scope_first"><button type="button">Second instance</button></fve-caller-scope-probe><output aria-label="Outer draft" data-text="$callerDraft"></output>`
     document.querySelector('main')!.prepend(fragment)
-  })
+  }, bundle)
   await expect(page.getByRole('textbox', { name: 'Caller draft', exact: true })).toHaveValue('Caller draft')
   await expect(page.getByLabel('Outer draft', { exact: true })).toHaveText('Caller draft')
   await page.getByRole('button', { name: 'First instance', exact: true }).click()
@@ -160,7 +161,7 @@ for (const multiple of [false, true]) {
 test('native-fallback Select retains pre-enhancement edits and reconnected values with a separate reset baseline @cross-browser', async ({ page }) => {
   let release!: () => void
   const enhance = new Promise<void>(resolve => { release = resolve })
-  await page.route('**/js/app.js', async route => { await enhance; await route.continue() })
+  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, async route => { await enhance; await route.continue() })
   try {
     await page.goto('/components/select?fixtures=1', { waitUntil: 'commit' })
     const native = page.locator('select[name="nativeFrequency"]')

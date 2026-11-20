@@ -125,6 +125,8 @@ module Handler =
                         { site with
                             assets =
                                 { site.assets with
+                                    productStylesheets = [ BrowserAssets.stylesheet ]
+                                    datastarScript = Some BrowserAssets.script
                                     nonce = Docs.Web.Security.nonce context } }
 
                     let document = Document.create site page |> Document.render

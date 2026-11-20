@@ -56,7 +56,7 @@ test('Avatar owns image loading, fallback, request policy and morph recovery @cr
 for (const success of [true, false]) test(`Avatar handles image ${success ? 'success' : 'failure'} before application enhancement @cross-browser`, async ({ page }) => {
   let release!: () => void
   const held = new Promise<void>(resolve => { release = resolve })
-  await page.route('**/js/app.js', async route => { await held; await route.continue() })
+  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, async route => { await held; await route.continue() })
   if (!success) await page.route('**/android-chrome-512x512.png', route => route.abort())
   try {
     await page.goto('/components/avatar', { waitUntil: 'commit' })

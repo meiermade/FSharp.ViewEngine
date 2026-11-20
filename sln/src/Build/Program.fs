@@ -53,29 +53,53 @@ let frontendTool directory name =
     let extension = if Environment.isWindows then ".cmd" else ""
     directory </> "node_modules" </> ".bin" </> (name + extension)
 
+let bundleJs directory entries options =
+    exec directory (frontendTool slnDir "esbuild")
+        (entries @ ["--bundle"; "--format=esm"; "--splitting"; "--minify"] @ options)
+
+let docsEntries = ["js/app.js"]
+let exampleAssets = Path.getDirectory exampleServerDir </> "Example.Components" </> "Components" </> "Assets"
+let exampleEntries = ["js/app.js"; exampleAssets </> "chart.js"]
+let exampleVendorModules = ["datastar-rocket.*.js"; "echarts.*.esm.min.js"]
+let exampleExternals = exampleVendorModules |> List.map (fun filename -> $"--external:./{filename}")
+let watchJsOptions watch = if watch then ["--watch=forever"] else []
+
 let buildDocsJs watch =
-    exec docsDir (frontendTool slnDir "esbuild")
-        (["js/app.js"; "--bundle"; "--format=esm"; "--splitting";
-          "--outdir=wwwroot/js"; "--metafile=obj/components-assets.json"; "--minify"]
-         @ (if watch then ["--watch=forever"] else []))
+    bundleJs docsDir docsEntries (["--outdir=wwwroot/js"; "--metafile=obj/components-assets.json"] @ watchJsOptions watch)
 
 let buildExampleJs watch =
-    let assets = Path.getDirectory exampleServerDir </> "Example.Components" </> "Components" </> "Assets"
-    let output = "wwwroot/js"
-    // Keep the runtime and lazy renderer as single, unmodified browser modules at their existing URLs.
-    let vendorModules = [ "datastar-rocket.*.js"; "echarts.*.esm.min.js" ]
-    let staticAssets = vendorModules @ [ "*.txt"; "*.json" ]
-    let outputDir = exampleServerDir </> output
+    // Keep pinned third-party modules and their notices at their existing URLs.
+    let outputDir = exampleServerDir </> "wwwroot/js"
     Directory.ensure outputDir
-    for pattern in staticAssets do
-        for file in System.IO.Directory.EnumerateFiles(assets, pattern) do
+    for pattern in exampleVendorModules @ ["*.txt"; "*.json"] do
+        for file in System.IO.Directory.EnumerateFiles(exampleAssets, pattern) do
             System.IO.File.Copy(file, outputDir </> System.IO.Path.GetFileName(file), true)
 
-    exec exampleServerDir (frontendTool slnDir "esbuild")
-        (["js/app.js"; assets </> "chart.js"; "--bundle"; "--format=esm"; "--external:./chart.js";
-          $"--outdir={output}"; "--entry-names=[name]"; "--minify"]
-         @ (vendorModules |> List.map (fun filename -> $"--external:./{filename}"))
-         @ (if watch then ["--watch=forever"] else []))
+    bundleJs exampleServerDir exampleEntries (["--outdir=wwwroot/js"; "--entry-names=[name]"] @ exampleExternals @ watchJsOptions watch)
+
+let publishBrowserAssets directory entries externals =
+    let output = directory </> "out"
+    let publicRoot = output </> "wwwroot"
+    let metadata = directory </> "obj/browser-assets.json"
+    bundleJs directory entries
+        (["--outdir=out/wwwroot/js"; "--entry-names=[name]-[hash]"; $"--metafile={metadata}"] @ externals)
+    |> Async.RunSynchronously
+
+    use manifest = System.Text.Json.JsonDocument.Parse(System.IO.File.ReadAllText metadata)
+    let app =
+        manifest.RootElement.GetProperty("outputs").EnumerateObject()
+        |> Seq.find (fun file ->
+            match file.Value.TryGetProperty("entryPoint") with
+            | true, entry -> entry.GetString() = "js/app.js"
+            | _ -> false)
+        |> fun file -> System.IO.Path.GetFileName file.Name
+
+    let cssBytes = System.IO.File.ReadAllBytes(publicRoot </> "css/output.css")
+    let cssHash = System.Security.Cryptography.SHA256.HashData cssBytes |> System.Convert.ToHexStringLower
+    let css = $"output-{cssHash.Substring(0, 16)}.css"
+    System.IO.File.WriteAllBytes(publicRoot </> "css" </> css, cssBytes)
+    let paths = dict ["script", "/js/" + app; "stylesheet", "/css/" + css]
+    System.IO.File.WriteAllText(output </> "browser-assets.json", System.Text.Json.JsonSerializer.Serialize paths)
 
 let tailwindcss toolsDirectory workDir args =
     exec workDir (frontendTool toolsDirectory "tailwindcss") args
@@ -513,6 +537,7 @@ Target.create "BuildExampleCss" <| fun _ ->
 Target.create "PublishExample" <| fun _ ->
     dotnet exampleServerDir [ "publish"; "--output"; "./out"; "--self-contained"; "false" ]
     |> Async.RunSynchronously
+    publishBrowserAssets exampleServerDir exampleEntries exampleExternals
 
 Target.create "PublishDocs" <| fun _ ->
     dotnet docsDir [
@@ -521,6 +546,7 @@ Target.create "PublishDocs" <| fun _ ->
         "--self-contained"; "false"
     ]
     |> Async.RunSynchronously
+    publishBrowserAssets docsDir docsEntries []
 
 Target.create "Default" (fun _ -> Target.listAvailable())
 

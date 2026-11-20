@@ -98,7 +98,7 @@ test('Home loads the chart only after native navigation to Home @cross-browser',
   const chartModules: string[] = []
   page.on('request', request => {
     const path = new URL(request.url()).pathname
-    if (/^\/examples\/js\/(chart\.js|echarts\..+\.esm\.min\.js)$/.test(path)) chartModules.push(path)
+    if (/^\/examples\/js\/(chart(?:-[A-Z0-9]{8})?\.js|echarts\..+\.esm\.min\.js)$/.test(path)) chartModules.push(path)
   })
   await page.goto('/examples/application/accounts')
   await page.waitForFunction(() => customElements.get('fve-button') !== undefined)
@@ -108,7 +108,7 @@ test('Home loads the chart only after native navigation to Home @cross-browser',
   await expect(page.locator('#home-balance-chart')).toHaveAttribute('data-ready', 'true')
   await expect(page.locator('html')).not.toHaveAttribute('data-chart-session', 'retained')
   expect(chartModules).toEqual([
-    '/examples/js/chart.js',
+    expect.stringMatching(/^\/examples\/js\/chart(?:-[A-Z0-9]{8})?\.js$/),
     expect.stringMatching(/^\/examples\/js\/echarts\./),
   ])
 })

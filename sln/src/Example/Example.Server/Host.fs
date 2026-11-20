@@ -11,13 +11,17 @@ open Giraffe
 
 let private useAssets (app: IApplicationBuilder) =
     let publicRoot = Path.Combine(AppContext.BaseDirectory, "wwwroot")
+    let serve provider path =
+        app.UseStaticFiles(
+            StaticFileOptions(FileProvider = provider, RequestPath = PathString path,
+                              OnPrepareResponse = Action<_>(Common.BrowserAssets.prepareResponse))) |> ignore
     let files = new PhysicalFileProvider(publicRoot)
-    app.UseStaticFiles(StaticFileOptions(FileProvider = files)) |> ignore
-    app.UseStaticFiles(StaticFileOptions(FileProvider = files, RequestPath = PathString "/examples")) |> ignore
+    serve files ""
+    serve files "/examples"
     // Retain published asset URLs and copied example links while the physical folders stay flat.
     for route, folder in [ "scripts", "js"; "css", "css"; "fonts", "fonts"; "images", "images" ] do
         let provider = new PhysicalFileProvider(Path.Combine(publicRoot, folder))
-        app.UseStaticFiles(StaticFileOptions(FileProvider = provider, RequestPath = PathString ("/examples/assets/" + route))) |> ignore
+        serve provider ("/examples/assets/" + route)
 
 let create (args: string array) (config: ServerConfig) routes =
     let builder = WebApplication.CreateBuilder(args)
