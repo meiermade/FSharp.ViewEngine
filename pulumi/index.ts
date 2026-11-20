@@ -6,11 +6,14 @@ import './src/cloudflare'
 import * as image from './src/docker/image'
 import './src/docker'
 import * as workload from './src/k8s/deployment'
+import { exampleDeployment } from './src/k8s/example'
 import './src/k8s'
 
 export const origin = config.appConfig.origin
 export const releaseCommit = config.releaseCommit
 export const imageDigest = image.imageRef
+export const exampleImageDigest = image.exampleImageRef
+export const exampleDeploymentName = exampleDeployment.metadata.name
 export const hostname = record.hostname
 export const coreVersion = config.releaseMetadata.coreVersion
 export const coreTag = config.releaseMetadata.coreTag
@@ -27,5 +30,7 @@ export const e2eReady: pulumi.Output<boolean> = config.isStaging
         access.application!.aud,
         access.ciServiceToken!.clientId,
         workload.deployment.status,
+        image.exampleImageRef,
+        exampleDeployment.status,
     ]).apply(() => true)
     : pulumi.output(false)

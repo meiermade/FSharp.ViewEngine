@@ -32,5 +32,5 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 compose up --build --detach --force-recreate --remove-orphans
-compose logs --follow --no-color docs &
+compose logs --follow --no-color &
 wait $!

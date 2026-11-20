@@ -16,6 +16,12 @@ rocket('fve-date-picker', {
       const label = host.querySelector('[data-fve-date-picker-value]');
       if (label && label.textContent !== value) label.textContent = value;
     };
+    host.addEventListener('click', event => {
+      const preset = event.target.closest('[data-fve-date-preset-start]');
+      if (!preset || event.defaultPrevented) return;
+      const { fveDatePresetStart: start, fveDatePresetEnd: end } = preset.dataset;
+      host.querySelector('fve-calendar-selection')?.dispatchEvent(new CustomEvent('fve-calendar-preset', { detail: { start, end } }));
+    }, { signal: events.signal });
     host.addEventListener('fve-calendar-change', synchronize, { signal: events.signal });
     host.addEventListener('datastar-scope-children', synchronize, { signal: events.signal });
     const observer = new MutationObserver(synchronize);

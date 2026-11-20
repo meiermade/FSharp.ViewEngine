@@ -21,6 +21,17 @@ module internal ViewTransactions =
             else
                 { query with sort = "date-desc" }
 
+        let filters = filterValues query.account
+        let accountIds =
+            query.records.accounts
+            |> List.filter (fun account -> List.contains (string account.id) filters)
+            |> List.collect (subtree query.records)
+            |> List.map _.id |> Set.ofList
+        let parseDate (value: string) =
+            match DateOnly.TryParseExact(value, "yyyy-MM-dd", Globalization.CultureInfo.InvariantCulture, Globalization.DateTimeStyles.None) with
+            | true, date -> Some date
+            | _ -> None
+        let startDate, endDate = parseDate query.startDate, parseDate query.endDate
         let rows =
             query.records.transactions
             |> List.filter (fun transaction ->
@@ -31,11 +42,13 @@ module internal ViewTransactions =
                          "verified"
                      else
                          "unverified")
-                && filterMatches query.account (string transaction.accountId))
+                && (filters.IsEmpty || involves accountIds transaction)
+                && (startDate |> Option.forall (fun date -> transaction.date >= date))
+                && (endDate |> Option.forall (fun date -> transaction.date <= date)))
             |> (if query.sort = "date-asc" then
-                    List.sortBy _.date
+                    List.sortBy (fun row -> row.date, row.id)
                 else
-                    List.sortByDescending _.date)
+                    List.sortByDescending (fun row -> row.date, row.id))
 
         let filters =
             [ { name = "status"
@@ -54,6 +67,6 @@ module internal ViewTransactions =
                     _description "Adjust the search, account, or verification filter."
                 }
             else
-                transactionTable query "Transactions" rows true
+                transactionTable query "Transactions" rows None
 
         collection query "transactions" filters content

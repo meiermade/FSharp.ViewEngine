@@ -14,7 +14,10 @@ open Overlay
 
 module internal AccountEditor =
     let accountForm (query: Query) existing suffix =
-        let account = existing |> Option.map findAccount
+        let account = query.records.accounts |> List.tryFind (fun row -> Some row.id = existing)
+        let proposedParent = query.records.accounts |> List.tryFind (fun row -> string row.id = query.parent)
+        let excluded = account |> Option.map (subtree query.records) |> Option.defaultValue []
+        let parents = query.records.accounts |> List.filter (fun row -> not (List.contains row excluded))
 
         let page =
             existing
@@ -26,7 +29,7 @@ module internal AccountEditor =
 
         let seededName =
             if duplicate then
-                accounts |> List.find (fun item -> Some item.id <> existing) |> _.name
+                query.records.accounts |> List.find (fun item -> Some item.id <> existing) |> _.name
             elif invalid then
                 ""
             else
@@ -35,7 +38,7 @@ module internal AccountEditor =
         let kind =
             account
             |> Option.map (fun item -> string item.accountType)
-            |> Option.defaultValue "Asset"
+            |> Option.defaultWith (fun () -> proposedParent |> Option.map (fun row -> string row.accountType) |> Option.defaultValue "Asset")
 
         let draft =
             match query.editorDraft with
@@ -89,14 +92,17 @@ module internal AccountEditor =
                 || value.subtype <> "Generic"
                 || value.observedBalance <> "not-required")
 
-        let parentType =
+        let parentId =
             draft
-            |> Option.map _.parentType
+            |> Option.map _.parentId
             |> Option.defaultWith (fun () ->
                 if query.state = "invalid-details" then
-                    accountTypes |> List.find (fun value -> string value <> kind) |> string
+                    parents |> List.find (fun row -> isRoot row && string row.accountType <> kind) |> _.id |> string
                 else
-                    kind)
+                    proposedParent |> Option.map _.id
+                    |> Option.orElseWith (fun () -> account |> Option.bind _.parentId)
+                    |> Option.defaultWith (fun () -> parents |> List.find (fun row -> isRoot row && string row.accountType = kind) |> _.id)
+                    |> string)
 
         let editorSelect name (label: string) selected options (validation: string option) =
             let options =
@@ -168,12 +174,12 @@ module internal AccountEditor =
                 name
 
                 editorSelect
-                    "parentType"
+                    "parentId"
                     "Parent account"
-                    parentType
-                    (accountTypes |> List.map (fun kind -> string kind, groupLabel kind))
+                    parentId
+                    (parents |> List.sortBy (fun row -> not (isRoot row), row.name) |> List.map (fun row -> string row.id, row.name))
                     (if query.state = "invalid-details" && not invalidFixedDetails then
-                         Some "Choose the root matching the account type."
+                         Some "Choose a parent account of the same type, outside this account’s branch."
                      else
                          None)
 

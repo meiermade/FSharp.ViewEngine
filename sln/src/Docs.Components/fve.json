@@ -86,7 +86,7 @@
       "component": "foundation",
       "path": "Components/Foundation.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "ad647dd0155651cac762a0c75eae1942798ce1f8210a8570728129c4da139ba7"
+      "registryChecksum": "f8990e3c161ad189f53fec5725158b0e2c88310d533d004e78b18d6f7e7b29b6"
     },
     {
       "component": "card",
@@ -200,19 +200,19 @@
       "component": "button",
       "path": "Components/Assets/button.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "3bfddf2df083779c7b03e43531293bd68df50ff110f000b72ce16cf05e2d6573"
+      "registryChecksum": "3fac304d1ed7ba01437a35c876b94208f8ffdcfbfdc5e89ebbd839f5e24d288f"
     },
     {
       "component": "button",
       "path": "Components/Button.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "25140b3b0b106dc2616eebe2fb85a65c5326afb2a64dff6fdc9a9f86c9a1fbb5"
+      "registryChecksum": "a5f97321d64d383f9290ba3e84194a6d90e916e8a4ad38bec3ff7c11461a1394"
     },
     {
       "component": "link",
       "path": "Components/Link.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "40fd52fcc0f97ee263664460415175a6b255301a8809217370fbdfd25f897127"
+      "registryChecksum": "c2dc621f8370aab443481b90c18c2a59786f75993bb53864a171683b29306c01"
     },
     {
       "component": "badge",
@@ -230,7 +230,7 @@
       "component": "empty-state",
       "path": "Components/EmptyState.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "2b1c7c44cb911ab623338e54649817426f15b3cb671d6d9b3d9575e3fac6aa2a"
+      "registryChecksum": "a2d26e256c3c433e4e0b3a6f459a37ca1ca45d7c63ea3e13fc6d7bd72997810d"
     },
     {
       "component": "table",
@@ -506,7 +506,7 @@
       "component": "dropdown-menu",
       "path": "Components/DropdownMenu.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "1e9a17642271ed0586765589269ded1e204dfb849963802f7120d3f21c5aa0e2"
+      "registryChecksum": "0701b81371e91468bf31eb4f2954c09cde308a9f964efe682247cdfa6f1c4469"
     },
     {
       "component": "side-nav",
@@ -578,7 +578,7 @@
       "component": "select",
       "path": "Components/Select.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "117adcfffee67bdd44a19046d536690e014b4ec0ce4989486a0fe0bde85beb2a"
+      "registryChecksum": "39b740b2b2f75977f0f0d80c12866dcff6d8e6f74daa9e00190c0bf6fde4afe8"
     },
     {
       "component": "select",
@@ -638,7 +638,7 @@
       "component": "month-calendar",
       "path": "Components/Assets/calendar-selection.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "4f6f5fcfdf70eb74d978b74385208f4816bfc7a156d3f08273b43b68df88049a"
+      "registryChecksum": "bf918f3ac4a79397e24db041e72548b59e9aa10bf32f07fc767f3fcc4527a903"
     },
     {
       "component": "month-calendar",
@@ -698,13 +698,13 @@
       "component": "date-picker",
       "path": "Components/Assets/date-picker.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "25108f497b1bf0d35329030e7f56876eed08375ff2397ebc8d8ce26177e73fc4"
+      "registryChecksum": "45feb41367975d15c618d8f49c61a88db692dc9dd597293bd1597612f21bf910"
     },
     {
       "component": "date-picker",
       "path": "Components/DatePicker.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "eb36937abcd5e299a04efc70c9ad8390bc2c16f122ad78e9c1a46526cf3906e3"
+      "registryChecksum": "0570a27e2c9fcd5bb94ca99ad57074130000f846b9c58a0867292fc38f84717f"
     },
     {
       "component": "breadcrumbs",
@@ -722,7 +722,7 @@
       "component": "native-overlay",
       "path": "Components/Assets/native-overlay.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "6f204e62a24e86848ff939eb8f3921c73fc40f033a87ac960db933fddd050eb2"
+      "registryChecksum": "de745480dcfa61cd436c3cde8363c8125898eb0ae1f3d66665cc058a50302a1a"
     },
     {
       "component": "native-overlay",
@@ -752,7 +752,7 @@
       "component": "drawer",
       "path": "Components/Drawer.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "fda3a8968fbb8c269745420123fb496f2c6463137ce40f53088f509ec00abb5a"
+      "registryChecksum": "3a66648bbfaa3535a16da3b33be10a91665b42393cb6ee7a2111aa4ef922189d"
     },
     {
       "component": "command",

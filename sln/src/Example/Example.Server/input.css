@@ -9,6 +9,13 @@
 @plugin "@tailwindcss/typography";
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* ColorMode restores the saved scheme before the first paint. */
+html, ::view-transition { background-color: Canvas; }
+@media (prefers-reduced-motion: no-preference) and (scripting: enabled) {
+  @view-transition { navigation: auto; }
+  ::view-transition-group(root) { animation-duration: 140ms; }
+}
+
 /* Expansion changes presentation, never the iframe's position in the document. */
 #example-navigation-root:has([data-review-expanded="true"]) {
   visibility: hidden;

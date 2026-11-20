@@ -3,6 +3,7 @@ import * as cloudflare from '@pulumi/cloudflare'
 import * as access from './access'
 import * as config from '../config'
 import { provider } from './provider'
+import { exampleService } from '../k8s/example'
 
 export const tunnel = new cloudflare.ZeroTrustTunnelCloudflared(config.identifier, {
     accountId: config.cloudflareConfig.accountId,
@@ -30,6 +31,11 @@ const applicationIngress = (hostname: string) => ({
 })
 
 const ingresses = [
+    {
+        ...applicationIngress(config.appConfig.hostname),
+        path: '^/examples/.+',
+        service: exampleService.metadata.name.apply(name => `http://${name}.${config.k8sConfig.namespace}.svc.cluster.local:80`),
+    },
     applicationIngress(config.appConfig.hostname),
     { service: 'http_status:404' },
 ]

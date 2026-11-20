@@ -8,11 +8,7 @@ open Example.Components
 open Example.Components.Views
 open Example.Server
 
-// The embedding host owns document identity, nonce lifetime and response transport.
-let nonce (context: HttpContext) =
-    match context.Items.TryGetValue "fve-csp-nonce" with
-    | true, (:? string as value) -> Some value
-    | _ -> None
+let nonce = Security.nonce
 
 let actions (config: ServerConfig) embedded =
     if embedded then []
@@ -21,6 +17,7 @@ let actions (config: ServerConfig) embedded =
             Html._variant LinkVariant.Ghost
             Html._color Color.Neutral
             Html._size Size.Medium
+            Html._padding Padding.Uniform
             Html._href config.sourceUrl
             Html._target "_blank"
             Html._rel "noopener"
@@ -45,6 +42,7 @@ let render (context: HttpContext) (title: string) content =
         context.Request.Scheme + "://" + context.Request.Host.Value
         + string context.Request.PathBase + string context.Request.Path
 
+    context.Response.Headers.Append("Vary", "Datastar-Request, X-FVE-Interaction")
     match Navigation.tryIntent context with
     | Some intent ->
         let metadata =
@@ -52,12 +50,11 @@ let render (context: HttpContext) (title: string) content =
                 Layout.documentTitle title
                 Layout.canonicalLink canonical
             } |> Render.toString
-        Navigation.respond
-            (if HttpMethods.IsPost context.Request.Method then Navigation.Restore else intent)
+        Navigation.respond intent
             (Layout.navigationRoot embedded content |> Render.toString)
             metadata
     | None ->
         content
-        |> Layout.documentWithNonce Navigation.enhancement.initialScript Navigation.bodyAttributes (nonce context) canonical embedded title
+        |> Layout.documentWithNonce Navigation.initialScript Navigation.bodyAttributes (nonce context) canonical embedded title
         |> Render.toHtmlDocString
         |> htmlString

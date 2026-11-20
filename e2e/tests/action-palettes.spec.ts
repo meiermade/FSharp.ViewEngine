@@ -51,6 +51,11 @@ for (const kind of ['button', 'link'] as const) for (const mode of ['light', 'da
       await control.scrollIntoViewIfNeeded()
       await page.mouse.move(0, 0); await settle()
       const normal = await control.evaluate(paint)
+      if (mode === 'light' && label?.startsWith('Soft ')) {
+        const surface = await control.locator('..').evaluate(paint)
+        const fillDifference = Math.max(...normal.background.slice(0, 3).map((value, i) => Math.abs(value - surface.background[i])))
+        expect(fillDifference, `${label} resting tint separates from its surface`).toBeGreaterThanOrEqual(16)
+      }
       await control.hover(); await settle()
       const hovered = await control.evaluate(paint)
       await page.mouse.down(); await settle()

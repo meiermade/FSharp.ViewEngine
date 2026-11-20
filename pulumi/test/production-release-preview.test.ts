@@ -150,7 +150,8 @@ for (const [coreVersion, cliVersion] of [
     test(`manual and release deployment preserve pinned Core ${coreVersion} and CLI ${cliVersion}`, () => {
         const image = `registry/image@sha256:${'a'.repeat(64)}`
         const commit = 'b'.repeat(40)
-        const outputs = { image, commit, docsCoreVersion: coreVersion, docsCliVersion: cliVersion, promoteDocs: 'true' }
+        const exampleImage = `registry/example@sha256:${'e'.repeat(64)}`
+        const outputs = { image, exampleImage, commit, docsCoreVersion: coreVersion, docsCliVersion: cliVersion, promoteDocs: 'true' }
         const caller = { needs: { candidate: { outputs } } }
         const previewInputs = resolve(release.jobs['production-preview'].with, caller)
         const deployInputs = resolve(release.jobs.production.with, caller)
@@ -179,7 +180,7 @@ for (const [coreVersion, cliVersion] of [
             const pulumi = require('@pulumi/pulumi');
             pulumi.runtime.setMocks({newResource: args => ({id: args.name, state: args.inputs}), call: args => args.inputs}, 'fsharp-view-engine', 'prod', false);
             const config = require('./bin/src/config');
-            console.log(JSON.stringify({metadata: config.releaseMetadata, image: config.deploymentImage, commit: config.releaseCommit}));
+            console.log(JSON.stringify({metadata: config.releaseMetadata, image: config.deploymentImage, exampleImage: config.exampleDeploymentImage, commit: config.releaseCommit}));
         `], { cwd: pulumiDir, env, encoding: 'utf8', timeout: 15_000 })
         assert.equal(config.status, 0, config.stderr)
         const actual = JSON.parse(config.stdout)
@@ -188,6 +189,7 @@ for (const [coreVersion, cliVersion] of [
             cliVersion, cliTag: cliVersion === 'unreleased' ? 'unreleased' : `cli/v${cliVersion}`,
         })
         assert.equal(actual.image, image)
+        assert.equal(actual.exampleImage, exampleImage)
         assert.equal(actual.commit, commit)
     })
 }

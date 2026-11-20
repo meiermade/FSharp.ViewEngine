@@ -21,6 +21,4 @@ module internal CreateAccount =
                 "/examples/application/accounts/new"
                 "/examples/application/accounts/new"
                 "validateAccount (existingAccountId=None)"
-          rules =
-            accountRules
-            @ [ "Cancel or Escape SHALL return to Accounts without submitting or confirmation." ] }
+          requirements = [] }

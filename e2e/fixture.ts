@@ -1,4 +1,4 @@
-import { test as base, expect, type Page } from '@playwright/test'
+import { test as base, expect, type Page, type Locator } from '@playwright/test'
 import { createLoadDiagnostics } from './scripts/load-diagnostics.mjs'
 
 type LoadDiagnostics = ReturnType<typeof createLoadDiagnostics>
@@ -21,4 +21,9 @@ export const test = base.extend<{ loadDiagnostics: LoadDiagnostics }>({
   }, { auto: true }],
 })
 export const specProduct = (page: Page) => page.frameLocator('#spec-product-frame')
+export async function chooseChartDates(toolbar: Locator, first: string, last: string) {
+  await toolbar.getByRole('button', { name: /^Date range / }).click()
+  await toolbar.getByRole('gridcell', { name: first, exact: true }).click()
+  await toolbar.getByRole('gridcell', { name: last, exact: true }).click()
+}
 export { expect }

@@ -37,18 +37,20 @@ module internal Presentation =
             }
         }
 
-    let rules (items: string list) =
-        Layout.documentationSection
-            "rules"
-            "Rules"
-            (Layout.prose (
-                ul {
-                    for item in items do
-                        li { item }
-                }
-            ))
+    let requirements (items: string list) =
+        if items.IsEmpty then fragment { () }
+        else
+            Layout.documentationSection
+                "requirements"
+                "Requirements"
+                (Layout.prose (
+                    ul {
+                        for item in items do
+                            li { item }
+                    }
+                ))
 
-    let contracts heading (description: string) (dependencies: string list) (code: string) requirements =
+    let contracts heading (description: string) (dependencies: string list) (code: string) requiredBehavior =
         div {
             _class "grid gap-12"
             Layout.documentationSection "responsibility" "Responsibility" (Layout.prose (p { description }))
@@ -71,5 +73,5 @@ module internal Presentation =
                     code
                 })
 
-            rules requirements
+            requirements requiredBehavior
         }

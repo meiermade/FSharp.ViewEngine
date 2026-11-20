@@ -233,11 +233,10 @@ module View =
             productStylesheets = [ "/css/output.css" ]
             prismScripts =
                 DocsAssets.defaults.prismScripts
-                @ [ "/scripts/prism-bash.1.30.0.min.js"
-                    "/scripts/prism-json.1.30.0.min.js"
-                    "/scripts/prism-python.1.30.0.min.js"
-                    "/scripts/prism-typescript.1.30.0.min.js" ]
-            navigation = Some Docs.Web.Navigation.enhancement
+                @ [ "/js/prism-bash.1.30.0.min.js"
+                    "/js/prism-json.1.30.0.min.js"
+                    "/js/prism-python.1.30.0.min.js"
+                    "/js/prism-typescript.1.30.0.min.js" ]
             additionalHead =
                 [ link {
                       _rel "icon"
@@ -249,7 +248,7 @@ module View =
                       _href "/site.webmanifest"
                   }
                   script {
-                      _src "/scripts/tailwind-elements-loader.1.0.22.js"
+                      _src "/js/tailwind-elements-loader.1.0.22.js"
                       _type "module"
                   } ] }
 
@@ -372,7 +371,13 @@ module View =
                     if Catalog.componentRegistrations |> List.exists (fun item -> item.id = page.id) then "Components"
                     elif page.category = "Guides" then "Guides"
                     else "Pages"
-                DocsSearchEntry.create page.path (resolvePage page) [ page.category; page.navLabel ]
+                let searchPage = resolvePage page
+                let searchPage =
+                    match page.id with
+                    | "installation" -> { searchPage with title = "Core installation" }
+                    | "components-installation" -> { searchPage with title = "Component installation" }
+                    | _ -> searchPage
+                DocsSearchEntry.create page.path searchPage [ page.category; page.navLabel ]
                 |> DocsSearchEntry.withGroup group)
         let exampleEntries =
             Examples.templates
@@ -412,27 +417,12 @@ module View =
         let site, sideNavItems, breadcrumbs, renderMode, docsPage =
             prepareResolvedPage appMode sections registration docsPage
 
-        let site =
-            { site with
-                assets = { site.assets with nonce = nonce } }
+        let assets = { site.assets with nonce = nonce }
 
-        DocsView.documentWithNavigation site breadcrumbs sideNavItems renderMode docsPage
-
-    let private renderResolvedNavigation appMode sections registration docsPage =
-        let site, sideNavItems, breadcrumbs, renderMode, docsPage =
-            prepareResolvedPage appMode sections registration docsPage
-
-        DocsView.navigationRootWithNavigation site breadcrumbs sideNavItems renderMode docsPage,
-        DocsView.documentMetadata site docsPage
+        DocsView.documentWithNavigation { site with assets = assets } breadcrumbs sideNavItems renderMode docsPage
 
     let renderPage sections registration =
         renderResolvedPage None None sections registration (resolvePage registration)
-
-    let navigationPage appMode sections registration =
-        renderResolvedNavigation appMode sections registration (resolvePage registration)
-
-    let navigationPageWithPage appMode sections registration docsPage =
-        renderResolvedNavigation appMode sections registration docsPage
 
     let documentWithContentAndNonce nonce sections registration page root =
         let site, _, _, _, page = prepareResolvedPage None sections registration page
@@ -445,10 +435,6 @@ module View =
 
     let documentWithContent sections registration page root =
         documentWithContentAndNonce None sections registration page root
-
-    let contentMetadata sections registration page =
-        let site, _, _, _, page = prepareResolvedPage None sections registration page
-        DocsView.documentMetadata site page
 
     let document sections page = renderPage sections page
 

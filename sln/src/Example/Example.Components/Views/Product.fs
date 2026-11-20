@@ -41,8 +41,9 @@ module Product =
             _id (elementId query "record-actions")
             _ariaLabel "More actions"
             fveDropdownMenuTrigger {
-                _class (Controls.rowActionClass + " ring-1 ring-inset ring-[var(--fve-border)]")
-                fun (attributes:HtmlAttribute list) -> button {
+                yield! Controls.rowActionAttributes
+                _variant ButtonVariant.Outline
+                fun (attributes:HtmlAttribute list) -> fveButton {
                     for attribute in attributes do attribute
                     fveIcon { _name IconName.EllipsisHorizontal; _variant IconVariant.Micro }
                 }
@@ -89,10 +90,12 @@ module Product =
                         "Create account"
                 }
             | ApplicationPage.Transactions -> Collection.restoreAction query background
+            | ApplicationPage.Account id when findAccount id |> isRoot ->
+                Layout.primaryLink
+                    (collectionHref { query with parent = string id; overlayFrom = "" } ApplicationPage.CreateAccount)
+                    "Create child"
             | ApplicationPage.Account id ->
-                recordActions
-                    { query with overlayFrom = "" }
-                    (ApplicationPage.DeleteAccount id)
+                recordActions { query with overlayFrom = "" } (ApplicationPage.DeleteAccount id)
             | ApplicationPage.Transaction id ->
                 recordActions { query with overlayFrom = "" } (ApplicationPage.DeleteTransaction id)
             | ApplicationPage.SettingsSection "api-clients" ->

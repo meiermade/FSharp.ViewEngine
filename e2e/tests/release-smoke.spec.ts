@@ -31,6 +31,13 @@ test('health reports the deployed release identity', async ({ request }) => {
       },
     },
   })
+  const example = await request.get('/examples/health')
+  expect(example.status()).toBe(200)
+  await expect(example.json()).resolves.toEqual({
+    status: 'ok',
+    commit: expectedCommit,
+    image: process.env.EXPECTED_EXAMPLE_IMAGE ?? 'local',
+  })
 })
 
 test('discovery endpoints advertise canonical public documentation', async ({ request }) => {
@@ -42,6 +49,9 @@ test('discovery endpoints advertise canonical public documentation', async ({ re
   const robots = await request.get('/robots.txt')
   expect(robots.status()).toBe(200)
   expect(await robots.text()).toContain(`Sitemap: ${canonicalOrigin}/sitemap.xml`)
+  const examples = await request.get('/examples/sitemap.xml')
+  expect(examples.status()).toBe(200)
+  expect(await examples.text()).toContain(`<loc>${configuredOrigin}/examples/application</loc>`)
 })
 
 test('production permits the Marketing login example while blocking scanner probes', async ({ request }) => {
@@ -107,7 +117,7 @@ test('essential rendered assets and critical read-only navigation work @cross-br
   await page.keyboard.press('Escape')
   await expect(trigger).toBeFocused()
   for (const section of ['Components', 'Actions']) {
-    const toggle = page.getByLabel(`Toggle ${section} section`, { exact: true })
+    const toggle = page.locator('#side-nav').getByLabel(`Toggle ${section} section`, { exact: true })
     if (await toggle.getAttribute('aria-expanded') !== 'true') await toggle.click()
   }
   await page.getByRole('link', { name: 'Button', exact: true }).first().click()

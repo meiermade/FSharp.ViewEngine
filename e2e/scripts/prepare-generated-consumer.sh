@@ -93,7 +93,7 @@ done
 template_dir="$output_dir/templates-net11.0"
 example_sources="$sln_dir/src/Example"
 mkdir -p "$template_dir"
-tar --exclude=bin --exclude=obj --exclude=node_modules -C "$example_sources" -cf - . | tar -C "$template_dir" -xf -
+tar --exclude=bin --exclude=obj --exclude=out --exclude=node_modules -C "$example_sources" -cf - . | tar -C "$template_dir" -xf -
 cp "$output_dir/net11.0/global.json" "$template_dir/global.json"
 (
   cd "$template_dir"
@@ -102,16 +102,16 @@ cp "$output_dir/net11.0/global.json" "$template_dir/global.json"
 )
 
 visual_dir="$output_dir/net11.0"
-mkdir -p "$visual_dir/App/wwwroot/scripts"
+mkdir -p "$visual_dir/App/wwwroot/js"
 for asset in prism.1.30.0.min.js prism-fsharp.1.30.0.min.js prism-python.1.30.0.min.js prism-typescript.1.30.0.min.js prism-bash.1.30.0.min.js prism-sql.1.30.0.min.js; do
-  cp "$sln_dir/src/Docs/wwwroot/scripts/$asset" "$visual_dir/App/wwwroot/scripts/$asset"
+  cp "$sln_dir/src/Docs/wwwroot/js/$asset" "$visual_dir/App/wwwroot/js/$asset"
 done
 cp "$fixture_dir/GeneratedConsumer.fsproj" "$visual_dir/App/GeneratedConsumer.fsproj"
 cp "$fixture_dir/Program.fs" "$visual_dir/App/Program.fs"
 cp "$fixture_dir/input.css" "$visual_dir/App/input.css"
 mkdir -p "$visual_dir/App/js"
 cp "$fixture_dir/app.js" "$visual_dir/App/js/app.js"
-"$esbuild_bin" "$visual_dir/App/js/app.js" --bundle --format=esm --splitting --outdir="$visual_dir/App/wwwroot/assets" --minify
+"$esbuild_bin" "$visual_dir/App/js/app.js" --bundle --format=esm --splitting --outdir="$visual_dir/App/wwwroot/js" --minify
 NODE_PATH="$sln_dir/node_modules" "$tailwindcss_bin" --input "$visual_dir/App/input.css" --output "$visual_dir/App/wwwroot/output.css" --minify
 (cd "$visual_dir/App"; restore_build GeneratedConsumer.fsproj)
 (cd "$visual_dir"; dotnet new sln --name GeneratedConsumer --format slnx --force >/dev/null; dotnet sln GeneratedConsumer.slnx add Acme.Components.fsproj App/GeneratedConsumer.fsproj >/dev/null)

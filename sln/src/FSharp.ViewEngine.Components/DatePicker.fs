@@ -1,6 +1,8 @@
 namespace FSharp.ViewEngine.Components
 
+open System
 open System.Globalization
+open System.Text.Json
 open FSharp.ViewEngine
 open type Html
 open type Datastar
@@ -37,6 +39,16 @@ module internal DatePicker =
             | MonthCalendarSelection.Range(Some startDate, None) -> format (Some startDate) + " – Choose end date"
             | MonthCalendarSelection.Range(None, _) -> "Choose date range"
 
+        let presets =
+            ComponentElement.value "range-presets" attributes
+            |> Option.map JsonSerializer.Deserialize<string array array>
+            |> Option.defaultValue [||]
+
+        if presets.Length > 0 then
+            match calendar.selection with
+            | MonthCalendarSelection.Range _ -> ()
+            | _ -> invalidArg "attributes" "Date presets require range selection."
+
         let content = fvePopover {
             _id (id + "-popover")
             _alignment PopoverAlignment.Start
@@ -47,7 +59,7 @@ module internal DatePicker =
                     "inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] [--fve-internal-control-border-width:1px] border border-[var(--fve-border)] bg-[var(--fve-surface)] font-medium text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50 "
                     + ComponentHtml.sizeClasses size)
 
-                for attribute in MonthSelectionElements.nativeAttributes attributes |> ComponentHtml.safeAttributes ["size"] do
+                for attribute in MonthSelectionElements.nativeAttributes attributes |> ComponentHtml.safeAttributes ["size"; "range-presets"] do
                     attribute
 
                 _disabled calendar.disabled
@@ -61,9 +73,10 @@ module internal DatePicker =
                             attribute
 
                         span {
-                            _class "flex min-w-48 items-center justify-between gap-3"
+                            _class "flex min-w-0 items-center justify-between gap-3 text-left"
 
                             span {
+                                _id (id + "-value")
                                 _attr ("data-fve-date-picker-value", "")
                                 visibleValue
                             }
@@ -82,6 +95,21 @@ module internal DatePicker =
                 _class "w-auto max-w-[calc(100vw-32px)]"
                 // Fit the available anchor area; retain a percentage fallback where stretch is unsupported.
                 _style "padding:0;max-height:min(32rem,calc(100dvh - 2rem),100%);max-height:stretch;position-try-order:most-height"
+                if presets.Length > 0 then
+                    div {
+                        _role "group"
+                        _ariaLabel "Date range presets"
+                        _class "flex flex-wrap gap-1 border-b border-[var(--fve-border)] px-3 py-2"
+                        for preset in presets do
+                            button {
+                                _type "button"
+                                _disabled (calendar.disabled || calendar.readOnly || calendar.pending)
+                                _attr ("data-fve-date-preset-start", preset[1])
+                                _attr ("data-fve-date-preset-end", preset[2])
+                                _class "min-h-8 rounded-[var(--fve-radius-control)] px-2 text-sm text-[var(--fve-text)] hover:bg-[var(--fve-surface-hover)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                                preset[0]
+                            }
+                    }
                 MonthCalendarSelectionRendering.render calendar
             }
         }
@@ -94,3 +122,14 @@ module internal DatePicker =
 [<AutoOpen>]
 module DatePickerDsl =
     let fveDatePicker = ComponentElementBuilder(DatePicker.render)
+
+    type Html with
+        /// Add labelled ranges that populate the picker without submitting its form.
+        static member _rangePresets(values: (string * DateOnly * DateOnly) list) =
+            let date (value: DateOnly) = value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            let presets =
+                values |> List.map (fun (label, startDate, endDate) ->
+                    if String.IsNullOrWhiteSpace label || startDate > endDate then
+                        invalidArg "values" "Each range preset needs a label and ordered dates."
+                    [| label; date startDate; date endDate |])
+            Html._attr ("range-presets", JsonSerializer.Serialize presets)

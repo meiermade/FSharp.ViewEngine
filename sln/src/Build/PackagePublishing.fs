@@ -119,6 +119,7 @@ let validateCoherence (selection:SelectionInputs) coreState cliState =
 type ReleasePlan =
     { commit:string
       image:string
+      exampleImage:string
       requested:string
       packages:string
       coreVersion:string
@@ -145,7 +146,7 @@ let planRelease requested commit image (now:DateTimeOffset) coreState cliState d
     let packages = match core,cli with true,true -> "both" | true,false -> "core" | false,true -> "cli" | _ -> "docs"
     validateCoherence (validateSelection packages coreVersion cliVersion) coreState cliState
     let snapshot selected state version = if selected || not state.changedSinceLatest then version else "unreleased"
-    { commit = commit; image = image; requested = requested; packages = packages
+    { commit = commit; image = image; exampleImage = ""; requested = requested; packages = packages
       coreVersion = coreVersion; cliVersion = cliVersion
       docsCoreVersion = snapshot core coreState coreVersion
       docsCliVersion = snapshot cli cliState cliVersion
@@ -198,7 +199,8 @@ let releasePreviewSummary (infrastructureCommit:string) (plan:ReleasePlan) (prod
         "| Production Docs identity | Current | Proposed |"
         "| --- | --- | --- |"
         row "Source commit" "releaseCommit" plan.commit
-        row "Immutable image" "imageDigest" plan.image
+        row "Docs image" "imageDigest" plan.image
+        row "Example image" "exampleImageDigest" plan.exampleImage
         row "Advertised Core version" "coreVersion" plan.docsCoreVersion
         row "Advertised CLI version" "cliVersion" plan.docsCliVersion
         ""
@@ -364,6 +366,9 @@ let acceptedCandidate repository githubRepository =
     let root = document.RootElement
     let commit = root.GetProperty("releaseCommit").GetString()
     let image = root.GetProperty("imageDigest").GetString()
+    let exampleImage = root.GetProperty("exampleImageDigest").GetString()
+    if not (Regex.IsMatch(exampleImage, "@sha256:[a-f0-9]{64}$")) then
+        invalidOp "Staging must report an immutable Example image."
     // Run creation order does not change on retry. Read every page and select by attempt start time.
     // Filter main locally: filtered Actions searches have a 1,000-run result limit.
     let history = runProcess true "gh" ["api"; $"repos/{githubRepository}/actions/workflows/deploy-staging-docs.yml/runs?per_page=100"; "--paginate"; "--slurp"]
@@ -386,7 +391,7 @@ let acceptedCandidate repository githubRepository =
             | [accepted] -> accepted
             | _ -> invalidOp "The latest staging attempts have ambiguous source identities."
     validateCandidate accepted commit image (root.GetProperty("origin").GetString()) (root.GetProperty("e2eReady").GetBoolean())
-    commit,image
+    commit,image,exampleImage
 
 let runArtifactNames githubRepository runId =
     runProcess true "gh" ["api"; $"repos/{githubRepository}/actions/runs/{runId}/artifacts"; "--paginate"; "--jq"; ".artifacts[] | select(.expired == false) | .name"]

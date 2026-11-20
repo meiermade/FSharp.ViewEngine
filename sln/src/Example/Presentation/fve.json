@@ -17,7 +17,7 @@
       "component": "foundation",
       "path": "Components/Foundation.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "e297866debcd1551aaead8d1383fe7782ed8b17e7426a85663945ab72d87257c"
+      "registryChecksum": "599535966f6b34d8888356434b083c0da032a326cf6713754155d4275e88a20c"
     },
     {
       "component": "slide",
@@ -41,13 +41,13 @@
       "component": "button",
       "path": "Components/Assets/button.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "3bfddf2df083779c7b03e43531293bd68df50ff110f000b72ce16cf05e2d6573"
+      "registryChecksum": "3fac304d1ed7ba01437a35c876b94208f8ffdcfbfdc5e89ebbd839f5e24d288f"
     },
     {
       "component": "button",
       "path": "Components/Button.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "264fca7690cd80074a4dbc4131e8a39471492bc752a6bbb83df2642f56e69109"
+      "registryChecksum": "a207d0d99d5a6191b43d5cdb137f94f4c8c41e64ef7c7be95210361e3187d77e"
     },
     {
       "component": "icon",

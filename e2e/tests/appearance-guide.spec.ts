@@ -1,11 +1,20 @@
 import { test, expect } from '../fixture'
 
 test('theming teaches focused recipes and leaves complete setup in Installation', { tag: '@cross-browser' }, async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 950 })
   await page.goto('/guides/theming#appearance')
   await expect(page).toHaveURL(/\/guides\/theming#appearance$/)
+  await expect(page.getByRole('heading', { name: 'Add an appearance picker', exact: true })).toBeInViewport()
+  const railBottoms = () => page.evaluate(() => ({
+    documentScroll: window.scrollY,
+    leftGap: Math.round(innerHeight - document.querySelector('[data-docs-side-nav]')!.getBoundingClientRect().bottom),
+    rightGap: Math.round(innerHeight - document.querySelector('[data-docs-toc-rail]')!.getBoundingClientRect().bottom),
+  }))
+  await expect.poll(railBottoms).toEqual({ documentScroll: 0, leftGap: 0, rightGap: 0 })
   await expect(page.getByRole('heading', { level: 1, name: 'Theming', exact: true })).toBeVisible()
   await expect(page.locator('a[href="/components/theme-switcher"]')).toHaveCount(0)
-  await expect(page.getByRole('link', { name: 'complete runnable example', exact: true })).toHaveAttribute('href', '/guides/theming/document')
+  const profileExample = page.getByRole('link', { name: 'Profile example', exact: true })
+  await expect(profileExample).toHaveAttribute('href', '/examples/application/profile')
   const source = page.locator('#appearance').locator('..')
   await expect(source).toContainText('ColorMode.assets "my-app-appearance" ColorMode.System')
   await expect(source).toContainText('/css/output.css')
@@ -21,6 +30,9 @@ test('theming teaches focused recipes and leaves complete setup in Installation'
   await choices.getByRole('radio', { name: 'System', exact: true }).check()
   await expect(page.locator('html')).toHaveClass(/dark/)
   expect(await page.evaluate(() => (window as any).fveColorMode.current())).toBe('system')
+  await profileExample.click()
+  await expect(page).toHaveURL(/\/examples\/application\/profile$/)
+  await expect(page.getByRole('radiogroup', { name: 'Appearance', exact: true })).toBeVisible()
 })
 
 test('Using signals demonstrates value binding, reactive attributes and a button action', { tag: '@cross-browser' }, async ({ page }) => {
@@ -43,59 +55,49 @@ test('Using signals demonstrates value binding, reactive attributes and a button
   await expect(page.getByRole('link', { name: 'Datastar guide', exact: true })).toHaveAttribute('href', '/extensions/datastar')
 })
 
-test('the complete appearance page reflows at narrow widths and enlarged text', async ({ page }) => {
+test('retired appearance demo links reach the app picker, which reflows at enlarged text', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 })
-  await page.goto('/components/theming/document')
+  for (const path of ['/guides/theming/document', '/components/theming/document']) {
+    await page.goto(path)
+    await expect(page).toHaveURL(/\/examples\/application\/profile$/)
+  }
   await page.locator('html').evaluate(element => { element.style.fontSize = '200%' })
-  const choices = page.getByRole('radiogroup', { name: 'Segmented appearance', exact: true })
+  const choices = page.getByRole('radiogroup', { name: 'Appearance', exact: true })
   await choices.getByText('Dark', { exact: true }).click()
   await expect(choices.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked()
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(320)
-  await expect(page.getByRole('button', { name: 'Appearance', exact: true })).toBeVisible()
 })
 
-test('ordinary appearance controls share an explicit preference across controls reload and tabs', { tag: '@cross-browser' }, async ({ page, context }) => {
+test('the application appearance picker preserves its preference across reloads and tabs', { tag: '@cross-browser' }, async ({ page, context }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.emulateMedia({ colorScheme: 'light' })
-  await page.goto('/components/theming/document')
-  const native = page.getByRole('radiogroup', { name: 'Appearance choices', exact: true })
-  const segmented = page.getByRole('radiogroup', { name: 'Segmented appearance', exact: true })
-  await expect(native.getByRole('radio', { name: 'System', exact: true })).toBeChecked()
-  await expect(segmented.getByRole('radio', { name: 'System', exact: true })).toBeChecked()
+  await page.goto('/examples/application/profile')
+  const choices = page.getByRole('radiogroup', { name: 'Appearance', exact: true })
+  await expect(choices.getByRole('radio', { name: 'System', exact: true })).toBeChecked()
 
-  await native.getByRole('radio', { name: 'Dark', exact: true }).check()
+  await choices.getByText('Dark', { exact: true }).click()
   await expect(page.locator('html')).toHaveClass(/dark/)
-  await expect(segmented.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked()
-  expect(await page.evaluate(() => localStorage.getItem('appearance-guide'))).toBe('dark')
+  expect(await page.evaluate(() => localStorage.getItem('financial-example-appearance'))).toBe('dark')
   expect(await page.evaluate(() => localStorage.getItem('fsharp-viewengine-docs-navigation-color-mode'))).toBeNull()
 
-  await page.getByRole('button', { name: 'Choose appearance', exact: true }).click()
-  const iconMenu = page.getByRole('menu', { name: 'Choose appearance', exact: true })
-  await expect(iconMenu.getByRole('menuitemradio', { name: 'Dark', exact: true })).toHaveAttribute('aria-checked', 'true')
-  await iconMenu.press('Escape')
-  await page.getByRole('button', { name: 'Appearance', exact: true }).click()
-  const buttonMenu = page.getByRole('menu', { name: 'Appearance', exact: true })
-  await expect(buttonMenu.getByRole('menuitemradio', { name: 'Dark', exact: true })).toHaveAttribute('aria-checked', 'true')
-  await buttonMenu.getByRole('menuitemradio', { name: 'System', exact: true }).click()
+  await choices.getByText('System', { exact: true }).click()
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
   await page.emulateMedia({ colorScheme: 'dark' })
   await expect(page.locator('html')).toHaveClass(/dark/)
   await expect(page.locator('html')).toHaveAttribute('data-color-mode', 'system')
-  await expect(native.getByRole('radio', { name: 'System', exact: true })).toBeChecked()
-  await expect(segmented.getByRole('radio', { name: 'System', exact: true })).toBeChecked()
-  expect(await page.evaluate(() => localStorage.getItem('appearance-guide'))).toBe('system')
+  await expect(choices.getByRole('radio', { name: 'System', exact: true })).toBeChecked()
 
   const sibling = await context.newPage()
   try {
-    await sibling.goto('/components/theming/document')
+    await sibling.goto('/examples/application/profile')
     await expect(sibling.locator('html')).toHaveAttribute('data-color-mode', 'system')
-    await segmented.getByText('Light', { exact: true }).click()
+    await choices.getByText('Light', { exact: true }).click()
     await expect(page.locator('html')).not.toHaveClass(/dark/)
-    await expect(native.getByRole('radio', { name: 'Light', exact: true })).toBeChecked()
     await expect(sibling.locator('html')).toHaveAttribute('data-color-mode', 'light')
-    await expect(sibling.getByRole('radiogroup', { name: 'Segmented appearance', exact: true }).getByRole('radio', { name: 'Light', exact: true })).toBeChecked()
+    await expect(sibling.getByRole('radiogroup', { name: 'Appearance', exact: true }).getByRole('radio', { name: 'Light', exact: true })).toBeChecked()
     await page.reload()
-    await expect(segmented.getByRole('radio', { name: 'Light', exact: true })).toBeChecked()
+    await expect(choices.getByRole('radio', { name: 'Light', exact: true })).toBeChecked()
     await expect(page.locator('html')).not.toHaveClass(/dark/)
   } finally {
     await sibling.close()

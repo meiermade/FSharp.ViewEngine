@@ -13,7 +13,7 @@ module internal Server =
         [ "responsibility", "Responsibility"
           "dependencies", "Dependencies"
           "contract", "Contract"
-          "rules", "Rules" ]
+          "requirements", "Requirements" ]
 
     let render () =
         contracts
@@ -22,6 +22,8 @@ module internal Server =
             [ "Example.Application and Example.Components; Giraffe at the HTTP edge." ]
             "// GET /examples/application/accounts\n// GET /examples/application/accounts/{id}\n// GET /examples/specification/accounts/view-accounts\n// GET /examples/specification/accounts/view-account?resource=101\n// POST /examples/application/accounts/new\n// POST /examples/application/accounts/{id}/edit\n// POST /examples/application/accounts/{id}/delete\n// GET /examples/api-documentation"
             [ "GET requests SHALL render the product selected by the URL."
-              "Specification App-mode links SHALL retain workflow, fixture identity, workspace and docking context."
-              "POST requests SHALL accept same-origin URL-encoded bodies of at most 64,000 bytes. Failed account editors SHALL return entered values and field errors only in a private, no-store response; other outcomes SHALL resolve finite redirects without submitted private values."
+              "Specification App-mode links SHALL retain workflow, fixture identity, workspace and review context."
+              "POST requests SHALL accept same-origin URL-encoded bodies of at most 64,000 bytes. Failed editors SHALL return entered values and field errors only in a private, no-store response. URLs and cookies SHALL NOT retain submitted private values."
+              "Collection choices SHALL compose with OR within a filter and AND between filters. Search, filters, sorting and workspace SHALL remain URL-backed; selected record keys SHALL NOT enter URLs."
+              "Deletions SHALL use protected, browser- and workspace-scoped session state without changing shared seed records. Restore records SHALL reset only the selected workspace."
               "Browser form endpoints and illustrative JSON API contracts SHALL remain distinguishable." ]

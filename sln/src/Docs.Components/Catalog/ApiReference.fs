@@ -125,7 +125,11 @@ module private ApiReferenceView =
             _data("http-method", methodName)
             div {
                 _class "flex items-center gap-3"
-                span { _class $"inline-flex rounded-md px-2 py-1 text-xs font-bold tracking-wide {DocsHttpMethod.className endpoint.method'}"; methodName }
+                fveBadge {
+                    _variant BadgeVariant.Soft
+                    _color (match endpoint.method' with GET -> Color.Success | POST -> Color.Info | PUT | PATCH -> Color.Warning | DELETE -> Color.Error | _ -> Color.Neutral)
+                    methodName
+                }
                 code { _class "overflow-wrap-anywhere text-sm font-semibold text-[var(--fve-text)]"; endpoint.path }
             }
             match endpoint.description with
@@ -140,7 +144,7 @@ module private ApiReferenceView =
                 _class "flex items-center gap-2"
                 code { _class "text-sm font-bold text-[var(--fve-text)]"; parameter.name }
                 span { _class "text-xs text-[var(--fve-muted-text)]"; parameter.typeName }
-                if parameter.required then span { _class "rounded-full bg-red-50 px-1.5 py-0.5 text-xs font-bold uppercase text-red-700 dark:bg-red-950 dark:text-red-200"; "Required" }
+                if parameter.required then fveBadge { _color Color.Error; _variant BadgeVariant.Soft; "Required" }
             }
             p { _class ApiStyles.parameterDescription; parameter.description }
         }
@@ -154,7 +158,7 @@ module private ApiReferenceView =
                 code { _class "text-sm font-bold text-[var(--fve-text)]"; parameter.name }
                 span { _class "text-xs text-[var(--fve-muted-text)]"; parameter.typeName }
                 span { _class "text-xs text-[var(--fve-muted-text)]"; DocsParameterLocation.value parameter.location }
-                if parameter.required then span { _class "rounded-full bg-red-50 px-1.5 py-0.5 text-xs font-bold uppercase text-red-700 dark:bg-red-950 dark:text-red-200"; "Required" }
+                if parameter.required then fveBadge { _color Color.Error; _variant BadgeVariant.Soft; "Required" }
             }
             match parameter.description with
             | Some description -> p { _class ApiStyles.parameterDescription; description }
@@ -295,7 +299,7 @@ module ApiOperation =
         section {
             _class "flex flex-col gap-4"
             ApiEndpoint.render operation.endpoint
-            if operation.deprecated then span { _class "inline-flex w-fit rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200"; "Deprecated" }
+            if operation.deprecated then fveBadge { _color Color.Warning; _variant BadgeVariant.Soft; "Deprecated" }
             match operation.authentication with
             | Some value -> div { _class "border-l-2 border-[var(--fve-border)] pl-3"; strong { "Authentication" }; p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; value } }
             | None -> ()

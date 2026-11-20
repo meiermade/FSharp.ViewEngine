@@ -8,6 +8,8 @@ const imageRef = `us-east1-docker.pkg.dev/meiermade/fsharpviewengine/fsharpviewe
 
 process.env.RELEASE_COMMIT = releaseCommit
 process.env.DEPLOY_IMAGE = imageRef
+const exampleImageRef = `registry/example@sha256:${'d'.repeat(64)}`
+process.env.DEPLOY_EXAMPLE_IMAGE = exampleImageRef
 process.env.CORE_PACKAGE_VERSION = 'unreleased'
 process.env.CLI_PACKAGE_VERSION = 'unreleased'
 process.env.ALLOW_UNRELEASED_PACKAGE_SNAPSHOT = 'true'
@@ -36,6 +38,7 @@ pulumi.runtime.setMocks({
 before(async () => {
     const stack = await import('../index')
     await new Promise<void>(resolve => stack.deploymentName.apply(() => resolve()))
+    await new Promise<void>(resolve => stack.exampleDeploymentName.apply(() => resolve()))
 })
 
 test('promotes the supplied digest without rebuilding and preserves Docs-only snapshot metadata', () => {
@@ -44,6 +47,8 @@ test('promotes the supplied digest without rebuilding and preserves Docs-only sn
     assert.ok(deployment)
     const container = deployment.inputs.spec.template.spec.containers[0]
     assert.equal(container.image, imageRef)
+    const example = resources.find(resource => resource.type === 'kubernetes:apps/v1:Deployment' && resource.name === 'fsharpviewengine-example')
+    assert.equal(example?.inputs.spec.template.spec.containers[0].image, exampleImageRef)
     const value = (name: string) => container.env.find((item: any) => item.name === name)?.value
     assert.equal(value('RELEASE_COMMIT'), releaseCommit)
     for (const name of ['CORE_PACKAGE_VERSION', 'CORE_PACKAGE_TAG', 'CLI_PACKAGE_VERSION', 'CLI_PACKAGE_TAG']) {

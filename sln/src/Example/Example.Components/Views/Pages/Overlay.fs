@@ -54,12 +54,12 @@ module internal Overlay =
                 }
 
                 div {
-                    _class "min-h-0 flex-1 overflow-y-auto p-5"
+                    _class "min-h-0 overflow-y-auto px-5 pt-5 pb-3"
                     body
                 }
 
                 div {
-                    _class "flex shrink-0 justify-end gap-3 border-t border-[var(--fve-border)] p-5"
+                    _class "flex shrink-0 flex-wrap justify-end gap-3 border-t border-[var(--fve-border)] p-5"
                     actions
                 }
             }
@@ -68,6 +68,7 @@ module internal Overlay =
                 _id id
                 _label label
                 _initialFocus focusId
+                _footerPlacement DrawerFooterPlacement.AfterContent
 
                 _dataPreserveAttr "open"
 

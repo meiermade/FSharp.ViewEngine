@@ -12,8 +12,19 @@ open Ledger.Domain
 open Controls
 
 module internal TransactionTable =
-    let transactionTable (query: Query) caption (rows: Transaction list) selectable =
+    let viewAllLink (query: Query) accountId =
+        let href =
+            applicationHref query ApplicationPage.Transactions
+            + querySuffix [ "account", string accountId; "startDate", query.startDate; "endDate", query.endDate ]
+        Layout.inlineLink href "View all"
+
+    let transactionTable (query: Query) caption (rows: Transaction list) (scope: Set<int> option) =
+        let selectable = scope.IsNone
         let url = applicationHref query
+        let amountLabel = if selectable then "Amount (USD)" else "Change (USD)"
+        let accountLink id =
+            let account = query.records.accounts |> List.find (fun row -> row.id = id)
+            Layout.inlineLink (url (ApplicationPage.Account id)) account.name
 
         let selection =
             if selectable then
@@ -37,11 +48,11 @@ module internal TransactionTable =
               else
                   fveTableHead { "Date" }
               fveTableHead { "Description" }
-              fveTableHead { "Verification" }
-              fveTableHead { "Account" }
+              fveTableHead { "Status" }
+              fveTableHead { "Accounts" }
               fveTableHead {
                   _class "text-right"
-                  "Amount (USD)"
+                  amountLabel
               }
               if selectable then
                   fveTableHead {
@@ -72,22 +83,21 @@ module internal TransactionTable =
                       }
 
                       fveTableCell {
-                          _label "Verification"
+                          _label "Status"
                           statusBadge transaction.status
                       }
 
                       fveTableCell {
-                          _label "Account"
-
-                          Layout.inlineLink
-                              (url (ApplicationPage.Account transaction.accountId))
-                              (findAccount transaction.accountId).name
+                          _label "Accounts"
+                          accountLink transaction.fromAccountId
+                          " → "
+                          accountLink transaction.toAccountId
                       }
 
                       fveTableCell {
-                          _label "Amount (USD)"
-                          _class "text-right"
-                          money transaction.amount
+                          _label amountLabel
+                          _class "text-right tabular-nums"
+                          money (scope |> Option.map (fun ids -> change ids transaction) |> Option.defaultValue transaction.amount)
                       }
 
                       if selectable then
@@ -102,10 +112,10 @@ module internal TransactionTable =
 
                                   fveDropdownMenuTrigger {
 
-                                      _class rowActionClass
+                                      yield! rowActionAttributes
 
                                       fun (triggerAttributes: HtmlAttribute list) ->
-                                          button {
+                                          fveButton {
                                               for attribute in triggerAttributes do
                                                   attribute
 
@@ -113,13 +123,6 @@ module internal TransactionTable =
                                           }
 
                                   }
-
-                                  fveDropdownMenuItem {
-                                      _href (url (ApplicationPage.Transaction transaction.id))
-                                      "Open transaction"
-                                  }
-
-                                  fveDropdownMenuSeparator { () }
 
                                   fveDropdownMenuItem {
                                       _href (

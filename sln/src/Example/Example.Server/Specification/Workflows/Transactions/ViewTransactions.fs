@@ -38,9 +38,4 @@ module internal ViewTransactions =
                 "matching transactions or empty state"
                 "Transactions"
                 "transactionIds"
-          rules =
-            collectionRules
-            @ [ "Amounts SHALL be signed decimal USD values; dates SHALL be date-only values."
-                "Verification SHALL be independent of amount."
-                "Empty results SHALL preserve filter controls."
-                "Deletion SHALL validate current transaction IDs, remove the confirmed selection from this browser's workspace snapshot and update the related account balances, chart and transaction views." ] }
+          requirements = [] }

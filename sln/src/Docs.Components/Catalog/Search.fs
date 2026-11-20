@@ -123,20 +123,21 @@ module SearchView =
                 "if ((evt.metaKey || evt.ctrlKey) && evt.key.toLowerCase() === 'k') { evt.preventDefault(); const dialog = document.getElementById('docs-search-dialog'); const input = document.getElementById('docs-search-input'); input.value = ''; input.dispatchEvent(new Event('input', { bubbles: true })); if (!dialog.open) document.getElementById('docs-search-dialog-trigger').click(); input.focus() }"
             )
 
-            button {
+            fveButton {
                 for attribute in Command.triggerAttributes "docs-search" do
                     attribute
 
                 _ariaLabel "Search documentation"
                 _type "button"
 
-                _class
-                    "flex h-8 cursor-pointer items-center gap-2 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] px-2.5 text-sm text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] max-sm:w-8 max-sm:justify-center max-sm:p-0"
+                _variant ButtonVariant.Outline
+                _size Size.Medium
+                _class "max-sm:w-8 max-sm:justify-center max-sm:p-0"
 
                 fveIcon { _name IconName.MagnifyingGlass; _size Size.Small }
 
-                kbd {
-                    _class "hidden rounded border border-[var(--fve-border)] px-1 py-px font-mono text-xs sm:inline"
+                fveKbd {
+                    _class "max-sm:hidden"
                     _dataText "navigator.userAgent.includes('Mac') ? '⌘K' : 'Ctrl+K'"
                     "Ctrl+K"
                 }

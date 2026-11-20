@@ -247,9 +247,9 @@ module internal EditProfile =
             div {
                 _class "flex min-w-0 max-w-full flex-wrap justify-end gap-3"
                 cancelLink query page (elementId query (editorId + "-cancel"))
-                button {
+                fveButton {
                     _type "reset"; _form formId
-                    _class "min-h-[var(--fve-control-min-height)] rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] px-3 text-sm font-medium focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                    _variant ButtonVariant.Outline
                     "Reset changes"
                 }
 

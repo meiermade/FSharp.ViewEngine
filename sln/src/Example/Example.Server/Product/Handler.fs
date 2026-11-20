@@ -28,8 +28,9 @@ let query services context =
     |> Session.apply services context
 
 let available (records: Records) = function
-    | ApplicationPage.Account id | ApplicationPage.EditAccount id | ApplicationPage.DeleteAccount id ->
-        records.accounts |> List.exists (fun row -> row.id = id)
+    | ApplicationPage.Account id -> records.accounts |> List.exists (fun row -> row.id = id)
+    | ApplicationPage.EditAccount id | ApplicationPage.DeleteAccount id ->
+        records.accounts |> List.exists (fun row -> row.id = id && not (isRoot row))
     | ApplicationPage.Transaction id | ApplicationPage.DeleteTransaction id ->
         records.transactions |> List.exists (fun row -> row.id = id)
     | _ -> true
@@ -124,7 +125,7 @@ let submit services renderPage page (requested: Query) (form: IFormCollection) :
                     collectionHref
                         { submitted with state = ""; editorDraft = None; overlayFrom = "" }
                         (backgroundPage submitted page)
-                return! redirectTo false destination next context
+                return! Navigation.redirect destination next context
             | Some result ->
                 if result.state = "selection-invalid" then
                     Session.notify services context submitted (selectionResource page) result.state
@@ -154,7 +155,7 @@ let submit services renderPage page (requested: Query) (form: IFormCollection) :
                               if submitted.embedded then yield "embedded", "1"
                               yield! returnWorkspacePairs submitted ]
                         + collectionContext
-                return! redirectTo false destination next context
+                return! Navigation.redirect destination next context
             | None -> return! (setStatusCode 404 >=> text "Example action not found.") next context
         }
 

@@ -53,10 +53,7 @@ module MediaLibrary =
         if List.distinct keys |> List.length <> keys.Length then invalidArg (nameof assets) "Media IDs must be unique."
         { id = id; label = label; formName = formName; assets = assets; selected = Set.empty
           emptyState =
-            p {
-                _class "p-4 text-sm text-[var(--fve-muted-text)]"
-                "No media assets."
-            } }
+            fveEmptyState { _label "No media assets." } }
     let withSelected ids (config:MediaLibraryConfig<'destination>) = { config with selected = Set.ofList ids }
     let withEmptyState emptyState (config:MediaLibraryConfig<'destination>) = { config with emptyState = emptyState }
     let render resolve (config:MediaLibraryConfig<'destination>) =
@@ -107,9 +104,8 @@ module MediaLibrary =
                                     _class "flex min-w-0 items-start justify-between gap-2"
                                     div {
                                         _class "min-w-0"
-                                        a {
+                                        fveLink {
                                             _href (resolve asset.destination)
-                                            _class "font-semibold text-[var(--fve-brand-text)] hover:underline focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
                                             asset.name
                                         }
                                         match asset.detail with
@@ -125,15 +121,13 @@ module MediaLibrary =
                                 }
                                 label {
                                     _class "flex cursor-pointer items-center gap-2 text-sm has-[:disabled]:cursor-not-allowed has-[:disabled]:opacity-50"
-                                    input {
-                                        _type "checkbox"
+                                    fveCheckbox {
                                         _name config.formName
                                         _value asset.id
                                         _checked (config.selected.Contains asset.id)
                                         _disabled asset.disabled
                                         _dataEffect ("el.checked = " + checkedExpression)
                                         _dataOn ("change", selected + " = el.checked ? [..." + selected + ".filter(key => key != " + key + "), " + key + "] : " + selected + ".filter(key => key != " + key + "); " + notify)
-                                        _class "size-4 accent-[var(--fve-brand-solid)]"
                                     }
                                     span { _ariaHidden true; "Select" }
                                     span { _class "sr-only"; "Select " + asset.name }

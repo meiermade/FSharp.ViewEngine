@@ -37,7 +37,7 @@ test('Rocket releases light and shadow roots, bindings and removed DOM', async (
   await page.goto('/examples/application/accounts')
   await page.waitForFunction(() => customElements.get('fve-button'))
   const lifecycle = await page.evaluate(async () => {
-    const { rocket, mergePatch, getPath } = await import('/examples/assets/scripts/datastar-rocket.1.0.4.js')
+    const { rocket, mergePatch, getPath } = await import('/examples/js/datastar-rocket.1.0.4.js')
     mergePatch({ runtimeRootProbe: 0 })
     for (const mode of ['light', 'open'] as const) {
       rocket(`runtime-probe-${mode}`, {

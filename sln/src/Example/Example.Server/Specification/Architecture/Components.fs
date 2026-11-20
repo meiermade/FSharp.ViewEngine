@@ -13,7 +13,7 @@ module internal Components =
         [ "responsibility", "Responsibility"
           "dependencies", "Dependencies"
           "contract", "Contract"
-          "rules", "Rules" ]
+          "requirements", "Requirements" ]
 
     let render () =
         contracts

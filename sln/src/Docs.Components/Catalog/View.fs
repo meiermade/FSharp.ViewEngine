@@ -9,19 +9,6 @@ open type Html
 open type Datastar
 
 /// <summary>
-/// Opaque Datastar expressions supplied by a documentation host that owns enhanced navigation transport.
-/// </summary>
-/// <category>navigation</category>
-[<NoEquality; NoComparison>]
-type DocsNavigationEnhancement =
-    { initialScript: string
-      clickAction: string
-      submitAction: string
-      restoreAction: string
-      fetchLifecycle: string
-      appModeExitAction: string }
-
-/// <summary>
 /// Runtime and head assets used by the documentation document shell.
 /// </summary>
 /// <category>layouts</category>
@@ -34,8 +21,7 @@ type DocsAssets =
       datastarScript: string option
       mermaidSecurityLevel: string
       nonce: string option
-      additionalHead: HtmlElement list
-      navigation: DocsNavigationEnhancement option }
+      additionalHead: HtmlElement list }
 
 /// <category>layouts</category>
 module DocsAssets =
@@ -43,15 +29,14 @@ module DocsAssets =
         { productStylesheets = [ "/css/compiled.css" ]
           prismStylesheet = None
           prismScripts =
-            [ "/scripts/prism.1.30.0.min.js"
-              "/scripts/prism-fsharp.1.30.0.min.js"
-              "/scripts/prism-sql.1.30.0.min.js" ]
-          mermaidScript = Some "/scripts/mermaid.11.16.1.min.js"
-          datastarScript = Some "/assets/app.js"
+            [ "/js/prism.1.30.0.min.js"
+              "/js/prism-fsharp.1.30.0.min.js"
+              "/js/prism-sql.1.30.0.min.js" ]
+          mermaidScript = Some "/js/mermaid.11.16.1.min.js"
+          datastarScript = Some "/js/app.js"
           mermaidSecurityLevel = "antiscript"
           nonce = None
-          additionalHead = []
-          navigation = None }
+          additionalHead = [] }
 
 /// <summary>
 /// Semantic accent colors and browser theme color for the documentation shell.
@@ -178,8 +163,7 @@ module private ViewHelpers =
         $"--fve-brand-subtle:{theme.accent100};--fve-brand-solid:{theme.accent700};--fve-brand-hover:{theme.accent900};--fve-brand-active:{theme.accent900};--fve-brand-text:{theme.accent900};--fve-brand-ring:{theme.accent500}"
 
 module private ViewStyles =
-    let iconButton =
-        "grid size-8 shrink-0 cursor-pointer place-items-center rounded-lg border border-transparent bg-transparent p-1 text-[var(--fve-muted-text)] no-underline [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-[1.125rem]"
+    let iconControl = [ _size Size.Medium; _padding Padding.Uniform; _color Color.Neutral ]
 
     let sectionContent = "flex flex-col gap-4 text-[var(--fve-text)]"
 
@@ -195,11 +179,12 @@ module private DocsSectionView =
             if not showHeading then
                 _id docSection.id
                 _tabindex -1
+                _class "outline-none"
 
             if showHeading then
                 div {
                     _id docSection.id
-                    _class "mb-5 scroll-mt-20"
+                    _class "mb-5 scroll-mt-20 outline-none"
                     _tabindex -1
 
                     let classes =
@@ -256,11 +241,12 @@ module private ColorModeView =
                     _ariaLabel "Choose color theme"
 
                     fun (attributes: HtmlAttribute list) ->
-                        button {
+                        fveButton {
                             for attribute in attributes do
                                 attribute
 
-                            _class ViewStyles.iconButton
+                            _variant ButtonVariant.Ghost
+                            yield! ViewStyles.iconControl
 
                             span {
                                 _class "inline-flex dark:hidden"
@@ -292,34 +278,33 @@ module private RepositoryView =
     let render =
         function
         | GitHubRepository url ->
-            a {
+            fveLink {
                 _href url
                 _ariaLabel "View repository on GitHub"
                 _title "View repository on GitHub"
-                _class ViewStyles.iconButton
+                _variant LinkVariant.Ghost
+                yield! ViewStyles.iconControl
                 Icons.github
             }
         | RepositoryLink(label, url) ->
-            a {
-                _href url
-
-                _class
-                    "shrink-0 rounded-lg border border-[var(--fve-border)] bg-[var(--fve-surface)] px-3 py-1.5 text-sm font-semibold text-[var(--fve-muted-text)] no-underline shadow-sm [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
-
-                label
-            }
+            fveLink { _href url; _variant LinkVariant.Outline; _color Color.Neutral; label }
 
 module private NavigationView =
     open ViewHelpers
 
-    let sideNav (site: DocsSite<'destination>) (items: NavNode<'destination> list) activeId =
+    let private mobileDrawerId = "docs-mobile-navigation"
+    let private mobileTriggerId = mobileDrawerId + "-trigger"
+    let private mobileCloseId = mobileDrawerId + "-close"
+
+    let private sideNavFor mobile (site: DocsSite<'destination>) (items: NavNode<'destination> list) activeId =
+        let prefix = if mobile then "mobile-nav-" else "nav-"
         let rec item =
             function
             | NavNode.Page page ->
                 fveSideNavItem {
                     _href page.href
                     page.label
-                    _id $"nav-{page.id}"
+                    _id (prefix + page.id)
 
                     _data ("docs-nav-link", "true")
                     _data ("selected", string (page.id = activeId) |> _.ToLowerInvariant())
@@ -328,11 +313,11 @@ module private NavigationView =
                 fveSideNavItem {
                     _href href
                     label
-                    _id $"nav-{id}"
+                    _id (prefix + id)
 
                     fveSideNavBadge {
                         span {
-                            _id $"nav-{id}-hint"
+                            _id (prefix + id + "-hint")
                             _class "flex size-4 items-center justify-center"
                             _title "Opens in a new tab"
                             Icons.externalLink
@@ -346,12 +331,12 @@ module private NavigationView =
 
                     _target "_blank"
                     _rel "noopener"
-                    _ariaDescribedby $"nav-{id}-hint"
+                    _ariaDescribedby (prefix + id + "-hint")
                 }
             | NavNode.Group group ->
                 fveSideNavGroup {
                     _label group.label
-                    _id $"nav-{group.id}"
+                    _id (prefix + group.id)
                     _expanded group.defaultOpen
 
                     for child in group.children do
@@ -389,7 +374,7 @@ module private NavigationView =
 
         let config =
             fveSideNav {
-                _id "side-nav"
+                _id (if mobile then "mobile-side-nav" else "side-nav")
                 _ariaLabel "Documentation"
                 _persistenceKey site.storageKey
 
@@ -403,24 +388,38 @@ module private NavigationView =
             |> SideNavElements.configuration
 
         let close =
-            button {
-                _type "button"
-                _ariaLabel "Close navigation"
-                _class $"{ViewStyles.iconButton} lg:hidden"
-                _data ("docs-nav-close", "true")
-                _dataOn ("click", "$sideNavOpen = false; window.fsharpDocsMobileNav.close()")
-                Icons.close
-            }
+            if not mobile then None
+            else
+                Some(fveDrawerClose {
+                    _id mobileCloseId
+                    _ariaControls mobileDrawerId
+                    _ariaLabel "Close navigation"
+                    _variant ButtonVariant.Ghost
+                    _autofocus true
+                    yield! ViewStyles.iconControl
+                    Icons.close
+                })
 
         SideNavView.render
-            "fixed inset-y-0 left-0 z-50 flex hidden h-dvh w-[min(18rem,calc(100vw-3rem))] flex-col border-r border-[var(--fve-border)] bg-[var(--fve-background)] shadow-xl lg:relative lg:flex lg:h-full lg:w-full lg:shadow-none"
+            (if mobile then "flex h-full w-full flex-col bg-[var(--fve-background)]"
+             else "relative hidden h-full w-full flex-col border-r border-[var(--fve-border)] bg-[var(--fve-background)] lg:flex")
             [ _ariaLabel "Documentation navigation"
-              _dataClass ("hidden", "!$sideNavOpen")
-              _data ("docs-side-nav", "true") ]
-            (Some close)
-            None
-            id
-            config
+              if not mobile then _data ("docs-side-nav", "true") ]
+            close None id config
+
+    let sideNav site items activeId = sideNavFor false site items activeId
+
+    let mobileDrawer site items activeId =
+        fveDrawer {
+            _id mobileDrawerId
+            _label "Documentation navigation"
+            _side DrawerSide.Start
+            _variant DrawerVariant.Navigation
+            _initialFocus mobileCloseId
+            _data ("fve-navigation-dialog", "true")
+            _dataOn ("resize__window", $"if (el.open && !document.getElementById('{mobileTriggerId}')?.getClientRects().length) el.close()")
+            sideNavFor true site items activeId
+        }
 
     let topNav (site: DocsSite<'destination>) (breadcrumbs: Breadcrumb list) =
         let items =
@@ -440,14 +439,16 @@ module private NavigationView =
             div {
                 _class "flex min-w-0 items-center gap-3"
 
-                button {
-                    _type "button"
-                    _ariaLabel "Open navigation"
-                    _ariaControls "side-nav"
-                    _dataAttr ("aria-expanded", "$sideNavOpen ? 'true' : 'false'")
-                    _class $"{ViewStyles.iconButton} lg:hidden"
-                    _dataOn ("click", "$sideNavOpen = true; window.fsharpDocsMobileNav.open(evt.currentTarget)")
-                    Icons.menu
+                fveDrawerTrigger {
+                    _ariaControls mobileDrawerId
+                    fveButton {
+                        _id mobileTriggerId
+                        _ariaLabel "Open navigation"
+                        _variant ButtonVariant.Ghost
+                        yield! ViewStyles.iconControl
+                        _class "lg:hidden"
+                        Icons.menu
+                    }
                 }
 
                 fveBreadcrumbs {
@@ -523,13 +524,12 @@ module private TocView =
         }
 
     let mobile (items: TocItem list) =
-        details {
-            _class
-                "mb-6 block rounded-xl border border-[var(--fve-border)] bg-[var(--fve-surface-subtle)] xl:hidden [&>summary]:cursor-pointer [&>summary]:px-4 [&>summary]:py-3 [&>summary]:text-sm [&>summary]:font-semibold [&>summary]:text-[var(--fve-text)] [&>summary:focus-visible]:outline-2 [&>summary:focus-visible]:outline-offset-2 [&>summary:focus-visible]:outline-[var(--fve-brand-ring)]"
+        fveDisclosure {
+            _label "On this page"
+            _class "mb-6 xl:hidden"
 
             _data ("docs-mobile-toc", "true")
             _ariaLabel "On this page"
-            summary { "On this page" }
 
             links
                 $"{ViewStyles.tocLinks} border-t border-[var(--fve-border)] p-2 gap-0.5 [&>a]:rounded-md [&>a]:px-2 [&>a]:py-2 [&>a:hover]:bg-[var(--fve-surface-hover)] [&>a:focus-visible]:bg-[var(--fve-surface-hover)] [&>a:focus-visible]:outline-none"
@@ -633,20 +633,18 @@ module DocsView =
 
                             match page.metadata.version with
                             | Some version ->
-                                span {
-                                    _class
-                                        "inline-flex rounded-full bg-[var(--fve-brand-subtle)] px-2 py-1 text-xs font-bold text-[var(--fve-brand-text)]"
-
+                                fveBadge {
+                                    _variant BadgeVariant.Soft
+                                    _color Color.Primary
                                     _data ("docs-version", version)
                                     version
                                 }
                             | None -> ()
 
                             if page.metadata.deprecated then
-                                span {
-                                    _class
-                                        "inline-flex rounded-full bg-amber-100 px-2 py-1 text-xs font-bold text-amber-800 dark:bg-amber-950 dark:text-amber-200"
-
+                                fveBadge {
+                                    _variant BadgeVariant.Soft
+                                    _color Color.Warning
                                     _data ("docs-deprecated", "true")
                                     "Deprecated"
                                 }
@@ -829,14 +827,7 @@ module DocsView =
                 "Skip to main content"
             }
 
-            button {
-                _type "button"
-                _ariaLabel "Close navigation overlay"
-                _class "fixed inset-0 z-40 hidden border-0 bg-black/50 backdrop-blur-[2px] lg:hidden"
-                _data ("docs-overlay", "true")
-                _dataClass ("hidden", "!$sideNavOpen")
-                _dataOn ("click", "$sideNavOpen = false; window.fsharpDocsMobileNav.close()")
-            }
+            NavigationView.mobileDrawer site sideNavItems docPage.activeId
 
             fveResizable {
                 _id "docs-navigation-panels"
@@ -1185,7 +1176,7 @@ module DocsView =
         (docPage: DocumentationPageConfig)
         =
         let initialize =
-            [ "$sideNavOpen = false"
+            [
               "window.fveColorMode?.refresh()"
               "window.initializeDocsToc?.()"
               "window.fsharpDocsFragments?.show(window.location.hash)" ]
@@ -1216,7 +1207,7 @@ module DocsView =
         (customRoot: HtmlElement option)
         =
         let signals =
-            "{ sideNavOpen: false, appModeDockTop: false, navigationPending: false, navigationTarget: '', colorMode: window.fveColorMode.current() }"
+            "{ appModeDockTop: false, colorMode: window.fveColorMode.current() }"
 
         let activeAppMode =
             match renderMode with
@@ -1394,16 +1385,11 @@ window.fsharpDocsFragments = {
   navigate(event, href) {
     if (!href?.startsWith('#') || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || event.button !== 0) return;
     if (!document.getElementById(decodeURIComponent(href.slice(1)))) return;
-    event.preventDefault();
-    const scrollRoot = document.querySelector('[data-docs-main], [data-fve-app-mode-root]');
-    const documentToken = document.getElementById('docs-navigation-root')?.dataset.navigationDocument;
-    window.history.replaceState(Object.assign({}, window.history.state || {}, { fveDocsDocument: documentToken, fveDocsScroll: [scrollRoot?.scrollLeft ?? window.scrollX, scrollRoot?.scrollTop ?? window.scrollY] }), '', window.location.href);
-    window.history.pushState({ fveDocsDocument: documentToken, fveDocsScroll: [0, 0] }, '', href);
-    this.show(href);
-    window.history.replaceState({ fveDocsDocument: documentToken, fveDocsScroll: [scrollRoot?.scrollLeft ?? window.scrollX, scrollRoot?.scrollTop ?? window.scrollY] }, '', window.location.href);
     event.currentTarget.closest('details')?.removeAttribute('open');
+    if (href === location.hash) this.show(href);
   }
 };
+window.addEventListener('hashchange', () => window.fsharpDocsFragments.show(location.hash));
 window.fsharpDocsToc = window.fsharpDocsToc ?? {
   observer: null,
   layoutObserver: null,
@@ -1439,39 +1425,6 @@ window.fsharpDocsToc = window.fsharpDocsToc ?? {
   }
 };
 window.initializeDocsToc = () => window.fsharpDocsToc.initialize();
-window.fsharpDocsMobileNav = {
-  opener: null,
-  focusable() {
-    const nav = document.getElementById('side-nav');
-    return Array.from(nav?.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])') ?? [])
-      .filter(element => element.getClientRects().length > 0);
-  },
-  open(opener) {
-    this.opener = opener;
-    const content = document.getElementById('page-content');
-    content?.setAttribute('inert', '');
-    requestAnimationFrame(() => document.querySelector('#side-nav [data-docs-nav-close]')?.focus());
-  },
-  close() {
-    const content = document.getElementById('page-content');
-    content?.removeAttribute('inert');
-    requestAnimationFrame(() => this.opener?.focus());
-  },
-  trap(event) {
-    if (event.key !== 'Tab' || !document.getElementById('side-nav') || document.getElementById('side-nav').classList.contains('hidden')) return;
-    const focusable = this.focusable();
-    if (focusable.length === 0) return;
-    const first = focusable[0];
-    const last = focusable[focusable.length - 1];
-    if (event.shiftKey && document.activeElement === first) {
-      event.preventDefault();
-      last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
-      event.preventDefault();
-      first.focus();
-    }
-  }
-};
 
             """
             |> fun source ->
@@ -1538,14 +1491,6 @@ window.fsharpDocsMobileNav = {
                     raw navigationScript
                 }
 
-                match site.assets.navigation with
-                | Some enhancement ->
-                    script {
-                        nonceAttribute ()
-                        raw enhancement.initialScript
-                    }
-                | None -> ()
-
                 match site.assets.datastarScript with
                 | Some source ->
                     script {
@@ -1573,35 +1518,10 @@ window.fsharpDocsMobileNav = {
                 _dataSignals signals
                 _dataOn ("fve-color-mode", ["window"], "$colorMode = window.fveColorMode.current()")
 
-                match site.assets.navigation with
-                | Some enhancement ->
-                    _dataOn ("click", enhancement.clickAction)
-                    _dataOn ("submit", enhancement.submitAction)
-                    _dataOn ("popstate", ["window"], enhancement.restoreAction)
-                    _dataOn ("datastar-fetch", enhancement.fetchLifecycle)
-                | None -> ()
-
-                match activeAppMode, site.assets.navigation with
-                | Some(request, _), Some enhancement ->
+                match activeAppMode with
+                | Some(request, _) ->
                     _attr ("data-fve-app-mode-frame", AppMode.frameId request)
-                    _dataOn ("keydown", ["window"], enhancement.appModeExitAction)
-                | Some(request, _), None -> _attr ("data-fve-app-mode-frame", AppMode.frameId request)
-                | None, _ ->
-                    _data (
-                        "on:keydown__window",
-                        "evt.key == 'Escape' ? ($sideNavOpen = false, window.fsharpDocsMobileNav.close()) : window.fsharpDocsMobileNav.trap(evt)"
-                    )
-
-                match site.assets.navigation with
-                | Some _ ->
-                    div {
-                        _id "docs-navigation-status"
-                        _role "status"
-                        _hidden true
-
-                        _class
-                            "fixed right-4 bottom-4 z-[120] max-w-sm rounded-lg border border-[var(--fve-critical-ring)] bg-[var(--fve-surface)] px-4 py-3 text-sm font-semibold text-[var(--fve-critical-text)] shadow-lg"
-                    }
+                    _dataOn ("keydown", ["window"], "if (evt.key === 'Escape' && !evt.defaultPrevented && !document.querySelector(':popover-open, dialog[open]')) document.querySelector('[data-fve-app-mode-exit]')?.click()")
                 | None -> ()
 
                 match customRoot with

@@ -109,6 +109,11 @@ module Size =
         | Size.Large -> "fve-control-large [--fve-control-min-height:2.25rem] [--fve-control-icon-size:1.25rem] [--fve-control-padding-block:0.5rem] [--fve-control-padding-inline:0.75rem] [--fve-control-font-size:0.875rem] [--fve-control-line-height:1.25rem]"
         | Size.ExtraLarge -> "fve-control-extra-large [--fve-control-min-height:2.5rem] [--fve-control-icon-size:1.25rem] [--fve-control-padding-block:0.625rem] [--fve-control-padding-inline:0.875rem] [--fve-control-font-size:0.875rem] [--fve-control-line-height:1.25rem]"
 
+/// <summary>Control padding follows size; Uniform uses the block inset on every side.</summary>
+/// <category>theming</category>
+[<RequireQualifiedAccess>]
+type Padding = Default | Uniform
+
 /// <category>theming</category>
 [<RequireQualifiedAccess>]
 type Color = Primary | Secondary | Success | Warning | Error | Info | Neutral | Custom
@@ -119,7 +124,12 @@ type ButtonVariant = Solid | Soft | Outline | Ghost
 
 /// <category>link</category>
 [<RequireQualifiedAccess>]
-type LinkVariant = Text | Solid | Soft | Outline | Ghost
+type LinkVariant = Text | Plain | Solid | Soft | Outline | Ghost
+
+/// <summary>Controls when a Text link is underlined. OnInteraction underlines on hover and keyboard focus.</summary>
+/// <category>link</category>
+[<RequireQualifiedAccess>]
+type LinkUnderline = Always | OnInteraction
 
 /// <category>badge</category>
 [<RequireQualifiedAccess>]
@@ -153,11 +163,15 @@ module ComponentAttributes =
         static member _variant(value:ButtonVariant) =
             Html._attr("variant", match value with ButtonVariant.Solid -> "solid" | ButtonVariant.Soft -> "soft" | ButtonVariant.Outline -> "outline" | ButtonVariant.Ghost -> "ghost")
         static member _variant(value:LinkVariant) =
-            Html._attr("variant", match value with LinkVariant.Text -> "text" | LinkVariant.Solid -> "solid" | LinkVariant.Soft -> "soft" | LinkVariant.Outline -> "outline" | LinkVariant.Ghost -> "ghost")
+            Html._attr("variant", match value with LinkVariant.Text -> "text" | LinkVariant.Plain -> "plain" | LinkVariant.Solid -> "solid" | LinkVariant.Soft -> "soft" | LinkVariant.Outline -> "outline" | LinkVariant.Ghost -> "ghost")
         static member _variant(value:BadgeVariant) =
             Html._attr("variant", match value with BadgeVariant.Solid -> "solid" | BadgeVariant.Soft -> "soft" | BadgeVariant.Outline -> "outline" | BadgeVariant.Ghost -> "ghost")
         static member _size(value:Size) =
             Html._attr("size", Size.name value)
+        static member _padding(value:Padding) =
+            Html._attr("padding", if value = Padding.Uniform then "uniform" else "default")
+        static member _underline(value:LinkUnderline) =
+            Html._attr("underline", if value = LinkUnderline.OnInteraction then "on-interaction" else "always")
         static member _values(value:string list) = Html._attr("values", System.Text.Json.JsonSerializer.Serialize value)
         static member _expanded(value:bool) = Html._attr("expanded", if value then "true" else "false")
         static member _clearable(value:bool) = Html._attr("clearable", if value then "true" else "false")
@@ -350,7 +364,7 @@ module internal ActionStyles =
     let iconClasses = "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0"
 
     let baseClasses =
-        iconClasses + " inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium shadow-xs outline-none transition-[color,background-color,border-color,box-shadow,translate] duration-100 motion-reduce:transition-none motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup]):not([data-fve-keyboard-pressed])]:active:translate-y-px motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup])]:data-[fve-keyboard-pressed=true]:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+        iconClasses + " inline-flex items-center justify-center gap-2 rounded-[var(--fve-radius-control)] font-medium outline-none transition-[color,background-color,border-color,box-shadow,translate] duration-100 motion-reduce:transition-none motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup]):not([data-fve-keyboard-pressed])]:active:translate-y-px motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup])]:data-[fve-keyboard-pressed=true]:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
 
 module internal ControlGroup =
     // A logical segment exports geometry to marked native controls, regardless of wrapper depth.
@@ -492,6 +506,28 @@ module internal ComponentElement =
                 palette
             with _ -> invalidArg "attributes" "A complete light/dark palette is required."
         | _ -> ComponentColors.neutral
+
+    // Stronger resting tints belong to Soft actions, not shared surfaces, badges or notices.
+    let actionPalette items =
+        let colors = palette items
+        let color = value "color" items |> Option.defaultValue "neutral"
+        if value "variant" items <> Some "soft" || color = "custom" then colors
+        else
+            let fallback =
+                match color with
+                | "primary" -> "color-mix(in srgb, var(--fve-brand-subtle) 92%, var(--fve-brand-text))"
+                | "secondary" -> "#ede9fe"
+                | "success" -> "#dcfce7"
+                | "warning" -> "#fef3c7"
+                | "error" -> "#fee2e2"
+                | "info" -> "#dbeafe"
+                | _ -> "color-mix(in srgb, var(--fve-surface-subtle) 92%, #374151)"
+            { colors with light = { colors.light with soft = $"var(--fve-{color}-soft, {fallback})" } }
+
+    let actionStyle items =
+        let uniform = choice "padding" "default" ["default"; "uniform"] items = "uniform"
+        ComponentColors.style (actionPalette items)
+            [ if uniform then Html._style "--fve-control-padding-inline:var(--fve-control-padding-block)" ]
 
 module internal ComponentTrigger =
     let control owner authored (children: HtmlElement list) =

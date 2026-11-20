@@ -21,7 +21,7 @@ for (const [context, path] of [
     await page.emulateMedia({ colorScheme: 'light' })
     await page.goto(path)
     const trigger = page.getByRole('button', { name: 'Choose color theme', exact: true })
-    const width = context === 'catalog' ? 32 : 40
+    const width = 32
     await expectCenteredIcon(trigger, width)
     const repository = page.getByRole('link', { name: context === 'catalog' ? 'View repository on GitHub' : 'View example source on GitHub', exact: true })
     await expectCenteredIcon(repository, width)

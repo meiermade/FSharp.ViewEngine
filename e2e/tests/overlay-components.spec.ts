@@ -64,6 +64,36 @@ for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
   })
 }
 
+test('Navigation Drawer owns modality, dismissal and opener focus @cross-browser', async ({ page }) => {
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/components/drawer')
+    const open = page.locator('#components-drawer-navigation-panel-preview').getByRole('button', { name: 'Open navigation drawer', exact: true })
+    const drawer = page.getByRole('dialog', { name: 'Project navigation', exact: true })
+    await open.click()
+    await expect(drawer).toBeVisible()
+    await expect(drawer).toHaveCSS('padding', '0px')
+    const close = drawer.getByRole('button', { name: 'Close navigation', exact: true })
+    await expect(close).toBeFocused()
+    await expect(drawer.getByRole('heading', { name: 'Project navigation' })).toHaveCSS('width', '1px')
+    await page.keyboard.press('Shift+Tab')
+    await expect(drawer.getByRole('link', { name: 'Side navigation', exact: true })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(close).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(drawer).toBeHidden()
+    await expect(open).toBeFocused()
+    await open.click()
+    await close.click()
+    await expect(drawer).toBeHidden()
+    await expect(open).toBeFocused()
+    await open.click()
+    await page.mouse.click(width - 5, 450)
+    await expect(drawer).toBeHidden()
+    await expect(open).toBeFocused()
+  }
+})
+
 test('Tooltip supplements pointer and keyboard triggers without taking focus @cross-browser', async ({ page }) => {
   await page.goto('/components/tooltip')
   const preview = page.locator('#components-tooltip-panel-preview')

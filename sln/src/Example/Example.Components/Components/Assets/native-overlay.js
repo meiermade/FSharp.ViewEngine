@@ -11,9 +11,13 @@ export function enhanceOverlay({ host, cleanup }) {
     const target = host.ownerDocument.getElementById(id);
     if (target) target.inert = [...host.ownerDocument.querySelectorAll('[data-fve-overlay-background]')].some(layer => layer.dataset.fveOverlayBackground === id && layer.querySelector('dialog[open]'));
   };
-  const restore = () => {
-    const target = opener?.isConnected ? opener : host.ownerDocument.getElementById(dialog()?.id + '-trigger');
-    target?.focus(); opener = undefined;
+  const restore = (closed) => {
+    const document = host.ownerDocument;
+    const target = opener?.isConnected ? opener : document.getElementById(closed.id + '-trigger');
+    opener = undefined;
+    // Navigation owns destination focus even if the browser delivers close after the morph.
+    if (closed.returnValue === 'fve-navigation') { closed.returnValue = ''; return; }
+    target?.focus();
   };
   const cancel = () => {
     const current = dialog();
@@ -31,9 +35,19 @@ export function enhanceOverlay({ host, cleanup }) {
     if (focus) queueMicrotask(() => { if (current.isConnected && current.open) current.ownerDocument.getElementById(focus)?.focus(); });
     synchronize();
   }, options);
+  // Native modal tabbing can visit the document body between the last and first control.
+  host.addEventListener('keydown', event => {
+    const current = dialog();
+    if (event.key !== 'Tab' || event.defaultPrevented || !current?.open || event.target.closest('fve-dialog,fve-drawer') !== host) return;
+    const controls = [...current.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex],[contenteditable="true"]')]
+      .filter(control => control.tabIndex >= 0 && !control.disabled && !control.closest('[inert]') && control.getClientRects().length);
+    const first = controls[0], last = controls.at(-1);
+    if (event.shiftKey && current.ownerDocument.activeElement === first) { event.preventDefault(); last?.focus(); }
+    else if (!event.shiftKey && current.ownerDocument.activeElement === last) { event.preventDefault(); first?.focus(); }
+  }, options);
   host.addEventListener('close', event => {
     if (event.target !== dialog()) return;
-    synchronize(); restore();
+    synchronize(); restore(event.target);
   }, { ...options, capture: true });
   host.addEventListener('click', event => {
     const current = dialog();

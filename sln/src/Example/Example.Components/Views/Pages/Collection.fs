@@ -28,11 +28,11 @@ module internal Collection =
             _class "inline-flex max-w-full"
             for attribute in submissionAttributes query do attribute
             editorContextFields query
-            button {
+            fveButton {
                 _type "submit"; _name "action"; _value "reset-records"
                 _disabled pristine
                 for attribute in pendingButtonAttributes pristine do attribute
-                _class "inline-flex min-h-[var(--fve-control-min-height)] max-w-full items-center justify-center rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-transparent px-3 py-[max(0px,calc(var(--fve-control-padding-block)-1px))] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                _class "max-w-full"
                 "Restore records"
             }
         }
@@ -94,7 +94,7 @@ module internal Collection =
         let body = fragment {
             if blocked then
                 notice query (id + "-blocked") "Nothing was deleted"
-                    "Accounts with a balance or recorded transactions cannot be deleted. Cancel and change the selection." Color.Error
+                    "Root accounts and accounts with children, a balance, or transactions cannot be deleted. Cancel and change the selection." Color.Error
             fveDescriptionList {
                 for key in query.selection do
                     if kind = "accounts" then
@@ -120,13 +120,13 @@ module internal Collection =
             }
         }
         let actions = fragment {
-            button {
+            fveButton {
                 _id cancelId
                 _type "submit"
                 _form formId
                 _name "action"
                 _value "cancel-deletion"
-                _class "inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] px-3 text-sm [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                _variant ButtonVariant.Outline
                 if not native then _dataOn ("click", $"evt.preventDefault(); document.getElementById('{id}').close()")
                 "Cancel"
             }
@@ -223,12 +223,12 @@ module internal Collection =
             _dataOn ("fve-table-selection-change", $"${countSignal} = evt.detail.keys.length")
 
             _dataOn (
-                "fve-navigation-complete",
+                "fve-interaction-complete",
                 [ "window" ],
                 (if query.state = "selection-deleted" || query.state = "selection-reset" then
                     $"document.getElementById('{selectionId}')?.dispatchEvent(new CustomEvent('fve-selection-clear')); ${countSignal} = 0;\n"
                  else "") + """
-if (evt.detail.intent !== 'navigate') return;
+if (evt.detail.intent !== 'update') return;
 const previous = new URL(evt.detail.previousHref), current = new URL(evt.detail.href);
 if (previous.pathname !== current.pathname) return;
 const before = (previous.searchParams.get('filters') || '').split(',');
@@ -237,7 +237,8 @@ const editing = el.dataset.ledgerEditingFilter;
 const focusId = el.dataset.ledgerFilterFocus;
 delete el.dataset.ledgerEditingFilter;
 delete el.dataset.ledgerFilterFocus;
-const control = [...el.querySelectorAll('[data-ledger-filter]')].find(control => control.dataset.ledgerFilter === (editing || added));
+const owner = [...el.querySelectorAll('[data-ledger-filter]')].find(control => control.dataset.ledgerFilter === (editing || added));
+const control = owner?.matches('button') ? owner : owner?.querySelector('button');
 if (control?.getClientRects().length) {
   const menu = document.getElementById(control.getAttribute('aria-controls'));
   if ((added || editing) && !menu.matches(':popover-open')) control.click();
@@ -260,6 +261,7 @@ if (control?.getClientRects().length) {
                     noscript { deletionConfirmation query kind page true }
                 form {
                     _id (elementId query ("template-" + kind + "-filters-form"))
+                    Navigation.getForm
                     _method "get"
                     _action (applicationHref query page)
 
@@ -318,11 +320,13 @@ if (control?.getClientRects().length) {
                                 }
                                 fveInputGroupAddon {
                                     _position InputGroupPosition.InlineEnd
-                                    button {
+                                    fveButton {
                                         _type "button"
                                         _attr ("data-search-clear", "")
                                         _ariaLabel ("Clear Search " + kind)
-                                        _class "flex size-6 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
+                                        _variant ButtonVariant.Ghost
+                                        _size Size.ExtraSmall
+                                        _padding Padding.Uniform
                                         _dataOn ("click", "const field = el.closest('[data-collection-search]').querySelector('input'); if (!field.disabled && !field.readOnly) { field.value = ''; field.focus(); field.dispatchEvent(new Event('input', {bubbles: true})); field.dispatchEvent(new Event('change', {bubbles: true})); }")
                                         fveIcon { _name IconName.XMark; _variant IconVariant.Micro }
                                     }
@@ -339,15 +343,15 @@ if (control?.getClientRects().length) {
                     else
                         fveDropdownMenu {
                             _id (elementId query ("template-" + kind + "-add-filter"))
+                            Navigation.menuLinks
                             _ariaLabel "Add filter"
 
                             fveDropdownMenuTrigger {
 
-                                _class
-                                    "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0 inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center gap-2 rounded-[var(--fve-radius-control)] ring-1 ring-inset ring-[var(--fve-border)] bg-transparent px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                                _variant ButtonVariant.Outline
 
                                 fun (triggerAttributes: HtmlAttribute list) ->
-                                    button {
+                                    fveButton {
                                         for attribute in triggerAttributes do
                                             attribute
 
@@ -434,6 +438,7 @@ if (control?.getClientRects().length) {
 
                             form {
                                 _id removeId
+                                Navigation.getForm
                                 _method "get"
                                 _action (applicationHref query page)
                                 _class "hidden"
@@ -497,6 +502,7 @@ form.requestSubmit();
 
                                 form {
                                     _id filterFormId
+                                    Navigation.getForm
                                     _method "get"
                                     _action (applicationHref query page)
                                     _class "hidden"
@@ -519,14 +525,13 @@ form.requestSubmit();
 
                                         fveDropdownMenuTrigger {
 
-                                            _class
-                                                "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0 inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center gap-2 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-transparent px-3 py-[max(0px,calc(var(--fve-control-padding-block)-1px))] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                                            _variant ButtonVariant.Outline
 
                                             _attr ("data-ledger-filter", filter.name)
                                             _data ("fve-group-control", "outline")
 
                                             fun (triggerAttributes: HtmlAttribute list) ->
-                                                button {
+                                                fveButton {
                                                     for attribute in triggerAttributes do
                                                         attribute
 
@@ -590,6 +595,7 @@ form.requestSubmit();
                                 _dataShow "false"
 
                                 form {
+                                    Navigation.getForm
                                     _method "get"
                                     _action (applicationHref query page)
                                     _class "flex flex-wrap items-center gap-3"
@@ -611,23 +617,18 @@ form.requestSubmit();
                                             label {
                                                 _class "inline-flex items-center gap-2 text-sm"
 
-                                                input {
-                                                    _type "checkbox"
+                                                fveCheckbox {
                                                     _name filter.name
                                                     _value value
                                                     _checked (List.contains value selected)
-                                                    _class "size-4 accent-[var(--fve-brand-solid)]"
                                                 }
 
                                                 text optionLabel
                                             }
                                     }
 
-                                    button {
+                                    fveButton {
                                         _type "submit"
-
-                                        _class
-                                            "inline-flex min-h-8 items-center rounded-[var(--fve-radius-control)] bg-[var(--fve-surface)] px-3 text-sm font-medium ring-1 ring-inset ring-[var(--fve-border)]"
 
                                         Html.text ("Apply " + filter.label + " filter")
                                     }

@@ -51,8 +51,15 @@ module internal Button =
             [ _type (ComponentElement.value "type" attributes |> Option.defaultValue "button")
               _data ("fve-button-control", "")
               _data ("fve-group-control", if variant = "outline" then "outline" else "plain")
-              _class (ComponentHtml.classes [ActionStyles.baseClasses; ActionStyles.geometryClasses; ComponentHtml.controlSizeClass (ComponentElement.size None attributes); appearance; if variant <> "solid" && ComponentElement.value "color" attributes <> Some "custom" then ComponentColors.quietTextInteraction; ComponentColors.focus])
-              _style (ComponentColors.style (ComponentElement.palette attributes) [])
+              _class (ComponentHtml.classes [
+                  ActionStyles.baseClasses
+                  ActionStyles.geometryClasses
+                  ComponentHtml.controlSizeClass (ComponentElement.size None attributes)
+                  appearance
+                  if variant <> "ghost" then "shadow-xs"
+                  if variant <> "solid" && ComponentElement.value "color" attributes <> Some "custom" then ComponentColors.quietTextInteraction
+                  ComponentColors.focus ])
+              _style (ComponentElement.actionStyle attributes)
               match ComponentElement.value "data-fve-control-id" attributes with Some id -> _id id | None -> () ]
             (attributes |> List.filter (fun item -> nativeNames.Contains(item.Name.ToLowerInvariant()) || item.Name.StartsWith("aria-", StringComparison.OrdinalIgnoreCase)))
             [ span {
@@ -74,7 +81,8 @@ module internal Button =
         for name,allowed in [ "color",["primary";"secondary";"success";"warning";"error";"info";"neutral";"custom"]
                               "variant",["solid";"soft";"outline";"ghost"]
                               "size",["extra-small";"small";"medium";"large";"extra-large"]
-                              "type",["button";"submit";"reset"] ] do
+                              "type",["button";"submit";"reset"]
+                              "padding",["default";"uniform"] ] do
             match attribute name with
             | Some { Value = ValueSome actual } when List.contains actual allowed -> ()
             | None -> ()

@@ -151,7 +151,16 @@ let private referenceStatus (reference: string) =
             .UnescapeDataString(uri.AbsolutePath.TrimStart('/'))
             .Replace('/', Path.DirectorySeparatorChar)
 
-    let filePath = Path.GetFullPath(Path.Combine(webRoot, relativePath))
+    let publicPath =
+        [ "scripts"; "assets" ]
+        |> List.tryPick (fun prefix ->
+            let directory = prefix + string Path.DirectorySeparatorChar
+            if relativePath.StartsWith(directory, StringComparison.Ordinal) then
+                Some(Path.Combine("js", relativePath.Substring(directory.Length)))
+            else None)
+        |> Option.defaultValue relativePath
+
+    let filePath = Path.GetFullPath(Path.Combine(webRoot, publicPath))
 
     if filePath.StartsWith(webRoot, StringComparison.Ordinal) && File.Exists filePath then
         200
@@ -162,7 +171,31 @@ let private referenceStatus (reference: string) =
 let tests =
     testList
         "Direct F# documentation"
-        [ testCase "Article introductions render once and preserve linked subtitles"
+        [ testCase "Specification workflows lead with Fixture and omit empty Requirements"
+          <| fun _ ->
+              let sections html =
+                  Regex.Matches(html, "<section\\b[^>]*\\bid=\"(fixture|sequence|requirements|wireframe|rules)\"[^>]*>\\s*<h2\\b[^>]*>(.*?)</h2>")
+                  |> Seq.map (fun matched -> matched.Groups[1].Value, matched.Groups[2].Value)
+                  |> Seq.toList
+              for page, expected in
+                  [ "accounts/view-accounts", ["fixture", "Fixture"; "sequence", "Sequence"]
+                    "accounts/create-account", ["fixture", "Fixture"; "sequence", "Sequence"]
+                    "home", ["fixture", "Fixture"; "sequence", "Sequence"; "requirements", "Requirements"] ] do
+                  let status, html = routeResponse ("/examples/specification/" + page)
+                  Expect.equal status 200 "the workflow renders"
+                  Expect.equal (sections html) expected "only sections adding workflow information are present"
+                  let _, expanded = routeResponse ("/examples/specification/" + page + "?appMode=1")
+                  Expect.equal (sections expanded) ["fixture", "Fixture"] "expanded review keeps only the working fixture"
+              for project, contract in
+                  [ "domain", "zero balance and no transactions"
+                    "application", "without HTTP status codes or rendered HTML"
+                    "server", "private, no-store response" ] do
+                  let status, html = routeResponse ("/examples/specification/architecture/solution/" + project)
+                  Expect.equal status 200 "the canonical contract page renders"
+                  Expect.equal (sections html) ["requirements", "Requirements"] "Architecture retains its substantive requirements"
+                  Expect.stringContains html contract "non-obvious constraints survive the prose cleanup"
+
+          testCase "Article introductions render once and preserve linked subtitles"
           <| fun _ ->
               let status, html = routeResponse "/"
               Expect.equal status 200 "Introduction renders"
@@ -960,9 +993,8 @@ let tests =
 
               let media = Docs.ComponentPages.MediaLibrary.View.mediaLibraryExample |> Render.toString
 
-              Expect.stringContains
-                  media
-                  "name=\"assetIds\" value=\"social-card\""
+              Expect.isTrue
+                  (Regex.IsMatch(media, "<input(?=[^>]*type=\"checkbox\")(?=[^>]*name=\"assetIds\")(?=[^>]*value=\"social-card\")[^>]*>"))
                   "media selection uses native repeated controls"
 
               Expect.stringContains
@@ -976,7 +1008,7 @@ let tests =
                   "media selection publishes stable identities to shared bulk actions"
 
               Expect.stringContains
-                  media
+                  (Regex.Replace(Regex.Replace(media, "<[^>]+>", " "), "\\s+", " "))
                   "No media assets. Upload an image to begin."
                   "media example includes its empty state"
 
@@ -1448,13 +1480,13 @@ let tests =
                   for name, value in publicContext do
                       Expect.stringContains overlay ($"name=\"{name}\" value=\"{value}\"") "native editor context includes detail state"
               let fields =
-                  [ "name", "Operating checking"; "accountType", "Asset"; "parentType", "Expense"
+                  [ "name", "Operating checking"; "accountType", "Asset"; "parentId", "5"
                     "currency", "USD"; "subtype", "Generic"; "observedBalance", "not-required" ] @ publicContext
               let invalidStatus, _, _, invalid, _ = postFormResponse (detail + "/edit") fields
               Expect.equal invalidStatus 200 "failed validation renders directly"
               for name, value in publicContext do
                   Expect.stringContains invalid ($"name=\"{name}\" value=\"{value}\"") "validation retains the public context"
-              let valid = fields |> List.map (fun (name, value) -> name, if name = "parentType" then "Asset" else value)
+              let valid = fields |> List.map (fun (name, value) -> name, if name = "parentId" then "1" else value)
               let successStatus, destination, _, _, _ = postFormResponse (detail + "/edit") valid
               Expect.equal successStatus 302 "successful validation closes the editor"
               Expect.equal (Uri(Uri "https://fve.meiermade.com", destination).AbsolutePath) detail "the detail is the return destination"
@@ -1730,8 +1762,8 @@ let tests =
               let _, presentationGuide = routeResponse "/guides/presentations"
               Expect.stringContains presentationGuide "fvePresentation {" "the presentation guide owns deck composition"
               Expect.stringContains presentationGuide "id=\"printing\"" "the presentation guide owns print/PDF instructions"
-              Expect.equal (routeStatus "/guides/theming/document") 200 "the runnable appearance document has a guide-owned URL"
-              Expect.equal (routeStatus "/components/theming/document") 200 "the runnable document keeps its old URL"
+              for path in [ "/guides/theming/document"; "/components/theming/document" ] do
+                  Expect.equal (routeStatus path) 301 $"{path} redirects the retired appearance demo"
 
               let examples =
                   Registry.navigation |> List.find (fun section -> section.label = "Examples")
@@ -1861,7 +1893,7 @@ let tests =
 
               Expect.equal
                   (sitemap.Split("<url>").Length - 1)
-                  (Registry.all.Length + Examples.paths.Length)
+                  Registry.all.Length
                   "one sitemap entry per canonical page"
 
               Expect.isFalse (sitemap.Contains("/docs/components</loc>")) "aliases are excluded"
@@ -1959,10 +1991,10 @@ let tests =
 
           test "Docs loads its installed components through one Rocket application entry" {
               let html = Home.page |> View.document Registry.navigation |> Render.toHtmlDocString
-              Expect.stringContains html "src=\"/assets/app.js\"" "host-owned bundled component entry"
+              Expect.stringContains html "src=\"/js/app.js\"" "host-owned bundled component entry"
 
               Expect.isFalse
-                  (html.Contains "src=\"/scripts/datastar.1.0.4.js\"")
+                  (html.Contains "src=\"/js/datastar.1.0.4.js\"")
                   "ordinary Datastar is not loaded alongside Rocket"
 
               Expect.stringContains html "type=\"module\"" "application ES module"
@@ -2602,11 +2634,11 @@ after"""
               Expect.isFalse (assets.Contains("type=\"module\"")) "pre-paint preparation does not wait for modules"
               let html = View.documentWithPageForAndNonce (Some "page-nonce") None Registry.navigation Docs.ComponentPages.SideNav.View.sideNavRegistration Docs.ComponentPages.SideNav.View.sideNavPage |> Render.toHtmlDocString
               let early = html.IndexOf("group.dataset.fveSideNavPrepared", StringComparison.Ordinal)
-              let bundle = html.IndexOf("src=\"/assets/app.js\"", StringComparison.Ordinal)
+              let bundle = html.IndexOf("src=\"/js/app.js\"", StringComparison.Ordinal)
               Expect.isTrue (early >= 0 && early < bundle) "native preference preparation runs in the head before the application"
           }
 
-          test "Appearance is documented as a focused guide with a separate runnable document" {
+          test "The Theming guide uses the application example for runnable appearance preferences" {
               Expect.isFalse
                   (Catalog.componentRegistrations
                    |> List.exists (fun page -> page.path = "/components/theme-switcher"))
@@ -2621,46 +2653,22 @@ after"""
 
               Expect.equal page.sections.Head.id "theme" "the guide leads with a focused working theme example"
 
-              let html =
-                  Appearance.appearanceDocument (Some "appearance-page-nonce")
-                  |> Render.toHtmlDocString
+              let status, html = routeResponse "/examples/application/profile"
+              Expect.equal status 200 "the runnable example is the real profile page"
 
               let initializer = html.IndexOf("window.fveColorMode =", StringComparison.Ordinal)
-              let stylesheet = html.IndexOf("/css/output.css", StringComparison.Ordinal)
-              let entry = html.IndexOf("/assets/appearance.js", StringComparison.Ordinal)
+              let stylesheet = html.IndexOf("/examples/assets/css/output.css", StringComparison.Ordinal)
+              let entry = html.IndexOf("/examples/js/app.js", StringComparison.Ordinal)
 
               Expect.isTrue
                   (initializer >= 0 && initializer < stylesheet && stylesheet < entry)
                   "first-paint initialization precedes CSS and the application entry"
 
-              Expect.stringContains
-                  html
-                  "storageKey: \"appearance-guide\""
-                  "the running page declares its actual browser storage key"
+              Expect.stringContains html "storageKey: \"financial-example-appearance\"" "the running page owns its preference"
+              Expect.stringContains html "data-fve-color-mode-choice" "the profile owns the native appearance controls"
 
-              Expect.equal
-                  (Regex.Matches(html, "\\snonce=\"appearance-page-nonce\"").Count)
-                  2
-                  "both scripts use the host-provided nonce"
-
-              Expect.stringContains
-                  html
-                  "data-nonce=\"appearance-page-nonce\""
-                  "the full document enables Datastar nonce compilation"
-
-              Expect.stringContains
-                  html
-                  "fve-color-mode"
-                  "the ordinary controls explicitly synchronize with the initializer"
-
-              Expect.isFalse
-                  (html.Contains "/assets/app.js")
-                  "the copyable page uses its own minimal entry, not hidden catalog bootstrap"
-
-              Expect.stringContains
-                  html
-                  "document-segmented-appearance"
-                  "the complete page includes segmented native choices"
+              let assets = ColorMode.assetsWithNonce "test-appearance" ColorMode.System (Some "appearance-page-nonce") |> Render.toString
+              Expect.stringContains assets "nonce=\"appearance-page-nonce\"" "the initializer uses the host-provided nonce"
           }
 
           test "Every gallery example compiles using only its copied code and the public packages" {
@@ -2677,7 +2685,6 @@ after"""
 
                   let sources =
                       (examples |> List.map (fun example -> example.id, example.source))
-                      @ Appearance.copiedSources ()
                       @ ComponentGuideExamples.copiedSources ()
                       @ ([ "typography"; "step-input"; "step-input-help" ]
                          |> List.map (fun id ->
@@ -2765,7 +2772,7 @@ after"""
 
               Expect.equal (Regex.Matches(gallery, "data-example-template=").Count) Examples.templates.Length "every registered example has a gallery card"
 
-              for path in Examples.paths do
+              for path in Example.Server.Discovery.paths do
                   let status, html = routeResponse path
                   Expect.equal status 200 path
                   Expect.stringContains html "data-example-viewer=" "separate template experience"
@@ -2787,18 +2794,16 @@ after"""
 
                   Expect.stringContains
                       html
-                      "src=\"/examples/assets/scripts/app.js\""
+                      "src=\"/examples/js/app.js\""
                       "the example owns its component entry and shared Rocket runtime"
 
                   Expect.isFalse
-                      (html.Contains "src=\"/scripts/datastar.1.0.4.js\"")
+                      (html.Contains "src=\"/js/datastar.1.0.4.js\"")
                       "ordinary Datastar is not loaded alongside Rocket"
 
               for template in Examples.templates do
-                  Expect.stringContains
-                      gallery
-                      $"href=\"{template.path}\" target=\"_blank\" rel=\"noopener\""
-                      "each template opens in an isolated new tab"
+                  let opensInNewTab = $"<a\\b(?=[^>]*\\bhref=\"{Regex.Escape template.path}\")(?=[^>]*\\btarget=\"_blank\")(?=[^>]*\\brel=\"noopener\")[^>]*>"
+                  Expect.isTrue (Regex.IsMatch(gallery, opensInNewTab)) "each template opens in an isolated new tab"
 
               for invalid in
                   [ "/examples/source/../Program.fs"
@@ -2878,14 +2883,14 @@ after"""
           test "Browser review states keep addresses and navigation server-owned" {
               for expanded in [false; true] do
                   for state in ["summary"; "details"; "empty"] do
-                      let html = Docs.ComponentPages.Browser.View.browserReviewFrame expanded state |> Render.toString
+                      let html = Docs.ComponentPages.Browser.View.browserReviewPreview expanded state |> Render.toString
                       let href = Docs.ComponentPages.Browser.View.browserReviewHref expanded state |> System.Net.WebUtility.HtmlEncode
                       Expect.stringContains html ($"data-browser-url=\"{href}\"") "the displayed address resolves to the rendered state"
                       Expect.stringContains html ($"data-review-state=\"{state}\"") "the server chooses the state"
                       Expect.stringContains html "aria-label=\"Back\"" "back is always represented, including its disabled boundary"
                       Expect.stringContains html "aria-label=\"Forward\"" "forward is always represented, including its disabled boundary"
                       Expect.stringContains html "Review state:" "the current state remains selectable at either size"
-              let fallback = Docs.ComponentPages.Browser.View.browserReviewFrame false "unrecognized" |> Render.toString
+              let fallback = Docs.ComponentPages.Browser.View.browserReviewPreview false "unrecognized" |> Render.toString
               Expect.stringContains fallback "data-review-state=\"summary\"" "unknown states use the first supported state"
               Expect.isFalse (fallback.Contains("unrecognized")) "unsupported input does not become a displayed or navigable address"
           }
@@ -2956,7 +2961,7 @@ after"""
                       "/examples/specification/accounts/update-account?resource=105&fveFixture=product"
                       [ "name", "Tax reserve"
                         "accountType", "Expense"
-                        "parentType", "Expense"
+                        "parentId", "5"
                         "currency", "USD"
                         "subtype", "Generic"
                         "observedBalance", "not-required" ]
@@ -3076,14 +3081,14 @@ after"""
               let tampered = cookie.Substring(0, equal + 1) + "!" + cookie.Substring(equal + 2)
               let _, rejected = routeResponseWithCookie "/examples/application/transactions" tampered
               Expect.stringContains rejected "Select Client payment" "modified state is rejected"
-              Expect.equal Ledger.Domain.initialRecords.transactions.Length 17 "the shared model stays immutable"
+              Expect.equal Ledger.Domain.initialRecords.transactions.Length 18 "the shared model stays immutable"
           }
 
           test "Template editors validate finite outcomes without retaining submissions or changing records" {
               let accountFields name kind =
                   [ "name", name
                     "accountType", kind
-                    "parentType", kind
+                    "parentId", "1"
                     "currency", "USD"
                     "subtype", "Generic"
                     "observedBalance", "not-required" ]
@@ -3246,7 +3251,7 @@ after"""
               let fields =
                   [ "name", "  Private draft  "
                     "accountType", "Asset"
-                    "parentType", "Expense"
+                    "parentId", "5"
                     "currency", "USD"
                     "subtype", "Generic"
                     "observedBalance", "not-required"
@@ -3285,7 +3290,7 @@ after"""
 
               let success =
                   fields
-                  |> List.map (fun (key, value) -> key, if key = "parentType" then "Asset" else value)
+                  |> List.map (fun (key, value) -> key, if key = "parentId" then "1" else value)
 
               let successStatus, redirect, _, _, _ = postFormResponse path success
               Expect.equal successStatus 302 "valid submission returns to the collection"
@@ -3476,7 +3481,7 @@ after"""
 
                   Expect.stringContains
                       html
-                      "/examples/assets/scripts/app.js"
+                      "/examples/js/app.js"
                       "the standalone host supplies the same component entry"
           }
 
@@ -3486,7 +3491,7 @@ after"""
               let fields =
                   [ "name", "Unassigned expense"
                     "accountType", "Expense"
-                    "parentType", "Expense"
+                    "parentId", "5"
                     "currency", "USD"
                     "subtype", "Generic"
                     "observedBalance", "not-required"
@@ -3559,7 +3564,7 @@ after"""
               let fields =
                   [ "name", "Private limit check"
                     "accountType", "Asset"
-                    "parentType", "Asset"
+                    "parentId", "1"
                     "currency", "USD"
                     "subtype", "Generic"
                     "observedBalance", "not-required" ]
@@ -4064,7 +4069,7 @@ after"""
                     "watch:css"
                     "watch:js"
                     "/css/output.css"
-                    "/assets/app.js"
+                    "/js/app.js"
                     "ComponentsTheme.attributes" ] do
                   Expect.stringContains
                       installation
@@ -6141,6 +6146,9 @@ after"""
               Expect.stringContains emptyState "Create account" "EmptyState composes application-owned actions"
               Expect.stringContains emptyState "override" "EmptyState composes consumer classes"
               Expect.stringContains emptyState "justify-items-center" "EmptyState retains its base presentation"
+              let titleOnly = fveEmptyState { _label "No matching items" } |> Render.toString
+              Expect.stringContains titleOnly "No matching items" "EmptyState supports a title without invented guidance"
+              Expect.equal (Regex.Matches(titleOnly, "<p\\b").Count) 1 "omitted guidance does not leave an empty paragraph"
           }
 
           test "Submit and reset Buttons provide native form semantics before enhancement" {
@@ -8370,4 +8378,4 @@ after"""
 
 [<EntryPoint>]
 let main args =
-    runTestsWithCLIArgs [] args (testList "Docs" [ ComponentDslTests.tests; NavigationTests.tests; tests ])
+    runTestsWithCLIArgs [] args (testList "Docs" [ ComponentDslTests.tests; tests ])

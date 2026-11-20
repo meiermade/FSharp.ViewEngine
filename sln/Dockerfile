@@ -20,14 +20,26 @@ COPY src src
 COPY package.json package-lock.json fake.sh ./
 RUN chmod +x ./fake.sh
 
-# FAKE restores frontend tools, verifies Tailwind contracts, and publishes all assets.
+FROM builder AS example-builder
+RUN ./fake.sh PublishExample
+
+FROM builder AS docs-builder
 RUN ./fake.sh PublishDocs
 
-FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled-extra AS runner
+FROM builder AS proxy-builder
+RUN dotnet publish src/MockCloudflareProxy/MockCloudflareProxy.fsproj --output /proxy
 
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled-extra AS mock-cloudflare-proxy
 WORKDIR /app
+COPY --from=proxy-builder /proxy .
+ENTRYPOINT ["dotnet", "MockCloudflareProxy.dll"]
 
-# copy compiled code from build image
-COPY --from=builder /app/src/Docs/out .
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled-extra AS example
+WORKDIR /app
+COPY --from=example-builder /app/src/Example/Example.Server/out .
+ENTRYPOINT ["dotnet", "Example.Server.dll"]
 
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled-extra AS docs
+WORKDIR /app
+COPY --from=docs-builder /app/src/Docs/out .
 ENTRYPOINT ["dotnet", "Docs.dll"]

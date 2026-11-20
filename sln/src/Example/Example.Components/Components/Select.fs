@@ -103,7 +103,7 @@ module internal Select =
                 }
             }
             div {
-                _hidden true; _attr("data-fve-select-multiple-actions", ""); _class "flex shrink-0 items-center justify-between px-2 py-1"
+                _hidden true; _attr("data-fve-select-multiple-actions", ""); _class "flex shrink-0 items-center justify-between gap-2 py-1"
                 button { _type "button"; _tabindex 0; _attr("data-fve-select-action", "all"); _class actionClasses; "Select all" }
                 button { _type "button"; _tabindex 0; _attr("data-fve-select-action", "clear"); _class (actionClasses + " ml-auto"); "Clear selection" }
             }

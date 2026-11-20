@@ -210,7 +210,7 @@ let tests =
             Expect.isFalse (docs.Contains("saved plan")) "the preview does not claim to constrain the later update"
             let packageOnly = PackagePublishing.releasePreviewSummary infrastructure (plan "cli") production.RootElement
             Expect.stringContains packageOnly "No production Docs deployment is selected" "package-only releases do not invent a production deployment"
-            Expect.stringContains packageOnly $"| Immutable image | <code>{currentImage}</code> | <code>{currentImage}</code> |" "Docs keeps its actual image"
+            Expect.stringContains packageOnly $"| Docs image | <code>{currentImage}</code> | <code>{currentImage}</code> |" "Docs keeps its actual image"
             Expect.stringContains packageOnly "| Advertised Core version | <code>2026.8.2</code> | <code>2026.8.2</code> |" "Docs metadata does not switch to the candidate's unreleased snapshot"
             Expect.isFalse (packageOnly.Contains(image)) "an unused candidate image is not proposed for production"
             Expect.throws (fun () -> PackagePublishing.releasePreviewSummary "main" (plan "docs") production.RootElement |> ignore) "the infrastructure revision is immutable"
@@ -224,7 +224,9 @@ let tests =
                 let productionPath = Path.Combine(directory,"production.json")
                 let summaryPath = Path.Combine(directory,"summary.md")
                 let state : PackagePublishing.PackageState = { latestVersion=Some "2026.10.4"; changedSinceLatest=false }
-                let plan = PackagePublishing.planRelease "docs" (String.replicate 40 "a") ("registry/image@sha256:"+String.replicate 64 "b") DateTimeOffset.UtcNow state state true [] []
+                let plan =
+                    { PackagePublishing.planRelease "docs" (String.replicate 40 "a") ("registry/image@sha256:"+String.replicate 64 "b") DateTimeOffset.UtcNow state state true [] [] with
+                        exampleImage = "registry/example@sha256:" + String.replicate 64 "c" }
                 PackagePublishing.writePlan planPath plan
                 let pinnedBytes = File.ReadAllBytes planPath
                 File.WriteAllText(productionPath,"{}")
@@ -233,7 +235,7 @@ let tests =
                 let environment = [
                     "RELEASE_PLAN_PATH",planPath; "PRODUCTION_STATE_PATH",productionPath
                     "GITHUB_SHA",String.replicate 40 "c"; "GITHUB_STEP_SUMMARY",summaryPath
-                    "DEPLOY_IMAGE",plan.image; "RELEASE_COMMIT",plan.commit
+                    "DEPLOY_IMAGE",plan.image; "DEPLOY_EXAMPLE_IMAGE",plan.exampleImage; "RELEASE_COMMIT",plan.commit
                     "CORE_PACKAGE_VERSION",plan.docsCoreVersion; "CLI_PACKAGE_VERSION",plan.docsCliVersion
                     "PROMOTE_DOCS","true" ]
                 let result = runProcessWithEnvironment directory "dotnet" arguments environment
@@ -481,7 +483,7 @@ else exit 91; fi
 set -euo pipefail
 printf 'pulumi\n' >> "$FAKE_CALLS"
 if [[ " $* " == *' --json '* ]]; then
-  printf '{"releaseCommit":"%s","imageDigest":"%s","origin":"https://fve.meiermade.net","e2eReady":true}' "$FAKE_STAGED" "$FAKE_IMAGE"
+  printf '{"releaseCommit":"%s","imageDigest":"%s","exampleImageDigest":"%s","origin":"https://fve.meiermade.net","e2eReady":true}' "$FAKE_STAGED" "$FAKE_IMAGE" "$FAKE_IMAGE"
 else printf '%s' "$FAKE_PUBLISHED"; fi
 """
                 let image = "registry/image@sha256:"+String.replicate 64 "b"

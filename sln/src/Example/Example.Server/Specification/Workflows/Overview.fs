@@ -28,7 +28,7 @@ module internal Overview =
                         }
 
                         p {
-                            "Choose a named workflow to review its Wireframe, Sequence and Rules. The fixture toolbar selects states of that workflow; expand the same Browser frame to follow its connected product journey at full viewport size."
+                            "Choose a workflow and explore its Fixture. Sequence diagrams explain cross-boundary behavior; optional Requirements cover only non-obvious behavior not already shown or specified in Architecture. The fixture toolbar selects states; expand the same Browser frame to follow the connected product journey at full viewport size."
                         }
                     }
                 ))

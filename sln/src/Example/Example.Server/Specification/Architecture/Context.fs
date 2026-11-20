@@ -23,7 +23,7 @@ module internal Context =
     let contents =
         [ "system-context", "System context"
           "system-boundary", "System boundary"
-          "rules", "Rules" ]
+          "requirements", "Requirements" ]
 
     let render () =
         div {
@@ -39,7 +39,7 @@ module internal Context =
                     }
                 ))
 
-            rules
+            requirements
                 [ "The three surfaces SHALL describe the same accounts, transactions and workspace contexts."
                   "Financial submissions SHALL validate finite outcomes without durably retaining private values or mutating the seeded records."
                   "The Geldos node SHALL open the Solution overview." ]

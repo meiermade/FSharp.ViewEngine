@@ -50,8 +50,8 @@ module internal ViewProfile =
                     }
                 })
 
-            fieldset {
-                _role "radiogroup"
+            fveRadioGroup {
+                _orientation Orientation.Horizontal
                 _ariaLabelledby (appearanceId + "-label")
                 _dataSignals (appearanceSignal, ["ifmissing"], "'system'")
                 _dataInit $"queueMicrotask(() => {{ ${appearanceSignal} = window.fveColorMode.current() }})"
@@ -60,32 +60,23 @@ module internal ViewProfile =
                 for attribute in ColorMode.nativeChoiceAttributes do
                     attribute
 
-                legend {
+                fveFieldLegend {
                     _id (appearanceId + "-label")
-                    _class "mb-3 text-sm font-semibold"
                     "Appearance"
                 }
 
-                div {
-                    _class "inline-flex max-w-full gap-1 rounded-lg bg-[var(--fve-surface-hover)] p-1"
-
-                    for value, label in [ "system", "System"; "light", "Light"; "dark", "Dark" ] do
-                        Html.label {
-                            _class
-                                "flex min-h-8 cursor-pointer items-center justify-center rounded-md px-3 text-sm font-medium text-[var(--fve-muted-text)] has-[:checked]:bg-[var(--fve-surface)] has-[:checked]:text-[var(--fve-text)] has-[:checked]:shadow-sm has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-[var(--fve-brand-ring)]"
-
-                            input {
-                                _type "radio"
-                                _name (elementId query "appearance")
-                                _value value
-                                _checked (value.Equals "system")
-                                _class "sr-only"
-                                _dataBind appearanceSignal
-                            }
-
-                            label
+                for value, label in [ "system", "System"; "light", "Light"; "dark", "Dark" ] do
+                    fveField {
+                        _layout FieldLayout.Horizontal
+                        fveRadio {
+                            _id (appearanceId + "-" + value)
+                            _name (elementId query "appearance")
+                            _value value
+                            _checked (value.Equals "system")
+                            _dataBind appearanceSignal
                         }
-                }
+                        fveLabel { _for (appearanceId + "-" + value); label }
+                    }
             }
         }
 // Contextual editors validate only; dismissal returns directly to the originating page.

@@ -31,3 +31,20 @@ export const image = config.deploymentImage
 export const imageRef: pulumi.Output<string> = config.deploymentImage
     ? pulumi.output(config.deploymentImage)
     : image!.ref
+
+const exampleImage = config.exampleDeploymentImage
+    ? undefined
+    : new dockerBuild.Image(config.exampleName, {
+        tags: [`${registryUri}/${config.imageRepository}-example:${config.releaseCommit}`],
+        target: 'example',
+        context: { location: path.join(config.rootDir, 'sln') },
+        platforms: [dockerBuild.Platform.Linux_amd64],
+        push: true,
+        buildOnPreview: false,
+        cacheFrom: isGitHubActions ? [{ gha: { scope: 'example' } }] : [],
+        cacheTo: isGitHubActions ? [{ gha: { scope: 'example', mode: dockerBuild.CacheMode.Max, ignoreError: true } }] : [],
+    }, { provider, retainOnDelete: true })
+
+export const exampleImageRef: pulumi.Output<string> = config.exampleDeploymentImage
+    ? pulumi.output(config.exampleDeploymentImage)
+    : exampleImage!.ref

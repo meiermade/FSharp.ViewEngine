@@ -116,3 +116,11 @@ if (suppliedImage && !/@sha256:[a-f0-9]{64}$/.test(suppliedImage)) {
     throw new Error('DEPLOY_IMAGE must be an immutable sha256 image reference')
 }
 export const deploymentImage = suppliedImage
+export const exampleDeploymentImage = process.env.DEPLOY_EXAMPLE_IMAGE
+if (exampleDeploymentImage && !/@sha256:[a-f0-9]{64}$/.test(exampleDeploymentImage)) {
+    throw new Error('DEPLOY_EXAMPLE_IMAGE must be an immutable sha256 image reference')
+}
+if (Boolean(deploymentImage) !== Boolean(exampleDeploymentImage)) {
+    throw new Error('Supply both accepted image digests for promotion')
+}
+export const exampleName = `${identifier}-example`

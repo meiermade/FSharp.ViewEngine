@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
     <UseAppHost>false</UseAppHost>
-    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/node_modules/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/node_modules/**;out/**</DefaultItemExcludes>
   </PropertyGroup>
   <!-- Override the Web SDK defaults when assets are defined: keep browser refresh without
        Blazor initialization or filename collisions with the referencing web host. -->
@@ -21,8 +21,9 @@
     <PackageReference Include="StarFederation.Datastar" Version="1.4.0" />
     <Compile Include="Config.fs" />
     <Compile Include="Services.fs" />
-    <Compile Include="Common/Request.fs" />
+    <Compile Include="Common/Security.fs" />
     <Compile Include="Common/Navigation.fs" />
+    <Compile Include="Common/Request.fs" />
     <Compile Include="Common/View.fs" />
     <Compile Include="Common/Handler.fs" />
     <Compile Include="Product/Session.fs" />
@@ -64,12 +65,13 @@
     <Compile Include="Marketing/Handler.fs" />
     <Compile Include="../Presentation/View.fs" Link="Presentation/View.fs" />
     <Compile Include="Presentation/Handler.fs" />
+    <Compile Include="Discovery.fs" />
     <Compile Include="Host.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="js/**/*.js" />
     <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
     <Content Update="package.json;package-lock.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
-    <Content Include="../Example.Components/Components/Assets/*" Link="wwwroot/examples/assets/scripts/%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

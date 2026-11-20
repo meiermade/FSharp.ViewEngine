@@ -92,6 +92,7 @@ jobs:
           EXPECTED_COMMIT: ${{ steps.source.outputs.commit }}
           DEPLOYED_COMMIT: ${{ steps.deploy.outputs.releaseCommit }}
           DEPLOYED_IMAGE: ${{ steps.deploy.outputs.imageDigest }}
+          DEPLOYED_EXAMPLE_IMAGE: ${{ steps.deploy.outputs.exampleImageDigest }}
           DEPLOYED_ORIGIN: ${{ steps.deploy.outputs.origin }}
           E2E_READY: ${{ steps.deploy.outputs.e2eReady }}
         run: |
@@ -99,6 +100,7 @@ jobs:
           test "$DEPLOYED_ORIGIN" = 'https://fve.meiermade.net'
           test "$E2E_READY" = 'true'
           [[ "$DEPLOYED_IMAGE" =~ @sha256:[a-f0-9]{64}$ ]]
+          [[ "$DEPLOYED_EXAMPLE_IMAGE" =~ @sha256:[a-f0-9]{64}$ ]]
       - name: Wait for Access-aware staging readiness
         timeout-minutes: 6
         working-directory: ./e2e
@@ -111,6 +113,7 @@ jobs:
         env:
           EXPECTED_COMMIT: ${{ steps.source.outputs.commit }}
           EXPECTED_IMAGE: ${{ steps.deploy.outputs.imageDigest }}
+          EXPECTED_EXAMPLE_IMAGE: ${{ steps.deploy.outputs.exampleImageDigest }}
         run: >-
           pulumi env run meiermade/fsharpviewengine/e2e-dev --
           bash scripts/test-release-smoke.sh

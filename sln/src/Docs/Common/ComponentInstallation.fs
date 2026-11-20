@@ -77,9 +77,8 @@ module ComponentInstallation =
         }
 
     let private link href (label: string) =
-        a {
+        fveLink {
             _href href
-            _class "font-semibold text-[var(--fve-brand-text)] underline underline-offset-2"
             label
         }
 
@@ -126,11 +125,11 @@ module ComponentInstallation =
                       "Serve the "
                       link "https://mermaid.js.org/intro/getting-started.html" "Mermaid browser bundle"
                       " as "
-                      inlineCode "wwwroot/scripts/mermaid.js"
+                      inlineCode "wwwroot/js/mermaid.js"
                       ", then include this once in your document head:"
                   }
 
-                  code "fsharp" "Mermaid.assets \"/scripts/mermaid.js\""
+                  code "fsharp" "Mermaid.assets \"/js/mermaid.js\""
 
                   p {
                       "For nonce CSP, use "

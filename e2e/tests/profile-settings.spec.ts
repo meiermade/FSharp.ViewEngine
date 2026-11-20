@@ -70,7 +70,7 @@ test('workspace selector releases modal interaction after environment and organi
   await expect(page.locator('dialog:modal')).toHaveCount(0)
   await page.locator('#template-desktop-navigation').getByRole('link', { name: 'Accounts', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Accounts', level: 1, exact: true })).toBeVisible()
-  await expect(page.locator('html')).toHaveAttribute('data-workspace-session', 'same-document')
+  await expect(page.locator('html')).not.toHaveAttribute('data-workspace-session', 'same-document')
 })
 
 for (const surface of ['application', 'specification'] as const) {
@@ -121,8 +121,8 @@ for (const surface of ['application', 'specification'] as const) {
       await expect(link.locator('svg[aria-hidden=true]')).toHaveCount(1)
       await expect(link).toHaveText('')
       const bounds = (await link.boundingBox())!
-      expect([bounds.width, bounds.height]).toEqual([40, 32])
-      expect(await link.evaluate(el => { const s = getComputedStyle(el); return [parseFloat(s.paddingLeft), parseFloat(s.paddingTop)] })).toEqual([10, 6])
+      expect([bounds.width, bounds.height]).toEqual([32, 32])
+      expect(await link.evaluate(el => { const s = getComputedStyle(el); return [parseFloat(s.paddingLeft), parseFloat(s.paddingTop)] })).toEqual([6, 6])
       expect(await link.evaluate(el => el.getBoundingClientRect().y)).toBeLessThan(48)
     }
     await expect(product.getByRole('button', { name: 'Choose color theme', exact: true })).toHaveCount(0)
@@ -151,7 +151,8 @@ for (const surface of ['application', 'specification'] as const) {
     await expect(crumbs.getByRole('link', { name: 'Profile', exact: true })).toBeVisible()
     await expect(crumbs.locator('[aria-current=page]')).toHaveText('General')
     await expect(product.getByRole('textbox', { name: /^Name/ })).toHaveCount(0)
-    await expect(page.locator('html')).toHaveAttribute('data-profile-session', 'same-document')
+    if (surface === 'application') await expect(page.locator('html')).not.toHaveAttribute('data-profile-session', 'same-document')
+    else await expect(page.locator('html')).toHaveAttribute('data-profile-session', 'same-document')
     await product.getByRole('radiogroup', { name: 'Appearance', exact: true }).getByText('Dark', { exact: true }).click()
     await expect(page.locator('html')).toHaveAttribute('data-color-mode', 'dark')
     await expect(product.getByRole('link', { name: 'Edit', exact: true }).locator('svg')).toHaveCount(1)

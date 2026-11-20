@@ -107,6 +107,9 @@ test('filter chips toggle multiple choices, clear to unrestricted and retain foc
   await expect(asset).toBeFocused()
   await expect(asset).toHaveAttribute('aria-checked', 'true')
   await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  const [menuBounds, triggerBounds] = await Promise.all([group.getByRole('menu').boundingBox(), trigger.boundingBox()])
+  expect(Math.abs(menuBounds!.x - triggerBounds!.x)).toBeLessThanOrEqual(1)
+  expect(menuBounds!.y).toBeGreaterThanOrEqual(triggerBounds!.y + triggerBounds!.height)
   await liability.press('Enter')
   await expect(page).toHaveURL(url => url.searchParams.get('accountType') === 'Asset,Liability')
   await expect(liability).toBeFocused()
@@ -203,6 +206,7 @@ test('native filter checkboxes apply multiple choices and clear without JavaScri
 test('account drawer preserves context and leaves edited forms without prompts @cross-browser', async ({ page }) => {
   const prompts: string[] = []
   page.on('dialog', async prompt => { prompts.push(prompt.message()); await prompt.accept() })
+  await page.setViewportSize({ width: 1200, height: 1100 })
   await page.addInitScript(() => localStorage.setItem('financial-example-appearance', 'dark'))
   await page.goto('/examples/application/accounts?search=checking&sort=balance')
   const title = await page.title()
@@ -214,6 +218,10 @@ test('account drawer preserves context and leaves edited forms without prompts @
   expect(await page.getByRole('navigation', { name: 'Breadcrumb', exact: true }).innerText()).toBe(crumbs)
   const name = drawer.getByRole('textbox', { name: /^Name/ })
   await expect(name).toBeFocused()
+  const fields = (await drawer.getByRole('form', { name: 'Create account', exact: true }).boundingBox())!
+  const button = (await drawer.getByRole('button', { name: 'Create', exact: true }).boundingBox())!
+  expect(button.y - (fields.y + fields.height)).toBeGreaterThanOrEqual(0)
+  expect(button.y - (fields.y + fields.height)).toBeLessThan(48)
   await name.fill('Unsaved reserve')
   await page.goBack()
   await expect(drawer).toHaveCount(0)

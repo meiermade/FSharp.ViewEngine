@@ -1,13 +1,37 @@
 name: fsharp-viewengine-e2e
 
 services:
-  docs:
+  mock-cloudflare-proxy:
     build:
       context: ./sln
+      target: mock-cloudflare-proxy
     environment:
-      DEBUG: 'false'
-      DOCS_SERVER_URL: http://0.0.0.0:5000
+      ASPNETCORE_URLS: http://0.0.0.0:5000
+      MOCK_CLOUDFLARE_DOCS_ORIGIN: http://docs:5000
+      MOCK_CLOUDFLARE_EXAMPLE_ORIGIN: http://example:5000
+    depends_on:
+      - docs
+      - example
     init: true
     ports:
       - 127.0.0.1:${E2E_SERVER_PORT:-5054}:5000
+    stop_grace_period: 15s
+  docs:
+    build:
+      context: ./sln
+      target: docs
+    environment:
+      DEBUG: 'false'
+      DOCS_SERVER_URL: http://0.0.0.0:5000
+      DOCS_PUBLIC_ORIGIN: http://127.0.0.1:${E2E_SERVER_PORT:-5054}
+    init: true
+    stop_grace_period: 15s
+  example:
+    build:
+      context: ./sln
+      target: example
+    environment:
+      ASPNETCORE_URLS: http://0.0.0.0:5000
+      EXAMPLE_PUBLIC_ORIGIN: http://127.0.0.1:${E2E_SERVER_PORT:-5054}
+    init: true
     stop_grace_period: 15s
