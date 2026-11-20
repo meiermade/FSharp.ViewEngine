@@ -49,6 +49,8 @@ test('release runner invokes only complete three-engine smoke, zero retries, and
   ])
   assert.ok(args.includes('E2E_CROSS_BROWSER_MODE=focused'))
   assert.ok(args.includes('CI=true'))
+  assert.ok(args.some((arg, index) => arg === '--env' && args[index + 1] === 'EXPECTED_EXAMPLE_IMAGE'),
+    'the Playwright container must receive the expected Example.Server image')
   assert.equal(result.authRemoved, true)
 })
 
