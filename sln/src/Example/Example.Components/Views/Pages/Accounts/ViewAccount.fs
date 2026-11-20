@@ -14,34 +14,38 @@ module internal ViewAccount =
         let query = { query with account = string id }
         let page = ApplicationPage.Account id
         let data = homeData query
-        let related = query.records.accounts |> List.filter (fun row -> row.id <> id && row.accountType = account.accountType)
+        let childAccounts = children query.records id
         let transactions = data.transactions |> List.sortByDescending (fun row -> row.date, row.id)
         let pages = max 1 ((transactions.Length + 9) / 10)
         let current = min pages query.transactionPage
         let rows = transactions |> List.skip ((current - 1) * 10) |> List.truncate 10
-        let viewAll = applicationHref query ApplicationPage.Transactions + querySuffix ["account", string id; "startDate", query.startDate; "endDate", query.endDate]
         let pageHref number =
             applicationHref query page + querySuffix ["range", query.range; "comparison", query.comparison; "startDate", query.startDate; "endDate", query.endDate; "transactionPage", string number] + "#account-transactions"
 
         fveSectionStack {
             fveSection {
                 _label "Details"
-                fveSectionActions {
-                    fveLink {
+                if not (isRoot account) then
+                    fveSectionActions { fveLink {
                         _href (collectionHref { query with overlayFrom="" } (ApplicationPage.EditAccount id))
                         _ariaLabel "Edit account"; _variant LinkVariant.Outline
                         Layout.icon IconName.PencilSquare
                         "Edit"
-                    }
-                }
+                    } }
                 fveDescriptionList {
                     _columns DescriptionListColumns.Three
                     fveDescriptionListItem { _label "Type"; string account.accountType }
                     fveDescriptionListItem { _label "Commodity"; account.currency }
-                    fveDescriptionListItem { _label "Parent account"; Controls.groupLabel account.accountType }
+                    match account.parentId with
+                    | Some parentId ->
+                        let parent = query.records.accounts |> List.find (fun row -> row.id = parentId)
+                        fveDescriptionListItem { _label "Parent account"; Layout.inlineLink (applicationHref query (ApplicationPage.Account parentId)) parent.name }
+                    | None -> fveDescriptionListItem { _label "Parent account"; "None" }
                     fveDescriptionListItem { _label "Source"; "Manual" }
                     fveDescriptionListItem { _label "Month-end observed balance"; "Not required" }
                     fveDescriptionListItem { _label "Balance"; money (balance query.records account) }
+                    if not childAccounts.IsEmpty then
+                        fveDescriptionListItem { _label "Total balance (USD)"; money data.currentBalance }
                 }
             }
             fveSection {
@@ -49,36 +53,29 @@ module internal ViewAccount =
                 _description "Compare actual and projected balances. Zoom the chart to focus the transaction history below."
                 Home.balanceHistory page false query
             }
-            fveSection {
-                _label "Related accounts"
-                _description ("Other " + string account.accountType + " accounts in this ledger.")
-                fveSectionActions { Layout.secondaryLink (applicationHref query ApplicationPage.Accounts + querySuffix ["accountType", string account.accountType]) "View all" }
-                if related.IsEmpty then
-                    fveEmptyState { _label "No related accounts"; _description "Other accounts of the same type will appear here." }
-                else
+            if not childAccounts.IsEmpty then
+                fveSection {
+                    _label "Child accounts"
                     fveTable {
-                        _ariaLabel ("Related " + string account.accountType + " accounts")
+                        _ariaLabel "Child accounts"
                         _mobileLayout MobileLayout.Records
-                        fveTableCaption { "Related accounts" }
-                        fveTableHeader { fveTableRow { fveTableHead { "Account" }; fveTableHead { "Type" }; fveTableHead { _class "text-right"; "Balance" } } }
+                        fveTableHeader { fveTableRow { fveTableHead { "Account" }; fveTableHead { _class "text-right"; "Total balance (USD)" } } }
                         fveTableBody {
-                            for row in related do
+                            for row in childAccounts do
                                 fveTableRow {
                                     fveTableHead { _scope "row"; _mobile Mobile.Primary; Layout.inlineLink (applicationHref query (ApplicationPage.Account row.id)) row.name }
-                                    fveTableCell { _label "Type"; string row.accountType }
-                                    fveTableCell { _label "Balance"; _class "text-right"; money (balance query.records row) }
+                                    fveTableCell { _label "Total balance (USD)"; _class "text-right"; money (totalBalance query.records row) }
                                 }
                         }
                     }
-            }
+                }
             fveSection {
                 _id "account-transactions"; _label "Transactions"
-                _description (date data.visibleStart + " – " + date data.visibleEnd)
-                fveSectionActions { Layout.secondaryLink viewAll "View all" }
+                fveSectionActions { viewAllLink query id }
                 if transactions.IsEmpty then
                     fveEmptyState { _label "No transactions in this date range"; _description "Choose different dates or reset zoom." }
                 else
-                    transactionTable query (account.name + " transactions") rows false
+                    transactionTable query (account.name + " transactions") rows (Some data.accountIds)
                     footer {
                         fvePagination {
                             _ariaLabel "Account transactions"; _variant PaginationVariant.PreviousNextOnly

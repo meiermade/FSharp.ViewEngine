@@ -18,14 +18,11 @@ module internal ViewAccount =
             "Inspect an account's balance, properties and related transactions, then choose an account operation."
           states =
             [ state "default" "Active account" (ApplicationPage.Account 101) []
+              state "root" "Root account" (ApplicationPage.Account 1) []
               state "no-activity" "No activity" (ApplicationPage.Account 105) [] ]
           sequence =
             readSequence
                 "/examples/application/accounts/101"
                 "Find account 101, its balance and its transactions"
                 "account detail with update and delete links"
-          rules =
-            [ "The resource ID SHALL select the matching seeded account."
-              "Balance SHALL include only the account's opening balance and signed activity."
-              "Related transaction links SHALL open their exact records."
-              "Update and Delete destinations SHALL retain the viewed account's ID and workspace." ] }
+          requirements = [] }

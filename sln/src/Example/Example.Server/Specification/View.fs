@@ -28,9 +28,6 @@ module View =
           SpecificationPages.Workspace.workflow
           SpecificationPages.Settings.workflow
           SpecificationPages.Profile.workflow ]
-        |> List.map (fun workflow ->
-            { workflow with
-                rules = shellRules @ workflow.rules })
 
     let workflowPages = workflows |> List.map _.key
     let pages = workflowPages @ (Architecture.navigation |> List.map fst)
@@ -77,9 +74,9 @@ module View =
         | _ ->
             match Int32.TryParse query.resource, state.page with
             | (true, id), ApplicationPage.Account _ when tryAccount id |> Option.isSome -> ApplicationPage.Account id
-            | (true, id), ApplicationPage.EditAccount _ when tryAccount id |> Option.isSome ->
+            | (true, id), ApplicationPage.EditAccount _ when tryAccount id |> Option.exists (isRoot >> not) ->
                 ApplicationPage.EditAccount id
-            | (true, id), ApplicationPage.DeleteAccount _ when tryAccount id |> Option.isSome ->
+            | (true, id), ApplicationPage.DeleteAccount _ when tryAccount id |> Option.exists (isRoot >> not) ->
                 ApplicationPage.DeleteAccount id
             | (true, id), ApplicationPage.Transaction _ when tryTransaction id |> Option.isSome ->
                 ApplicationPage.Transaction id
@@ -120,6 +117,7 @@ module View =
             sort = choose query.sort "name" authored.sort
             state = choose query.state "" authored.state
             account = choose query.account "all" authored.account
+            parent = choose query.parent "" authored.parent
             range = choose query.range "90" authored.range
             comparison = choose query.comparison "expected" authored.comparison
             status = choose query.status "all" authored.status }
@@ -141,6 +139,8 @@ module View =
                   yield "state", query.state
               if query.account <> "all" then
                   yield "account", query.account
+              if query.parent <> "" then
+                  yield "parent", query.parent
               if query.range <> "90" then
                   yield "range", query.range
               if query.comparison <> "expected" then
@@ -191,7 +191,7 @@ module View =
             content
         }
 
-    let private wireframe (query: Query) (workflow: Workflow) (selected: State) =
+    let private fixture (query: Query) (workflow: Workflow) (selected: State) =
         let id = "spec-" + workflow.key.Replace('/', '-')
         // This ordered journey is consumer-authored, not catalog page order or state order.
         let journey =
@@ -285,6 +285,7 @@ module View =
             }
 
             fveBrowserWindowControls {
+                Example.Components.Views.Navigation.menuLinks
                 _class "min-w-0 max-w-full"
 
                 div {
@@ -357,23 +358,25 @@ module View =
 
                 div {
                     _class "grid min-w-0 grid-cols-1 gap-12"
-                    Layout.documentationSection "wireframe" "Wireframe" (wireframe query workflow selected)
+                    Layout.documentationSection "fixture" "Fixture" (fixture query workflow selected)
 
                     if not query.appMode then
-                        Layout.documentationSection
-                            "sequence"
-                            "Sequence"
-                            (diagram (workflow.label + " sequence") workflow.sequence)
+                        if not (String.IsNullOrWhiteSpace workflow.sequence) then
+                            Layout.documentationSection
+                                "sequence"
+                                "Sequence"
+                                (diagram (workflow.label + " sequence") workflow.sequence)
 
-                        Layout.documentationSection
-                            "rules"
-                            "Rules"
-                            (Layout.prose (
-                                ul {
-                                    for rule in workflow.rules do
-                                        li { rule }
-                                }
-                            ))
+                        if not workflow.requirements.IsEmpty then
+                            Layout.documentationSection
+                                "requirements"
+                                "Requirements"
+                                (Layout.prose (
+                                    ul {
+                                        for requirement in workflow.requirements do
+                                            li { requirement }
+                                    }
+                                ))
                 }
 
         let current =

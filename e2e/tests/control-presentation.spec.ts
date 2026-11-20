@@ -24,6 +24,86 @@ const contrast = (control: Locator, property: 'color' | 'outlineColor' = 'color'
 // Assert browser output rather than Tailwind class spelling.
 const translation = (control: Locator) => control.evaluate(el => getComputedStyle(el).translate)
 
+test('Plain links inherit colored surfaces without losing keyboard focus @cross-browser', async ({ page }) => {
+  await page.goto('/components/link')
+  const link = page.locator('#components-link-plain-panel-preview').getByRole('link', { name: 'Read notice documentation', exact: true })
+  await expect(link).toHaveAttribute('href', '/components/notice')
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
+    await expect.poll(() => link.evaluate(el => getComputedStyle(el).color === getComputedStyle(el.parentElement!).color)).toBe(true)
+    await expect(link).toHaveCSS('padding', '0px')
+    await expect.poll(() => contrast(link)).toBeGreaterThanOrEqual(4.5)
+    await page.keyboard.press('Tab')
+    await link.focus()
+    await expect(link).toBeFocused()
+    await expect(link).toHaveCSS('outline-style', 'solid')
+    await expect(link).toHaveCSS('outline-width', '2px')
+    await expect.poll(() => contrast(link, 'outlineColor')).toBeGreaterThanOrEqual(3)
+    await link.blur()
+  }
+})
+
+test('Uniform padding follows size for links and native/enhanced buttons @cross-browser', async ({ page, browser }) => {
+  const sizes = [['Extra small', 24], ['Small', 28], ['Medium', 32], ['Large', 36], ['Extra large', 40]] as const
+  const assertSquare = async (control: Locator, dimension: number) => {
+    await expect(control).toBeVisible()
+    await expect.poll(() => control.evaluate(el => Math.round(el.getBoundingClientRect().width))).toBe(dimension)
+    await expect.poll(() => control.evaluate(el => Math.round(el.getBoundingClientRect().height))).toBe(dimension)
+    await expect.poll(() => control.evaluate(el => getComputedStyle(el).paddingInlineStart === getComputedStyle(el).paddingBlockStart)).toBe(true)
+  }
+  await page.goto('/components/button')
+  for (const [label, height] of sizes) for (const kind of ['button', 'submit', 'reset']) {
+    await assertSquare(page.locator('#components-button-padding-panel-preview').getByRole('button', { name: `${label} ${kind}`, exact: true }), height)
+  }
+  await page.goto('/components/link')
+  for (const [label, height] of sizes) for (const variant of ['Outline', 'Ghost']) {
+    await assertSquare(page.locator('#components-link-padding-panel-preview').getByRole('link', { name: `${label} ${variant} settings`, exact: true }), height)
+  }
+  const native = await browser.newContext({ javaScriptEnabled: false })
+  try {
+    const plain = await native.newPage()
+    await plain.goto(new URL('/components/button', page.url()).href)
+    for (const [label, height] of sizes) for (const kind of ['submit', 'reset']) {
+      await assertSquare(plain.locator('#components-button-padding-panel-preview').getByRole('button', { name: `${label} ${kind}`, exact: true }), height)
+    }
+  } finally { await native.close() }
+})
+
+test('Ghost actions stay flat without losing interaction or keyboard focus @cross-browser', async ({ page }) => {
+  for (const kind of ['button', 'link'] as const) {
+    await page.goto(`/components/${kind}`)
+    const preview = page.locator(`#components-${kind}-color-variants-panel-preview`)
+    const role = kind === 'button' ? 'button' : 'link'
+    for (const dark of [false, true]) {
+      await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
+      for (const color of ['Primary', 'Neutral']) {
+        const ghost = preview.getByRole(role, { name: `Ghost ${color}`, exact: true })
+        await ghost.scrollIntoViewIfNeeded()
+        await page.mouse.move(0, 0)
+        await expect(ghost).toHaveCSS('box-shadow', 'none')
+        await expect(ghost).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+        const resting = await ghost.evaluate(el => ({ color: getComputedStyle(el).backgroundColor, image: getComputedStyle(el).backgroundImage }))
+        await ghost.hover()
+        await expect(ghost).toHaveCSS('box-shadow', 'none')
+        await expect.poll(() => ghost.evaluate(el => ({ color: getComputedStyle(el).backgroundColor, image: getComputedStyle(el).backgroundImage }))).not.toEqual(resting)
+        await page.mouse.down()
+        await expect(ghost).toHaveCSS('box-shadow', 'none')
+        await page.mouse.move(0, 0)
+        await page.mouse.up()
+        await page.keyboard.press('Tab')
+        await ghost.focus()
+        await expect(ghost).toBeFocused()
+        await expect.poll(() => ghost.evaluate(el => el.matches(':focus-visible'))).toBe(true)
+        await expect.poll(() => ghost.evaluate(el => getComputedStyle(el).boxShadow)).not.toBe('none')
+        await ghost.blur()
+      }
+      for (const variant of ['Solid Primary', 'Soft Primary', 'Outline Primary', 'Outline Neutral']) {
+        await expect.poll(() => preview.getByRole(role, { name: variant, exact: true }).evaluate(el => getComputedStyle(el).boxShadow)).not.toBe('none')
+      }
+    }
+  }
+})
+
 test('badges expose independent readable colors and variants without live-region behavior @cross-browser', async ({ page }) => {
   await page.goto('/components/badge')
   const basic = page.locator('#components-badge-panel-preview').getByText('Internal', { exact: true })
@@ -467,6 +547,29 @@ test('Link variants retain native keyboard and new-tab navigation @cross-browser
   await plain.press('Enter')
   await expect(page).toHaveURL(/\/components$/)
   await expect(page.getByRole('heading', { level: 1, name: 'Components', exact: true })).toBeVisible()
+})
+
+test('Text links can underline on interaction without changing the default @cross-browser', async ({ page }) => {
+  await page.goto('/components/link')
+  const preview = page.locator('#components-link-underline-panel-preview')
+  const always = preview.getByRole('link', { name: 'Always underlined', exact: true })
+  const interactive = preview.getByRole('link', { name: 'Underline on interaction', exact: true })
+  await expect(always).toHaveCSS('text-decoration-line', 'underline')
+  await expect(interactive).toHaveCSS('text-decoration-line', 'none')
+  await interactive.hover()
+  await expect(interactive).toHaveCSS('text-decoration-line', 'underline')
+  await page.mouse.move(0, 0)
+  await expect(interactive).toHaveCSS('text-decoration-line', 'none')
+  const restingShadow = await interactive.evaluate(el => getComputedStyle(el).boxShadow)
+  await page.keyboard.press('Tab')
+  await interactive.focus()
+  await expect(interactive).toBeFocused()
+  await expect(interactive).toHaveCSS('text-decoration-line', 'underline')
+  await expect(interactive).not.toHaveCSS('box-shadow', restingShadow)
+
+  await page.goto('/examples/application/accounts')
+  const account = page.getByRole('link', { name: 'Assets', exact: true })
+  await expect(account).toHaveCSS('text-decoration-line', 'none')
 })
 
 test('pending buttons center an overlay without changing size or accessible names @cross-browser', async ({ page }) => {

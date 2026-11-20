@@ -175,7 +175,8 @@ module ThemeTokens =
 
     let private tableRows (rows: Token list) =
         div {
-            _class "min-w-0 overflow-x-auto rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)]"
+            // Keep the absolutely positioned screen-reader caption inside the scroll container.
+            _class "relative min-w-0 overflow-x-auto rounded-[var(--fve-radius-panel)] border border-[var(--fve-border)]"
             _role "region"; _ariaLabel "CSS variables"; _tabindex 0
             table {
                 _class "w-full border-collapse text-left text-sm [&_th]:p-3 [&_td]:p-3 [&_td]:align-top [&_tr]:border-b [&_tr]:border-[var(--fve-border)] [&_code]:[overflow-wrap:anywhere]"
@@ -200,11 +201,12 @@ module ThemeTokens =
         div {
             // Row heights can change between pages; do not anchor the guide's scroll to a moving row/link.
             _id "theme-token-reference"; _class "grid min-w-0 gap-4 [overflow-anchor:none]"
+            Docs.Web.PreviewUpdate.restore "theme-token-reference"
             form {
                 _id "theme-token-filter"; _method "get"; _action "/guides/theming"
-                _data("fve-local-navigation", "true")
+                Docs.Web.PreviewUpdate.form "theme-token-reference"
                 _class "flex min-w-0 flex-wrap items-end gap-3"
-                _dataOn("input", "if (evt.target.name === 'tokenSearch') window.fveNavigationController?.abort()")
+                _dataOn("input", "if (evt.target.name === 'tokenSearch') document.getElementById('theme-token-reference').updateRequest?.abort()")
                 _dataOn("input", ["debounce.200ms"], "if (evt.target.name === 'tokenSearch') el.requestSubmit()")
                 _dataOn("change", "if (evt.target.name === 'tokenGroup') el.requestSubmit()")
                 fveField {
@@ -228,7 +230,7 @@ module ThemeTokens =
                 }
                 fveButton { _type "submit"; _variant ButtonVariant.Outline; "Apply" }
                 if state.search <> "" || state.group <> "all" then
-                    fveLink { _href (href (select "" "all" 1) 1); _data("fve-local-navigation", "true"); "Clear filters" }
+                    fveLink { _href (href (select "" "all" 1) 1); Docs.Web.PreviewUpdate.link "theme-token-reference" ""; "Clear filters" }
             }
             tableRows state.rows
             fvePagination {
@@ -242,7 +244,7 @@ module ThemeTokens =
                     }
                 }
                 fvePaginationPrevious {
-                    if state.page > 1 then _href (href state (state.page - 1)); _data("fve-local-navigation", "true")
+                    if state.page > 1 then _href (href state (state.page - 1)); Docs.Web.PreviewUpdate.link "theme-token-reference" ""
                 }
                 fvePaginationContent {
                     for number in 1 .. state.pageCount do
@@ -250,13 +252,13 @@ module ThemeTokens =
                             fvePaginationItem {
                                 _page number
                                 if number = state.page then _ariaCurrent "page"
-                                else _href (href state number); _data("fve-local-navigation", "true")
+                                else _href (href state number); Docs.Web.PreviewUpdate.link "theme-token-reference" ""
                             }
                         elif number = state.page - 2 || number = state.page + 2 then
                             fvePaginationEllipsis { () }
                 }
                 fvePaginationNext {
-                    if state.page < state.pageCount then _href (href state (state.page + 1)); _data("fve-local-navigation", "true")
+                    if state.page < state.pageCount then _href (href state (state.page + 1)); Docs.Web.PreviewUpdate.link "theme-token-reference" ""
                 }
             }
         }

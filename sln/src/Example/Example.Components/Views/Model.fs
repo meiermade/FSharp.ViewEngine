@@ -95,6 +95,7 @@ module Model =
           embedded: bool
           workspace: Workspace
           account: string
+          parent: string
           range: string
           comparison: string
           startDate: string
@@ -129,6 +130,7 @@ module Model =
           embedded = false
           workspace = defaultWorkspace
           account = "all"
+          parent = ""
           range = "90"
           comparison = "expected"
           startDate = ""
@@ -185,6 +187,9 @@ module Model =
         | ApplicationPage.EditProfile -> ApplicationPage.Profile
         | ApplicationPage.EditOrganization -> ApplicationPage.SettingsSection "general"
         | ApplicationPage.EditEnvironment id -> ApplicationPage.Environment id
+        | ApplicationPage.CreateAccount when query.overlayFrom <> "accounts" ->
+            query.records.accounts |> List.tryFind (fun row -> string row.id = query.parent)
+            |> Option.map (fun row -> ApplicationPage.Account row.id) |> Option.defaultValue ApplicationPage.Accounts
         | ApplicationPage.CreateAccount -> ApplicationPage.Accounts
         | ApplicationPage.EditAccount _
         | ApplicationPage.DeleteAccount _ when query.overlayFrom = "accounts" -> ApplicationPage.Accounts
@@ -323,7 +328,8 @@ module Model =
           "comparison", query.comparison
           "startDate", query.startDate
           "endDate", query.endDate
-          "transactionPage", string query.transactionPage ]
+          "transactionPage", string query.transactionPage
+          if query.parent <> "" then "parent", query.parent ]
 
     let collectionHref (query: Query) page =
         applicationHref query page

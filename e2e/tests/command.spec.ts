@@ -1,14 +1,26 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Locator } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 const shortcut = process.platform === 'darwin' ? 'Meta+K' : 'Control+K'
 
-test('Catalog Command ranks Table in Components and navigates after morphs @cross-browser', async ({ page }) => {
+async function expectCenteredShortcut(trigger: Locator) {
+  const kbd = trigger.locator('kbd')
+  await expect(kbd).toBeVisible()
+  await expect.poll(() => kbd.evaluate(el => {
+    const range = document.createRange()
+    range.selectNodeContents(el)
+    const text = range.getBoundingClientRect()
+    const key = el.getBoundingClientRect()
+    return Math.abs(text.y + text.height / 2 - key.y - key.height / 2)
+  })).toBeLessThanOrEqual(1)
+}
+
+test('Catalog Command ranks Table in Components and opens native destinations @cross-browser', async ({ page }) => {
   await page.goto('/components/week-calendar')
   const searchTrigger = page.getByRole('button', { name: 'Search documentation', exact: true })
   await expect(searchTrigger.locator('svg')).toBeVisible()
   await expect(searchTrigger).toHaveText(/^(?:⌘K|Ctrl\+K)$/)
-  await page.evaluate(() => { (window as any).__commandDocument = 'same-document' })
+  await expectCenteredShortcut(searchTrigger)
   await page.keyboard.press(shortcut)
   const dialog = page.getByRole('dialog', { name: 'Search documentation', exact: true })
   const input = dialog.getByRole('combobox', { name: 'Search documentation', exact: true })
@@ -22,11 +34,13 @@ test('Catalog Command ranks Table in Components and navigates after morphs @cros
   await expect(dialog.getByRole('option', { name: /Encoding and trusted content|^Datastar/ })).toHaveCount(0)
   const box = await dialog.boundingBox()
   expect(Math.abs(box!.x + box!.width / 2 - page.viewportSize()!.width / 2)).toBeLessThanOrEqual(1)
+  const tableDocument = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/table')
   await input.press('Enter')
+  expect((await tableDocument).ok()).toBe(true)
   await expect(page).toHaveURL('/components/table')
-  expect(await page.evaluate(() => (window as any).__commandDocument)).toBe('same-document')
   await expect(dialog).not.toBeVisible()
   const main = page.getByRole('main')
+  await page.getByRole('link', { name: 'Skip to main content' }).press('Enter')
   await expect(main).toBeFocused()
   await expect(main).toHaveCSS('outline-style', 'none')
   await page.keyboard.press('Tab')
@@ -67,12 +81,10 @@ test('Catalog Command ranks Table in Components and navigates after morphs @cros
     await page.keyboard.press(shortcut)
     await input.fill('sel')
     await expect(dialog.getByRole('option').first()).toHaveAttribute('href', '/components/select')
-    const navigation = page.locator('[data-fve-navigation-root]')
-    const previousDocument = await navigation.getAttribute('data-navigation-document')
+    const document = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/select')
     await input.press('Enter')
+    expect((await document).ok()).toBe(true)
     await expect(page).toHaveURL('/components/select')
-    // The URL is already correct on the second attempt; wait for that response's committed document.
-    await expect(navigation).not.toHaveAttribute('data-navigation-document', previousDocument!)
     await expect(dialog).not.toBeVisible()
     await page.keyboard.press(shortcut)
     await expect(input).toHaveValue('')
@@ -111,12 +123,13 @@ test('Catalog search separates guides, components and examples without flooding 
   await presentation.click()
   const popup = await popupPromise
   await expect(popup).toHaveURL('/examples/presentation')
-  await expect(popup.getByRole('heading', { name: 'Geldos · Treasury review', exact: true, level: 1 })).toBeVisible()
+  await expect(popup.getByRole('heading', { name: 'Geldos · Product overview', exact: true, level: 1 })).toBeVisible()
   await popup.close()
   await expect(page).toHaveURL('/components/installation')
   await expect(dialog).toBeHidden()
   await page.setViewportSize({ width: 320, height: 900 })
   await page.locator('html').evaluate(el => { el.style.fontSize = '200%' })
+  await expect(page.getByRole('button', { name: 'Search documentation', exact: true }).locator('kbd')).toBeHidden()
   await page.keyboard.press(shortcut)
   await input.fill('examples')
   await expect(examples.getByRole('option')).toHaveCount(5)
@@ -127,12 +140,12 @@ for (const [name, start, term, destination] of [
   ['specification', '/examples/specification?organization=example-household&environment=production&ledger=alex', 'Example.Domain', '/examples/specification/architecture/solution/domain'],
   ['API documentation', '/examples/api-documentation', 'Create account', '/examples/api-documentation/create-account'],
 ] as const) {
-  test(`Template ${name} search supports click, shortcuts, navigation and morphs @cross-browser`, async ({ page }) => {
+  test(`Template ${name} search supports click, shortcuts and native navigation @cross-browser`, async ({ page }) => {
     await page.goto(start)
-    await page.evaluate(() => { document.documentElement.dataset.searchDocument = 'retained' })
     const trigger = page.getByRole('button', { name: `Search ${name}`, exact: true })
     await expect(trigger.locator('svg')).toBeVisible()
     await expect(trigger).toHaveText(/^(?:⌘K|Ctrl\+K)$/)
+    await expectCenteredShortcut(trigger)
     await trigger.click()
     const dialog = page.getByRole('dialog', { name: `Search ${name}`, exact: true })
     const input = dialog.getByRole('combobox', { name: `Search ${name}`, exact: true })
@@ -142,14 +155,13 @@ for (const [name, start, term, destination] of [
     await input.fill(term)
     const result = dialog.getByRole('option', { name: term, exact: true })
     await expect(result).toHaveAttribute('aria-selected', 'true')
+    const targetDocument = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === destination)
     await input.press('Enter')
+    expect((await targetDocument).headers()['content-type']).toContain('text/html')
     await expect(page).toHaveURL(url => url.pathname === destination)
-    await expect(page.locator('html')).toHaveAttribute('data-search-document', 'retained')
     await expect(dialog).toBeHidden()
     if (name === 'specification') expect(new URL(page.url()).searchParams.get('ledger')).toBe('alex')
-    // The URL commits before navigation's animation-frame focus restoration.
-    // Finish that transition before starting another dialog interaction.
-    await expect(page.getByRole('main')).toBeFocused()
+    await expect(trigger).toBeVisible()
     for (const key of ['Meta+K', 'Control+K']) {
       await page.keyboard.press(key)
       await expect(input).toBeFocused()
@@ -160,6 +172,7 @@ for (const [name, start, term, destination] of [
     }
     await page.setViewportSize({ width: 320, height: 900 })
     await page.locator('html').evaluate(html => html.style.fontSize = '200%')
+    await expect(trigger.locator('kbd')).toBeHidden()
     await trigger.click()
     await expect(input).toBeFocused()
     await expect(dialog.getByRole('option').first()).toHaveCSS('white-space', 'normal')

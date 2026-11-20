@@ -34,7 +34,7 @@ module Examples =
           { template = Template.Presentation
             name = "Presentation"
             path = "/examples/presentation"
-            description = "An HTML treasury review with separated slides, an expand/restore viewer, standalone F# authoring and Print/Save as PDF."
+            description = "A five-slide Geldos product overview with an expandable viewer, standalone F# authoring and Print/Save as PDF."
             screenshot = "/images/examples/presentation.png"
             darkScreenshot = "/images/examples/presentation-dark.png" }
           { template = Template.Specification
@@ -82,7 +82,8 @@ module Examples =
                         _class "grid min-w-0 gap-8 md:grid-cols-2"
 
                         for template in templates do
-                            a {
+                            fveLink {
+                                _variant LinkVariant.Plain
                                 _href template.path
                                 _target "_blank"
                                 _rel "noopener"
@@ -90,7 +91,7 @@ module Examples =
                                 _attr ("data-example-template", template.name)
 
                                 _class
-                                    "group grid min-w-0 content-start gap-4 rounded-xl focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--fve-brand-ring)]"
+                                    "group grid min-w-0 content-start gap-4 rounded-xl focus-visible:outline-[var(--fve-brand-ring)]"
 
                                 for source, visibility in
                                     [ template.screenshot, "dark:hidden"
@@ -127,31 +128,3 @@ module Examples =
     let templateForPath (path: string) =
         templates
         |> List.tryFind (fun item -> path = item.path || path.StartsWith(item.path + "/", StringComparison.Ordinal))
-
-    let paths =
-        [ for item in templates do
-              yield item.path
-          yield! Example.Server.Marketing.View.paths
-          yield!
-              Example.Server.Product.Handler.navigation
-              |> List.map fst
-              |> List.filter ((<>) "/examples/application")
-          for account in Ledger.Domain.accounts do
-              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.Account account.id)
-              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.EditAccount account.id)
-              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.DeleteAccount account.id)
-          for environment in Ledger.Domain.environments do
-              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.Environment environment.id)
-              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.EditEnvironment environment.id)
-          yield Example.Components.Views.Model.applicationUrl Example.Components.Views.Model.ApplicationPage.CreateAccount
-          for transaction in Ledger.Domain.transactions do
-              yield Example.Components.Views.Model.applicationUrl (Example.Components.Views.Model.ApplicationPage.Transaction transaction.id)
-          yield!
-              Example.Server.Specification.View.navigation
-              |> List.map fst
-              |> List.filter ((<>) "/examples/specification")
-          yield!
-              Example.Server.ApiDocumentation.View.navigation
-              |> List.map fst
-              |> List.filter ((<>) "/examples/api-documentation") ]
-        |> List.distinct

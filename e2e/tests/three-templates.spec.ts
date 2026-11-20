@@ -12,7 +12,7 @@ for (const scenario of [
     page.on('pageerror', error => errors.push(error.message))
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(scenario.path)
-    const opener = page.locator('#template-navigation-dialog-trigger').getByRole('button', { name: 'Open navigation', exact: true })
+    const opener = page.getByRole('button', { name: 'Open navigation', exact: true })
     const drawer = page.getByRole('dialog', { name: `${scenario.label} navigation`, exact: true })
     const close = drawer.getByRole('button', { name: 'Close navigation', exact: true })
     await expect(opener).toBeVisible()
@@ -97,7 +97,7 @@ test('gallery opens isolated consumer templates with GitHub source and native hi
   const source = app.getByRole('link', { name: 'View example source on GitHub', exact: true })
   await expect(source).toHaveAttribute('href', /^https:\/\/github\.com\/meiermade\/FSharp\.ViewEngine(?:\/tree\/[^/]+\/sln\/src\/Example)?$/)
   await expect(source).toHaveAttribute('target', '_blank')
-  await expect(app.locator('script[type="module"][src="/examples/assets/scripts/app.js"]')).toHaveCount(1)
+  await expect(app.locator('script[type="module"][src="/examples/js/app.js"]')).toHaveCount(1)
   await expect(app.locator('fve-button[data-rocket-host]').first()).toBeAttached()
   await expect(app.locator('script[src$="/datastar.1.0.4.js"]')).toHaveCount(0)
   await expect(source).toHaveText('')
@@ -106,6 +106,7 @@ test('gallery opens isolated consumer templates with GitHub source and native hi
   await app.getByRole('link', { name: 'Back to Geldos', exact: true }).click()
   await app.locator('#template-desktop-navigation').getByRole('link', { name: 'Accounts', exact: true }).click()
   await expect(app.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
+  await app.getByRole('button', { name: 'Expand Assets', exact: true }).click()
   await app.getByRole('link', { name: 'Operating checking', exact: true }).click()
   await expect(app.getByRole('heading', { name: 'Operating checking', exact: true, level: 1 })).toBeVisible()
   await app.goBack()
@@ -136,6 +137,7 @@ test('spec App mode follows an exact account through validation cancel and curre
   await expect(page).toHaveURL(/appMode=1/)
   await expect(page.getByRole('navigation', { name: 'App mode controls' })).toBeVisible()
   await expect(page.getByRole('navigation', { name: 'Example view' })).toHaveCount(0)
+  await product.getByRole('button', { name: 'Expand Expenses', exact: true }).click()
   await product.getByRole('link', { name: 'Unassigned expense', exact: true }).click()
   await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
   await product.getByRole('link', { name: 'Edit account', exact: true }).click()
@@ -219,6 +221,10 @@ for (const scenario of [
   test(`collection-origin ${scenario.action} survives App-mode exit, expansion and state URLs @cross-browser`, async ({ page }) => {
     const product = specProduct(page)
     await page.goto(`/examples/specification/${scenario.collection}/view-${scenario.collection}?appMode=1`)
+    if (scenario.collection === 'accounts') {
+      const root = scenario.resource === '101' ? 'Assets' : 'Expenses'
+      await product.getByRole('button', { name: `Expand ${root}`, exact: true }).click()
+    }
     await product.getByRole('button', { name: `Actions for ${scenario.record}`, exact: true }).click()
     await product.getByRole('menuitem', { name: scenario.action, exact: true }).click()
     const dialog = product.getByRole('dialog', { name: scenario.dialog, exact: true })
@@ -309,7 +315,7 @@ for (const { saved, choice, activation } of [
     }, saved)
     let release!: () => void
     const moduleReady = new Promise<void>(resolve => { release = resolve })
-    await page.route('**/scripts/datastar-rocket.1.0.4.js', async route => {
+    await page.route('**/examples/js/datastar-rocket.1.0.4.js', async route => {
       await moduleReady
       await route.continue()
     })

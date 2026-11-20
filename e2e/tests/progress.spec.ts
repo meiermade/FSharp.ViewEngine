@@ -34,24 +34,19 @@ test('Progress streams native values through completion and can be run again @cr
   expect(errors).toEqual([])
 })
 
-test('leaving Progress cancels its stream without updating a fresh example @cross-browser', async ({ page }) => {
+test('native navigation leaves an active Progress stream behind and opens a fresh example @cross-browser', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components/progress')
   const preview = page.locator('#components-progress-active-panel-preview')
   const progress = preview.getByRole('progressbar', { name: 'Example task', exact: true })
-  const requested = page.waitForRequest(request => new URL(request.url()).pathname === '/components/progress/run')
   await preview.getByRole('button', { name: 'Run example', exact: true }).click()
-  const request = await requested
-  const ended = Promise.race([
-    page.waitForEvent('requestfinished', item => item === request),
-    page.waitForEvent('requestfailed', item => item === request),
-  ])
   await expect(progress).toHaveAttribute('value', /^(?:[1-9]\d?)$/)
   await page.locator('#nav-components-badge').click()
   await expect(page.getByRole('heading', { name: 'Badge', exact: true, level: 1 })).toBeVisible()
-  await ended
+  const documentResponse = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/progress')
   await page.locator('#nav-components-progress').click()
+  expect((await documentResponse).headers()['content-type']).toContain('text/html')
   await expect(progress).toHaveAttribute('value', '0')
   await expect(preview.getByRole('button', { name: 'Run example', exact: true })).toBeEnabled()
   await expect(preview.getByRole('status')).toHaveCount(0)

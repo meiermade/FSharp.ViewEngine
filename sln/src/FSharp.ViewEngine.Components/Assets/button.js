@@ -1,6 +1,6 @@
 import { rocket } from './datastar-rocket.1.0.4.js';
 
-const base = '[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0 inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center gap-2 rounded-[var(--fve-radius-control)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium shadow-xs outline-none transition-[color,background-color,border-color,box-shadow,translate] duration-100 motion-reduce:transition-none motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup]):not([data-fve-keyboard-pressed])]:active:translate-y-px motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup])]:data-[fve-keyboard-pressed=true]:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--fve-internal-color-focus)] focus-visible:ring-offset-[var(--fve-surface)] forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-2 forced-colors:focus-visible:-outline-offset-2 forced-colors:focus-visible:outline-[Highlight] disabled:pointer-events-none disabled:opacity-50 relative [&[aria-busy=true]>[data-fve-button-content]]:opacity-0 [&[aria-busy=true]>[data-fve-button-spinner]]:flex';
+const base = '[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0 inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center gap-2 rounded-[var(--fve-radius-control)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium outline-none transition-[color,background-color,border-color,box-shadow,translate] duration-100 motion-reduce:transition-none motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup]):not([data-fve-keyboard-pressed])]:active:translate-y-px motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup])]:data-[fve-keyboard-pressed=true]:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--fve-internal-color-focus)] focus-visible:ring-offset-[var(--fve-surface)] forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-2 forced-colors:focus-visible:-outline-offset-2 forced-colors:focus-visible:outline-[Highlight] disabled:pointer-events-none disabled:opacity-50 relative [&[aria-busy=true]>[data-fve-button-content]]:opacity-0 [&[aria-busy=true]>[data-fve-button-spinner]]:flex';
 const appearances = {
   solid: 'bg-[var(--fve-internal-color-solid)] text-[var(--fve-internal-color-on-solid)] enabled:hover:bg-[var(--fve-internal-color-hover)] enabled:active:bg-[var(--fve-internal-color-active)]',
   soft: 'bg-[var(--fve-internal-color-soft)] text-[var(--fve-internal-color-text)] enabled:hover:bg-[var(--fve-internal-color-soft-hover)] enabled:active:bg-[var(--fve-internal-color-soft-active)]',
@@ -32,15 +32,22 @@ const fallbacks = {
   info: ['#1d4ed8', '#ffffff', '#eff6ff', '#93c5fd', '#101828', '#172554'],
   neutral: ['#374151', '#ffffff', 'var(--fve-surface-subtle)', '#e5e7eb', '#101828', 'var(--fve-surface-subtle)'],
 };
+const softActionFills = {
+  primary: 'color-mix(in srgb, var(--fve-brand-subtle) 92%, var(--fve-brand-text))',
+  secondary: '#ede9fe', success: '#dcfce7', warning: '#fef3c7', error: '#fee2e2', info: '#dbeafe',
+  neutral: 'color-mix(in srgb, var(--fve-surface-subtle) 92%, #374151)',
+};
 const fields = { solid: 'solid', solidHover: 'hover', solidActive: 'active', onSolid: 'on-solid', soft: 'soft', softHover: 'soft-hover', softActive: 'soft-active', text: 'text', border: 'border', focus: 'focus' };
 function mode(solid, onSolid, soft) {
   return { solid, solidHover: `color-mix(in srgb, ${solid} 85%, black)`, solidActive: `color-mix(in srgb, ${solid} 70%, black)`, onSolid, soft,
     softHover: `color-mix(in srgb, ${soft} 82%, ${solid})`, softActive: `color-mix(in srgb, ${soft} 76%, ${solid})`, text: solid, border: solid, focus: solid };
 }
-function palette(name) {
+function palette(name, variant) {
   const [a,b,c,d,e,f] = fallbacks[name];
   const tokens = values => Object.fromEntries(Object.entries(values).map(([key, value]) => [key, `var(--fve-${name}-${fields[key]}, ${value})`]));
-  return { light: tokens(mode(a,b,c)), dark: tokens(mode(d,e,f)) };
+  const light = mode(a,b,c);
+  if (variant === 'soft') light.soft = softActionFills[name];
+  return { light: tokens(light), dark: tokens(mode(d,e,f)) };
 }
 const validPalette = value => value && ['light', 'dark'].every(mode => value[mode] && Object.keys(fields).every(key => typeof value[mode][key] === 'string' && value[mode][key].trim()));
 const nativeAttributes = new Set(['name', 'value', 'form', 'formaction', 'formmethod', 'formenctype', 'formtarget', 'formnovalidate', 'autofocus', 'tabindex', 'title', 'accesskey', 'hidden', 'lang', 'dir', 'popovertarget', 'popovertargetaction', 'command', 'commandfor']);
@@ -64,6 +71,7 @@ rocket('fve-button', {
     color: oneOf(...Object.keys(fallbacks), 'custom').default('neutral'),
     variant: oneOf(...Object.keys(appearances)).default('outline'),
     size: oneOf(...Object.keys(sizes)).default(''),
+    padding: oneOf('default', 'uniform').default('default'),
     palette: json.default(null),
     disabled: bool.default(false),
     type: oneOf('button', 'submit', 'reset').default('button'),
@@ -99,10 +107,11 @@ rocket('fve-button', {
       const controlId = host.getAttribute('data-fve-control-id');
       if (controlId) control.id = controlId;
       else control.removeAttribute('id');
-      control.className = `${base} ${geometry} ${(props.color === 'neutral' ? neutralAppearances[props.variant] : null) ?? appearances[props.variant]} ${sizes[props.size]} ${props.color !== 'custom' && props.variant !== 'solid' ? quietTextInteraction : ''} ${host.getAttribute('class') ?? ''}`;
-      const colors = props.color === 'custom' && validPalette(props.palette) ? props.palette : palette(props.color === 'custom' ? 'neutral' : props.color);
+      control.className = `${base} ${props.variant === 'ghost' ? '' : 'shadow-xs'} ${geometry} ${(props.color === 'neutral' ? neutralAppearances[props.variant] : null) ?? appearances[props.variant]} ${sizes[props.size]} ${props.color !== 'custom' && props.variant !== 'solid' ? quietTextInteraction : ''} ${host.getAttribute('class') ?? ''}`;
+      const colors = props.color === 'custom' && validPalette(props.palette) ? props.palette : palette(props.color === 'custom' ? 'neutral' : props.color, props.color === 'custom' ? '' : props.variant);
       control.style.cssText = '';
       for (const [key, name] of Object.entries(fields)) control.style.setProperty(`--fve-internal-color-${name}`, `light-dark(${colors.light[key]},${colors.dark[key]})`);
+      if (props.padding === 'uniform') control.style.setProperty('--fve-control-padding-inline', 'var(--fve-control-padding-block)');
       // Consumer styles are last, just as with ordinary native HTML. Display belongs to the host's DOM boundary.
       const authoredStyle = document.createElement('span').style;
       authoredStyle.cssText = host.getAttribute('style') ?? '';
@@ -110,7 +119,11 @@ rocket('fve-button', {
       control.style.cssText += `;${authoredStyle.cssText}`;
       if (display) control.style.setProperty('display', display, displayPriority);
       const next = new Set();
-      for (const {name, value} of host.attributes) {
+      const popupId = host.getAttribute('popovertarget');
+      const popup = popupId && host.ownerDocument.getElementById(popupId);
+      for (const {name, value: authoredValue} of host.attributes) {
+        // An open native popover survives a morph; its state outranks the server's closed default.
+        const value = name === 'aria-expanded' && popup ? String(popup.matches(':popover-open')) : authoredValue;
         if (!nativeAttributes.has(name) && !name.startsWith('aria-')) continue;
         next.add(name);
         if (control.getAttribute(name) !== value) control.setAttribute(name, value);

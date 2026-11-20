@@ -45,7 +45,8 @@ server_pid=$!
 
 ready=false
 for _ in {1..300}; do
-  if curl --fail --silent --show-error "$health_url" >/dev/null; then
+  if curl --fail --silent --show-error "$health_url" >/dev/null &&
+     curl --fail --silent --show-error "http://127.0.0.1:${server_port}/examples/health" >/dev/null; then
     ready=true
     break
   fi
@@ -58,7 +59,7 @@ for _ in {1..300}; do
 done
 
 if [[ "$ready" != true ]]; then
-  echo "Docs image did not become healthy at $health_url" >&2
+  echo "Docs and Example did not become healthy through the proxy at http://127.0.0.1:${server_port}" >&2
   exit 1
 fi
 

@@ -33,7 +33,7 @@ module internal Solution =
     let contents =
         [ "projects", "Projects"
           "project-inventory", "Project inventory"
-          "rules", "Rules" ]
+          "requirements", "Requirements" ]
 
     let render () =
         div {
@@ -79,7 +79,7 @@ module internal Solution =
                     }
                 })
 
-            rules
+            requirements
                 [ "Compile-time references SHALL flow Server → Application → Domain; Server SHALL also reference Components. Components SHALL reference Application for typed read models and editor inputs, without invoking use cases."
                   "Domain and Application SHALL remain independent of Giraffe, HTML and browser state."
                   "Example.Server SHALL be the only executable project; it SHALL run without Docs."

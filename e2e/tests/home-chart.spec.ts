@@ -1,11 +1,11 @@
-import { test, expect, specProduct } from '../fixture'
+import { test, expect, specProduct, chooseChartDates } from '../fixture'
 
 test('Rocket chart selects inclusive dates through the server and survives theme, history and remounts @cross-browser', async ({ page }) => {
   const errors: string[] = []
   const filters: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   page.on('request', request => {
-    if (request.headers()['x-fve-navigation-intent'] === 'filter') filters.push(request.url())
+    if (request.headers()['x-fve-interaction'] === 'filter') filters.push(request.url())
   })
   await page.goto('/examples/application?account=101&range=90&comparison=optimistic')
   const chart = page.locator('#home-balance-chart')
@@ -14,7 +14,7 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   await expect(page.getByRole('table', { name: 'Transactions for the selected account' }).locator('tbody tr')).toHaveCount(15)
   await page.evaluate(() => { document.documentElement.dataset.chartSession = 'retained' })
   const positions = await chart.evaluate(async host => {
-    const echarts = await import('/examples/assets/scripts/echarts.6.1.0.esm.min.js')
+    const echarts = await import('/examples/js/echarts.6.1.0.esm.min.js')
     const plot = host.shadowRoot!.querySelector('.plot') as HTMLElement
     const instance = echarts.getInstanceByDom(plot)!
     ;(window as any).originalHomeChart = instance
@@ -30,7 +30,7 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   expect(filters).toHaveLength(0)
   await page.mouse.up()
   await expect(page).toHaveURL(url => url.searchParams.get('startDate') === '2026-09-14' && url.searchParams.get('endDate') === '2026-09-17')
-  await expect(page.locator('#home-start')).toHaveValue('2026-09-14')
+  await expect(page.getByRole('button', { name: /^Date range / })).toHaveAccessibleName('Date range 9/14/26 – 9/17/26')
   const rows = page.getByRole('table', { name: 'Transactions for the selected account' }).locator('tbody tr')
   await expect(rows).toHaveCount(3)
   await expect(rows.first()).toContainText('Cloud hosting')
@@ -38,7 +38,7 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   expect(filters).toHaveLength(1)
   await expect(page.locator('html')).toHaveAttribute('data-chart-session', 'retained')
   expect(await chart.evaluate(async host => {
-    const echarts = await import('/examples/assets/scripts/echarts.6.1.0.esm.min.js')
+    const echarts = await import('/examples/js/echarts.6.1.0.esm.min.js')
     const instance = echarts.getInstanceByDom(host.shadowRoot!.querySelector('.plot') as HTMLElement)!
     const option = instance.getOption() as any
     const zoom = option.dataZoom[0]
@@ -48,7 +48,7 @@ test('Rocket chart selects inclusive dates through the server and survives theme
     actualStep: 'end', closingPoint: [Date.UTC(2026, 8, 19) - 1, 23666] })
   for (const mode of ['dark', 'light']) {
     await page.evaluate(mode => (window as any).fveColorMode.set(mode), mode)
-    await expect(page.locator('#home-end')).toHaveValue('2026-09-17')
+    await expect(page.getByRole('button', { name: /^Date range / })).toHaveAccessibleName('Date range 9/14/26 – 9/17/26')
     const strokes = () => chart.locator('svg path[fill="none"]').evaluateAll(paths => paths
       .filter(path => (path.getAttribute('d') || '').length > 100).map(path => getComputedStyle(path).stroke))
     await page.mouse.move(0, 0)
@@ -60,10 +60,10 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   await page.reload()
   await expect(chart).toHaveAttribute('data-ready', 'true')
   await expect(rows).toHaveCount(3)
-  const dates = page.getByRole('form', { name: 'Chart date range' })
-  await dates.getByLabel(/^Start date/).fill('2026-09-18')
-  await dates.getByLabel(/^End date/).fill('2026-09-18')
-  await dates.getByRole('button', { name: 'Apply range', exact: true }).press('Enter')
+  const dates = page.getByRole('form', { name: 'Home balance controls' })
+  await expect(dates.getByRole('button', { name: 'Apply', exact: true })).toHaveCount(1)
+  await chooseChartDates(dates, 'Friday, September 18, 2026', 'Friday, September 18, 2026')
+  await dates.getByRole('button', { name: 'Apply', exact: true }).press('Enter')
   await expect(rows).toHaveCount(1)
   await expect(rows).toContainText('Client payment')
   await page.goBack()
@@ -73,22 +73,19 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   await page.getByRole('link', { name: 'Reset zoom', exact: true }).click()
   await expect(page).toHaveURL(url => !url.searchParams.has('startDate') && url.searchParams.get('comparison') === 'optimistic')
   await expect(rows).toHaveCount(15)
-  await chart.evaluate(async host => {
-    const echarts = await import('/examples/assets/scripts/echarts.6.1.0.esm.min.js')
-    ;(window as any).leavingChart = echarts.getInstanceByDom(host.shadowRoot!.querySelector('.plot') as HTMLElement)
-  })
+  const accountsDocument = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/examples/application/accounts')
   await page.getByRole('link', { name: 'Accounts', exact: true }).first().click()
+  expect((await accountsDocument).headers()['content-type']).toContain('text/html')
   await expect(page.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
-  expect(await page.evaluate(() => (window as any).leavingChart.isDisposed())).toBe(true)
   await page.goBack()
   await expect(chart).toHaveAttribute('data-ready', 'true')
   await expect(chart.locator('svg')).toHaveCount(1)
-  await dates.getByLabel(/^Start date/).fill('2026-09-14')
-  await dates.getByLabel(/^End date/).fill('2026-09-17')
-  await dates.getByRole('button', { name: 'Apply range', exact: true }).click()
+  await chooseChartDates(dates, 'Monday, September 14, 2026', 'Thursday, September 17, 2026')
+  await dates.getByRole('button', { name: 'Apply', exact: true }).click()
   await expect(rows).toHaveCount(3)
   await chart.locator('svg').dblclick({ position: { x: 200, y: 100 } })
-  await expect(page).toHaveURL(url => url.searchParams.get('startDate') === '2026-06-21' && url.searchParams.get('endDate') === '2026-09-18')
+  await expect(page).toHaveURL(url => !url.searchParams.has('startDate') && !url.searchParams.has('endDate'))
+  await expect(dates.getByRole('link', { name: 'Reset zoom' })).toHaveCount(0)
   await expect(rows).toHaveCount(15)
   await page.setViewportSize({ width: 320, height: 800 })
   await page.evaluate(() => { document.documentElement.style.fontSize = '32px' })
@@ -97,27 +94,71 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   expect(errors).toEqual([])
 })
 
+test('Home loads the chart only after native navigation to Home @cross-browser', async ({ page }) => {
+  const chartModules: string[] = []
+  page.on('request', request => {
+    const path = new URL(request.url()).pathname
+    if (/^\/examples\/js\/(chart\.js|echarts\..+\.esm\.min\.js)$/.test(path)) chartModules.push(path)
+  })
+  await page.goto('/examples/application/accounts')
+  await page.waitForFunction(() => customElements.get('fve-button') !== undefined)
+  expect(chartModules).toEqual([])
+  await page.locator('html').evaluate(element => { element.dataset.chartSession = 'retained' })
+  await page.getByRole('link', { name: 'Home', exact: true }).first().click()
+  await expect(page.locator('#home-balance-chart')).toHaveAttribute('data-ready', 'true')
+  await expect(page.locator('html')).not.toHaveAttribute('data-chart-session', 'retained')
+  expect(chartModules).toEqual([
+    '/examples/js/chart.js',
+    expect.stringMatching(/^\/examples\/js\/echarts\./),
+  ])
+})
+
 test('Specification uses the same Rocket chart and server-owned range @cross-browser', async ({ page }) => {
   await page.goto('/examples/specification/home')
+  await page.locator('#spec-product-frame').evaluate(frame => frame.scrollIntoView({ block: 'start' }))
   const fixture = specProduct(page)
   await expect(fixture.locator('fve-chart')).toHaveAttribute('data-ready', 'true')
-  const dates = fixture.getByRole('form', { name: 'Chart date range' })
-  await dates.getByLabel(/^Start date/).fill('2026-09-14')
-  await dates.getByLabel(/^End date/).fill('2026-09-17')
-  await dates.getByRole('button', { name: 'Apply range', exact: true }).click()
+  const dates = fixture.getByRole('form', { name: 'Home balance controls' })
+  await chooseChartDates(dates, 'Monday, September 14, 2026', 'Thursday, September 17, 2026')
+  await dates.getByRole('button', { name: 'Apply', exact: true }).click()
   await expect(page).toHaveURL(url => url.pathname === '/examples/specification/home' && url.searchParams.get('endDate') === '2026-09-17')
   await expect(fixture.getByRole('table', { name: 'Transactions for the selected account' }).locator('tbody tr')).toHaveCount(3)
   await expect(fixture.locator('fve-chart')).toHaveAttribute('data-ready', 'true')
+})
+
+test('Range presets are drafts until Apply and establish the reset window @cross-browser', async ({ page }) => {
+  await page.goto('/examples/application?account=101&range=90')
+  const toolbar = page.getByRole('form', { name: 'Home balance controls' })
+  const original = page.url()
+  const picker = toolbar.getByRole('button', { name: /^Date range / })
+  const rows = page.getByRole('table', { name: 'Transactions for the selected account' }).locator('tbody tr')
+  await expect(toolbar.getByRole('link', { name: 'Reset zoom' })).toHaveCount(0)
+  await picker.press('Enter')
+  await page.getByRole('button', { name: 'Last 7 days', exact: true }).press('Enter')
+  await expect(picker).toHaveAccessibleName('Date range 9/12/26 – 9/18/26')
+  await expect(picker).toBeFocused()
+  await expect(page).toHaveURL(original)
+  await expect(rows).toHaveCount(15)
+  await toolbar.getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(page).toHaveURL(url => url.searchParams.get('range') === '7')
+  await expect(rows).toHaveCount(4)
+  await chooseChartDates(toolbar, 'Monday, September 14, 2026', 'Thursday, September 17, 2026')
+  await toolbar.getByRole('button', { name: 'Apply', exact: true }).click()
+  await expect(rows).toHaveCount(3)
+  await toolbar.getByRole('link', { name: 'Reset zoom' }).click()
+  await expect(rows).toHaveCount(4)
+  await expect(toolbar.getByRole('link', { name: 'Reset zoom' })).toHaveCount(0)
 })
 
 test('Home date filtering has a native GET fallback without JavaScript', async ({ browser }) => {
   const context = await browser.newContext({ javaScriptEnabled: false })
   const page = await context.newPage()
   await page.goto('/examples/application?account=101&range=30')
-  const dates = page.getByRole('form', { name: 'Chart date range' })
+  const dates = page.getByRole('form', { name: 'Home balance controls' })
+  await expect(dates.getByRole('button', { name: /^Date range / })).toHaveCount(0)
   await dates.getByLabel(/^Start date/).fill('2026-09-14')
   await dates.getByLabel(/^End date/).fill('2026-09-17')
-  await dates.getByRole('button', { name: 'Apply range', exact: true }).click()
+  await dates.getByRole('button', { name: 'Apply', exact: true }).click()
   const rows = page.getByRole('table', { name: 'Transactions for the selected account' }).locator('tbody tr')
   await expect(rows).toHaveCount(3)
   await page.getByRole('link', { name: 'Reset zoom', exact: true }).click()

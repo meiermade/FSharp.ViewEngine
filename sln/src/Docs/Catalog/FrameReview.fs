@@ -22,7 +22,7 @@ module FrameReview =
             _id "docs-navigation-root"
             _data ("fve-navigation-root", "true")
             _data ("fve-app-mode-root", "true")
-            _dataOn ("keydown", ["window"], Example.Server.Common.Navigation.enhancement.appModeExitAction)
+            _dataOn ("keydown", ["window"], "if (evt.key === 'Escape' && !evt.defaultPrevented && !document.querySelector(':popover-open, dialog[open]')) el.querySelector('[data-fve-app-mode-exit]')?.click()")
 
             main {
                 _id "main-content"
@@ -30,8 +30,8 @@ module FrameReview =
                 _class "outline-none"
 
                 if phone then
-                    phoneReviewFrame true
+                    phoneReviewPreview true
                 else
-                    browserReviewFrame true state
+                    browserReviewPreview true state
             }
         }

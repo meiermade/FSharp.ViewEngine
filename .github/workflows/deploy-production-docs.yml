@@ -15,6 +15,10 @@ on:
         description: Accepted immutable image
         required: true
         type: string
+      example-image:
+        description: Accepted immutable Example image
+        required: true
+        type: string
       core-version:
         description: Advertised Core version
         required: true
@@ -52,6 +56,7 @@ jobs:
     outputs:
       commit: ${{ steps.transaction.outputs.commit }}
       image: ${{ steps.transaction.outputs.image }}
+      exampleImage: ${{ steps.transaction.outputs.exampleImage }}
       docsCoreVersion: ${{ steps.transaction.outputs.docsCoreVersion }}
       docsCliVersion: ${{ steps.transaction.outputs.docsCliVersion }}
       promoteDocs: ${{ steps.transaction.outputs.promoteDocs }}
@@ -102,6 +107,7 @@ jobs:
     if: ${{ !cancelled() && github.repository == 'meiermade/FSharp.ViewEngine' && github.ref == 'refs/heads/main' && (inputs.preview-only || needs.candidate.result == 'success') }}
     env:
       DEPLOY_IMAGE: ${{ (inputs.image || needs.candidate.outputs.image) }}
+      DEPLOY_EXAMPLE_IMAGE: ${{ (inputs.example-image || needs.candidate.outputs.exampleImage) }}
       RELEASE_COMMIT: ${{ (inputs.commit || needs.candidate.outputs.commit) }}
       CORE_PACKAGE_VERSION: ${{ (inputs.core-version || needs.candidate.outputs.docsCoreVersion) }}
       CLI_PACKAGE_VERSION: ${{ (inputs.cli-version || needs.candidate.outputs.docsCliVersion) }}
@@ -218,6 +224,7 @@ jobs:
         env:
           EXPECTED_COMMIT: ${{ needs.candidate.outputs.commit }}
           EXPECTED_IMAGE: ${{ needs.candidate.outputs.image }}
+          EXPECTED_EXAMPLE_IMAGE: ${{ needs.candidate.outputs.exampleImage }}
         run: >-
           pulumi env run meiermade/fsharpviewengine/e2e-dev --
           bash scripts/test-release-smoke.sh
@@ -288,6 +295,7 @@ jobs:
         uses: pulumi/actions@96c7761824268174e0d2a4e8c7d75671eebd24a7 # v7.1.0
         env:
           DEPLOY_IMAGE: ${{ (inputs.image || needs.candidate.outputs.image) }}
+          DEPLOY_EXAMPLE_IMAGE: ${{ (inputs.example-image || needs.candidate.outputs.exampleImage) }}
           RELEASE_COMMIT: ${{ (inputs.commit || needs.candidate.outputs.commit) }}
           CORE_PACKAGE_VERSION: ${{ (inputs.core-version || needs.candidate.outputs.docsCoreVersion) }}
           CLI_PACKAGE_VERSION: ${{ (inputs.cli-version || needs.candidate.outputs.docsCliVersion) }}
@@ -306,12 +314,15 @@ jobs:
           EXPECTED_CLI_VERSION: ${{ (inputs.cli-version || needs.candidate.outputs.docsCliVersion) }}
           DEPLOYED_COMMIT: ${{ steps.deploy.outputs.releaseCommit }}
           DEPLOYED_IMAGE: ${{ steps.deploy.outputs.imageDigest }}
+          DEPLOYED_EXAMPLE_IMAGE: ${{ steps.deploy.outputs.exampleImageDigest }}
+          EXPECTED_EXAMPLE_IMAGE: ${{ (inputs.example-image || needs.candidate.outputs.exampleImage) }}
           DEPLOYED_ORIGIN: ${{ steps.deploy.outputs.origin }}
           DEPLOYED_CORE_VERSION: ${{ steps.deploy.outputs.coreVersion }}
           DEPLOYED_CLI_VERSION: ${{ steps.deploy.outputs.cliVersion }}
         run: |
           test "$DEPLOYED_COMMIT" = "$EXPECTED_COMMIT"
           test "$DEPLOYED_IMAGE" = "$EXPECTED_IMAGE"
+          test "$DEPLOYED_EXAMPLE_IMAGE" = "$EXPECTED_EXAMPLE_IMAGE"
           test "$DEPLOYED_ORIGIN" = 'https://fve.meiermade.com'
           test "$DEPLOYED_CORE_VERSION" = "$EXPECTED_CORE_VERSION"
           test "$DEPLOYED_CLI_VERSION" = "$EXPECTED_CLI_VERSION"
@@ -326,6 +337,7 @@ jobs:
           DOCS_EXPECTED_IMAGE: ${{ (inputs.image || needs.candidate.outputs.image) }}
           EXPECTED_COMMIT: ${{ (inputs.commit || needs.candidate.outputs.commit) }}
           EXPECTED_IMAGE: ${{ (inputs.image || needs.candidate.outputs.image) }}
+          EXPECTED_EXAMPLE_IMAGE: ${{ (inputs.example-image || needs.candidate.outputs.exampleImage) }}
           CORE_PACKAGE_VERSION: ${{ (inputs.core-version || needs.candidate.outputs.docsCoreVersion) }}
           CLI_PACKAGE_VERSION: ${{ (inputs.cli-version || needs.candidate.outputs.docsCliVersion) }}
         run: bash scripts/test-release-smoke.sh

@@ -13,24 +13,10 @@ module Layout =
     let theme = ComponentsTheme.custom "geldos-theme"
 
     let link (href: string) (label: string) =
-        a {
-            _href href
-
-            _class
-                "inline-flex min-h-8 shrink-0 items-center whitespace-nowrap rounded-[var(--fve-radius-control)] px-3 py-1.5 text-sm font-medium text-[var(--fve-brand-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
-
-            label
-        }
+        fveLink { _href href; _variant LinkVariant.Ghost; label }
 
     let inlineLink (href: string) (label: string) =
-        a {
-            _href href
-
-            _class
-                "font-medium text-[var(--fve-brand-text)] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
-
-            label
-        }
+        fveLink { _href href; _underline LinkUnderline.OnInteraction; label }
 
     let secondaryLink (href: string) (label: string) =
         fveLink {
@@ -41,14 +27,7 @@ module Layout =
         }
 
     let primaryLink (href: string) (label: string) =
-        a {
-            _href href
-
-            _class
-                "inline-flex min-h-8 shrink-0 items-center justify-center whitespace-nowrap rounded-[var(--fve-radius-control)] bg-[var(--fve-brand-text)] px-3 py-1.5 text-sm font-medium text-[light-dark(white,#101828)] hover:bg-[var(--fve-brand-hover)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)]"
-
-            label
-        }
+        fveLink { _href href; _variant LinkVariant.Solid; label }
 
     let section (title: string) (content: HtmlElement) =
         fveSection { _label title; content }
@@ -88,15 +67,17 @@ module Layout =
                 "keydown__window",
                 $"if ((evt.metaKey || evt.ctrlKey) && evt.key.toLowerCase() === 'k') {{ evt.preventDefault(); const dialog = document.getElementById('{id}-dialog'); const input = document.getElementById('{id}-input'); input.value = ''; input.dispatchEvent(new Event('input', {{ bubbles: true }})); if (!dialog.open) document.getElementById('{id}-dialog-trigger').click(); input.focus(); }}"
             )
-            button {
+            fveButton {
                 for attribute in Command.triggerAttributes id do attribute
                 _type "button"
                 _ariaLabel label
                 _title label
-                _class "flex h-8 cursor-pointer items-center gap-2 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] px-2.5 text-sm text-[var(--fve-muted-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] hover:text-[var(--fve-text)] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)] max-sm:w-8 max-sm:justify-center max-sm:p-0 [&>svg]:size-4"
+                _variant ButtonVariant.Outline
+                _size Size.Medium
+                _class "max-sm:w-8 max-sm:justify-center max-sm:p-0"
                 fveIcon { _name IconName.MagnifyingGlass; _size Size.Small }
-                kbd {
-                    _class "hidden rounded border border-[var(--fve-border)] px-1 py-px font-mono text-xs sm:inline"
+                fveKbd {
+                    _class "max-sm:hidden"
                     _dataText "navigator.userAgent.includes('Mac') ? '⌘K' : 'Ctrl+K'"
                     "Ctrl+K"
                 }
@@ -134,7 +115,7 @@ module Layout =
                         _variant ButtonVariant.Ghost
                         _ariaLabel "Choose color theme"
                         _title "Choose color theme"
-                        _class "shadow-none"
+                        _padding Padding.Uniform
 
                         span {
                             _class "inline-flex dark:hidden"
@@ -161,53 +142,65 @@ module Layout =
         }
 
     let private chevron = icon IconName.ChevronRight
-    // Safari pointer activation needs explicit trigger focus for native dialog restoration.
     let private navigationTrigger dialogId =
-        fveButton {
-            _variant ButtonVariant.Ghost
-            _id (dialogId + "-trigger")
-            _ariaLabel "Open navigation"
+        fveDrawerTrigger {
             _ariaControls dialogId
-            _ariaHaspopup "dialog"
-            _dataOn ("click", $"el.focus(); document.getElementById('{dialogId}').showModal()")
-            fveIcon { _name IconName.Bars3; _variant IconVariant.Mini }
+            fveButton {
+                _variant ButtonVariant.Ghost
+                _padding Padding.Uniform
+                _id (dialogId + "-trigger")
+                _ariaLabel "Open navigation"
+                fveIcon { _name IconName.Bars3; _variant IconVariant.Mini }
+            }
         }
 
     let private navigationClose dialogId =
-        fveButton {
+        fveDrawerClose {
+            _ariaControls dialogId
             _variant ButtonVariant.Ghost
             _ariaLabel "Close navigation"
+            _id (dialogId + "-navigation-close")
+            _padding Padding.Uniform
             _autofocus true
-            _dataOn ("click", $"document.getElementById('{dialogId}').close()")
             fveIcon { _name IconName.XMark; _variant IconVariant.Mini }
         }
 
     let private navigationDrawer dialogId label (content: HtmlElement) =
-        dialog {
+        fveDrawer {
             _id dialogId
-            _ariaLabel (label + " navigation")
-            _ariaModal true
+            _label (label + " navigation")
+            _side DrawerSide.Start
+            _variant DrawerVariant.Navigation
+            _initialFocus (dialogId + "-navigation-close")
             _data ("fve-navigation-dialog", "true")
 
             _dataOn (
-                "keydown",
-                "if (evt.key === 'Tab') { const controls = [...el.querySelectorAll('a[href], button, input, select, textarea, summary, [tabindex]')].filter(node => node.tabIndex >= 0 && !node.disabled && node.getClientRects().length); const first = controls[0], last = controls.at(-1); if (evt.shiftKey && document.activeElement === first) { evt.preventDefault(); last?.focus(); } else if (!evt.shiftKey && document.activeElement === last) { evt.preventDefault(); first?.focus(); } }"
-            )
-
-            _dataOn (
-                "click",
-                "if (evt.target === el) { const bounds = el.getBoundingClientRect(); if (evt.clientX < bounds.left || evt.clientX >= bounds.right || evt.clientY < bounds.top || evt.clientY >= bounds.bottom) el.close(); }"
-            )
-
-            _dataOn (
                 "resize__window",
-                $"if (el.open && !document.getElementById('{dialogId}-trigger')?.querySelector('button')?.getClientRects().length) el.close()"
+                $"if (el.open && !document.getElementById('{dialogId}-trigger')?.getClientRects().length) el.close()"
             )
 
-            _class
-                "fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-[min(18rem,calc(100vw-3rem))] max-w-none border-0 bg-[var(--fve-background)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-black/50 backdrop:backdrop-blur-[2px] [&>aside]:w-full [&>fve-side-nav]:w-full"
+            _class "[&_aside]:w-full [&_fve-side-nav]:w-full"
 
             content
+        }
+
+    let private workspaceChoice (href:string) (name:string) (detail:string) (selected:bool) =
+        fveLink {
+            _href href
+            _variant LinkVariant.Plain
+            _class "group block"
+            fveCard {
+                _size Size.Small
+                _class "group-hover:bg-[var(--fve-surface-hover)]"
+                div {
+                    _class "flex items-center justify-between gap-3"
+                    span {
+                        strong { _class "block text-sm"; name }
+                        span { _class "text-xs text-[var(--fve-muted-text)]"; detail }
+                    }
+                    if selected then fveBadge { "Current" }
+                }
+            }
         }
 
     let private workspaceSelector navId current (query: Query) =
@@ -247,27 +240,9 @@ module Layout =
                                  else
                                      "")
 
-                        a {
-                            _href (destination selected)
-
-                            _class
-                                "flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--fve-border)] p-3 [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
-
-                            span {
-                                strong {
-                                    _class "block text-sm"
-                                    organization.name
-                                }
-
-                                span {
-                                    _class "text-xs text-[var(--fve-muted-text)]"
-                                    organization.role + " · " + selected.ledger.name
-                                }
-                            }
-
-                            if organization.id = workspace.organization.id then
-                                fveBadge { "Current" }
-                        }
+                        workspaceChoice (destination selected) organization.name
+                            (organization.role + " · " + selected.ledger.name)
+                            (organization.id = workspace.organization.id)
 
                     link (applicationHref query ApplicationPage.ProfileOrganizations) "Manage organizations"
                 }
@@ -294,31 +269,9 @@ module Layout =
                     _class "grid gap-3"
 
                     for environment in environments do
-                        a {
-                            _href (
-                                destination
-                                    { workspace with
-                                        environment = environment }
-                            )
-
-                            _class
-                                "flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[var(--fve-border)] p-3 [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-[var(--fve-brand-ring)]"
-
-                            span {
-                                strong {
-                                    _class "block text-sm"
-                                    environment.name
-                                }
-
-                                span {
-                                    _class "text-xs text-[var(--fve-muted-text)]"
-                                    if environment.sandbox then "Sandbox" else "Production"
-                                }
-                            }
-
-                            if environment.id = workspace.environment.id then
-                                fveBadge { "Current" }
-                        }
+                        workspaceChoice (destination { workspace with environment = environment }) environment.name
+                            (if environment.sandbox then "Sandbox" else "Production")
+                            (environment.id = workspace.environment.id)
 
                     link (applicationHref query (ApplicationPage.SettingsSection "environments")) "Manage environments"
                 }
@@ -344,11 +297,10 @@ module Layout =
                 _ariaLabel ("Open workspace menu: " + workspace.ledger.name)
 
                 fveDropdownMenuTrigger {
-                    _class
-                        "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0 inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center gap-2 rounded-[var(--fve-radius-control)] ring-1 ring-inset ring-[var(--fve-border)] bg-transparent px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                    _variant ButtonVariant.Outline
 
                     fun (triggerAttributes: HtmlAttribute list) ->
-                        button {
+                        fveButton {
                             for attribute in triggerAttributes do
                                 attribute
 
@@ -434,6 +386,7 @@ module Layout =
                     _variant LinkVariant.Ghost
                     _color Color.Neutral
                     _size Size.Medium
+                    _padding Padding.Uniform
                     _ariaLabel label
                     _title label
                     if selected then
@@ -449,11 +402,10 @@ module Layout =
             _ariaLabel ("Change organization: " + query.workspace.organization.name)
 
             fveDropdownMenuTrigger {
-                _class
-                    "[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0 inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center gap-2 rounded-[var(--fve-radius-control)] ring-1 ring-inset ring-[var(--fve-border)] bg-transparent px-3 py-[var(--fve-control-padding-block)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50"
+                _variant ButtonVariant.Outline
 
                 fun (triggerAttributes: HtmlAttribute list) ->
-                    button {
+                    fveButton {
                         for attribute in triggerAttributes do
                             attribute
 
@@ -531,7 +483,8 @@ module Layout =
                     div {
                         _class "min-w-0 flex-1"
 
-                        a {
+                        fveLink {
+                            _variant LinkVariant.Plain
                             _href (
                                 if personal || settingsKey.IsSome then
                                     applicationHref (ledgerReturnQuery query) ApplicationPage.Home
@@ -590,11 +543,14 @@ module Layout =
                     div {
                         _class ("flex min-h-10 min-w-0 flex-wrap items-center gap-3 px-4 py-0.5" + if personal then "" else " border-b border-[var(--fve-border)]")
 
-                        a {
+                        fveLink {
                             _href (applicationHref (ledgerReturnQuery query) ApplicationPage.Home)
                             _ariaLabel "Back to Geldos"
                             _title "Back to Geldos"
-                            _class "-mx-1.5 inline-flex size-8 shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] [&_svg]:size-4"
+                            _variant LinkVariant.Ghost
+                            _color Color.Neutral
+                            _padding Padding.Uniform
+                            _class "-mx-1.5"
                             icon IconName.ArrowUturnLeft
                         }
 
@@ -888,18 +844,10 @@ module Layout =
                     | None -> ()
 
                     if not (List.isEmpty contents) then
-                        details {
-                            _class "rounded-lg border border-[var(--fve-border)] p-4 xl:hidden"
-
-                            summary {
-                                _class "cursor-pointer text-sm font-semibold"
-                                "On this page"
-                            }
-
-                            div {
-                                _class "mt-3"
-                                toc true
-                            }
+                        fveDisclosure {
+                            _label "On this page"
+                            _class "xl:hidden"
+                            toc true
                         }
 
                     content
@@ -966,7 +914,8 @@ module Layout =
                 + " flex h-dvh min-w-0 overflow-hidden bg-[var(--fve-background)] text-[var(--fve-text)]"
             )
 
-            a {
+            fveLink {
+                _variant LinkVariant.Plain
                 _href "#main-content"
 
                 _class
@@ -1253,7 +1202,7 @@ module Layout =
 
                 script {
                     _type "module"
-                    _src "/examples/assets/scripts/app.js"
+                    _src "/examples/js/app.js"
                 }
             }
 

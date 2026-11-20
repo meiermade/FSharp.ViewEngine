@@ -1,17 +1,17 @@
 import { test, expect } from '../fixture'
 
-test('SideNav retains independent nested choices through enhanced navigation, history and refresh @cross-browser', async ({ page }) => {
+test('SideNav retains independent nested choices through native navigation, history and refresh @cross-browser', async ({ page }) => {
   await page.goto('/examples/specification/transactions/view-transactions')
-  await page.evaluate(() => { document.documentElement.dataset.navigationSession = 'retained' })
   const sidebar = page.locator('#template-desktop-navigation')
   const toggle = (name: string) => sidebar.getByLabel(`Toggle ${name} section`, { exact: true })
   await expect(toggle('Transactions')).toHaveAttribute('aria-expanded', 'true')
   await toggle('Architecture').click()
   await toggle('Solution').focus()
   await page.keyboard.press('Enter')
+  const documentResponse = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/examples/specification/architecture/solution/domain')
   await sidebar.getByRole('link', { name: 'Example.Domain', exact: true }).click()
+  expect((await documentResponse).headers()['content-type']).toContain('text/html')
   await expect(page.getByRole('heading', { level: 1, name: 'Example.Domain', exact: true })).toBeVisible()
-  await expect(page.locator('html')).toHaveAttribute('data-navigation-session', 'retained')
   for (const name of ['Transactions', 'Architecture', 'Solution']) {
     await expect(toggle(name)).toHaveAttribute('aria-expanded', 'true')
   }
@@ -20,7 +20,8 @@ test('SideNav retains independent nested choices through enhanced navigation, hi
   await expect(toggle('Architecture')).toHaveAttribute('aria-expanded', 'true')
   await page.goForward()
   await expect(page.getByRole('heading', { level: 1, name: 'Example.Domain', exact: true })).toBeVisible()
-  await expect(page.locator('html')).toHaveAttribute('data-navigation-session', 'retained')
+  await expect(toggle('Transactions')).toHaveAttribute('aria-expanded', 'true')
+  await expect(toggle('Solution')).toHaveAttribute('aria-expanded', 'true')
   await toggle('Transactions').click()
   await toggle('Solution').focus()
   await page.keyboard.press('Space')
@@ -107,6 +108,9 @@ test('filter chips toggle multiple choices, clear to unrestricted and retain foc
   await expect(asset).toBeFocused()
   await expect(asset).toHaveAttribute('aria-checked', 'true')
   await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+  const [menuBounds, triggerBounds] = await Promise.all([group.getByRole('menu').boundingBox(), trigger.boundingBox()])
+  expect(Math.abs(menuBounds!.x - triggerBounds!.x)).toBeLessThanOrEqual(1)
+  expect(menuBounds!.y).toBeGreaterThanOrEqual(triggerBounds!.y + triggerBounds!.height)
   await liability.press('Enter')
   await expect(page).toHaveURL(url => url.searchParams.get('accountType') === 'Asset,Liability')
   await expect(liability).toBeFocused()
@@ -150,7 +154,7 @@ test('dismissed filter menus stay closed when an in-flight result arrives', asyn
       await expect(trigger).toHaveAttribute('aria-expanded', 'false')
       release()
       await expect(trigger).toHaveText(dismissal === 'Escape' ? 'Asset' : 'Any')
-      await expect(page.locator('#main-content')).toBeFocused()
+      await expect(dismissal === 'Escape' ? trigger : page.locator('#main-content')).toBeFocused()
       await expect(trigger).toHaveAttribute('aria-expanded', 'false')
     } finally {
       release()
@@ -203,6 +207,7 @@ test('native filter checkboxes apply multiple choices and clear without JavaScri
 test('account drawer preserves context and leaves edited forms without prompts @cross-browser', async ({ page }) => {
   const prompts: string[] = []
   page.on('dialog', async prompt => { prompts.push(prompt.message()); await prompt.accept() })
+  await page.setViewportSize({ width: 1200, height: 1100 })
   await page.addInitScript(() => localStorage.setItem('financial-example-appearance', 'dark'))
   await page.goto('/examples/application/accounts?search=checking&sort=balance')
   const title = await page.title()
@@ -214,6 +219,10 @@ test('account drawer preserves context and leaves edited forms without prompts @
   expect(await page.getByRole('navigation', { name: 'Breadcrumb', exact: true }).innerText()).toBe(crumbs)
   const name = drawer.getByRole('textbox', { name: /^Name/ })
   await expect(name).toBeFocused()
+  const fields = (await drawer.getByRole('form', { name: 'Create account', exact: true }).boundingBox())!
+  const button = (await drawer.getByRole('button', { name: 'Create', exact: true }).boundingBox())!
+  expect(button.y - (fields.y + fields.height)).toBeGreaterThanOrEqual(0)
+  expect(button.y - (fields.y + fields.height)).toBeLessThan(48)
   await name.fill('Unsaved reserve')
   await page.goBack()
   await expect(drawer).toHaveCount(0)

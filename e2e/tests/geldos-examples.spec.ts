@@ -1,4 +1,4 @@
-import { test, expect } from '../fixture'
+import { test, expect, chooseChartDates } from '../fixture'
 import AxeBuilder from '@axe-core/playwright'
 
 test('Marketing is a standalone Geldos example with connected product navigation @cross-browser', async ({ page }) => {
@@ -59,8 +59,8 @@ test('Account detail uses shared section rhythm, paginated records and chart dat
   await page.setViewportSize({ width: 1440, height: 1100 })
   await page.goto('/examples/application/accounts/101')
   const sections = page.locator('main [data-fve-section-stack] > section')
-  await expect(sections).toHaveCount(4)
-  expect(await sections.first().getAttribute('aria-label')).toBe('Details')
+  await expect.poll(() => sections.evaluateAll(elements => elements.map(el => el.getAttribute('aria-label'))))
+    .toEqual(['Details', 'Balance history', 'Transactions'])
   await expect(page.getByRole('region', { name: 'Details', exact: true }).getByRole('link', { name: 'Edit account', exact: true })).toBeVisible()
   await expect(page.locator('#home-balance-chart')).toHaveAttribute('data-ready', 'true')
   const metrics = await sections.evaluateAll(elements => elements.map((el, index) => {
@@ -75,10 +75,9 @@ test('Account detail uses shared section rhythm, paginated records and chart dat
   await page.getByRole('navigation', { name: 'Account transactions', exact: true }).getByRole('link', { name: 'Next', exact: true }).click()
   await expect(page).toHaveURL(url => url.searchParams.get('transactionPage') === '2')
   await expect(transactions.locator('tbody tr')).toHaveCount(5)
-  const dates = page.getByRole('form', { name: 'Chart date range', exact: true })
-  await dates.getByLabel('Start date', { exact: true }).fill('2026-09-14')
-  await dates.getByLabel('End date', { exact: true }).fill('2026-09-17')
-  await dates.getByRole('button', { name: 'Apply range', exact: true }).click()
+  const dates = page.getByRole('form', { name: 'Account balance controls', exact: true })
+  await chooseChartDates(dates, 'Monday, September 14, 2026', 'Thursday, September 17, 2026')
+  await dates.getByRole('button', { name: 'Apply', exact: true }).click()
   await expect(page).toHaveURL(url => url.pathname === '/examples/application/accounts/101' && url.searchParams.get('startDate') === '2026-09-14')
   await expect(transactions.locator('tbody tr')).toHaveCount(3)
   await expect(transactions).toContainText('Cloud hosting')
@@ -94,9 +93,9 @@ test('Account overlays preserve the selected chart, scenario and transaction pag
   const assertContext = async (path: string) => {
     await expect(page).toHaveURL(url => url.pathname === path && Object.entries(context).every(([key, value]) => url.searchParams.get(key) === value))
     // Inspect the inert background as well as the returned page.
-    const dates = page.locator('form[aria-label="Chart date range"]')
-    await expect(dates.getByLabel('Start date', { exact: true })).toHaveValue(context.startDate)
-    await expect(dates.getByLabel('End date', { exact: true })).toHaveValue(context.endDate)
+    const dates = page.locator('form[aria-label="Account balance controls"] fve-date-picker')
+    await expect(dates.locator('input[name="startDate"]')).toHaveValue(context.startDate)
+    await expect(dates.locator('input[name="endDate"]')).toHaveValue(context.endDate)
     await expect(page.locator('form[aria-label="Account balance controls"] [name="comparison"]')).toHaveValue('optimistic')
     await expect(page.locator('nav[aria-label="Account transactions"]')).toContainText('Showing 11–')
   }

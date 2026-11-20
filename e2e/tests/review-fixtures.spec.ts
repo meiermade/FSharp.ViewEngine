@@ -5,12 +5,12 @@ for (const kind of ['Browser', 'Phone']) {
     const errors: string[] = []
     page.on('pageerror', error => errors.push(error.message))
     await page.goto(`/components/${kind.toLowerCase()}`)
-    await page.evaluate(() => { document.documentElement.dataset.reviewSession = 'retained' })
+    const expandedDocument = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).searchParams.get('expanded') === '1')
     const expand = page.getByRole('link', { name: `Expand ${kind} fixture`, exact: true })
     await expand.focus()
     await page.keyboard.press('Enter')
     await expect(page).toHaveURL(/expanded=1/)
-    await expect(page.locator('html')).toHaveAttribute('data-review-session', 'retained')
+    expect((await expandedDocument).headers()['content-type']).toContain('text/html')
     const frame = page.locator(kind === 'Browser' ? '[data-fve-browser-expanded=true]' : '[data-fve-phone-expanded=true]')
     await expect(frame).toBeVisible()
     if (kind === 'Browser') await expect(frame.locator('[data-fve-browser-address]')).toHaveText('/components/browser?state=summary&expanded=1')
@@ -172,6 +172,9 @@ test('the same iframe and table viewport retain scroll through expansion and res
   const frame = page.locator('[data-review-fixture]')
   const product = specProduct(page)
   const rows = product.locator('.fve-table-scroll')
+  for (const name of ['Assets', 'Liabilities', 'Expenses']) {
+    await product.getByRole('button', { name: `Expand ${name}`, exact: true }).click()
+  }
   await product.locator('html').evaluate(el => { el.dataset.reviewDocument = 'retained' })
   await rows.evaluate(el => { el.scrollTop = 50 })
   await expect.poll(() => rows.evaluate(el => el.scrollTop)).toBe(50)
@@ -179,11 +182,11 @@ test('the same iframe and table viewport retain scroll through expansion and res
   await expect(page.locator('[data-fve-browser-expanded=true]')).toBeVisible()
   await expect(product.locator('html')).toHaveAttribute('data-review-document', 'retained')
   await expect.poll(() => rows.evaluate(el => el.scrollTop)).toBe(50)
-  await rows.evaluate(el => { el.scrollTop = 75 })
+  await rows.evaluate(el => { el.scrollTop = 40 })
   await frame.getByRole('link', { name: /^Restore / }).click()
   await expect(frame.getByRole('link', { name: /^Expand / })).toBeFocused()
   await expect(product.locator('html')).toHaveAttribute('data-review-document', 'retained')
-  await expect.poll(() => rows.evaluate(el => el.scrollTop)).toBe(75)
+  await expect.poll(() => rows.evaluate(el => el.scrollTop)).toBe(40)
 })
 
 test('edited iframe drafts survive resizing but explicit state changes discard them without prompts @cross-browser', async ({ page }) => {
@@ -236,7 +239,7 @@ test('native modal drawers and backdrops stay in the product document while revi
     await expect(drawer).toBeVisible()
     await expect(toolbar.getByRole('button', { name: /theme/i })).toHaveCount(0)
     if (!expanded) {
-      await expect(page.getByRole('heading', { name: 'Rules', exact: true })).toBeAttached()
+      await expect(page.getByRole('heading', { name: 'Sequence', exact: true })).toBeAttached()
       await toolbar.getByRole('link', { name: /^Expand / }).click()
       await expect(page).toHaveURL(/appMode=1/)
       await expect(page.locator('#template-desktop-navigation')).toBeHidden()
@@ -253,12 +256,14 @@ test('native modal drawers and backdrops stay in the product document while revi
   expect(errors).toEqual([])
 })
 
-test('product history mirrors one review entry and Escape restores without losing the document @cross-browser', async ({ page }) => {
+test('native product history mirrors one review entry and Escape preserves the current fixture @cross-browser', async ({ page }) => {
   const product = specProduct(page)
   await page.goto('/examples/specification/accounts/view-accounts?appMode=1')
-  await product.locator('html').evaluate(el => { el.dataset.historyDocument = 'retained' })
+  const detailDocument = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/examples/specification/accounts/view-account')
+  await product.getByRole('button', { name: 'Expand Expenses', exact: true }).click()
   await product.getByRole('link', { name: 'Unassigned expense', exact: true }).click()
   await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
+  expect((await detailDocument).headers()['content-type']).toContain('text/html')
   await product.getByRole('link', { name: 'Edit account', exact: true }).click()
   await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toBeVisible()
   await page.goBack()
@@ -270,6 +275,7 @@ test('product history mirrors one review entry and Escape restores without losin
   await expect(page).toHaveURL(/accounts\/view-accounts/)
   await page.goForward()
   await expect(product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 })).toBeVisible()
+  await product.locator('html').evaluate(el => { el.dataset.historyDocument = 'retained' })
   await product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 }).click()
   await page.keyboard.press('Escape')
   await expect(page).toHaveURL(url => !url.searchParams.has('appMode'))

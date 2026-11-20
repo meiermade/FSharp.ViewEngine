@@ -16,12 +16,13 @@ module View =
     let private accountPayload (account: Account) =
         JsonSerializer.Serialize(
             {| id = account.id; name = account.name; accountType = string account.accountType
-               currency = account.currency; balance = balance initialRecords account |}, jsonOptions)
+               parentId = Option.toNullable account.parentId; currency = account.currency
+               balance = balance initialRecords account; totalBalance = totalBalance initialRecords account |}, jsonOptions)
 
     let private transactionPayload (transaction: Transaction) =
         JsonSerializer.Serialize(
             {| id = transaction.id; date = transaction.date.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
-               description = transaction.description; accountId = transaction.accountId
+               description = transaction.description; fromAccountId = transaction.fromAccountId; toAccountId = transaction.toAccountId
                amount = transaction.amount; status = string transaction.status |}, jsonOptions)
     let navigation =
         [ "/examples/api-documentation", "Overview"
@@ -295,7 +296,8 @@ module View =
             [ "name", "string · required", "Unique without regard to case. Must contain 1–80 characters."
               "accountType",
               "enum · required",
-              "One of Asset, Liability, Equity, Revenue or Expense. Reporting currency is USD." ]
+              "One of Asset, Liability, Equity, Revenue, Expense or Placeholder. Reporting currency is USD."
+              "parentId", "integer · required", "An existing account of the same type outside the account’s own branch." ]
 
         let validation =
             "{\"error\":\"validation_failed\",\"fields\":{\"name\":\"Enter a unique account name of 1–80 characters.\"}}"
@@ -317,8 +319,8 @@ module View =
                     "curl \"$API_ORIGIN/api/accounts?accountType=Asset\""
                     [ "accountType",
                       "enum · query · optional",
-                      "Restricts results to Asset, Liability, Equity, Revenue or Expense. Omit to return all accounts." ]
-                    "An array of account objects. Each includes its identity, type, reporting currency and balance derived from opening balance plus transactions."
+                      "Restricts results to Asset, Liability, Equity, Revenue, Expense or Placeholder. Omit to return all accounts." ]
+                    "An array of account objects. Each includes its identity, parent (null for roots), type, currency, direct balance and subtree total."
                     [ "200",
                       "Account collection",
                       collection
@@ -328,6 +330,7 @@ module View =
                 let created =
                     { id = 106
                       name = "Reserve fund"
+                      parentId = Some 1
                       accountType = AccountType.Asset
                       currency = "USD"
                       openingBalance = 0M }
@@ -337,7 +340,7 @@ module View =
                     "POST"
                     "/api/accounts"
                     "Creates a financial account with a unique name and an available account type. The new account starts with a zero balance in USD."
-                    "curl -X POST \"$API_ORIGIN/api/accounts\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Reserve fund\",\"accountType\":\"Asset\"}'"
+                    "curl -X POST \"$API_ORIGIN/api/accounts\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Reserve fund\",\"accountType\":\"Asset\",\"parentId\":1}'"
                     nameFields
                     "The created account object. The Location response header identifies /api/accounts/106. Invalid fields and duplicate names do not create a record."
                     [ "201", "Created account · Location: /api/accounts/106", accountPayload created
@@ -348,8 +351,8 @@ module View =
                     page
                     "PATCH"
                     "/api/accounts/101"
-                    "Updates the account's name and type. Both fields are required; the account ID and existing balance remain unchanged."
-                    "curl -X PATCH \"$API_ORIGIN/api/accounts/101\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Main operating account\",\"accountType\":\"Asset\"}'"
+                    "Updates a non-root account’s name, type and parent. Its ID and direct balance remain unchanged."
+                    "curl -X PATCH \"$API_ORIGIN/api/accounts/101\" \\\n  -H 'Content-Type: application/json' \\\n  -d '{\"name\":\"Main operating account\",\"accountType\":\"Asset\",\"parentId\":1}'"
                     (("id", "integer · path · required", "The identifier of an existing account.")
                      :: nameFields)
                     "The updated account object, or a field-validation, missing-resource or duplicate-name error."
@@ -366,7 +369,7 @@ module View =
                     page
                     "DELETE"
                     "/api/accounts/105"
-                    "Deletes an unused account. An account must have a zero balance and no transactions before it can be deleted."
+                    "Deletes an unused non-root account with no children, a zero balance and no transactions."
                     "curl -X DELETE \"$API_ORIGIN/api/accounts/105\""
                     [ "id",
                       "integer · path · required",
@@ -387,10 +390,10 @@ module View =
                     [ "accountId",
                       "integer · query · optional",
                       "Restricts results to transactions for an existing account. Omit to return all transactions." ]
-                    "An array of transaction objects with a date, signed USD amount, account ID and verification status."
+                    "An array of transactions with a date, positive USD transfer amount, source and destination account IDs, and verification status."
                     [ "200",
                       "Transactions for the requested account",
-                      collection transactionPayload (transactions |> List.filter (fun row -> row.accountId = 101)) ]
+                      collection transactionPayload (transactions |> List.filter (involves (Set.singleton 101))) ]
             | "delete-transaction" ->
                 operation
                     page
@@ -410,7 +413,7 @@ module View =
                     "Retrieves one transaction by its stable identifier, including its associated account and verification state."
                     "curl \"$API_ORIGIN/api/transactions/201\""
                     [ "id", "integer · path · required", "The identifier of an existing transaction." ]
-                    "The matching transaction object, or a not-found error. Dates use YYYY-MM-DD and amounts are signed decimal USD values."
+                    "The matching transaction object, or a not-found error. Dates use YYYY-MM-DD and transfer amounts are positive decimal USD values."
                     [ "200", "Transaction details", transactionPayload transaction
                       "404", "Unknown transaction", missing ]
             | _ ->
@@ -454,7 +457,7 @@ module View =
                                       "Financial classification, reporting currency and derived balances.",
                                       "/examples/api-documentation/list-accounts"
                                       "Transactions",
-                                      "Dated signed activity, linked accounts and verification state.",
+                                      "Dated transfers, linked accounts and verification state.",
                                       "/examples/api-documentation/list-transactions" ] do
                                     div {
                                         Layout.inlineLink url resource
@@ -474,7 +477,7 @@ module View =
                                   "Requests and responses use JSON. Resource identifiers are integers."
                                   "Dates and amounts",
                                   "date-only · decimal",
-                                  "Transaction dates use YYYY-MM-DD. All signed amounts and account balances are USD."
+                                  "Transaction dates use YYYY-MM-DD. All transfer amounts and account balances are USD."
                                   "Errors",
                                   "JSON object",
                                   "Field validation uses 400; unknown resources use 404; duplicate names and deletion dependencies use 409." ])

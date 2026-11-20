@@ -163,7 +163,7 @@ div { _dataScrollIntoView [ "smooth"; "vcenter"; "focus" ] }""";
     _lang "en"
     _attr ("data-nonce", pageNonce)
     head {
-        script { _type "module"; _src "/scripts/datastar.1.0.4.js" }
+        script { _type "module"; _src "/js/datastar.1.0.4.js" }
     }
     body {
         button { _dataOn ("click", "$count++"); "Increment" }

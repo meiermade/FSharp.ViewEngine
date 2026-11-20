@@ -35,17 +35,14 @@ module Handler =
 
     let render (page: DocPage) : HttpHandler =
         fun next context ->
-            let intent = Navigation.tryIntent context
+            let preview = PreviewUpdate.requested context
             let mode = appMode context
             let browserState = context.Request.Query["state"].ToString()
             let expanded = context.Request.Query["expanded"].ToString() = "1"
 
             let response =
-                if page.id = Docs.ComponentPages.Browser.View.browserRegistration.id && intent = Some Example.Server.Common.Navigation.Filter then
-                    Navigation.respond
-                        Example.Server.Common.Navigation.Filter
-                        (Docs.ComponentPages.Browser.View.browserReviewFrame expanded browserState |> Render.toString)
-                        (View.contentMetadata Registry.navigation page Docs.ComponentPages.Browser.View.browserPage |> Render.toString)
+                if page.id = Docs.ComponentPages.Browser.View.browserRegistration.id && preview then
+                    PreviewUpdate.respond [Docs.ComponentPages.Browser.View.browserReviewPreview expanded browserState] ""
                 elif
                     (page.id = Docs.ComponentPages.Browser.View.browserRegistration.id
                      || page.id = Docs.ComponentPages.Phone.View.phoneRegistration.id)
@@ -56,30 +53,20 @@ module Handler =
                     let root =
                         Docs.Catalog.FrameReview.expandedReviewFixture (page.id = Docs.ComponentPages.Phone.View.phoneRegistration.id) browserState
 
-                    respond
-                        intent
-                        (View.documentWithContentAndNonce
-                            (Example.Server.Common.View.nonce context)
-                            Registry.navigation
-                            page
-                            docsPage
-                            root)
-                        (root, View.contentMetadata Registry.navigation page docsPage)
+                    View.documentWithContentAndNonce (Security.nonce context) Registry.navigation page docsPage root
+                    |> respond
                 elif page.id = Docs.ComponentPages.Browser.View.browserRegistration.id then
-                    respondWithPage intent context page (Docs.ComponentPages.Browser.View.browserPageFor browserState)
+                    respondWithPage context page (Docs.ComponentPages.Browser.View.browserPageFor browserState)
                 elif page.id = Docs.ComponentPages.Icon.View.iconRegistration.id then
                     let count =
                         match Int32.TryParse(context.Request.Query["count"].ToString()) with
                         | true, count -> count
                         | _ -> IconBrowser.batchSize
                     let search = context.Request.Query["search"].ToString()
-                    if intent = Some Example.Server.Common.Navigation.Filter then
-                        Navigation.respond
-                            Example.Server.Common.Navigation.Review
-                            (IconBrowser.render count search |> Render.toString)
-                            (View.contentMetadata Registry.navigation page Docs.ComponentPages.Icon.View.iconPage |> Render.toString)
+                    if preview then
+                        PreviewUpdate.respond [IconBrowser.render count search] "document.getElementById('icon-browser')?.dispatchEvent(new CustomEvent('docs-icons-updated'))"
                     else
-                        respondWithPage intent context page (Docs.ComponentPages.Icon.View.iconPageFor count search)
+                        respondWithPage context page (Docs.ComponentPages.Icon.View.iconPageFor count search)
                 elif page.id = Docs.Guides.ComponentPages.themingRegistration.id then
                     let query key = context.Request.Query[key].ToString()
                     let requestedPage =
@@ -87,36 +74,37 @@ module Handler =
                         | true, number -> number
                         | _ -> 1
                     let state = ThemeTokens.select (query "tokenSearch") (query "tokenGroup") requestedPage
-                    if intent = Some Example.Server.Common.Navigation.Filter then
-                        Navigation.respond
-                            Example.Server.Common.Navigation.Filter
-                            (ThemeTokens.reference state |> Render.toString)
-                            (View.contentMetadata Registry.navigation page Docs.Guides.ComponentPages.themingPage |> Render.toString)
+                    if preview then
+                        PreviewUpdate.respondWithHistory [ThemeTokens.reference state] "document.getElementById('theme-token-reference').tokenSearch = location.search"
                     else
-                        respondWithPage intent context page (Docs.Guides.ComponentPages.themingPageFor state)
+                        respondWithPage context page (Docs.Guides.ComponentPages.themingPageFor state)
                 elif page.id = Docs.ComponentPages.Tabs.View.tabsRegistration.id then
-                    respondWithPage intent context page (Docs.ComponentPages.Tabs.View.tabsPageFor (context.Request.Query["tab"].ToString()))
+                    let tab = context.Request.Query["tab"].ToString()
+                    if preview then PreviewUpdate.respond [Docs.ComponentPages.Tabs.View.serverTabsPreview tab] ""
+                    else respondWithPage context page (Docs.ComponentPages.Tabs.View.tabsPageFor tab)
                 elif page.id = Docs.ComponentPages.DayCalendar.View.dayCalendarRegistration.id then
-                    respondWithPage intent context page (Docs.ComponentPages.DayCalendar.View.dayCalendarPageFor (calendarSelection context))
+                    let selection = calendarSelection context
+                    if preview then
+                        PreviewUpdate.respond [Docs.ComponentPages.DayCalendar.View.dayControlsPreview selection; Docs.ComponentPages.DayCalendar.View.dayRangePreview selection] ""
+                    else respondWithPage context page (Docs.ComponentPages.DayCalendar.View.dayCalendarPageFor selection)
                 elif page.id = Docs.ComponentPages.WeekCalendar.View.weekCalendarRegistration.id then
-                    respondWithPage intent context page (Docs.ComponentPages.WeekCalendar.View.weekCalendarPageFor (calendarSelection context))
+                    let selection = calendarSelection context
+                    if preview then PreviewUpdate.respond [Docs.ComponentPages.WeekCalendar.View.weekControlsPreview selection] ""
+                    else respondWithPage context page (Docs.ComponentPages.WeekCalendar.View.weekCalendarPageFor selection)
                 elif
                     page.id = Docs.ComponentPages.Select.View.selectRegistration.id
                     && context.Request.Query["fixtures"].ToString() = "1"
                 then
-                    respondWithPage intent context page Docs.ComponentPages.Select.View.selectFixturePage
+                    respondWithPage context page Docs.ComponentPages.Select.View.selectFixturePage
                 elif page.id = Docs.ComponentPages.Table.View.tableRegistration.id then
                     let sort =
                         Docs.ComponentPages.Table.View.teamMemberSortFromQuery
                             (context.Request.Query["sort"].ToString())
                             (context.Request.Query["direction"].ToString())
 
-                    respondWithPage intent context page (Docs.ComponentPages.Table.View.tablePageFor sort)
+                    respondWithPage context page (Docs.ComponentPages.Table.View.tablePageFor sort)
                 else
-                    respond
-                        intent
-                        (View.documentForWithNonce (Example.Server.Common.View.nonce context) mode Registry.navigation page)
-                        (View.navigationPage mode Registry.navigation page)
+                    View.documentForWithNonce (Security.nonce context) mode Registry.navigation page |> respond
 
             response next context
 
@@ -131,39 +119,22 @@ module Handler =
             match Showcase.tryPreviewPage path with
             | None -> route path >=> htmlString html
             | Some(site, page) ->
-                let site =
-                    { site with
-                        assets =
-                            { site.assets with
-                                navigation = Some Navigation.enhancement } }
-
-                let breadcrumbs =
-                    FSharp.ViewEngine.Components.Templates.Navigation.breadcrumbs
-                        site.navigation
-                        site.homeId
-                        page.activeId
-
-                let root =
-                    DocsView.navigationRootWithNavigation site breadcrumbs site.navigation Embedded page
-
-                let metadata = DocsView.documentMetadata site page
-
                 route path
                 >=> fun next context ->
                     let site =
                         { site with
                             assets =
                                 { site.assets with
-                                    nonce = Example.Server.Common.View.nonce context } }
+                                    nonce = Docs.Web.Security.nonce context } }
 
                     let document = Document.create site page |> Document.render
-                    respond (Navigation.tryIntent context) document (root, metadata) next context)
+                    respond document next context)
 
     let notFound: HttpHandler =
         fun next context ->
             let document =
                 View.notFound
-                    (Example.Server.Common.View.nonce context)
+                    (Docs.Web.Security.nonce context)
                     (string context.Request.PathBase + string context.Request.Path)
 
             (setStatusCode 404 >=> (document |> Render.toHtmlDocString |> htmlString)) next context
@@ -187,7 +158,7 @@ module Handler =
     let routes : HttpHandler =
         choose [
             GET >=> choose [route "/guides/theming/document"; route "/components/theming/document"]
-                >=> (fun next context -> Appearance.appearanceDocument (Example.Server.Common.View.nonce context) |> Render.toHtmlDocString |> htmlString |> fun handler -> handler next context)
+                >=> redirectTo true "/examples/application/profile"
             Docs.ComponentPages.Pagination.Handler.get
             Docs.ComponentPages.Table.Handler.get
             Docs.ComponentPages.AccountManagement.Handler.get Response.respondWithPage

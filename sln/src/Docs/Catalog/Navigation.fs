@@ -92,24 +92,11 @@ module Catalog =
                         ". The CLI copies the source and runtime assets you need; your application owns the CSS and JavaScript builds."
                     }
                     p {
-                        a {
-                            _href "/components/installation"
-                            "Installation"
-                        }
-
+                        fveLink { _href "/components/installation"; "Installation" }
                         " · "
-
-                        a {
-                            _href "/guides/theming"
-                            "Theming"
-                        }
-
+                        fveLink { _href "/guides/theming"; "Theming" }
                         " · "
-
-                        a {
-                            _href "/examples"
-                            "Complete Geldos examples"
-                        }
+                        fveLink { _href "/examples"; "Complete examples" }
                     } ]
               for section in navigation do
                   DocumentationSection.create

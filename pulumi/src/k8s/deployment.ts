@@ -152,7 +152,7 @@ export const deployment = new k8s.apps.v1.Deployment(config.identifier, {
     },
 }, {
     provider,
-    dependsOn: cloudflaredSecret,
+    dependsOn: [cloudflaredSecret, tunnel.tunnelConfig],
     protect: config.isStaging,
 })
 

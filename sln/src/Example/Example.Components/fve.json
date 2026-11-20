@@ -41,7 +41,10 @@
     "disclosure",
     "pagination",
     "icon",
-    "presentation"
+    "presentation",
+    "kbd",
+    "radio-group",
+    "date-picker"
   ],
   "files": [
     {
@@ -54,7 +57,7 @@
       "component": "foundation",
       "path": "Components/Foundation.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "e297866debcd1551aaead8d1383fe7782ed8b17e7426a85663945ab72d87257c"
+      "registryChecksum": "599535966f6b34d8888356434b083c0da032a326cf6713754155d4275e88a20c"
     },
     {
       "component": "card",
@@ -120,19 +123,19 @@
       "component": "button",
       "path": "Components/Assets/button.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "3bfddf2df083779c7b03e43531293bd68df50ff110f000b72ce16cf05e2d6573"
+      "registryChecksum": "3fac304d1ed7ba01437a35c876b94208f8ffdcfbfdc5e89ebbd839f5e24d288f"
     },
     {
       "component": "button",
       "path": "Components/Button.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "264fca7690cd80074a4dbc4131e8a39471492bc752a6bbb83df2642f56e69109"
+      "registryChecksum": "a207d0d99d5a6191b43d5cdb137f94f4c8c41e64ef7c7be95210361e3187d77e"
     },
     {
       "component": "link",
       "path": "Components/Link.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "a9a1dbeb89617482da4e95d781341a4225bd24072bdbd0e59aa6f04b02955ba8"
+      "registryChecksum": "1223df80207a211fc98257e53fc7aca93331d659cb402bf6957552f7b71c25ed"
     },
     {
       "component": "badge",
@@ -144,7 +147,7 @@
       "component": "empty-state",
       "path": "Components/EmptyState.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "d8e21904ea56f73daca62bc3bbc61fa1b59e33d34691cc97504d199449320c81"
+      "registryChecksum": "b9c5279a01ad47b24ab64e8e36d6258b54fe439a387a150cd8e679911049bdc3"
     },
     {
       "component": "table",
@@ -306,7 +309,7 @@
       "component": "dropdown-menu",
       "path": "Components/DropdownMenu.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "f924983324c19a77d63e413093cd5fe4e29ada42575e6e52967044e6bb07a3c1"
+      "registryChecksum": "3cdea9746c506fa42e34674f6ea146e457ff8d0b732f8c1cf132c7a1b67bda6d"
     },
     {
       "component": "side-nav",
@@ -354,7 +357,7 @@
       "component": "select",
       "path": "Components/Select.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "2d878ae004e95a2b710fba29ecfa0ce7eb5c7b36cb641944abefd7236b607b9b"
+      "registryChecksum": "24f4df3d1d20543a29321436054bfde46719a7d97c343d2cca426f147ef7e745"
     },
     {
       "component": "select",
@@ -390,7 +393,7 @@
       "component": "native-overlay",
       "path": "Components/Assets/native-overlay.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "6f204e62a24e86848ff939eb8f3921c73fc40f033a87ac960db933fddd050eb2"
+      "registryChecksum": "ade996dc8396c002824ab593f8f97d450524e15ca1237a93bd53dd5308bcdcb2"
     },
     {
       "component": "native-overlay",
@@ -420,7 +423,7 @@
       "component": "drawer",
       "path": "Components/Drawer.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "864ca62a363b6817e062977fdf02604a567f19a9e292606cb3edd38d125e4b88"
+      "registryChecksum": "b8d8a3cde5219ebebf7893983a1a9f060c2ab91734f96a667785775f8c741f68"
     },
     {
       "component": "command",
@@ -535,6 +538,66 @@
       "path": "Components/Presentation.fs",
       "registryVersion": "0.0.0-local",
       "registryChecksum": "c49036f419b51ff4d57bd30f546b9bfb10d44e7b3e2ad1f05d3cacb65cb60065"
+    },
+    {
+      "component": "kbd",
+      "path": "Components/Kbd.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "446f204e163102a57e0e420173a34abf41f280e2fe7484095cdeae16d3bf1fdf"
+    },
+    {
+      "component": "field-group",
+      "path": "Components/FieldGroup.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "607f52c2523543acf64e12f9ac328c883f97e64f2b7eb40a142250f2cc42baa8"
+    },
+    {
+      "component": "radio-group",
+      "path": "Components/Assets/radio.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "6fe523f7e9dbc4c827a80fd8ef0fdf59f572590a2bd5fce4ce380f977c5a8bab"
+    },
+    {
+      "component": "radio-group",
+      "path": "Components/RadioGroup.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "bbe2fec73620a64ee00ad41b6546ddb04d13f3e06a5b17101390125222f02de9"
+    },
+    {
+      "component": "calendar-rendering",
+      "path": "Components/CalendarRendering.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "5957cdc315aa6cc728baa1e315e54a761df4b24f20345e93bcec7368a60ab386"
+    },
+    {
+      "component": "calendar-rendering",
+      "path": "Components/Assets/calendar-range.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "1b595f2eb50efd596dbbd67b7a920c8bdf293cdfee87d8416120de2cc0fd8e41"
+    },
+    {
+      "component": "month-calendar",
+      "path": "Components/Assets/calendar-selection.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "bf918f3ac4a79397e24db041e72548b59e9aa10bf32f07fc767f3fcc4527a903"
+    },
+    {
+      "component": "month-calendar",
+      "path": "Components/MonthCalendar.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "84293c52ecb352abfba92930f3ca362a7642b7293320784c728d9cb6ae80fa49"
+    },
+    {
+      "component": "date-picker",
+      "path": "Components/Assets/date-picker.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "45feb41367975d15c618d8f49c61a88db692dc9dd597293bd1597612f21bf910"
+    },
+    {
+      "component": "date-picker",
+      "path": "Components/DatePicker.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "52a5973c56b077075b97f210f317a0ffc30db7320edddf6f195a0bb16bd695a9"
     }
   ],
   "modules": [
@@ -558,6 +621,10 @@
     "Components/Assets/command.js",
     "Components/Assets/popover.js",
     "Components/Assets/time-picker.js",
-    "Components/Assets/presentation.js"
+    "Components/Assets/presentation.js",
+    "Components/Assets/radio.js",
+    "Components/Assets/calendar-range.js",
+    "Components/Assets/calendar-selection.js",
+    "Components/Assets/date-picker.js"
   ]
 }

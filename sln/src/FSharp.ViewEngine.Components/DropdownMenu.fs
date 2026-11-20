@@ -252,6 +252,7 @@ module internal DropdownMenu =
             invalidArg "id" "A menu-trigger ID must be stable and contain no whitespace."
 
         let menuId = $"{config.id}-menu"
+        let anchor = "--fve-menu-" + ComponentHtml.signalToken menuId
 
         let positionArea =
             match config.alignment with
@@ -472,6 +473,7 @@ module internal DropdownMenu =
         (Html.el "fve-dropdown-menu") {
             _class (ComponentHtml.classes [ "relative inline-flex"; config.containerClass |> Option.defaultValue "" ])
             _attr ("alignment", if config.alignment = DropdownMenuAlignment.Start then "start" else "end")
+            _style $"anchor-name:{anchor}"
 
             for attribute in ComponentHtml.safeAttributes [ "class"; "alignment" ] config.attributes do
                 attribute
@@ -513,7 +515,7 @@ module internal DropdownMenu =
                 _attr ("data-fve-position-area", positionArea)
 
                 _style
-                    $"inset: auto; margin: 0.5rem 0; position-area: {positionArea}; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: min(16rem, calc(100vw - 2rem))"
+                    $"inset: auto; margin: 0.5rem 0; position-anchor: {anchor}; position-area: {positionArea}; position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline; width: min(16rem, calc(100vw - 2rem))"
 
                 _class (
                     ComponentHtml.classes

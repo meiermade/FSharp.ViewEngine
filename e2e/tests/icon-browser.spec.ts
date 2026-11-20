@@ -3,7 +3,7 @@ import { test, expect } from '../fixture'
 test('grouped icon frames render before the button bundle initializes @cross-browser', async ({ page }) => {
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
-  await page.route('**/assets/app.js', async route => { await gate; await route.continue() })
+  await page.route('**/js/app.js', async route => { await gate; await route.continue() })
   try {
     await page.goto('/components/icon', { waitUntil: 'commit' })
     const card = page.locator('[data-icon-entry="AcademicCap"]')
@@ -31,7 +31,7 @@ test('global server search finds names and uses without a family filter @cross-b
   const response = page.waitForResponse(response => response.url().includes('/components/icon?') && new URL(response.url()).searchParams.get('search') === 'settings')
   await search.fill('settings')
   const filtered = await response
-  expect(filtered.request().headers()['x-fve-navigation-intent']).toBe('filter')
+  expect(filtered.request().headers()['datastar-request']).toBe('true')
   expect(filtered.headers()['content-type']).toContain('text/event-stream')
   await expect(count).toHaveText('7 icons')
   await expect(browser.locator('[data-icon-entry]')).toHaveCount(7)

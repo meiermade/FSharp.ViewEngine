@@ -6,18 +6,27 @@ open Domain
 /// Application operations validate submissions and return immutable, browser-session record snapshots.
 module Operations =
     type ValidateAccountRequest =
-        { existingAccountId:int option; name:string; accountType:string; parentType:string
+        { existingAccountId:int option; name:string; accountType:string; parentId:string
           currency:string; subtype:string; observedBalance:string }
     type ValidateAccountResponse = { existingAccountId:int option }
     [<RequireQualifiedAccess>]
     type ValidateAccountError = InvalidName | DuplicateName | InvalidType | InvalidDetails
-    let validateAccount (request:ValidateAccountRequest) : Result<ValidateAccountResponse,ValidateAccountError> =
+    let validateAccount (records:Records) (request:ValidateAccountRequest) : Result<ValidateAccountResponse,ValidateAccountError> =
         let name = request.name.Trim()
         if name.Length<1 || name.Length>80 then Error ValidateAccountError.InvalidName
-        elif accounts |> List.exists (fun account -> Some account.id<>request.existingAccountId && account.name.Equals(name,StringComparison.OrdinalIgnoreCase)) then Error ValidateAccountError.DuplicateName
+        elif records.accounts |> List.exists (fun account -> Some account.id<>request.existingAccountId && account.name.Equals(name,StringComparison.OrdinalIgnoreCase)) then Error ValidateAccountError.DuplicateName
         elif not (accountTypes |> List.exists (fun kind -> string kind=request.accountType)) then Error ValidateAccountError.InvalidType
-        elif request.parentType<>request.accountType || request.currency<>"USD" || request.subtype<>"Generic" || request.observedBalance<>"not-required" then Error ValidateAccountError.InvalidDetails
-        else Ok {existingAccountId=request.existingAccountId}
+        else
+            let existing = records.accounts |> List.tryFind (fun row -> Some row.id = request.existingAccountId)
+            let validAccount = request.existingAccountId.IsNone || (existing |> Option.exists (isRoot >> not))
+            let excluded = existing |> Option.map (subtree records) |> Option.defaultValue []
+            let validParent =
+                records.accounts |> List.exists (fun parent ->
+                    string parent.id = request.parentId && string parent.accountType = request.accountType
+                    && not (excluded |> List.exists (fun row -> row.id = parent.id)))
+            if validAccount && validParent && request.currency="USD" && request.subtype="Generic" && request.observedBalance="not-required" then
+                Ok {existingAccountId=request.existingAccountId}
+            else Error ValidateAccountError.InvalidDetails
 
     [<RequireQualifiedAccess>]
     type SelectionResource = Accounts | Transactions

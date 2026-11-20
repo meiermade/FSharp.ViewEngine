@@ -177,6 +177,30 @@ let tests = testList "fve" [
             add root ["button"]
             Expect.isLessThan ((File.ReadAllText project).IndexOf("Components/Button.fs")) ((File.ReadAllText project).IndexOf("FinanceComponents.fs")) "unmodified block relocated"
 
+    testCase "repeat add migrates an exact legacy block without replacing installed files" <| fun _ ->
+        withTemp (fun root ->
+            initialize root
+            add root ["button"]
+            let project = projectPath root
+            let canonical = File.ReadAllText project
+            let config = "      <None Include=\"fve.json\" />\n"
+            let firstAsset = canonical.IndexOf("      <None Include=\"Components/Assets/", StringComparison.Ordinal)
+            Expect.isGreaterThan firstAsset -1 "an interactive component has assets"
+            Expect.isGreaterThan (canonical.IndexOf(config, StringComparison.Ordinal)) firstAsset "configuration follows the assets"
+            let legacy = canonical.Replace(config, "").Insert(firstAsset, config)
+            File.WriteAllText(project, legacy)
+            let button = Path.Combine(root, "Components", "Button.fs")
+            File.AppendAllText(button, "\n// local customisation\n")
+            let custom = File.ReadAllText button
+            add root ["button"]
+            Expect.equal (File.ReadAllText project) canonical "an unchanged selection still migrates the block"
+            Expect.equal (File.ReadAllText button) custom "migration leaves component edits intact"
+            File.WriteAllText(project, legacy.Replace("<None Include=\"fve.json\" />", "<None Include=\"fve.json\" Visible=\"false\" />"))
+            let edited = File.ReadAllText project
+            let code, _, _ = invoke ["add"; "button"; "--config"; configPath root]
+            Expect.equal code 2 "noncanonical legacy blocks still require explicit overwrite"
+            Expect.equal (File.ReadAllText project) edited "the edited block is preserved")
+
     testCase "modified managed blocks fail closed until explicit overwrite" <| fun _ ->
         withTemp <| fun root ->
             initialize root

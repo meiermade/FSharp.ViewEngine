@@ -44,20 +44,8 @@ module Response =
 
             Some(AppMode.create (query "fveAppFrame") exitHref)
 
-    let respond intent document (root, metadata) : HttpHandler =
-        match intent with
-        | Some intent -> Navigation.respond intent (Render.toString root) (Render.toString metadata)
-        | None -> document |> Render.toHtmlDocString |> htmlString
+    let respond document = document |> Render.toHtmlDocString |> htmlString
 
-    let respondWithPage intent context registration page =
-        let mode = appMode context
-
-        respond
-            intent
-            (View.documentWithPageForAndNonce
-                (Example.Server.Common.View.nonce context)
-                mode
-                Registry.navigation
-                registration
-                page)
-            (View.navigationPageWithPage mode Registry.navigation registration page)
+    let respondWithPage context registration page =
+        View.documentWithPageForAndNonce (Security.nonce context) (appMode context) Registry.navigation registration page
+        |> respond

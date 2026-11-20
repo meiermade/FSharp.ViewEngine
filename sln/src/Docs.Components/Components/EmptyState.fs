@@ -15,7 +15,10 @@ module internal EmptyState =
 
     let render attributes children =
         let title = ComponentElement.required "label" attributes
-        let description = ComponentElement.required "description" attributes
+        let description =
+            match ComponentElement.attribute "description" attributes with
+            | Some _ -> Some (ComponentElement.required "description" attributes)
+            | None -> None
         let parts, body = ComponentParts.split "empty-state" children
         let region name = Map.tryFind name parts |> Option.defaultValue empty
         ComponentElement.render "div"
@@ -24,7 +27,9 @@ module internal EmptyState =
               div {
                   _class "max-w-xl"
                   p { _class "font-semibold text-[var(--fve-text)]"; title }
-                  p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; description }
+                  match description with
+                  | Some description -> p { _class "mt-1 text-sm text-[var(--fve-muted-text)]"; description }
+                  | None -> ()
               }
               yield! body
               region "actions" ]

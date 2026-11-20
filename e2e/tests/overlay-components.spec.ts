@@ -1,5 +1,4 @@
 import { test, expect } from '../fixture'
-import { delayLocalNavigation } from './helpers/navigation-delay'
 import AxeBuilder from '@axe-core/playwright'
 
 for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
@@ -61,6 +60,64 @@ for (const [width, scale] of [[1440, 1], [390, 1], [320, 2]]) {
       expect((await new AxeBuilder({ page }).include('#components-floating-panel-panel-preview').analyze()).violations).toEqual([])
       await preview.screenshot({ path: testInfo.outputPath(`floating-panel-${width}-${scale}-${theme}.png`) })
     }
+  })
+}
+
+test('Navigation Drawer owns modality, dismissal and opener focus @cross-browser', async ({ page }) => {
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: 900 })
+    await page.goto('/components/drawer')
+    const open = page.locator('#components-drawer-navigation-panel-preview').getByRole('button', { name: 'Open navigation drawer', exact: true })
+    const drawer = page.getByRole('dialog', { name: 'Project navigation', exact: true })
+    await open.click()
+    await expect(drawer).toBeVisible()
+    await expect(drawer).toHaveCSS('padding', '0px')
+    const close = drawer.getByRole('button', { name: 'Close navigation', exact: true })
+    await expect(close).toBeFocused()
+    await expect(drawer.getByRole('heading', { name: 'Project navigation' })).toHaveCSS('width', '1px')
+    await page.keyboard.press('Shift+Tab')
+    await expect(drawer.getByRole('link', { name: 'Side navigation', exact: true })).toBeFocused()
+    await page.keyboard.press('Tab')
+    await expect(close).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(drawer).toBeHidden()
+    await expect(open).toBeFocused()
+    await open.click()
+    await close.click()
+    await expect(drawer).toBeHidden()
+    await expect(open).toBeFocused()
+    await open.click()
+    await page.mouse.click(width - 5, 450)
+    await expect(drawer).toBeHidden()
+    await expect(open).toBeFocused()
+  }
+})
+
+for (const [key, fromClose] of [['Shift+Tab', true], ['Tab', false]] as const) {
+  test(`Drawer wraps ${key} past disabled fieldset controls @cross-browser`, async ({ page }) => {
+    await page.goto('/components/drawer')
+    const preview = page.locator('#components-drawer-navigation-panel-preview')
+    const drawer = preview.getByRole('dialog', { name: 'Project navigation', exact: true })
+    await preview.getByRole('button', { name: 'Open navigation drawer', exact: true }).click()
+    await expect(drawer).toBeVisible()
+    await drawer.evaluate(dialog => {
+      for (const edge of ['first', 'last']) {
+        const fieldset = document.createElement('fieldset')
+        fieldset.disabled = true
+        const input = document.createElement('input')
+        input.setAttribute('aria-label', `Disabled at ${edge} edge`)
+        fieldset.append(input)
+        if (edge === 'first') dialog.prepend(fieldset)
+        else dialog.append(fieldset)
+      }
+    })
+    await expect(drawer.getByRole('textbox', { name: 'Disabled at first edge' })).toBeDisabled()
+    await expect(drawer.getByRole('textbox', { name: 'Disabled at last edge' })).toBeDisabled()
+    const close = drawer.getByRole('button', { name: 'Close navigation', exact: true })
+    const last = drawer.getByRole('link', { name: 'Side navigation', exact: true })
+    await (fromClose ? close : last).focus()
+    await page.keyboard.press(key)
+    await expect(fromClose ? last : close).toBeFocused()
   })
 }
 
@@ -285,53 +342,43 @@ test('Notification lifetimes use elapsed foreground time and the custom example 
   await expect(custom).toBeVisible()
 })
 
-test('Notification default lifetime pauses for hover and focus within it and survives Datastar navigation @cross-browser', async ({ page, baseURL }) => {
+test('Notification pauses for hover and focus and works in a fresh document @cross-browser', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.clock.install()
   await page.bringToFront()
-  const navigation = await delayLocalNavigation(baseURL!)
-  try {
-    await page.goto(`${navigation?.origin ?? ''}/components/notification`)
-    let preview = page.locator('#components-notification-panel-preview')
-    await preview.getByRole('button', { name: 'Show notification', exact: true }).click()
-    let notification = preview.locator('#saved-notification-1')
-    await notification.getByRole('status').hover()
-    await page.clock.runFor(5200)
-    await expect(notification).toBeVisible()
-    const dismiss = notification.getByRole('button', { name: 'Dismiss Changes saved', exact: true })
-    await dismiss.focus()
-    await expect(dismiss).toBeFocused()
-    const show = preview.getByRole('button', { name: 'Show notification', exact: true })
-    await show.hover()
-    await page.clock.runFor(5200)
-    await expect(notification).toBeVisible()
-    await show.focus()
-    await expect(show).toBeFocused()
-    // Expiry depends on active browser time, not CI scheduling between interval callbacks.
-    await page.clock.runFor(5000)
-    await expect(notification).toHaveCount(0, { timeout: 5500 })
+  await page.goto('/components/notification')
+  const preview = page.locator('#components-notification-panel-preview')
+  const show = preview.getByRole('button', { name: 'Show notification', exact: true })
+  await show.click()
+  const first = preview.locator('#saved-notification-1')
+  await first.getByRole('status').hover()
+  await page.clock.runFor(5200)
+  await expect(first).toBeVisible()
+  const dismiss = first.getByRole('button', { name: 'Dismiss Changes saved', exact: true })
+  await dismiss.focus()
+  await expect(dismiss).toBeFocused()
+  await show.hover()
+  await page.clock.runFor(5200)
+  await expect(first).toBeVisible()
+  await show.focus()
+  await expect(show).toBeFocused()
+  // Expiry depends on active browser time, not CI scheduling between interval callbacks.
+  await page.clock.runFor(5000)
+  await expect(first).toHaveCount(0, { timeout: 5500 })
 
-    const badgeResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/badge' && response.request().headers()['datastar-request'] === 'true')
-    await page.locator('#nav-components-badge').click()
-    expect((await badgeResponse).status()).toBe(200)
-    // Response headers precede the morph; wait for its committed destination.
-    await expect(page).toHaveURL(/\/components\/badge$/)
-    const notificationResponse = page.waitForResponse(response => new URL(response.url()).pathname === '/components/notification' && response.request().headers()['datastar-request'] === 'true')
-    await page.locator('#nav-components-notification').click()
-    expect((await notificationResponse).status()).toBe(200)
-    await expect(page).toHaveURL(/\/components\/notification$/)
-    preview = page.locator('#components-notification-panel-preview')
-    await expect(preview.locator('[data-fve-notification]')).toHaveCount(0)
-    await preview.getByRole('button', { name: 'Show notification', exact: true }).click()
-    notification = preview.locator('[data-fve-notification]')
-    await expect(notification).toHaveCount(1)
-    await expect(notification.getByRole('status')).toContainText('Your changes are ready.')
-    await notification.getByRole('status').hover()
-    await page.clock.runFor(1200)
-    await expect(notification).toBeVisible()
-    if (navigation) expect(navigation.delayed).toEqual(['/components/badge', '/components/notification'])
-  } finally {
-    await navigation?.close()
-  }
+  await page.locator('#nav-components-badge').click()
+  await expect(page).toHaveURL(/\/components\/badge$/)
+  const documentResponse = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/notification')
+  await page.locator('#nav-components-notification').click()
+  expect((await documentResponse).headers()['content-type']).toContain('text/html')
+  const notification = preview.locator('[data-fve-notification]')
+  await expect(notification).toHaveCount(0)
+  await show.click()
+  await expect(notification).toHaveCount(1)
+  await expect(notification.getByRole('status')).toContainText('Your changes are ready.')
+  await notification.getByRole('status').hover()
+  await page.clock.runFor(1200)
+  await expect(notification).toBeVisible()
 })
 
 test('Notification stays bottom-end, readable, and motion-safe at narrow 200% text', async ({ page }, testInfo) => {

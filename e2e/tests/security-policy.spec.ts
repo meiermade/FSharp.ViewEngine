@@ -26,7 +26,7 @@ test('full documents issue fresh Datastar nonces and private validation keeps th
   const second = await request.get('/examples/application/accounts/new');
   expect(nonce(second.headers()['content-security-policy'])).not.toBe(firstNonce);
   const invalid = await request.post('/examples/application/accounts/new', {
-    form: { name: '<script>window.untrustedDraftRan=true</script>', accountType: 'Asset', parentType: 'Asset', currency: 'EUR', subtype: 'checking', observedBalance: '0' },
+    form: { name: '<script>window.untrustedDraftRan=true</script>', accountType: 'Asset', parentId: '1', currency: 'EUR', subtype: 'checking', observedBalance: '0' },
   });
   expect(invalid.status()).toBe(200);
   const invalidNonce = nonce(invalid.headers()['content-security-policy']);
@@ -54,7 +54,7 @@ test('nonce CSP permits canonical controls but blocks unauthorized scripts @cros
   await expect(resize).toHaveAttribute('aria-valuenow', String(before + 2));
   await page.setViewportSize({ width: 390, height: 844 });
   const navigation = page.getByRole('dialog', { name: 'Documentation navigation', exact: true });
-  await page.locator('#template-navigation-dialog-trigger').getByRole('button', { name: 'Open navigation', exact: true }).click();
+  await page.getByRole('button', { name: 'Open navigation', exact: true }).click();
   await expect(navigation).toBeVisible();
   await navigation.getByRole('button', { name: 'Close navigation', exact: true }).click();
   await expect(navigation).not.toBeVisible();
@@ -68,19 +68,17 @@ test('nonce CSP permits canonical controls but blocks unauthorized scripts @cros
   expect(await page.evaluate(() => (window as any).unauthorizedScriptRan)).toBeUndefined();
 });
 
-test('Docs lazy assets and enhanced history retain the active nonce document @cross-browser', async ({ page }) => {
+test('Docs lazy assets use the active nonce through native links and history @cross-browser', async ({ page }) => {
   await page.addInitScript(observeScriptPolicy);
   const response = await page.goto('/components/mermaid');
-  nonce(response!.headers()['content-security-policy']);
-  const identity = await page.evaluate(() => (window as any).cspDocumentIdentity = crypto.randomUUID());
+  const initialNonce = nonce(response!.headers()['content-security-policy']);
   await expect.poll(() => page.locator('[data-docs-diagram][data-mermaid-state="rendered"] svg').count()).toBeGreaterThan(0);
   await page.getByRole('link', { name: 'Code block', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Code block', exact: true, level: 1 })).toBeVisible();
-  expect(await page.evaluate(() => (window as any).cspDocumentIdentity)).toBe(identity);
+  expect(await page.locator('html').getAttribute('data-nonce')).not.toBe(initialNonce);
   await expect.poll(() => page.locator('code.language-fsharp .token.keyword').count()).toBeGreaterThan(0);
   await page.goBack();
   await expect(page.getByRole('heading', { name: 'Mermaid', exact: true, level: 1 })).toBeVisible();
   await expect.poll(() => page.locator('[data-docs-diagram][data-mermaid-state="rendered"] svg').count()).toBeGreaterThan(0);
-  expect(await page.evaluate(() => (window as any).cspDocumentIdentity)).toBe(identity);
   expect(await page.evaluate(() => (window as any).scriptViolations)).toEqual([]);
 });

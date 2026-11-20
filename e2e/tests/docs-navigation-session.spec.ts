@@ -19,12 +19,12 @@ async function galleryLink(page: Page, slug: string) {
 
 async function openGallery(page: Page, slug: string) {
   const link = await galleryLink(page, slug)
-  const response = page.waitForResponse(response => new URL(response.url()).pathname === `/components/${slug}` && response.request().headers()['datastar-request'] === 'true')
+  const response = page.waitForResponse(response => new URL(response.url()).pathname === `/components/${slug}` && response.request().isNavigationRequest())
   await link.click()
   const result = await response
   expect(result.status(), `navigation to ${slug}`).toBe(200)
-  expect(result.url().length, `bounded URL for ${slug}`).toBeLessThan(2000)
-  expect(new URL(result.url()).searchParams.get('datastar'), `navigation excludes demo state for ${slug}`).toBe('{}')
+  expect(result.headers()['content-type']).toContain('text/html')
+  expect(new URL(result.url()).search).toBe('')
   await expect(page).toHaveURL(`/components/${slug}`)
 }
 
@@ -35,8 +35,9 @@ test('mobile Docs navigation scrolls external project links into view @cross-bro
   }
   await page.goto('/components/button')
   await page.getByRole('button', { name: 'Open navigation', exact: true }).click()
-  await page.getByLabel('Toggle Project section', { exact: true }).click()
-  const content = page.locator('#side-nav nav')
+  const drawer = page.locator('#docs-mobile-navigation')
+  await drawer.getByLabel('Toggle Project section', { exact: true }).click()
+  const content = drawer.locator('nav')
   expect(await content.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true)
   await page.evaluate(() => { document.documentElement.dataset.externalNavigation = 'retained' })
   for (const name of ['Changelog', 'Packages']) {
@@ -56,12 +57,11 @@ test('mobile Docs navigation scrolls external project links into view @cross-bro
   }
 })
 
-test('long-lived Docs navigation excludes demo signals and preserves Preview Code Copy after morphs @cross-browser', async ({ page }) => {
+test('native Docs navigation keeps Preview and Copy working across pages @cross-browser', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components/button')
-  await page.evaluate(() => { (window as any).__retainedCalendarSession = 'same-document' })
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value: string) => { (window as any).__copiedExample = value } } })
   })
   const galleries = ['select', 'month-calendar', 'dropdown-menu', 'dialog', 'notice']
@@ -78,7 +78,6 @@ test('long-lived Docs navigation excludes demo signals and preserves Preview Cod
     expect(previewId).toBeTruthy()
     await previewTab.click()
     await expect(page.locator(`#${previewId}`)).toBeVisible()
-    expect(await page.evaluate(() => (window as any).__retainedCalendarSession)).toBe('same-document')
   }
   // All Notice examples must still be independently operable after the accumulated session.
   for (const example of await page.locator('[data-docs-example="true"]').all()) {
@@ -98,7 +97,7 @@ test('long-lived Docs navigation excludes demo signals and preserves Preview Cod
   await expect(page).toHaveURL('/components/dialog')
   await page.goForward()
   await expect(page).toHaveURL('/components/notice')
-  expect(await page.evaluate(() => (window as any).__retainedCalendarSession)).toBe('same-document')
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Notice')
   expect(errors).toEqual([])
 })
 
@@ -123,8 +122,7 @@ test('Docs navigation preserves exact highlighted and copied source whitespace @
   expect(canonicalApi.match(/\n\n/g)?.length).toBeGreaterThan(1)
   expect(canonicalExample).toContain('\n\n')
 
-  // A same-source morph must preserve highlighting, not only text content.
-  await openGallery(page, 'button')
+  await page.reload()
   await expect.poll(() => source(apiSelector)).toBe(canonicalApi)
   await expect.poll(() => source(exampleSelector)).toBe(canonicalExample)
 
@@ -148,6 +146,31 @@ test('Docs navigation preserves exact highlighted and copied source whitespace @
   await expect(page).toHaveURL('/components/button')
   await expect.poll(() => source(apiSelector)).toBe(canonicalApi)
   await expect.poll(() => source(exampleSelector)).toBe(canonicalExample)
+})
+
+test('Docs fragment targets retain focus without browser outlines when keyboard modality changes @cross-browser', async ({ page }) => {
+  for (const [path, id] of [
+    ['/guides/accessibility', 'prefer-native-html'],
+    ['/components/select', 'components-select-multiple'],
+  ]) {
+    await page.goto(path)
+    const target = page.locator(`#${id}`)
+    await page.locator(`[data-docs-toc-rail] a[href="#${id}"]`).click()
+    await expect(page).toHaveURL(`${path}#${id}`)
+    await expect(target).toBeFocused()
+    await expect(target).toBeInViewport()
+    await page.keyboard.press('Shift')
+    await expect(target).toBeFocused()
+    await expect(target).toHaveCSS('outline-style', 'none')
+  }
+
+  const example = page.locator('#components-select-multiple-panel-preview')
+  await example.getByRole('button', { name: 'Assigned members', exact: true }).press('Enter')
+  const clear = example.getByRole('button', { name: 'Clear Assigned members', exact: true })
+  await clear.focus()
+  await expect(clear).toBeFocused()
+  await expect(clear).toHaveCSS('outline-style', 'solid')
+  await expect(clear).toHaveCSS('outline-width', '2px')
 })
 
 test('Button Pending example is discoverable through fragments and demonstrates a real request @cross-browser', async ({ page }) => {
@@ -184,41 +207,10 @@ test('Button Pending example is discoverable through fragments and demonstrates 
   await expect(heading).toBeInViewport()
 })
 
-test('Forward supersedes a pending Back restore even when the current document already matches @cross-browser', async ({ page }) => {
-  await page.goto('/components/button')
-  await openGallery(page, 'button-group')
-  await openGallery(page, 'button')
-  let releaseBack: () => void = () => {}
-  const gate = new Promise<void>(resolve => { releaseBack = resolve })
-  let reachedBack: () => void = () => {}
-  const reached = new Promise<void>(resolve => { reachedBack = resolve })
-  let finishedBack: () => void = () => {}
-  const finished = new Promise<void>(resolve => { finishedBack = resolve })
-  await page.route('**/components/button-group?*', async route => {
-    const response = await route.fetch()
-    reachedBack()
-    await gate
-    await route.fulfill({ response }).catch(() => {})
-    finishedBack()
-  })
-  try {
-    await page.goBack()
-    await reached
-    await page.goForward()
-    await expect(page).toHaveURL('/components/button')
-  } finally {
-    releaseBack()
-  }
-  await finished
-  await expect(page.locator('#docs-navigation-root')).not.toHaveAttribute('aria-busy', 'true')
-  await expect(page.getByRole('heading', { level: 1, name: 'Button', exact: true })).toBeVisible()
-})
-
-test('sidebar preserves expanded groups and scroll during navigation morphs @cross-browser', async ({ page }) => {
+test('sidebar preserves expanded groups across native navigation and history @cross-browser', async ({ page }) => {
   await page.setViewportSize({ width: 1512, height: 825 })
   await page.goto('/components/browser')
   const sidebar = page.getByRole('complementary', { name: 'Documentation navigation' })
-  const nav = sidebar.getByRole('navigation', { name: 'Documentation', exact: true })
   const expandedGroups = ['Guides', 'Actions', 'Feedback', 'Form controls', 'Navigation', 'Overlays']
   for (const name of expandedGroups) {
     await sidebar.getByLabel(`Toggle ${name} section`, { exact: true }).click()
@@ -227,27 +219,19 @@ test('sidebar preserves expanded groups and scroll during navigation morphs @cro
   for (const slug of ['phone', 'dialog', 'select', 'browser']) {
     const link = await galleryLink(page, slug)
     await link.scrollIntoViewIfNeeded()
-    const scrollBefore = await nav.evaluate(el => el.scrollTop)
-    expect(scrollBefore).toBeGreaterThan(300)
     await openGallery(page, slug)
     await expect(link).toHaveAttribute('aria-current', 'page')
-    await expect.poll(async () => Math.abs(await nav.evaluate(el => el.scrollTop) - scrollBefore)).toBeLessThan(2)
     for (const name of expandedGroups) {
       await expect(sidebar.getByLabel(`Toggle ${name} section`, { exact: true })).toHaveAttribute('aria-expanded', 'true')
     }
     await expect(sidebar.getByLabel('Toggle Data display section', { exact: true })).toHaveAttribute('aria-expanded', 'false')
   }
 
-  const scrollBeforeHistory = await nav.evaluate(el => el.scrollTop)
   await page.goBack()
   await expect(page).toHaveURL('/components/select')
-  await expect.poll(async () => Math.abs(await nav.evaluate(el => el.scrollTop) - scrollBeforeHistory)).toBeLessThan(2)
   await page.goForward()
   await expect(page).toHaveURL('/components/browser')
-  await expect.poll(async () => Math.abs(await nav.evaluate(el => el.scrollTop) - scrollBeforeHistory)).toBeLessThan(2)
-
   await page.reload()
-  await expect.poll(async () => Math.abs(await nav.evaluate(el => el.scrollTop) - scrollBeforeHistory)).toBeLessThan(2)
   for (const name of expandedGroups) {
     await expect(sidebar.getByLabel(`Toggle ${name} section`, { exact: true })).toHaveAttribute('aria-expanded', 'true')
   }
@@ -263,16 +247,17 @@ test('sidebar preserves expanded groups and scroll during navigation morphs @cro
 
 test('saved sidebar disclosures are restored before the application bundle can paint @cross-browser', async ({ page }) => {
   await page.goto('/components/select')
-  const form = page.getByLabel('Toggle Form controls section', { exact: true })
+  const sidebar = page.locator('#side-nav')
+  const form = sidebar.getByLabel('Toggle Form controls section', { exact: true })
   await expect(form).toHaveAttribute('aria-expanded', 'true')
   await form.click()
   await expect(form).toHaveAttribute('aria-expanded', 'false')
-  const guides = page.getByLabel('Toggle Guides section', { exact: true })
+  const guides = sidebar.getByLabel('Toggle Guides section', { exact: true })
   await guides.click()
   await expect(guides).toHaveAttribute('aria-expanded', 'true')
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
-  await page.route('**/assets/app.js', async route => { await gate; await route.continue().catch(() => {}) })
+  await page.route('**/js/app.js', async route => { await gate; await route.continue().catch(() => {}) })
   try {
     await page.reload({ waitUntil: 'commit' })
     await page.locator('#side-nav').waitFor({ state: 'visible' })
@@ -306,7 +291,7 @@ test('sidebar first-paint preparation keeps native defaults when storage or Java
   const page = await blocked.newPage(), errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components/select')
-  const form = page.getByLabel('Toggle Form controls section', { exact: true })
+  const form = page.locator('#side-nav').getByLabel('Toggle Form controls section', { exact: true })
   await expect(form).toHaveAttribute('aria-expanded', 'true')
   await form.click()
   await expect(form).toHaveAttribute('aria-expanded', 'false')
@@ -317,49 +302,26 @@ test('sidebar first-paint preparation keeps native defaults when storage or Java
 
   const native = await browser.newContext({ baseURL, javaScriptEnabled: false }), plain = await native.newPage()
   await plain.goto('/components/select')
-  const group = plain.getByLabel('Toggle Form controls section', { exact: true }).locator('..')
+  const group = plain.locator('#side-nav').getByLabel('Toggle Form controls section', { exact: true }).locator('..')
   await expect(group).toHaveAttribute('open', '')
   await group.locator(':scope > summary').click()
   await expect(group).not.toHaveAttribute('open', '')
   await native.close()
 })
 
-test('rapid navigation keeps the latest server-rendered destination', async ({ page }) => {
-  await page.goto('/components/button')
-  let releaseSelect: () => void = () => {}
-  const selectCanFinish = new Promise<void>(resolve => { releaseSelect = resolve })
-  let selectReachedServer: () => void = () => {}
-  const selectResponseReady = new Promise<void>(resolve => { selectReachedServer = resolve })
-
-  await page.route('**/components/select?*', async route => {
-    const response = await route.fetch()
-    selectReachedServer()
-    await selectCanFinish
-    await route.fulfill({ response }).catch(() => {})
+test('native links preserve explicitly chosen themes and respect reduced motion @cross-browser', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
+  await page.addInitScript(() => {
+    localStorage.setItem('fsharp-viewengine-docs-navigation-color-mode', 'dark')
+    window.addEventListener('pagereveal', event => {
+      document.documentElement.dataset.hadTransition = String(Boolean((event as Event & { viewTransition?: unknown }).viewTransition))
+    })
   })
-
-  await (await galleryLink(page, 'select')).click()
-  await selectResponseReady
-  await (await galleryLink(page, 'month-calendar')).click()
-  await expect(page).toHaveURL('/components/month-calendar')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Month calendar')
-
-  releaseSelect()
-  await expect(page).toHaveURL('/components/month-calendar')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Month calendar')
-})
-
-test('failed enhanced navigation keeps visible content and supports retry', async ({ page }) => {
   await page.goto('/components/button')
-  await page.route('**/components/select?*', route => route.fulfill({ status: 503, contentType: 'text/plain', body: 'Temporarily unavailable' }))
-
-  await (await galleryLink(page, 'select')).click()
-  await expect(page.locator('#docs-navigation-status')).toHaveText('The page could not be loaded. Try the link again or refresh.')
-  await expect(page).toHaveURL('/components/button')
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Button')
-
-  await page.unroute('**/components/select?*')
   await openGallery(page, 'select')
-  await expect(page.locator('#docs-navigation-status')).toBeHidden()
-  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Select')
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await expect(page.locator('html')).not.toHaveAttribute('data-had-transition', 'true')
+  await page.goBack()
+  await expect(page.getByRole('heading', { level: 1, name: 'Button', exact: true })).toBeVisible()
+  await expect(page.locator('html')).toHaveClass(/dark/)
 })

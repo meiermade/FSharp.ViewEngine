@@ -9,6 +9,11 @@ open Example.Components.Views.Model
 module Request =
     let queryFromValues (value: string -> string) =
         let fallback key defaultValue = if value key = "" then defaultValue else value key
+        let nativePreset = value "nativeRange"
+        let useNativePreset = List.contains nativePreset ["7"; "30"; "90"]
+        let date name nativeName =
+            if useNativePreset then ""
+            else fallback nativeName (value name)
         { defaultQuery with
             search = value "search"
             accountType = fallback "accountType" "all"
@@ -21,10 +26,11 @@ module Request =
             embedded = value "embedded" = "1"
             workspace = workspaceFromStrings (value "organization") (value "environment") (value "ledger")
             account = fallback "account" "all"
-            range = fallback "range" "90"
+            parent = value "parent"
+            range = if useNativePreset then nativePreset else fallback "range" "90"
             comparison = fallback "comparison" "expected"
-            startDate = value "startDate"
-            endDate = value "endDate"
+            startDate = date "startDate" "nativeStartDate"
+            endDate = date "endDate" "nativeEndDate"
             status = fallback "status" "all"
             transactionPage = (match Int32.TryParse(value "transactionPage") with true, page when page > 0 -> page | _ -> 1)
             appMode = (value "appMode" = "1" || value "fveAppMode" = "app")

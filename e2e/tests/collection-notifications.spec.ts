@@ -16,6 +16,7 @@ test('collection notifications never shift tables and are delivered once @cross-
     await page.setViewportSize({ width: scenario.width, height: 1000 })
     await page.emulateMedia({ colorScheme: scenario.color })
     await page.goto(`/examples/application/${scenario.kind}`)
+    if (scenario.kind === 'accounts') await page.getByRole('button', { name: 'Expand Expenses', exact: true }).click()
     await page.locator('html').evaluate((el, scale) => { el.style.fontSize = scale; el.dataset.notificationDocument = 'retained' }, scenario.scale)
     const restore = page.getByRole('button', { name: 'Restore records', exact: true })
     await expect(restore).toBeDisabled()

@@ -120,6 +120,11 @@ module internal Home =
                    series "scenario" scenarioName true data.scenario |] |}
 
         let rangeFormId = elementId query "home-chart-range"
+        let rangePickerId = elementId query "home-date-range"
+        let resetId = elementId query "home-reset-zoom"
+        let zoomed = data.visibleStart <> data.startDate || data.visibleEnd <> data.endDate
+        let periods = [ 7; 30; 90 ]
+        let earliest = data.endDate.AddDays(-89)
 
         let pairs =
             [ "account", string data.account.id
@@ -138,17 +143,32 @@ if (extent?.length === 2 && extent.every(Number.isFinite)) {{
   const last = Math.min({instant data.endDate + day - 1L}, Math.max(startValue, endValue));
   if (first <= last) {{
     const form = document.getElementById('{rangeFormId}');
-    form.elements.namedItem('startDate').value = new Date(Math.floor(first / day) * day).toISOString().slice(0, 10);
-    form.elements.namedItem('endDate').value = new Date(Math.floor(last / day) * day).toISOString().slice(0, 10);
-    form.requestSubmit();
+    const commit = event => {{
+      event.formData.set('account', '{data.account.id}');
+      event.formData.set('range', '{data.periodDays}');
+      event.formData.set('comparison', '{data.comparison}');
+      event.formData.set('startDate', new Date(Math.floor(first / day) * day).toISOString().slice(0, 10));
+      event.formData.set('endDate', new Date(Math.floor(last / day) * day).toISOString().slice(0, 10));
+    }};
+    form.addEventListener('formdata', commit, {{ once: true }});
+    try {{ form.requestSubmit(); }} finally {{ form.removeEventListener('formdata', commit); }}
   }}
 }}
 """
 
+        let setPreset = """
+const { start, end, preset } = evt.detail;
+if (preset) el.closest('form').elements.namedItem('range').value = String(Math.round((Date.parse(end) - Date.parse(start)) / 86400000) + 1);
+"""
+
         div {
-            _class "grid min-w-0 grid-cols-1 gap-6"
+            _class "relative grid min-w-0 grid-cols-1 gap-6"
 
             form {
+                _id rangeFormId
+                Navigation.filterForm
+                // Datastar can parse noscript children while morphing. Only submit the active controls.
+                _dataOn ("formdata", "for (const name of ['nativeRange', 'nativeStartDate', 'nativeEndDate']) evt.formData.delete(name)")
                 _method "get"
                 _action (applicationHref query page)
                 _ariaLabel (if showAccountSelector then "Home balance controls" else "Account balance controls")
@@ -161,12 +181,56 @@ if (extent?.length === 2 && extent.every(Number.isFinite)) {{
                 else
                     hidden "account" (string data.account.id)
 
-                select
-                    query
-                    "range"
-                    "Period"
-                    (string data.periodDays)
-                    [ "7", "Last 7 days"; "30", "Last 30 days"; "90", "Last 90 days" ]
+                hidden "range" (string data.periodDays)
+
+                div {
+                    _class "[@media(scripting:none)]:hidden"
+                    _dataOn ("fve-calendar-change", setPreset)
+
+                    fveField {
+                        fveLabel { _id (rangePickerId + "-label"); _for rangePickerId; "Date range" }
+                        fveDatePicker {
+                            _id rangePickerId
+                            _ariaLabel "Date range"
+                            _attr ("aria-labelledby", rangePickerId + "-label " + rangePickerId + "-value")
+                            _name "startDate"
+                            _rangeEndName "endDate"
+                            _mode CalendarSelectionMode.Range
+                            _value (iso data.visibleStart)
+                            _endValue (iso data.visibleEnd)
+                            _min (iso earliest)
+                            _max (iso data.endDate)
+                            _displayMonth data.visibleEnd
+                            _rangePresets (periods |> List.map (fun days -> $"Last {days} days", data.endDate.AddDays(1 - days), data.endDate))
+                        }
+                    }
+                }
+
+                noscript {
+                    div {
+                        _class "flex flex-wrap items-end gap-3 [@media(scripting:enabled)]:hidden"
+                        fveField {
+                            fveLabel { _for (rangePickerId + "-preset"); "Date range" }
+                            Html.select {
+                                _id (rangePickerId + "-preset")
+                                _name "nativeRange"
+                                _class "h-8 rounded-[var(--fve-radius-control)] border border-[var(--fve-border)] bg-[var(--fve-surface)] px-2"
+                                option { _value ""; "Use start and end dates" }
+                                for days in periods do
+                                    option { _value (string days); $"Last {days} days" }
+                            }
+                        }
+                        for name, label, value in [ "nativeStartDate", "Start date", data.visibleStart; "nativeEndDate", "End date", data.visibleEnd ] do
+                            let id = elementId query name
+                            fveField {
+                                fveLabel { _for id; label }
+                                fveInput {
+                                    _id id; _name name; _type "date"; _required true
+                                    _value (iso value); _min (iso earliest); _max (iso data.endDate)
+                                }
+                            }
+                    }
+                }
 
                 select
                     query
@@ -178,6 +242,14 @@ if (extent?.length === 2 && extent.every(Number.isFinite)) {{
                       "pessimistic", "Pessimistic" ]
 
                 submit "Apply"
+                if zoomed then
+                    fveLink {
+                        _id resetId
+                        _href resetHref
+                        Navigation.filterLink
+                        _variant LinkVariant.Outline
+                        "Reset zoom"
+                    }
             }
 
             div {
@@ -193,12 +265,12 @@ if (extent?.length === 2 && extent.every(Number.isFinite)) {{
                             div {
                                 p {
                                     _class "text-xs text-[var(--fve-muted-text)]"
-                                    "Balance · " + data.account.name
+                                    (if data.accountIds.Count > 1 then "Total balance · " else "Balance · ") + data.account.name
                                 }
 
                                 p {
                                     _class "mt-1 text-2xl font-semibold tabular-nums"
-                                    money (balance query.records data.account)
+                                    money data.currentBalance
                                 }
                             }
 
@@ -222,101 +294,21 @@ if (extent?.length === 2 && extent.every(Number.isFinite)) {{
                             _data ("balance-chart-currency", data.account.currency)
                             _dataOn ("chart-brushend", rangeChange)
 
-                            _dataOn (
-                                "dblclick",
-                                $"""const form = document.getElementById('{rangeFormId}');
-form.elements.namedItem('startDate').value = '{iso data.startDate}';
-form.elements.namedItem('endDate').value = '{iso data.endDate}';
-form.requestSubmit();"""
-                            )
+                            if zoomed then
+                                _dataOn ("dblclick", $"document.getElementById('{resetId}')?.click()")
                         }
 
                         p {
                             _class "text-xs text-[var(--fve-muted-text)]"
-                            "Drag across the chart to zoom · Double-click to reset, or choose dates below."
-                        }
-
-                        div {
-                            _class "flex flex-wrap items-end gap-3"
-
-                            form {
-                                _id rangeFormId
-                                _method "get"
-                                _action (applicationHref query page)
-                                _ariaLabel "Chart date range"
-                                _attr ("data-fve-local-navigation", "true")
-                                _class "flex min-w-0 flex-wrap items-end gap-3"
-                                contextFields query
-
-                                for name, value in pairs do
-                                    hidden name value
-
-                                fveField {
-                                    fveLabel {
-                                        _for (elementId query "home-start")
-                                        "Start date"
-                                    }
-
-                                    fveInput {
-                                        _size Size.Small
-                                        _id (elementId query "home-start")
-                                        _name "startDate"
-                                        _type "date"
-                                        _required true
-                                        _value (iso data.visibleStart)
-                                        _attr ("min", iso data.startDate)
-                                        _attr ("max", iso data.endDate)
-                                    }
-                                }
-
-                                fveField {
-                                    fveLabel {
-                                        _for (elementId query "home-end")
-                                        "End date"
-                                    }
-
-                                    fveInput {
-                                        _size Size.Small
-                                        _id (elementId query "home-end")
-                                        _name "endDate"
-                                        _type "date"
-                                        _required true
-                                        _value (iso data.visibleEnd)
-                                        _attr ("min", iso data.startDate)
-                                        _attr ("max", iso data.endDate)
-                                    }
-                                }
-
-                                fveButton {
-                                    _type "submit"
-                                    _variant ButtonVariant.Outline
-                                    _size Size.Small
-                                    "Apply range"
-                                }
-                            }
-
-                            if data.visibleStart = data.startDate && data.visibleEnd = data.endDate then
-                                fveButton {
-                                    _disabled true
-                                    _variant ButtonVariant.Outline
-                                    _size Size.Small
-                                    "Reset zoom"
-                                }
-                            else
-                                fveLink {
-                                    _href resetHref
-                                    _attr ("data-fve-local-navigation", "true")
-                                    _variant LinkVariant.Outline
-                                    _size Size.Small
-                                    "Reset zoom"
-                                }
+                            if zoomed then "Drag across the chart to zoom · Double-click to reset."
+                            else "Drag across the chart to zoom."
                         }
 
                         p {
                             _role "status"
                             _ariaLive "polite"
-                            _class "text-xs text-[var(--fve-muted-text)]"
-                            Html.text (date data.visibleStart + " – " + date data.visibleEnd)
+                            _class "sr-only"
+                            Html.text ("Chart date range: " + date data.visibleStart + " – " + date data.visibleEnd)
                         }
                     }
                 }
@@ -328,8 +320,12 @@ form.requestSubmit();"""
         let data = homeData query
         fveSectionStack {
             balanceHistory ApplicationPage.Home true query
-            Layout.section "Transactions"
-                (if data.transactions.IsEmpty then
-                     fveEmptyState { _label "No transactions in this date range"; _description "Choose different dates or reset zoom." }
-                 else transactionTable query "Transactions for the selected account" data.transactions false)
+            fveSection {
+                _label "Transactions"
+                fveSectionActions { viewAllLink query data.account.id }
+                if data.transactions.IsEmpty then
+                    fveEmptyState { _label "No transactions in this date range"; _description "Choose different dates or reset zoom." }
+                else
+                    transactionTable query "Transactions for the selected account" data.transactions (Some data.accountIds)
+            }
         }

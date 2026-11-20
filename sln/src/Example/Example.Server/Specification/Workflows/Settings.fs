@@ -34,12 +34,4 @@ module internal Settings =
                 "/examples/application/settings/general/edit"
                 "/examples/application/settings/general/edit"
                 "validateOrganization (name, currency)"
-          rules =
-            [ "Settings SHALL belong to the selected organization; its selector SHALL retain the current settings section and change only the organization context."
-              "The top-right Settings gear link SHALL open the selected organization’s Settings area. General SHALL show a Details section; its pencil Edit link SHALL open the Edit organization Drawer with Update and Cancel."
-              "Environment rows SHALL open the exact environment's detail page without switching the workspace. Edit environment SHALL open a contextual Drawer for its name, with Update and Cancel. Names SHALL contain 1–80 characters. Successful validation SHALL close the editor and return to that environment's detail; immutable fixtures SHALL remain unchanged."
-              "Organization memberships SHALL belong to Profile → Organizations, not organization Settings."
-              "Return to Geldos SHALL preserve the prior workspace, including after changing organizations in Settings."
-              "Organization name SHALL contain 1–80 characters; reporting commodity SHALL be USD."
-              "Invalid values SHALL remain only in the private, no-store response with field errors."
-              "Application UI SHALL use ordinary product copy without template commentary or invented live services." ] }
+          requirements = [] }

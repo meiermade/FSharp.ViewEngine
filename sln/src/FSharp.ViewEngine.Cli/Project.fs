@@ -72,18 +72,21 @@ module ConsumerProject =
         let prefix = ComponentsDirectory + "/"
         if normalized.StartsWith(prefix, StringComparison.Ordinal) then Some normalized[prefix.Length..]
         else None
-    let projectBlock (components:RegistryFile list) =
+    let private renderProjectBlock legacyOrder (components:RegistryFile list) =
         let compileEntries =
             components
             |> List.filter _.Compile
             |> List.map (fun item -> $"      <Compile Include=\"{relativeSourcePath item.FileName}\" />")
         let assetEntries =
-            [ $"      <None Include=\"{ConfigFileName}\" />"
-              for item in components do
+            [ for item in components do
                   if not item.Compile then
                       $"      <None Include=\"{relativeSourcePath item.FileName}\" />" ]
-        let body = String.concat "\n" (compileEntries @ assetEntries) + "\n"
+        let configurationEntry = $"      <None Include=\"{ConfigFileName}\" />"
+        let entries = if legacyOrder then configurationEntry :: assetEntries else assetEntries @ [ configurationEntry ]
+        let body = String.concat "\n" (compileEntries @ entries) + "\n"
         $"{startMarker}\n  <ItemGroup Label=\"fve components\">\n{body}  </ItemGroup>\n{endMarker}"
+
+    let projectBlock components = renderProjectBlock false components
 
     let private findBlockBetween (startMarker:string) (endMarker:string) (content:string) =
         let startIndex = content.IndexOf(startMarker, StringComparison.Ordinal)
@@ -157,7 +160,10 @@ module ConsumerProject =
         | Error message -> Error message
         | Ok (Some (startIndex, endIndex)) ->
             let current = content.Substring(startIndex, endIndex - startIndex)
-            if current <> projectBlock previousComponents && not overwrite then
+            let recognized =
+                current = projectBlock previousComponents
+                || current = renderProjectBlock true previousComponents
+            if not recognized && not overwrite then
                 Error "The fve-managed project block was modified. Re-run with --overwrite to replace it explicitly."
             else
                 writeProjectBlock projectPath (withoutBlock content startIndex endIndex) (projectBlock nextComponents)

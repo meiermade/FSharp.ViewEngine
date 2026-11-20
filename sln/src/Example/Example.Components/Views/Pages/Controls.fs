@@ -113,8 +113,9 @@ module internal Controls =
                 "Unverified"
         }
 
-    let rowActionClass =
-        Size.className Size.Small + " inline-flex size-[var(--fve-control-min-height)] shrink-0 items-center justify-center rounded-[var(--fve-radius-control)] bg-transparent p-0 text-[var(--fve-text)] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:hover:bg-[linear-gradient(var(--fve-hover-wash),var(--fve-hover-wash))] [&:not([readonly])]:not-disabled:not-aria-disabled:not-aria-busy:active:bg-[linear-gradient(var(--fve-pressed-wash),var(--fve-pressed-wash))] aria-expanded:bg-[var(--fve-surface-active)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--fve-brand-ring)] disabled:opacity-50 [&_svg]:size-4 [&_svg]:shrink-0"
+    let rowActionAttributes =
+        [ _variant ButtonVariant.Ghost; _size Size.Small; _padding Padding.Uniform
+          _class "aria-expanded:bg-[var(--fve-surface-active)]" ]
 
     let selectedKeys (query: Query) kind =
         if not query.selection.IsEmpty then query.selection
@@ -134,8 +135,9 @@ module internal Controls =
             elif query.sort = descending then
                 _ariaSort "descending"
 
-            a {
+            fveLink {
                 _href href
+                _variant LinkVariant.Plain
                 _class "fve-table-sort-control"
                 label
 
@@ -148,11 +150,3 @@ module internal Controls =
                 }
             }
         }
-
-    let groupLabel =
-        function
-        | AccountType.Asset -> "Assets"
-        | AccountType.Liability -> "Liabilities"
-        | AccountType.Equity -> "Equity"
-        | AccountType.Revenue -> "Revenue"
-        | AccountType.Expense -> "Expenses"

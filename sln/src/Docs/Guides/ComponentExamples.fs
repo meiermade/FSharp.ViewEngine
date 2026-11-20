@@ -260,8 +260,8 @@ module ComponentGuideExamples =
                         "For a nonce-enabled host, use ColorMode.assetsWithNonce and the existing "
                         link "/extensions/datastar#content-security-policy" "CSP setup"
                         ". The "
-                        link "/guides/theming/document" "complete runnable example"
-                        " is available separately."
+                        link "/examples/application/profile" "Profile example"
+                        " shows the appearance picker in a working app. It uses the regular application script; no separate appearance bundle is needed."
                     } ]
               DocumentationSection.create
                   "api-reference"

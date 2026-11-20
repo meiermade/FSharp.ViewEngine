@@ -15,16 +15,16 @@ let tryPage = function
     | ["accounts"; id; "delete"] -> Request.resourceId tryAccount id |> Option.map ApplicationPage.DeleteAccount
     | _ -> None
 
-let submit services context query page (form: IFormCollection) =
+let submit services context (query: Query) page (form: IFormCollection) =
     let value name = form[name].ToString().Trim()
     match page with
     | ApplicationPage.CreateAccount | ApplicationPage.EditAccount _ ->
         let existing = match page with ApplicationPage.EditAccount id -> Some id | _ -> None
         let request =
             { existingAccountId = existing; name = form["name"].ToString()
-              accountType = value "accountType"; parentType = value "parentType"
+              accountType = value "accountType"; parentId = value "parentId"
               currency = value "currency"; subtype = value "subtype"; observedBalance = value "observedBalance" }
-        let result = validateAccount request
+        let result = validateAccount query.records request
         let state =
             match result with
             | Ok _ -> "validated"

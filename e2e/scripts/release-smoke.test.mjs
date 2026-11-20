@@ -23,6 +23,7 @@ require('fs').writeFileSync(process.env.ARGUMENTS, JSON.stringify(process.argv.s
         PATH: `${root}/bin:${process.env.PATH}`, ARGUMENTS: `${root}/arguments.json`,
         EXPECTED_COMMIT: 'accepted-source', DOCS_EXPECTED_COMMIT: 'accepted-source',
         EXPECTED_IMAGE: 'accepted-image', DOCS_EXPECTED_IMAGE: 'accepted-image',
+        EXPECTED_EXAMPLE_IMAGE: 'accepted-example-image',
         DOCS_E2E_BASE_URL: 'https://fve.meiermade.net',
         CF_ACCESS_CLIENT_ID: 'runner-test-id', CF_ACCESS_CLIENT_SECRET: 'runner-test-secret',
         E2E_BROWSER: 'webkit', E2E_CROSS_BROWSER_MODE: 'full', E2E_SHARD: '1/3',

@@ -4,10 +4,9 @@ open Docs.Web
 open Giraffe
 open Serilog
 
-let webApp (config: Config) exampleServices =
-    Example.Server.Common.Handler.securityHeaders ["https://cdn.jsdelivr.net"]
+let webApp (config: Config) =
+    Docs.Web.Security.headers ["https://cdn.jsdelivr.net"]
     >=> choose [
-        Example.Server.Program.routes exampleServices
         GET >=> choose [
             Health.Handler.routes config
             Discovery.Handler.routes
@@ -20,11 +19,10 @@ let webApp (config: Config) exampleServices =
 [<EntryPoint>]
 let main args =
     let config = Config.load ()
-    let exampleServices = Example.Server.Config.load () |> Example.Server.Services.create
     Host.configureLogger config
     try
         try
-            let app = Host.create args (webApp config exampleServices)
+            let app = Host.create args (webApp config)
             Log.Information(
                 "Starting {AppName} in {DeploymentEnvironment} at commit {ReleaseCommit} from {ReleaseImage}; Core {CoreVersion}, CLI {CliVersion}",
                 config.appName, config.deploymentEnvironment, config.commit, config.image,

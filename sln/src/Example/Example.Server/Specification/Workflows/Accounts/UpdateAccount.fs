@@ -21,7 +21,4 @@ module internal UpdateAccount =
                 "/examples/application/accounts/101/edit"
                 "/examples/application/accounts/101/edit"
                 "validateAccount (existingAccountId=Some 101)"
-          rules =
-            accountRules
-            @ [ "The editor SHALL begin with the exact account's seeded values."
-                "Cancel or Escape SHALL return to the originating collection or account detail without submitting or confirmation." ] }
+          requirements = [] }

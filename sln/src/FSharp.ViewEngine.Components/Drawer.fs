@@ -19,10 +19,22 @@ type DrawerSize =
     | Standard
     | Large
 
+/// <summary>Navigation supplies its own header and close control inside a flush body.</summary>
+/// <category>drawer</category>
+[<RequireQualifiedAccess>]
+type DrawerVariant = Standard | Navigation
+
+/// <summary>AfterContent places the footer just below the body when it fits, and keeps it visible when the body scrolls.</summary>
+/// <category>drawer</category>
+[<RequireQualifiedAccess>]
+type DrawerFooterPlacement = Bottom | AfterContent
+
 /// <category>drawer</category>
 [<AutoOpen>]
 module DrawerAttributes =
     type Html with
+        static member _variant(value: DrawerVariant) =
+            Html._attr("variant", if value = DrawerVariant.Navigation then "navigation" else "standard")
         static member _side(value: DrawerSide) =
             Html._attr (
                 "side",
@@ -35,6 +47,9 @@ module DrawerAttributes =
 
         static member _size(value: DrawerSize) =
             Html._attr ("size", if value = DrawerSize.Large then "large" else "standard")
+
+        static member _footerPlacement(value: DrawerFooterPlacement) =
+            Html._attr ("footer-placement", if value = DrawerFooterPlacement.AfterContent then "after-content" else "bottom")
 
 module internal Drawer =
     let private optional name attributes =
@@ -62,6 +77,7 @@ module internal Drawer =
             invalidArg "id" "A stable drawer ID without whitespace is required."
 
         let title = ComponentElement.required "label" attributes
+        let navigation = ComponentElement.choice "variant" "standard" ["standard"; "navigation"] attributes = "navigation"
         let description = optional "description" attributes
 
         let focus =
@@ -87,6 +103,9 @@ module internal Drawer =
             ComponentElement.choice "size" "standard" [ "standard"; "large" ] attributes
 
         let parts, body = ComponentParts.split "Drawer" children
+        let footer = Map.tryFind "footer" parts
+        let footerPlacement = ComponentElement.choice "footer-placement" "bottom" ["bottom"; "after-content"] attributes
+        let footerAfterContent = footer.IsSome && footerPlacement = "after-content"
         let titleId = id + "-title"
         let descriptionId = id + "-description"
 
@@ -130,7 +149,7 @@ module internal Drawer =
                              else
                                  "fixed max-h-none")
                             "rounded-none border-[var(--fve-border)] bg-[var(--fve-background)] p-0 text-[var(--fve-text)] shadow-xl backdrop:bg-[var(--fve-overlay-backdrop)]"
-                            sizeClasses
+                            (if navigation && size = "standard" then "w-[min(18rem,calc(100%-3rem))] max-w-none" else sizeClasses)
                             (if container.IsSome then
                                  sideClasses.Replace("h-dvh", "h-full")
                              else
@@ -143,9 +162,11 @@ module internal Drawer =
                 defaults
                 (ComponentHtml.safeAttributes
                     [ "id"
+                      "variant"
                       "label"
                       "description"
                       "initial-focus"
+                      "footer-placement"
                       "container"
                       "size"
                       "side"
@@ -158,38 +179,35 @@ module internal Drawer =
                 [ div {
                       _class "flex h-full flex-col"
 
-                      div {
-                          _class
-                              "flex shrink-0 items-start justify-between gap-4 border-b border-[var(--fve-border)] p-5"
-
+                      if navigation then
+                          h2 { _id titleId; _class "sr-only"; title }
+                          match description with
+                          | Some description -> p { _id descriptionId; _class "sr-only"; description }
+                          | None -> ()
+                      else
                           div {
-                              _class "min-w-0 flex-1"
-
-                              h2 {
-                                  _id titleId
-                                  _class "text-lg font-semibold [overflow-wrap:anywhere]"
-                                  title
+                              _class "flex shrink-0 items-start justify-between gap-4 border-b border-[var(--fve-border)] p-5"
+                              div {
+                                  _class "min-w-0 flex-1"
+                                  h2 { _id titleId; _class "text-lg font-semibold [overflow-wrap:anywhere]"; title }
+                                  match description with
+                                  | Some description ->
+                                      p { _id descriptionId; _class "mt-1 text-sm text-[var(--fve-muted-text)]"; description }
+                                  | None -> ()
                               }
-
-                              match description with
-                              | Some description ->
-                                  p {
-                                      _id descriptionId
-                                      _class "mt-1 text-sm text-[var(--fve-muted-text)]"
-                                      description
-                                  }
-                              | None -> ()
+                              NativeOverlay.closeButton id (id + "-close") "Close"
                           }
 
-                          NativeOverlay.closeButton id (id + "-close") "Close"
-                      }
-
                       div {
-                          _class "min-h-0 flex-1 overflow-y-auto p-5"
+                          _class (ComponentHtml.classes [
+                              "min-h-0 overflow-y-auto"
+                              if not footerAfterContent then "flex-1"
+                              if not navigation then
+                                  if footerAfterContent then "px-5 pt-5 pb-3" else "p-5" ])
                           body
                       }
 
-                      match Map.tryFind "footer" parts with
+                      match footer with
                       | Some footer -> footer
                       | None -> ()
                   } ]

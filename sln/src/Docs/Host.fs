@@ -39,6 +39,5 @@ let create (args: string array) routes =
             options.GetLevel <- fun context _ _ ->
                 if context.Request.Path.Value = "/health" then LogEventLevel.Verbose else LogEventLevel.Information)
         .UseStaticFiles() |> ignore
-    Example.Server.Host.useAssets app
     app.UseGiraffe(routes)
     app

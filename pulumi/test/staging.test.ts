@@ -84,7 +84,10 @@ const resourcesOfType = (type: string): RegisteredResource[] =>
 const envValue = (deployment: RegisteredResource, name: string): unknown =>
     deployment.inputs.spec.template.spec.containers[0].env.find((item: any) => item.name === name)?.value
 
-test('builds one immutable candidate image and publishes staging outputs', async () => {
+test('builds both immutable candidate images and publishes staging outputs', async () => {
+    const example = resource('docker-build:index:Image', 'fsharpviewengine-dev-example')
+    assert.equal(example.inputs.target, 'example')
+    assert.deepEqual(example.inputs.tags, [`us-east1-docker.pkg.dev/meiermade/fsharpviewengine/fsharpviewengine-example:${releaseCommit}`])
     const image = resource('docker-build:index:Image', 'fsharpviewengine-dev')
     assert.deepEqual(image.inputs.tags, [
         `us-east1-docker.pkg.dev/meiermade/fsharpviewengine/fsharpviewengine:${releaseCommit}`,
@@ -147,12 +150,15 @@ test('creates isolated Access, DNS, and tunnel resources for staging', () => {
         'fsharpviewengine-dev',
     )
     assert.equal(tunnelConfig.inputs.config.ingresses[0].hostname, 'fve.meiermade.net')
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].service, 'http://localhost:5000')
+    assert.equal(tunnelConfig.inputs.config.ingresses[0].service, 'http://fsharpviewengine-dev-example.fsharpviewengine-dev.svc.cluster.local:80')
+    assert.equal(tunnelConfig.inputs.config.ingresses[0].path, '^/examples/.+')
+    assert.equal(tunnelConfig.inputs.config.ingresses[1].service, 'http://localhost:5000')
+    assert.deepEqual(tunnelConfig.inputs.config.ingresses[0].originRequest, tunnelConfig.inputs.config.ingresses[1].originRequest)
     assert.equal(tunnelConfig.inputs.config.ingresses[0].originRequest.access.required, true)
     assert.deepEqual(tunnelConfig.inputs.config.ingresses[0].originRequest.access.audTags, [
         'fsharpviewengine-dev-audience',
     ])
-    assert.deepEqual(tunnelConfig.inputs.config.ingresses[1], { service: 'http_status:404' })
+    assert.deepEqual(tunnelConfig.inputs.config.ingresses[2], { service: 'http_status:404' })
 
     assert.equal(resourcesOfType('cloudflare:index/ruleset:Ruleset').length, 0)
 })

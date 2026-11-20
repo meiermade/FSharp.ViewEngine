@@ -2,12 +2,21 @@ import { test, expect } from '../fixture'
 
 test('HTML presentations retain their frame, numbering and accessible canvas across themes and sizes @cross-browser', async ({ page }) => {
   await page.goto('/examples/presentation')
-  await expect(page.getByRole('heading', { level: 1, name: 'Geldos · Treasury review', exact: true })).toBeVisible()
+  await expect(page.getByRole('heading', { level: 1, name: 'Geldos · Product overview', exact: true })).toBeVisible()
   const slides = page.locator('[data-fve-slide]')
-  await expect(slides).toHaveCount(5)
+  await expect(slides.getByRole('heading', { level: 2 })).toHaveText([
+    'Your financial operating system', 'Understand what changed', 'See where you stand',
+    'Compare what could happen', 'Explore Geldos',
+  ])
+  await expect(slides.getByRole('link', { name: 'Try the scenarios' })).toHaveAttribute('href', '/examples/application?account=101&comparison=optimistic')
+  await expect(slides.getByRole('link', { name: 'Application demo' })).toHaveAttribute('href', '/examples/application?account=101')
+  await expect(slides.getByRole('link', { name: 'API reference' })).toHaveAttribute('href', '/examples/api-documentation')
   await expect(page.locator('[data-fve-slide-number]')).toHaveText(['01', '02', '03', '04', '05'])
   for (const mode of ['light', 'dark']) {
     await page.evaluate(mode => (window as any).fveColorMode.set(mode), mode)
+    const captures = slides.locator('figure img:visible')
+    await expect(captures).toHaveCount(4)
+    await expect.poll(() => captures.evaluateAll(images => images.every(img => (img as HTMLImageElement).naturalWidth > 0))).toBe(true)
     for (const layout of [{ width: 1440, font: '100%' }, { width: 390, font: '100%' }, { width: 390, font: '200%' }]) {
       await page.setViewportSize({ width: layout.width, height: 1000 })
       await page.evaluate(font => { document.documentElement.style.fontSize = font }, layout.font)
@@ -71,14 +80,15 @@ test('Presentation viewer fits existing slides, supports keyboard controls and r
   await expect(previous).toBeHidden()
   await expect(next).toBeHidden()
   await expect(position).toBeHidden()
-  await page.locator('#cash-position > div').evaluate(el => {
+  const past = deck.locator('#product-past')
+  await past.locator(':scope > div').evaluate(el => {
     const note = document.createElement('input')
     note.setAttribute('aria-label', 'Review note')
     note.value = 'Keep this draft'
     el.append(note)
-    ;(window as any).originalCashSlide = document.querySelector('#cash-position')
+    ;(window as any).originalPastSlide = el.parentElement
   })
-  await page.locator('#cash-position').scrollIntoViewIfNeeded()
+  await past.scrollIntoViewIfNeeded()
   await expand.click()
   await expect(position).toHaveText('2 of 5')
   await expect(previous).toBeVisible()
@@ -111,16 +121,16 @@ test('Presentation viewer fits existing slides, supports keyboard controls and r
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 800 })
     await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
-    await expect.poll(() => page.locator('#cash-position').evaluate(el => {
+    await expect.poll(() => past.evaluate(el => {
       const r = el.getBoundingClientRect()
       return r.left >= -1 && r.right <= innerWidth + 1 && r.top >= 0 && r.bottom <= innerHeight + 1 && Math.abs(r.width / r.height - 16 / 9) < .01
     })).toBe(true)
     await expect.poll(async () => {
-      const slide = (await page.locator('#cash-position').boundingBox())!
+      const slide = (await past.boundingBox())!
       const button = (await restore.boundingBox())!
       return Math.abs(slide.x + slide.width - button.x - button.width)
     }).toBeLessThanOrEqual(1)
-    const slide = (await page.locator('#cash-position').boundingBox())!
+    const slide = (await past.boundingBox())!
     const restored = (await restore.boundingBox())!
     const gap = await page.evaluate(() => parseFloat(getComputedStyle(document.documentElement).fontSize))
     expect(slide.y - restored.y - restored.height).toBeCloseTo(gap, 0)
@@ -141,7 +151,7 @@ test('Presentation viewer fits existing slides, supports keyboard controls and r
   await expect(next).toBeHidden()
   await expect(position).toBeHidden()
   await expect(deck.getByRole('textbox', { name: 'Review note' })).toHaveValue('Keep this draft')
-  expect(await page.evaluate(() => (window as any).originalCashSlide === document.querySelector('#cash-position'))).toBe(true)
+  expect(await past.evaluate(el => (window as any).originalPastSlide === el)).toBe(true)
   await expand.click()
   await restore.click()
   await expect(expand).toBeFocused()
@@ -159,7 +169,7 @@ test('Presentation print layout uses full-size pages without host chrome or scro
     const page = await context.newPage()
     await page.goto('/examples/presentation')
     await page.emulateMedia({ media: 'print' })
-    await expect(page.getByRole('heading', { level: 1, name: 'Geldos · Treasury review', exact: true })).toBeHidden()
+    await expect(page.getByRole('heading', { level: 1, name: 'Geldos · Product overview', exact: true })).toBeHidden()
     await expect(page.locator('[data-fve-presentation-controls]')).toBeHidden()
     const frames = await page.locator('[data-fve-slide]').evaluateAll(elements => elements.map(el => {
       const box = el.getBoundingClientRect(), frame = el.closest('[data-fve-slide-frame]')!, body = el.children[1]
@@ -179,7 +189,7 @@ test('Presentation print layout uses full-size pages without host chrome or scro
       expect(frame.clipped).toBe(false)
     }
     await page.emulateMedia({ media: 'screen' })
-    await expect(page.getByRole('heading', { level: 1, name: 'Geldos · Treasury review', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { level: 1, name: 'Geldos · Product overview', exact: true })).toBeVisible()
   } finally { await context.close() }
 })
 
@@ -231,13 +241,13 @@ test('Slides render without JavaScript and surplus body content remains scrollab
   try {
     const page = await context.newPage()
     await page.goto('/examples/presentation')
-    const slide = page.locator('#cash-position')
-    await expect(slide.getByRole('heading', { name: 'Start with the current position.', exact: true })).toBeVisible()
+    const slide = page.locator('#product-past')
+    await expect(slide.getByRole('heading', { name: 'Understand what changed', exact: true })).toBeVisible()
     await expect(slide.locator('[data-fve-slide-number]')).toHaveText('02')
     const body = slide.locator(':scope > div')
     await slide.getByRole('heading', { level: 2 }).evaluate(el => { el.textContent = 'Review the current position against the decisions, constraints and commitments that shape the next quarter.' })
-    await slide.locator('header p').evaluate(el => { el.textContent = 'Keep a clear title and supporting context while sharing the same account model, reporting period and financial assumptions across every part of the conversation.' })
-    await slide.locator('footer > div').evaluate(el => { el.textContent += ' · Prepared for the treasury review using the same recorded balances and activity as the application. Assumptions and decisions remain consumer-owned.' })
+    await slide.locator('header p').last().evaluate(el => { el.textContent = 'Keep a clear title and supporting context while sharing the same account model, reporting period and financial assumptions across every part of the conversation.' })
+    await slide.locator('footer > div').evaluate(el => { el.textContent += ' · This sample uses the same recorded balances and activity as the application. The slide can be edited without changing the ledger.' })
     const regions = await slide.evaluate(el => {
       const body = el.children[1].getBoundingClientRect()
       return { header: el.querySelector('header')!.getBoundingClientRect().bottom, top: body.top, height: body.height, bottom: body.bottom, footer: el.querySelector('footer')!.getBoundingClientRect().top }
@@ -253,6 +263,6 @@ test('Slides render without JavaScript and surplus body content remains scrollab
     await body.scrollIntoViewIfNeeded()
     await body.evaluate(el => { el.scrollTop = el.scrollHeight })
     await expect(body.getByText('Additional note 40', { exact: true })).toBeInViewport()
-    await expect(slide.locator(':scope > footer')).toContainText('Source: Geldos example ledger')
+    await expect(slide.locator(':scope > footer')).toContainText('Geldos · Transactions')
   } finally { await context.close() }
 })

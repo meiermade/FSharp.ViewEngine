@@ -3,22 +3,22 @@ import AxeBuilder from '@axe-core/playwright'
 
 const crossBrowser = { tag: '@cross-browser' }
 
-test('flat component catalog preserves enhanced navigation and history', crossBrowser, async ({ page }) => {
+test('flat component catalog supports native navigation and history', crossBrowser, async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components')
-  await page.evaluate(() => { (window as any).catalogSession = 'retained' })
   const cards = page.locator('#page-content .docs-catalog-grid')
   for (const [name, path] of [['Button', '/components/button'], ['Page top bar', '/components/page-top-bar'], ['Field group', '/components/field-group']]) {
     await expect(cards.locator(`a[href="${path}"]`)).toHaveAccessibleName(new RegExp(`^${name} `))
   }
   await expect(cards.locator('a[href="/components/primitives"], a[href="/components/application"], a[href="/docs"]')).toHaveCount(0)
+  const destination = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/button')
   await cards.locator('a[href="/components/button"]').click()
+  expect((await destination).headers()['content-type']).toContain('text/html')
   await expect(page.getByRole('heading', { name: 'Button', level: 1, exact: true })).toBeVisible()
   await page.goBack()
   await expect(page).toHaveURL('/components')
   await expect(cards.locator('a[href="/components/button"]')).toBeVisible()
-  expect(await page.evaluate(() => (window as any).catalogSession)).toBe('retained')
   expect(errors).toEqual([])
 })
 
@@ -43,7 +43,7 @@ test('search reaches a dedicated component and Examples exposes the Geldos exper
   const popupPromise = page.waitForEvent('popup')
   await presentation.click()
   const popup = await popupPromise
-  await expect(popup.getByRole('heading', { name: 'Geldos · Treasury review', exact: true })).toBeVisible()
+  await expect(popup.getByRole('heading', { name: 'Geldos · Product overview', exact: true })).toBeVisible()
   await expect(popup.getByRole('link', { name: 'View example source on GitHub' })).toHaveAttribute('href', /^https:\/\/github\.com\/meiermade\/FSharp\.ViewEngine/)
   await expect(popup.getByRole('link', { name: 'Application', exact: true })).toHaveAttribute('href', '/examples/application')
   await popup.close()

@@ -205,7 +205,7 @@ test('Representative Components pages provide focused examples, navigation, inte
   const openPreview = (path: string, heading: string) => openComponentGallery(page, path, heading)
 
   await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
-  const formControls = page.getByLabel('Toggle Form controls section', { exact: true })
+  const formControls = page.locator('#side-nav').getByLabel('Toggle Form controls section', { exact: true })
   await expect(formControls).toHaveAttribute('aria-expanded', 'true')
   await formControls.click()
   await expect(formControls).toHaveAttribute('aria-expanded', 'false')
@@ -226,7 +226,7 @@ test('Representative Components pages provide focused examples, navigation, inte
   }
 
   await gotoAfterDocsAssetSettlement(page, '/components/select', 'domcontentloaded')
-  await expect(page.getByLabel('Toggle Components section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(page.locator('#side-nav').getByLabel('Toggle Components section', { exact: true })).toHaveAttribute('aria-expanded', 'true')
   await expect(formControls).toHaveAttribute('aria-expanded', 'false')
   await expect(page.locator('#nav-components-select')).toHaveAttribute('data-selected', 'true')
 
@@ -1133,7 +1133,7 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
   await page.keyboard.press('Escape')
   await expect(accountDrawerTrigger).toBeFocused()
 
-  await page.setViewportSize({ width: 1100, height: 600 })
+  await page.setViewportSize({ width: 1100, height: 1100 })
   await editorDrawerTrigger.click()
   await expect(editorDrawer.getByLabel('Name', { exact: true })).toBeFocused()
   const editorBox = await editorDrawer.boundingBox()
@@ -1141,7 +1141,15 @@ test('Dialogs and drawers preserve modal focus, safe confirmation, morphs, insta
   expect(editorBox!.width).toBeGreaterThan(384)
   expect(editorBox!.width).toBeLessThanOrEqual(672)
   const editorBody = editorDrawer.locator('#item-editor-form').locator('..')
-  const editorFooter = editorDrawer.getByRole('button', { name: 'Save changes', exact: true }).locator('../..')
+  const save = editorDrawer.getByRole('button', { name: 'Save changes', exact: true })
+  const editorFooter = save.locator('../..')
+  const editorFormBox = (await editorDrawer.locator('#item-editor-form').boundingBox())!
+  const tallSave = (await save.boundingBox())!
+  expect(tallSave.y - (editorFormBox.y + editorFormBox.height)).toBeGreaterThanOrEqual(0)
+  expect(tallSave.y - (editorFormBox.y + editorFormBox.height)).toBeLessThan(48)
+
+  await page.setViewportSize({ width: 1100, height: 600 })
+  await expect(save).toBeInViewport({ ratio: 1 })
   await expect.poll(() => editorBody.evaluate(element => element.scrollHeight - element.clientHeight)).toBeGreaterThan(0)
   const footerBeforeScroll = await editorFooter.boundingBox()
   await editorDrawer.getByLabel('Name', { exact: true }).fill('Project plan')
@@ -1194,10 +1202,10 @@ test('health and pinned application assets are available', async ({ request }) =
   expect(await css.text()).toContain('tailwindcss v4.2.2')
 
   const assets = [
-    ['/scripts/datastar.1.0.4.js', 'Datastar v1.0.4'],
-    ['/scripts/mermaid.11.16.1.min.js', 'mermaid'],
-    ['/scripts/prism.1.30.0.min.js', 'Prism'],
-    ['/scripts/prism-fsharp.1.30.0.min.js', 'fsharp'],
+    ['/js/datastar.1.0.4.js', 'Datastar v1.0.4'],
+    ['/js/mermaid.11.16.1.min.js', 'mermaid'],
+    ['/js/prism.1.30.0.min.js', 'Prism'],
+    ['/js/prism-fsharp.1.30.0.min.js', 'fsharp'],
     ['/css/prism-tomorrow.1.30.0.min.css', 'code[class*=language-]'],
     ['/fonts/noto-sans-latin.woff2', 'wOF2'],
     ['/fonts/noto-sans-mono-latin.woff2', 'wOF2'],
@@ -1207,6 +1215,10 @@ test('health and pinned application assets are available', async ({ request }) =
     const response = await request.get(path)
     expect(response.status(), path).toBe(200)
     expect((await response.text()).toLowerCase(), path).toContain(marker.toLowerCase())
+  }
+
+  for (const path of ['/scripts/prism.1.30.0.min.js', '/assets/app.js']) {
+    expect((await request.get(path)).status(), path).toBe(404)
   }
 })
 
@@ -1337,7 +1349,7 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/', { waitUntil: 'domcontentloaded' })
 
-  const drawer = page.locator('#side-nav')
+  const drawer = page.locator('#docs-mobile-navigation')
   const opener = page.getByRole('button', { name: 'Open navigation' })
   const close = page.getByRole('button', { name: 'Close navigation', exact: true })
   await expect(drawer).toBeHidden()
@@ -1345,7 +1357,8 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   await opener.click()
   await expect(drawer).toBeVisible()
   await expect(close).toBeFocused()
-  await expect(page.locator('#page-content')).toHaveAttribute('inert', '')
+  await expect(drawer).toHaveJSProperty('open', true)
+  await expect(drawer.locator(':scope:modal')).toHaveCount(1)
 
   await close.press('Shift+Tab')
   await expect(drawer.getByRole('link', { name: 'Examples', exact: true })).toBeFocused()
@@ -1355,10 +1368,9 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   await page.keyboard.press('Escape')
   await expect(drawer).toBeHidden()
   await expect(opener).toBeFocused()
-  await expect(page.locator('#page-content')).not.toHaveAttribute('inert', '')
 
   await opener.click()
-  await page.locator('[data-docs-overlay="true"]').click({ position: { x: 380, y: 400 } })
+  await page.mouse.click(380, 400)
   await expect(drawer).toBeHidden()
   await expect(opener).toBeFocused()
 
@@ -1372,7 +1384,8 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   await drawer.getByRole('link', { name: 'Installation', exact: true }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Installation', exact: true })).toBeVisible()
   await expect(drawer).toBeHidden()
-  await expect(page.locator('#page-content')).not.toHaveAttribute('inert', '')
+  await page.getByRole('link', { name: 'Skip to main content' }).press('Enter')
+  await expect(page.locator('#main-content')).toBeFocused()
 })
 
 test('component pages lead with an example, then installation, usage, variants, and API navigation @cross-browser', crossBrowser, async ({ page }) => {
@@ -1551,7 +1564,7 @@ test('rapid full-document navigation cancels old Prism loading without browser e
   const interceptReleased = new Promise<void>(resolve => { releaseIntercept = resolve })
   let markIntercepted = () => {}
   const prismIntercepted = new Promise<void>(resolve => { markIntercepted = resolve })
-  await page.route('**/scripts/prism*.js', async route => {
+  await page.route('**/js/prism*.js', async route => {
     if (!interceptedPrism) {
       interceptedPrism = route
       markIntercepted()
@@ -1584,14 +1597,14 @@ test('active-document Prism failures remain observable', async ({ page }) => {
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   )
-  await page.route('**/scripts/prism.1.30.0.min.js', route => route.abort('failed'))
+  await page.route('**/js/prism.1.30.0.min.js', route => route.abort('failed'))
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
 
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
 
   await expect(page.getByRole('heading', { level: 1, name: 'Custom Elements & Attributes' })).toBeVisible()
-  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.30.0.min.js'))).toBe(true)
+  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /js/prism.1.30.0.min.js'))).toBe(true)
 })
 
 test('hidden active-document Prism failures remain observable', crossBrowser, async ({ page }) => {
@@ -1601,14 +1614,14 @@ test('hidden active-document Prism failures remain observable', crossBrowser, as
   await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
     route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
   )
-  await page.route('**/scripts/prism.1.30.0.min.js', route => route.abort('failed'))
+  await page.route('**/js/prism.1.30.0.min.js', route => route.abort('failed'))
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
 
   await page.goto('/custom', { waitUntil: 'domcontentloaded' })
 
   expect(await page.evaluate(() => ({ visibility: document.visibilityState, unloading: (window as any).fsharpDocsCode?.unloading }))).toEqual({ visibility: 'hidden', unloading: false })
-  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /scripts/prism.1.30.0.min.js'))).toBe(true)
+  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /js/prism.1.30.0.min.js'))).toBe(true)
 })
 
 test('Code block guide renders plain output and highlights every documented language', async ({ page }) => {
@@ -1807,7 +1820,7 @@ test('delayed Mermaid loading shows accessible pending content and never raw sou
   let releaseAsset: (() => void) | undefined
   const assetGate = new Promise<void>(resolve => { releaseAsset = resolve })
   let intercepted = false
-  await page.route('**/scripts/mermaid.11.16.1.min.js', async route => {
+  await page.route('**/js/mermaid.11.16.1.min.js', async route => {
     intercepted = true
     await assetGate
     await route.continue()
@@ -1832,7 +1845,7 @@ test('delayed Mermaid loading shows accessible pending content and never raw sou
 test('an unavailable Mermaid asset shows the accessible deterministic failure state', async ({ page }) => {
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
-  await page.route('**/scripts/mermaid.11.16.1.min.js', route => route.abort('failed'))
+  await page.route('**/js/mermaid.11.16.1.min.js', route => route.abort('failed'))
 
   await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
@@ -1866,7 +1879,6 @@ test('a Mermaid render rejection shows the accessible failure state without an e
 test('pending diagrams render after Docs navigation through component-local initialization', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/components/code-block', { waitUntil: 'domcontentloaded' })
-  await page.evaluate(() => { (window as any).mermaidNavigationDocument = 'same-document' })
 
   await page.locator('#nav-components-mermaid').click()
   await expect(page).toHaveURL('/components/mermaid')
@@ -1874,7 +1886,6 @@ test('pending diagrams render after Docs navigation through component-local init
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
   await expect(diagram.locator('svg')).toBeVisible()
-  expect(await page.evaluate(() => (window as any).mermaidNavigationDocument)).toBe('same-document')
 
   await page.evaluate(async () => {
     const diagram = document.querySelector<HTMLElement>('main [data-docs-diagram="true"]')!
@@ -2117,7 +2128,7 @@ test('sitemap, robots, and social metadata expose canonical public discovery', a
 
   const robots = await request.get('/robots.txt')
   expect(robots.status()).toBe(200)
-  expect(await robots.text()).toBe(`User-agent: *\nAllow: /\nSitemap: ${productionOrigin}/sitemap.xml\n`)
+  expect(await robots.text()).toBe(`User-agent: *\nAllow: /\nSitemap: ${productionOrigin}/sitemap.xml\nSitemap: ${productionOrigin}/examples/sitemap.xml\n`)
 
   await page.goto('/getting-started/first-view', { waitUntil: 'domcontentloaded' })
   await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', `${productionOrigin}/getting-started/first-view`)

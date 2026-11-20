@@ -14,7 +14,7 @@ module internal ViewAccounts =
     let workflow: Workflow =
         { key = "accounts/view-accounts"
           label = "View accounts"
-          description = "Browse the type hierarchy, filter and sort accounts, and delete a keyed selection with confirmation."
+          description = "Browse the account hierarchy, filter and sort accounts, and delete a keyed selection with confirmation."
           states =
             [ state "default" "Hierarchy" ApplicationPage.Accounts []
               state "filter-added" "Type filter added" ApplicationPage.Accounts [ "filters", "accountType" ]
@@ -30,13 +30,7 @@ module internal ViewAccounts =
           sequence =
             selectionSequence
                 "/examples/application/accounts"
-                "type roots and matching accounts"
+                "root accounts and their matching branches"
                 "Accounts"
                 "accountIds"
-          rules =
-            collectionRules
-            @ [ "Type roots SHALL begin at hierarchy depth zero; accounts SHALL sit one level below their root."
-                "Search, type filter and sort SHALL be server-rendered URL controls."
-                "Record links SHALL identify the exact account and open View account."
-                "The application SHALL own keyed selection; the page SHALL own deletion, confirmation and feedback."
-                "Type-group checkboxes SHALL select their real descendant accounts, not submit group headings as records. Accounts with balances or recorded transactions SHALL block the entire deletion without partially deleting eligible records." ] }
+          requirements = [] }

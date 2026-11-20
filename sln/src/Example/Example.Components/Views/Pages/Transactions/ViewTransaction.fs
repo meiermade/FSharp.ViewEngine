@@ -14,7 +14,9 @@ open Controls
 module internal ViewTransaction =
     let transactionDetail (query: Query) id =
         let transaction = findTransaction id
-        let account = findAccount transaction.accountId
+        let accountLink accountId =
+            let account = findAccount accountId
+            Layout.inlineLink (applicationHref query (ApplicationPage.Account account.id)) account.name
 
         fveSectionStack {
             Layout.section "Details" (fveDescriptionList {
@@ -24,9 +26,13 @@ module internal ViewTransaction =
                 }
 
                 fveDescriptionListItem {
-                    _label "Account"
+                    _label "From account"
+                    accountLink transaction.fromAccountId
+                }
 
-                    Layout.inlineLink (applicationHref query (ApplicationPage.Account account.id)) account.name
+                fveDescriptionListItem {
+                    _label "To account"
+                    accountLink transaction.toAccountId
                 }
 
                 fveDescriptionListItem {
@@ -35,7 +41,7 @@ module internal ViewTransaction =
                 }
 
                 fveDescriptionListItem {
-                    _label "Verification"
+                    _label "Status"
                     statusBadge transaction.status
                 }
 

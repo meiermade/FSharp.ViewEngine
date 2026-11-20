@@ -67,12 +67,13 @@ test('row-action recipes retain compact height, comfortable content and working 
     ['/components/table', '#components-table-row-actions', 32],
   ]) {
     await page.goto(path)
+    if (selector === 'main') await page.getByRole('button', { name: 'Expand Expenses', exact: true }).click()
     const trigger = page.locator(selector).getByRole('button', { name: 'Actions for Unassigned expense', exact: true })
     await expect(trigger).toHaveCSS('width', `${width}px`)
     await expect(trigger).toHaveCSS('height', '28px')
     await expect(trigger.locator('svg')).toHaveCSS('width', '16px')
     await trigger.click()
-    const entry = page.getByRole('menuitem', { name: 'Open account', exact: true })
+    const entry = page.getByRole('menuitem', { name: selector === 'main' ? 'Create child' : 'Open account', exact: true })
     await expect(entry).toHaveCSS('font-size', '14px')
     await page.keyboard.press('Escape')
     await expect(trigger).toBeFocused()
@@ -105,7 +106,7 @@ test('linked detail and table values align with their labels without action padd
     await page.setViewportSize({ width, height: 1000 })
     await page.emulateMedia({ colorScheme: width === 390 ? 'dark' : 'light' })
     await page.goto('/examples/application/transactions/201')
-    const accountField = page.locator('dl > div').filter({ has: page.locator('dt').filter({ hasText: /^Account$/ }) })
+    const accountField = page.locator('dl > div').filter({ has: page.locator('dt').filter({ hasText: /^To account$/ }) })
     const account = accountField.getByRole('link', { name: 'Operating checking', exact: true })
     await expect(account).toHaveCSS('padding-left', '0px')
     await expect(account).toHaveCSS('padding-top', '0px')

@@ -26,6 +26,7 @@ let testsDir = srcDir </> "Tests"
 let docsDir = srcDir </> "Docs"
 let docsTestsDir = srcDir </> "Docs.Tests"
 let exampleServerDir = srcDir </> "Example" </> "Example.Server"
+let mockCloudflareDir = srcDir </> "MockCloudflareProxy"
 let cliTestsDir = srcDir </> "FSharp.ViewEngine.Cli.Tests"
 let buildTestsDir = srcDir </> "Build.Tests"
 let benchmarksDir = srcDir </> "Benchmarks"
@@ -54,8 +55,26 @@ let frontendTool directory name =
 
 let buildDocsJs watch =
     exec docsDir (frontendTool slnDir "esbuild")
-        (["js/app.js"; "js/appearance.js"; "--bundle"; "--format=esm"; "--splitting";
-          "--outdir=wwwroot/assets"; "--metafile=obj/components-assets.json"; "--minify"]
+        (["js/app.js"; "--bundle"; "--format=esm"; "--splitting";
+          "--outdir=wwwroot/js"; "--metafile=obj/components-assets.json"; "--minify"]
+         @ (if watch then ["--watch=forever"] else []))
+
+let buildExampleJs watch =
+    let assets = Path.getDirectory exampleServerDir </> "Example.Components" </> "Components" </> "Assets"
+    let output = "wwwroot/js"
+    // Keep the runtime and lazy renderer as single, unmodified browser modules at their existing URLs.
+    let vendorModules = [ "datastar-rocket.*.js"; "echarts.*.esm.min.js" ]
+    let staticAssets = vendorModules @ [ "*.txt"; "*.json" ]
+    let outputDir = exampleServerDir </> output
+    Directory.ensure outputDir
+    for pattern in staticAssets do
+        for file in System.IO.Directory.EnumerateFiles(assets, pattern) do
+            System.IO.File.Copy(file, outputDir </> System.IO.Path.GetFileName(file), true)
+
+    exec exampleServerDir (frontendTool slnDir "esbuild")
+        (["js/app.js"; assets </> "chart.js"; "--bundle"; "--format=esm"; "--external:./chart.js";
+          $"--outdir={output}"; "--entry-names=[name]"; "--minify"]
+         @ (vendorModules |> List.map (fun filename -> $"--external:./{filename}"))
          @ (if watch then ["--watch=forever"] else []))
 
 let tailwindcss toolsDirectory workDir args =
@@ -100,7 +119,7 @@ let getVersion () =
 
 let corePaths = [ "sln/src/FSharp.ViewEngine" ]
 let cliPaths = [ "sln/src/FSharp.ViewEngine.Cli"; "sln/src/FSharp.ViewEngine.Components" ]
-let docsPaths = [ "sln/src/Docs"; "sln/src/FSharp.ViewEngine.Components"; "sln/src/FSharp.ViewEngine"; "sln/src/Build"; "sln/Dockerfile"; "sln/package.json"; "sln/package-lock.json" ]
+let docsPaths = [ "sln/src/Docs"; "sln/src/Docs.Components"; "sln/src/Example"; "pulumi"; "sln/src/FSharp.ViewEngine.Components"; "sln/src/FSharp.ViewEngine"; "sln/src/Build"; "sln/Dockerfile"; "sln/package.json"; "sln/package-lock.json" ]
 
 Target.create "ResolveReleaseTransaction" <| fun _ ->
     let requested = Environment.environVarOrDefault "PACKAGE_SELECTION" "auto"
@@ -120,7 +139,7 @@ Target.create "ResolveReleaseTransaction" <| fun _ ->
             PackagePublishing.runProcess false "gh" ["run"; "download"; runId; "--repo"; githubRepository; "--name"; planName; "--dir"; System.IO.Path.GetDirectoryName planPath] |> ignore
             PackagePublishing.readPlan planPath
         else
-            let commit,image = PackagePublishing.acceptedCandidate releaseRepository githubRepository
+            let commit,image,exampleImage = PackagePublishing.acceptedCandidate releaseRepository githubRepository
             PackagePublishing.runProcess false "git" ["-C"; releaseRepository; "fetch"; "origin"; "main"; "--no-tags"] |> ignore
             PackagePublishing.runProcess false "git" ["-C"; releaseRepository; "merge-base"; "--is-ancestor"; commit; "origin/main"] |> ignore
             // The selected source must contain this release workflow/automation revision.
@@ -137,14 +156,18 @@ Target.create "ResolveReleaseTransaction" <| fun _ ->
                     |> System.String.IsNullOrWhiteSpace |> not
             let coreVersions = if requested = "cli" || requested = "docs" then [] else PackagePublishing.publishedVersions PackagePublishing.Package.ViewEngine
             let cliVersions = if requested = "core" || requested = "docs" then [] else PackagePublishing.publishedVersions PackagePublishing.Package.Cli
-            let plan = PackagePublishing.planRelease requested commit image System.DateTimeOffset.UtcNow coreState cliState docsChanged coreVersions cliVersions
+            let plan =
+                { PackagePublishing.planRelease requested commit image System.DateTimeOffset.UtcNow coreState cliState docsChanged coreVersions cliVersions with
+                    exampleImage = exampleImage }
             PackagePublishing.writePlan planPath plan
             plan
     PackagePublishing.validatePinnedPlan requested plan.commit plan
+    if System.String.IsNullOrEmpty plan.exampleImage || not (Regex.IsMatch(plan.exampleImage, "@sha256:[a-f0-9]{64}$")) then
+        failwith "The pinned release requires the accepted immutable Example image."
     PackagePublishing.runProcess false "git" ["-C"; releaseRepository; "checkout"; "--detach"; plan.commit] |> ignore
     let outputPath = Environment.environVarOrFail "GITHUB_OUTPUT"
     System.IO.File.AppendAllLines(outputPath, [
-        $"commit={plan.commit}"; $"image={plan.image}"; $"packages={plan.packages}"
+        $"commit={plan.commit}"; $"image={plan.image}"; $"exampleImage={plan.exampleImage}"; $"packages={plan.packages}"
         $"coreVersion={plan.coreVersion}"; $"cliVersion={plan.cliVersion}"
         $"docsCoreVersion={plan.docsCoreVersion}"; $"docsCliVersion={plan.docsCliVersion}"
         $"promoteDocs={string plan.promoteDocs |> _.ToLowerInvariant()}"
@@ -155,7 +178,7 @@ Target.create "ResolveReleaseTransaction" <| fun _ ->
 Target.create "WriteReleasePreviewSummary" <| fun _ ->
     let plan = PackagePublishing.readPlan (Environment.environVarOrFail "RELEASE_PLAN_PATH")
     for name, expected in [
-        "DEPLOY_IMAGE", plan.image; "RELEASE_COMMIT", plan.commit
+        "DEPLOY_IMAGE", plan.image; "DEPLOY_EXAMPLE_IMAGE", plan.exampleImage; "RELEASE_COMMIT", plan.commit
         "CORE_PACKAGE_VERSION", plan.docsCoreVersion; "CLI_PACKAGE_VERSION", plan.docsCliVersion
         "PROMOTE_DOCS", plan.promoteDocs.ToString().ToLowerInvariant() ] do
         if Environment.environVarOrFail name <> expected then
@@ -302,6 +325,7 @@ Target.create "Test" <| fun _ ->
     // Release callers use --single-target, so Test owns its asset prerequisites too.
     restoreFrontendTools slnDir
     buildDocsJs false |> Async.RunSynchronously
+    buildExampleJs false |> Async.RunSynchronously
     dotnet docsTestsDir ["run"]
     |> Async.RunSynchronously
 
@@ -389,6 +413,7 @@ Target.create "RestoreFrontendTools" (fun _ -> restoreFrontendTools slnDir)
 Target.create "RestoreExampleFrontend" (fun _ -> restoreFrontendTools exampleServerDir)
 
 Target.create "BuildDocsJs" (fun _ -> buildDocsJs false |> Async.RunSynchronously)
+Target.create "BuildExampleJs" (fun _ -> buildExampleJs false |> Async.RunSynchronously)
 
 Target.create "VerifyTailwind" (fun _ ->
     TailwindContracts.verify
@@ -398,24 +423,53 @@ Target.create "VerifyTailwind" (fun _ ->
         (srcDir </> "FSharp.ViewEngine.Components"))
 
 Target.create "WatchDocs" (fun _ ->
-    let docsUrl = WatchDocs.defaultUrl
+    let reviewUrl = WatchDocs.defaultUrl
+    let exampleUrl = "http://127.0.0.1:5055"
+    let docsUrl = "http://127.0.0.1:5056"
 
-    WatchDocs.runExclusiveWatcher "WatchDocs" docsUrl <| fun () ->
-        Trace.trace $"Starting the FSharp.ViewEngine Docs at {docsUrl}"
+    WatchDocs.runExclusiveWatcher "WatchDocs" reviewUrl <| fun () ->
+        WatchDocs.ensureLoopbackUrlAvailable "Example.Server" exampleUrl
+        WatchDocs.ensureLoopbackUrlAvailable "Docs" docsUrl
+        Trace.trace $"Starting the FSharp.ViewEngine Docs at {reviewUrl}"
         // Restore only after replacing the previous watcher, which may still hold these tools open.
         restoreFrontendTools slnDir
         restoreFrontendTools exampleServerDir
         buildDocsJs false |> Async.RunSynchronously
+        buildExampleJs false |> Async.RunSynchronously
 
         let watchApp =
             CreateProcess.fromRawCommand "dotnet"
-                ["watch"; "run"; "--no-restore"; "--no-launch-profile"; "--non-interactive"]
+                ["watch"; "run"; "--no-launch-profile"; "--non-interactive"]
             |> CreateProcess.setEnvironmentVariable "DOCS_SERVER_URL" docsUrl
-            |> CreateProcess.setEnvironmentVariable "DOCS_PUBLIC_ORIGIN" docsUrl
+            |> CreateProcess.setEnvironmentVariable "DOCS_PUBLIC_ORIGIN" reviewUrl
             |> CreateProcess.setEnvironmentVariable "ASPNETCORE_ENVIRONMENT" "Development"
             // Avoid recursive native FileSystemWatcher failures on macOS.
             |> CreateProcess.setEnvironmentVariable "DOTNET_USE_POLLING_FILE_WATCHER" "1"
             |> CreateProcess.withWorkingDirectory docsDir
+            |> CreateProcess.ensureExitCode
+            |> Proc.start
+            |> Async.AwaitTask
+            |> Async.Ignore
+
+        let watchExample =
+            CreateProcess.fromRawCommand "dotnet" ["watch"; "run"; "--no-launch-profile"; "--non-interactive"]
+            |> CreateProcess.setEnvironmentVariable "ASPNETCORE_URLS" exampleUrl
+            |> CreateProcess.setEnvironmentVariable "EXAMPLE_PUBLIC_ORIGIN" reviewUrl
+            |> CreateProcess.setEnvironmentVariable "ASPNETCORE_ENVIRONMENT" "Development"
+            |> CreateProcess.setEnvironmentVariable "DOTNET_USE_POLLING_FILE_WATCHER" "1"
+            |> CreateProcess.withWorkingDirectory exampleServerDir
+            |> CreateProcess.ensureExitCode
+            |> Proc.start
+            |> Async.AwaitTask
+            |> Async.Ignore
+
+        let watchProxy =
+            CreateProcess.fromRawCommand "dotnet" ["watch"; "run"; "--no-launch-profile"; "--non-interactive"]
+            |> CreateProcess.setEnvironmentVariable "ASPNETCORE_URLS" reviewUrl
+            |> CreateProcess.setEnvironmentVariable "MOCK_CLOUDFLARE_DOCS_ORIGIN" docsUrl
+            |> CreateProcess.setEnvironmentVariable "MOCK_CLOUDFLARE_EXAMPLE_ORIGIN" exampleUrl
+            |> CreateProcess.setEnvironmentVariable "DOTNET_USE_POLLING_FILE_WATCHER" "1"
+            |> CreateProcess.withWorkingDirectory mockCloudflareDir
             |> CreateProcess.ensureExitCode
             |> Proc.start
             |> Async.AwaitTask
@@ -429,12 +483,13 @@ Target.create "WatchDocs" (fun _ ->
 
         let watchExampleCss =
             tailwindcss exampleServerDir srcDir
-                [ "--input"; "Example/Example.Server/input.css"; "--output"; "Example/Example.Server/wwwroot/examples/assets/css/output.css"
+                [ "--input"; "Example/Example.Server/input.css"; "--output"; "Example/Example.Server/wwwroot/css/output.css"
                   "--watch=always"; "--minify" ]
 
         let watchJs = buildDocsJs true
+        let watchExampleJs = buildExampleJs true
 
-        Async.Parallel [| watchApp; watchCss; watchExampleCss; watchJs |]
+        Async.Parallel [| watchProxy; watchApp; watchExample; watchCss; watchExampleCss; watchJs; watchExampleJs |]
         |> Async.RunSynchronously
         |> ignore
 )
@@ -452,7 +507,11 @@ Target.create "BuildDocsCss" <| fun _ ->
     |> Async.RunSynchronously
 
 Target.create "BuildExampleCss" <| fun _ ->
-    tailwindcss exampleServerDir exampleServerDir [ "--input"; "input.css"; "--output"; "wwwroot/examples/assets/css/output.css"; "--minify" ]
+    tailwindcss exampleServerDir exampleServerDir [ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ]
+    |> Async.RunSynchronously
+
+Target.create "PublishExample" <| fun _ ->
+    dotnet exampleServerDir [ "publish"; "--output"; "./out"; "--self-contained"; "false" ]
     |> Async.RunSynchronously
 
 Target.create "PublishDocs" <| fun _ ->
@@ -470,11 +529,13 @@ Target.create "Default" (fun _ -> Target.listAvailable())
 "Pack" ==>! "VerifyPackage"
 "RestoreFrontendTools" ==>! "BuildDocsCss"
 "RestoreFrontendTools" ==>! "BuildDocsJs"
+"RestoreFrontendTools" ==>! "BuildExampleJs"
 "RestoreFrontendTools" ==>! "VerifyTailwind"
 "RestoreExampleFrontend" ==>! "BuildExampleCss"
 "BuildDocsCss" ==>! "PublishDocs"
 "BuildDocsJs" ==>! "PublishDocs"
-"BuildExampleCss" ==>! "PublishDocs"
+"BuildExampleJs" ==>! "PublishExample"
+"BuildExampleCss" ==>! "PublishExample"
 "VerifyTailwind" ==>! "PublishDocs"
 "CheckInstalledComponents" ==>! "Test"
 

@@ -46,11 +46,17 @@ rocket('fve-calendar-selection', {
       const popup = host.closest('[popover]');
       if (popup) { popup.hidePopover(); [...document.querySelectorAll('[popovertarget]')].find(control => control.getAttribute('popovertarget') === popup.id)?.focus(); }
     };
-    const notify = () => host.dispatchEvent(new CustomEvent('fve-calendar-change', { bubbles: true, detail: { start: $$.start, end: $$.end } }));
-    const commit = (start, end, complete) => {
-      $$.start = start; $$.end = end; synchronize(); notify();
+    const commit = (start, end, complete, preset = false) => {
+      $$.start = start; $$.end = end; synchronize();
+      host.dispatchEvent(new CustomEvent('fve-calendar-change', { bubbles: true, detail: { start, end, ...(preset && { preset }) } }));
       if (complete) close();
     };
+    host.addEventListener('fve-calendar-preset', event => {
+      const { start, end } = event.detail;
+      if (!settings.range || settings.readOnly || blocked(start) || blocked(end)) return;
+      changeMonth(end.slice(0, 7));
+      commit(start, end, true, true);
+    }, options);
     host.addEventListener('click', event => {
       if (settings.readOnly && event.target.closest('[role=gridcell],[data-fve-calendar-action=clear],[data-fve-calendar-action=today]')) event.preventDefault();
     }, { ...options, capture: true });

@@ -1,5 +1,26 @@
 import { test, expect } from '@playwright/test'
 
+test('Ghost reset retains native styling and behavior without JavaScript @cross-browser', async ({ browser, baseURL }) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, baseURL })
+  try {
+    const page = await context.newPage()
+    await page.goto('/components/button')
+    const preview = page.locator('#components-button-native-reset-panel-preview')
+    const field = preview.getByRole('textbox', { name: 'Example name', exact: true })
+    const reset = preview.getByRole('button', { name: 'Reset', exact: true })
+    await expect(reset).toHaveCSS('height', '32px')
+    await expect(reset).toHaveCSS('padding-left', '10px')
+    await expect(reset).toHaveCSS('box-shadow', 'none')
+    await field.fill('Changed')
+    await reset.click()
+    await expect(field).toHaveValue('Example')
+    await page.keyboard.press('Tab')
+    await reset.focus()
+    await expect(reset).toBeFocused()
+    await expect.poll(() => reset.evaluate(el => getComputedStyle(el).boxShadow)).not.toBe('none')
+  } finally { await context.close() }
+})
+
 test('Rocket Button keeps native validation, submitter overrides, reset and disabled fieldsets @cross-browser', async ({ page }) => {
   await page.goto('/components/button')
   await page.evaluate(() => {
@@ -95,11 +116,10 @@ test('Application submit uses shared Button padding and native GET semantics wit
     await apply.click()
     await expect(page).toHaveURL(url => url.searchParams.get('range') === '90')
     await expect(page.getByRole('heading', { name: 'Home', level: 1, exact: true })).toBeVisible()
-    const dates = page.getByRole('form', { name: 'Chart date range', exact: true })
-    await dates.getByLabel('Start date', { exact: true }).fill('2026-09-14')
-    await dates.getByLabel('End date', { exact: true }).fill('2026-09-17')
-    await dates.getByRole('button', { name: 'Apply range', exact: true }).click()
-    await expect(page).toHaveURL(url => url.searchParams.get('startDate') === '2026-09-14' && url.searchParams.get('endDate') === '2026-09-17')
+    await form.getByLabel('Start date', { exact: true }).fill('2026-09-14')
+    await form.getByLabel('End date', { exact: true }).fill('2026-09-17')
+    await apply.click()
+    await expect(page).toHaveURL(url => url.searchParams.get('nativeStartDate') === '2026-09-14' && url.searchParams.get('nativeEndDate') === '2026-09-17')
   } finally { await context.close() }
 })
 
@@ -110,7 +130,7 @@ test('new Rocket buttons keep their settled border during Dialog/Drawer navigati
   await expect(drawer).toBeVisible()
   await expect.poll(() => drawer.evaluate(button => button.getAnimations().length)).toBe(0)
   const border = await drawer.evaluate(button => getComputedStyle(button).borderTopColor)
-  await page.evaluate(() => {
+  await page.addInitScript(() => {
     const state = window as Window & { buttonEntryFrames: { id: string; border: string }[]; buttonEntrySampling: boolean }
     state.buttonEntryFrames = []
     state.buttonEntrySampling = true
@@ -123,19 +143,18 @@ test('new Rocket buttons keep their settled border during Dialog/Drawer navigati
     }
     requestAnimationFrame(sample)
   })
+  const frames: { id: string; border: string }[] = []
   for (const component of ['dialog', 'drawer', 'dialog', 'drawer']) {
-    const root = page.locator('[data-fve-navigation-root]')
-    const previousDocument = await root.getAttribute('data-navigation-document')
     await page.locator(`#nav-components-${component}`).click()
-    await expect.poll(() => root.getAttribute('data-navigation-document')).not.toBe(previousDocument)
+    await expect(page).toHaveURL(`/components/${component}`)
     await expect(page.getByRole('button', { name: `Open ${component}`, exact: true })).toBeVisible()
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
+    frames.push(...await page.evaluate(() => {
+      const state = window as Window & { buttonEntryFrames: { id: string; border: string }[]; buttonEntrySampling: boolean }
+      state.buttonEntrySampling = false
+      return state.buttonEntryFrames
+    }))
   }
-  const frames = await page.evaluate(() => {
-    const state = window as Window & { buttonEntryFrames: { id: string; border: string }[]; buttonEntrySampling: boolean }
-    state.buttonEntrySampling = false
-    return state.buttonEntryFrames
-  })
   expect(new Set(frames.map(frame => frame.id))).toEqual(new Set(['default-dialog-trigger', 'default-drawer-trigger']))
   expect(frames.filter(frame => frame.border !== border)).toEqual([])
   await page.mouse.move(0, 0)

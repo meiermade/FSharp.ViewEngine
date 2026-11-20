@@ -89,7 +89,6 @@
       <Compile Include="Components/Icon.fs" />
       <Compile Include="Components/Slide.fs" />
       <Compile Include="Components/Presentation.fs" />
-      <None Include="fve.json" />
       <None Include="Components/Assets/datastar-LICENSE.txt" />
       <None Include="Components/Assets/datastar-rocket.1.0.4.js" />
       <None Include="Components/Assets/code-block.js" />
@@ -137,6 +136,7 @@
       <None Include="Components/Assets/bootstrap-icons-LICENSE.txt" />
       <None Include="Components/Assets/bootstrap-icons.1.13.1.provenance.json" />
       <None Include="Components/Assets/presentation.js" />
+      <None Include="fve.json" />
   </ItemGroup>
   <!-- fve:components:end -->
   <ItemGroup>

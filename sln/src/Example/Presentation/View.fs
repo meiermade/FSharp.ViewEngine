@@ -2,115 +2,129 @@ namespace Example.Presentation
 
 open FSharp.ViewEngine
 open Example.Components
-open Ledger.Domain
 open type Html
 
 module View =
-    let private heading (title:string) (subtitle:string) =
-        fveSlideHeader {
-            fveSlideTitle { title }
-            fveSlideSubtitle { subtitle }
-        }
+    let title = "Geldos · Product overview"
 
-    let private money (value:decimal) = value.ToString("C0", System.Globalization.CultureInfo.GetCultureInfo "en-US")
+    let private logo source (classes: string) =
+        img { _src source; _alt ""; _width "24"; _height "24"; _class classes }
 
-    let private metric (label:string) (value:string) (description:string) =
-        div {
-            _class "grid content-start gap-[1cqw] border-t-4 border-[var(--fve-brand-text)] pt-[1.5cqw]"
-            dt { _class "text-[length:1.25cqw] text-[var(--fve-muted-text)]"; label }
-            dd {
-                _class "m-0 grid gap-[1cqw]"
-                strong { _class "text-[length:3cqw] font-semibold tracking-tight"; value }
-                p { _class "text-[length:1.25cqw] text-[var(--fve-muted-text)]"; description }
-            }
-        }
-
-    let private reviewSlide (attributes:HtmlAttribute list) (footer:string) (children:HtmlElement list) =
+    let private slide logoSource (id: string) (chapter: string) (footer: string) (content: HtmlElement) =
         fveSlide {
-            yield! attributes
-            fveSlideBranding { strong { _class "text-[length:1.5625cqw] tracking-tight"; "Geldos" } }
-            fveSlideFooter { footer }
-            yield! children
+            _id id
+            fveSlideHeader {
+                p { _class "m-0 text-[length:1.25cqw] font-semibold uppercase tracking-widest text-[var(--fve-brand-text)]"; text chapter }
+            }
+            fveSlideBranding {
+                strong {
+                    _class "flex items-center gap-[0.4cqw] text-[length:1.5625cqw] tracking-tight"
+                    logo logoSource "size-[2.25cqw] shrink-0"
+                    "Geldos"
+                }
+            }
+            fveSlideFooter { text footer }
+            content
         }
 
-    let deck =
-        let account = initialRecords.accounts |> List.find (fun row -> row.id = 101)
-        let home = Ledger.Home.readHome { records=initialRecords; account="101"; period="90"; comparison="expected"; startDate=""; endDate="" }
+    let private titleBlock (headline: string) (description: string) =
+        fragment {
+            fveSlideTitle {
+                _class "max-w-[32cqw] text-balance font-serif text-[length:4.35cqw] font-medium leading-[1.05] tracking-tight"
+                text headline
+            }
+            p { _class "m-0 max-w-[30cqw] text-[length:1.8cqw] leading-snug text-[var(--fve-muted-text)]"; text description }
+        }
+
+    let private productVisual hosted asset name (width: string) (height: string) (description: string) =
+        figure {
+            _class "m-0 min-w-0 rounded-[1.25cqw] bg-[var(--fve-brand-subtle)] p-[1.4cqw]"
+            for mode in (if hosted then ["light"; "dark"] else ["light"]) do
+                img {
+                    _src (asset $"presentation/{name}-{mode}.webp")
+                    _alt description
+                    _width width; _height height
+                    _class (
+                        "h-auto w-full rounded-[0.65cqw] border border-[var(--fve-border)] bg-[var(--fve-surface)] shadow-sm "
+                        + (if not hosted then "block" elif mode = "light" then "block dark:hidden" else "hidden dark:block"))
+                }
+        }
+
+    let private split (copy: HtmlElement) (visual: HtmlElement) =
+        fveSlideContent {
+            _class "grid grid-cols-[minmax(0,5fr)_minmax(0,9fr)] items-center gap-[3cqw]"
+            div { _class "grid content-center justify-items-start gap-[1.8cqw]"; copy }
+            visual
+        }
+
+    let private primaryLink (href: string) (label: string) =
+        a {
+            _href href
+            _class "inline-flex items-center rounded-[0.5cqw] bg-[var(--fve-brand-text)] px-[1.3cqw] py-[0.65cqw] font-semibold text-[var(--fve-surface)] no-underline hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4"
+            text label
+        }
+
+    let deck hosted asset =
+        let logoSource = asset "geldos.svg"
+        let productSlide = slide logoSource
+        let visual name description = productVisual hosted asset name "1368" "810" description
         fvePresentation {
-            _label "Geldos treasury review"
-            _style "--fve-slide-cover-background:#141414"
-            reviewSlide [_id "review-cover"; _variant SlideVariant.Cover] "Geldos · Treasury review · September 2026" [
-                fveSlideHeader {
-                    fveSlideTitle {
-                        span { _class "block"; "Know your position." }
-                        span { _class "block"; "Choose your next move." }
-                    }
-                    fveSlideSubtitle { "A treasury review built around one financial record." }
-                }
-                fveSlideContent {
-                    p { _class "max-w-[58cqw] pt-[5cqw] text-[length:2.5cqw] leading-snug"; "From today's cash position to the decisions that shape the next quarter." }
-                }
-            ]
-            reviewSlide [_id "cash-position"] "Source: Geldos example ledger · 90 days ending September 18, 2026" [
-                heading "Start with the current position." "The same accounts and activity used throughout Geldos."
-                fveSlideContent {
-                    dl {
-                        _class "grid grid-cols-3 gap-[3cqw] pt-[4cqw]"
-                        metric account.name (money (balance initialRecords account)) "Opening balance plus recorded activity."
-                        metric "Activity in the period" (string home.transactions.Length) "Transactions within the selected 90-day window."
-                        metric "Ledger accounts" (string initialRecords.accounts.Length) "One chart of accounts for the whole organization."
-                    }
-                }
-            ]
-            reviewSlide [_id "decision-flow"] "Geldos · Treasury review · September 2026" [
-                heading "Turn the ledger into a decision." "A simple sequence keeps the conversation focused."
-                fveSlideContent {
-                    ol {
-                        _class "grid list-none grid-cols-3 gap-[2cqw] p-0 pt-[3cqw]"
-                        for number, title, description in
-                            [ "01", "Understand", "Review balances and identify the movements behind them."
-                              "02", "Compare", "Use a common period and explicit scenario for every option."
-                              "03", "Decide", "Record the next action and the evidence that supports it." ] do
-                            li {
-                                _class "grid content-start gap-[1cqw] border-t border-[var(--fve-border)] pt-[1.5cqw]"
-                                span { _class "text-[length:3cqw] font-semibold text-[var(--fve-brand-text)]"; number }
-                                h3 { _class "m-0 text-[length:2cqw] font-semibold"; title }
-                                p { _class "m-0"; description }
+            _label "Geldos product overview"
+            productSlide "product-cover" "Product overview" "Geldos" (
+                split
+                    (titleBlock "Your financial operating system" "Banking, investing, accounting and planning in one place.")
+                    (productVisual hosted asset "overview" "1728" "972" "Geldos Home with the balance for Operating checking and a chart of actual and expected balances."))
+            productSlide "product-past" "Past" "Geldos · Transactions" (
+                split
+                    (titleBlock "Understand what changed" "See the money coming in and going out. Trace each change back to the transaction behind it.")
+                    (visual "transactions" "Transactions for Operating checking include a $3,200 client payment and an $89 cloud hosting expense."))
+            productSlide "product-present" "Present" "Geldos · Accounts" (
+                split
+                    (titleBlock "See where you stand" "See balances across your ledger, then open a group to see the accounts that make up its total.")
+                    (visual "accounts" "The Accounts hierarchy shows Operating checking, Savings and Tax reserve under Assets and the business credit card under Liabilities."))
+            productSlide "product-future" "Future" "Geldos · Home" (
+                split
+                    (fragment {
+                        yield titleBlock "Compare what could happen" "Start from the same account balance and switch scenarios to see how different assumptions change the outlook."
+                        if hosted then yield primaryLink "/examples/application?account=101&comparison=optimistic" "Try the scenarios"
+                    })
+                    (visual "scenarios" "Home’s balance chart shows recorded activity and the optimistic scenario for Operating checking over the same 90-day window."))
+            productSlide "product-explore" "Next step" "Geldos" (
+                split
+                    (fragment {
+                        yield titleBlock "Explore Geldos" "Open the example ledger, or see how the same accounts and transactions are represented in the API."
+                        if hosted then
+                            yield div {
+                                _class "flex flex-wrap items-center gap-x-[1.5cqw] gap-y-[0.75cqw]"
+                                primaryLink "/examples/application?account=101" "Application demo"
+                                a {
+                                    _href "/examples/api-documentation"
+                                    _class "text-[var(--fve-brand-text)] underline decoration-1 underline-offset-4 focus-visible:outline-2 focus-visible:outline-offset-4"
+                                    "API reference"
+                                }
                             }
-                    }
-                }
-            ]
-            reviewSlide [_id "compare-options"] "Geldos · Treasury review · September 2026" [
-                heading "Compare options on equal terms." "Two directions, one set of assumptions."
-                fveSlideContent {
-                    div {
-                        _class "grid h-full grid-cols-2 gap-[3cqw]"
-                        for title, points in
-                            [ "Retain liquidity", ["Keep cash available for near-term commitments."; "Preserve flexibility while the outlook changes."]
-                              "Put cash to work", ["Match planned outflows to the same dated ledger."; "Compare expected returns with the cost of reduced flexibility."] ] do
-                            section {
-                                _class "grid content-start gap-[1.5cqw] border-t-4 border-[var(--fve-brand-text)] bg-[var(--fve-surface-subtle)] p-[2cqw]"
-                                h3 { _class "m-0 text-[length:2.5cqw] font-semibold"; title }
-                                ul { _class "grid list-disc gap-[1.5cqw] pl-[2cqw]"; for point in points do li { point } }
-                            }
-                    }
-                }
-            ]
-            reviewSlide [_id "review-close"; _variant SlideVariant.Cover] "Geldos · Treasury review · September 2026" [
-                heading "Make the next action explicit." "A clear decision is more useful than another spreadsheet."
-                fveSlideContent {
-                    p { _class "max-w-[58cqw] pt-[5cqw] text-[length:2.5cqw] leading-snug"; "Agree the action, its owner and the evidence to review next time." }
-                }
-            ]
+                        else
+                            yield p { _class "m-0 font-semibold text-[var(--fve-brand-text)]"; "Application demo · API reference" }
+                    })
+                    (div {
+                        _class "grid min-h-[25cqw] place-content-center justify-items-center rounded-[1.25cqw] bg-[var(--fve-brand-subtle)] p-[2cqw]"
+                        logo logoSource "size-[10cqw]"
+                        p { _class "m-0 font-serif text-[length:4cqw] font-medium tracking-tight"; "Geldos" }
+                    }))
         }
 
-    let render theme (actions:HtmlElement list) =
+    let render theme (actions: HtmlElement list) =
+        let asset path = "/examples/images/" + path
         div {
             _class (ComponentsTheme.className theme + " min-h-screen bg-[var(--fve-background)] text-[var(--fve-text)]")
             header {
                 _class "flex flex-wrap items-center justify-between gap-4 border-b border-[var(--fve-border)] px-6 py-4"
-                h1 { _class "m-0 min-w-0 text-base font-semibold"; "Geldos · Treasury review" }
+                h1 {
+                    _class "m-0 flex min-w-0 items-center gap-1 text-base font-semibold"
+                    logo (asset "geldos.svg") "size-6 shrink-0"
+                    text title
+                }
                 nav { _ariaLabel "Presentation navigation"; _class "flex items-center gap-4"; a { _href "/examples/application"; _class "text-sm underline underline-offset-4"; "Application" }; yield! actions }
             }
-            main { _id "main-content"; _class "min-w-0"; deck }
+            main { _id "main-content"; _class "min-w-0"; deck true asset }
         }
