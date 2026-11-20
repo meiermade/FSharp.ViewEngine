@@ -722,7 +722,7 @@
       "component": "native-overlay",
       "path": "Components/Assets/native-overlay.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "de745480dcfa61cd436c3cde8363c8125898eb0ae1f3d66665cc058a50302a1a"
+      "registryChecksum": "ade996dc8396c002824ab593f8f97d450524e15ca1237a93bd53dd5308bcdcb2"
     },
     {
       "component": "native-overlay",

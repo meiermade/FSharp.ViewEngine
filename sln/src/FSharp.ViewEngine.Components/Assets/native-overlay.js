@@ -40,7 +40,7 @@ export function enhanceOverlay({ host, cleanup }) {
     const current = dialog();
     if (event.key !== 'Tab' || event.defaultPrevented || !current?.open || event.target.closest('fve-dialog,fve-drawer') !== host) return;
     const controls = [...current.querySelectorAll('a[href],button,input,select,textarea,summary,[tabindex],[contenteditable="true"]')]
-      .filter(control => control.tabIndex >= 0 && !control.disabled && !control.closest('[inert]') && control.getClientRects().length);
+      .filter(control => control.tabIndex >= 0 && !control.matches(':disabled') && !control.closest('[inert]') && control.getClientRects().length);
     const first = controls[0], last = controls.at(-1);
     if (event.shiftKey && current.ownerDocument.activeElement === first) { event.preventDefault(); last?.focus(); }
     else if (!event.shiftKey && current.ownerDocument.activeElement === last) { event.preventDefault(); first?.focus(); }

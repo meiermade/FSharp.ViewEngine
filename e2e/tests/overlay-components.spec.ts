@@ -93,6 +93,34 @@ test('Navigation Drawer owns modality, dismissal and opener focus @cross-browser
   }
 })
 
+for (const [key, fromClose] of [['Shift+Tab', true], ['Tab', false]] as const) {
+  test(`Drawer wraps ${key} past disabled fieldset controls @cross-browser`, async ({ page }) => {
+    await page.goto('/components/drawer')
+    const preview = page.locator('#components-drawer-navigation-panel-preview')
+    const drawer = preview.getByRole('dialog', { name: 'Project navigation', exact: true })
+    await preview.getByRole('button', { name: 'Open navigation drawer', exact: true }).click()
+    await expect(drawer).toBeVisible()
+    await drawer.evaluate(dialog => {
+      for (const edge of ['first', 'last']) {
+        const fieldset = document.createElement('fieldset')
+        fieldset.disabled = true
+        const input = document.createElement('input')
+        input.setAttribute('aria-label', `Disabled at ${edge} edge`)
+        fieldset.append(input)
+        if (edge === 'first') dialog.prepend(fieldset)
+        else dialog.append(fieldset)
+      }
+    })
+    await expect(drawer.getByRole('textbox', { name: 'Disabled at first edge' })).toBeDisabled()
+    await expect(drawer.getByRole('textbox', { name: 'Disabled at last edge' })).toBeDisabled()
+    const close = drawer.getByRole('button', { name: 'Close navigation', exact: true })
+    const last = drawer.getByRole('link', { name: 'Side navigation', exact: true })
+    await (fromClose ? close : last).focus()
+    await page.keyboard.press(key)
+    await expect(fromClose ? last : close).toBeFocused()
+  })
+}
+
 test('Tooltip supplements pointer and keyboard triggers without taking focus @cross-browser', async ({ page }) => {
   await page.goto('/components/tooltip')
   const preview = page.locator('#components-tooltip-panel-preview')
