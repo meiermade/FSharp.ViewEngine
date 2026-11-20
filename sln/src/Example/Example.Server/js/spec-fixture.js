@@ -107,15 +107,18 @@ if (fixtureDocument && parent !== window) {
     if (url.origin !== location.origin || !url.pathname.startsWith('/examples/specification/') || url.searchParams.has('fveFixture')) return;
     // A queued message can outlive the document that sent it (the frame's WindowProxy is stable).
     if (product.contentDocument?.getElementById('spec-product-document')?.dataset.fixtureHref !== event.data.href) return;
-    if (hostIntent && identity(url.href) !== hostIntent) return;
+    const reported = identity(url.href);
+    if (hostIntent && reported !== hostIntent) return;
     hostIntent = null;
-    if (new URL(location.href).searchParams.has('appMode')) url.searchParams.set('appMode', '1');
     const owner = document.getElementById('example-navigation-root');
+    // A report for the pending fixture adds no new state, even if the request also changes App mode.
+    if (owner.updateTarget && identity(owner.updateTarget) === reported) return;
+    if (new URL(location.href).searchParams.has('appMode')) url.searchParams.set('appMode', '1');
     const href = url.pathname + url.search;
     // Mirror the active joint-history entry now; a later SSE response must not rewrite another entry.
-    if (identity(location.href) !== identity(url.href)) history.replaceState(history.state, '', href);
+    if (identity(location.href) !== reported) history.replaceState(history.state, '', href);
     const current = location.pathname + location.search;
-    if (owner.updateTarget === current || (!owner.updateTarget && owner.renderedHref === current)) return;
+    if (!owner.updateTarget && owner.renderedHref === current) return;
     window.dispatchEvent(new CustomEvent('fve-fixture-location', { detail: { href: current } }));
   });
   window.addEventListener('fve-interaction-complete', initialize);

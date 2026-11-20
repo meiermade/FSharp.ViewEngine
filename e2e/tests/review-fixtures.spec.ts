@@ -131,23 +131,57 @@ test('fixture state and authored journey remain separate, with scroll and focus 
   await page.goto('/examples/specification/accounts/view-accounts')
   const frame = page.locator('[data-review-fixture]')
   const state = page.getByRole('button', { name: /^Review state:/ })
-  await state.click()
-  await page.getByRole('menuitem', { name: 'Assets', exact: true }).click()
-  await expect(page).toHaveURL(/specState=assets/)
   const next = frame.getByRole('link', { name: 'Next: View account', exact: true })
-  await expect(next).toHaveAttribute('href', /accounts\/view-account/)
-  const expand = frame.getByRole('link', { name: 'Expand View accounts · Assets', exact: true })
-  await expand.scrollIntoViewIfNeeded()
-  const scroll = await page.locator('[data-fve-page-scroll]').evaluate(el => el.scrollTop)
-  await expand.click()
-  await expect(page.locator('[data-fve-browser-expanded=true]')).toBeVisible()
-  await state.click()
-  await page.getByRole('menuitem', { name: 'Hierarchy', exact: true }).click()
-  await expect(page).toHaveURL(/specState=default.*appMode=1/)
-  await expect(next).toHaveAttribute('href', /accounts\/view-account/)
-  await frame.getByRole('link', { name: 'Restore View accounts · Hierarchy', exact: true }).click()
-  await expect(frame.getByRole('link', { name: 'Expand View accounts · Hierarchy', exact: true })).toBeFocused()
-  await expect.poll(() => page.locator('[data-fve-page-scroll]').evaluate(el => el.scrollTop)).toBe(scroll)
+  const scrollRoot = page.locator('[data-fve-page-scroll]')
+  let dockScroll = 0
+  for (const [key, label, expand] of [['assets', 'Assets', true], ['default', 'Hierarchy', false]] as const) {
+    // Let the new product document report its state while the mode response is still held.
+    const routePattern = '**/accounts/view-accounts?*'
+    const toggleStarted = Promise.withResolvers<void>()
+    const releaseToggle = Promise.withResolvers<void>()
+    await page.evaluate(key => {
+      window.addEventListener('message', function record(event) {
+        const product = document.querySelector<HTMLIFrameElement>('#spec-product-frame')
+        if (event.source !== product?.contentWindow || event.data?.type !== 'fve-fixture-location') return
+        if (new URL(event.data.href, location.href).searchParams.get('specState') !== key) return
+        document.documentElement.dataset.reportedFixture = key
+        window.removeEventListener('message', record)
+      })
+    }, key)
+    await page.route(routePattern, async route => {
+      const request = route.request()
+      const query = new URL(request.url()).searchParams
+      if (query.get('specState') === key) {
+        if (request.isNavigationRequest() && query.get('fveFixture') === 'product') await toggleStarted.promise
+        if (request.headers()['x-fve-interaction'] === 'update' && query.has('appMode') === expand) {
+          toggleStarted.resolve()
+          await releaseToggle.promise
+        }
+      }
+      await route.continue()
+    })
+    try {
+      await state.click()
+      await page.getByRole('menuitem', { name: label, exact: true }).click()
+      await expect(page).toHaveURL(url => url.searchParams.get('specState') === key && url.searchParams.has('appMode') !== expand)
+      await expect(next).toHaveAttribute('href', /accounts\/view-account/)
+      const toggle = frame.getByRole('link', { name: `${expand ? 'Expand' : 'Restore'} View accounts · ${label}`, exact: true })
+      if (expand) {
+        await toggle.scrollIntoViewIfNeeded()
+        dockScroll = await scrollRoot.evaluate(el => el.scrollTop)
+      }
+      await toggle.click()
+      await expect(page.locator('html')).toHaveAttribute('data-reported-fixture', key)
+      releaseToggle.resolve()
+      await expect(page).toHaveURL(url => url.searchParams.get('specState') === key && url.searchParams.has('appMode') === expand)
+      await expect(frame.getByRole('link', { name: `${expand ? 'Restore' : 'Expand'} View accounts · ${label}`, exact: true })).toBeFocused()
+    } finally {
+      toggleStarted.resolve()
+      releaseToggle.resolve()
+      await page.unroute(routePattern)
+    }
+  }
+  await expect.poll(() => scrollRoot.evaluate(el => el.scrollTop)).toBe(dockScroll)
 })
 
 test('duplicate-name preview state updates the menu and focuses its field error without a redundant banner @cross-browser', async ({ page }) => {
