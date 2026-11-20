@@ -336,6 +336,39 @@ test('native product history mirrors one review entry and Escape preserves the c
   }
 })
 
+for (const expanded of [false, true]) {
+  test(`native product navigation supersedes a pending ${expanded ? 'Restore' : 'Expand'} @cross-browser`, async ({ page }) => {
+    await page.goto('/examples/specification/accounts/view-accounts' + (expanded ? '?appMode=1' : ''))
+    const product = specProduct(page)
+    const accountLink = product.getByRole('link', { name: 'Unassigned expense', exact: true })
+    await product.getByRole('button', { name: 'Expand Expenses', exact: true }).click()
+
+    const toggleStarted = Promise.withResolvers<void>()
+    const releaseToggle = Promise.withResolvers<void>()
+    const selectedAccount = (url: URL) => url.pathname.endsWith('/view-account') && url.searchParams.get('resource') === '105' && url.searchParams.has('appMode') === expanded
+    await page.route('**/accounts/view-accounts?*', async route => {
+      if (route.request().headers()['x-fve-interaction'] === 'update') {
+        toggleStarted.resolve()
+        await releaseToggle.promise
+      }
+      await route.continue()
+    })
+    try {
+      await page.getByRole('link', { name: expanded ? /^Restore View accounts/ : /^Expand View accounts/ }).click()
+      await toggleStarted.promise
+      await accountLink.click()
+      await expect(page).toHaveURL(selectedAccount)
+    } finally {
+      releaseToggle.resolve()
+      await page.unrouteAll({ behavior: 'wait' })
+    }
+    await expect(page).toHaveURL(selectedAccount)
+    await expect(page.locator('[data-fve-browser-address]')).toHaveText(/\/application\/accounts\/105(?:\?|$)/)
+    await expect(page.getByRole('button', { name: /^Review state: View account ·/ })).toBeVisible()
+    await expect(product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 })).toBeVisible()
+  })
+}
+
 test('a slow review response cannot rewrite the fixture history entry visited after Back @cross-browser', async ({ page }) => {
   const product = specProduct(page)
   const detail = /accounts\/view-account\?.*resource=105.*appMode=1/

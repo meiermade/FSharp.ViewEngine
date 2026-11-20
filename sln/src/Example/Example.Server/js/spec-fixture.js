@@ -90,8 +90,11 @@ if (fixtureDocument && parent !== window) {
       try {
         productScroll = [...frame().contentDocument.querySelectorAll('[data-fve-page-scroll], .fve-table-scroll')].map(node => [node, node.scrollLeft, node.scrollTop]);
       } catch { productScroll = []; }
+      // Presentation doesn't select a fixture; a newer native product navigation still wins.
+      hostIntent = null;
+    } else {
+      hostIntent = identity(target.href);
     }
-    hostIntent = identity(target.href);
   }, true);
 
   window.addEventListener('message', event => {
