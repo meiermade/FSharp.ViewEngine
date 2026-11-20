@@ -18,6 +18,7 @@
     <Content Include="paket.references" />
     <Compile Include="Config.fs" />
     <Compile Include="Common/Model.fs" />
+    <Compile Include="Common/BrowserAssets.fs" />
     <Compile Include="Common/SourceRegion.fs" />
     <Compile Include="Common/RecordTable.fs" />
     <Compile Include="Common/Security.fs" />

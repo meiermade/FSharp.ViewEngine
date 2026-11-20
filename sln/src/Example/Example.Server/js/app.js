@@ -33,7 +33,7 @@ document.addEventListener('click', event => {
 // chart.js is a separate build entry so neither it nor ECharts loads until needed.
 let chart;
 const loadChart = () => {
-  if (!chart && document.querySelector('fve-chart')) chart = import('./chart.js');
+  if (!chart && document.querySelector('fve-chart')) chart = import('../../Example.Components/Components/Assets/chart.js');
 };
 loadChart();
 const observer = new MutationObserver(loadChart);

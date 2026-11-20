@@ -97,7 +97,7 @@ test('gallery opens isolated consumer templates with GitHub source and native hi
   const source = app.getByRole('link', { name: 'View example source on GitHub', exact: true })
   await expect(source).toHaveAttribute('href', /^https:\/\/github\.com\/meiermade\/FSharp\.ViewEngine(?:\/tree\/[^/]+\/sln\/src\/Example)?$/)
   await expect(source).toHaveAttribute('target', '_blank')
-  await expect(app.locator('script[type="module"][src="/examples/js/app.js"]')).toHaveCount(1)
+  await expect(app.locator('script[type="module"][src^="/examples/js/app"][src$=".js"]')).toHaveCount(1)
   await expect(app.locator('fve-button[data-rocket-host]').first()).toBeAttached()
   await expect(app.locator('script[src$="/datastar.1.0.4.js"]')).toHaveCount(0)
   await expect(source).toHaveText('')

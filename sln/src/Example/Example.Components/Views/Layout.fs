@@ -1154,7 +1154,7 @@ module Layout =
         }
 
     /// Complete standalone host document; no catalog-only viewer chrome is required.
-    let documentWithNonce initialScript (bodyAttributes: HtmlAttribute list) (nonce: string option) canonical embedded (title: string) (content: HtmlElement) =
+    let documentWithNonce stylesheet applicationScript initialScript (bodyAttributes: HtmlAttribute list) (nonce: string option) canonical embedded (title: string) (content: HtmlElement) =
         html {
             _lang "en"
 
@@ -1178,7 +1178,7 @@ module Layout =
 
                 Html.link {
                     _rel "stylesheet"
-                    _href "/examples/assets/css/output.css"
+                    _href stylesheet
                 }
 
                 CodeBlock.assetsWithNonce
@@ -1202,7 +1202,7 @@ module Layout =
 
                 script {
                     _type "module"
-                    _src "/examples/js/app.js"
+                    _src applicationScript
                 }
             }
 
@@ -1228,4 +1228,4 @@ module Layout =
         }
 
     let document title content =
-        documentWithNonce "" [] None "/examples/application" false title content
+        documentWithNonce "/examples/assets/css/output.css" "/examples/js/app.js" "" [] None "/examples/application" false title content

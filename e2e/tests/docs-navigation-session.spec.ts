@@ -257,7 +257,7 @@ test('saved sidebar disclosures are restored before the application bundle can p
   await expect(guides).toHaveAttribute('aria-expanded', 'true')
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
-  await page.route('**/js/app.js', async route => { await gate; await route.continue().catch(() => {}) })
+  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, async route => { await gate; await route.continue().catch(() => {}) })
   try {
     await page.reload({ waitUntil: 'commit' })
     await page.locator('#side-nav').waitFor({ state: 'visible' })

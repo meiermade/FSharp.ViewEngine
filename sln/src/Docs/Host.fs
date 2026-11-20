@@ -38,6 +38,6 @@ let create (args: string array) routes =
         .UseSerilogRequestLogging(fun options ->
             options.GetLevel <- fun context _ _ ->
                 if context.Request.Path.Value = "/health" then LogEventLevel.Verbose else LogEventLevel.Information)
-        .UseStaticFiles() |> ignore
+        .UseStaticFiles(StaticFileOptions(OnPrepareResponse = System.Action<_>(BrowserAssets.prepareResponse))) |> ignore
     app.UseGiraffe(routes)
     app

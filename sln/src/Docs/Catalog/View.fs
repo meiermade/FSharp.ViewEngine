@@ -230,7 +230,8 @@ module View =
 
     let private assets =
         { DocsAssets.defaults with
-            productStylesheets = [ "/css/output.css" ]
+            productStylesheets = [ BrowserAssets.stylesheet ]
+            datastarScript = Some BrowserAssets.script
             prismScripts =
                 DocsAssets.defaults.prismScripts
                 @ [ "/js/prism-bash.1.30.0.min.js"

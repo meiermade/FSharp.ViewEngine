@@ -3,7 +3,7 @@ import { test, expect } from '../fixture'
 test('grouped icon frames render before the button bundle initializes @cross-browser', async ({ page }) => {
   let release!: () => void
   const gate = new Promise<void>(resolve => { release = resolve })
-  await page.route('**/js/app.js', async route => { await gate; await route.continue() })
+  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, async route => { await gate; await route.continue() })
   try {
     await page.goto('/components/icon', { waitUntil: 'commit' })
     const card = page.locator('[data-icon-entry="AcademicCap"]')

@@ -22,6 +22,7 @@
     <Compile Include="Config.fs" />
     <Compile Include="Services.fs" />
     <Compile Include="Common/Security.fs" />
+    <Compile Include="Common/BrowserAssets.fs" />
     <Compile Include="Common/Navigation.fs" />
     <Compile Include="Common/Request.fs" />
     <Compile Include="Common/View.fs" />
