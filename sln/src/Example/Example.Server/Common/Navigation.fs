@@ -20,7 +20,8 @@ let initialScript =
 
 let private restoreAction = $"""
 const href = location.pathname + location.search;
-if ({root}.renderedHref !== href) {{ {Actions.request "restore" "href"} }}
+const owner = {root};
+if (owner.updateTarget ? owner.updateTarget !== href : owner.renderedHref !== href) {{ {Actions.request "restore" "href"} }}
 """
 
 let private failureAction = $"""
@@ -81,8 +82,13 @@ let respond intent rootHtml metadataHtml : HttpHandler =
             let commit =
                 match intent with
                 | Update | Filter -> $"if (previousHref !== {href}) history.pushState(null, '', {href});"
-                | Review | Submit -> $"history.replaceState(history.state, '', {href});"
-                | Restore -> ""
+                | Submit -> $"history.replaceState(history.state, '', {href});"
+                | Review | Restore -> ""
+            let completed =
+                match intent with
+                | Update -> "update"
+                | Review -> "review"
+                | _ -> "restore"
             do! service.PatchElementsAsync(rootHtml, cancellationToken = cancellationToken)
             do! service.PatchElementsAsync(metadataHtml, cancellationToken = cancellationToken)
             let effect = $"""
@@ -90,7 +96,7 @@ let respond intent rootHtml metadataHtml : HttpHandler =
   const root = {root};
   const previousHref = root.renderedHref || location.href;
   {commit}
-  root.renderedHref = location.pathname + location.search;
+  root.renderedHref = {if intent = Review then href else "location.pathname + location.search"};
   delete root.updateTarget;
   const status = document.getElementById('docs-navigation-status');
   if (status) {{ status.hidden = true; status.textContent = ''; }}
@@ -101,7 +107,7 @@ let respond intent rootHtml metadataHtml : HttpHandler =
       const invalid = dialog?.querySelector('[autofocus][aria-invalid=true], [aria-invalid=true] input') || root.querySelector('[autofocus][aria-invalid=true]');
       invalid?.focus({{preventScroll: true}});
     }}
-    root.dispatchEvent(new CustomEvent('fve-interaction-complete', {{bubbles: true, detail: {{intent: '{if intent = Update then "update" else "restore"}', previousHref: new URL(previousHref, location.href).href, href: location.href}}}}));
+    root.dispatchEvent(new CustomEvent('fve-interaction-complete', {{bubbles: true, detail: {{intent: '{completed}', previousHref: new URL(previousHref, location.href).href, href: location.href}}}}));
   }});
 }})();
 """

@@ -275,11 +275,45 @@ test('native product history mirrors one review entry and Escape preserves the c
   await expect(page).toHaveURL(/accounts\/view-accounts/)
   await page.goForward()
   await expect(product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 })).toBeVisible()
+  await expect(page).toHaveURL(/accounts\/view-account.*resource=105.*appMode=1/)
+  await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toHaveCount(0)
   await product.locator('html').evaluate(el => { el.dataset.historyDocument = 'retained' })
   await product.getByRole('heading', { name: 'Unassigned expense', exact: true, level: 1 }).click()
   await page.keyboard.press('Escape')
   await expect(page).toHaveURL(url => !url.searchParams.has('appMode'))
   await expect(product.locator('html')).toHaveAttribute('data-history-document', 'retained')
+})
+
+test('a slow review response cannot rewrite the fixture history entry visited after Back @cross-browser', async ({ page }) => {
+  const product = specProduct(page)
+  const detail = /accounts\/view-account\?.*resource=105.*appMode=1/
+  const editor = /accounts\/update-account\?.*resource=105.*appMode=1/
+  await page.goto('/examples/specification/accounts/view-account?resource=105&appMode=1')
+  await expect(page.locator('[data-fve-browser-address]')).toHaveText(/\/application\/accounts\/105/)
+
+  let release!: () => void
+  const held = new Promise<void>(resolve => { release = resolve })
+  await page.route('**/accounts/update-account?*', async route => {
+    if (route.request().headers()['x-fve-interaction'] !== 'review') return route.continue()
+    await held
+    await route.continue()
+  })
+  try {
+    const reviewRequest = page.waitForRequest(request => editor.test(request.url()) && request.headers()['x-fve-interaction'] === 'review')
+    await product.getByRole('link', { name: 'Edit account', exact: true }).click()
+    await reviewRequest
+    await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toBeVisible()
+    await expect(page).toHaveURL(editor)
+    await page.goBack()
+    await expect(page).toHaveURL(detail)
+    await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toHaveCount(0)
+  } finally {
+    release()
+  }
+  await page.goForward()
+  await expect(page).toHaveURL(editor)
+  await expect(product.getByRole('dialog', { name: 'Edit account', exact: true })).toBeVisible()
+  await expect(page.locator('[data-fve-browser-address]')).toHaveText(/\/application\/accounts\/105\/edit/)
 })
 
 test('contained component close restores its background and trigger without making Docs modal @cross-browser', async ({ page }) => {
