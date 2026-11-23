@@ -31,7 +31,7 @@ module View =
                   "Install the CLI"
                   [ p {
                         "For NuGet setup and supported .NET versions, see "
-                        fveLink { _href "/installation"; "Core installation" }
+                        fveLink { _href "/installation"; _underline LinkUnderline.Always; "Core installation" }
                         "."
                     }
                     prose
@@ -55,6 +55,7 @@ module View =
 
                         fveLink {
                             _href "https://tailwindcss.com/docs/installation/tailwind-cli"
+                            _underline LinkUnderline.Always
                             "Tailwind CSS"
                         }
 
@@ -62,6 +63,7 @@ module View =
 
                         fveLink {
                             _href "https://esbuild.github.io/"
+                            _underline LinkUnderline.Always
                             "esbuild"
                         }
 
@@ -91,6 +93,7 @@ module View =
 
                         fveLink {
                             _href "https://data-star.dev/"
+                            _underline LinkUnderline.Always
                             "Datastar"
                         }
 
@@ -140,7 +143,7 @@ let page =
     }"""
                     p {
                         "See the "
-                        fveLink { _href "/examples/application"; "full Application example" }
+                        fveLink { _href "/examples/application"; _underline LinkUnderline.Always; "full Application example" }
                         " to try the components in a running app and browse its source."
                     } ]
               DocumentationSection.create

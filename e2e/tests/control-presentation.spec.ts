@@ -604,6 +604,15 @@ test('Docs prose links retain local resting cues in both themes', async ({ page 
       await expect.poll(() => contrast(link)).toBeGreaterThanOrEqual(4.5)
     }
   }
+  await page.goto('/components/installation')
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
+    for (const name of ['Core installation', 'Tailwind CSS', 'esbuild', 'Datastar', 'full Application example']) {
+      const link = page.getByRole('paragraph').getByRole('link', { name, exact: true })
+      await expect(link).toHaveCSS('text-decoration-line', 'underline')
+      await expect.poll(() => contrast(link)).toBeGreaterThanOrEqual(4.5)
+    }
+  }
 })
 
 test('pending buttons center an overlay without changing size or accessible names @cross-browser', async ({ page }) => {
