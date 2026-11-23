@@ -40,6 +40,8 @@ const difference = (a: ReturnType<typeof paint>, b: ReturnType<typeof paint>) =>
 
 for (const kind of ['button', 'link'] as const) for (const mode of ['light', 'dark'] as const) {
   test(`${kind} every built-in color and variant has readable, distinguishable ${mode} interaction states @cross-browser`, async ({ page }) => {
+    // Each journey measures rest, hover and press for 28–35 controls (about 65s locally).
+    test.setTimeout(90_000)
     await page.emulateMedia({ colorScheme: mode })
     await page.goto('/components/' + kind)
     const panel = page.locator(`#components-${kind}-color-variants-panel-preview`)

@@ -38,8 +38,7 @@ module View =
             }
             fveLink {
                 _href "/components"
-                _underline LinkUnderline.OnInteraction
-                "Underline on interaction"
+                "Underline on interaction (default)"
             }
         }
 
@@ -145,7 +144,7 @@ module View =
     let examples () =
             [ sample "link-basic" "Default" [ "basicLink" ] (connectedCentered basicLink)
               sample "link-underline" "Text underline" [ "textUnderlineExamples" ] (connectedCentered textUnderlineExamples)
-              |> note "Text links default to LinkUnderline.Always. Use _underline LinkUnderline.OnInteraction to show the underline only on hover or keyboard focus. Both retain the same keyboard focus ring."
+              |> note "Text links default to LinkUnderline.OnInteraction: no underline at rest, with an underline on hover or keyboard focus. Use _underline LinkUnderline.Always for a resting underline. Both retain the same keyboard focus ring. In prose, keep a visible resting cue: use Always where the link color does not contrast sufficiently with surrounding text."
               sample "link-plain" "Inherited presentation" [ "plainLink" ] (connectedCentered plainLink)
               |> note "Plain retains native navigation and a current-color keyboard outline without imposing typography, color or control geometry. Use it for branded/card links and links inside an already colored surface; the consumer owns that composition."
               sample "link-sizes" "Sizes" [ "linkSizeExamples" ] (connectedCentered linkSizeExamples)

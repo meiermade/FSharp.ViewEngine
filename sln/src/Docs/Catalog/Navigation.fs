@@ -92,11 +92,11 @@ module Catalog =
                         ". The CLI copies the source and runtime assets you need; your application owns the CSS and JavaScript builds."
                     }
                     p {
-                        fveLink { _href "/components/installation"; "Installation" }
+                        fveLink { _href "/components/installation"; _underline LinkUnderline.Always; "Installation" }
                         " · "
-                        fveLink { _href "/guides/theming"; "Theming" }
+                        fveLink { _href "/guides/theming"; _underline LinkUnderline.Always; "Theming" }
                         " · "
-                        fveLink { _href "/examples"; "Complete examples" }
+                        fveLink { _href "/examples"; _underline LinkUnderline.Always; "Complete examples" }
                     } ]
               for section in navigation do
                   DocumentationSection.create

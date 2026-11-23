@@ -24,7 +24,7 @@ module internal Link =
             invalidArg "attributes" "Uniform padding requires a control-style Link variant."
         if variant <> "text" && (ComponentElement.value "underline" attributes |> Option.isSome) then
             invalidArg "attributes" "Underline requires the Text Link variant."
-        let underline = ComponentElement.choice "underline" "always" ["always"; "on-interaction"] attributes
+        let underline = ComponentElement.choice "underline" "on-interaction" ["always"; "on-interaction"] attributes
         let quietInteraction =
             if ComponentElement.value "color" attributes = Some "neutral" then ComponentColors.neutralInteraction
             else "hover:bg-[var(--fve-internal-color-soft-hover)] active:bg-[var(--fve-internal-color-soft-active)]"

@@ -79,6 +79,7 @@ module ComponentInstallation =
     let private link href (label: string) =
         fveLink {
             _href href
+            _underline LinkUnderline.Always
             label
         }
 
