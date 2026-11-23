@@ -212,7 +212,7 @@
       "component": "link",
       "path": "Components/Link.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "c2dc621f8370aab443481b90c18c2a59786f75993bb53864a171683b29306c01"
+      "registryChecksum": "41afe91eefe0b1e8405d5025480a8fef6499db17c14552b1e81400e07c62c165"
     },
     {
       "component": "badge",

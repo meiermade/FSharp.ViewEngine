@@ -522,7 +522,7 @@ test('Link variants retain native keyboard and new-tab navigation @cross-browser
   await page.goto('/components/link')
   const plain = page.locator('#components-link-basic-panel-preview').getByRole('link', { name: 'Read documentation', exact: true })
   await expect(plain).toHaveAttribute('href', '/components')
-  await expect(plain).toHaveCSS('text-decoration-line', 'underline')
+  await expect(plain).toHaveCSS('text-decoration-line', 'none')
   const variants = page.locator('#components-link-variants-panel-preview')
   await expect(variants.getByRole('link')).toHaveCount(5)
   await expect(variants.getByRole('button')).toHaveCount(0)
@@ -549,27 +549,61 @@ test('Link variants retain native keyboard and new-tab navigation @cross-browser
   await expect(page.getByRole('heading', { level: 1, name: 'Components', exact: true })).toBeVisible()
 })
 
-test('Text links can underline on interaction without changing the default @cross-browser', async ({ page }) => {
+test('Text links default to interaction underlines and retain explicit Always @cross-browser', async ({ page }) => {
   await page.goto('/components/link')
   const preview = page.locator('#components-link-underline-panel-preview')
   const always = preview.getByRole('link', { name: 'Always underlined', exact: true })
-  const interactive = preview.getByRole('link', { name: 'Underline on interaction', exact: true })
-  await expect(always).toHaveCSS('text-decoration-line', 'underline')
-  await expect(interactive).toHaveCSS('text-decoration-line', 'none')
-  await interactive.hover()
-  await expect(interactive).toHaveCSS('text-decoration-line', 'underline')
-  await page.mouse.move(0, 0)
-  await expect(interactive).toHaveCSS('text-decoration-line', 'none')
-  const restingShadow = await interactive.evaluate(el => getComputedStyle(el).boxShadow)
-  await page.keyboard.press('Tab')
-  await interactive.focus()
-  await expect(interactive).toBeFocused()
-  await expect(interactive).toHaveCSS('text-decoration-line', 'underline')
-  await expect(interactive).not.toHaveCSS('box-shadow', restingShadow)
+  const interactive = preview.getByRole('link', { name: 'Underline on interaction (default)', exact: true })
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
+    await page.mouse.move(0, 0)
+    await interactive.blur()
+    await expect(always).toHaveCSS('text-decoration-line', 'underline')
+    await expect(interactive).toHaveCSS('text-decoration-line', 'none')
+    for (const id of ['colors', 'variants', 'color-variants']) {
+      const text = page.locator(`#components-link-${id}-panel-preview`).getByRole('link', { name: id === 'colors' ? 'Primary' : id === 'variants' ? 'Text' : 'Text Primary', exact: true })
+      await expect(text).toHaveCSS('text-decoration-line', 'none')
+    }
+    await interactive.hover()
+    await expect(interactive).toHaveCSS('text-decoration-line', 'underline')
+    await page.mouse.move(0, 0)
+    await expect(interactive).toHaveCSS('text-decoration-line', 'none')
+    const restingShadow = await interactive.evaluate(el => getComputedStyle(el).boxShadow)
+    await always.focus()
+    await page.keyboard.press('Tab')
+    await expect(interactive).toBeFocused()
+    await expect(interactive).toHaveCSS('text-decoration-line', 'underline')
+    await expect(interactive).not.toHaveCSS('box-shadow', restingShadow)
+  }
 
   await page.goto('/examples/application/accounts')
   const account = page.getByRole('link', { name: 'Assets', exact: true })
-  await expect(account).toHaveCSS('text-decoration-line', 'none')
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
+    await expect(account).toHaveCSS('text-decoration-line', 'none')
+    await expect.poll(() => contrast(account)).toBeGreaterThanOrEqual(4.5)
+  }
+})
+
+test('Docs prose links retain local resting cues in both themes', async ({ page }) => {
+  await page.goto('/components/link')
+  const iconNote = page.getByRole('paragraph').filter({ hasText: 'This example also uses Icon.' }).first()
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
+    const link = iconNote.getByRole('link', { name: 'Icon', exact: true })
+    await expect(link).toHaveCSS('text-decoration-line', 'underline')
+    await expect.poll(() => contrast(link)).toBeGreaterThanOrEqual(4.5)
+  }
+  await page.goto('/components')
+  const prose = page.getByRole('paragraph').filter({ hasText: 'Complete examples' })
+  for (const dark of [false, true]) {
+    await page.evaluate(dark => document.documentElement.classList.toggle('dark', dark), dark)
+    for (const name of ['Installation', 'Theming', 'Complete examples']) {
+      const link = prose.getByRole('link', { name, exact: true })
+      await expect(link).toHaveCSS('text-decoration-line', 'underline')
+      await expect.poll(() => contrast(link)).toBeGreaterThanOrEqual(4.5)
+    }
+  }
 })
 
 test('pending buttons center an overlay without changing size or accessible names @cross-browser', async ({ page }) => {
