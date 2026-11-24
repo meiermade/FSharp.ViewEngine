@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test'
 
-test('Rocket discovery scans each affected search group once per delivery @cross-browser', async ({ page }) => {
+test('Rocket discovery avoids repeatedly rescanning search groups @cross-browser', async ({ page }) => {
   await page.goto('/components/button')
   await page.getByRole('button', { name: 'Search documentation', exact: true }).click()
   const input = page.locator('#docs-search-input')
@@ -21,9 +21,9 @@ test('Rocket discovery scans each affected search group once per delivery @cross
       await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))))
     }
     const scans = await page.evaluate(() => [...(window as any).discoveryScans.values()] as number[])
-    expect(scans.length).toBeGreaterThan(0)
-    // Allow two observer deliveries per input, not one traversal for every moved result.
-    expect(Math.max(...scans)).toBeLessThanOrEqual(8)
+    // Upstream now scans inserted subtrees rather than rescanning the whole group.
+    // Zero group traversals is valid; still guard against one traversal per moved result.
+    expect(Math.max(0, ...scans)).toBeLessThanOrEqual(8)
     await expect(page.locator('#docs-search').getByRole('option', { name: 'Button', exact: true })).toBeVisible()
   } finally {
     await page.evaluate(() => (window as any).restoreDiscoveryQueries())

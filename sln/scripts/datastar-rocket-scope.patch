@@ -1,0 +1,19 @@
+--- a/library/src/rocket/runtime.ts
++++ b/library/src/rocket/runtime.ts
+@@ -655 +655 @@
+->(tag: string, options?: RocketDefinition<Defs, Refs>) {
++>(tag: string, options?: RocketDefinition<Defs, Refs> & { scope?: boolean }) {
+@@ -676,0 +677 @@
++    scope = true,
+@@ -860,0 +862 @@
++      if (!scope) return
+@@ -905,0 +908,4 @@
++      if (!scope) {
++        this.#syncRefs()
++        return
++      }
+@@ -1356,3 +1362 @@
+-            rewriteDataAttributes(content, {
+-              signalPathBase: this.#signalPathBase,
+-            })
++            this.#rewriteScopedDataAttributes(content)
