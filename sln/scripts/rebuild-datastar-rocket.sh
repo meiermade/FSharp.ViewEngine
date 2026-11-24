@@ -12,8 +12,9 @@ curl --fail --silent --show-error --location --max-time 60 \
   "https://codeload.github.com/starfederation/datastar/tar.gz/$revision" \
   | tar -xz -C "$work_dir" --strip-components=1
 patch -d "$work_dir" -p1 -F0 < "$script_dir/datastar-rocket-scope.patch"
+patch -d "$work_dir" -p1 -F0 < "$script_dir/datastar-fetch-navigation.patch"
 
 "$sln_dir/node_modules/.bin/esbuild" "$work_dir/library/src/bundles/datastar-rocket.ts" \
   --bundle --format=esm --target=es2021 --minify --define:ALIAS=null \
-  --banner:js='// Datastar v1.0.5 + Rocket beta.3; FVE scope compatibility patch. Rebuild with sln/scripts/rebuild-datastar-rocket.sh.' \
+  --banner:js='// Datastar v1.0.5 + Rocket beta.3; FVE compatibility patches. Rebuild with sln/scripts/rebuild-datastar-rocket.sh.' \
   --outfile="$sln_dir/src/FSharp.ViewEngine.Components/Assets/datastar-rocket.1.0.5.js"

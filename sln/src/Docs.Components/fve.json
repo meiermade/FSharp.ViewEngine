@@ -122,7 +122,7 @@
       "component": "rocket-runtime",
       "path": "Components/Assets/datastar-rocket.1.0.5.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "f1b95f73a717d52fdae5a1a279d9f94282b15fd6c2d8c18ed01d88b83a4ae258"
+      "registryChecksum": "dc8d8df0017439462d2a4fc7970f25b2e352734fa4eb11cc5de7dbf5aed6a333"
     },
     {
       "component": "code-block",

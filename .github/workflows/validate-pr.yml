@@ -137,8 +137,8 @@ jobs:
     name: E2E (${{ matrix.label }})
     needs: selection
     runs-on: ubuntu-26.04
-    # WebKit shards can finish their tests just before the 10-minute job cap, leaving no time for reporting and cleanup.
-    timeout-minutes: ${{ matrix.browser == 'webkit' && 12 || 10 }}
+    # Leave time for image startup, the slowest shard, diagnostics, and cleanup.
+    timeout-minutes: 12
     strategy:
       fail-fast: false
       matrix:

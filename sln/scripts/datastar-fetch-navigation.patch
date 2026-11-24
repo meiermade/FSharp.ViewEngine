@@ -1,0 +1,13 @@
+--- a/library/src/plugins/actions/fetch.ts
++++ b/library/src/plugins/actions/fetch.ts
+@@ -215,0 +216,5 @@
++        // Firefox and WebKit can close the stream before pagehide or element cleanup.
++        const cancelOnUnload = () => controller.abort()
++        if (cancelOnDisconnect) {
++          window.addEventListener('beforeunload', cancelOnUnload)
++        }
+@@ -229,0 +235,4 @@
++        } finally {
++          if (cancelOnDisconnect) {
++            window.removeEventListener('beforeunload', cancelOnUnload)
++          }
