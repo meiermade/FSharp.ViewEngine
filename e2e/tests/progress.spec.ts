@@ -34,21 +34,32 @@ test('Progress streams native values through completion and can be run again @cr
   expect(errors).toEqual([])
 })
 
-test('native navigation leaves an active Progress stream behind and opens a fresh example @cross-browser', async ({ page }) => {
-  const errors: string[] = []
-  page.on('pageerror', error => errors.push(error.message))
-  await page.goto('/components/progress')
-  const preview = page.locator('#components-progress-active-panel-preview')
-  const progress = preview.getByRole('progressbar', { name: 'Example task', exact: true })
-  await preview.getByRole('button', { name: 'Run example', exact: true }).click()
-  await expect(progress).toHaveAttribute('value', /^(?:[1-9]\d?)$/)
-  await page.locator('#nav-components-badge').click()
-  await expect(page.getByRole('heading', { name: 'Badge', exact: true, level: 1 })).toBeVisible()
-  const documentResponse = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/progress')
-  await page.locator('#nav-components-progress').click()
-  expect((await documentResponse).headers()['content-type']).toContain('text/html')
-  await expect(progress).toHaveAttribute('value', '0')
-  await expect(preview.getByRole('button', { name: 'Run example', exact: true })).toBeEnabled()
-  await expect(preview.getByRole('status')).toHaveCount(0)
-  expect(errors).toEqual([])
-})
+for (const requestCancellation of ['cleanup', 'auto']) {
+  test(`native navigation leaves an active Progress stream behind (${requestCancellation}) @cross-browser`, async ({ page }) => {
+    const errors: string[] = []
+    page.on('pageerror', error => errors.push(error.message))
+    await page.goto('/components/progress')
+    const preview = page.locator('#components-progress-active-panel-preview')
+    const progress = preview.getByRole('progressbar', { name: 'Example task', exact: true })
+    const trigger = preview.getByRole('button', { name: 'Run example', exact: true })
+    if (requestCancellation === 'auto') {
+      // Exercise the same stream with the default cancellation policy used by form submissions.
+      await preview.locator('#progress-example-trigger').evaluate(host => {
+        const attribute = 'data-on:click'
+        const action = host.getAttribute(attribute)!
+        host.setAttribute(attribute, action.replace("requestCancellation: 'cleanup', ", ''))
+      })
+    }
+    await trigger.click()
+    await expect(progress).toHaveAttribute('value', /^(?:[1-9]\d?)$/)
+    await page.locator('#nav-components-badge').click()
+    await expect(page.getByRole('heading', { name: 'Badge', exact: true, level: 1 })).toBeVisible()
+    const documentResponse = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/progress')
+    await page.locator('#nav-components-progress').click()
+    expect((await documentResponse).headers()['content-type']).toContain('text/html')
+    await expect(progress).toHaveAttribute('value', '0')
+    await expect(trigger).toBeEnabled()
+    await expect(preview.getByRole('status')).toHaveCount(0)
+    expect(errors).toEqual([])
+  })
+}

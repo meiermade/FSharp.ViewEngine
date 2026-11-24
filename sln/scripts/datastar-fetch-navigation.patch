@@ -1,13 +1,17 @@
 --- a/library/src/plugins/actions/fetch.ts
 +++ b/library/src/plugins/actions/fetch.ts
-@@ -215,0 +216,5 @@
-+        // Firefox and WebKit can close the stream before pagehide or element cleanup.
-+        const cancelOnUnload = () => controller.abort()
-+        if (cancelOnDisconnect) {
-+          window.addEventListener('beforeunload', cancelOnUnload)
-+        }
-@@ -229,0 +235,4 @@
-+        } finally {
-+          if (cancelOnDisconnect) {
-+            window.removeEventListener('beforeunload', cancelOnUnload)
-+          }
+@@ -521,0 +522,2 @@
++      window.removeEventListener('beforeunload', cancelRequest)
++      inputSignal!.removeEventListener('abort', cancelRequest)
+@@ -526,2 +528 @@
+-    // if the incoming signal aborts, dispose resources and resolve:
+-    inputSignal!.addEventListener('abort', () => {
++    const cancelRequest = () => {
+@@ -529,2 +530,5 @@
+-      resolve() // don't waste time constructing/logging errors
+-    })
++      resolve()
++    }
++    inputSignal!.addEventListener('abort', cancelRequest)
++    // Firefox and WebKit can close even an ordinary fetch before pagehide.
++    window.addEventListener('beforeunload', cancelRequest)
