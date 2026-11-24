@@ -1994,7 +1994,7 @@ let tests =
               Expect.stringContains html "src=\"/js/app.js\"" "host-owned bundled component entry"
 
               Expect.isFalse
-                  (html.Contains "src=\"/js/datastar.1.0.4.js\"")
+                  (html.Contains "src=\"/js/datastar.1.0.5.js\"")
                   "ordinary Datastar is not loaded alongside Rocket"
 
               Expect.stringContains html "type=\"module\"" "application ES module"
@@ -2798,7 +2798,7 @@ after"""
                       "the example owns its component entry and shared Rocket runtime"
 
                   Expect.isFalse
-                      (html.Contains "src=\"/js/datastar.1.0.4.js\"")
+                      (html.Contains "src=\"/js/datastar.1.0.5.js\"")
                       "ordinary Datastar is not loaded alongside Rocket"
 
               for template in Examples.templates do

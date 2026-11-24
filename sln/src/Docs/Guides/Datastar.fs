@@ -44,7 +44,7 @@ module Datastar =
           CodeBlock("fsharp", source) ]
 
     let private nodes =
-        [ [ Paragraph [ Text "FSharp.ViewEngine exposes 31 typed attribute helpers through the "; InlineContent.Code "Datastar"; Text " type. The canonical examples use the pinned "; Link("Datastar 1.0.4 runtime", "https://github.com/starfederation/datastar/releases/tag/v1.0.4"); Text ". Rocket-only attributes require the corresponding official bundle." ] ];
+        [ [ Paragraph [ Text "FSharp.ViewEngine exposes 31 typed attribute helpers through the "; InlineContent.Code "Datastar"; Text " type. The canonical examples use the pinned "; Link("Datastar 1.0.5 runtime", "https://github.com/starfederation/datastar/releases/tag/v1.0.5"); Text ". Rocket-only attributes require the corresponding official bundle." ] ];
           section "setup" "Setup";
           [ Paragraph [ Text "Open the "; InlineContent.Code "Datastar"; Text " type to access Datastar attributes:" ];
             CodeBlock("fsharp", """open FSharp.ViewEngine
@@ -163,7 +163,7 @@ div { _dataScrollIntoView [ "smooth"; "vcenter"; "focus" ] }""";
     _lang "en"
     _attr ("data-nonce", pageNonce)
     head {
-        script { _type "module"; _src "/js/datastar.1.0.4.js" }
+        script { _type "module"; _src "/js/datastar.1.0.5.js" }
     }
     body {
         button { _dataOn ("click", "$count++"); "Increment" }

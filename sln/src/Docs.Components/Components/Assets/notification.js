@@ -1,4 +1,4 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-notification', {
   mode: 'light', scope: false,

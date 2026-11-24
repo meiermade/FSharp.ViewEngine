@@ -85,7 +85,7 @@ module View =
                         "Create src/Acme.Web/js/app.js. Import the shared runtime once, then add the imports shown in each component's Installation section. For Button:"
                     code
                         "javascript"
-                        "import '../../Acme.Components/Components/Assets/datastar-rocket.1.0.4.js';\nimport '../../Acme.Components/Components/Assets/button.js';"
+                        "import '../../Acme.Components/Components/Assets/datastar-rocket.1.0.5.js';\nimport '../../Acme.Components/Components/Assets/button.js';"
                     p {
                         "The installed Rocket runtime includes "
 

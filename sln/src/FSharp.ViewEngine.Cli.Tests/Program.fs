@@ -102,7 +102,7 @@ let tests = testList "fve" [
 
     testCase "independent controls install complete narrow file boundaries" <| fun _ ->
         let common = "ComponentBuilder.fs Foundation.fs"
-        let runtime = "Assets/datastar-LICENSE.txt Assets/datastar-rocket.1.0.4.js"
+        let runtime = "Assets/datastar-LICENSE.txt Assets/datastar-rocket.1.0.5.js"
         let icons = "IconNames.fs IconData.fs Icon.fs Assets/heroicons-LICENSE.txt Assets/heroicons.2.2.0.provenance.json Assets/bootstrap-icons-LICENSE.txt Assets/bootstrap-icons.1.13.1.provenance.json"
         for requested,source in [
             "card", $"{common} Card.fs"
@@ -163,7 +163,7 @@ let tests = testList "fve" [
             Expect.stringContains initialized "<None Include=\"Components/Assets/button.js\" />" "editable JavaScript"
             Expect.isFalse (initialized.Contains "<Compile Include=\"Components/Assets/") "assets are not compiled"
             let script = File.ReadAllText(componentPath root "Assets/button.js")
-            Expect.stringContains script "import { rocket } from './datastar-rocket.1.0.4.js'" "shared pinned runtime"
+            Expect.stringContains script "import { rocket } from './datastar-rocket.1.0.5.js'" "shared pinned runtime"
             Expect.stringContains script "rocket('fve-button'" "owned custom element"
             Expect.isTrue (File.Exists(componentPath root "Assets/datastar-LICENSE.txt")) "license accompanies runtime"
             Expect.isLessThan (initialized.IndexOf("Components/Button.fs")) (initialized.IndexOf("FinanceComponents.fs")) "definitions precede consumer"

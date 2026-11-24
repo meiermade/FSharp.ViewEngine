@@ -1,4 +1,4 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 // Native fields remain authoritative across morphs and reconnects; Rocket owns the lifecycle.
 rocket('fve-tag-input', {

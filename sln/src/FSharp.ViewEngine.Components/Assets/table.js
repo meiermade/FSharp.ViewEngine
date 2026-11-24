@@ -1,4 +1,4 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 // Rocket owns lifecycle; native rows and caller-owned state remain intact.
 // Rows/cells remain native HTML and new rows inherit these descendant styles.

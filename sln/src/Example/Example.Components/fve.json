@@ -79,9 +79,9 @@
     },
     {
       "component": "rocket-runtime",
-      "path": "Components/Assets/datastar-rocket.1.0.4.js",
+      "path": "Components/Assets/datastar-rocket.1.0.5.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "881e5c95fcce231fb1538e55bf6e6da4ffa13a7866c3d65370265fe5862ab877"
+      "registryChecksum": "9a79a02152dcb1fed31a8bb5352bc807fdf29f7ceb2e2c02732c9f9730ea5f93"
     },
     {
       "component": "code-block",
@@ -93,7 +93,7 @@
       "component": "code-block",
       "path": "Components/Assets/code-block.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "e574e8c41bcbab0802c1721c00e5c9223333b0d4de1f590b07a1caa1f6a82864"
+      "registryChecksum": "360a26ce93de5c223add4f7a5dcdcd6fb593a8108f89c569f5b554ce493a138b"
     },
     {
       "component": "code-block",
@@ -111,7 +111,7 @@
       "component": "mermaid",
       "path": "Components/Assets/mermaid.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "0de9924a402beba781a1a0d0ae6f4d3df12f8087a689827313cf8576ea2965d9"
+      "registryChecksum": "bbf6c516af616da5ca866f484b494ba623cdfe48335994b0957db532ee74dfba"
     },
     {
       "component": "mermaid",
@@ -123,7 +123,7 @@
       "component": "button",
       "path": "Components/Assets/button.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "3fac304d1ed7ba01437a35c876b94208f8ffdcfbfdc5e89ebbd839f5e24d288f"
+      "registryChecksum": "4e154e537fac326048b3930579dfd5c30d03197f21c85a6034918cc7a77670ee"
     },
     {
       "component": "button",
@@ -153,7 +153,7 @@
       "component": "table",
       "path": "Components/Assets/table.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "e587df6ea5f80e4db99f94ace540adede990dd66edc2f81ab8303ff1dfb4d015"
+      "registryChecksum": "bb502ccc1c6d326e22943f745d99a041c0b46ceb0cbacfbb726f369e7325743b"
     },
     {
       "component": "table",
@@ -189,7 +189,7 @@
       "component": "chart",
       "path": "Components/Assets/chart.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "d11fd97ad9af13a1e0862956815bcb9d63bccf81b845163ec67b56164b11212a"
+      "registryChecksum": "4e1faf335ac1f03426b6a857faf11ad4d9b790e7fa18422d320b8ea677101bc9"
     },
     {
       "component": "chart",
@@ -219,7 +219,7 @@
       "component": "checkbox",
       "path": "Components/Assets/checkbox.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "ffa6b15981bd2dd042f0cf5b441a9f85a313d6438697ec244a00899f8b2614e3"
+      "registryChecksum": "6d9917e16352e42e450262f8dc163bb5cceaa787d63a3b4107ce3755797a3e41"
     },
     {
       "component": "checkbox",
@@ -231,7 +231,7 @@
       "component": "tabs",
       "path": "Components/Assets/tabs.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "bdaa2be5918f02d4d9359f014f4449cb3b2c60348af52782f977d7af026cf554"
+      "registryChecksum": "54fb72ee3adccb62a708bcf7c7fb62e58c8c10a39c0a7c3a7a0f1b9936ae4068"
     },
     {
       "component": "tabs",
@@ -243,7 +243,7 @@
       "component": "resizable",
       "path": "Components/Assets/resizable.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "e20cbb0c554eb09e0c6ba629079400036c29e40a527a7f2471a8732159d35a3a"
+      "registryChecksum": "b3ff0829676d876e2f1f0cb695f81ca269700687a032c69274e1343985ccdd20"
     },
     {
       "component": "resizable",
@@ -261,7 +261,7 @@
       "component": "avatar",
       "path": "Components/Assets/avatar.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "c14a5fb9b7db51cf53f7cbcd04077923c0756e2beb1d5f0bd7e7db3254f784e2"
+      "registryChecksum": "0220ee0b0ea52fb49aaad8e5177b278f070abf94a937309bbc68165b3c62a462"
     },
     {
       "component": "page-top-bar",
@@ -291,7 +291,7 @@
       "component": "notification",
       "path": "Components/Assets/notification.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "ae07da5a1b3363010162fa7473980da4e1d9607e67f4fab71c7d1e622d7c1653"
+      "registryChecksum": "37440a8061318c61281abd88828d539039b67622c6357871aa237cf621c5c1ac"
     },
     {
       "component": "notification",
@@ -303,7 +303,7 @@
       "component": "dropdown-menu",
       "path": "Components/Assets/dropdown-menu.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "10404f9271d070304af8ea4ca16bffdc06d959c3bff640458173ffbbf7b2dfdd"
+      "registryChecksum": "4b95084304fe5fe6881180024c9d4365fcf5b1bf5ea5e40a9595d3a07cf677fc"
     },
     {
       "component": "dropdown-menu",
@@ -315,7 +315,7 @@
       "component": "side-nav",
       "path": "Components/Assets/side-nav.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "ead1a8cfe139369333e61bb565724b8ba433a03f9b8e29a9577251e2d0d33d5e"
+      "registryChecksum": "d097166553e3704ae9411368f0561ead1c06eadf9a35b5c0f3c81d2f9ac9094a"
     },
     {
       "component": "side-nav",
@@ -363,13 +363,13 @@
       "component": "select",
       "path": "Components/Assets/select.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "893f683930a2ac49a948b04b6f9b293c62bd579b42b182e63a9114a95f6c831a"
+      "registryChecksum": "66c464878e3e0f859c343a6869f254cbd9a996b5ff094338b3e9d7ea85b5d224"
     },
     {
       "component": "scroll-region",
       "path": "Components/Assets/scroll-region.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "d52940eefc0247682b9a82f6c1bb4aa8a4f3b1d203388564bf340acea551adf5"
+      "registryChecksum": "1b07a19048b46deb5987edf5af4d5982ebf9dfbcec801102ccb3f149ef71448a"
     },
     {
       "component": "button-group",
@@ -381,7 +381,7 @@
       "component": "breadcrumbs",
       "path": "Components/Assets/breadcrumbs.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "e0a185ce5e7c0a6047b0b40fce5ba41eae34a83f83c524e1c737b195491f6d3b"
+      "registryChecksum": "23eecf4ee1fc7e615ad6db2b2c14f3354510b489ac1ea35e2e0ebcbe756f6cc9"
     },
     {
       "component": "breadcrumbs",
@@ -405,7 +405,7 @@
       "component": "dialog",
       "path": "Components/Assets/dialog.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "237ea255cd61522eb5eed605a58b137c2ab5d380fbb62f8c6a490f7be718c7a5"
+      "registryChecksum": "3178292fb56dccbe753ff33beb81c6c3d2cd64bcff464bb94caaafce05b09e92"
     },
     {
       "component": "dialog",
@@ -417,7 +417,7 @@
       "component": "drawer",
       "path": "Components/Assets/drawer.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "41a0d4e7a6d55777dceb8ecf25bc18ca1b5354552f82353712ef9fbd83110643"
+      "registryChecksum": "c890defb70782fd31d5deb520a23ea8edd09049cd75d731b320d459933dc1755"
     },
     {
       "component": "drawer",
@@ -429,7 +429,7 @@
       "component": "command",
       "path": "Components/Assets/command.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "f85f3e8fd63e24f1bbdc61281ce2a1bfd9f9d6ee8a9e201834522d7411a0f73d"
+      "registryChecksum": "74e96bb28de4215d8d6b599dc840d979c19f7179a2674e4ace09d06e46497bff"
     },
     {
       "component": "command",
@@ -441,7 +441,7 @@
       "component": "popover",
       "path": "Components/Assets/popover.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "9bfbf77d64381934346f3b4d694a5c14fa5f35b809691c79190525ae3475f048"
+      "registryChecksum": "44a060aacd0ce79f0a89375eafa420cf52f764c0a07cb967a290ed986fb698c1"
     },
     {
       "component": "popover",
@@ -459,7 +459,7 @@
       "component": "time-picker",
       "path": "Components/Assets/time-picker.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "2d80111acdaccada425b8359eca7d4bea0ecf4ae0252928382016ba9450fd34e"
+      "registryChecksum": "3a491efe1b3ca0b43e5e1aa7a5cbea92935d5cdf02b313225d88c7e43003e594"
     },
     {
       "component": "section",
@@ -531,7 +531,7 @@
       "component": "presentation",
       "path": "Components/Assets/presentation.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "c2a8ece3e994c38e989d83a7a7913bcda387e606f9772e420393a53fa6176e52"
+      "registryChecksum": "3ee93578578381dbebc60cff0782b68ca0260127614e3a9bf6657353e046f645"
     },
     {
       "component": "presentation",
@@ -555,7 +555,7 @@
       "component": "radio-group",
       "path": "Components/Assets/radio.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "6fe523f7e9dbc4c827a80fd8ef0fdf59f572590a2bd5fce4ce380f977c5a8bab"
+      "registryChecksum": "6ffa5197a97636c92cd4226645000be64402c959fd5d166f5d3d35486f8468f3"
     },
     {
       "component": "radio-group",
@@ -573,13 +573,13 @@
       "component": "calendar-rendering",
       "path": "Components/Assets/calendar-range.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "1b595f2eb50efd596dbbd67b7a920c8bdf293cdfee87d8416120de2cc0fd8e41"
+      "registryChecksum": "410e122aef7a4eda69364f2bd416788c67d1cb0afa43131b23323a4e685364ab"
     },
     {
       "component": "month-calendar",
       "path": "Components/Assets/calendar-selection.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "bf918f3ac4a79397e24db041e72548b59e9aa10bf32f07fc767f3fcc4527a903"
+      "registryChecksum": "34efcd4f7744181103a1b6907dbcb0a74f1d911df2c7d3e4e0f8513f136b11f9"
     },
     {
       "component": "month-calendar",
@@ -591,7 +591,7 @@
       "component": "date-picker",
       "path": "Components/Assets/date-picker.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "45feb41367975d15c618d8f49c61a88db692dc9dd597293bd1597612f21bf910"
+      "registryChecksum": "0d338582a8fcef10ea868867852ebcf80ace4f12644e324f84d774fca0d4704f"
     },
     {
       "component": "date-picker",

@@ -99,7 +99,7 @@ test('gallery opens isolated consumer templates with GitHub source and native hi
   await expect(source).toHaveAttribute('target', '_blank')
   await expect(app.locator('script[type="module"][src^="/examples/js/app"][src$=".js"]')).toHaveCount(1)
   await expect(app.locator('fve-button[data-rocket-host]').first()).toBeAttached()
-  await expect(app.locator('script[src$="/datastar.1.0.4.js"]')).toHaveCount(0)
+  await expect(app.locator('script[src$="/datastar.1.0.5.js"]')).toHaveCount(0)
   await expect(source).toHaveText('')
   await app.getByRole('link', { name: 'Profile', exact: true }).click()
   await app.getByRole('radiogroup', { name: 'Appearance', exact: true }).getByText('Dark', { exact: true }).click()
@@ -315,7 +315,7 @@ for (const { saved, choice, activation } of [
     }, saved)
     let release!: () => void
     const moduleReady = new Promise<void>(resolve => { release = resolve })
-    await page.route('**/examples/js/datastar-rocket.1.0.4.js', async route => {
+    await page.route('**/examples/js/datastar-rocket.1.0.5.js', async route => {
       await moduleReady
       await route.continue()
     })

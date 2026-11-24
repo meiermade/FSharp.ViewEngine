@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 
 test('Rocket enhancement keeps caller bindings outside private per-instance state @cross-browser', async ({ page }) => {
-  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: "export * from '/examples/js/datastar-rocket.1.0.4.js';" }))
+  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: "export * from '/examples/js/datastar-rocket.1.0.5.js';" }))
   await page.goto('/components/card')
   const bundle = await page.locator('script[type="module"][src^="/js/app"]').getAttribute('src')
   await page.evaluate(async bundleUrl => {

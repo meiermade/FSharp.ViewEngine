@@ -413,7 +413,7 @@ let tests =
             Expect.isFalse (rendered.Contains("<style")) "the package emits no style element requiring a nonce"
             Expect.stringContains rendered "<script nonce=\"request-nonce\">" "inline script nonce"
             Expect.stringContains rendered "type=\"module\" src=\"/js/app.js\" nonce=\"request-nonce\"" "the shared component bundle carries the request nonce"
-            Expect.isFalse (rendered.Contains "src=\"/js/datastar.1.0.4.js\"") "ordinary Datastar is not loaded alongside Rocket"
+            Expect.isFalse (rendered.Contains "src=\"/js/datastar.1.0.5.js\"") "ordinary Datastar is not loaded alongside Rocket"
         }
 
         test "Assets and Mermaid behavior are configurable" {

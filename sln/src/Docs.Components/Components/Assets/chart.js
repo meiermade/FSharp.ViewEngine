@@ -1,4 +1,4 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 let renderer;
 const loadRenderer = () => renderer ??= import('./echarts.6.1.0.esm.min.js').catch(error => {
@@ -10,7 +10,8 @@ const validOptions = value => value && typeof value === 'object' && !Array.isArr
 rocket('fve-chart', {
   scope: false,
   renderOnPropChange: false,
-  props: ({ json, bool }) => ({ options: json, events: json.default([]), empty: bool.default(false) }),
+  // Unlike native boolean attributes, empty="false" must clear the empty state.
+  props: ({ json, string }) => ({ options: json, events: json.default([]), empty: string.default('false') }),
   manifest: { events: [
     { name: 'chart-render', kind: 'custom-event', bubbles: true, composed: true, description: 'After options and theme are applied. detail.chart exposes the ECharts instance for application-owned callbacks and actions.' },
     { name: 'chart-click', kind: 'custom-event', bubbles: true, composed: true, description: 'An opted-in ECharts click event. Other names supplied through events use the same chart- prefix.' },
@@ -86,7 +87,7 @@ rocket('fve-chart', {
         delete host.dataset.ready;
         return;
       }
-      if (props.empty) {
+      if (['', 'true', '1'].includes(props.empty)) {
         message('No chart data.');
         host.dataset.ready = 'true';
         return;
