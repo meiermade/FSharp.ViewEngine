@@ -200,7 +200,7 @@ module View =
 
     let checkEmailInputGroup =
         fveField {
-            _attr ("data-signals__root", "{_email_check_pending: false}")
+            _attr ("data-signals__root__ifmissing", "{_email_check_pending: false}")
             fveLabel { _for "email-to-check"; "Email to check" }
             fveInputGroup {
                 fveInput {

@@ -107,7 +107,7 @@ module View =
 
     let commandActionsExample =
         div {
-            _attr ("data-signals__root", "{commandFeedback: ''}")
+            _attr ("data-signals__root__ifmissing", "{commandFeedback: ''}")
             _class "grid w-full gap-3"
 
             fveCommand {

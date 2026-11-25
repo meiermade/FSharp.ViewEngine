@@ -129,7 +129,7 @@ module View =
     let buttonVisibilityExample =
         div {
             _class "flex flex-wrap items-center justify-center gap-4"
-            _attr ("data-signals__root", "{actionVisible: false}")
+            _attr ("data-signals__root__ifmissing", "{actionVisible: false}")
             fveButton { _dataOn("click", "$actionVisible = !$actionVisible"); "Toggle action visibility" }
             fveButton {
                 _dataShow "$actionVisible"

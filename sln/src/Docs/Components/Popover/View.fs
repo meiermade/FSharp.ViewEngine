@@ -44,7 +44,7 @@ module View =
     let previewSizePopover =
         div {
             _class "grid w-full justify-items-start gap-4"
-            _attr ("data-signals__root", "{_popover_preview_width: 240, _popover_preview_height: 120}")
+            _attr ("data-signals__root__ifmissing", "{_popover_preview_width: 240, _popover_preview_height: 120}")
             fvePopover {
                 _id "preview-size-popover"
                 _focusOnOpen true

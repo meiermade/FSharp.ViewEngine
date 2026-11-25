@@ -78,7 +78,7 @@ module View =
     let checkboxDropdownMenu =
         div {
             _class "grid justify-items-start gap-3"
-            _attr ("data-signals__root", "{_menu_email: true, _menu_push: false}")
+            _attr ("data-signals__root__ifmissing", "{_menu_email: true, _menu_push: false}")
             fveDropdownMenu {
                 _id "components-menu-checkboxes"
                 fveDropdownMenuTrigger { fveButton { "Notification preferences" } }
@@ -105,7 +105,7 @@ module View =
     let radioDropdownMenu =
         div {
             _class "grid justify-items-start gap-3"
-            _attr ("data-signals__root", "{_menu_sort: 'Name'}")
+            _attr ("data-signals__root__ifmissing", "{_menu_sort: 'Name'}")
             fveDropdownMenu {
                 _id "components-menu-radio"
                 fveDropdownMenuTrigger { fveButton { "Sort preview" } }
@@ -143,7 +143,7 @@ module View =
     let destructiveDropdownMenu =
         div {
             _class "grid w-full max-w-sm gap-3"
-            _attr ("data-signals__root", "{_menu_draft: 'Review September reports.'}")
+            _attr ("data-signals__root__ifmissing", "{_menu_draft: 'Review September reports.'}")
             fveField {
                 fveLabel { _for "menu-draft-note"; "Draft note" }
                 fveTextarea {
@@ -256,7 +256,7 @@ module View =
     let fullRowDropdownMenu =
         div {
             _class "w-64 max-w-full border border-[var(--fve-border)]"
-            _attr ("data-signals__root", "{menuRegion: 'Side navigation'}")
+            _attr ("data-signals__root__ifmissing", "{menuRegion: 'Side navigation'}")
 
             fveDropdownMenu {
                 _id "components-menu-full-row"
@@ -321,7 +321,7 @@ module View =
     let customDropdownMenu =
         div {
             _class "grid justify-items-start gap-3"
-            _attr ("data-signals__root", "{customMenuClicks: 0}")
+            _attr ("data-signals__root__ifmissing", "{customMenuClicks: 0}")
 
             fveDropdownMenu {
                 _id "components-menu-custom"
@@ -432,7 +432,7 @@ module View =
     let dropdownMenuRegion refreshed =
         div {
             _id "components-dropdown-menu-region"
-            _attr ("data-signals__root", "{menuActivations: 0, menuDeletes: 0, menuCompact: false}")
+            _attr ("data-signals__root__ifmissing", "{menuActivations: 0, menuDeletes: 0, menuCompact: false}")
             _class "grid justify-items-center text-center"
 
             div {

@@ -31,7 +31,7 @@ module View =
     let noticeAnnouncementExample =
         div {
             _class "grid gap-4"
-            _attr ("data-signals__root", "{_noticeStatus: ''}")
+            _attr ("data-signals__root__ifmissing", "{_noticeStatus: ''}")
 
             fveButton {
                 _class "justify-self-start"

@@ -185,7 +185,7 @@ module View =
             _initialFocus "delete-item-confirmation-cancel"
 
             _role "alertdialog"
-            _attr ("data-signals__root", "{_delete_item_confirmation_pending: false}")
+            _attr ("data-signals__root__ifmissing", "{_delete_item_confirmation_pending: false}")
             _dataOn ("cancel", "$_delete_item_confirmation_pending && evt.preventDefault()")
         }
 

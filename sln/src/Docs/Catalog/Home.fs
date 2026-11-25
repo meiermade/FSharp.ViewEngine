@@ -20,7 +20,7 @@ let myPage =
             link { _href "/css/tailwind.css"; _rel "stylesheet" }
         }
         body {
-            _attr ("data-signals__root", "{showContent: false}")
+            _attr ("data-signals__root__ifmissing", "{showContent: false}")
             _class "bg-gray-100"
             div {
                 _class [ "container"; "mx-auto"; "p-4" ]
@@ -46,7 +46,7 @@ let myPage =
 
     let private quickExamplePreview =
         div {
-            _attr ("data-signals__root", "{showContent: false}")
+            _attr ("data-signals__root__ifmissing", "{showContent: false}")
             _style "min-height:12rem;border-radius:.65rem;background:#f3f4f6;padding:1.5rem;color:#111827"
             h3 { _style "margin:0 0 1rem;color:#2563eb;font-size:1.5rem"; "Welcome!" }
             button {

@@ -438,7 +438,7 @@ module View =
             + "').toLowerCase().includes($_graphQuery.toLowerCase())"
 
         div {
-            _attr ("data-signals__root", "{_graphQuery:'', _graphZoom:1}")
+            _attr ("data-signals__root__ifmissing", "{_graphQuery:'', _graphZoom:1}")
             _class "flex h-full min-h-0 flex-col"
 
             div {

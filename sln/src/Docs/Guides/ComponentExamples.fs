@@ -11,7 +11,7 @@ module ComponentGuideExamples =
     let usingSignals =
         div {
             _class "grid gap-4"
-            _attr ("data-signals__root", "{_guide_name: ''}")
+            _attr ("data-signals__root__ifmissing", "{_guide_name: ''}")
 
             fveField {
                 fveLabel {
@@ -96,7 +96,7 @@ module ComponentGuideExamples =
 
     let appearancePicker =
         fveRadioGroup {
-            _attr ("data-signals__root", "{_guide_appearance: window.fveColorMode.current()}")
+            _attr ("data-signals__root__ifmissing", "{_guide_appearance: window.fveColorMode.current()}")
             _dataOn ("fve-color-mode", ["window"], "$_guide_appearance = window.fveColorMode.current()")
             yield! ColorMode.nativeChoiceAttributes
             fveFieldLegend { "Appearance" }

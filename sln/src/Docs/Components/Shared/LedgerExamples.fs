@@ -61,7 +61,7 @@ module LedgerExamples =
 
     let recordActionFeedback kind (content: HtmlElement) =
         div {
-            _attr ("data-signals__root", $"{{_{kind}MenuFeedback: ''}}")
+            _attr ("data-signals__root__ifmissing", $"{{_{kind}MenuFeedback: ''}}")
             content
 
             p {
@@ -279,7 +279,7 @@ module LedgerExamples =
         fveTable {
             _ariaLabel "Item hierarchy"
             _mobileLayout MobileLayout.Records
-            _attr ("data-signals__root", "{itemHierarchyExpanded:['projects','website','shared']}")
+            _attr ("data-signals__root__ifmissing", "{itemHierarchyExpanded:['projects','website','shared']}")
 
             fveTableHeader {
                 fveTableRow {

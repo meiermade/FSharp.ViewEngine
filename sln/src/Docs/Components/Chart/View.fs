@@ -137,7 +137,7 @@ module View =
     let interactiveChart =
         div {
             _class "grid min-w-0 gap-3"
-            _attr ("data-signals__root", "{ _chart_selection: 'Click a point or column.' }")
+            _attr ("data-signals__root__ifmissing", "{ _chart_selection: 'Click a point or column.' }")
 
             fveChart {
                 _id "interactive-values-chart"

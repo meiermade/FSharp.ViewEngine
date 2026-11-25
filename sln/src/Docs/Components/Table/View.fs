@@ -159,7 +159,7 @@ module View =
         fveTable {
             _id "team-member-selection"
             _ariaLabel "Selectable team members"
-            _attr ("data-signals__root", "{tableMemberSelection:[]}")
+            _attr ("data-signals__root__ifmissing", "{tableMemberSelection:[]}")
             _dataOn ("fve-selection-clear", "$tableMemberSelection = []")
 
             _dataEffect

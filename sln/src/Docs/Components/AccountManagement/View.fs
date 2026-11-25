@@ -924,7 +924,7 @@ module View =
         let page =
             div {
                 _class "flex h-full min-h-0 flex-col"
-                _attr ("data-signals__root", "{ledgerRefreshes: 0, ledgerCreates: 0}")
+                _attr ("data-signals__root__ifmissing", "{ledgerRefreshes: 0, ledgerCreates: 0}")
 
                 div {
                     _class "hidden shrink-0 md:block"

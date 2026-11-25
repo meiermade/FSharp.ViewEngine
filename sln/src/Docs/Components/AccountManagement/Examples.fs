@@ -228,7 +228,7 @@ module Examples =
 
     let pageHeaderPreview =
         div {
-            _attr ("data-signals__root", "{ledgerRefreshes: 0}")
+            _attr ("data-signals__root__ifmissing", "{ledgerRefreshes: 0}")
             accountPageHeader
 
             output {
@@ -329,7 +329,7 @@ module Examples =
 
     let responsiveActionsExample =
         div {
-            _attr ("data-signals__root", "{ledgerRefreshes: 0}")
+            _attr ("data-signals__root__ifmissing", "{ledgerRefreshes: 0}")
 
             fvePageHeader {
                 _label "Operating checking"
