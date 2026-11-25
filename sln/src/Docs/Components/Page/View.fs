@@ -35,7 +35,7 @@ module View =
                 _ariaLabel "Workflow canvas"
                 _tabindex 0
                 _class "h-full overflow-auto"
-                _dataSignals "{canvasZoom: 1}"
+                _attr ("data-signals__root__ifmissing", "{canvasZoom: 1}")
 
                 div {
                     _class "flex items-center gap-2 p-3"

@@ -61,7 +61,7 @@ module LedgerExamples =
 
     let recordActionFeedback kind (content: HtmlElement) =
         div {
-            _dataSignals $"{{_{kind}MenuFeedback: ''}}"
+            _attr ("data-signals__root__ifmissing", $"{{_{kind}MenuFeedback: ''}}")
             content
 
             p {
@@ -279,7 +279,7 @@ module LedgerExamples =
         fveTable {
             _ariaLabel "Item hierarchy"
             _mobileLayout MobileLayout.Records
-            _dataSignals "{itemHierarchyExpanded:['projects','website','shared']}"
+            _attr ("data-signals__root__ifmissing", "{itemHierarchyExpanded:['projects','website','shared']}")
 
             fveTableHeader {
                 fveTableRow {
@@ -558,7 +558,7 @@ module LedgerExamples =
                             _type InputType.Search
 
                             _placeholder "Search accounts"
-                            _dataBind "collectionquery"
+                            _dataBind ("collectionquery", ["root"])
                             _dataAttr ("disabled", "$collectionstate != 'ready'")
                         }
                     }
@@ -587,7 +587,7 @@ module LedgerExamples =
                 select {
                     _name "accountType"
                     _ariaLabel "Filter by account type"
-                    _dataBind "collectiontype"
+                    _dataBind ("collectiontype", ["root"])
                     _dataAttr ("disabled", "$collectionstate != 'ready'")
 
                     _class

@@ -1,7 +1,7 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-resizable', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, $$, cleanup, effect }) => {
     const events = new AbortController();
     const number = (name, fallback) => Number(host.getAttribute(name) ?? fallback);

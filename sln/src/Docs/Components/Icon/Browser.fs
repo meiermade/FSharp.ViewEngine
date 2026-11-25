@@ -272,7 +272,7 @@ module IconBrowser =
         section {
             _id "icon-browser"; _ariaLabel "Icon browser"
             _class "@container/icon-browser grid min-w-0 grid-cols-1 gap-4"
-            _dataSignals "{iconSearchPending: false, iconCopied: '', iconCopyError: false, iconMoreScroll: -1}"
+            _attr ("data-signals__root__ifmissing", "{iconSearchPending: false, iconCopied: '', iconCopyError: false, iconMoreScroll: -1}")
             // WebKit can clamp the scrolling list while mounted controls are morphed.
             _dataOn("docs-icons-updated", "if ($iconMoreScroll >= 0) { document.getElementById('icon-grid').scrollTop = $iconMoreScroll; $iconMoreScroll = -1 }")
             _dataOn("submit", ["capture"], "$iconSearchPending = false; $iconCopied = ''; $iconCopyError = false; $iconMoreScroll = -1")

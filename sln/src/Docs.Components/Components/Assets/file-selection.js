@@ -1,8 +1,8 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 import { enhanceNativeControl } from './native-control.js';
 
 rocket('fve-file-selection', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: context => {
     const { host, cleanup } = context;
     enhanceNativeControl(context, ['Enter', ' ']);

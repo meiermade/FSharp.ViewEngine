@@ -1,4 +1,4 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 const base = '[&_svg]:size-[var(--fve-control-icon-size,1rem)] [&_svg]:shrink-0 inline-flex min-h-[var(--fve-control-min-height)] items-center justify-center gap-2 rounded-[var(--fve-radius-control)] text-[length:var(--fve-control-font-size)] leading-[var(--fve-control-line-height)] font-medium outline-none transition-[color,background-color,border-color,box-shadow,translate] duration-100 motion-reduce:transition-none motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup]):not([data-fve-keyboard-pressed])]:active:translate-y-px motion-safe:[&:not(:disabled):not([aria-disabled=true]):not([aria-busy=true]):not([aria-haspopup])]:data-[fve-keyboard-pressed=true]:translate-y-px focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--fve-internal-color-focus)] focus-visible:ring-offset-[var(--fve-surface)] forced-colors:focus-visible:outline-solid forced-colors:focus-visible:outline-2 forced-colors:focus-visible:-outline-offset-2 forced-colors:focus-visible:outline-[Highlight] disabled:pointer-events-none disabled:opacity-50 relative [&[aria-busy=true]>[data-fve-button-content]]:opacity-0 [&[aria-busy=true]>[data-fve-button-spinner]]:flex';
 const appearances = {
@@ -65,7 +65,7 @@ function settlePresentation(control) {
 }
 
 rocket('fve-button', {
-  mode: 'light', scope: false,
+  mode: 'light',
   renderOnPropChange: false,
   props: ({ oneOf, json, bool }) => ({
     color: oneOf(...Object.keys(fallbacks), 'custom').default('neutral'),
@@ -73,7 +73,7 @@ rocket('fve-button', {
     size: oneOf(...Object.keys(sizes)).default(''),
     padding: oneOf('default', 'uniform').default('default'),
     palette: json.default(null),
-    disabled: bool.default(false),
+    disabled: bool,
     type: oneOf('button', 'submit', 'reset').default('button'),
   }),
   render: ({ html, host }) => {

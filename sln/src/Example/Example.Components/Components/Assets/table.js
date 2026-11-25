@@ -1,4 +1,4 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 // Rocket owns lifecycle; native rows and caller-owned state remain intact.
 // Rows/cells remain native HTML and new rows inherit these descendant styles.
@@ -34,7 +34,7 @@ const setAttributeIfChanged = (element, name, value) => {
 };
 
 rocket('fve-table', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, cleanup }) => {
     let syncing = false, pending = false, disposed = false, focusId;
     const attributes = ['density', 'surface', 'mobile-layout', 'scroll-rows', 'hover-rows', 'aria-label', 'aria-labelledby', 'aria-describedby', 'class'];

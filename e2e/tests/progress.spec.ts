@@ -34,13 +34,42 @@ test('Progress streams native values through completion and can be run again @cr
   expect(errors).toEqual([])
 })
 
+test('staying on the page preserves an active Progress stream @cross-browser', async ({ page }) => {
+  const errors: string[] = []
+  page.on('pageerror', error => errors.push(error.message))
+  await page.goto('/components/progress')
+  await page.evaluate(() => {
+    window.addEventListener('beforeunload', event => {
+      event.preventDefault()
+      event.returnValue = 'Unsaved changes'
+    })
+  })
+  const preview = page.locator('#components-progress-active-panel-preview')
+  const progress = preview.getByRole('progressbar', { name: 'Example task', exact: true })
+  const trigger = preview.getByRole('button')
+  await trigger.click()
+  await expect(progress).toHaveAttribute('value', /^(?:[1-9]\d?)$/)
+  const prompt = page.waitForEvent('dialog')
+  const click = page.locator('#nav-components-badge').click()
+  const dialog = await prompt
+  expect(dialog.type()).toBe('beforeunload')
+  await dialog.dismiss()
+  await click
+  await expect(page).toHaveURL(/\/components\/progress$/)
+  await expect(progress).toHaveAttribute('value', '100')
+  await expect(preview.getByRole('status')).toHaveText('Complete')
+  await expect(trigger).toHaveAccessibleName('Run again')
+  expect(errors).toEqual([])
+})
+
 test('native navigation leaves an active Progress stream behind and opens a fresh example @cross-browser', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components/progress')
   const preview = page.locator('#components-progress-active-panel-preview')
   const progress = preview.getByRole('progressbar', { name: 'Example task', exact: true })
-  await preview.getByRole('button', { name: 'Run example', exact: true }).click()
+  const trigger = preview.getByRole('button', { name: 'Run example', exact: true })
+  await trigger.click()
   await expect(progress).toHaveAttribute('value', /^(?:[1-9]\d?)$/)
   await page.locator('#nav-components-badge').click()
   await expect(page.getByRole('heading', { name: 'Badge', exact: true, level: 1 })).toBeVisible()
@@ -48,7 +77,21 @@ test('native navigation leaves an active Progress stream behind and opens a fres
   await page.locator('#nav-components-progress').click()
   expect((await documentResponse).headers()['content-type']).toContain('text/html')
   await expect(progress).toHaveAttribute('value', '0')
-  await expect(preview.getByRole('button', { name: 'Run example', exact: true })).toBeEnabled()
+  await expect(trigger).toBeEnabled()
   await expect(preview.getByRole('status')).toHaveCount(0)
+  await expect(preview.getByRole('alert')).toHaveCount(0)
   expect(errors).toEqual([])
+})
+
+test('a failed Progress request displays an error and permits retry @cross-browser', async ({ page }) => {
+  await page.route('**/components/progress/run', route => route.abort('failed'), { times: 1 })
+  await page.goto('/components/progress')
+  const preview = page.locator('#components-progress-active-panel-preview')
+  const run = preview.getByRole('button', { name: 'Run example', exact: true })
+  await run.click()
+  await expect(preview.getByRole('alert')).toHaveText('Progress could not be loaded. Try again.')
+  await expect(run).toBeEnabled()
+  await run.click()
+  await expect(preview.getByRole('alert')).toHaveCount(0)
+  await expect(preview.getByRole('status')).toHaveText('Complete')
 })

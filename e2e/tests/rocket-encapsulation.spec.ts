@@ -1,13 +1,13 @@
 import { test, expect } from '@playwright/test'
 
 test('Rocket enhancement keeps caller bindings outside private per-instance state @cross-browser', async ({ page }) => {
-  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: "export * from '/examples/js/datastar-rocket.1.0.4.js';" }))
+  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: "export * from '/examples/js/datastar-rocket.1.0.5.js';" }))
   await page.goto('/components/card')
   const bundle = await page.locator('script[type="module"][src^="/js/app"]').getAttribute('src')
   await page.evaluate(async bundleUrl => {
     const runtime = await import(bundleUrl!)
     runtime.rocket('fve-caller-scope-probe', {
-      mode: 'light', scope: false,
+      mode: 'light',
       setup: ({ host, $$, effect, cleanup }: any) => {
         $$('open', false)
         effect(() => host.setAttribute('data-open', String($$.open)))
@@ -17,7 +17,7 @@ test('Rocket enhancement keeps caller bindings outside private per-instance stat
       },
     })
     const fragment = document.createElement('section')
-    fragment.innerHTML = `<fve-caller-scope-probe id="scope-first"><div data-signals="{callerDraft: 'Caller draft'}"><input aria-label="Caller draft" data-bind="callerDraft"><button type="button">First instance</button></div></fve-caller-scope-probe><fve-caller-scope-probe id="scope_first"><button type="button">Second instance</button></fve-caller-scope-probe><output aria-label="Outer draft" data-text="$callerDraft"></output>`
+    fragment.innerHTML = `<fve-caller-scope-probe id="scope-first"><div data-signals__root__ifmissing="{callerDraft: 'Caller draft'}"><input aria-label="Caller draft" data-bind="callerDraft"><button type="button">First instance</button></div></fve-caller-scope-probe><fve-caller-scope-probe id="scope_first"><button type="button">Second instance</button></fve-caller-scope-probe><output aria-label="Outer draft" data-text="$callerDraft"></output>`
     document.querySelector('main')!.prepend(fragment)
   }, bundle)
   await expect(page.getByRole('textbox', { name: 'Caller draft', exact: true })).toHaveValue('Caller draft')
@@ -36,7 +36,7 @@ test('Button and Chart retain application bindings in projected content @cross-b
   await page.goto('/components/button')
   await page.evaluate(() => {
     const region = document.createElement('section')
-    region.innerHTML = ['button', 'chart'].map(kind => `<fve-${kind} id="${kind}-caller-binding" ${kind === 'chart' ? 'aria-label="Bound chart fallback" options="{}" empty="true"' : ''}><span data-signals="{${kind}Draft: 'Caller draft'}"><span data-text="$${kind}Draft"></span></span></fve-${kind}><input aria-label="Projected ${kind} draft" data-bind="${kind}Draft"><output aria-label="Shared ${kind} draft" data-text="$${kind}Draft"></output>`).join('')
+    region.innerHTML = ['button', 'chart'].map(kind => `<fve-${kind} id="${kind}-caller-binding" ${kind === 'chart' ? 'aria-label="Bound chart fallback" options="{}" empty="true"' : ''}><span data-signals__root="{${kind}Draft: 'Caller draft'}"><span data-text="$${kind}Draft"></span></span></fve-${kind}><input aria-label="Projected ${kind} draft" data-bind="${kind}Draft"><output aria-label="Shared ${kind} draft" data-text="$${kind}Draft"></output>`).join('')
     document.querySelector('main')!.prepend(region)
   })
   for (const kind of ['button', 'chart']) {

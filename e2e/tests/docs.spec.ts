@@ -1202,7 +1202,7 @@ test('health and pinned application assets are available', async ({ request }) =
   expect(await css.text()).toContain('tailwindcss v4.2.2')
 
   const assets = [
-    ['/js/datastar.1.0.4.js', 'Datastar v1.0.4'],
+    ['/js/datastar.1.0.5.js', 'Datastar v1.0.5'],
     ['/js/mermaid.11.16.1.min.js', 'mermaid'],
     ['/js/prism.1.30.0.min.js', 'Prism'],
     ['/js/prism-fsharp.1.30.0.min.js', 'fsharp'],

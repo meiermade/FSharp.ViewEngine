@@ -29,7 +29,7 @@ module internal EditOrganization =
                     _method "post"
                     _action (applicationHref query page)
                     _ariaLabel (title page)
-                    _dataIndicator requestSignal
+                    _dataIndicator (requestSignal, ["root"])
                     _dataOn ("submit", query.submitAction requestSignal)
                     _class "grid gap-5 [--fve-control-min-height:2.5rem] [--fve-control-font-size:1rem]"
                     contextFields query

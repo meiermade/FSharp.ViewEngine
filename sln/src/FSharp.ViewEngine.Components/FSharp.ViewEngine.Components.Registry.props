@@ -21,7 +21,7 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Separator.fs" FveFile="Separator.fs" FveName="separator" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Skeleton.fs" FveFile="Skeleton.fs" FveName="skeleton" FveDependencies="foundation;component-builder" />
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/datastar-LICENSE.txt" FveFile="Assets/datastar-LICENSE.txt" FveOwner="rocket-runtime" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/datastar-rocket.1.0.4.js" FveFile="Assets/datastar-rocket.1.0.4.js" FveName="rocket-runtime" FveDependencies="" FveInternal="true" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/datastar-rocket.1.0.5.js" FveFile="Assets/datastar-rocket.1.0.5.js" FveName="rocket-runtime" FveDependencies="" FveInternal="true" />
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/code-block.js" FveFile="Assets/code-block.js" FveOwner="code-block" FveModule="true" />
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/mermaid.js" FveFile="Assets/mermaid.js" FveOwner="mermaid" FveModule="true" />
     <FveComponent Include="$(MSBuildThisFileDirectory)CodeBlock.fs" FveFile="CodeBlock.fs" FveName="code-block" FveDependencies="rocket-runtime;foundation;component-builder" />

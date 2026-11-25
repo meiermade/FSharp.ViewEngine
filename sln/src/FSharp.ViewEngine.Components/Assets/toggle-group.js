@@ -1,7 +1,7 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-toggle-group', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, $$, cleanup, effect }) => {
     const events = new AbortController();
     const options = { signal: events.signal };

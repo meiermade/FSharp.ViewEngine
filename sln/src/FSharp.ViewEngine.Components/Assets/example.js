@@ -1,8 +1,8 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 import './code-block.js';
 
 rocket('fve-example', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, $$, effect, cleanup }) => {
     const events = new AbortController(), options = { signal: events.signal };
     const owned = selector => [...host.querySelectorAll(selector)].filter(part => part.closest('fve-example') === host);

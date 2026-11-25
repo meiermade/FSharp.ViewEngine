@@ -1,7 +1,7 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-error-summary', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, cleanup }) => {
     const events = new AbortController();
     if (host.hasAttribute('autofocus')) host.focus();

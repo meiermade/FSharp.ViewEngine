@@ -1,9 +1,9 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 import './popover.js';
 import './calendar-selection.js';
 
 rocket('fve-date-picker', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, cleanup }) => {
     const events = new AbortController();
     const synchronize = () => {

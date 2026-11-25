@@ -67,7 +67,7 @@ module View =
                 _accept ".pdf,application/pdf"
                 _required true
                 _ariaDescribedby "required-file-help"
-                _dataSignals "{_pdf_selection_error: ''}"
+                _attr ("data-signals__root__ifmissing", "{_pdf_selection_error: ''}")
                 _dataOn ("change", pdfSelectionValidation)
                 _dataOn ("invalid", pdfSelectionValidation)
                 _dataOn ("reset", ["window"], "if (evt.target === el.form) queueMicrotask(() => { if (!evt.defaultPrevented) { el.setCustomValidity(''); $_pdf_selection_error = ''; } })")

@@ -1,7 +1,7 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-popover', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, $$, effect, cleanup }) => {
     const events = new AbortController();
     let escape = false;

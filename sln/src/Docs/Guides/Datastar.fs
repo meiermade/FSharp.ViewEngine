@@ -22,14 +22,14 @@ module Datastar =
 
     let private completeExamplePreview =
         div {
-            _dataSignals "{query: ''}"
+            _attr ("data-signals__root__ifmissing", "{query: ''}")
             _style "min-height:12rem;border-radius:.65rem;background:#f8fafc;padding:1.5rem;color:#0f172a"
             label { _for "datastar-preview-query"; _style "display:block;margin-bottom:.5rem;font-weight:650"; "Search" }
             input {
                 _id "datastar-preview-query"
                 _type "search"
                 _placeholder "Type to update the preview"
-                _dataBind "query"
+                _dataBind ("query", ["root"])
                 _style "width:100%;border:1px solid #cbd5e1;border-radius:.45rem;background:white;padding:.65rem .75rem;color:#0f172a"
             }
             p { _style "margin:1rem 0 0;color:#475569"; "Current query: "; strong { _dataText "$query || 'None'" } }
@@ -44,7 +44,7 @@ module Datastar =
           CodeBlock("fsharp", source) ]
 
     let private nodes =
-        [ [ Paragraph [ Text "FSharp.ViewEngine exposes 31 typed attribute helpers through the "; InlineContent.Code "Datastar"; Text " type. The canonical examples use the pinned "; Link("Datastar 1.0.4 runtime", "https://github.com/starfederation/datastar/releases/tag/v1.0.4"); Text ". Rocket-only attributes require the corresponding official bundle." ] ];
+        [ [ Paragraph [ Text "FSharp.ViewEngine exposes 31 typed attribute helpers through the "; InlineContent.Code "Datastar"; Text " type. The canonical examples use the pinned "; Link("Datastar 1.0.5 runtime", "https://github.com/starfederation/datastar/releases/tag/v1.0.5"); Text ". Rocket-only attributes require the corresponding official bundle." ] ];
           section "setup" "Setup";
           [ Paragraph [ Text "Open the "; InlineContent.Code "Datastar"; Text " type to access Datastar attributes:" ];
             CodeBlock("fsharp", """open FSharp.ViewEngine
@@ -58,6 +58,7 @@ open type Datastar""");
             Paragraph [ Text "Keys, event names, and modifier strings become part of the HTML attribute name. Treat them as trusted application tokens; FSharp.ViewEngine does not validate or encode attribute names." ] ];
 
           section "core-attributes" "Core Attributes";
+          [ Paragraph [ Text "Inside a Rocket component, use the "; InlineContent.Code "__root"; Text " modifier on signal declarations and bindings that belong to the page, not to the component. For example, use "; InlineContent.Code "_dataBind (\"query\", [\"root\"])"; Text " for a page-owned signal in projected content. Add "; InlineContent.Code "__ifmissing"; Text " to initial values so a server patch does not reset them." ] ];
           attribute "data-signals" "Create or patch signals with _dataSignals. Use object syntax for multiple signals, keyed syntax for one signal, and modifiers for casing or if-missing behavior." """div {
     _dataSignals "{count: 0, name: 'World'}"
     _dataSignals ("page", [ "ifmissing" ], "1")
@@ -163,7 +164,7 @@ div { _dataScrollIntoView [ "smooth"; "vcenter"; "focus" ] }""";
     _lang "en"
     _attr ("data-nonce", pageNonce)
     head {
-        script { _type "module"; _src "/js/datastar.1.0.4.js" }
+        script { _type "module"; _src "/js/datastar.1.0.5.js" }
     }
     body {
         button { _dataOn ("click", "$count++"); "Increment" }

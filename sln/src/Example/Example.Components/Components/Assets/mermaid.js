@@ -1,4 +1,4 @@
-import { rocket } from './datastar-rocket.1.0.4.js';
+import { rocket } from './datastar-rocket.1.0.5.js';
 
 // Mermaid's renderer/configuration are shared; instance DOM and stale-result ownership are not.
 let queue = Promise.resolve(), renderId = 0;
@@ -15,7 +15,7 @@ const diagram = (source, theme) => {
 };
 
 rocket('fve-mermaid', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, cleanup }) => {
     const events = new AbortController();
     let disposed = false, generation = 0, pending, applied;

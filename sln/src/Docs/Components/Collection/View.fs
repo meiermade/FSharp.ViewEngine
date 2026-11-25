@@ -56,7 +56,7 @@ module View =
 
     let collectionPage =
         div {
-            _dataSignals "{collectionquery: '', collectiontype: 'all', collectionstate: 'ready'}"
+            _attr ("data-signals__root__ifmissing", "{collectionquery: '', collectiontype: 'all', collectionstate: 'ready'}")
 
             _dataInit
                 "(() => { const params = new URL(window.location.href).searchParams; $collectionquery = params.get('query') || ''; $collectiontype = params.get('accountType') || 'all' })()"

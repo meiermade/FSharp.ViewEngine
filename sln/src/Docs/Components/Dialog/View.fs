@@ -119,7 +119,7 @@ module View =
             _id $"{dialogId}-content"
             _method "post"
             _action "/components/dialogs/confirm"
-            _dataIndicator requestSignal
+            _dataIndicator (requestSignal, ["root"])
 
             _dataOn (
                 "submit",
@@ -185,7 +185,7 @@ module View =
             _initialFocus "delete-item-confirmation-cancel"
 
             _role "alertdialog"
-            _dataSignals "{_delete_item_confirmation_pending: false}"
+            _attr ("data-signals__root__ifmissing", "{_delete_item_confirmation_pending: false}")
             _dataOn ("cancel", "$_delete_item_confirmation_pending && evt.preventDefault()")
         }
 

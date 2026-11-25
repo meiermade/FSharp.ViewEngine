@@ -90,7 +90,7 @@
       <Compile Include="Components/Slide.fs" />
       <Compile Include="Components/Presentation.fs" />
       <None Include="Components/Assets/datastar-LICENSE.txt" />
-      <None Include="Components/Assets/datastar-rocket.1.0.4.js" />
+      <None Include="Components/Assets/datastar-rocket.1.0.5.js" />
       <None Include="Components/Assets/code-block.js" />
       <None Include="Components/Assets/mermaid.js" />
       <None Include="Components/Assets/native-control.js" />

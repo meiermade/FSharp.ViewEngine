@@ -103,7 +103,7 @@ module Layout =
         let signal = "_documentation_mode"
 
         div {
-            _dataSignals (signal, ["ifmissing"], "window.fveColorMode.current()")
+            _dataSignals (signal, ["root"; "ifmissing"], "window.fveColorMode.current()")
             _dataInit $"${signal} = window.fveColorMode.current()"
             _dataOn ("fve-color-mode", ["window"], $"${signal} = window.fveColorMode.current()")
 

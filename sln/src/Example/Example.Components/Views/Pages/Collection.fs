@@ -14,7 +14,7 @@ open Controls
 module internal Collection =
     let private pending = "_example_collection_pending"
     let private submissionAttributes (query: Query) =
-        [ _dataIndicator pending; _dataOn ("submit", query.submitAction pending) ]
+        [ _dataIndicator (pending, ["root"]); _dataOn ("submit", query.submitAction pending) ]
     let private pendingButtonAttributes blocked =
         [ _dataAttr ("disabled", if blocked then "true" else "$" + pending)
           _dataAttr ("aria-busy", "$" + pending + " ? 'true' : null") ]
@@ -218,8 +218,8 @@ module internal Collection =
             )
 
             _class "group/collection flex min-h-0 flex-1 flex-col"
-            _dataSignals (countSignal, ["ifmissing"], "0")
-            _dataSignals (pending, ["ifmissing"], "false")
+            _dataSignals (countSignal, ["root"; "ifmissing"], "0")
+            _dataSignals (pending, ["root"; "ifmissing"], "false")
             _dataOn ("fve-table-selection-change", $"${countSignal} = evt.detail.keys.length")
 
             _dataOn (
