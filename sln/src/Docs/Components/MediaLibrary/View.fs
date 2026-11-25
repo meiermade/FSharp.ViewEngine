@@ -57,7 +57,7 @@ module View =
         library
         |> fun libraryWithActions ->
             div {
-                _dataSignals "{mediastate: 'ready'}"
+                _attr ("data-signals__root", "{mediastate: 'ready'}")
                 _class "grid gap-4"
 
                 div {

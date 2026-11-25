@@ -53,7 +53,7 @@ module internal ViewProfile =
             fveRadioGroup {
                 _orientation Orientation.Horizontal
                 _ariaLabelledby (appearanceId + "-label")
-                _dataSignals (appearanceSignal, ["ifmissing"], "'system'")
+                _dataSignals (appearanceSignal, ["root"; "ifmissing"], "'system'")
                 _dataInit $"queueMicrotask(() => {{ ${appearanceSignal} = window.fveColorMode.current() }})"
                 _dataOn ("fve-color-mode", ["window"], $"${appearanceSignal} = window.fveColorMode.current()")
 
@@ -73,7 +73,7 @@ module internal ViewProfile =
                             _name (elementId query "appearance")
                             _value value
                             _checked (value.Equals "system")
-                            _dataBind appearanceSignal
+                            _dataBind (appearanceSignal, ["root"])
                         }
                         fveLabel { _for (appearanceId + "-" + value); label }
                     }

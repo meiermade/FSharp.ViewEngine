@@ -22,14 +22,14 @@ module Datastar =
 
     let private completeExamplePreview =
         div {
-            _dataSignals "{query: ''}"
+            _attr ("data-signals__root", "{query: ''}")
             _style "min-height:12rem;border-radius:.65rem;background:#f8fafc;padding:1.5rem;color:#0f172a"
             label { _for "datastar-preview-query"; _style "display:block;margin-bottom:.5rem;font-weight:650"; "Search" }
             input {
                 _id "datastar-preview-query"
                 _type "search"
                 _placeholder "Type to update the preview"
-                _dataBind "query"
+                _dataBind ("query", ["root"])
                 _style "width:100%;border:1px solid #cbd5e1;border-radius:.45rem;background:white;padding:.65rem .75rem;color:#0f172a"
             }
             p { _style "margin:1rem 0 0;color:#475569"; "Current query: "; strong { _dataText "$query || 'None'" } }
@@ -58,6 +58,7 @@ open type Datastar""");
             Paragraph [ Text "Keys, event names, and modifier strings become part of the HTML attribute name. Treat them as trusted application tokens; FSharp.ViewEngine does not validate or encode attribute names." ] ];
 
           section "core-attributes" "Core Attributes";
+          [ Paragraph [ Text "Inside a Rocket component, use the "; InlineContent.Code "__root"; Text " modifier on signal declarations and bindings that belong to the page, not to the component. For example, use "; InlineContent.Code "_dataBind (\"query\", [\"root\"])"; Text " for a page-owned signal in projected content." ] ];
           attribute "data-signals" "Create or patch signals with _dataSignals. Use object syntax for multiple signals, keyed syntax for one signal, and modifiers for casing or if-missing behavior." """div {
     _dataSignals "{count: 0, name: 'World'}"
     _dataSignals ("page", [ "ifmissing" ], "1")

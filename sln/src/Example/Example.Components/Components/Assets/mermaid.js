@@ -15,7 +15,7 @@ const diagram = (source, theme) => {
 };
 
 rocket('fve-mermaid', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, cleanup }) => {
     const events = new AbortController();
     let disposed = false, generation = 0, pending, applied;

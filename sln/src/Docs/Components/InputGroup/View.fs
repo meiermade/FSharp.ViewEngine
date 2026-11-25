@@ -141,7 +141,7 @@ module View =
             fveInputGroup {
                 fveTextarea {
                     _id "message-draft"
-                    _dataRef "_message_draft"
+                    _dataRef ("_message_draft", ["root"])
                     _name "message"
                     _rows 4
                     _maxlength 2000
@@ -192,7 +192,7 @@ module View =
     let emailCheckResult valid =
         p {
             _id "input-group-check-result"
-            _dataRef "_email_check_result"
+            _dataRef ("_email_check_result", ["root"])
             _role "status"
             _class "text-sm text-[var(--fve-muted-text)]"
             if valid then "Email format is valid." else "Enter a valid email address."
@@ -200,12 +200,12 @@ module View =
 
     let checkEmailInputGroup =
         fveField {
-            _dataSignals "{_email_check_pending: false}"
+            _attr ("data-signals__root", "{_email_check_pending: false}")
             fveLabel { _for "email-to-check"; "Email to check" }
             fveInputGroup {
                 fveInput {
                     _id "email-to-check"
-                    _dataRef "_email_check_input"
+                    _dataRef ("_email_check_input", ["root"])
                     _dataOn ("input", "$_email_check_result.textContent = ''")
                     _name "email"
                     _type InputType.Email
@@ -221,7 +221,7 @@ module View =
                     fveButton {
                         _size Size.Small
                         _variant ButtonVariant.Ghost
-                        _dataIndicator "_email_check_pending"
+                        _dataIndicator ("_email_check_pending", ["root"])
                         _dataAttr ("disabled", "$_email_check_pending")
                         _dataOn ("click", "$_email_check_input.reportValidity() && @get('/components/input-group/check-email?email=' + encodeURIComponent($_email_check_input.value), {requestCancellation: 'cleanup', retry: 'never'})")
                         "Check email"
@@ -235,7 +235,7 @@ module View =
                     }
                 }
             }
-            p { _id "input-group-check-result"; _dataRef "_email_check_result"; _role "status" }
+            p { _id "input-group-check-result"; _dataRef ("_email_check_result", ["root"]); _role "status" }
         }
 
     let examples () =

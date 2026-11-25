@@ -44,7 +44,7 @@ module View =
     let previewSizePopover =
         div {
             _class "grid w-full justify-items-start gap-4"
-            _dataSignals "{_popover_preview_width: 240, _popover_preview_height: 120}"
+            _attr ("data-signals__root", "{_popover_preview_width: 240, _popover_preview_height: 120}")
             fvePopover {
                 _id "preview-size-popover"
                 _focusOnOpen true
@@ -65,7 +65,7 @@ module View =
                                 fveInput {
                                     _id ("popover-preview-" + key); _name key; _type InputType.Number
                                     _value value; _min minimum; _max maximum; _required true
-                                    _dataBind ("_popover_preview_" + key)
+                                    _dataBind ("_popover_preview_" + key, ["root"])
                                 }
                             }
                         fveButton { _type "reset"; "Reset size" }

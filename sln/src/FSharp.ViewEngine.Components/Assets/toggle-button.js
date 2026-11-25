@@ -1,7 +1,7 @@
 import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-toggle-button', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, cleanup }) => {
     const events = new AbortController();
     host.addEventListener('click', event => {

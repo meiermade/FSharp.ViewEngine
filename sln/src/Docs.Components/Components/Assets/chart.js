@@ -8,7 +8,6 @@ const loadRenderer = () => renderer ??= import('./echarts.6.1.0.esm.min.js').cat
 const validOptions = value => value && typeof value === 'object' && !Array.isArray(value);
 
 rocket('fve-chart', {
-  scope: false,
   renderOnPropChange: false,
   // Unlike native boolean attributes, empty="false" must clear the empty state.
   props: ({ json, string }) => ({ options: json, events: json.default([]), empty: string.default('false') }),

@@ -137,11 +137,11 @@ module View =
     let interactiveChart =
         div {
             _class "grid min-w-0 gap-3"
-            _dataSignals "{ _chart_selection: 'Click a point or column.' }"
+            _attr ("data-signals__root", "{ _chart_selection: 'Click a point or column.' }")
 
             fveChart {
                 _id "interactive-values-chart"
-                _dataRef "_chart_element"
+                _dataRef ("_chart_element", ["root"])
                 _ariaLabel "Revenue with application-owned chart type and selection"
                 _options lineChartOptions
                 _events [ "click" ]

@@ -35,7 +35,7 @@ module View =
     let operationalProgressExample =
         div {
             _class "grid gap-4"
-            _dataSignals "{components_progress_pending: false, components_progress_done: false}"
+            _attr ("data-signals__root__ifmissing", "{components_progress_pending: false, components_progress_done: false, components_progress_failed: false}")
             progressExampleRegion 0
 
             // The trigger stays mounted while the server patches the progress region.
@@ -44,13 +44,12 @@ module View =
                 _class "justify-self-start"
                 _color Color.Primary
                 _variant ButtonVariant.Solid
-                _dataIndicator "components_progress_pending"
                 _dataAttr ("disabled", "$components_progress_pending")
                 _dataAttr ("aria-busy", "$components_progress_pending ? 'true' : null")
 
                 _dataOn (
                     "click",
-                    "@post('/components/progress/run', {filterSignals: {exclude: /.*/}, requestCancellation: 'cleanup', retry: 'never'})"
+                    "if (!$components_progress_pending) { $components_progress_pending = true; $components_progress_failed = false; @post('/components/progress/run', {filterSignals: {exclude: /.*/}, retry: 'never'}).catch(() => { $components_progress_failed = true }).finally(() => { $components_progress_pending = false }) }"
                 )
 
                 span {
@@ -59,6 +58,12 @@ module View =
 
                     "Run example"
                 }
+            }
+            p {
+                _hidden true
+                _role "alert"
+                _dataAttr ("hidden", "!$components_progress_failed")
+                "Progress could not be loaded. Try again."
             }
         }
 

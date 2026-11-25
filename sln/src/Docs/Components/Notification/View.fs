@@ -48,7 +48,7 @@ module View =
 
     let simpleNotificationExample =
         div {
-            _dataSignals ("components_notification_sequence", [ "ifmissing" ], "0")
+            _dataSignals ("components_notification_sequence", ["root"; "ifmissing"], "0")
 
             div {
                 _class "flex min-h-40 items-start justify-center p-6"
@@ -112,7 +112,7 @@ module View =
 
     let timedNotificationExample =
         div {
-            _dataSignals ("components_timed_notification_sequence", [ "ifmissing" ], "0")
+            _dataSignals ("components_timed_notification_sequence", ["root"; "ifmissing"], "0")
 
             div {
                 _class "flex min-h-40 items-start justify-center p-6"

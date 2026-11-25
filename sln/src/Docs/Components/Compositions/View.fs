@@ -438,7 +438,7 @@ module View =
             + "').toLowerCase().includes($_graphQuery.toLowerCase())"
 
         div {
-            _dataSignals "{_graphQuery:'', _graphZoom:1}"
+            _attr ("data-signals__root", "{_graphQuery:'', _graphZoom:1}")
             _class "flex h-full min-h-0 flex-col"
 
             div {
@@ -458,7 +458,7 @@ module View =
                             _id "graph-search"
                             _name "graph-search"
                             _type InputType.Search
-                            _dataBind "_graph-query"
+                            _dataBind ("_graph-query", ["root"])
                         }
                     }
                 }

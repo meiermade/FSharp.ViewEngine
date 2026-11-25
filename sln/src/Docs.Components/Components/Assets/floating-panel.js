@@ -1,7 +1,7 @@
 import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-floating-panel', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, $$, effect, cleanup }) => {
     const events = new AbortController();
     $$('state', host.getAttribute('state') || 'open');

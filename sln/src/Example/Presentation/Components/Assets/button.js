@@ -65,7 +65,7 @@ function settlePresentation(control) {
 }
 
 rocket('fve-button', {
-  mode: 'light', scope: false,
+  mode: 'light',
   renderOnPropChange: false,
   props: ({ oneOf, json, bool }) => ({
     color: oneOf(...Object.keys(fallbacks), 'custom').default('neutral'),

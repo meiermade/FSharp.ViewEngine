@@ -63,7 +63,7 @@ module View =
         let error = "$" + key + "_error"
         let refresh = error + " = el.validity.valid ? '' : " + System.Text.Json.JsonSerializer.Serialize(message)
         let validate = checkedState + " = true; " + refresh
-        [ _dataSignals ($"{{{key}_checked: false, {key}_error: ''}}")
+        [ _attr ("data-signals__root", $"{{{key}_checked: false, {key}_error: ''}}")
           _dataOn ("blur", validate)
           _dataOn ("input", $"if ({checkedState}) {{ {refresh} }}")
           _dataOn ("invalid", validate)

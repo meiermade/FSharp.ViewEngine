@@ -35,13 +35,13 @@
       "component": "rocket-runtime",
       "path": "Components/Assets/datastar-rocket.1.0.5.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "52e29a1e588e838ac9d322cbd5bf01812362fdf905b13b64b2e78503faf671e1"
+      "registryChecksum": "9a79a02152dcb1fed31a8bb5352bc807fdf29f7ceb2e2c02732c9f9730ea5f93"
     },
     {
       "component": "button",
       "path": "Components/Assets/button.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "4e154e537fac326048b3930579dfd5c30d03197f21c85a6034918cc7a77670ee"
+      "registryChecksum": "84f93352cb20a747935a57019a2c9384c510f6c1d126ec6a21162ae212c62b77"
     },
     {
       "component": "button",
@@ -95,7 +95,7 @@
       "component": "presentation",
       "path": "Components/Assets/presentation.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "3ee93578578381dbebc60cff0782b68ca0260127614e3a9bf6657353e046f645"
+      "registryChecksum": "d2b46c8895a27a6ca02eabd00e4ef278592b42245ce93874676f4f0eedf71e93"
     },
     {
       "component": "presentation",

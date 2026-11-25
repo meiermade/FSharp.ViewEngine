@@ -1,7 +1,7 @@
 import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-notification', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, cleanup }) => {
     const events = new AbortController();
     let elapsed = 0, at = performance.now(), paused = true;

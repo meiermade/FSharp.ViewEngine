@@ -1,7 +1,7 @@
 import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-time-picker', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, cleanup }) => {
     const events = new AbortController(), options = { signal: events.signal };
     const read = () => JSON.parse(host.getAttribute('settings'));

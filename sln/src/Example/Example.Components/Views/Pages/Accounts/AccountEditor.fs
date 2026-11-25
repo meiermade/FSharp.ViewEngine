@@ -164,7 +164,7 @@ module internal AccountEditor =
 
             form {
                 _id (elementId query ("template-account-form" + suffix))
-                _dataIndicator "_example_account_pending"
+                _dataIndicator ("_example_account_pending", ["root"])
                 _dataOn ("submit", query.submitAction "_example_account_pending")
                 _method "post"
                 _action (collectionHref query page)

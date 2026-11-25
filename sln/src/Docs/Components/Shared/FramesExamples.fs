@@ -61,7 +61,7 @@ module FramesExamples =
         let signal = "_" + id.Replace('-', '_') + "_mode"
 
         div {
-            _dataSignals (signal, ["ifmissing"], "window.fveColorMode.current()")
+            _dataSignals (signal, ["root"; "ifmissing"], "window.fveColorMode.current()")
             _dataInit $"${signal} = window.fveColorMode.current()"
             _dataOn ("fve-color-mode", ["window"], $"${signal} = window.fveColorMode.current()")
 

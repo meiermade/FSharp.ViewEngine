@@ -26,7 +26,7 @@ module View =
         fveButton {
             _color Color.Primary
             _variant ButtonVariant.Solid
-            _dataIndicator "_sync_pending"
+            _dataIndicator ("_sync_pending", ["root"])
             _dataOn ("click", "@get('/components/button/settled', {filterSignals: {exclude: /.*/}, retry: 'never'})")
             "Sync"
         }
@@ -56,7 +56,7 @@ module View =
         fveButton {
             _variant ButtonVariant.Ghost
             _ariaLabel "Refresh"
-            _dataIndicator "_refresh_pending"
+            _dataIndicator ("_refresh_pending", ["root"])
             _dataOn ("click", "@get('/components/button/settled', {filterSignals: {exclude: /.*/}, retry: 'never'})")
             refreshIcon
         }
@@ -90,7 +90,7 @@ module View =
 
     let basicButton =
         fveButton {
-            _dataIndicator "_basic_sync_pending"
+            _dataIndicator ("_basic_sync_pending", ["root"])
             _dataOn ("click", "@get('/components/button/settled', {filterSignals: {exclude: /.*/}, retry: 'never'})")
             "Sync"
         }
@@ -129,7 +129,7 @@ module View =
     let buttonVisibilityExample =
         div {
             _class "flex flex-wrap items-center justify-center gap-4"
-            _dataSignals "{actionVisible: false}"
+            _attr ("data-signals__root", "{actionVisible: false}")
             fveButton { _dataOn("click", "$actionVisible = !$actionVisible"); "Toggle action visibility" }
             fveButton {
                 _dataShow "$actionVisible"
@@ -270,7 +270,7 @@ module View =
         fveButton {
             _color Color.Error
             _variant ButtonVariant.Solid
-            _dataIndicator "_delete_pending"
+            _dataIndicator ("_delete_pending", ["root"])
             _dataOn ("click", "@get('/components/button/settled', {filterSignals: {exclude: /.*/}, retry: 'never'})")
             "Delete"
         }

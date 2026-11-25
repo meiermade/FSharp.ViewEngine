@@ -62,7 +62,7 @@ let redirect (destination: string) : HttpHandler =
         let destinationPath = destination.Split('?', '#')[0]
         if tryIntent context = Some Submit && destinationPath <> string context.Request.Path then
             let service = context.RequestServices.GetRequiredService<IDatastarService>()
-            do! execute service $"location.assign({JsonSerializer.Serialize destination});" context.RequestAborted
+            do! execute service $"setTimeout(() => location.assign({JsonSerializer.Serialize destination}));" context.RequestAborted
             return Some context
         else
             return! redirectTo false destination next context

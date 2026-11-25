@@ -28,7 +28,7 @@ module View =
 
     let pageHeaderLayoutExample =
         div {
-            _dataSignals "{itemRefreshes: 0}"
+            _attr ("data-signals__root", "{itemRefreshes: 0}")
 
             fvePageHeader {
                 _label "Project notes"
@@ -60,7 +60,7 @@ module View =
 
     let pageHeaderExample =
         div {
-            _dataSignals "{ledgerRefreshes: 0}"
+            _attr ("data-signals__root", "{ledgerRefreshes: 0}")
             accountPageHeader
 
             output {

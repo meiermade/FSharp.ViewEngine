@@ -1,7 +1,7 @@
 import { rocket } from './datastar-rocket.1.0.5.js';
 
 rocket('fve-avatar', {
-  mode: 'light', scope: false,
+  mode: 'light',
   setup: ({ host, cleanup }) => {
     // Cached images may finish before enhancement. Native fallback content is always present.
     const synchronize = () => {
