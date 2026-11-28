@@ -357,6 +357,33 @@ module View =
             }
         }
 
+    let maskedInputs =
+        div {
+            _class "grid gap-4"
+            fveField {
+                fveLabel { _for "masked-password"; "Password" }
+                fveInput {
+                    _id "masked-password"
+                    _name "password"
+                    _masked true
+                    _autocomplete "current-password"
+                }
+            }
+            fveField {
+                fveLabel { _for "masked-routing-number"; "Routing number" }
+                fveInputGroup {
+                    fveInput {
+                        _id "masked-routing-number"
+                        _name "routingNumber"
+                        _masked true
+                        _inputmode "numeric"
+                        _value "001234567"
+                        _required true
+                    }
+                }
+            }
+        }
+
     let examples () =
             [ sample "input" "Default" [ "labelledInput" ] (fieldSurface labelledInput)
               sample
@@ -373,6 +400,7 @@ module View =
                   "Native search"
                   [ "searchInputExample" ]
                   (fieldSurface searchInputExample)
+              sample "input-masked" "Masked values" [ "maskedInputs" ] (fieldSurface maskedInputs)
               sample "input-disabled" "Disabled" [ "disabledInput" ] (fieldSurface disabledInput)
               sample "input-readonly" "Read-only" [ "readOnlyInput" ] (fieldSurface readOnlyInput) ]
 
@@ -380,6 +408,7 @@ module View =
     let private galleryContent : Content =
         { description = "One native input. Use Field for labels and feedback, and Input Group for icons, text and actions inside a shared frame."
           usage = [
+              prose "Use _masked true for an editable value that should start hidden. Show and Hide change visibility without changing the value. Use _inputmode for the keyboard layout, such as numeric for bank coordinates. Masking controls on-screen visibility, not access to the value."
               prose "required, type, pattern and length constraints use the browser's validity rules. :invalid matches any currently invalid value; :user-invalid delays native error styling until interaction/submission. These examples use Datastar to show inline errors after blur or invalid submission, then recheck on input so the border, aria-invalid, associated message and summary clear together as soon as the value is valid. Form reset clears this temporary feedback."
               prose "The nativeValidationAttributes helper is example-owned presentation, not an Input API or a second value model. Always validate submissions on the server. For server-only rules, recheck on the server and render _ariaInvalid with an associated Field error; a syntactically valid email does not prove that a server-only error is resolved. Read-only values remain submitted; disabled values do not."
               p {

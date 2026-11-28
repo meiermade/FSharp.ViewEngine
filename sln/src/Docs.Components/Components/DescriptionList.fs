@@ -26,9 +26,23 @@ module internal DescriptionList =
 
     let item attributes (children:HtmlElement list) =
         let label = ComponentElement.required "label" attributes
-        ComponentElement.render "div" [_class "min-w-0"] (ComponentHtml.safeAttributes ["label"; "role"] attributes) [
+        let value = if MaskedValue.enabled attributes then Some (ComponentElement.required "value" attributes) else None
+        let reserved = ["label"; "role"; "masked"; if value.IsSome then "value"]
+        ComponentElement.render "div" [_class "min-w-0"] (ComponentHtml.safeAttributes reserved attributes) [
             dt { _class "break-words text-xs font-medium uppercase tracking-wide text-[var(--fve-muted-text)]"; label }
-            dd { _class "mt-1 break-words text-sm font-normal text-[var(--fve-text)]"; children } ]
+            dd {
+                _class "mt-1 break-words text-sm font-normal text-[var(--fve-text)]"
+                for text in Option.toList value do
+                    (Html.el "fve-masked-value") {
+                        _data ("fve-masked-label", label)
+                        _class "inline-flex max-w-full items-center gap-1 align-middle"
+                        span { _data ("fve-masked-text", text); _class "min-w-0 break-all font-mono"; MaskedValue.mask }
+                        MaskedValue.action "toggle" ("Show " + label) None ""
+                        MaskedValue.action "copy" ("Copy " + label) None ""
+                        output { _role "status"; _class "sr-only" }
+                    }
+                children
+            } ]
 
     let description attributes children =
         ComponentElement.render "p" [_class "mt-1 text-xs font-normal text-[var(--fve-muted-text)]"] attributes children

@@ -151,6 +151,17 @@ module View =
             }
         }
 
+    let maskedDetails =
+        fveDescriptionList {
+            fveDescriptionListItem { _label "Bank"; "Example bank" }
+            fveDescriptionListItem {
+                _label "Routing number"
+                _masked true
+                _value "001234567"
+                fveDescriptionListDescription { "Illustrative payment details." }
+            }
+        }
+
     let examples () =
             [ sample
                   "description-list-default"
@@ -167,12 +178,13 @@ module View =
                   "description-list-supporting-text"
                   "With supporting text"
                   [ "itemDetailsWithDescriptions" ]
-                  (detailsSurface itemDetailsWithDescriptions) ]
+                  (detailsSurface itemDetailsWithDescriptions)
+              sample "description-list-masked" "Masked values" [ "maskedDetails" ] (detailsSurface maskedDetails) ]
 
 
     let private galleryContent : Content =
         { description = "Present labelled record details and semantic values as a responsive description list."
-          usage = []
+          usage = [ prose "Set _masked true and supply the displayed text using _value. Show and Hide change its on-screen visibility; Copy always uses the full value. Supporting content remains visible. Use this only for values the viewer is allowed to receive." ]
           sections = []
           apiCategory = Some "description-list" }
 

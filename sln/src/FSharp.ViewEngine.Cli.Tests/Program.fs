@@ -95,7 +95,7 @@ let tests = testList "fve" [
                         Expect.equal installed.Length (Registry.files items).Length "every required file is tracked separately"
                         for file in installed do
                             Expect.equal (Text.checksum (File.ReadAllText(Path.Combine(root,file.Path)))) file.RegistryChecksum "each copied file has its own checksum"
-        for retired in ["documentation"; "documentation-registry"; "page"; "compositions"; "app-shell"; "media-library"; "fixture"; "text-field"; "identity"; "theme-switcher"; "item"; "steps"; "button-script"; "code-block-script"; "rocket-runtime"; "native-control"] do
+        for retired in ["documentation"; "documentation-registry"; "page"; "compositions"; "app-shell"; "media-library"; "fixture"; "text-field"; "identity"; "theme-switcher"; "item"; "steps"; "button-script"; "code-block-script"; "rocket-runtime"; "native-control"; "copy-reveal"; "masked-value"] do
             match Registry.resolve registry [retired] with
             | Error _ -> ()
             | Ok _ -> failtest $"{retired} must not be an installable selector or alias."
@@ -103,10 +103,12 @@ let tests = testList "fve" [
     testCase "independent controls install complete narrow file boundaries" <| fun _ ->
         let common = "ComponentBuilder.fs Foundation.fs"
         let runtime = "Assets/datastar-LICENSE.txt Assets/datastar-rocket.1.0.5.js"
+        let masking = "MaskedValue.fs Assets/masked-value.js"
         let icons = "IconNames.fs IconData.fs Icon.fs Assets/heroicons-LICENSE.txt Assets/heroicons.2.2.0.provenance.json Assets/bootstrap-icons-LICENSE.txt Assets/bootstrap-icons.1.13.1.provenance.json"
         for requested,source in [
             "card", $"{common} Card.fs"
-            "input", $"{common} FieldFoundation.fs Input.fs"
+            "input", $"{common} {runtime} {masking} FieldFoundation.fs Input.fs"
+            "description-list", $"{common} {runtime} {masking} DescriptionList.fs"
             "icon", $"{common} {icons}"
             "button", $"{common} {runtime} Button.fs Assets/button.js"
             "select", $"{common} {runtime} ChoiceSelection.fs Select.fs Assets/select.js"
@@ -122,9 +124,9 @@ let tests = testList "fve" [
             "disclosure", $"{common} Disclosure.fs"
             "slide", $"{common} Slide.fs"
             "presentation", $"{common} {runtime} {icons} Button.fs Assets/button.js Slide.fs Presentation.fs Assets/presentation.js"
-            "time-picker", $"{common} {runtime} FieldFoundation.fs Input.fs InputGroup.fs Popover.fs Assets/popover.js TimePicker.fs Assets/time-picker.js"
-            "day-calendar", $"{common} {runtime} FieldFoundation.fs Input.fs InputGroup.fs TimePicker.fs Assets/time-picker.js Popover.fs Assets/popover.js ChoiceSelection.fs Select.fs Assets/select.js CalendarRendering.fs Assets/scroll-region.js Assets/calendar-range.js DayCalendar.fs"
-            "date-picker", $"{common} {runtime} CalendarRendering.fs Assets/scroll-region.js Assets/calendar-range.js FieldFoundation.fs Input.fs InputGroup.fs TimePicker.fs Assets/time-picker.js Popover.fs Assets/popover.js ChoiceSelection.fs Select.fs Assets/select.js MonthCalendar.fs Assets/calendar-selection.js DatePicker.fs Assets/date-picker.js"
+            "time-picker", $"{common} {runtime} {masking} FieldFoundation.fs Input.fs InputGroup.fs Popover.fs Assets/popover.js TimePicker.fs Assets/time-picker.js"
+            "day-calendar", $"{common} {runtime} {masking} FieldFoundation.fs Input.fs InputGroup.fs TimePicker.fs Assets/time-picker.js Popover.fs Assets/popover.js ChoiceSelection.fs Select.fs Assets/select.js CalendarRendering.fs Assets/scroll-region.js Assets/calendar-range.js DayCalendar.fs"
+            "date-picker", $"{common} {runtime} {masking} CalendarRendering.fs Assets/scroll-region.js Assets/calendar-range.js FieldFoundation.fs Input.fs InputGroup.fs TimePicker.fs Assets/time-picker.js Popover.fs Assets/popover.js ChoiceSelection.fs Select.fs Assets/select.js MonthCalendar.fs Assets/calendar-selection.js DatePicker.fs Assets/date-picker.js"
             "color-mode", "ColorMode.fs" ] do
             withTemp <| fun root ->
                 initialize root

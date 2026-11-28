@@ -193,7 +193,7 @@ test('Toggle controls apply Small, Medium and Large geometry without invalid gro
 test('outlined fields and pagination use real borders without growing their control heights @cross-browser', async ({ page }) => {
   for (const [route, selector, height] of [
     ['/components/tag-input', '#components-tag-input-panel-preview [data-fve-tag-entry]', 32],
-    ['/components/copy-reveal', '#demo-token', 32],
+    ['/components/input', '#components-input-masked-panel-preview .fve-input-group', 32],
     ['/components/file-selection', '#components-file-selection-panel-preview input[type=file]', 32],
     ['/components/pagination', '#components-pagination-panel-preview [aria-current=page]', 36],
   ] as const) {
@@ -654,7 +654,7 @@ test('pending buttons center an overlay without changing size or accessible name
   }
 })
 
-test('Button composes ordinary text and icon children while CopyReveal can use icon actions @cross-browser', async ({ page }) => {
+test('Button composes ordinary text and icon children @cross-browser', async ({ page }) => {
   await page.goto('/components/button')
   const content = page.locator('#components-button-content-panel-preview')
   await expect(content.getByRole('button', { name: 'Text', exact: true })).toBeVisible()
@@ -674,14 +674,6 @@ test('Button composes ordinary text and icon children while CopyReveal can use i
   expect((await trailing.boundingBox())!.width).toBe(16)
   await expect(content.getByRole('button', { name: 'Custom content', exact: true })).toBeVisible()
 
-  await page.goto('/components/copy-reveal')
-  const reveal = page.locator('#components-copy-reveal-icons-panel-preview')
-  const secret = reveal.getByLabel('Icon action demo token')
-  await expect(secret).toHaveAttribute('type', 'password')
-  await reveal.getByRole('button', { name: 'Reveal', exact: true }).click()
-  await expect(secret).toHaveAttribute('type', 'text')
-  await expect(reveal.getByRole('button', { name: 'Hide', exact: true })).toBeVisible()
-  await expect(reveal.getByRole('button', { name: 'Copy', exact: true })).toBeVisible()
 })
 
 test('Rocket Button appearance bindings preserve native behavior and consumer styles @cross-browser', async ({ page }) => {

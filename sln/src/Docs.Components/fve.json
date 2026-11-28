@@ -58,7 +58,6 @@
     "input",
     "textarea",
     "error-summary",
-    "copy-reveal",
     "input-group",
     "select",
     "button-group",
@@ -281,10 +280,22 @@
       "registryChecksum": "5da2f0ac83210c3c412b5ecd3a7e9de14376ca9ff0328fb06f99e7a0d1f02dca"
     },
     {
+      "component": "masked-value",
+      "path": "Components/Assets/masked-value.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "4d95fbfd8c0285a9013614e4f4ca3a7d297c4547b31281fdb0d106dedade86ad"
+    },
+    {
+      "component": "masked-value",
+      "path": "Components/MaskedValue.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "49c309318f09e41152114218d0038ba4f530181bc39789f3e0a0925fe15aac49"
+    },
+    {
       "component": "description-list",
       "path": "Components/DescriptionList.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "139eea3a414d59bef3e62185c9e3c538585dbb13e4afc7dcdaacb0e0a7c24863"
+      "registryChecksum": "8b0ad9c8febc4238e3ea04a1b456a7ac56ee80cf3828a5741d9f40c64a195f73"
     },
     {
       "component": "metric",
@@ -590,13 +601,13 @@
       "component": "input",
       "path": "Components/Input.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "feffe0bb7adfe7fd1065fa18661932cc542ec0d932068507e8f87e2a5bfad5a1"
+      "registryChecksum": "2174ffde2316726b531384390d4c003b12726976e294f52697042ee248386e82"
     },
     {
       "component": "input-group",
       "path": "Components/InputGroup.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "a915c464a76b5cf691d25b101c5f227a2ef0425397225c165db540ef2c861b32"
+      "registryChecksum": "eb024f0f923c37ee3aec173c8e00033092a45fd3dda27a788712f3d6ffba2f27"
     },
     {
       "component": "time-picker",
@@ -669,18 +680,6 @@
       "path": "Components/ErrorSummary.fs",
       "registryVersion": "0.0.0-local",
       "registryChecksum": "4a0cc23539791b32c557e35172931f141490fb766f1f65722c50432301b974c1"
-    },
-    {
-      "component": "copy-reveal",
-      "path": "Components/Assets/copy-reveal.js",
-      "registryVersion": "0.0.0-local",
-      "registryChecksum": "263d67c16a43cfebb036415414207e2998aa304c1fadb998e9d39db06868094c"
-    },
-    {
-      "component": "copy-reveal",
-      "path": "Components/CopyReveal.fs",
-      "registryVersion": "0.0.0-local",
-      "registryChecksum": "0cb5d35392161d64d166ff07a0c88b044d8b7434b112b562c4401b6508495924"
     },
     {
       "component": "button-group",
@@ -846,6 +845,7 @@
     "Components/Assets/button.js",
     "Components/Assets/table.js",
     "Components/Assets/chart.js",
+    "Components/Assets/masked-value.js",
     "Components/Assets/tag-input.js",
     "Components/Assets/checkbox.js",
     "Components/Assets/switch.js",
@@ -868,7 +868,6 @@
     "Components/Assets/calendar-range.js",
     "Components/Assets/calendar-selection.js",
     "Components/Assets/error-summary.js",
-    "Components/Assets/copy-reveal.js",
     "Components/Assets/date-picker.js",
     "Components/Assets/breadcrumbs.js",
     "Components/Assets/dialog.js",

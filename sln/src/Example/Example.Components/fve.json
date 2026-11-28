@@ -198,10 +198,22 @@
       "registryChecksum": "5d78ae0e92e9359a273eda8a35625d94bea13a1d47d1be99c3aa1d11ef5723b8"
     },
     {
+      "component": "masked-value",
+      "path": "Components/Assets/masked-value.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "4d95fbfd8c0285a9013614e4f4ca3a7d297c4547b31281fdb0d106dedade86ad"
+    },
+    {
+      "component": "masked-value",
+      "path": "Components/MaskedValue.fs",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "03890f1a0a8e5d618bd67959da516a42ff119828992ac64aba8b776b8a17ac69"
+    },
+    {
       "component": "description-list",
       "path": "Components/DescriptionList.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "16799eebf55dc6426534119aa649aec0d343d4efe541a7ec79bc65e2ef368805"
+      "registryChecksum": "d1ea1d96f71925bd4fcc90f60d45a9822dd4cfb5dceccbd9f06e0a8ac64e5396"
     },
     {
       "component": "field",
@@ -339,13 +351,13 @@
       "component": "input",
       "path": "Components/Input.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "a0f42cf221191611d603ed13cb94d51559199743730236deb6d48c1d818bb8d2"
+      "registryChecksum": "ec3efec4a5cda1dd961efbf8f60c66cdec5d1af494bf86f4d193eb8ed08dfe10"
     },
     {
       "component": "input-group",
       "path": "Components/InputGroup.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "b044ada6de174e73fd0e397ca923dd47324216907c46a6f40a7cc095bdc2c77e"
+      "registryChecksum": "420d7ba8c76e01c7c6168898778a8275ecccfd34691352caec6568750744f10c"
     },
     {
       "component": "choice-selection",
@@ -606,6 +618,7 @@
     "Components/Assets/button.js",
     "Components/Assets/table.js",
     "Components/Assets/chart.js",
+    "Components/Assets/masked-value.js",
     "Components/Assets/checkbox.js",
     "Components/Assets/tabs.js",
     "Components/Assets/resizable.js",

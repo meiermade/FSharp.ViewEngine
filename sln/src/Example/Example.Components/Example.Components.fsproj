@@ -22,6 +22,7 @@
       <Compile Include="Components/EmptyState.fs" />
       <Compile Include="Components/Table.fs" />
       <Compile Include="Components/Chart.fs" />
+      <Compile Include="Components/MaskedValue.fs" />
       <Compile Include="Components/DescriptionList.fs" />
       <Compile Include="Components/Field.fs" />
       <Compile Include="Components/Checkbox.fs" />
@@ -74,6 +75,7 @@
       <None Include="Components/Assets/echarts.6.1.0.provenance.json" />
       <None Include="Components/Assets/echarts.6.1.0.esm.min.js" />
       <None Include="Components/Assets/chart.js" />
+      <None Include="Components/Assets/masked-value.js" />
       <None Include="Components/Assets/native-control.js" />
       <None Include="Components/Assets/checkbox.js" />
       <None Include="Components/Assets/tabs.js" />

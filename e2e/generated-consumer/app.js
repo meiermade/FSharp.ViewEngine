@@ -11,7 +11,7 @@ import '../../Components/Assets/toggle-button.js';
 import '../../Components/Assets/toggle-group.js';
 import '../../Components/Assets/file-selection.js';
 import '../../Components/Assets/tabs.js';
-import '../../Components/Assets/copy-reveal.js';
+import '../../Components/Assets/masked-value.js';
 import '../../Components/Assets/notification.js';
 import '../../Components/Assets/floating-panel.js';
 import '../../Components/Assets/resizable.js';

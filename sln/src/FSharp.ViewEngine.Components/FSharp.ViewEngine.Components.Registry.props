@@ -43,7 +43,9 @@
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/echarts.6.1.0.esm.min.js" FveFile="Assets/echarts.6.1.0.esm.min.js" FveName="echarts" FveDependencies="" FveInternal="true" />
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/chart.js" FveFile="Assets/chart.js" FveOwner="chart" FveModule="true" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Chart.fs" FveFile="Chart.fs" FveName="chart" FveDependencies="rocket-runtime;echarts;foundation;component-builder" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)DescriptionList.fs" FveFile="DescriptionList.fs" FveName="description-list" FveDependencies="foundation;component-builder" />
+    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/masked-value.js" FveFile="Assets/masked-value.js" FveOwner="masked-value" FveModule="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)MaskedValue.fs" FveFile="MaskedValue.fs" FveName="masked-value" FveDependencies="rocket-runtime;foundation" FveInternal="true" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)DescriptionList.fs" FveFile="DescriptionList.fs" FveName="description-list" FveDependencies="foundation;component-builder;masked-value" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Metric.fs" FveFile="Metric.fs" FveName="metric" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Pagination.fs" FveFile="Pagination.fs" FveName="pagination" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)ChoiceSelection.fs" FveFile="ChoiceSelection.fs" FveName="choice-selection" FveDependencies="foundation" FveInternal="true" />
@@ -98,7 +100,7 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Tooltip.fs" FveFile="Tooltip.fs" FveName="tooltip" FveDependencies="rocket-runtime;foundation;component-builder;field-foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Popover.fs" FveFile="Popover.fs" FveName="popover" FveDependencies="rocket-runtime;foundation;component-builder;field-foundation" />
     <FveComponent Include="$(MSBuildThisFileDirectory)Select.fs" FveFile="Select.fs" FveName="select" FveDependencies="rocket-runtime;foundation;choice-selection;component-builder" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)Input.fs" FveFile="Input.fs" FveName="input" FveDependencies="field-foundation;component-builder" />
+    <FveComponent Include="$(MSBuildThisFileDirectory)Input.fs" FveFile="Input.fs" FveName="input" FveDependencies="field-foundation;component-builder;masked-value" />
     <FveComponent Include="$(MSBuildThisFileDirectory)InputGroup.fs" FveFile="InputGroup.fs" FveName="input-group" FveDependencies="foundation;component-builder" />
     <FveComponent Include="$(MSBuildThisFileDirectory)TimePicker.fs" FveFile="TimePicker.fs" FveName="time-picker" FveDependencies="rocket-runtime;input;input-group;popover" />
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/time-picker.js" FveFile="Assets/time-picker.js" FveOwner="time-picker" FveModule="true" />
@@ -112,8 +114,6 @@
     <FveComponent Include="$(MSBuildThisFileDirectory)Textarea.fs" FveFile="Textarea.fs" FveName="textarea" FveDependencies="field-foundation" />
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/error-summary.js" FveFile="Assets/error-summary.js" FveOwner="error-summary" FveModule="true" />
     <FveComponent Include="$(MSBuildThisFileDirectory)ErrorSummary.fs" FveFile="ErrorSummary.fs" FveName="error-summary" FveDependencies="rocket-runtime;foundation;component-builder" />
-    <FveAsset Include="$(MSBuildThisFileDirectory)Assets/copy-reveal.js" FveFile="Assets/copy-reveal.js" FveOwner="copy-reveal" FveModule="true" />
-    <FveComponent Include="$(MSBuildThisFileDirectory)CopyReveal.fs" FveFile="CopyReveal.fs" FveName="copy-reveal" FveDependencies="rocket-runtime;foundation;button" />
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/native-overlay.js" FveFile="Assets/native-overlay.js" FveOwner="native-overlay" />
     <FveComponent Include="$(MSBuildThisFileDirectory)NativeOverlay.fs" FveFile="NativeOverlay.fs" FveName="native-overlay" FveDependencies="rocket-runtime;foundation;button" FveInternal="true" />
     <FveAsset Include="$(MSBuildThisFileDirectory)Assets/select.js" FveFile="Assets/select.js" FveOwner="select" FveModule="true" />

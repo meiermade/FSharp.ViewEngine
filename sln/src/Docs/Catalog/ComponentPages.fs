@@ -34,7 +34,6 @@ open Docs.ComponentPages.DescriptionList.View
 open Docs.ComponentPages.Metric.View
 open Docs.ComponentPages.Pagination.View
 open Docs.ComponentPages.Avatar.View
-open Docs.ComponentPages.CopyReveal.View
 open Docs.ComponentPages.Input.View
 open Docs.ComponentPages.Field.View
 open Docs.ComponentPages.InputGroup.View
@@ -112,7 +111,6 @@ module ComponentCatalog =
         | "metric" -> Docs.ComponentPages.Metric.View.examples ()
         | "pagination" -> Docs.ComponentPages.Pagination.View.examples ()
         | "avatar" -> Docs.ComponentPages.Avatar.View.examples ()
-        | "copy-reveal" -> Docs.ComponentPages.CopyReveal.View.examples ()
         | "input" -> Docs.ComponentPages.Input.View.examples ()
         | "field" -> Docs.ComponentPages.Field.View.examples ()
         | "input-group" -> Docs.ComponentPages.InputGroup.View.examples ()
@@ -199,7 +197,6 @@ module ComponentCatalog =
           metricRegistration.path, metricPage
           paginationRegistration.path, paginationPage
           avatarRegistration.path, avatarPage
-          copyRevealRegistration.path, copyRevealPage
           inputRegistration.path, inputPage
           fieldRegistration.path, fieldPage
           inputGroupRegistration.path, inputGroupPage

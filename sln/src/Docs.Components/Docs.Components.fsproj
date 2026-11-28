@@ -30,6 +30,7 @@
       <Compile Include="Components/EmptyState.fs" />
       <Compile Include="Components/Table.fs" />
       <Compile Include="Components/Chart.fs" />
+      <Compile Include="Components/MaskedValue.fs" />
       <Compile Include="Components/DescriptionList.fs" />
       <Compile Include="Components/Metric.fs" />
       <Compile Include="Components/Pagination.fs" />
@@ -73,7 +74,6 @@
       <Compile Include="Components/Message.fs" />
       <Compile Include="Components/Textarea.fs" />
       <Compile Include="Components/ErrorSummary.fs" />
-      <Compile Include="Components/CopyReveal.fs" />
       <Compile Include="Components/ButtonGroup.fs" />
       <Compile Include="Components/YearCalendar.fs" />
       <Compile Include="Components/DatePicker.fs" />
@@ -102,6 +102,7 @@
       <None Include="Components/Assets/echarts.6.1.0.provenance.json" />
       <None Include="Components/Assets/echarts.6.1.0.esm.min.js" />
       <None Include="Components/Assets/chart.js" />
+      <None Include="Components/Assets/masked-value.js" />
       <None Include="Components/Assets/tag-input.js" />
       <None Include="Components/Assets/checkbox.js" />
       <None Include="Components/Assets/switch.js" />
@@ -124,7 +125,6 @@
       <None Include="Components/Assets/calendar-range.js" />
       <None Include="Components/Assets/calendar-selection.js" />
       <None Include="Components/Assets/error-summary.js" />
-      <None Include="Components/Assets/copy-reveal.js" />
       <None Include="Components/Assets/date-picker.js" />
       <None Include="Components/Assets/breadcrumbs.js" />
       <None Include="Components/Assets/native-overlay.js" />
