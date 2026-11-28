@@ -102,7 +102,6 @@ let tests =
                     "checkbox", "fveCheckbox", "Checkbox.create"
                     "choice-cards", "fveChoiceCards", "ChoiceCards.single"
                     "tag-input", "fveTagInput", "TagInput.create"
-                    "copy-reveal", "fveCopyReveal", "CopyReveal.create"
                     "page-top-bar", "fvePageTopBar", "PageTopBar.create"
                     "page-header", "fvePageHeader", "PageHeader.create"
                     "section-header", "fveSectionHeader", "SectionHeader.create"

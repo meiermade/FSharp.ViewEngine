@@ -3,7 +3,7 @@ namespace Docs.Pages
 open Docs.Common
 
 module Registry =
-    let releasesUrl = "https://github.com/meiermade/FSharp.ViewEngine/releases"
+    let changelogUrl = "https://github.com/meiermade/FSharp.ViewEngine/blob/main/CHANGELOG.md"
     let packagesUrl = "https://www.nuget.org/packages?q=FSharp.ViewEngine"
 
     let navigation =

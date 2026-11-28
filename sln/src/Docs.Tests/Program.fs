@@ -409,35 +409,18 @@ let tests =
                   "out-of-range progress is rejected"
 
               let credential =
-                  fveCopyReveal {
-                      _id "credential"
-                      _ariaLabel "Demo token"
-                      _value "safe-demo"
-                  }
+                  fveInput { _id "credential"; _name "token"; _masked true; _value "00123" }
                   |> Render.toString
+              Expect.stringContains credential "type=\"password\"" "editable value starts masked"
+              Expect.stringContains credential "name=\"token\"" "the native input remains submittable"
 
-              Expect.stringContains credential "type=\"password\"" "credential starts masked"
-
-              Expect.isFalse
-                  (credential.Contains("aria-label=\"safe-demo\""))
-                  "secret value is not an accessible action name"
-
-              let iconCredential =
-                  fveCopyReveal {
-                      _id "icon-credential"
-                      _ariaLabel "Icon demo token"
-                      _value "safe-icon-demo"
-                      _iconButtons true
-                  }
+              let details =
+                  fveDescriptionListItem { _label "Routing number"; _masked true; _value "00123" }
                   |> Render.toString
-
-              Expect.stringContains iconCredential "aria-label=\"Reveal\"" "icon reveal action keeps an accessible name"
-              Expect.stringContains iconCredential "aria-label=\"Copy\"" "icon copy action keeps an accessible name"
-
-              Expect.equal
-                  (Regex.Matches(iconCredential, "class=\"size-4\"").Count)
-                  3
-                  "icon actions render reveal, hide, and copy glyphs"
+              Expect.stringContains details "<dd" "read-only values stay semantic"
+              Expect.stringContains details "Show Routing number" "the icon button names its value"
+              Expect.stringContains details "Copy Routing number" "the copy icon is labelled"
+              Expect.isFalse (details.Contains "<input") "a displayed value is not a form field"
 
               let hierarchy =
                   fveTable {
@@ -1865,7 +1848,7 @@ let tests =
               let html = View.document Registry.navigation Home.page |> Render.toString
 
               for id, label, href in
-                  [ "changelog", "Changelog", Registry.releasesUrl
+                  [ "changelog", "Changelog", Registry.changelogUrl
                     "packages", "Packages", Registry.packagesUrl ] do
                   let link =
                       Regex
@@ -2170,10 +2153,11 @@ after"""
               for example in
                   examples
                   |> List.filter (fun example -> example.title <> "Consistent control sizes") do
+                  let expected = if example.title = "Masked values" then 2 else 1
                   Expect.equal
                       (Regex.Matches(Render.toString example.preview, "<input ").Count)
-                      1
-                      "one native input per example"
+                      expected
+                      "only the native inputs illustrated by the example"
 
               let _, accountForm = routeResponse "/examples/application/accounts/new"
               Expect.stringContains accountForm "name=\"name\"" "the application template owns the account name field"
@@ -3645,12 +3629,13 @@ after"""
                   let requiredModule =
                       match selector with
                       | "fsharp-api-reference" -> Some "code-block.js"
+                      | "input" | "description-list" -> Some "masked-value.js"
                       | "radio-group" -> Some "radio.js"
                       | "day-calendar" | "week-calendar" | "button-group" -> Some "scroll-region.js"
                       | "month-calendar" | "year-calendar" -> Some "calendar-selection.js"
                       | selector when
                           List.contains selector
-                              [ "avatar"; "button"; "copy-reveal"; "dialog"; "drawer"; "command"
+                              [ "avatar"; "button"; "dialog"; "drawer"; "command"
                                 "table"; "chart"; "tag-input"; "breadcrumbs"
                                 "checkbox"; "switch"; "toggle-button"; "toggle-group"
                                 "file-selection"; "tabs"; "notification"; "floating-panel"
@@ -4197,7 +4182,6 @@ after"""
               for path, selector in
                   [ "/components/icon", "icon"
                     "/components/avatar", "avatar"
-                    "/components/copy-reveal", "copy-reveal"
                     "/components/input", "input"
                     "/components/time-picker", "time-picker"
                     "/components/textarea", "textarea"

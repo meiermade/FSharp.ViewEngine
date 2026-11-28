@@ -20,7 +20,6 @@ open Docs.ComponentPages.DescriptionList.View
 open Docs.ComponentPages.Metric.View
 open Docs.ComponentPages.Pagination.View
 open Docs.ComponentPages.Avatar.View
-open Docs.ComponentPages.CopyReveal.View
 open Docs.ComponentPages.Input.View
 open Docs.ComponentPages.Field.View
 open Docs.ComponentPages.InputGroup.View
@@ -101,7 +100,6 @@ module ComponentRegistry =
           descriptionListRegistration
           metricRegistration
           avatarRegistration
-          copyRevealRegistration
           dayCalendarRegistration
           weekCalendarRegistration
           monthCalendarRegistration

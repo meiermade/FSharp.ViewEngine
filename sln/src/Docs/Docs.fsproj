@@ -116,7 +116,6 @@
     <Compile Include="Components/Progress/Handler.fs" />
     <Compile Include="Components/FileSelection/View.fs" />
     <Compile Include="Components/Avatar/View.fs" />
-    <Compile Include="Components/CopyReveal/View.fs" />
     <Compile Include="Components/Command/View.fs" />
     <Compile Include="Components/Chart/View.fs" />
     <Compile Include="Components/DayCalendar/View.fs" />
@@ -258,7 +257,6 @@
     <EmbeddedResource Include="Components/Progress/Handler.fs" LogicalName="Docs.ComponentSources.072.ProgressHandler.fs" Visible="false" />
     <EmbeddedResource Include="Components/FileSelection/View.fs" LogicalName="Docs.ComponentSources.073.FileSelection.fs" Visible="false" />
     <EmbeddedResource Include="Components/Avatar/View.fs" LogicalName="Docs.ComponentSources.074.Avatar.fs" Visible="false" />
-    <EmbeddedResource Include="Components/CopyReveal/View.fs" LogicalName="Docs.ComponentSources.075.CopyReveal.fs" Visible="false" />
     <EmbeddedResource Include="Components/Command/View.fs" LogicalName="Docs.ComponentSources.076.Command.fs" Visible="false" />
     <EmbeddedResource Include="Components/Chart/View.fs" LogicalName="Docs.ComponentSources.077.Chart.fs" Visible="false" />
     <EmbeddedResource Include="Components/DayCalendar/View.fs" LogicalName="Docs.ComponentSources.078.DayCalendar.fs" Visible="false" />

@@ -333,11 +333,15 @@ module ExistingProjectConsumer =
                     "Demo credential"
                 }
 
-                fveCopyReveal {
+                fveInput {
                     _id "demo-credential"
+                    _masked true
                     _value "safe-example"
-                    _iconButtons true
                 }
+            }
+
+            fveDescriptionList {
+                fveDescriptionListItem { _label "Demo token"; _masked true; _value "safe-example" }
             }
 
             fveToggleButton { "Compact rows" }

@@ -36,7 +36,7 @@ test('readonly guards survive caller click callbacks and once modifiers @cross-b
   }
 })
 
-test('DatePicker and CopyReveal icon controls honor the five inherited size presets @cross-browser', async ({ page }) => {
+test('DatePicker icon controls honor the five inherited size presets @cross-browser', async ({ page }) => {
   const sizes = [
     { height: 24, font: 12, line: 16, block: 4, inline: 8 },
     { height: 28, font: 14, line: 20, block: 4, inline: 8 },
@@ -44,31 +44,20 @@ test('DatePicker and CopyReveal icon controls honor the five inherited size pres
     { height: 36, font: 14, line: 20, block: 8, inline: 12 },
     { height: 40, font: 14, line: 20, block: 10, inline: 14 },
   ]
-  for (const [route, preview, selector] of [
-    ['date-picker', '#components-date-picker-panel-preview', '[aria-haspopup="dialog"]'],
-    ['copy-reveal', '#components-copy-reveal-icons-panel-preview', 'button'],
-  ]) {
-    await page.goto(`/components/${route}`)
-    const region = page.locator(preview)
-    const controls = region.locator(selector)
-    for (const size of sizes) {
-      await region.evaluate((el, size) => {
-        const theme = el.querySelector('.fve-components') ?? el
-        for (const [name, value] of Object.entries({
-          'min-height': size.height, 'font-size': size.font, 'line-height': size.line,
-          'padding-block': size.block, 'padding-inline': size.inline,
-        })) (theme as HTMLElement).style.setProperty(`--fve-control-${name}`, `${value}px`)
-      }, size)
-      for (const control of await controls.all()) {
-        await expect(control).toHaveCSS('height', `${size.height}px`)
-        await expect(control).toHaveCSS('font-size', `${size.font}px`)
-        if (route === 'copy-reveal') {
-          await expect(control.locator('svg:visible')).toHaveCSS('width', '16px')
-          await expect(control).toHaveCSS('width', `${16 + 2 * size.inline}px`)
-          await expect(control).toHaveCSS('padding-inline', `${size.inline - 1}px`)
-          await expect(control).toHaveCSS('padding-block', `${size.block - 1}px`)
-        }
-      }
+  await page.goto('/components/date-picker')
+  const region = page.locator('#components-date-picker-panel-preview')
+  const controls = region.locator('[aria-haspopup="dialog"]')
+  for (const size of sizes) {
+    await region.evaluate((el, size) => {
+      const theme = el.querySelector('.fve-components') ?? el
+      for (const [name, value] of Object.entries({
+        'min-height': size.height, 'font-size': size.font, 'line-height': size.line,
+        'padding-block': size.block, 'padding-inline': size.inline,
+      })) (theme as HTMLElement).style.setProperty(`--fve-control-${name}`, `${value}px`)
+    }, size)
+    for (const control of await controls.all()) {
+      await expect(control).toHaveCSS('height', `${size.height}px`)
+      await expect(control).toHaveCSS('font-size', `${size.font}px`)
     }
   }
 })

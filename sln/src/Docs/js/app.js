@@ -7,7 +7,7 @@ import '../../Docs.Components/Components/Assets/toggle-group.js';
 import '../../Docs.Components/Components/Assets/toggle-button.js';
 import '../../Docs.Components/Components/Assets/tabs.js';
 import '../../Docs.Components/Components/Assets/file-selection.js';
-import '../../Docs.Components/Components/Assets/copy-reveal.js';
+import '../../Docs.Components/Components/Assets/masked-value.js';
 import '../../Docs.Components/Components/Assets/notification.js';
 import '../../Docs.Components/Components/Assets/floating-panel.js';
 import '../../Docs.Components/Components/Assets/resizable.js';

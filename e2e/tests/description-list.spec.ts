@@ -5,12 +5,13 @@ const examples = [
   ['components-description-list', 6, 3],
   ['components-description-list-four-columns', 8, 4],
   ['components-description-list-supporting-text', 2, 2],
+  ['components-description-list-masked', 2, 2],
 ] as const
 
 test('description lists show full-width detail grids with shared label and value typography', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 })
   await page.goto('/components/description-list')
-  await expect(page.locator('[data-docs-example="true"]')).toHaveCount(4)
+  await expect(page.locator('#components-description-list-default-panel-preview dl dt')).toHaveText(['Name', 'Format'])
   for (const [id, fields, columns] of examples) {
     const example = page.locator(`#${id}`)
     const preview = example.locator('.docs-components-preview')

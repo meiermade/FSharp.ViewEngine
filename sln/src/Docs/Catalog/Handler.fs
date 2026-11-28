@@ -159,6 +159,8 @@ module Handler =
 
     let routes : HttpHandler =
         choose [
+            GET >=> route "/components/copy-reveal"
+                >=> redirectTo true "/components/description-list#components-description-list-masked-panel-preview"
             GET >=> choose [route "/guides/theming/document"; route "/components/theming/document"]
                 >=> redirectTo true "/examples/application/profile"
             Docs.ComponentPages.Pagination.Handler.get

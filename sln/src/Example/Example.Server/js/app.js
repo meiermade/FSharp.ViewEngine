@@ -1,6 +1,7 @@
 import './spec-fixture.js';
 import './balance-chart.js';
 import '../../Example.Components/Components/Assets/button.js';
+import '../../Example.Components/Components/Assets/masked-value.js';
 import '../../Example.Components/Components/Assets/avatar.js';
 import '../../Example.Components/Components/Assets/checkbox.js';
 import '../../Example.Components/Components/Assets/notification.js';

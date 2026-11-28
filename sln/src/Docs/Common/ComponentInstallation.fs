@@ -164,7 +164,6 @@ module ComponentInstallation =
         | "toggle-group"
         | "tag-input" -> "field button"
         | "choice-cards" -> "radio-group checkbox"
-        | "copy-reveal" -> "field"
         | "dropdown-menu" -> "button field textarea"
         | "popover" -> "button field input"
         | "card"

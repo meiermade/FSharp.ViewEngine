@@ -219,7 +219,7 @@ module View =
 
                 let links =
                     if section.label = "Project" then
-                        [ Nav.externalLink "changelog" "Changelog" Registry.releasesUrl
+                        [ Nav.externalLink "changelog" "Changelog" Registry.changelogUrl
                           Nav.externalLink "packages" "Packages" Registry.packagesUrl ]
                     else
                         []
