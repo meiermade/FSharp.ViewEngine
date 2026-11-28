@@ -11,7 +11,10 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Docs\Docs.fsproj" />
-    <ProjectReference Include="..\Example\Example.Server\Example.Server.fsproj" />
+    <ProjectReference Include="..\Example\Example.Application\Example.Application.fsproj" />
+    <ProjectReference Include="..\Example\Example.Specification\Example.Specification.fsproj" />
+    <ProjectReference Include="..\Example\Example.Documentation\Example.Documentation.fsproj" />
+    <ProjectReference Include="..\Example\Example.Presentation\Example.Presentation.fsproj" />
     <ProjectReference Include="..\Docs.Components\Docs.Components.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />

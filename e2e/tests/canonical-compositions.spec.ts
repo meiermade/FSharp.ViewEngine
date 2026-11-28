@@ -1,6 +1,6 @@
 import { test, expect } from '../fixture'
 
-test('SideNav retains independent nested choices through native navigation, history and refresh @cross-browser', async ({ page }) => {
+test('SideNav retains independent nested choices through navigation, history and refresh @cross-browser', async ({ page }) => {
   await page.goto('/examples/specification/transactions/view-transactions')
   const sidebar = page.locator('#template-desktop-navigation')
   const toggle = (name: string) => sidebar.getByLabel(`Toggle ${name} section`, { exact: true })
@@ -8,9 +8,9 @@ test('SideNav retains independent nested choices through native navigation, hist
   await toggle('Architecture').click()
   await toggle('Solution').focus()
   await page.keyboard.press('Enter')
-  const documentResponse = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/examples/specification/architecture/solution/domain')
+  const navigation = page.waitForResponse(response => response.request().headers()['datastar-request'] === 'true' && new URL(response.url()).pathname === '/examples/specification/architecture/solution/domain')
   await sidebar.getByRole('link', { name: 'Example.Domain', exact: true }).click()
-  expect((await documentResponse).headers()['content-type']).toContain('text/html')
+  expect((await navigation).headers()['content-type']).toContain('text/event-stream')
   await expect(page.getByRole('heading', { level: 1, name: 'Example.Domain', exact: true })).toBeVisible()
   for (const name of ['Transactions', 'Architecture', 'Solution']) {
     await expect(toggle(name)).toHaveAttribute('aria-expanded', 'true')

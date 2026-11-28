@@ -25,7 +25,13 @@ let nugetsDir = rootDir </> "nugets"
 let testsDir = srcDir </> "Tests"
 let docsDir = srcDir </> "Docs"
 let docsTestsDir = srcDir </> "Docs.Tests"
-let exampleServerDir = srcDir </> "Example" </> "Example.Server"
+let exampleDir = srcDir </> "Example"
+let exampleServerDir = exampleDir </> "Example.Application"
+let exampleSpecDir = exampleDir </> "Example.Specification"
+let exampleDocsDir = exampleDir </> "Example.Documentation"
+let examplePresentationDir = exampleDir </> "Example.Presentation"
+let otherExampleHosts = [exampleSpecDir; exampleDocsDir; examplePresentationDir]
+let exampleHosts = exampleServerDir :: otherExampleHosts
 let mockCloudflareDir = srcDir </> "MockCloudflareProxy"
 let cliTestsDir = srcDir </> "FSharp.ViewEngine.Cli.Tests"
 let buildTestsDir = srcDir </> "Build.Tests"
@@ -57,25 +63,29 @@ let bundleJs directory entries options =
     exec directory (frontendTool slnDir "esbuild")
         (entries @ ["--bundle"; "--format=esm"; "--splitting"; "--minify"] @ options)
 
+let docsFrontend = "src/Docs.Components/fve.json"
+let exampleFrontend = "src/Example/Example.UI/fve.json"
+let frontend command config = dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; command; "--config"; config]
 let docsEntries = ["js/app.js"]
-let exampleAssets = Path.getDirectory exampleServerDir </> "Example.Components" </> "Components" </> "Assets"
-let exampleEntries = ["js/app.js"; exampleAssets </> "chart.js"]
-let exampleVendorModules = ["datastar-rocket.*.js"; "echarts.*.esm.min.js"]
+let exampleAssets = Path.getDirectory exampleServerDir </> "Example.UI" </> "Components" </> "Assets"
+let exampleEntries = ["js/app.js"]
+let exampleVendorModules = ["datastar-rocket.*.js"]
 let exampleExternals = exampleVendorModules |> List.map (fun filename -> $"--external:./{filename}")
 let watchJsOptions watch = if watch then ["--watch=forever"] else []
 
 let buildDocsJs watch =
     bundleJs docsDir docsEntries (["--outdir=wwwroot/js"; "--metafile=obj/components-assets.json"] @ watchJsOptions watch)
 
-let buildExampleJs watch =
+let copyExampleVendor directory =
     // Keep pinned third-party modules and their notices at their existing URLs.
-    let outputDir = exampleServerDir </> "wwwroot/js"
+    let outputDir = directory </> "wwwroot/js"
     Directory.ensure outputDir
     for pattern in exampleVendorModules @ ["*.txt"; "*.json"] do
         for file in System.IO.Directory.EnumerateFiles(exampleAssets, pattern) do
             System.IO.File.Copy(file, outputDir </> System.IO.Path.GetFileName(file), true)
 
-    bundleJs exampleServerDir exampleEntries (["--outdir=wwwroot/js"; "--entry-names=[name]"] @ exampleExternals @ watchJsOptions watch)
+let buildExampleJs directory watch =
+    bundleJs directory exampleEntries (["--outdir=wwwroot/js"; "--entry-names=[name]"] @ exampleExternals @ watchJsOptions watch)
 
 let publishBrowserAssets directory entries externals =
     let output = directory </> "out"
@@ -348,8 +358,11 @@ Target.create "Test" <| fun _ ->
 
     // Release callers use --single-target, so Test owns its asset prerequisites too.
     restoreFrontendTools slnDir
+    restoreFrontendTools docsDir
     buildDocsJs false |> Async.RunSynchronously
-    buildExampleJs false |> Async.RunSynchronously
+    for host in exampleHosts do
+        copyExampleVendor host
+        buildExampleJs host false |> Async.RunSynchronously
     dotnet docsTestsDir ["run"]
     |> Async.RunSynchronously
 
@@ -421,23 +434,31 @@ Target.create "UpdateInstalledComponents" (fun _ ->
         |> Seq.toList
     dotnet slnDir (["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"] @ selectors @ ["--config"; "src/Docs.Components/fve.json"; "--overwrite"])
     |> Async.RunSynchronously
-    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "icon"; "button"; "field"; "chart"; "checkbox"; "input-group"; "notification"; "command"; "time-picker"; "section"; "disclosure"; "pagination"; "presentation"; "--config"; "src/Example/Example.Components/fve.json"; "--overwrite"]
+    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "icon"; "button"; "field"; "chart"; "checkbox"; "input-group"; "notification"; "command"; "time-picker"; "section"; "disclosure"; "pagination"; "presentation"; "--config"; "src/Example/Example.UI/fve.json"; "--overwrite"]
     |> Async.RunSynchronously
-    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "presentation"; "--config"; "src/Example/Presentation/fve.json"; "--overwrite"]
+    dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "add"; "presentation"; "--config"; "src/Example/Example.Presentation/fve.json"; "--overwrite"]
     |> Async.RunSynchronously
 )
 
 Target.create "CheckInstalledComponents" (fun _ ->
-    for config in ["src/Docs.Components/fve.json"; "src/Example/Example.Components/fve.json"; "src/Example/Presentation/fve.json"] do
+    for config in ["src/Docs.Components/fve.json"; "src/Example/Example.UI/fve.json"; "src/Example/Example.Presentation/fve.json"] do
         dotnet slnDir ["run"; "--project"; "src/FSharp.ViewEngine.Cli"; "--"; "diff"; "--config"; config]
         |> Async.RunSynchronously
 )
 
 Target.create "RestoreFrontendTools" (fun _ -> restoreFrontendTools slnDir)
+Target.create "RestoreDocsFrontend" (fun _ -> restoreFrontendTools docsDir)
 Target.create "RestoreExampleFrontend" (fun _ -> restoreFrontendTools exampleServerDir)
 
 Target.create "BuildDocsJs" (fun _ -> buildDocsJs false |> Async.RunSynchronously)
-Target.create "BuildExampleJs" (fun _ -> buildExampleJs false |> Async.RunSynchronously)
+let exampleCss host watch =
+    let tools = if host = exampleServerDir then host else slnDir
+    tailwindcss tools host ([ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ] @ if watch then ["--watch=always"] else [])
+
+Target.create "BuildExampleJs" (fun _ ->
+    for host in exampleHosts do
+        copyExampleVendor host
+        buildExampleJs host false |> Async.RunSynchronously)
 
 Target.create "VerifyTailwind" (fun _ ->
     TailwindContracts.verify
@@ -450,16 +471,30 @@ Target.create "WatchDocs" (fun _ ->
     let reviewUrl = WatchDocs.defaultUrl
     let exampleUrl = "http://127.0.0.1:5055"
     let docsUrl = "http://127.0.0.1:5056"
+    let exampleSpecUrl = "http://127.0.0.1:5057"
+    let exampleDocsUrl = "http://127.0.0.1:5058"
+    let examplePresentationUrl = "http://127.0.0.1:5059"
+    let exampleHosts =
+        [ exampleServerDir, exampleUrl, false
+          exampleSpecDir, exampleSpecUrl, true
+          exampleDocsDir, exampleDocsUrl, false
+          examplePresentationDir, examplePresentationUrl, false ]
 
     WatchDocs.runExclusiveWatcher "WatchDocs" reviewUrl <| fun () ->
-        WatchDocs.ensureLoopbackUrlAvailable "Example.Server" exampleUrl
-        WatchDocs.ensureLoopbackUrlAvailable "Docs" docsUrl
+        for directory, url, _ in exampleHosts do
+            WatchDocs.waitForLoopbackUrlAvailable (System.IO.Path.GetFileName directory) url
+        WatchDocs.waitForLoopbackUrlAvailable "Docs" docsUrl
         Trace.trace $"Starting the FSharp.ViewEngine Docs at {reviewUrl}"
         // Restore only after replacing the previous watcher, which may still hold these tools open.
-        restoreFrontendTools slnDir
+        restoreFrontendTools docsDir
         restoreFrontendTools exampleServerDir
-        buildDocsJs false |> Async.RunSynchronously
-        buildExampleJs false |> Async.RunSynchronously
+        restoreFrontendTools slnDir
+        for directory, _, _ in exampleHosts do copyExampleVendor directory
+        for host in otherExampleHosts do
+            exampleCss host false |> Async.RunSynchronously
+            buildExampleJs host false |> Async.RunSynchronously
+        frontend "compile" docsFrontend |> Async.RunSynchronously
+        frontend "compile" exampleFrontend |> Async.RunSynchronously
 
         let watchApp =
             CreateProcess.fromRawCommand "dotnet"
@@ -475,13 +510,16 @@ Target.create "WatchDocs" (fun _ ->
             |> Async.AwaitTask
             |> Async.Ignore
 
-        let watchExample =
+        let watchExample (directory, url, catalogSpec) =
             CreateProcess.fromRawCommand "dotnet" ["watch"; "run"; "--no-launch-profile"; "--non-interactive"]
-            |> CreateProcess.setEnvironmentVariable "ASPNETCORE_URLS" exampleUrl
+            |> CreateProcess.setEnvironmentVariable "ASPNETCORE_URLS" url
             |> CreateProcess.setEnvironmentVariable "EXAMPLE_PUBLIC_ORIGIN" reviewUrl
+            |> CreateProcess.setEnvironmentVariable "EXAMPLE_DOCS_URL" "/examples/documentation"
+            |> CreateProcess.setEnvironmentVariable "EXAMPLE_APP_URL" "/examples/application"
+            |> CreateProcess.setEnvironmentVariable "EXAMPLE_SPEC_CATALOG_DEMO" (if catalogSpec then "true" else "false")
             |> CreateProcess.setEnvironmentVariable "ASPNETCORE_ENVIRONMENT" "Development"
             |> CreateProcess.setEnvironmentVariable "DOTNET_USE_POLLING_FILE_WATCHER" "1"
-            |> CreateProcess.withWorkingDirectory exampleServerDir
+            |> CreateProcess.withWorkingDirectory directory
             |> CreateProcess.ensureExitCode
             |> Proc.start
             |> Async.AwaitTask
@@ -492,6 +530,9 @@ Target.create "WatchDocs" (fun _ ->
             |> CreateProcess.setEnvironmentVariable "ASPNETCORE_URLS" reviewUrl
             |> CreateProcess.setEnvironmentVariable "MOCK_CLOUDFLARE_DOCS_ORIGIN" docsUrl
             |> CreateProcess.setEnvironmentVariable "MOCK_CLOUDFLARE_EXAMPLE_ORIGIN" exampleUrl
+            |> CreateProcess.setEnvironmentVariable "MOCK_CLOUDFLARE_EXAMPLE_SPEC_ORIGIN" exampleSpecUrl
+            |> CreateProcess.setEnvironmentVariable "MOCK_CLOUDFLARE_EXAMPLE_DOCS_ORIGIN" exampleDocsUrl
+            |> CreateProcess.setEnvironmentVariable "MOCK_CLOUDFLARE_EXAMPLE_PRESENTATION_ORIGIN" examplePresentationUrl
             |> CreateProcess.setEnvironmentVariable "DOTNET_USE_POLLING_FILE_WATCHER" "1"
             |> CreateProcess.withWorkingDirectory mockCloudflareDir
             |> CreateProcess.ensureExitCode
@@ -499,21 +540,8 @@ Target.create "WatchDocs" (fun _ ->
             |> Async.AwaitTask
             |> Async.Ignore
 
-        let watchCss =
-            // Imported package stylesheets are siblings of Docs, so watch their common root.
-            tailwindcss slnDir srcDir
-                [ "--input"; "Docs/input.css"; "--output"; "Docs/wwwroot/css/output.css"
-                  "--watch=always"; "--minify" ]
-
-        let watchExampleCss =
-            tailwindcss exampleServerDir srcDir
-                [ "--input"; "Example/Example.Server/input.css"; "--output"; "Example/Example.Server/wwwroot/css/output.css"
-                  "--watch=always"; "--minify" ]
-
-        let watchJs = buildDocsJs true
-        let watchExampleJs = buildExampleJs true
-
-        Async.Parallel [| watchProxy; watchApp; watchExample; watchCss; watchExampleCss; watchJs; watchExampleJs |]
+        let watchAssets = otherExampleHosts |> List.collect (fun host -> [exampleCss host true; buildExampleJs host true])
+        Async.Parallel ([watchProxy; watchApp; frontend "watch" docsFrontend; frontend "watch" exampleFrontend] @ List.map watchExample exampleHosts @ watchAssets)
         |> Async.RunSynchronously
         |> ignore
 )
@@ -531,13 +559,13 @@ Target.create "BuildDocsCss" <| fun _ ->
     |> Async.RunSynchronously
 
 Target.create "BuildExampleCss" <| fun _ ->
-    tailwindcss exampleServerDir exampleServerDir [ "--input"; "input.css"; "--output"; "wwwroot/css/output.css"; "--minify" ]
-    |> Async.RunSynchronously
+    for host in exampleHosts do exampleCss host false |> Async.RunSynchronously
 
 Target.create "PublishExample" <| fun _ ->
-    dotnet exampleServerDir [ "publish"; "--output"; "./out"; "--self-contained"; "false" ]
-    |> Async.RunSynchronously
-    publishBrowserAssets exampleServerDir exampleEntries exampleExternals
+    for directory in exampleHosts do
+        dotnet directory [ "publish"; "--output"; "./out"; "--self-contained"; "false" ]
+        |> Async.RunSynchronously
+        publishBrowserAssets directory exampleEntries exampleExternals
 
 Target.create "PublishDocs" <| fun _ ->
     dotnet docsDir [
@@ -555,8 +583,10 @@ Target.create "Default" (fun _ -> Target.listAvailable())
 "Pack" ==>! "VerifyPackage"
 "RestoreFrontendTools" ==>! "BuildDocsCss"
 "RestoreFrontendTools" ==>! "BuildDocsJs"
+"RestoreDocsFrontend" ==>! "BuildDocsJs"
 "RestoreFrontendTools" ==>! "BuildExampleJs"
 "RestoreFrontendTools" ==>! "VerifyTailwind"
+"RestoreFrontendTools" ==>! "BuildExampleCss"
 "RestoreExampleFrontend" ==>! "BuildExampleCss"
 "BuildDocsCss" ==>! "PublishDocs"
 "BuildDocsJs" ==>! "PublishDocs"

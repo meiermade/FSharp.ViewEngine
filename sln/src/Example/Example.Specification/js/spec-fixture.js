@@ -1,0 +1,141 @@
+// Product documents own their UI and navigation; the Spec owns review chrome.
+const fixtureDocument = new URL(location.href).searchParams.get('fveFixture') === 'product';
+const identity = href => {
+  const url = new URL(href, location.href);
+  url.hash = '';
+  for (const key of ['appMode', 'fveAppReturn', 'fveFixture', 'datastar']) url.searchParams.delete(key);
+  if (['', 'default'].includes(url.searchParams.get('specState'))) url.searchParams.delete('specState');
+  url.searchParams.sort();
+  return url.href;
+};
+
+if (fixtureDocument && parent !== window) {
+  const report = () => {
+    const product = document.getElementById('spec-product-document');
+    if (!product) return;
+    const href = product.dataset.fixtureHref;
+    // Validation drafts stay in this document; only the public resulting state is mirrored.
+    const url = new URL(href, location.href);
+    url.searchParams.set('fveFixture', 'product');
+    if (location.href !== url.href) history.replaceState(history.state, '', url.href);
+    parent.postMessage({ type: 'fve-fixture-location', href }, location.origin);
+  };
+  document.addEventListener('click', event => {
+    const link = event.target.closest?.('a[href]');
+    if (!link || (link.target && link.target !== '_self')) return;
+    const target = new URL(link.href, location.href);
+    if (target.origin !== location.origin || !target.pathname.startsWith('/examples/specification/')) link.target = '_parent';
+    // The review host mirrors the frame's native history, not component page patches.
+    link.removeAttribute('data-fve-link-navigation');
+  }, true);
+  window.addEventListener('fve-interaction-complete', report);
+  window.addEventListener('pageshow', report);
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !event.defaultPrevented && !document.querySelector('dialog[open], :popover-open')) {
+      parent.postMessage({ type: 'fve-fixture-restore' }, location.origin);
+    }
+  });
+  window.fveReportFixture = report;
+  report();
+} else {
+  const sources = new WeakMap();
+  let hostIntent = null;
+  let expanded;
+  let dockScroll;
+  let productScroll = [];
+  const frame = () => document.getElementById('spec-product-frame');
+  const scrollRoot = () => document.querySelector('[data-fve-page-scroll]');
+  const review = () => document.querySelector('[data-review-fixture]');
+
+  const initialize = event => {
+    const product = frame();
+    const fixture = review();
+    if (!product || !fixture) { expanded = undefined; return; }
+    const nowExpanded = fixture.dataset.reviewExpanded === 'true';
+    if (expanded !== undefined && nowExpanded !== expanded) {
+      requestAnimationFrame(() => {
+        for (const [element, left, top] of productScroll) if (element.isConnected) element.scrollTo(left, top);
+        const control = fixture.querySelector('[data-review-expand]');
+        control?.focus({ preventScroll: true });
+        if (!nowExpanded && dockScroll) scrollRoot()?.scrollTo(...dockScroll);
+      });
+    }
+    expanded = nowExpanded;
+    const expected = new URL(product.dataset.fixtureSource, location.href).href;
+    const previous = sources.get(product);
+    sources.set(product, expected);
+    // A child-owned review refresh updates chrome only, even if a new history entry is already active.
+    if (event?.detail.intent === 'review') return;
+    if (!previous || identity(previous) === identity(expected)) { hostIntent = null; return; }
+    try {
+      if (identity(product.contentWindow.location.href) !== identity(expected)) product.contentWindow.location.replace(expected);
+      else hostIntent = null;
+    } catch { /* Only the same-origin product document can receive review state. */ }
+  };
+
+  document.addEventListener('click', event => {
+    const link = event.target.closest?.('a[href]');
+    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || !link || (link.target && link.target !== '_self') || link.hasAttribute('download')) return;
+    let target = new URL(link.href, location.href);
+    if (target.origin !== location.origin || target.hash) return;
+    if (link.hasAttribute('data-review-expand')) {
+      // The active fixture URL can be ahead of the review chrome. Toggle only its presentation.
+      const expand = link.dataset.reviewExpand === 'true';
+      target = new URL(location.href);
+      target.hash = '';
+      target.searchParams.delete('fveAppReturn');
+      if (expand) target.searchParams.set('appMode', '1');
+      else target.searchParams.delete('appMode');
+      link.href = target.href;
+      const page = scrollRoot();
+      if (expand) dockScroll = [page?.scrollLeft ?? 0, page?.scrollTop ?? 0];
+      try {
+        productScroll = [...frame().contentDocument.querySelectorAll('[data-fve-page-scroll], .fve-table-scroll')].map(node => [node, node.scrollLeft, node.scrollTop]);
+      } catch { productScroll = []; }
+      // Presentation doesn't select a fixture; a newer native product navigation still wins.
+      hostIntent = null;
+    } else {
+      hostIntent = identity(target.href);
+    }
+  }, true);
+
+  window.addEventListener('message', event => {
+    const product = frame();
+    if (event.origin !== location.origin || !product || event.source !== product.contentWindow) return;
+    if (event.data?.type === 'fve-fixture-restore') {
+      if (review()?.dataset.reviewExpanded === 'true') review().querySelector('[data-review-expand]')?.click();
+      return;
+    }
+    if (event.data?.type !== 'fve-fixture-location' || typeof event.data.href !== 'string') return;
+    let url;
+    try { url = new URL(event.data.href, location.href); } catch { return; }
+    if (url.origin !== location.origin || !url.pathname.startsWith('/examples/specification/') || url.searchParams.has('fveFixture')) return;
+    // A queued message can outlive the document that sent it (the frame's WindowProxy is stable).
+    if (product.contentDocument?.getElementById('spec-product-document')?.dataset.fixtureHref !== event.data.href) return;
+    const reported = identity(url.href);
+    if (hostIntent && reported !== hostIntent) return;
+    hostIntent = null;
+    const owner = document.getElementById('example-navigation-root');
+    // A report for the pending fixture adds no new state, even if the request also changes App mode.
+    if (owner.updateTarget && identity(owner.updateTarget) === reported) return;
+    if (new URL(location.href).searchParams.has('appMode')) url.searchParams.set('appMode', '1');
+    const href = url.pathname + url.search;
+    // Mirror the active joint-history entry now; a later SSE response must not rewrite another entry.
+    if (identity(location.href) !== reported) history.replaceState(history.state, '', href);
+    const current = location.pathname + location.search;
+    if (!owner.updateTarget && owner.renderedHref === current) return;
+    window.dispatchEvent(new CustomEvent('fve-fixture-location', { detail: { href: current } }));
+  });
+  window.addEventListener('fve-interaction-complete', initialize);
+  window.addEventListener('keydown', event => {
+    if (event.key !== 'Escape' || event.defaultPrevented || document.querySelector('dialog[open], :popover-open') || review()?.dataset.reviewExpanded !== 'true') return;
+    const child = frame()?.contentDocument;
+    if (!child?.querySelector('dialog[open], :popover-open')) review().querySelector('[data-review-expand]')?.click();
+  });
+  window.addEventListener('popstate', () => { hostIntent = identity(location.href); });
+  initialize();
+  frame()?.addEventListener('load', event => {
+    try { event.currentTarget.contentWindow.fveReportFixture?.(); }
+    catch { /* External documents cannot participate in the same-origin review bridge. */ }
+  });
+}

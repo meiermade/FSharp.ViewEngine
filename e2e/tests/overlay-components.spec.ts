@@ -342,7 +342,7 @@ test('Notification lifetimes use elapsed foreground time and the custom example 
   await expect(custom).toBeVisible()
 })
 
-test('Notification pauses for hover and focus and works in a fresh document @cross-browser', async ({ page }) => {
+test('Notification pauses for hover and focus and works after navigation @cross-browser', async ({ page }) => {
   await page.emulateMedia({ reducedMotion: 'reduce' })
   await page.clock.install()
   await page.bringToFront()
@@ -368,9 +368,9 @@ test('Notification pauses for hover and focus and works in a fresh document @cro
 
   await page.locator('#nav-components-badge').click()
   await expect(page).toHaveURL(/\/components\/badge$/)
-  const documentResponse = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/notification')
+  const documentResponse = page.waitForResponse(response => response.request().headers()['datastar-request'] === 'true' && new URL(response.url()).pathname === '/components/notification')
   await page.locator('#nav-components-notification').click()
-  expect((await documentResponse).headers()['content-type']).toContain('text/html')
+  expect((await documentResponse).headers()['content-type']).toContain('text/event-stream')
   const notification = preview.locator('[data-fve-notification]')
   await expect(notification).toHaveCount(0)
   await show.click()

@@ -83,13 +83,18 @@ test('retains the established production identities and public hostname', () => 
         'cloudflare:index/zeroTrustTunnelCloudflaredConfig:ZeroTrustTunnelCloudflaredConfig',
         'fsharpviewengine',
     )
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].hostname, 'fve.meiermade.com')
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].originRequest, undefined)
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].path, '^/examples/.+')
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].service, 'http://fsharpviewengine-example.fsharpviewengine.svc.cluster.local:80')
-    assert.equal(tunnelConfig.inputs.config.ingresses[1].service, 'http://localhost:5000')
-    assert.deepEqual(tunnelConfig.inputs.config.ingresses[2], { service: 'http_status:404' })
-    assert.equal(tunnelConfig.inputs.config.ingresses.length, 3)
+    const ingresses = tunnelConfig.inputs.config.ingresses
+    const exampleOrigin = 'http://fsharpviewengine-example.fsharpviewengine.svc.cluster.local'
+    assert.equal(ingresses[0].hostname, 'fve.meiermade.com')
+    assert.deepEqual(ingresses.map(({ path, service }: { path?: string; service: string }) => [path, service]), [
+        ['^/examples/specification(/|$)', exampleOrigin + ':81'],
+        ['^/examples/documentation(/|$)', exampleOrigin + ':82'],
+        ['^/examples/presentation(/|$)', exampleOrigin + ':83'],
+        ['^/examples/.+', exampleOrigin + ':80'],
+        [undefined, 'http://localhost:5000'],
+        [undefined, 'http_status:404'],
+    ])
+    for (const ingress of ingresses.slice(0, 5)) assert.equal(ingress.originRequest, undefined)
     assert.equal(resourcesOfType('cloudflare:index/workersScript:WorkersScript').length, 0)
     assert.equal(resourcesOfType('cloudflare:index/workersRoute:WorkersRoute').length, 0)
 })

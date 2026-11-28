@@ -9,9 +9,6 @@ open type Html
 open Docs.Common.BlockExamples
 
 module View =
-    let mermaidHead pageNonce =
-        Mermaid.assetsWithNonce "/js/mermaid.11.16.1.min.js" (Some pageNonce)
-
     let mermaid =
         fveMermaid { "flowchart LR\n  Input[Input] --> Validate[Validate]\n  Validate --> Result[Result]" }
 
@@ -30,7 +27,7 @@ module View =
     let mermaidRegistration = registration "mermaid" "Mermaid"
 
     let examples () =
-            [ sampleNames [ "mermaidHead"; "mermaid" ] "mermaid" "Flowchart" mermaid
+            [ sample "mermaid" "Flowchart" mermaid
               sample "sequence" "Sequence constructors" sequence ]
 
 

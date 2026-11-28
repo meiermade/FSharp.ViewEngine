@@ -48,7 +48,11 @@ test('promotes the supplied digest without rebuilding and preserves Docs-only sn
     const container = deployment.inputs.spec.template.spec.containers[0]
     assert.equal(container.image, imageRef)
     const example = resources.find(resource => resource.type === 'kubernetes:apps/v1:Deployment' && resource.name === 'fsharpviewengine-example')
-    assert.equal(example?.inputs.spec.template.spec.containers[0].image, exampleImageRef)
+    assert.ok(example)
+    const hosts = example.inputs.spec.template.spec.containers
+    for (const name of ['example', 'spec', 'docs', 'presentation']) {
+        assert.equal(hosts.find((host: { name: string }) => host.name === name)?.image, exampleImageRef)
+    }
     const value = (name: string) => container.env.find((item: any) => item.name === name)?.value
     assert.equal(value('RELEASE_COMMIT'), releaseCommit)
     for (const name of ['CORE_PACKAGE_VERSION', 'CORE_PACKAGE_TAG', 'CLI_PACKAGE_VERSION', 'CLI_PACKAGE_TAG']) {

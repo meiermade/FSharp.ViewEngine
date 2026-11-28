@@ -1,42 +1,11 @@
-import '../../Docs.Components/Components/Assets/button.js';
-import '../../Docs.Components/Components/Assets/avatar.js';
-import '../../Docs.Components/Components/Assets/checkbox.js';
-import '../../Docs.Components/Components/Assets/switch.js';
-import '../../Docs.Components/Components/Assets/radio.js';
-import '../../Docs.Components/Components/Assets/toggle-group.js';
-import '../../Docs.Components/Components/Assets/toggle-button.js';
-import '../../Docs.Components/Components/Assets/tabs.js';
-import '../../Docs.Components/Components/Assets/file-selection.js';
-import '../../Docs.Components/Components/Assets/copy-reveal.js';
-import '../../Docs.Components/Components/Assets/notification.js';
-import '../../Docs.Components/Components/Assets/floating-panel.js';
-import '../../Docs.Components/Components/Assets/resizable.js';
-import '../../Docs.Components/Components/Assets/presentation.js';
-import '../../Docs.Components/Components/Assets/tooltip.js';
-import '../../Docs.Components/Components/Assets/popover.js';
-import '../../Docs.Components/Components/Assets/dialog.js';
-import '../../Docs.Components/Components/Assets/drawer.js';
-import '../../Docs.Components/Components/Assets/command.js';
-import '../../Docs.Components/Components/Assets/dropdown-menu.js';
-import '../../Docs.Components/Components/Assets/select.js';
-import '../../Docs.Components/Components/Assets/calendar-selection.js';
-import '../../Docs.Components/Components/Assets/calendar-range.js';
-import '../../Docs.Components/Components/Assets/date-picker.js';
-import '../../Docs.Components/Components/Assets/time-picker.js';
-import '../../Docs.Components/Components/Assets/scroll-region.js';
-import '../../Docs.Components/Components/Assets/side-nav.js';
-import '../../Docs.Components/Components/Assets/code-block.js';
-import '../../Docs.Components/Components/Assets/mermaid.js';
-import '../../Docs.Components/Components/Assets/example.js';
-import '../../Docs.Components/Components/Assets/error-summary.js';
-import '../../Docs.Components/Components/Assets/table.js';
-import '../../Docs.Components/Components/Assets/tag-input.js';
-import '../../Docs.Components/Components/Assets/breadcrumbs.js';
+import "./fve-imports.js";
 
-// Chart and ECharts stay separate from the ordinary control bundle.
-let chart;
-const loadChart = () => {
-  if (!chart && document.querySelector('fve-chart')) chart = import('../../Docs.Components/Components/Assets/chart.js');
+// The extension guide owns this dependency; FVE components do not use it.
+const loadTailwindElements = () => {
+  if (!document.querySelector('[data-tailwind-elements-preview]')) return;
+  observer.disconnect();
+  void import('@tailwindplus/elements');
 };
-loadChart();
-new MutationObserver(loadChart).observe(document.body, { childList: true, subtree: true });
+const observer = new MutationObserver(loadTailwindElements);
+observer.observe(document.body, { childList: true, subtree: true });
+loadTailwindElements();

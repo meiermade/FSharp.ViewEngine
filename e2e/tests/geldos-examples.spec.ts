@@ -33,6 +33,13 @@ test('Marketing is a standalone Geldos example with connected product navigation
   await expect(site).toHaveURL(/\/examples\/marketing\/login$/)
   await expect(site.getByRole('heading', { name: 'Log in to Geldos', exact: true })).toBeVisible()
   await expect(site.getByRole('main').locator('form')).toHaveCount(0)
+  const docsLink = site.getByRole('banner').getByRole('link', { name: 'Docs', exact: true })
+  await expect(site.getByRole('contentinfo').getByRole('link', { name: 'Docs', exact: true }))
+    .not.toHaveAttribute('data-fve-link-navigation', /.*/)
+  const docsRequest = site.waitForRequest(request => request.url().endsWith('/examples/documentation'))
+  await docsLink.click()
+  expect((await docsRequest).isNavigationRequest()).toBe(true)
+  await expect(site).toHaveURL(/\/examples\/documentation$/)
   expect(errors).toEqual([])
   await site.close()
 })
@@ -121,8 +128,33 @@ test('Account overlays preserve the selected chart, scenario and transaction pag
   await expect(page.getByRole('dialog')).toHaveCount(0)
 })
 
+test('Geldos Documentation connects resources and endpoints without legacy routes', async ({ page, request }) => {
+  for (const path of ['/examples/docs', '/examples/api-documentation/create-account']) {
+    const retired = await request.get(path, { maxRedirects: 0 })
+    expect(retired.status()).toBe(404)
+  }
+
+  await page.goto('/examples/documentation')
+  await expect(page.getByRole('heading', { name: 'Geldos Docs', exact: true })).toBeVisible()
+  const navigation = page.locator('#template-desktop-navigation')
+  for (const [resource, concept, action, endpoint] of [
+    ['Accounts', 'total balance', 'List accounts', 'list-accounts'],
+    ['Transactions', 'verification status', 'Get transaction', 'get-transaction'],
+  ]) {
+    const overview = navigation.getByRole('link', { name: 'Overview', exact: true })
+      .and(navigation.locator(`a[href="/examples/documentation/${resource.toLowerCase()}"]`))
+    await overview.click()
+    await expect(overview).toHaveAttribute('aria-current', 'page')
+    await expect(page.getByRole('heading', { name: `${resource} overview`, exact: true })).toBeVisible()
+    await expect(page.getByRole('main')).toContainText(concept)
+    await page.getByRole('main').getByRole('link', { name: action, exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`/examples/documentation/${endpoint}$`))
+    await expect(page.getByRole('complementary', { name: 'Request and response examples' })).toContainText('$API_ORIGIN')
+  }
+})
+
 test('Geldos owns charcoal dark neutrals without changing light mode or the catalog', async ({ page }) => {
-  for (const route of ['/examples/marketing', '/examples/application/accounts/101', '/examples/specification', '/examples/api-documentation']) {
+  for (const route of ['/examples/marketing', '/examples/application/accounts/101', '/examples/specification', '/examples/documentation']) {
     await page.goto(route)
     await page.evaluate(() => (window as any).fveColorMode.set('dark'))
     const theme = page.locator('.geldos-theme').first()

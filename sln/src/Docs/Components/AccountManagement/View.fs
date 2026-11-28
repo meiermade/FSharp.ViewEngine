@@ -41,7 +41,7 @@ module View =
 
     let private accountWorkspacePatch url =
         let target = System.Text.Json.JsonSerializer.Serialize url
-        $"window.history.pushState(null, '', {target}); @get({target}.replace('/components/page-examples/account-management?', '/components/page-examples/account-management/fixture?'))"
+        $"@get({target}.replace('/components/page-examples/account-management?', '/components/page-examples/account-management/fixture?'))"
 
     let private accountDataTable workspace accountRows =
         let sort column label alignment =

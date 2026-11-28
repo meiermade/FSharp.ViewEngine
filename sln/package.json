@@ -13,7 +13,10 @@
   "devDependencies": {
     "@tailwindcss/cli": "4.2.2",
     "@tailwindcss/typography": "0.5.19",
+    "echarts": "6.1.0",
     "esbuild": "0.28.2",
+    "mermaid": "11.16.1",
+    "prismjs": "1.30.0",
     "tailwindcss": "4.2.2"
   }
 }

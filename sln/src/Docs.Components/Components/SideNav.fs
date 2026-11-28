@@ -466,7 +466,8 @@ module internal SideNavView =
 
                         match item.destination with
                         | Some destination ->
-                            a {
+                            fveLink {
+                                _variant LinkVariant.Plain
                                 _id itemId
                                 _href (resolve destination)
                                 _ariaLabel item.label

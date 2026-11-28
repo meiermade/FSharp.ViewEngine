@@ -138,7 +138,7 @@ test('Catalog search separates guides, components and examples without flooding 
 
 for (const [name, start, term, destination] of [
   ['specification', '/examples/specification?organization=example-household&environment=production&ledger=alex', 'Example.Domain', '/examples/specification/architecture/solution/domain'],
-  ['API documentation', '/examples/api-documentation', 'Create account', '/examples/api-documentation/create-account'],
+  ['documentation', '/examples/documentation', 'Create account', '/examples/documentation/create-account'],
 ] as const) {
   test(`Template ${name} search supports click, shortcuts and native navigation @cross-browser`, async ({ page }) => {
     await page.goto(start)

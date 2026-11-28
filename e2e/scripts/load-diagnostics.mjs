@@ -4,11 +4,8 @@ const routes = new Set([
   '/health', '/components/button', '/components/badge', '/components/notification',
   '/components/notifications/show', '/components/month-calendar', '/components/week-calendar',
   '/components/day-calendar', '/components/year-calendar', '/examples/specification/profile',
-  '/examples/application/profile', '/css/output.css', '/css/prism-tomorrow.1.30.0.min.css',
-  '/js/app.js', '/js/datastar.1.0.5.js', '/js/tailwind-elements-loader.1.0.22.js',
-  '/js/mermaid.11.16.1.min.js', '/js/prism.1.30.0.min.js',
-  '/js/prism-fsharp.1.30.0.min.js', '/js/prism-sql.1.30.0.min.js',
-  '/js/prism-bash.1.30.0.min.js', '/js/prism-json.1.30.0.min.js',
+  '/examples/application/profile', '/css/output.css',
+  '/js/app.js', '/js/datastar.1.0.5.js',
 ])
 const methods = new Set(['GET', 'POST', 'HEAD', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'])
 const types = new Set(['document', 'stylesheet', 'script', 'image', 'font', 'xhr', 'fetch', 'other'])

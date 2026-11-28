@@ -30,12 +30,17 @@ const applicationIngress = (hostname: string) => ({
     ...(accessOriginRequest ? { originRequest: accessOriginRequest } : {}),
 })
 
+const exampleIngress = (path: string, port: number) => ({
+    ...applicationIngress(config.appConfig.hostname),
+    path,
+    service: exampleService.metadata.name.apply(name => `http://${name}.${config.k8sConfig.namespace}.svc.cluster.local:${port}`),
+})
+
 const ingresses = [
-    {
-        ...applicationIngress(config.appConfig.hostname),
-        path: '^/examples/.+',
-        service: exampleService.metadata.name.apply(name => `http://${name}.${config.k8sConfig.namespace}.svc.cluster.local:80`),
-    },
+    exampleIngress('^/examples/specification(/|$)', 81),
+    exampleIngress('^/examples/documentation(/|$)', 82),
+    exampleIngress('^/examples/presentation(/|$)', 83),
+    exampleIngress('^/examples/.+', 80),
     applicationIngress(config.appConfig.hostname),
     { service: 'http_status:404' },
 ]

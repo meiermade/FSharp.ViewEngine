@@ -8,8 +8,7 @@ open System.Text.Json
 [<NoEquality; NoComparison>]
 type ScriptBuildOptions =
     { ProjectPath:string
-      Modules:string array
-      Open:bool }
+      Modules:string array }
 
 [<RequireQualifiedAccess>]
 module ScriptBuild =
@@ -17,6 +16,22 @@ module ScriptBuild =
     let TailwindVersion = "4.2.2"
     [<Literal>]
     let EsbuildVersion = "0.28.2"
+
+    let internal browserPackages (modules:string array) =
+        let names = modules |> Array.map Path.GetFileName |> Set.ofArray
+        [ if names.Contains "code-block.js" then "prismjs", "1.30.0"
+          if names.Contains "mermaid.js" then "mermaid", "11.16.1"
+          if names.Contains "chart.js" then "echarts", "6.1.0" ]
+
+    let internal stylesheetArguments input output watch =
+        ["--input"; input; "--output"; output; "--minify"] @ if watch then ["--watch=always"] else []
+
+    let internal bundleArguments esbuild (options: string) watch =
+        let api = JsonSerializer.Serialize(esbuild: string)
+        let program =
+            if watch then $"require({api}).context({options}).then(c=>c.watch()).catch(e=>{{console.error(e);process.exitCode=1}})"
+            else $"require({api}).buildSync({options})"
+        ["--eval"; program]
 
     let private run directory program arguments environment =
         let start = ProcessStartInfo(program: string)
@@ -49,7 +64,7 @@ module ScriptBuild =
             document.RootElement.GetProperty("version").GetString()
         with :? IOException | :? JsonException | :? Collections.Generic.KeyNotFoundException | :? InvalidOperationException -> ""
 
-    let private tools (output:TextWriter) =
+    let private tools (output:TextWriter) packagesForComponents =
         let node = executable "node"
         let version = (run (Directory.GetCurrentDirectory()) node ["--version"] []).Trim().TrimStart('v').Split('.')[0]
         match Int32.TryParse version with
@@ -60,13 +75,14 @@ module ScriptBuild =
             |> Option.ofObj
             |> Option.filter (String.IsNullOrWhiteSpace >> not)
             |> Option.defaultWith (fun () -> Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "fsharp-viewengine", "build"))
-        let directory = Path.GetFullPath(Path.Combine(cacheRoot, $"tailwind-{TailwindVersion}-esbuild-{EsbuildVersion}"))
+        let suffix = packagesForComponents |> List.map (fun (name, version) -> $"-{name}-{version}") |> String.concat ""
+        let directory = Path.GetFullPath(Path.Combine(cacheRoot, $"tailwind-{TailwindVersion}-esbuild-{EsbuildVersion}{suffix}"))
         Directory.CreateDirectory directory |> ignore
         use gate =
             try new FileStream(Path.Combine(directory, ".lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)
             with :? IOException -> invalidOp "Another build is initializing the frontend tool cache. Run again after it completes."
         let modules = Path.Combine(directory, "node_modules")
-        let packages = ["tailwindcss", TailwindVersion; "@tailwindcss/cli", TailwindVersion; "esbuild", EsbuildVersion]
+        let packages = ["tailwindcss", TailwindVersion; "@tailwindcss/cli", TailwindVersion; "esbuild", EsbuildVersion] @ packagesForComponents
         let tailwind = Path.Combine(modules, "@tailwindcss", "cli", "dist", "index.mjs")
         let esbuild = Path.Combine(modules, "esbuild", "lib", "main.js")
         if not (File.Exists tailwind && File.Exists esbuild) || (packages |> List.exists (fun (name, version) -> packageVersion (Path.Combine(modules, name, "package.json")) <> version)) then
@@ -90,7 +106,7 @@ module ScriptBuild =
     let private buildPage (output:TextWriter) (options:ScriptBuildOptions) =
         let project = Path.GetFullPath options.ProjectPath
         if not (String.Equals(Path.GetExtension project, ".fsx", StringComparison.OrdinalIgnoreCase)) then
-            invalidArg "project" "fve build supports .fsx consumers only. Use dotnet build for application projects."
+            invalidArg "project" "fve run requires an .fsx script."
         let root = Path.GetDirectoryName project
         let inputCss = Path.Combine(root, "input.css")
         if not (File.Exists project) then invalidOp $"Script '{project}' was not found."
@@ -104,7 +120,7 @@ module ScriptBuild =
         // Stage beside the final assets so CSS url() rebasing retains the same directory.
         let temporary = Path.Combine(root, ".fve-" + Guid.NewGuid().ToString("N"))
         let backup, stagedCss, stagedJs = temporary + ".html", temporary + ".css", temporary + ".js"
-        let node, nodeModules, tailwind, esbuild = tools output
+        let node, nodeModules, tailwind, esbuild = tools output (browserPackages modules)
         let existed = File.Exists html
         let mutable completed = false
         let mutable renderingStarted = false
@@ -117,10 +133,10 @@ module ScriptBuild =
             if not ((File.ReadAllText html).TrimStart().StartsWith("<!DOCTYPE html>", StringComparison.OrdinalIgnoreCase)) then
                 invalidOp $"'{Path.GetFileName html}' must be a complete HTML document. Use Render.toHtmlDocString."
             output.WriteLine "Building stylesheet and browser bundle..."
-            run root node [tailwind; "--input"; inputCss; "--output"; stagedCss; "--minify"] ["NODE_PATH", nodeModules] |> ignore
+            run root node (tailwind :: stylesheetArguments inputCss stagedCss false) ["NODE_PATH", nodeModules] |> ignore
             let imports = modules |> Array.map (fun path -> "import " + JsonSerializer.Serialize(path.Replace('\\', '/')) + ";") |> String.concat "\n"
-            let bundle = JsonSerializer.Serialize({| stdin = {| contents=imports; resolveDir=root |}; bundle=true; format="iife"; outfile=stagedJs; minify=true |})
-            run root node ["--eval"; "require(" + JsonSerializer.Serialize(esbuild) + ").buildSync(" + bundle + ")"] [] |> ignore
+            let bundle = JsonSerializer.Serialize({| stdin = {| contents=imports; resolveDir=root |}; bundle=true; format="iife"; outfile=stagedJs; minify=true; nodePaths=[|nodeModules|] |})
+            run root node (bundleArguments esbuild bundle false) [] |> ignore
             File.Move(stagedCss, css, true)
             File.Move(stagedJs, js, true)
             completed <- true
@@ -131,11 +147,6 @@ module ScriptBuild =
             for path in [backup; stagedCss; stagedJs] do
                 if File.Exists path then File.Delete path
         for path in [html; css; js] do output.WriteLine($"Built {path}")
-        if options.Open then
-            let start = ProcessStartInfo(html)
-            start.UseShellExecute <- true
-            use opened = Process.Start start
-            ()
 
     let build output options =
         let identity = Path.GetFullPath options.ProjectPath

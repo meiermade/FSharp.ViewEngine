@@ -103,6 +103,7 @@ module View =
                     _class "grid justify-items-center gap-3"
                     fveLink {
                         _href "/examples/application/settings"
+                        _native true
                         _variant variant; _color Color.Neutral; _size Size.Medium
                         _ariaLabel (label + " settings")
                         fveIcon { _name IconName.Cog6Tooth; _variant IconVariant.Mini }
@@ -118,7 +119,7 @@ module View =
                 div {
                     _class "grid justify-items-center gap-3"
                     fveLink {
-                        _href "/examples/application/settings"; _variant LinkVariant.Outline; _size size
+                        _href "/examples/application/settings"; _native true; _variant LinkVariant.Outline; _size size
                         _ariaLabel (label + " settings")
                         fveIcon { _name IconName.Cog6Tooth; _variant IconVariant.Micro }
                     }
@@ -455,6 +456,12 @@ module View =
         { description = "Trigger actions and submit forms with explicit text, icon, color, variant, size, and pending content."
           usage = []
           sections = [
+              titledSection "server-actions" "Server actions"
+                  [ p {
+                        "Buttons run actions. Return a patch without changing the URL for an in-page update. If the action commits a shareable state, see "
+                        fveLink { _href "/guides/giraffe#history"; _underline LinkUnderline.Always; "Server-owned navigation in Giraffe" }
+                        "."
+                    } ]
               titledSection "accessibility" "Labels and focus"
                   [ prose "Text content names the button. For icon-only actions, provide _ariaLabel; see the icon-only examples above." ]
           ]

@@ -53,6 +53,11 @@ test('discovery endpoints advertise canonical public documentation', async ({ re
   expect(examples.status()).toBe(200)
   expect(examples.headers()['content-type']).toContain('application/xml')
   expect(await examples.text()).toContain(`<loc>${configuredOrigin}/examples/application</loc>`)
+  for (const section of ['specification', 'documentation', 'presentation']) {
+    const sitemap = await request.get(`/examples/${section}/sitemap.xml`)
+    expect(sitemap.status()).toBe(200)
+    expect(await sitemap.text()).toContain(`<loc>${configuredOrigin}/examples/${section}</loc>`)
+  }
 })
 
 test('production permits the Marketing login example while blocking scanner probes', async ({ request }) => {
@@ -83,12 +88,12 @@ test('essential rendered assets and critical read-only navigation work @cross-br
     if (!['GET', 'HEAD'].includes(request.method())) writes.push(`${request.method()} ${request.url()}`)
   })
 
-  for (const path of ['/', '/components', '/examples/application', '/examples/api-documentation', '/examples/specification']) {
+  for (const path of ['/', '/components', '/examples/application', '/examples/documentation', '/examples/presentation', '/examples/specification']) {
     const response = await page.goto(path)
     expect(response?.status(), path).toBe(200)
     await expect(page.locator('main')).toBeVisible()
     if (expectPublishedAssets && (path === '/' || path === '/examples/application')) {
-      const prefix = path === '/' ? '' : '/examples'
+      const prefix = path === '/' ? '' : path === '/examples/application' ? '/examples' : path
       const app = page.locator(`head script[type="module"][src^="${prefix}/js/app"]`)
       const css = page.locator(`head link[rel="stylesheet"][href^="${prefix}/css/output"]`)
       await expect(app).toHaveAttribute('src', new RegExp(`^${prefix}/js/app-[A-Z0-9]{8}\\.js$`))
@@ -111,9 +116,9 @@ test('essential rendered assets and critical read-only navigation work @cross-br
   }
 
   // A real GET journey exercises the deployed navigation runtime without review-state permutations or submissions.
-  const profileDocument = page.waitForResponse(response => response.request().isNavigationRequest() && response.frame() === page.mainFrame() && new URL(response.url()).pathname === '/examples/specification/profile')
+  const profileDocument = page.waitForResponse(response => response.request().headers()['datastar-request'] === 'true' && response.frame() === page.mainFrame() && new URL(response.url()).pathname === '/examples/specification/profile')
   await page.getByRole('navigation', { name: 'Documentation', exact: true }).getByRole('link', { name: 'View profile', exact: true }).click()
-  expect((await profileDocument).headers()['content-type']).toContain('text/html')
+  expect((await profileDocument).headers()['content-type']).toContain('text/event-stream')
   await expect(page).toHaveURL(url => url.pathname === '/examples/specification/profile')
   await expect(specProduct(page).getByRole('heading', { name: 'General', exact: true, level: 1 })).toBeVisible()
   if (expectedEnvironment === 'staging' && browserName === 'chromium') {

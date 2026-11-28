@@ -1,29 +1,20 @@
 module Docs.Web.PreviewUpdate
 
-open System.Text.Json
+open System
 open FSharp.ViewEngine
 open Giraffe
 open Microsoft.AspNetCore.Http
-open Microsoft.Extensions.DependencyInjection
-open StarFederation.Datastar.DependencyInjection
 open type Datastar
 
-let private requestWith owner href options =
+let private request owner href =
     $"""
 const preview = document.getElementById('{owner}');
 preview.updateRequest?.abort();
 preview.updateRequest = new AbortController();
-@get({href}, {{ filterSignals: {{ exclude: /.*/ }}, requestCancellation: preview.updateRequest, retry: 'never'{options} }});
+const patchUrl = new URL({href}, location.href);
+patchUrl.pathname += '/patch';
+@get(patchUrl.href, {{ filterSignals: {{ exclude: /.*/ }}, requestCancellation: preview.updateRequest, retry: 'never' }});
 """
-
-let private request owner href = requestWith owner href ""
-
-let restore owner =
-    _dataOn ("popstate", ["window"], $"""
-if (el.tokenSearch !== undefined && el.tokenSearch !== location.search) {{
-  {requestWith owner "location.href" ", headers: { 'X-FVE-Preview-Restore': 'true' }"}
-}}
-""")
 
 let link owner before =
     _dataOn ("click", $"""
@@ -36,27 +27,19 @@ if (!evt.defaultPrevented && evt.button === 0 && !evt.metaKey && !evt.ctrlKey &&
 
 let form owner =
     _dataOn ("submit", $"""
+evt.preventDefault();
 const target = new URL(el.getAttribute('action') || location.href, location.href);
 target.search = new URLSearchParams(new FormData(el, evt.submitter));
 {request owner "target.href"}
 """)
 
-let requested (context: HttpContext) = context.Request.Headers["Datastar-Request"].ToString() = "true"
-
-let private patch historyAction (fragments: HtmlElement list) effect : HttpHandler =
-    fun _ context -> task {
-        let service = context.RequestServices.GetRequiredService<IDatastarService>()
-        let cancellationToken = context.RequestAborted
-        for fragment in fragments do
-            do! service.PatchElementsAsync(Render.toString fragment, cancellationToken = cancellationToken)
-        let query = QueryString.Create(context.Request.Query |> Seq.filter (fun entry -> not (System.String.Equals(entry.Key, "datastar", System.StringComparison.OrdinalIgnoreCase))))
-        let url = JsonSerializer.Serialize(string context.Request.PathBase + string context.Request.Path + string query)
-        do! service.ExecuteScriptAsync($"history.{historyAction}(history.state, '', {url} + location.hash); {effect}", ExecuteScriptOptions(AutoRemove = true), cancellationToken)
-        return Some context
-    }
-
-let respond fragments effect = patch "replaceState" fragments effect
-let respondWithHistory fragments effect : HttpHandler =
+let private patch commit (fragments: HtmlElement list) effect : HttpHandler =
     fun next context ->
-        let historyAction = if context.Request.Headers["X-FVE-Preview-Restore"].ToString() = "true" then "replaceState" else "pushState"
-        patch historyAction fragments effect next context
+        let path = string context.Request.Path
+        let publicPath = path.Substring(0, path.Length - "/patch".Length)
+        let url = History.urlFor publicPath context
+        let html = fragments |> List.map Render.toString |> String.concat "\n"
+        (History.patchElements html >=> commit url effect) next context
+
+let respond fragments effect = patch History.replaceUrl fragments effect
+let respondWithHistory fragments effect = patch History.pushPageUrl fragments effect

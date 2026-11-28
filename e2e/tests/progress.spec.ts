@@ -49,8 +49,10 @@ test('staying on the page preserves an active Progress stream @cross-browser', a
   const trigger = preview.getByRole('button')
   await trigger.click()
   await expect(progress).toHaveAttribute('value', /^(?:[1-9]\d?)$/)
+  const badgeLink = page.locator('#nav-components-badge')
+  await badgeLink.evaluate(link => link.removeAttribute('data-fve-link-navigation'))
   const prompt = page.waitForEvent('dialog')
-  const click = page.locator('#nav-components-badge').click()
+  const click = badgeLink.click()
   const dialog = await prompt
   expect(dialog.type()).toBe('beforeunload')
   await dialog.dismiss()
@@ -62,7 +64,7 @@ test('staying on the page preserves an active Progress stream @cross-browser', a
   expect(errors).toEqual([])
 })
 
-test('native navigation leaves an active Progress stream behind and opens a fresh example @cross-browser', async ({ page }) => {
+test('page navigation leaves an active Progress stream behind and opens a fresh example @cross-browser', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components/progress')
@@ -73,9 +75,9 @@ test('native navigation leaves an active Progress stream behind and opens a fres
   await expect(progress).toHaveAttribute('value', /^(?:[1-9]\d?)$/)
   await page.locator('#nav-components-badge').click()
   await expect(page.getByRole('heading', { name: 'Badge', exact: true, level: 1 })).toBeVisible()
-  const documentResponse = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/progress')
+  const documentResponse = page.waitForResponse(response => response.request().headers()['datastar-request'] === 'true' && new URL(response.url()).pathname === '/components/progress')
   await page.locator('#nav-components-progress').click()
-  expect((await documentResponse).headers()['content-type']).toContain('text/html')
+  expect((await documentResponse).headers()['content-type']).toContain('text/event-stream')
   await expect(progress).toHaveAttribute('value', '0')
   await expect(trigger).toBeEnabled()
   await expect(preview.getByRole('status')).toHaveCount(0)

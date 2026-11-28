@@ -134,8 +134,12 @@ test('missing destinations retain their URL and recover through real catalog lin
   await page.locator('main a[href="/components/button"]').click()
   await expect(page).toHaveURL('/components/button')
 
-  // Simulate an outdated link; the ordinary navigation boundary must handle its 404.
-  await page.locator('#nav-home').evaluate(link => link.setAttribute('href', '/components/steps?source=old-link'))
+  // A native link to an outdated destination still gets the server's 404 page.
+  await page.locator('#nav-home').evaluate(link => {
+    link.setAttribute('href', '/components/steps?source=old-link')
+    link.removeAttribute('data-fve-link-navigation')
+    link.removeAttribute('data-on:click')
+  })
   const missingDocument = page.waitForResponse(response => response.request().isNavigationRequest() && response.url().includes('/components/steps'))
   await page.locator('#nav-home').click()
   expect((await missingDocument).status()).toBe(404)
@@ -839,8 +843,6 @@ test.describe('Components route accessibility', () => {
 test('Components examples preserve documentation framing without clipping anchored popups', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/components/drawer', { waitUntil: 'domcontentloaded' })
-  await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-  await page.evaluate(() => (window as any).fsharpDocsCode.loading)
 
   for (const example of await page.locator('[data-docs-example="true"]').all()) {
     await expect(example).toHaveCSS('overflow', 'visible')
@@ -858,8 +860,6 @@ test('Components examples preserve documentation framing without clipping anchor
   }
 
   await page.goto('/components/dropdown-menu', { waitUntil: 'domcontentloaded' })
-  await page.waitForFunction(() => (window as any).fsharpDocsCode?.loading)
-  await page.evaluate(() => (window as any).fsharpDocsCode.loading)
   const menuExample = page.locator('#components-dropdown-menu-advanced')
   await menuExample.getByRole('tab', { name: 'Preview' }).click()
   await expect(menuExample).toHaveCSS('overflow', 'visible')
@@ -1203,10 +1203,6 @@ test('health and pinned application assets are available', async ({ request }) =
 
   const assets = [
     ['/js/datastar.1.0.5.js', 'Datastar v1.0.5'],
-    ['/js/mermaid.11.16.1.min.js', 'mermaid'],
-    ['/js/prism.1.30.0.min.js', 'Prism'],
-    ['/js/prism-fsharp.1.30.0.min.js', 'fsharp'],
-    ['/css/prism-tomorrow.1.30.0.min.css', 'code[class*=language-]'],
     ['/fonts/noto-sans-latin.woff2', 'wOF2'],
     ['/fonts/noto-sans-mono-latin.woff2', 'wOF2'],
   ] as const
@@ -1217,7 +1213,7 @@ test('health and pinned application assets are available', async ({ request }) =
     expect((await response.text()).toLowerCase(), path).toContain(marker.toLowerCase())
   }
 
-  for (const path of ['/scripts/prism.1.30.0.min.js', '/assets/app.js']) {
+  for (const path of ['/js/prism.1.30.0.min.js', '/assets/app.js']) {
     expect((await request.get(path)).status(), path).toBe(404)
   }
 })
@@ -1384,6 +1380,7 @@ test('mobile navigation manages modal focus and does not overflow', crossBrowser
   await drawer.getByRole('link', { name: 'Installation', exact: true }).click()
   await expect(page.getByRole('heading', { level: 1, name: 'Installation', exact: true })).toBeVisible()
   await expect(drawer).toBeHidden()
+  await expect(drawer.locator(':scope:modal')).toHaveCount(0)
   await page.getByRole('link', { name: 'Skip to main content' }).press('Enter')
   await expect(page.locator('#main-content')).toBeFocused()
 })
@@ -1554,88 +1551,31 @@ test('Docs navigation loads Prism dependencies before highlighting a code page',
   expect(pageErrors.filter(error => error.includes('Prism is not defined'))).toEqual([])
 })
 
-test('rapid full-document navigation cancels old Prism loading without browser errors', crossBrowser, async ({ page }) => {
-  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
-    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
-  )
-
-  let interceptedPrism: import('@playwright/test').Route | undefined
-  let releaseIntercept = () => {}
-  const interceptReleased = new Promise<void>(resolve => { releaseIntercept = resolve })
-  let markIntercepted = () => {}
-  const prismIntercepted = new Promise<void>(resolve => { markIntercepted = resolve })
-  await page.route('**/js/prism*.js', async route => {
-    if (!interceptedPrism) {
-      interceptedPrism = route
-      markIntercepted()
-      await interceptReleased
-      return
-    }
-    await route.continue()
+test('failed bundled highlighting leaves literal source available to copy', async ({ page }) => {
+  await page.route('**/js/prism-highlight-*.js', route => route.abort('failed'))
+  const failure = page.waitForEvent('requestfailed', request => request.url().includes('prism-highlight-'))
+  await page.goto('/getting-started/first-view')
+  await failure
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value: string) => { (window as any).__copiedSource = value } } })
   })
-
-  const browserErrors = captureBrowserErrors(page)
-  await page.goto('/custom', { waitUntil: 'domcontentloaded' })
-  await page.waitForFunction(() => Boolean((window as any).fsharpDocsCode?.loading))
-  await prismIntercepted
-  await page.waitForFunction(() => document.fonts?.status === 'loaded')
-
-  const navigationRequest = page.waitForRequest(request => request.isNavigationRequest() && new URL(request.url()).pathname === '/getting-started/first-view')
-  const navigation = page.goto('/getting-started/first-view', { waitUntil: 'domcontentloaded' })
-  await navigationRequest
-  await interceptedPrism!.abort('aborted').catch(() => {})
-  releaseIntercept()
-  await navigation
-  await page.waitForFunction(() => Boolean((window as any).fsharpDocsCode?.loading))
-  await page.evaluate(() => (window as any).fsharpDocsCode.loading)
-
-  await expect(page.locator('pre:has(code[data-docs-copy-source="true"]) .token.keyword').first()).toBeVisible()
-  expect(browserErrors).toEqual([])
-})
-
-test('active-document Prism failures remain observable', async ({ page }) => {
-  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
-    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
-  )
-  await page.route('**/js/prism.1.30.0.min.js', route => route.abort('failed'))
-  const pageErrors: string[] = []
-  page.on('pageerror', error => pageErrors.push(error.message))
-
-  await page.goto('/custom', { waitUntil: 'domcontentloaded' })
-
-  await expect(page.getByRole('heading', { level: 1, name: 'Custom Elements & Attributes' })).toBeVisible()
-  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /js/prism.1.30.0.min.js'))).toBe(true)
-})
-
-test('hidden active-document Prism failures remain observable', crossBrowser, async ({ page }) => {
-  await page.addInitScript(() => {
-    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
-  })
-  await page.route('https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22', route =>
-    route.fulfill({ status: 200, contentType: 'text/javascript', body: '' }),
-  )
-  await page.route('**/js/prism.1.30.0.min.js', route => route.abort('failed'))
-  const pageErrors: string[] = []
-  page.on('pageerror', error => pageErrors.push(error.message))
-
-  await page.goto('/custom', { waitUntil: 'domcontentloaded' })
-
-  expect(await page.evaluate(() => ({ visibility: document.visibilityState, unloading: (window as any).fsharpDocsCode?.unloading }))).toEqual({ visibility: 'hidden', unloading: false })
-  await expect.poll(() => pageErrors.some(error => error.includes('Unable to load Prism asset: /js/prism.1.30.0.min.js'))).toBe(true)
+  const block = page.locator('fve-code-block').first()
+  await expect(block.locator('.token')).toHaveCount(0)
+  await block.getByRole('button', { name: 'Copy code' }).click()
+  expect(await page.evaluate(() => (window as any).__copiedSource)).toContain('let greeting')
 })
 
 test('Code block guide renders plain output and highlights every documented language', async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
   await page.goto('/components/code-block', { waitUntil: 'domcontentloaded' })
-  await expect(page.getByRole('heading', { name: 'Quick start with Giraffe', exact: true })).toBeVisible()
+  await expect(page.getByText(/The CLI adds Prism to package.json/)).toBeVisible()
   const previews = page.locator('[data-docs-preview-frame="true"]')
   await expect(previews.locator('code.language-text')).toHaveText('Build succeeded.\n0 warnings\n0 errors')
   await expect(previews.locator('code.language-text .token')).toHaveCount(0)
   for (const language of ['fsharp', 'python', 'typescript', 'bash', 'sql']) {
     await expect(previews.locator(`code.language-${language} .token.keyword`).first()).toBeVisible()
   }
-  await expect(page.getByRole('link', { name: 'Prism', exact: true })).toHaveAttribute('href', 'https://prismjs.com/')
-  await expect(page.getByRole('link', { name: 'Prism download builder', exact: true })).toHaveAttribute('href', 'https://prismjs.com/download.html')
+  await expect(page.getByRole('heading', { name: 'Quick start with Giraffe', exact: true })).toHaveCount(0)
   expect(browserErrors).toEqual([])
 })
 
@@ -1649,6 +1589,69 @@ test('code blocks copy their literal source', async ({ page }) => {
   await expect(block.getByRole('button', { name: 'Copy code' })).toContainText('Copied')
   expect(await page.evaluate(() => (window as any).__copiedSource)).toContain('let greeting')
 })
+
+test('named code blocks annotate lines and copy and download only literal source @cross-browser', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 })
+  await page.goto('/components/code-block')
+  const block = page.locator('fve-code-block').filter({ has: page.getByRole('button', { name: 'Download Balance.fsx' }) })
+  await expect(block.getByText('src/Balance.fsx', { exact: true })).toBeVisible()
+  await expect(block.locator('[data-fve-code-line-number]')).toHaveText(['1', '2', '3', '4'])
+  await expect(block.locator('[data-fve-code-highlight]')).toHaveCount(2)
+  const highlight = block.locator('[data-fve-code-highlight="3"]')
+  await expect(highlight).toHaveCSS('background-color', /^(?!rgba\(0, 0, 0, 0\))/)
+  const code = block.locator('pre code')
+  await expect(code.locator('.token.keyword').first()).toBeVisible()
+  const expected = 'let balances = [125.50M; 84.25M]\n\nlet total = balances |> List.sum\nprintfn "Total: %M" total'
+  expect(await code.textContent()).toBe(expected)
+  const offset = await highlight.evaluate((row) => {
+    const code = row.closest('pre')!.querySelector('code')!
+    const lineHeight = parseFloat(getComputedStyle(code).lineHeight)
+    return Math.abs(row.getBoundingClientRect().top - code.getBoundingClientRect().top - lineHeight * 2)
+  })
+  expect(offset).toBeLessThan(1)
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value: string) => { (window as any).__copiedSource = value } } })
+  })
+  // Prism normalizes nonbreaking spaces; Copy and Download retain the original.
+  const literal = expected.replace('Total: ', 'Total:\u00a0')
+  await code.evaluate((element, source) => { element.textContent = source }, literal)
+  await expect(code.locator('.token.keyword').first()).toBeVisible()
+  await block.getByRole('button', { name: 'Copy src/Balance.fsx' }).click()
+  expect(await page.evaluate(() => (window as any).__copiedSource)).toBe(literal)
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    block.getByRole('button', { name: 'Download Balance.fsx' }).click(),
+  ])
+  expect(download.suggestedFilename()).toBe('Balance.fsx')
+  const stream = await download.createReadStream()
+  const chunks = []
+  for await (const chunk of stream) chunks.push(chunk)
+  expect(Buffer.concat(chunks).toString('utf8')).toBe(literal)
+  const plain = page.locator('[data-docs-preview-frame="true"] fve-code-block').filter({ has: page.locator('[data-fve-code-highlight="2"]') })
+  await expect(plain.locator('[data-fve-code-highlight="2"]')).toBeVisible()
+  await expect(plain.locator('[data-fve-code-line-number]')).toHaveCount(0)
+  await expect(plain.getByRole('button', { name: /Download/ })).toHaveCount(0)
+})
+
+for (const [guide, fileName] of [['presentations', 'deck.fsx'], ['scripts', 'page.fsx']]) {
+  test(`the ${guide} guide shows and downloads the complete ${fileName}`, async ({ page }) => {
+    await page.goto(`/guides/${guide}`)
+    const action = page.getByRole('button', { name: `Download ${fileName}` })
+    const block = page.locator('fve-code-block').filter({ has: action })
+    await expect(block.getByText(fileName, { exact: true })).toBeVisible()
+    const source = (await block.locator('pre code').textContent())!
+    expect(source).toMatch(/^\/\/ fve:components:start\n#r /)
+    expect(source).toContain('// fve:components:end\n\nopen System.IO')
+    expect(source).toContain('File.WriteAllText')
+    const lines = source.split('\n')
+    const highlighted = await block.locator('[data-fve-code-highlight]').evaluateAll(rows =>
+      rows.map(row => Number(row.getAttribute('data-fve-code-highlight'))))
+    expect(highlighted.map(line => lines[line - 1])).toEqual(['// fve:components:start', '// fve:components:end'])
+    const [download] = await Promise.all([page.waitForEvent('download'), action.click()])
+    expect(download.suggestedFilename()).toBe(fileName)
+    expect(await readFile((await download.path())!, 'utf8')).toBe(source)
+  })
+}
 
 test('copy buttons stay pinned while code scrolls horizontally @cross-browser', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 })
@@ -1713,10 +1716,15 @@ test('inline prose links are visually identifiable and article pagers continue t
 
 test('Tailwind Plus Elements previews render and operate the actual custom elements', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
+  const cdnRequests: string[] = []
+  page.on('request', request => { if (new URL(request.url()).hostname === 'cdn.jsdelivr.net') cdnRequests.push(request.url()) })
   await page.goto('/extensions/svg', { waitUntil: 'domcontentloaded' })
+  await page.waitForFunction(() => customElements.get('fve-code-block') !== undefined)
+  expect(await page.evaluate(() => Boolean(customElements.get('el-autocomplete')))).toBe(false)
   await page.locator('#nav-tailwind-elements').click()
   await expect(page).toHaveURL('/extensions/tailwind-elements')
   await page.waitForFunction(() => Boolean(customElements.get('el-autocomplete')))
+  expect(cdnRequests).toEqual([])
 
   const ids = ['autocomplete', 'command-palette', 'copy-button', 'dialog', 'disclosure', 'dropdown-menu', 'popover', 'select', 'tabs']
   for (const id of ids) {
@@ -1820,7 +1828,7 @@ test('delayed Mermaid loading shows accessible pending content and never raw sou
   let releaseAsset: (() => void) | undefined
   const assetGate = new Promise<void>(resolve => { releaseAsset = resolve })
   let intercepted = false
-  await page.route('**/js/mermaid.11.16.1.min.js', async route => {
+  await page.route('**/js/mermaid-renderer-*.js', async route => {
     intercepted = true
     await assetGate
     await route.continue()
@@ -1845,7 +1853,7 @@ test('delayed Mermaid loading shows accessible pending content and never raw sou
 test('an unavailable Mermaid asset shows the accessible deterministic failure state', async ({ page }) => {
   const pageErrors: string[] = []
   page.on('pageerror', error => pageErrors.push(error.message))
-  await page.route('**/js/mermaid.11.16.1.min.js', route => route.abort('failed'))
+  await page.route('**/js/mermaid-renderer-*.js', route => route.abort('failed'))
 
   await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
@@ -1900,24 +1908,25 @@ test('pending diagrams render after Docs navigation through component-local init
 
 test('queued pending rendering discards stale in-flight Mermaid results for a reused host', crossBrowser, async ({ page }) => {
   const browserErrors = captureBrowserErrors(page)
+  const renderer = page.waitForRequest(request => /\/mermaid-renderer-[A-Z0-9]{8}\.js$/.test(new URL(request.url()).pathname))
   await page.goto('/components/mermaid', { waitUntil: 'domcontentloaded' })
   const diagram = page.locator('main [data-docs-diagram="true"]').first()
   await expect(diagram.locator('svg')).toBeVisible()
 
-  const expectedSource = await diagram.evaluate(async element => {
-    const docsWindow = window as typeof window & {
-      mermaid: { render: (id: string, source: string) => Promise<{ svg: string; bindFunctions?: (node: Element) => void }> }
+  const expectedSource = await diagram.evaluate(async (element, rendererUrl) => {
+    const { default: mermaid } = await import(rendererUrl) as {
+      default: { render: (id: string, source: string) => Promise<{ svg: string; bindFunctions?: (node: Element) => void }> }
     }
     const firstSource = 'flowchart LR\n  Stale --> Result'
     const nextSource = 'flowchart LR\n  Current --> Result'
-    const originalRender = docsWindow.mermaid.render
+    const originalRender = mermaid.render
     let releaseFirst: (() => void) | undefined
     let markFirstStarted: (() => void) | undefined
     const firstGate = new Promise<void>(resolve => { releaseFirst = resolve })
     const firstStarted = new Promise<void>(resolve => { markFirstStarted = resolve })
     let first = true
 
-    docsWindow.mermaid.render = async (_id, source) => {
+    mermaid.render = async (_id, source) => {
       if (first) {
         first = false
         markFirstStarted?.()
@@ -1942,9 +1951,9 @@ test('queued pending rendering discards stale in-flight Mermaid results for a re
       await applied
       return nextSource
     } finally {
-      docsWindow.mermaid.render = originalRender
+      mermaid.render = originalRender
     }
-  })
+  }, (await renderer).url())
 
   await expect(diagram).toHaveAttribute('data-mermaid-state', 'rendered')
   await expect(diagram).toHaveAttribute('data-mermaid-rendered-source', expectedSource)
@@ -2008,7 +2017,7 @@ test('documentation remains readable when text is resized to 200 percent', cross
 test('code-free Examples index settles without starting Prism', crossBrowser, async ({ page }) => {
   const prismRequests: string[] = []
   page.on('request', request => {
-    if (/\/scripts\/prism|\/css\/prism/.test(new URL(request.url()).pathname)) prismRequests.push(request.url())
+    if (/\/prism-highlight-/.test(new URL(request.url()).pathname)) prismRequests.push(request.url())
   })
   for (const path of ['/examples']) {
     await gotoAfterDocsAssetSettlement(page, path)
@@ -2128,7 +2137,7 @@ test('sitemap, robots, and social metadata expose canonical public discovery', a
 
   const robots = await request.get('/robots.txt')
   expect(robots.status()).toBe(200)
-  expect(await robots.text()).toBe(`User-agent: *\nAllow: /\nSitemap: ${productionOrigin}/sitemap.xml\nSitemap: ${productionOrigin}/examples/sitemap.xml\n`)
+  expect(await robots.text()).toBe(`User-agent: *\nAllow: /\nSitemap: ${productionOrigin}/sitemap.xml\nSitemap: ${productionOrigin}/examples/sitemap.xml\nSitemap: ${productionOrigin}/examples/specification/sitemap.xml\nSitemap: ${productionOrigin}/examples/documentation/sitemap.xml\nSitemap: ${productionOrigin}/examples/presentation/sitemap.xml\n`)
 
   await page.goto('/getting-started/first-view', { waitUntil: 'domcontentloaded' })
   await expect(page.locator('meta[property="og:url"]')).toHaveAttribute('content', `${productionOrigin}/getting-started/first-view`)

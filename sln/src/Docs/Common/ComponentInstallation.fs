@@ -70,12 +70,6 @@ module ComponentInstallation =
             source
         }
 
-    let private inlineCode (value: string) =
-        Html.code {
-            _class "[overflow-wrap:anywhere]"
-            value
-        }
-
     let private link href (label: string) =
         fveLink {
             _href href
@@ -85,9 +79,7 @@ module ComponentInstallation =
 
     let private imports files =
         [ p {
-              "Add to "
-              inlineCode "src/Acme.Web/js/app.js"
-              " once, alongside your other component imports:"
+              "The CLI adds these browser modules to its generated imports file. Load your app entry point once; do not add these imports by hand."
           }
           code
               "javascript"
@@ -113,34 +105,11 @@ module ComponentInstallation =
               else
                   yield! imports files
               if dependencies.Contains "code-block" then
-                  p { "Include this once in your document head to enable copying:" }
-                  code "fsharp" "CodeBlock.assets None []"
-
-                  p {
-                      "For optional syntax highlighting and nonce CSP, see "
-                      link "/components/code-block#syntax-highlighting" "Code block setup"
-                      "."
-                  }
+                  p { "The CLI adds Prism to package.json for syntax highlighting. Run npm install after adding the component; no separate Prism files or head setup are needed." }
               if dependencies.Contains "mermaid" then
-                  p {
-                      "Serve the "
-                      link "https://mermaid.js.org/intro/getting-started.html" "Mermaid browser bundle"
-                      " as "
-                      inlineCode "wwwroot/js/mermaid.js"
-                      ", then include this once in your document head:"
-                  }
-
-                  code "fsharp" "Mermaid.assets \"/js/mermaid.js\""
-
-                  p {
-                      "For nonce CSP, use "
-                      inlineCode "Mermaid.assetsWithNonce"
-                      " with your server-issued document nonce; see the "
-                      link "/extensions/datastar#content-security-policy" "CSP guide"
-                      "."
-                  }
-              if selector = "chart" then
-                  p { "ECharts loads automatically when a nonempty chart connects." }
+                  p { "The CLI adds Mermaid to package.json. Run npm install after adding the component. The renderer loads when a diagram becomes visible." }
+              if dependencies.Contains "chart" then
+                  p { "The CLI adds ECharts to package.json. Run npm install after adding the component. The renderer loads when a nonempty chart connects." }
               p {
                   _class "m-0 text-base leading-relaxed text-[var(--fve-muted-text)]"
                   "The CLI resolves dependencies and preserves consumer-authored files. See "

@@ -1,6 +1,6 @@
 import { test, expect } from '../fixture'
 
-test('top-level Guides keep workflows separate and support native navigation, history and search @cross-browser', async ({ page }) => {
+test('top-level Guides keep workflows separate and support navigation, history and search @cross-browser', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/guides/scripts')
@@ -22,7 +22,7 @@ test('top-level Guides keep workflows separate and support native navigation, hi
   await navigation.getByRole('link', { name: 'Presentations', exact: true }).click()
   await expect(page).toHaveURL('/guides/presentations')
   await expect(page.getByRole('heading', { name: 'Build a presentation', exact: true, level: 1 })).toBeVisible()
-  await expect(page.getByRole('heading', { name: 'Print or save as PDF', exact: true })).toBeAttached()
+  await expect(page.getByRole('heading', { name: 'Export a PDF', exact: true })).toBeAttached()
   await expect(page.locator('main details:not([data-docs-mobile-toc])')).toHaveCount(0)
   await page.goBack()
   await expect(page).toHaveURL('/guides/theming')

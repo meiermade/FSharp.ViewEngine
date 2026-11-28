@@ -69,6 +69,28 @@ from accounts
 where currency = 'USD' and balance > 0;"""
         }
 
+    let downloadableCodeBlock =
+        fveCodeBlock {
+            _fileName "src/Balance.fsx"
+            _language "fsharp"
+            _lineNumbers true
+            _highlightLines [ 3; 4 ]
+            _download true
+            """let balances = [125.50M; 84.25M]
+
+let total = balances |> List.sum
+printfn "Total: %M" total"""
+        }
+
+    let highlightedCodeBlock =
+        fveCodeBlock {
+            _language "fsharp"
+            _highlightLines [ 2 ]
+            """let balances = [125.50M; 84.25M]
+let total = balances |> List.sum
+printfn "Total: %M" total"""
+        }
+
     let codeBlockRegistration = registration "code-block" "Code block"
 
     let examples () =
@@ -77,58 +99,12 @@ where currency = 'USD' and balance > 0;"""
               sample "pythonCodeBlock" "Python" pythonCodeBlock
               sample "typescriptCodeBlock" "TypeScript" typescriptCodeBlock
               sample "bashCodeBlock" "Bash" bashCodeBlock
-              sample "sqlCodeBlock" "SQL" sqlCodeBlock ]
-
-    let private codeBlockGiraffeSource =
-        """open Microsoft.AspNetCore.Builder
-open Microsoft.Extensions.DependencyInjection
-open Giraffe
-open FSharp.ViewEngine
-open Acme.Components
-open type Html
-
-let indexView =
-    html {
-        head {
-            title { "Build output" }
-            meta { _charset "utf-8" }
-            meta { _name "viewport"; _content "width=device-width, initial-scale=1" }
-            link { _rel "stylesheet"; _href "/css/output.css" }
-            CodeBlock.assets None [] // Copying only; no Prism.
-            script { _type "module"; _src "/js/app.js" }
-        }
-        body {
-            for attribute in ComponentsTheme.attributes ComponentsTheme.sky do attribute
-            _class "mx-auto max-w-3xl p-6"
-            fveCodeBlock { _language "text"; "Build succeeded.\n0 warnings\n0 errors" }
-        }
-    }
-
-let indexHandler : HttpHandler =
-    htmlString (Render.toHtmlDocString indexView)
-
-let builder = WebApplication.CreateBuilder()
-builder.Services.AddGiraffe() |> ignore
-let app = builder.Build()
-app.UseStaticFiles() |> ignore
-app.UseGiraffe(GET >=> route "/" >=> indexHandler)
-app.Run()"""
+              sample "sqlCodeBlock" "SQL" sqlCodeBlock
+              sample "downloadableCodeBlock" "Named file with line numbers and download" downloadableCodeBlock
+              sample "highlightedCodeBlock" "Highlighted lines without numbers" highlightedCodeBlock ]
 
     let private codeBlockPage (registration: DocPage) =
         let items = examples ()
-
-        let linkTo href (label: string) =
-            a {
-                _href href
-                _class "font-semibold text-[var(--fve-brand-text)] underline underline-offset-2"
-                label
-            }
-
-        let code language (source: string) =
-            fveCodeBlock {
-                _language language
-                source
-            }
 
         let guideSection id (title: string) content =
             DocumentationSection.create
@@ -143,7 +119,7 @@ app.Run()"""
         DocumentationPage.create registration.id registration.title
         |> DocumentationPage.withLayout Gallery
         |> DocumentationPage.withRightRail TableOfContents
-        |> DocumentationPage.withDescription "Copyable code blocks with optional Prism syntax highlighting."
+        |> DocumentationPage.withDescription "Copyable code blocks with optional filenames, downloads, line numbers, and highlighting."
         |> DocumentationPage.withLead
             [ fveExample {
                   _name items.Head.id
@@ -161,52 +137,23 @@ app.Run()"""
             [ Docs.Common.Gallery.installationSection "code-block"
               guideSection
                   "usage"
-                  "Quick start with Giraffe"
-                  [ p {
-                        "Follow "
-                        linkTo "/components/installation" "Installation"
-                        " for the shared CSS and JavaScript build."
-                    }
-                    p {
-                        "In a Giraffe web project that references your generated Components project, use this as Program.fs. Change Acme.Components to your installed namespace. It serves a plain, copyable block at /."
-                    }
-                    code "fsharp" codeBlockGiraffeSource
-                    p {
-                        "Use the language \"text\" for unhighlighted output. CodeBlock.assets None [] installs copying without downloading any Prism scripts or CSS. Add it once in the document head; Datastar initializes the component and handles the copy action. Copying requires HTTPS or localhost."
-                    } ]
-              guideSection
-                  "syntax-highlighting"
-                  "Add syntax highlighting"
-                  [ p {
-                        "Highlighting is optional and uses "
-                        linkTo "https://prismjs.com/" "Prism"
-                        ". Open the "
-                        linkTo "https://prismjs.com/download.html" "Prism download builder"
-                        ", select F#, Python, TypeScript, Bash and SQL, and keep the automatically selected language dependencies. Download the JavaScript bundle and save it as wwwroot/js/prism.js."
-                    }
-                    p { "Replace the CodeBlock.assets line in the quick start with:" }
-                    code "fsharp" "CodeBlock.assets None [\"/js/prism.js\"]"
-                    p { "Then choose a matching language when creating a block:" }
-                    code
-                        "fsharp"
+                  "Usage"
+                  [ fveCodeBlock {
+                        _language "fsharp"
                         """fveCodeBlock {
     _language "fsharp"
     "let total = 125.50M + 84.25M"
 }"""
-                    p {
-                        "The runtime loads the bundle when it initializes code and reapplies highlighting after Datastar patches. No Prism stylesheet is needed: the component's Tailwind styles supply light/dark token colors. Keep using \"text\" for blocks that should remain unhighlighted."
-                    } ]
-              guideSection
-                  "prism-theme"
-                  "Optional Prism stylesheet"
-                  [ p {
-                        "To use a Prism theme instead of the built-in colors, select a theme in the "
-                        linkTo "https://prismjs.com/download.html" "download builder"
-                        ", download the CSS, and save it as wwwroot/css/prism.css. Replace the assets call with:"
                     }
-                    code "fsharp" "CodeBlock.assets (Some \"/css/prism.css\") [\"/js/prism.js\"]"
+                    p { "Set _language for syntax highlighting, or use \"text\" for plain output." } ]
+              guideSection
+                  "file-and-lines"
+                  "Files and line annotations"
+                  [ p {
+                        "Use _fileName to show a filename or path above the code. Add _download true for complete files; it saves the source using the last part of the path (or snippet.txt without a filename). Copy and Download omit all visual annotations."
+                    }
                     p {
-                        "A Prism theme replaces token colors; it does not change the component's code surface or automatically switch between light and dark palettes."
+                        "Use _lineNumbers true to show a gutter and _highlightLines with 1-based line numbers to emphasize specific lines. Highlighted lines work without the gutter or Prism."
                     } ]
               for item in items.Tail do
                   DocumentationSection.create
@@ -224,24 +171,6 @@ app.Run()"""
                                 item.preview
                             }
                         } ]
-              guideSection
-                  "nonce-csp"
-                  "Optional nonce CSP"
-                  [ p {
-                        "If your host enforces nonce CSP, expose its fresh document nonce on the html element's data-nonce attribute, and pass it to assetsWithNonce and the Datastar script. That same nonce must be authorized by the response's script-src policy:"
-                    }
-                    code
-                        "fsharp"
-                        """let codeAssets nonce =
-    fragment {
-        CodeBlock.assetsWithNonce None ["/js/prism.1.30.0.min.js"] (Some nonce)
-        script { _type "module"; _src "/js/app.js"; _attr("nonce", nonce) }
-    }"""
-                    p {
-                        "For nonce generation, response headers and enhanced-navigation behavior, see the "
-                        linkTo "/extensions/datastar#content-security-policy" "Datastar CSP guide"
-                        "."
-                    } ]
               guideSection
                   "api-reference"
                   "API reference"

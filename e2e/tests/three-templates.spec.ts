@@ -5,7 +5,7 @@ for (const scenario of [
   { path: '/examples/application/settings/general', label: 'Settings', link: 'Users', destination: '/examples/application/settings/users' },
   { path: '/examples/application/profile', label: 'Profile', link: 'Organizations', destination: '/examples/application/profile/organizations' },
   { path: '/examples/specification/accounts/view-accounts', label: 'Documentation', link: 'Overview', destination: '/examples/specification' },
-  { path: '/examples/api-documentation/create-account', label: 'Documentation', link: 'Overview', destination: '/examples/api-documentation' },
+  { path: '/examples/documentation/create-account', label: 'Documentation', link: 'Overview', destination: '/examples/documentation' },
 ]) {
   test(`mobile ${scenario.path} uses a modal navigation drawer @cross-browser`, async ({ page }) => {
     const errors: string[] = []
@@ -39,7 +39,10 @@ for (const scenario of [
     await expect(page.locator('#template-desktop-navigation')).toBeVisible()
     await page.setViewportSize({ width: 390, height: 844 })
     await opener.click()
+    const navigation = page.waitForResponse(response =>
+      response.request().headers()['datastar-request'] === 'true' && new URL(response.url()).pathname === scenario.destination)
     await drawer.getByRole('link', { name: scenario.link, exact: true }).first().click()
+    expect((await navigation).headers()['content-type']).toContain('text/event-stream')
     await expect(page).toHaveURL(url => url.pathname === scenario.destination)
     await expect(page.locator('dialog[open]')).toHaveCount(0)
     await expect(page.locator('#main-content')).toBeFocused()
@@ -97,7 +100,7 @@ test('gallery opens isolated consumer templates with GitHub source and native hi
   const source = app.getByRole('link', { name: 'View example source on GitHub', exact: true })
   await expect(source).toHaveAttribute('href', /^https:\/\/github\.com\/meiermade\/FSharp\.ViewEngine(?:\/tree\/[^/]+\/sln\/src\/Example)?$/)
   await expect(source).toHaveAttribute('target', '_blank')
-  await expect(app.locator('script[type="module"][src^="/examples/js/app"][src$=".js"]')).toHaveCount(1)
+  await expect(app.locator('script[type="module"][src*="/js/app"][src$=".js"]')).toHaveCount(1)
   await expect(app.locator('fve-button[data-rocket-host]').first()).toBeAttached()
   await expect(app.locator('script[src$="/datastar.1.0.5.js"]')).toHaveCount(0)
   await expect(source).toHaveText('')
@@ -315,7 +318,7 @@ for (const { saved, choice, activation } of [
     }, saved)
     let release!: () => void
     const moduleReady = new Promise<void>(resolve => { release = resolve })
-    await page.route('**/examples/js/datastar-rocket.1.0.5.js', async route => {
+    await page.route('**/examples/specification/js/datastar-rocket.1.0.5.js', async route => {
       await moduleReady
       await route.continue()
     })
@@ -368,15 +371,15 @@ test('rendered architecture nodes navigate from system context to project contra
   await page.goto('/examples/specification/architecture')
   await page.getByRole('region', { name: 'Geldos system context', exact: true }).locator('svg a').click()
   await expect(page).toHaveURL(/architecture\/solution/)
-  await page.getByRole('region', { name: 'Geldos project dependencies and HTTP boundary', exact: true }).locator('svg a').filter({ hasText: 'Example.Application' }).click()
-  await expect(page).toHaveURL(/architecture\/solution\/application/)
-  await expect(page.getByRole('heading', { name: 'Operations', exact: true })).toBeVisible()
-  await expect(page.getByText(/Example.Application\/Operations.fs validates/)).toBeVisible()
+  await page.getByRole('region', { name: 'Geldos project dependencies and HTTP boundary', exact: true }).locator('svg a').filter({ hasText: 'Example.Domain' }).click()
+  await expect(page).toHaveURL(/architecture\/solution\/domain/)
+  await expect(page.getByRole('heading', { name: 'Financial types', exact: true })).toBeVisible()
+  await expect(page.locator('pre').filter({ hasText: 'openingBalance: decimal' })).toContainText('type TransactionStatus')
 })
 
 test('API examples inherit the selected theme and separate code from the page surface @cross-browser', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' })
-  await page.goto('/examples/api-documentation/create-account')
+  await page.goto('/examples/documentation/create-account')
   const examples = page.getByRole('complementary', { name: 'Request and response examples', exact: true })
   const code = examples.locator('pre').first()
   const string = examples.locator('.token.string').first()
@@ -402,7 +405,7 @@ test('API examples inherit the selected theme and separate code from the page su
 test('API response tabs and copied cURL remain usable in a narrow layout', async ({ page, context }) => {
   await context.grantPermissions(['clipboard-read', 'clipboard-write'])
   await page.setViewportSize({ width: 320, height: 844 })
-  await page.goto('/examples/api-documentation/create-account')
+  await page.goto('/examples/documentation/create-account')
   await page.getByRole('tab', { name: '400', exact: true }).click()
   await expect(page.getByRole('tabpanel', { name: '400', exact: true })).toContainText('validation_failed')
   await page.getByRole('button', { name: /Copy.*code/ }).first().click()

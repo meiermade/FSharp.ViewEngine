@@ -58,12 +58,6 @@ module View =
         div {
             _attr ("data-signals__root__ifmissing", "{collectionquery: '', collectiontype: 'all', collectionstate: 'ready'}")
 
-            _dataInit
-                "(() => { const params = new URL(window.location.href).searchParams; $collectionquery = params.get('query') || ''; $collectiontype = params.get('accountType') || 'all' })()"
-
-            _dataEffect
-                "(() => { const url = new URL(window.location.href); $collectionquery ? url.searchParams.set('query', $collectionquery) : url.searchParams.delete('query'); $collectiontype != 'all' ? url.searchParams.set('accountType', $collectiontype) : url.searchParams.delete('accountType'); window.history.replaceState(window.history.state, '', url) })()"
-
             collectionExample collectionActions toolbar collectionSelectionForm
 
             p {

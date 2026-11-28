@@ -159,11 +159,11 @@ module SharedExamples =
         "evt.target.closest('a[href^=\"/components/page-examples/account-management?destination=\"]')"
 
     let galleryDestinationAttributes =
+        let contain selector =
+            $"const link = evt.target.closest?.('{selector}'); if (link && !link.hash && !link.hasAttribute('download') && !link.hasAttribute('data-fve-app-mode-launch') && !link.hasAttribute('data-review-expand') && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) evt.preventDefault()"
         [ _attr ("data-fve-gallery-contained", "true")
-          _dataOn (
-              "click",
-              "const link = evt.target.closest?.('a[href]'); if (link && !link.hash && !link.hasAttribute('download') && !link.hasAttribute('data-fve-app-mode-launch') && !link.hasAttribute('data-review-expand') && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) evt.preventDefault()"
-          ) ]
+          _dataOn ("click", [ "capture" ], contain "a[data-fve-link-navigation]")
+          _dataOn ("click", contain "a[href]") ]
 
     let moreActionsIcon = fveIcon { _name IconName.EllipsisHorizontal; _variant IconVariant.Micro }
 
@@ -249,8 +249,8 @@ module SharedExamples =
         let link = shellDestinationLink
 
         [ _dataOn (
-              "click",
-              $"if ({link} && !{link}.hasAttribute('data-fve-app-mode-launch') && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) {{ evt.preventDefault(); window.history.pushState(null, '', {link}.getAttribute('href')); @get({link}.getAttribute('href').replace('/components/page-examples/account-management?', '/components/page-examples/account-management/fixture?')) }}"
+              "click", [ "capture" ],
+              $"if ({link} && !{link}.hasAttribute('data-fve-app-mode-launch') && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && evt.button === 0) {{ evt.preventDefault(); @get({link}.getAttribute('href').replace('/components/page-examples/account-management?', '/components/page-examples/account-management/fixture?')) }}"
           ) ]
 
     let sourceText =
@@ -302,7 +302,6 @@ module SharedExamples =
 @custom-variant dark (&:where(.dark, .dark *));
 @source "../Acme.Components/Components/**/*.fs";
 @source "../Acme.Components/Components/Assets/**/*.js";
-@source not "../Acme.Components/Components/Assets/echarts.6.1.0.esm.min.js";
 @source "./**/*.fs";"""
 
     let refreshIcon =

@@ -211,8 +211,10 @@ let tests =
 
             let rendered = Document.create site page |> Document.render |> Render.toString
             Expect.stringContains rendered "aria-label=\"Page navigation\"" "pager landmark"
-            Expect.stringContains rendered "rel=\"prev\" href=\"/\"" "previous destination"
-            Expect.stringContains rendered "rel=\"next\" href=\"/usage\"" "next destination"
+            let hasPagerLink relation href =
+                System.Text.RegularExpressions.Regex.IsMatch(rendered, $"<a(?=[^>]*\\bhref=\"{href}\")(?=[^>]*\\brel=\"{relation}\")[^>]*>")
+            Expect.isTrue (hasPagerLink "prev" "/") "previous destination"
+            Expect.isTrue (hasPagerLink "next" "/usage") "next destination"
             Expect.stringContains rendered "Previous" "previous direction"
             Expect.stringContains rendered ">Introduction</span>" "previous page title"
             Expect.stringContains rendered "Next" "next direction"
@@ -383,27 +385,21 @@ let tests =
         }
 
         test "Pages declare optional runtime asset requirements" {
-            let plain = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections []
             let diagramSource = "flowchart LR\nA[\"<script>alert('diagram')</script>\"] --> B[Ready]"
             let diagram = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [ DocumentationSection.create "flow" "Flow" [ fveMermaid { yield (diagramSource : string) } ] ]
             let highlighted = DocumentationPage.create "guide" "Guide" |> DocumentationPage.withDescription "Description" |> DocumentationPage.withSections [ DocumentationSection.create "code" "Code" [ fveCodeBlock { yield _language ("fsharp"); yield ("let x = 1" : string) } ] ]
 
-            let plainHtml = Document.create site plain |> Document.render |> Render.toString
             let diagramHtml = Document.create site diagram |> Document.render |> Render.toString
             let highlightedHtml = Document.create site highlighted |> Document.render |> Render.toString
-            Expect.stringContains plainHtml "window.fsharpDocsMermaid" "plain pages configure lazy Mermaid for later navigation"
-            Expect.stringContains plainHtml "/js/mermaid.11.16.1.min.js" "plain pages retain the configured Mermaid source"
-            Expect.isFalse (plainHtml.Contains("src=\"/js/mermaid.11.16.1.min.js\"")) "plain pages do not eagerly load Mermaid"
-            Expect.isFalse (plainHtml.Contains("prism-tomorrow.1.30.0.min.css")) "consumers opt into a Prism stylesheet through DocsAssets"
-            Expect.isFalse (plainHtml.Contains("src=\"/js/prism.1.30.0.min.js\"")) "plain pages omit Prism scripts"
             Expect.stringContains diagramHtml "<fve-mermaid " "diagram elements own their initialization"
             Expect.stringContains diagramHtml "data-mermaid-source=\"flowchart LR" "diagram source is encoded as data rather than visible content"
             Expect.stringContains diagramHtml "&lt;script&gt;alert(&#39;diagram&#39;)&lt;/script&gt;" "diagram source cannot escape its encoded data attribute"
             Expect.isFalse (diagramHtml.Contains("<script>alert('diagram')</script>")) "trusted Mermaid source is never emitted as executable component markup"
             Expect.stringContains diagramHtml "role=\"status\">Rendering diagram…</p>" "diagram pages render accessible pending content"
             Expect.isFalse (diagramHtml.Contains(">flowchart LR</div>")) "diagram pages never render Mermaid source as visible content"
-            Expect.isFalse (diagramHtml.Contains("src=\"/js/mermaid.11.16.1.min.js\"")) "diagram pages also load Mermaid lazily"
-            Expect.stringContains highlightedHtml "prism.1.30.0" "code pages configure Prism"
+            Expect.isFalse (diagramHtml.Contains("mermaid-renderer")) "diagram pages do not include a renderer script tag"
+            Expect.stringContains highlightedHtml "language-fsharp" "the code block specifies its own language"
+            Expect.isFalse (highlightedHtml.Contains("prism")) "code blocks need no separate pages assets"
         }
 
         test "CSP nonces apply to package-owned scripts without embedded presentation" {
@@ -420,7 +416,6 @@ let tests =
             let assets =
                 { DocsAssets.defaults with
                     productStylesheets = [ "/css/product.css" ]
-                    prismStylesheet = Some "/css/custom-prism.css"
                     mermaidSecurityLevel = "strict"
                     additionalHead = [ meta { _name "robots"; _content "noindex" } ] }
 
@@ -429,8 +424,7 @@ let tests =
             let rendered = Document.create configuredSite page |> Document.render |> Render.toString
 
             Expect.stringContains rendered "href=\"/css/product.css\"" "product stylesheet"
-            Expect.stringContains rendered "href=\"/css/custom-prism.css\"" "consumer Prism stylesheet overrides the embedded palette"
-            Expect.stringContains rendered "window.fsharpDocsMermaid.security = \"strict\"" "Mermaid security setting is safely serialized"
+            Expect.stringContains rendered "data-mermaid-security=\"strict\"" "the configured Mermaid security level reaches the component"
             Expect.stringContains rendered "name=\"robots\"" "additional head content"
         }
 

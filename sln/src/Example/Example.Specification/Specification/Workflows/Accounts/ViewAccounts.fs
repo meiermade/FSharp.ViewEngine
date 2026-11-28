@@ -1,0 +1,35 @@
+namespace Example.Specification.SpecificationPages
+
+open System
+open FSharp.ViewEngine
+open Example.Components
+open Example.UI.Views
+open Example.Specification.Web
+open type Html
+open Model
+open Workflow
+
+module internal ViewAccounts =
+    let workflow: Workflow =
+        { key = "accounts/view-accounts"
+          label = "View accounts"
+          description = "Browse the account hierarchy, filter and sort accounts, and delete a keyed selection with confirmation."
+          states =
+            [ state "default" "Hierarchy" ApplicationPage.Accounts []
+              state "filter-added" "Type filter added" ApplicationPage.Accounts [ "filters", "accountType" ]
+              state "assets" "Assets" ApplicationPage.Accounts [ "accountType", "Asset"; "filters", "accountType" ]
+              state
+                  "multiple-types"
+                  "Multiple types"
+                  ApplicationPage.Accounts
+                  [ "accountType", "Asset,Liability"; "filters", "accountType" ]
+              state "sorted" "Balance descending" ApplicationPage.Accounts [ "sort", "balance" ]
+              state "selected" "Rows selected" ApplicationPage.Accounts [ "state", "selected" ]
+              state "empty" "No matches" ApplicationPage.Accounts [ "search", "No matching account" ] ]
+          sequence =
+            selectionSequence
+                "/examples/application/accounts"
+                "root accounts and their matching branches"
+                "Accounts"
+                "accountIds"
+          requirements = [] }

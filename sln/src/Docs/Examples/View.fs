@@ -14,7 +14,7 @@ module Examples =
         | Presentation
         | Application
         | Specification
-        | ApiDocumentation
+        | Documentation
 
     type ExampleTemplate =
         { template: Template
@@ -51,13 +51,13 @@ module Examples =
               "A financial application with Home, Accounts, Transactions, workspace selection, Settings, and Profile."
             screenshot = "/images/examples/application.png"
             darkScreenshot = "/images/examples/application-dark.png" }
-          { template = Template.ApiDocumentation
-            name = "API documentation"
-            path = "/examples/api-documentation"
+          { template = Template.Documentation
+            name = "Docs"
+            path = "/examples/documentation"
             description =
-              "A resource-grouped API reference with descriptions and parameters beside cURL requests and JSON responses."
-            screenshot = "/images/examples/api-documentation.png"
-            darkScreenshot = "/images/examples/api-documentation-dark.png" } ]
+              "Resource overviews and endpoint references, with parameters beside copyable cURL requests and JSON responses."
+            screenshot = "/images/examples/documentation.png"
+            darkScreenshot = "/images/examples/documentation-dark.png" } ]
 
     let registration: DocPage =
         { id = "examples-gallery"

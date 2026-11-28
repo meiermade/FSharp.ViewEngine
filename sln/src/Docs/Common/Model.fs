@@ -34,6 +34,8 @@ type DocNode =
     | BarChart of ComparisonChart
     | DataTable of headers:string list * rows:string list list
     | CodeBlock of language:string * source:string
+    | HighlightedCodeBlock of language:string * fileName:string option * source:string * lines:int list
+    | ScriptFile of fileName:string * source:string
     | Example of id:string * label:string * language:string * source:string * preview:HtmlElement
 
 type DocPage =

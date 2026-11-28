@@ -20,7 +20,6 @@ module FrameReview =
     let expandedReviewFixture phone state =
         div {
             _id "docs-navigation-root"
-            _data ("fve-navigation-root", "true")
             _data ("fve-app-mode-root", "true")
             _dataOn ("keydown", ["window"], "if (evt.key === 'Escape' && !evt.defaultPrevented && !document.querySelector(':popover-open, dialog[open]')) el.querySelector('[data-fve-app-mode-exit]')?.click()")
 

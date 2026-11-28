@@ -47,20 +47,40 @@ let tests = testList "fve" [
     testCase "help and parser expose the typed command contract" <| fun _ ->
         let code,output,error = invoke ["--help"]
         Expect.equal code 0 error
-        for value in ["init <project>"; "add <components>"; "diff"; "build"] do Expect.stringContains output value "public command"
+        for value in ["init <project>"; "add"; "diff"; "compile"; "watch"; "run <script>"] do Expect.stringContains output value "public command"
         Expect.equal (output.Split("--version").Length-1) 1 "one version option"
         let code,output,error = invoke ["add"; "--help"]
         Expect.equal code 0 error
         for value in ["--overwrite"; "--config"] do Expect.stringContains output value "source ownership options"
-        let code,output,error = invoke ["build"; "--help"]
+        let code,output,error = invoke ["run"; "--help"]
         Expect.equal code 0 error
-        for value in ["--open"; "--config"] do Expect.stringContains output value "script build options"
-        for arguments in [["add"]; ["wat"]] do
+        for value in ["<script>"; "--config"] do Expect.stringContains output value "script build options"
+        for arguments in [["add"]; ["add"; "action"; "navigate"]; ["add"; "component"; "link"]; ["build"]; ["wat"]] do
             let code,_,_ = invoke arguments
             Expect.notEqual code 0 "missing and unknown inputs fail"
         let code,output,error = invoke ["--version"]
         Expect.equal code 0 error
         Expect.isGreaterThan (output.Trim().Length) 0 "generated version"
+
+    testCase "init preserves authored frontend files and Link installs navigation" <| fun _ ->
+        withTemp <| fun root ->
+            let package = Path.Combine(root, "package.json")
+            let css = Path.Combine(root, "input.css")
+            let entry = Path.Combine(root, "js", "app.js")
+            File.WriteAllText(package, """{"name":"consumer","scripts":{"lint":"custom-linter"}}""")
+            File.WriteAllText(css, "/* consumer CSS */")
+            Directory.CreateDirectory(Path.GetDirectoryName entry) |> ignore
+            File.WriteAllText(entry, "console.log('consumer app')\n")
+            initialize root
+            Expect.stringContains (File.ReadAllText package) "custom-linter" "npm scripts are preserved"
+            Expect.stringContains (File.ReadAllText package) "@tailwindcss/cli" "CLI tool dependencies are configured"
+            Expect.equal (File.ReadAllText css) "/* consumer CSS */" "authored styles are preserved"
+            let app = File.ReadAllText entry
+            add root ["link"]
+            let wrong,_,_ = invoke ["add"; "navigate"; "--config"; configPath root]
+            Expect.equal wrong 2 "Link owns navigation"
+            Expect.equal (File.ReadAllText entry) app "only the generated module changes when adding Link"
+            Expect.stringContains (File.ReadAllText(Path.Combine(root,"js","fve-imports.js"))) "/Assets/link.js" "Link imports its navigation behavior"
 
     testCase "new projects default to net11.0 and retain explicit framework choices" <| fun _ ->
         for framework in [None; Some "net10.0"; Some "net11.0"] do
@@ -114,9 +134,9 @@ let tests = testList "fve" [
             "checkbox", $"{common} {runtime} Checkbox.fs Assets/checkbox.js Assets/native-control.js"
             "radio-group", $"{common} {runtime} Field.fs FieldGroup.fs RadioGroup.fs Assets/radio.js Assets/native-control.js"
             "file-selection", $"{common} {runtime} FileSelection.fs Assets/file-selection.js Assets/native-control.js"
-            "code-block", $"{common} {runtime} CodeAssets.fs CodeBlock.fs Assets/code-block.js"
-            "mermaid", $"{common} {runtime} MermaidAssets.fs Mermaid.fs Assets/mermaid.js"
-            "chart", $"{common} {runtime} Chart.fs Assets/chart.js Assets/echarts.6.1.0.esm.min.js Assets/echarts-LICENSE.txt Assets/echarts-NOTICE.txt Assets/echarts.6.1.0.provenance.json"
+            "code-block", $"{common} {runtime} CodeBlock.fs Assets/code-block.js Assets/prism-highlight.js"
+            "mermaid", $"{common} {runtime} Mermaid.fs Assets/mermaid.js Assets/mermaid-renderer.js"
+            "chart", $"{common} {runtime} Chart.fs Assets/chart.js Assets/echarts-renderer.js Assets/echarts-LICENSE.txt Assets/echarts-NOTICE.txt"
             "command", $"{common} {runtime} Button.fs Assets/button.js NativeOverlay.fs Assets/native-overlay.js Dialog.fs Assets/dialog.js Command.fs Assets/command.js"
             "section", $"{common} SectionHeader.fs Section.fs"
             "disclosure", $"{common} Disclosure.fs"
@@ -142,12 +162,33 @@ let tests = testList "fve" [
             Expect.stringContains project $"PackageReference Include=\"FSharp.ViewEngine\" Version=\"{ConsumerProject.CoreVersion}\"" "normal Core dependency"
             Expect.stringContains project $"<FSharpCoreImplicitPackageVersion>{ConsumerProject.FSharpCoreVersion}</FSharpCoreImplicitPackageVersion>" "compatible FSharp.Core"
             Expect.stringContains project "<None Include=\"fve.json\" />" "configuration visible in IDEs"
-            Expect.isEmpty (Directory.GetFiles(root,"*.css",SearchOption.AllDirectories)) "no copied stylesheet"
+            Expect.isEmpty (Directory.GetFiles(Path.Combine(root,"Components"),"*.css",SearchOption.AllDirectories)) "no copied component stylesheet"
             let source = File.ReadAllText(componentPath root "Card.fs")
             Expect.stringContains source "namespace Acme.Components" "configured namespace"
             Expect.isFalse (source.Contains "FSharp.ViewEngine.Components") "original namespace replaced"
-            Expect.isLessThan (project.IndexOf("CodeAssets.fs")) (project.IndexOf("CodeBlock.fs")) "companion F# helper precedes renderer"
             Expect.isLessThan (project.IndexOf("FieldFoundation.fs")) (project.IndexOf("Input.fs")) "dependency precedes input"
+
+    testCase "installing a component that uses Code Block adds pinned Prism without replacing package settings" <| fun _ ->
+        withTemp <| fun root ->
+            initialize root
+            let package = Path.Combine(root, "package.json")
+            let json = """{"private":true,"dependencies":{"prismjs":"1.29.0"},"devDependencies":{"custom-tool":"1.2.3"}}"""
+            File.WriteAllText(package, json)
+            let code, _, error = invoke ["add"; "example"; "--config"; configPath root]
+            Expect.notEqual code 0 "a different Prism version is reported"
+            Expect.stringContains error "prismjs" "conflict names the dependency"
+            Expect.equal (File.ReadAllText package) json "a conflict does not change package.json"
+            Expect.isFalse (File.Exists(componentPath root "CodeBlock.fs")) "a conflict does not install component files"
+            File.WriteAllText(package, json.Replace("\"prismjs\":\"1.29.0\"", ""))
+            add root ["example"; "mermaid"; "chart"]
+            use manifest = System.Text.Json.JsonDocument.Parse(File.ReadAllText package)
+            let dependencies = manifest.RootElement.GetProperty("devDependencies")
+            for name, version in ["prismjs", "1.30.0"; "mermaid", "11.16.1"; "echarts", "6.1.0"] do
+                Expect.equal (dependencies.GetProperty(name).GetString()) version $"{name} is pinned"
+            Expect.isFalse (dependencies.TryGetProperty("@tailwindplus/elements") |> fst) "Tailwind Plus Elements remains consumer-owned"
+            Expect.isFalse (dependencies.TryGetProperty("alpinejs") |> fst) "Alpine remains consumer-owned"
+            Expect.equal (dependencies.GetProperty("custom-tool").GetString()) "1.2.3" "keep unrelated packages"
+            Expect.isTrue (manifest.RootElement.GetProperty("private").GetBoolean()) "keep unrelated settings"
 
     testCase "existing projects and misplaced managed blocks keep consumer source last" <| fun _ ->
         withTemp <| fun root ->
@@ -239,7 +280,7 @@ let tests = testList "fve" [
             for manifest in invalid do
                 ConsumerProject.writeConfiguration (configPath root) manifest
                 let config = File.ReadAllText(configPath root)
-                for arguments in [["add"; "avatar"]; ["add"; "avatar"; "--overwrite"]; ["diff"]; ["build"]] do
+                for arguments in [["add"; "avatar"]; ["add"; "avatar"; "--overwrite"]; ["diff"]; ["compile"]] do
                     let code,_,error = invoke (arguments @ ["--config"; configPath root])
                     Expect.equal code 2 error
                     Expect.equal (File.ReadAllText victim) content "outside file survives even explicit overwrite"
@@ -296,39 +337,6 @@ let tests = testList "fve" [
             Expect.equal code 2 error
             Expect.equal (File.ReadAllText victim) "<Project></Project>" "linked project is never edited"
             Expect.isFalse (File.Exists(configPath root)) "no partial configuration"
-
-    testCase "repeat add preserves independently edited files and upgrades file-based manifests" <| fun _ ->
-        withTemp <| fun root ->
-            initialize root
-            add root ["button"]
-            let project = File.ReadAllText(projectPath root)
-            let before = configuration root
-            let owned = before.Files |> Array.filter (fun file -> file.Component = "button")
-            Expect.equal owned.Length 2 "F# and JavaScript share one owner"
-            let originals = owned |> Array.map (fun file -> file.Path,File.ReadAllText(Path.Combine(root,file.Path)))
-            for path,_ in originals do File.AppendAllText(Path.Combine(root,path),"\n// local customization\n")
-            let legacyFiles = before.Files |> Array.map (fun file ->
-                let owner = match Path.GetFileName file.Path with "button.js" -> "button-script" | "datastar-LICENSE.txt" -> "datastar-license" | _ -> file.Component
-                { file with Component = owner })
-            { before with Components = legacyFiles |> Array.map _.Component |> Array.distinct; Files = legacyFiles }
-            |> ConsumerProject.writeConfiguration (configPath root)
-            add root ["button"]
-            Expect.equal (File.ReadAllText(projectPath root)) project "project remains unchanged"
-            let migrated = configuration root
-            Expect.sequenceEqual migrated.Components ["button"] "legacy file selectors become one public component"
-            for file in owned do
-                let current = migrated.Files |> Array.find (fun current -> current.Path = file.Path)
-                Expect.equal current.RegistryChecksum file.RegistryChecksum "independent baseline retained"
-                Expect.stringContains (File.ReadAllText(Path.Combine(root,file.Path))) "local customization" "neither file is overwritten"
-            let code,output,error = invoke ["diff"; "--config"; configPath root]
-            Expect.equal code 1 error
-            for path,_ in originals do Expect.stringContains output $"modified button {path}" "each edited file reported"
-            let code,_,error = invoke ["add"; "button"; "--overwrite"; "--config"; configPath root]
-            Expect.equal code 0 error
-            for path,source in originals do Expect.equal (File.ReadAllText(Path.Combine(root,path))) source "explicit replacement restores each file"
-            let config = File.ReadAllText(configPath root)
-            add root ["button"]
-            Expect.equal (File.ReadAllText(configPath root)) config "repeat add is idempotent"
 
     testCase "new companion files are reported and installed without replacing customized files" <| fun _ ->
         withTemp <| fun root ->
@@ -411,7 +419,7 @@ System.IO.File.WriteAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__, "result
             let modulePath = componentPath root "Assets/presentation.js"
             File.AppendAllText(modulePath,"\nwindow.__consumerBuild = true;\n")
             let inputs = [script; configPath root; Path.Combine(root,"input.css"); modulePath] |> List.map (fun path -> path,File.ReadAllText path)
-            let code,output,error = invoke ["build"; "--config"; configPath root]
+            let code,output,error = invoke ["run"; script; "--config"; configPath root]
             Expect.equal code 0 error
             Expect.stringContains output "cash review.html" "output path is reported"
             let html,css,js = Path.ChangeExtension(script,".html"),Path.ChangeExtension(script,".css"),Path.ChangeExtension(script,".js")
@@ -420,32 +428,31 @@ System.IO.File.WriteAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__, "result
             Expect.stringContains (File.ReadAllText css) "font-semibold" "authored script classes are scanned"
             Expect.stringContains (File.ReadAllText js) "__consumerBuild" "the bundle reads edited installed JavaScript, not registry source"
             for path,source in inputs do Expect.equal (File.ReadAllText path) source "build leaves all authored inputs and manifests untouched"
-            ConsumerProject.writeConfiguration (configPath root) {configuration root with Modules=null}
-            let code,output,error = invoke ["build"; "--config"; configPath root]
+            let code,output,error = invoke ["run"; script; "--config"; configPath root]
             Expect.equal code 0 error
             Expect.isFalse (output.Contains "Preparing Tailwind") "a repeated build uses the pinned tool cache"
-            Expect.stringContains (File.ReadAllText js) "__consumerBuild" "older manifests resolve only installed entry modules"
+            Expect.stringContains (File.ReadAllText js) "__consumerBuild" "repeated runs use the installed entry modules"
             let outputs = [html;css;js] |> List.map (fun path -> path,File.ReadAllText path)
             File.AppendAllText(script,"\n(failwith \"Authored failure\" : unit)\n")
-            let code,_,error = invoke ["build"; "--config"; configPath root]
+            let code,_,error = invoke ["run"; script; "--config"; configPath root]
             Expect.equal code 2 "script failure is not success"
             Expect.stringContains error "Authored failure" "the actual script error is retained"
             for path,source in outputs do Expect.equal (File.ReadAllText path) source "script failure retains the last successful outputs"
             File.WriteAllText(script,snd inputs[0])
             File.WriteAllText(Path.Combine(root,"input.css"), "@import \"missing-fve-build-package\";")
-            let code,_,error = invoke ["build"; "--config"; configPath root]
+            let code,_,error = invoke ["run"; script; "--config"; configPath root]
             Expect.equal code 2 "CSS failure is not success"
             Expect.stringContains error "missing-fve-build-package" "tool diagnostics identify the failure"
             for path,source in outputs do Expect.equal (File.ReadAllText path) source "asset failure retains the last successful outputs"
             File.WriteAllText(Path.Combine(root,"input.css"),snd inputs[2])
             File.AppendAllText(modulePath,"\nexport const = ;\n")
-            let code,_,error = invoke ["build"; "--config"; configPath root]
+            let code,_,error = invoke ["run"; script; "--config"; configPath root]
             Expect.equal code 2 "bundle failure is not success"
             Expect.stringContains error "presentation.js" "bundler diagnostics name the edited module"
             for path,source in outputs do Expect.equal (File.ReadAllText path) source "bundle failure retains successful outputs"
             File.WriteAllText(modulePath,snd inputs[3])
             File.AppendAllText(script,"\nFile.Delete output\n")
-            let code,_,error = invoke ["build"; "--config"; configPath root]
+            let code,_,error = invoke ["run"; script; "--config"; configPath root]
             Expect.equal code 2 "a successful script exit without output cannot reuse stale HTML"
             Expect.stringContains error "No HTML output" "missing output is explicit"
             for path,source in outputs do Expect.equal (File.ReadAllText path) source "missing output retains the last successful build"
@@ -454,16 +461,16 @@ System.IO.File.WriteAllText(System.IO.Path.Combine(__SOURCE_DIRECTORY__, "result
     testCase "build rejects project consumers and missing inputs without changing source" <| fun _ ->
         withTemp <| fun root ->
             initialize root
-            let code,_,error = invoke ["build"; "--config"; configPath root]
+            let code,_,error = invoke ["run"; projectPath root; "--config"; configPath root]
             Expect.equal code 2 "project builds keep their normal dotnet boundary"
-            Expect.stringContains error "dotnet build" "the supported project command is explicit"
+            Expect.stringContains error ".fsx" "the supported input is explicit"
         withTemp <| fun root ->
             let script=Path.Combine(root,"deck.fsx")
             let code,_,error=invoke ["init";script]
             Expect.equal code 0 error
             File.Delete(Path.Combine(root,"input.css"))
             let source=File.ReadAllText script
-            let code,_,error=invoke ["build";"--config";configPath root]
+            let code,_,error=invoke ["run"; script; "--config"; configPath root]
             Expect.equal code 2 "a missing authored stylesheet fails preflight"
             Expect.stringContains error "input.css" "missing input is named"
             Expect.equal (File.ReadAllText script) source "build cannot repair or replace authored inputs"

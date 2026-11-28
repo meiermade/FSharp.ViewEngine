@@ -137,10 +137,12 @@ module Handler =
                 Docs.ComponentPages.AccountManagement.View.shellFixtureWith (accountWorkspace context) destination
                 |> Render.toString
 
-            (setHttpHeader "Content-Type" "text/html; charset=utf-8"
-             >=> setBodyFromString html)
-                next
-                context
+            let response =
+                if History.requested context then
+                    let url = History.urlFor Docs.ComponentPages.AccountManagement.View.accountManagementRegistration.path context
+                    History.patchElements html >=> History.pushPageUrl url ""
+                else htmlString html
+            (setHttpHeader "Vary" "Datastar-Request" >=> response) next context
 
     let get renderPage : HttpHandler =
         choose [

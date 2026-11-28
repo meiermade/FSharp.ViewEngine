@@ -33,10 +33,8 @@ module Handler =
             | _ -> defaults.start, false
         { date = date; start = start; minutes = minutes; submitted = submitted }
 
-    let render (page: DocPage) : HttpHandler =
+    let private renderPage preview (page: DocPage) : HttpHandler =
         fun next context ->
-            let preview = PreviewUpdate.requested context
-            let mode = appMode context
             let browserState = context.Request.Query["state"].ToString()
             let expanded = context.Request.Query["expanded"].ToString() = "1"
 
@@ -80,16 +78,16 @@ module Handler =
                         respondWithPage context page (Docs.Guides.ComponentPages.themingPageFor state)
                 elif page.id = Docs.ComponentPages.Tabs.View.tabsRegistration.id then
                     let tab = context.Request.Query["tab"].ToString()
-                    if preview then PreviewUpdate.respond [Docs.ComponentPages.Tabs.View.serverTabsPreview tab] ""
+                    if preview then PreviewUpdate.respondWithHistory [Docs.ComponentPages.Tabs.View.serverTabsPreview tab] ""
                     else respondWithPage context page (Docs.ComponentPages.Tabs.View.tabsPageFor tab)
                 elif page.id = Docs.ComponentPages.DayCalendar.View.dayCalendarRegistration.id then
                     let selection = calendarSelection context
                     if preview then
-                        PreviewUpdate.respond [Docs.ComponentPages.DayCalendar.View.dayControlsPreview selection; Docs.ComponentPages.DayCalendar.View.dayRangePreview selection] ""
+                        PreviewUpdate.respondWithHistory [Docs.ComponentPages.DayCalendar.View.dayControlsPreview selection; Docs.ComponentPages.DayCalendar.View.dayRangePreview selection] ""
                     else respondWithPage context page (Docs.ComponentPages.DayCalendar.View.dayCalendarPageFor selection)
                 elif page.id = Docs.ComponentPages.WeekCalendar.View.weekCalendarRegistration.id then
                     let selection = calendarSelection context
-                    if preview then PreviewUpdate.respond [Docs.ComponentPages.WeekCalendar.View.weekControlsPreview selection] ""
+                    if preview then PreviewUpdate.respondWithHistory [Docs.ComponentPages.WeekCalendar.View.weekControlsPreview selection] ""
                     else respondWithPage context page (Docs.ComponentPages.WeekCalendar.View.weekCalendarPageFor selection)
                 elif
                     page.id = Docs.ComponentPages.Select.View.selectRegistration.id
@@ -104,9 +102,19 @@ module Handler =
 
                     respondWithPage context page (Docs.ComponentPages.Table.View.tablePageFor sort)
                 else
-                    View.documentForWithNonce (Security.nonce context) mode Registry.navigation page |> respond
+                    respondFor context page
 
             response next context
+
+    let render page = renderPage false page
+
+    let private interactionRoutes =
+        let ids =
+            [ Docs.ComponentPages.Browser.View.browserRegistration.id; Docs.ComponentPages.Icon.View.iconRegistration.id
+              Docs.Guides.ComponentPages.themingRegistration.id; Docs.ComponentPages.Tabs.View.tabsRegistration.id
+              Docs.ComponentPages.DayCalendar.View.dayCalendarRegistration.id; Docs.ComponentPages.WeekCalendar.View.weekCalendarRegistration.id ]
+        [ for page in Registry.all do
+              if List.contains page.id ids then yield route (page.path + "/patch") >=> renderPage true page ]
 
     let private pageRoutes =
         Registry.all
@@ -172,6 +180,6 @@ module Handler =
             Docs.ComponentPages.TagInput.Handler.get
             Docs.ComponentPages.Button.Handler.get
             Docs.ComponentPages.InputGroup.Handler.get
-            choose (previewRoutes @ pageRoutes)
+            choose (interactionRoutes @ previewRoutes @ pageRoutes)
             notFound
         ]

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "registryVersion": "0.0.0-local",
   "project": "Docs.Components.fsproj",
   "namespace": "FSharp.ViewEngine.Components",
@@ -126,39 +126,39 @@
     },
     {
       "component": "code-block",
-      "path": "Components/CodeAssets.fs",
+      "path": "Components/Assets/code-block.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "278cb78f5e6ec0cd23c3da24b15f9600e97334f7dc62ff2d1e8ad4b4f690012a"
+      "registryChecksum": "6e4461ffaf3bea56a6e5f5d2112a48194cd46a1ece958fca4f1db4ff6d0b964b"
     },
     {
       "component": "code-block",
-      "path": "Components/Assets/code-block.js",
+      "path": "Components/Assets/prism-highlight.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "b14852fc3a6aeaf49918382d79d2891e4dc2e2537a1df0927316376432149d61"
+      "registryChecksum": "db84c7ae0237be96798d68b39e802305c76c3aec60653cbf7d5c9785dbc06b1c"
     },
     {
       "component": "code-block",
       "path": "Components/CodeBlock.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "8d8593093d4582c1d809415f5f0812423d38daa873a7990467083cc5d7ca3714"
-    },
-    {
-      "component": "mermaid",
-      "path": "Components/MermaidAssets.fs",
-      "registryVersion": "0.0.0-local",
-      "registryChecksum": "9ac9e6500a48ff958853160e06a7c1d1d3dbedae96e6ae8176338c394d5b87f2"
+      "registryChecksum": "8f77bcbfc7cb0be1b1cea260480f1bce02bb3f5d4130bc5a41bdf9dcab1ed3a2"
     },
     {
       "component": "mermaid",
       "path": "Components/Assets/mermaid.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "1f0c56392d7736bd74c31bac32c28840dd7a61d9c4a31b2e9ba7e4ada160ee30"
+      "registryChecksum": "c48d0cfe45877e630d97f36dc8b048513b0c535ff81e3631ad15b14f6cadac20"
+    },
+    {
+      "component": "mermaid",
+      "path": "Components/Assets/mermaid-renderer.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "35a736ff44c2804399bc2b2a6ef6f1d5ebf69392808b4bda034ec2550c26d378"
     },
     {
       "component": "mermaid",
       "path": "Components/Mermaid.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "b639574d01821d81e1e07723c587be0a841f9bb503a0b6d24c0bc9677b3c590b"
+      "registryChecksum": "b145626e69e1683596eefff0989ce29121cf95e45fe02c0de64d62dc6f78b23a"
     },
     {
       "component": "kbd",
@@ -210,9 +210,15 @@
     },
     {
       "component": "link",
+      "path": "Components/Assets/link.js",
+      "registryVersion": "0.0.0-local",
+      "registryChecksum": "134dcde415232aa49bcf355f549f6946d03bafefe4b4c1bd7323fff344c4bb8e"
+    },
+    {
+      "component": "link",
       "path": "Components/Link.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "41afe91eefe0b1e8405d5025480a8fef6499db17c14552b1e81400e07c62c165"
+      "registryChecksum": "32100de41fb1aa4194c4f1037960c9e873430cc590785293c24de1a8fe188c7d"
     },
     {
       "component": "badge",
@@ -245,34 +251,28 @@
       "registryChecksum": "bf2112598a680d811bc23814d7a494fe132a998b06d8da5f0598a35a6f7ce487"
     },
     {
-      "component": "echarts",
+      "component": "chart",
       "path": "Components/Assets/echarts-LICENSE.txt",
       "registryVersion": "0.0.0-local",
       "registryChecksum": "634293835b43a6dd2094fa39182a3d9a6b9ca43b7fdb9ac354e8037af2a3093a"
     },
     {
-      "component": "echarts",
+      "component": "chart",
       "path": "Components/Assets/echarts-NOTICE.txt",
       "registryVersion": "0.0.0-local",
       "registryChecksum": "d491d358344f842685c1b1585970999db65fe30ecf7ef3867af8814f4016c016"
     },
     {
-      "component": "echarts",
-      "path": "Components/Assets/echarts.6.1.0.provenance.json",
+      "component": "chart",
+      "path": "Components/Assets/echarts-renderer.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "1bf648e7787647899872cf3c01f281c8c5f7c6f70f92e370e4ffe2cb53e42f99"
-    },
-    {
-      "component": "echarts",
-      "path": "Components/Assets/echarts.6.1.0.esm.min.js",
-      "registryVersion": "0.0.0-local",
-      "registryChecksum": "28515f26aa57f87eb1e4ed4eb446927eaf329b5f5e02b4bfd4b0264fea40d1da"
+      "registryChecksum": "60555c0fee668cf9e880892e05cb9b376d692d258032e6170c00933e61564cb3"
     },
     {
       "component": "chart",
       "path": "Components/Assets/chart.js",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "c022486a2ab6b859996408ac52b2bb1d40f38e55156a176a9d74b6d7d7280fd6"
+      "registryChecksum": "87095810fa44fa3752672ee65b4519eee9b667e5c0b08aff9bc7913c7a0cbf22"
     },
     {
       "component": "chart",
@@ -518,7 +518,7 @@
       "component": "side-nav",
       "path": "Components/SideNav.fs",
       "registryVersion": "0.0.0-local",
-      "registryChecksum": "cf15ad42acbcab9a7e0ea31b8ede70546165e0667df691fee379b503632f6da7"
+      "registryChecksum": "ddd6ec17f213954008e4dbc56fdfa70dbaebf79caa2ecfb4e197fc09021c6048"
     },
     {
       "component": "color-mode",
@@ -844,6 +844,7 @@
     "Components/Assets/mermaid.js",
     "Components/Assets/file-selection.js",
     "Components/Assets/button.js",
+    "Components/Assets/link.js",
     "Components/Assets/table.js",
     "Components/Assets/chart.js",
     "Components/Assets/tag-input.js",
@@ -875,5 +876,16 @@
     "Components/Assets/drawer.js",
     "Components/Assets/command.js",
     "Components/Assets/presentation.js"
-  ]
+  ],
+  "frontend": {
+    "root": "../Docs",
+    "package": "package.json",
+    "entry": "js/app.js",
+    "script": "wwwroot/js/app.js",
+    "inputCss": "input.css",
+    "outputCss": "wwwroot/css/output.css",
+    "manualModules": [],
+    "external": [],
+    "entries": []
+  }
 }

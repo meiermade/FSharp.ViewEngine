@@ -44,9 +44,9 @@ module ConsumerProject =
             | Ok () when not (File.Exists path) -> Error $"Configuration '{path}' was not found. Run 'fve init' first."
             | Ok () ->
                 let configuration = JsonSerializer.Deserialize<Configuration>(File.ReadAllText path, jsonOptions)
-                if isNull (box configuration) || configuration.SchemaVersion <> 1 then
+                if isNull (box configuration) || configuration.SchemaVersion <> 2 then
                     Error $"Configuration '{path}' uses an unsupported schema."
-                elif isNull configuration.Components || isNull configuration.Files
+                elif isNull configuration.Components || isNull configuration.Files || isNull configuration.Modules
                      || (configuration.Components |> Array.exists String.IsNullOrWhiteSpace)
                      || (configuration.Files |> Array.exists (fun file -> isNull (box file) || String.IsNullOrWhiteSpace file.Component)) then
                     Error $"Configuration '{path}' has invalid component or file entries."
@@ -57,8 +57,9 @@ module ConsumerProject =
                         let paths = seq {
                             yield configuration.Project
                             for file in configuration.Files do yield file.Path
-                            if not (isNull configuration.Modules) then yield! configuration.Modules
+                            yield! configuration.Modules
                         }
+                        if not (isNull (box configuration.Frontend)) then Frontend.validate root configuration.Frontend
                         Validation.consumerPaths root paths |> Result.map (fun () -> configuration)
         with exceptionValue -> Error $"Could not read configuration '{path}': {exceptionValue.Message}"
 

@@ -33,7 +33,7 @@ export DOTNET_CLI_HOME="$output_dir/.dotnet-home" NUGET_PACKAGES="$output_dir/.n
   dotnet tool install FSharp.ViewEngine.Cli --version "$cli_version" --add-source "$nugets_dir" --local >/dev/null
 )
 components=()
-while IFS= read -r component; do components+=("$component"); done < <(grep 'FveName=' "$registry" | grep -v 'FveInternal="true"' | grep -Eo 'FveName="[^"]+"' | cut -d'"' -f2)
+while IFS= read -r component; do components+=("$component"); done < <(grep 'FveName=' "$registry" | grep -vE 'FveInternal="true"' | grep -Eo 'FveName="[^"]+"' | cut -d'"' -f2)
 [[ ${#components[@]} -gt 0 ]] || { echo 'No components found.' >&2; exit 1; }
 
 restore_build() {
@@ -97,21 +97,18 @@ tar --exclude=bin --exclude=obj --exclude=out --exclude=node_modules -C "$exampl
 cp "$output_dir/net11.0/global.json" "$template_dir/global.json"
 (
   cd "$template_dir"
-  dotnet fve add button --config Example.Components/fve.json --overwrite
-  restore_build Example.Server/Example.Server.fsproj
+  dotnet fve add button --config Example.UI/fve.json --overwrite
+  restore_build Example.slnx
 )
 
 visual_dir="$output_dir/net11.0"
 mkdir -p "$visual_dir/App/wwwroot/js"
-for asset in prism.1.30.0.min.js prism-fsharp.1.30.0.min.js prism-python.1.30.0.min.js prism-typescript.1.30.0.min.js prism-bash.1.30.0.min.js prism-sql.1.30.0.min.js; do
-  cp "$sln_dir/src/Docs/wwwroot/js/$asset" "$visual_dir/App/wwwroot/js/$asset"
-done
 cp "$fixture_dir/GeneratedConsumer.fsproj" "$visual_dir/App/GeneratedConsumer.fsproj"
 cp "$fixture_dir/Program.fs" "$visual_dir/App/Program.fs"
 cp "$fixture_dir/input.css" "$visual_dir/App/input.css"
 mkdir -p "$visual_dir/App/js"
 cp "$fixture_dir/app.js" "$visual_dir/App/js/app.js"
-"$esbuild_bin" "$visual_dir/App/js/app.js" --bundle --format=esm --splitting --outdir="$visual_dir/App/wwwroot/js" --minify
+NODE_PATH="$sln_dir/node_modules" "$esbuild_bin" "$visual_dir/App/js/app.js" --bundle --format=esm --splitting --outdir="$visual_dir/App/wwwroot/js" --minify
 NODE_PATH="$sln_dir/node_modules" "$tailwindcss_bin" --input "$visual_dir/App/input.css" --output "$visual_dir/App/wwwroot/output.css" --minify
 (cd "$visual_dir/App"; restore_build GeneratedConsumer.fsproj)
 (cd "$visual_dir"; dotnet new sln --name GeneratedConsumer --format slnx --force >/dev/null; dotnet sln GeneratedConsumer.slnx add Acme.Components.fsproj App/GeneratedConsumer.fsproj >/dev/null)

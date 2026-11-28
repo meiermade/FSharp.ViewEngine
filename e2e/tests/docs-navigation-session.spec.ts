@@ -19,12 +19,12 @@ async function galleryLink(page: Page, slug: string) {
 
 async function openGallery(page: Page, slug: string) {
   const link = await galleryLink(page, slug)
-  const response = page.waitForResponse(response => new URL(response.url()).pathname === `/components/${slug}` && response.request().isNavigationRequest())
+  const response = page.waitForResponse(response => new URL(response.url()).pathname === `/components/${slug}` && response.request().headers()['datastar-request'] === 'true')
   await link.click()
   const result = await response
   expect(result.status(), `navigation to ${slug}`).toBe(200)
-  expect(result.headers()['content-type']).toContain('text/html')
-  expect(new URL(result.url()).search).toBe('')
+  expect(result.headers()['content-type']).toContain('text/event-stream')
+  expect(new URL(result.url()).searchParams.has('datastar')).toBe(true)
   await expect(page).toHaveURL(`/components/${slug}`)
 }
 
@@ -57,11 +57,11 @@ test('mobile Docs navigation scrolls external project links into view @cross-bro
   }
 })
 
-test('native Docs navigation keeps Preview and Copy working across pages @cross-browser', async ({ page }) => {
+test('Docs navigation keeps Preview and Copy working across pages @cross-browser', async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components/button')
-  await page.addInitScript(() => {
+  await page.evaluate(() => {
     Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async (value: string) => { (window as any).__copiedExample = value } } })
   })
   const galleries = ['select', 'month-calendar', 'dropdown-menu', 'dialog', 'notice']
@@ -207,7 +207,7 @@ test('Button Pending example is discoverable through fragments and demonstrates 
   await expect(heading).toBeInViewport()
 })
 
-test('sidebar preserves expanded groups across native navigation and history @cross-browser', async ({ page }) => {
+test('sidebar preserves expanded groups across navigation and history @cross-browser', async ({ page }) => {
   await page.setViewportSize({ width: 1512, height: 825 })
   await page.goto('/components/browser')
   const sidebar = page.getByRole('complementary', { name: 'Documentation navigation' })
@@ -309,7 +309,7 @@ test('sidebar first-paint preparation keeps native defaults when storage or Java
   await native.close()
 })
 
-test('native links preserve explicitly chosen themes and respect reduced motion @cross-browser', async ({ page }) => {
+test('page links preserve explicitly chosen themes and respect reduced motion @cross-browser', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'reduce' })
   await page.addInitScript(() => {
     localStorage.setItem('fsharp-viewengine-docs-navigation-color-mode', 'dark')

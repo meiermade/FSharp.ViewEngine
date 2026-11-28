@@ -10,6 +10,7 @@ module TailwindElements =
     let private previewSurfaceWith modifier (content:HtmlElement) =
         div {
             _data("example-surface", "true")
+            _data("tailwind-elements-preview", "true")
             _class $"twe-preview-surface {modifier}"
             content
         }
@@ -147,17 +148,12 @@ module TailwindElements =
     let private nodes =
         [ [ Paragraph [ Text "FSharp.ViewEngine covers all 23 custom elements published by "; Link("Tailwind Plus Elements 1.0.22", "https://www.npmjs.com/package/@tailwindplus/elements/v/1.0.22"); Text ", a framework-independent library for the interactive behavior in Tailwind Plus HTML components." ];
             heading "setup" "Setup";
-            Paragraph [ Text "Install Elements in the application and open the "; InlineContent.Code "TailwindElements"; Text " type when building views:" ];
+            Paragraph [ Text "Tailwind Plus Elements is separate from FVE components. Install it in your app, import it in "; InlineContent.Code "app.js"; Text ", and open the "; InlineContent.Code "TailwindElements"; Text " type in your views:" ];
             CodeBlock("shell", "npm install @tailwindplus/elements@1.0.22");
             CodeBlock("javascript", "import '@tailwindplus/elements'");
             CodeBlock("fsharp", """open FSharp.ViewEngine
 open type Html
 open type TailwindElements""");
-            Paragraph [ Text "For applications without a JavaScript build pipeline, load the pinned module from a CDN:" ];
-            CodeBlock("fsharp", """script {
-    _src "https://cdn.jsdelivr.net/npm/@tailwindplus/elements@1.0.22"
-    _type "module"
-}""");
             Paragraph [ Text "Elements targets modern browsers supported by Tailwind CSS v4: Chrome 111+, Safari 16.4+, and Firefox 128+." ];
             Paragraph [ Text "This page loads the pinned Elements 1.0.22 runtime, so each Preview tab below renders and operates the actual custom elements emitted by the F# builders." ];
             heading "shared-attributes" "Shared Attributes";
