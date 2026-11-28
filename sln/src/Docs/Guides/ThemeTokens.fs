@@ -201,7 +201,6 @@ module ThemeTokens =
         div {
             // Row heights can change between pages; do not anchor the guide's scroll to a moving row/link.
             _id "theme-token-reference"; _class "grid min-w-0 gap-4 [overflow-anchor:none]"
-            Docs.Web.PreviewUpdate.restore "theme-token-reference"
             form {
                 _id "theme-token-filter"; _method "get"; _action "/guides/theming"
                 Docs.Web.PreviewUpdate.form "theme-token-reference"

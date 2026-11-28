@@ -46,8 +46,6 @@ module Consumer =
 
             head {
                 title { "Generated documentation controls" }
-                CodeBlock.assets None [ "/js/prism.js" ]
-                Mermaid.assets "/js/mermaid.js"
             }
 
             body {

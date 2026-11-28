@@ -1,12 +1,48 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk.Web">
   <PropertyGroup>
     <TargetFramework>net11.0</TargetFramework>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <UseAppHost>false</UseAppHost>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/node_modules/**;out/**</DefaultItemExcludes>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Update="FSharp.Core" Version="10.0.102" />
+    <PackageReference Include="Giraffe" Version="8.3.0" />
+    <PackageReference Include="StarFederation.Datastar" Version="1.4.0" />
+    <ProjectReference Include="../Example.UI/Example.UI.fsproj" />
     <ProjectReference Include="../Example.Domain/Example.Domain.fsproj" />
-    <Compile Include="Operations.fs" />
-    <Compile Include="Home.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="UseCases/Operations.fs" />
+    <Compile Include="UseCases/Home.fs" />
+    <Compile Include="Product/Projection.fs" />
+    <Compile Include="Config.fs" />
+    <Compile Include="Common/Security.fs" />
+    <Compile Include="Common/BrowserAssets.fs" />
+    <Compile Include="Common/Navigation.fs" />
+    <Compile Include="Common/View.fs" />
+    <Compile Include="Common/Handler.fs" />
+    <Compile Include="Services.fs" />
+    <Compile Include="Common/Request.fs" />
+    <Compile Include="Demo/Session.fs" />
+    <Compile Include="Demo/Submission.fs" />
+    <Compile Include="Demo/Collection.fs" />
+    <Compile Include="Demo/Actions/Accounts.fs" />
+    <Compile Include="Demo/Actions/Transactions.fs" />
+    <Compile Include="Demo/Actions/Settings.fs" />
+    <Compile Include="Demo/Actions/Profile.fs" />
+    <Compile Include="Demo/Workflow.fs" />
+    <Compile Include="Product/Accounts/Handler.fs" />
+    <Compile Include="Product/Transactions/Handler.fs" />
+    <Compile Include="Product/Settings/Handler.fs" />
+    <Compile Include="Product/Profile/Handler.fs" />
+    <Compile Include="Product/Handler.fs" />
+    <Compile Include="Marketing/View.fs" />
+    <Compile Include="Marketing/Handler.fs" />
+    <Compile Include="Discovery.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="package.json;package-lock.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
   </ItemGroup>
 </Project>

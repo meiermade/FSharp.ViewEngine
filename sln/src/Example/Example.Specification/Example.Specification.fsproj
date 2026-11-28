@@ -1,0 +1,63 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <UseAppHost>false</UseAppHost>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/bin/**;**/obj/**;**/node_modules/**;out/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Update="FSharp.Core" Version="10.0.102" />
+    <PackageReference Include="Giraffe" Version="8.3.0" />
+    <PackageReference Include="StarFederation.Datastar" Version="1.4.0" />
+    <ProjectReference Include="../Example.UI/Example.UI.fsproj" />
+    <ProjectReference Include="../Example.Domain/Example.Domain.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Config.fs" />
+    <Compile Include="Common/Security.fs" />
+    <Compile Include="Common/BrowserAssets.fs" />
+    <Compile Include="Common/Navigation.fs" />
+    <Compile Include="Common/View.fs" />
+    <Compile Include="Common/Handler.fs" />
+    <Compile Include="Services.fs" />
+    <Compile Include="Fixtures.fs" />
+    <Compile Include="Common/Request.fs" />
+    <Compile Include="Demo/Session.fs" />
+    <Compile Include="Demo/Submission.fs" />
+    <Compile Include="Demo/Collection.fs" />
+    <Compile Include="Demo/Actions/Accounts.fs" />
+    <Compile Include="Demo/Actions/Transactions.fs" />
+    <Compile Include="Demo/Actions/Settings.fs" />
+    <Compile Include="Demo/Actions/Profile.fs" />
+    <Compile Include="Demo/Workflow.fs" />
+    <Compile Include="Specification/AppMode.fs" />
+    <Compile Include="Specification/Architecture/Presentation.fs" />
+    <Compile Include="Specification/Architecture/Context.fs" />
+    <Compile Include="Specification/Architecture/Solution.fs" />
+    <Compile Include="Specification/Architecture/Domain.fs" />
+    <Compile Include="Specification/Architecture/Application.fs" />
+    <Compile Include="Specification/Architecture/Components.fs" />
+    <Compile Include="Specification/Architecture/Server.fs" />
+    <Compile Include="Specification/Architecture/View.fs" />
+    <Compile Include="Specification/Workflows/Workflow.fs" />
+    <Compile Include="Specification/Workflows/Home.fs" />
+    <Compile Include="Specification/Workflows/Accounts/ViewAccounts.fs" />
+    <Compile Include="Specification/Workflows/Accounts/ViewAccount.fs" />
+    <Compile Include="Specification/Workflows/Accounts/CreateAccount.fs" />
+    <Compile Include="Specification/Workflows/Accounts/UpdateAccount.fs" />
+    <Compile Include="Specification/Workflows/Accounts/DeleteAccount.fs" />
+    <Compile Include="Specification/Workflows/Transactions/ViewTransactions.fs" />
+    <Compile Include="Specification/Workflows/Transactions/ViewTransaction.fs" />
+    <Compile Include="Specification/Workflows/Transactions/DeleteTransaction.fs" />
+    <Compile Include="Specification/Workflows/Workspace.fs" />
+    <Compile Include="Specification/Workflows/Settings.fs" />
+    <Compile Include="Specification/Workflows/Profile.fs" />
+    <Compile Include="Specification/Workflows/Overview.fs" />
+    <Compile Include="Specification/View.fs" />
+    <Compile Include="Specification/Handler.fs" />
+    <Compile Include="Program.fs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Update="wwwroot/**/*" CopyToOutputDirectory="PreserveNewest" />
+    <Content Update="package.json;package-lock.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
+</Project>

@@ -149,16 +149,21 @@ test('creates isolated Access, DNS, and tunnel resources for staging', () => {
         'cloudflare:index/zeroTrustTunnelCloudflaredConfig:ZeroTrustTunnelCloudflaredConfig',
         'fsharpviewengine-dev',
     )
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].hostname, 'fve.meiermade.net')
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].service, 'http://fsharpviewengine-dev-example.fsharpviewengine-dev.svc.cluster.local:80')
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].path, '^/examples/.+')
-    assert.equal(tunnelConfig.inputs.config.ingresses[1].service, 'http://localhost:5000')
-    assert.deepEqual(tunnelConfig.inputs.config.ingresses[0].originRequest, tunnelConfig.inputs.config.ingresses[1].originRequest)
-    assert.equal(tunnelConfig.inputs.config.ingresses[0].originRequest.access.required, true)
-    assert.deepEqual(tunnelConfig.inputs.config.ingresses[0].originRequest.access.audTags, [
-        'fsharpviewengine-dev-audience',
+    const ingresses = tunnelConfig.inputs.config.ingresses
+    const exampleOrigin = 'http://fsharpviewengine-dev-example.fsharpviewengine-dev.svc.cluster.local'
+    assert.equal(ingresses[0].hostname, 'fve.meiermade.net')
+    assert.deepEqual(ingresses.map(({ path, service }: { path?: string; service: string }) => [path, service]), [
+        ['^/examples/specification(/|$)', exampleOrigin + ':81'],
+        ['^/examples/documentation(/|$)', exampleOrigin + ':82'],
+        ['^/examples/presentation(/|$)', exampleOrigin + ':83'],
+        ['^/examples/.+', exampleOrigin + ':80'],
+        [undefined, 'http://localhost:5000'],
+        [undefined, 'http_status:404'],
     ])
-    assert.deepEqual(tunnelConfig.inputs.config.ingresses[2], { service: 'http_status:404' })
+    for (const ingress of ingresses.slice(0, 5)) {
+        assert.equal(ingress.originRequest.access.required, true)
+        assert.deepEqual(ingress.originRequest.access.audTags, ['fsharpviewengine-dev-audience'])
+    }
 
     assert.equal(resourcesOfType('cloudflare:index/ruleset:Ruleset').length, 0)
 })

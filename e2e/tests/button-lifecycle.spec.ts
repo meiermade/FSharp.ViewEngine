@@ -130,7 +130,7 @@ test('new Rocket buttons keep their settled border during Dialog/Drawer navigati
   await expect(drawer).toBeVisible()
   await expect.poll(() => drawer.evaluate(button => button.getAnimations().length)).toBe(0)
   const border = await drawer.evaluate(button => getComputedStyle(button).borderTopColor)
-  await page.addInitScript(() => {
+  await page.evaluate(() => {
     const state = window as Window & { buttonEntryFrames: { id: string; border: string }[]; buttonEntrySampling: boolean }
     state.buttonEntryFrames = []
     state.buttonEntrySampling = true
@@ -143,18 +143,17 @@ test('new Rocket buttons keep their settled border during Dialog/Drawer navigati
     }
     requestAnimationFrame(sample)
   })
-  const frames: { id: string; border: string }[] = []
   for (const component of ['dialog', 'drawer', 'dialog', 'drawer']) {
     await page.locator(`#nav-components-${component}`).click()
     await expect(page).toHaveURL(`/components/${component}`)
     await expect(page.getByRole('button', { name: `Open ${component}`, exact: true })).toBeVisible()
     await page.evaluate(() => new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))))
-    frames.push(...await page.evaluate(() => {
-      const state = window as Window & { buttonEntryFrames: { id: string; border: string }[]; buttonEntrySampling: boolean }
-      state.buttonEntrySampling = false
-      return state.buttonEntryFrames
-    }))
   }
+  const frames = await page.evaluate(() => {
+    const state = window as Window & { buttonEntryFrames: { id: string; border: string }[]; buttonEntrySampling: boolean }
+    state.buttonEntrySampling = false
+    return state.buttonEntryFrames
+  })
   expect(new Set(frames.map(frame => frame.id))).toEqual(new Set(['default-dialog-trigger', 'default-drawer-trigger']))
   expect(frames.filter(frame => frame.border !== border)).toEqual([])
   await page.mouse.move(0, 0)

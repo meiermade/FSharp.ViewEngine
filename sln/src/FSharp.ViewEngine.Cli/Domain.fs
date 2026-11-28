@@ -14,6 +14,11 @@ type InstalledFile =
       RegistryChecksum:string }
 
 [<CLIMutable>]
+type FrontendConfiguration =
+    { Root:string; Package:string; Entry:string; Script:string; InputCss:string; OutputCss:string
+      ManualModules:string array; External:string array; Entries:string array }
+
+[<CLIMutable>]
 type Configuration =
     { SchemaVersion:int
       RegistryVersion:string
@@ -21,7 +26,8 @@ type Configuration =
       Namespace:string
       Components:string array
       Files:InstalledFile array
-      Modules:string array }
+      Modules:string array
+      Frontend:FrontendConfiguration }
 
 [<NoEquality; NoComparison>]
 type RegistryFile =

@@ -1,0 +1,21 @@
+{
+  "name": "fsharp-viewengine-example",
+  "private": true,
+  "allowScripts": {
+    "@parcel/watcher": false
+  },
+  "overrides": {
+    "@tailwindcss/typography": {
+      "postcss-selector-parser": "6.1.6"
+    }
+  },
+  "devDependencies": {
+    "@tailwindcss/cli": "4.2.2",
+    "@tailwindcss/typography": "0.5.19",
+    "tailwindcss": "4.2.2",
+    "esbuild": "0.28.2",
+    "prismjs": "1.30.0",
+    "mermaid": "11.16.1",
+    "echarts": "6.1.0"
+  }
+}

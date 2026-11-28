@@ -17,16 +17,23 @@ let private upstream name =
 let main args =
     let docs = upstream "MOCK_CLOUDFLARE_DOCS_ORIGIN"
     let example = upstream "MOCK_CLOUDFLARE_EXAMPLE_ORIGIN"
+    let spec = upstream "MOCK_CLOUDFLARE_EXAMPLE_SPEC_ORIGIN"
+    let exampleDocs = upstream "MOCK_CLOUDFLARE_EXAMPLE_DOCS_ORIGIN"
+    let presentation = upstream "MOCK_CLOUDFLARE_EXAMPLE_PRESENTATION_ORIGIN"
     let builder = WebApplication.CreateBuilder(args)
     builder.Services.AddHttpForwarder() |> ignore
     let app = builder.Build()
     let forwarder = app.Services.GetRequiredService<IHttpForwarder>()
     use client = new HttpMessageInvoker(new SocketsHttpHandler(AllowAutoRedirect = false, UseCookies = false, UseProxy = false))
     app.Run(RequestDelegate(fun context -> task {
-        // Match the tunnel's ^/examples/.+ ingress; the gallery itself belongs to Docs.
-        let path = context.Request.Path.Value
+        // Match the tunnel's ordered rules; /examples itself belongs to the FVE catalog.
+        let path = context.Request.Path
+        let under prefix = path.StartsWithSegments(PathString prefix, StringComparison.Ordinal)
         let destination =
-            if not (isNull path) && path.Length > "/examples/".Length && path.StartsWith("/examples/", StringComparison.Ordinal) then example
+            if under "/examples/specification" then spec
+            elif under "/examples/documentation" then exampleDocs
+            elif under "/examples/presentation" then presentation
+            elif under "/examples" && path <> PathString "/examples" && path <> PathString "/examples/" then example
             else docs
         let! _ = forwarder.SendAsync(context, destination, client, ForwarderRequestConfig.Empty, HttpTransformer.Empty)
         return ()

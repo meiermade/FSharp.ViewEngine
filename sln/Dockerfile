@@ -34,10 +34,33 @@ WORKDIR /app
 COPY --from=proxy-builder /proxy .
 ENTRYPOINT ["dotnet", "MockCloudflareProxy.dll"]
 
-FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled-extra AS example
+FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled-extra AS example-runtime
 WORKDIR /app
-COPY --from=example-builder /app/src/Example/Example.Server/out .
-ENTRYPOINT ["dotnet", "Example.Server.dll"]
+
+FROM example-runtime AS example-application
+COPY --from=example-builder /app/src/Example/Example.Application/out .
+ENTRYPOINT ["dotnet", "Example.Application.dll"]
+
+FROM example-runtime AS example-specification
+COPY --from=example-builder /app/src/Example/Example.Specification/out .
+ENTRYPOINT ["dotnet", "Example.Specification.dll"]
+
+FROM example-runtime AS example-documentation
+COPY --from=example-builder /app/src/Example/Example.Documentation/out .
+ENTRYPOINT ["dotnet", "Example.Documentation.dll"]
+
+FROM example-runtime AS example-presentation
+COPY --from=example-builder /app/src/Example/Example.Presentation/out .
+ENTRYPOINT ["dotnet", "Example.Presentation.dll"]
+
+# Production promotion currently pins one example image for all four containers.
+FROM example-runtime AS example
+COPY --from=example-builder /app/src/Example/Example.Application/out ./server
+COPY --from=example-builder /app/src/Example/Example.Specification/out ./spec
+COPY --from=example-builder /app/src/Example/Example.Documentation/out ./docs
+COPY --from=example-builder /app/src/Example/Example.Presentation/out ./presentation
+ENTRYPOINT ["dotnet"]
+CMD ["server/Example.Application.dll"]
 
 FROM mcr.microsoft.com/dotnet/aspnet:11.0-resolute-chiseled-extra AS docs
 WORKDIR /app

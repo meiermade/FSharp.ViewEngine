@@ -4,6 +4,13 @@ open System
 open FSharp.ViewEngine
 open type Html
 
+/// <category>link</category>
+[<AutoOpen>]
+module LinkAttributes =
+    type Html with
+        /// Disable enhanced navigation and follow the href natively.
+        static member _native(value:bool) = Html._attr("native", if value then "true" else "false")
+
 module internal Link =
     let render attributes children =
         let destinations = attributes |> List.filter (fun (attribute:HtmlAttribute) -> String.Equals(attribute.Name, "href", StringComparison.OrdinalIgnoreCase))
@@ -55,12 +62,36 @@ module internal Link =
                 if variant = "text" then ComponentColors.textInteraction
                 elif variant <> "solid" then ComponentColors.quietTextInteraction
             if variant <> "plain" then ComponentColors.focus ]
+        let hasClick =
+            attributes |> List.exists (fun attribute ->
+                attribute.Name.Equals("onclick", StringComparison.OrdinalIgnoreCase)
+                || attribute.Name.Equals("data-on:click", StringComparison.OrdinalIgnoreCase)
+                || attribute.Name.StartsWith("data-on:click__", StringComparison.OrdinalIgnoreCase))
+        let target = ComponentElement.value "target" attributes |> Option.defaultValue ""
+        let downloads = attributes |> List.exists (fun attribute -> attribute.Name.Equals("download", StringComparison.OrdinalIgnoreCase))
+        let navigate =
+            ComponentElement.value "native" attributes <> Some "true"
+            && not hasClick && not downloads
+            && (target = "" || target.Equals("_self", StringComparison.OrdinalIgnoreCase))
         ComponentElement.render "a"
             [ _href href
+              if navigate then
+                  _data ("fve-link-navigation", "")
+                  Datastar._dataOn ("click", """
+const url = new URL(el.href);
+const target = el.target || document.querySelector('base[target]')?.target;
+if (el.hasAttribute('data-fve-link-navigation') && !evt.defaultPrevented && evt.button === 0 && !evt.metaKey && !evt.ctrlKey && !evt.shiftKey && !evt.altKey && !el.hasAttribute('download') && (!target || target.toLowerCase() === '_self') && ['http:', 'https:'].includes(url.protocol) && url.origin === location.origin && !url.hash && !el.getAttribute('href').startsWith('#')) {
+    evt.preventDefault();
+    window.fvePageRequest?.abort();
+    const request = window.fvePageRequest = new AbortController();
+    @get(el.href, { filterSignals: { exclude: /.*/ }, requestCancellation: request, retry: 'never' })
+        .finally(() => { if (window.fvePageRequest === request) delete window.fvePageRequest; });
+}
+                  """)
               _data ("fve-group-control", if variant = "outline" then "outline" else "plain")
               _class classes
               if variant <> "plain" then _style style ]
-            (ComponentHtml.safeAttributes ["href"; "variant"; "size"; "color"; "palette"; "padding"; "underline"] attributes) children
+            (ComponentHtml.safeAttributes ["href"; "variant"; "size"; "color"; "palette"; "padding"; "underline"; "native"] attributes) children
 
 /// <summary>A native anchor with ordinary typed presentation and native destination attributes.</summary>
 /// <category>link</category>

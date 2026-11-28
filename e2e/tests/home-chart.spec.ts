@@ -1,5 +1,11 @@
 import { test, expect, specProduct, chooseChartDates } from '../fixture'
 
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => document.addEventListener('chart-render', (event: any) => {
+    if (event.target.id === 'home-balance-chart') (window as any).homeChart = event.detail.chart
+  }))
+})
+
 test('Rocket chart selects inclusive dates through the server and survives theme, history and remounts @cross-browser', async ({ page }) => {
   const errors: string[] = []
   const filters: string[] = []
@@ -13,10 +19,9 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   await expect(chart.locator('svg')).toHaveCount(1)
   await expect(page.getByRole('table', { name: 'Transactions for the selected account' }).locator('tbody tr')).toHaveCount(15)
   await page.evaluate(() => { document.documentElement.dataset.chartSession = 'retained' })
-  const positions = await chart.evaluate(async host => {
-    const echarts = await import('/examples/js/echarts.6.1.0.esm.min.js')
+  const positions = await chart.evaluate(host => {
     const plot = host.shadowRoot!.querySelector('.plot') as HTMLElement
-    const instance = echarts.getInstanceByDom(plot)!
+    const instance = (window as any).homeChart
     ;(window as any).originalHomeChart = instance
     const box = plot.getBoundingClientRect()
     return [14, 17].map(date => ({
@@ -37,9 +42,8 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   await expect(rows.last()).toContainText('Design software')
   expect(filters).toHaveLength(1)
   await expect(page.locator('html')).toHaveAttribute('data-chart-session', 'retained')
-  expect(await chart.evaluate(async host => {
-    const echarts = await import('/examples/js/echarts.6.1.0.esm.min.js')
-    const instance = echarts.getInstanceByDom(host.shadowRoot!.querySelector('.plot') as HTMLElement)!
+  expect(await chart.evaluate(() => {
+    const instance = (window as any).homeChart
     const option = instance.getOption() as any
     const zoom = option.dataZoom[0]
     return { same: instance === (window as any).originalHomeChart, start: zoom.startValue, end: zoom.endValue,
@@ -73,9 +77,8 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   await page.getByRole('link', { name: 'Reset zoom', exact: true }).click()
   await expect(page).toHaveURL(url => !url.searchParams.has('startDate') && url.searchParams.get('comparison') === 'optimistic')
   await expect(rows).toHaveCount(15)
-  const accountsDocument = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/examples/application/accounts')
   await page.getByRole('link', { name: 'Accounts', exact: true }).first().click()
-  expect((await accountsDocument).headers()['content-type']).toContain('text/html')
+  await expect(page).toHaveURL(url => url.pathname === '/examples/application/accounts')
   await expect(page.getByRole('heading', { name: 'Accounts', exact: true, level: 1 })).toBeVisible()
   await page.goBack()
   await expect(chart).toHaveAttribute('data-ready', 'true')
@@ -94,11 +97,11 @@ test('Rocket chart selects inclusive dates through the server and survives theme
   expect(errors).toEqual([])
 })
 
-test('Home loads the chart only after native navigation to Home @cross-browser', async ({ page }) => {
+test('ECharts loads only when the Home chart connects @cross-browser', async ({ page }) => {
   const chartModules: string[] = []
   page.on('request', request => {
     const path = new URL(request.url()).pathname
-    if (/^\/examples\/js\/(chart(?:-[A-Z0-9]{8})?\.js|echarts\..+\.esm\.min\.js)$/.test(path)) chartModules.push(path)
+    if (/^\/examples\/js\/echarts-renderer-[A-Z0-9]{8}\.js$/.test(path)) chartModules.push(path)
   })
   await page.goto('/examples/application/accounts')
   await page.waitForFunction(() => customElements.get('fve-button') !== undefined)
@@ -106,11 +109,8 @@ test('Home loads the chart only after native navigation to Home @cross-browser',
   await page.locator('html').evaluate(element => { element.dataset.chartSession = 'retained' })
   await page.getByRole('link', { name: 'Home', exact: true }).first().click()
   await expect(page.locator('#home-balance-chart')).toHaveAttribute('data-ready', 'true')
-  await expect(page.locator('html')).not.toHaveAttribute('data-chart-session', 'retained')
-  expect(chartModules).toEqual([
-    expect.stringMatching(/^\/examples\/js\/chart(?:-[A-Z0-9]{8})?\.js$/),
-    expect.stringMatching(/^\/examples\/js\/echarts\./),
-  ])
+  await expect(page.locator('html')).toHaveAttribute('data-chart-session', 'retained')
+  expect(chartModules).toHaveLength(1)
 })
 
 test('Specification uses the same Rocket chart and server-owned range @cross-browser', async ({ page }) => {

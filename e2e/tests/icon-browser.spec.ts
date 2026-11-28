@@ -28,7 +28,7 @@ test('global server search finds names and uses without a family filter @cross-b
   await expect(browser.getByRole('tablist')).toHaveCount(0)
   await expect(count).toHaveText('Showing 24 of 319 icons')
   await expect(browser.locator('[data-icon-entry]')).toHaveCount(24)
-  const response = page.waitForResponse(response => response.url().includes('/components/icon?') && new URL(response.url()).searchParams.get('search') === 'settings')
+  const response = page.waitForResponse(response => new URL(response.url()).pathname === '/components/icon/patch' && new URL(response.url()).searchParams.get('search') === 'settings')
   await search.fill('settings')
   const filtered = await response
   expect(filtered.request().headers()['datastar-request']).toBe('true')
@@ -140,7 +140,7 @@ test('new searches keep accepted results visible and cancel stale replies', asyn
   const gate = new Promise<void>(resolve => { release = resolve })
   const requested = new Promise<void>(resolve => { reached = resolve })
   const delivery = new Promise<void>(resolve => { delivered = resolve })
-  await page.route('**/components/icon?**', async route => {
+  await page.route('**/components/icon/patch?**', async route => {
     if (new URL(route.request().url()).searchParams.get('search') !== 'settings') return route.continue()
     const response = await route.fetch()
     reached()

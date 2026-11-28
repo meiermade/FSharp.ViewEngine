@@ -41,88 +41,33 @@ module View =
                         "dotnet new tool-manifest\ndotnet tool install FSharp.ViewEngine.Cli\ndotnet tool restore" ]
               DocumentationSection.create
                   "project"
-                  "Add components"
-                  [ code
-                        "shell"
-                        "dotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components\ndotnet fve add button field input --config src/Acme.Components/fve.json\ndotnet add src/Acme.Web/Acme.Web.fsproj reference src/Acme.Components/Acme.Components.fsproj"
-                    prose
-                        "The CLI copies F# source, component JavaScript and required runtime assets. Commit the installed source, fve.json and tool manifest." ]
-              DocumentationSection.create
-                  "npm"
-                  "Install the build tools"
-                  [ p {
-                        "Install "
-
-                        fveLink {
-                            _href "https://tailwindcss.com/docs/installation/tailwind-cli"
-                            _underline LinkUnderline.Always
-                            "Tailwind CSS"
-                        }
-
-                        ", its CLI and Typography plugin, and "
-
-                        fveLink {
-                            _href "https://esbuild.github.io/"
-                            _underline LinkUnderline.Always
-                            "esbuild"
-                        }
-
-                        " together in your web project:"
-                    }
-                    code
-                        "shell"
-                        "cd src/Acme.Web\nnpm init -y\nnpm install --save-dev tailwindcss@4 @tailwindcss/cli@4 @tailwindcss/typography esbuild"
-                    prose
-                        "Run the remaining npm commands from this directory. Commit package.json and package-lock.json; use npm ci on subsequent installs." ]
-              DocumentationSection.create
-                  "tailwind"
-                  "Configure Tailwind"
-                  [ prose
-                        "Create src/Acme.Web/input.css. Scan your views and the installed F# and JavaScript so Tailwind includes the components' styles:"
-                    code "css" tailwindExample ]
+                  "Initialize and install"
+                  [ code "shell" "dotnet fve init src/Acme.Components/Acme.Components.fsproj --frontend-root ../Acme.Web\ndotnet fve add button field input --config src/Acme.Components/fve.json\ndotnet add src/Acme.Web/Acme.Web.fsproj reference src/Acme.Components/Acme.Components.fsproj"
+                    prose "The CLI installs editable source. Init records your web root and paths to package.json, app.js, input.css, and the compiled outputs in fve.json. It creates missing inputs and adds the required build dependencies. Edit those paths if your project uses a different layout." ]
               DocumentationSection.create
                   "runtime"
-                  "Import component JavaScript"
-                  [ prose
-                        "Create src/Acme.Web/js/app.js. Import the shared runtime once, then add the imports shown in each component's Installation section. For Button:"
-                    code
-                        "javascript"
-                        "import '../../Acme.Components/Components/Assets/datastar-rocket.1.0.5.js';\nimport '../../Acme.Components/Components/Assets/button.js';"
+                  "Customize your frontend"
+                  [ prose "Your app.js imports the FVE-generated imports file once. Installing a component updates that file. Add your own browser code to app.js and put Tailwind sources, themes, and plugins in input.css. The installed runtime includes Datastar; don't load another copy."
                     p {
-                        "The installed Rocket runtime includes "
-
-                        fveLink {
-                            _href "https://data-star.dev/"
-                            _underline LinkUnderline.Always
-                            "Datastar"
-                        }
-
-                        ". No separate Datastar installation or script is needed."
+                        "FVE compiles styles with "
+                        fveLink { _href "https://tailwindcss.com/"; _underline LinkUnderline.Always; "Tailwind CSS" }
+                        " and uses "
+                        fveLink { _href "https://data-star.dev/"; _underline LinkUnderline.Always; "Datastar" }
+                        " for browser interactions."
                     }
-                    prose "If none of your installed components need JavaScript, skip the module entry, JavaScript build, and script tag." ]
+                    prose "Run npm install in the directory containing package.json, then commit the manifest and lock file. Use npm ci for subsequent installs." ]
               DocumentationSection.create
                   "build"
-                  "Build and watch"
-                  [ prose "Keep build inputs outside wwwroot. Serve only browser-ready files from wwwroot/js, wwwroot/css, wwwroot/fonts and wwwroot/images. This recipe uses esbuild; browser-ready modules can also be served directly. Add these scripts to your web project's package.json:"
-                    code
-                        "json"
-                        """{
-  "scripts": {
-    "build:css": "tailwindcss -i input.css -o wwwroot/css/output.css --minify",
-    "build:js": "esbuild js/app.js --bundle --format=esm --splitting --outdir=wwwroot/js --minify",
-    "watch:css": "npm run build:css -- --watch",
-    "watch:js": "npm run build:js -- --watch"
-  }
-}"""
-                    code "shell" "npm run build:css\nnpm run build:js"
-                    prose
-                        "During development, run npm run watch:css and npm run watch:js in separate terminals alongside your .NET host." ]
+                  "Compile and watch"
+                  [ code "shell" "dotnet fve compile --config src/Acme.Components/fve.json\ndotnet fve watch --config src/Acme.Components/fve.json"
+                    prose "Compile writes CSS and JavaScript to the configured paths. Watch rebuilds those assets; run dotnet watch separately for the server." ]
               DocumentationSection.create
                   "namespace"
                   "Serve and use the components"
                   [ prose "Enable static files in your host (for example, app.UseStaticFiles() with ASP.NET Core). Load the stylesheet and, for interactive components, the module once. Apply a component theme to the owning region:"
-                    code
-                        "fsharp"
+                    fveCodeBlock {
+                        _language "fsharp"
+                        _highlightLines [ 11; 12 ]
                         """open FSharp.ViewEngine
 open Acme.Components
 open type Html
@@ -141,9 +86,10 @@ let page =
             fveButton { _color Color.Primary; _variant ButtonVariant.Solid; "Save" }
         }
     }"""
+                    }
                     p {
                         "See the "
-                        fveLink { _href "/examples/application"; _underline LinkUnderline.Always; "full Application example" }
+                        fveLink { _href "/examples/application"; _native true; _underline LinkUnderline.Always; "full Application example" }
                         " to try the components in a running app and browse its source."
                     } ]
               DocumentationSection.create

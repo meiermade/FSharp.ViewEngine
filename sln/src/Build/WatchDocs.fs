@@ -93,7 +93,7 @@ let ensureLoopbackUrlAvailable watcherName (serverUrl:string) =
     with :? SocketException as error ->
         raise (InvalidOperationException($"{watcherName} cannot start because {serverUrl} is already in use by a process that is not a verified FSharp.ViewEngine watcher.", error))
 
-let private waitForLoopbackUrlAvailable watcherName serverUrl =
+let waitForLoopbackUrlAvailable watcherName serverUrl =
     let deadline = DateTime.UtcNow.AddSeconds 5.
     let rec wait () =
         try ensureLoopbackUrlAvailable watcherName serverUrl

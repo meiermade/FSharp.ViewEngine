@@ -28,7 +28,7 @@ module Handler =
         $"<?xml version=\"1.0\" encoding=\"UTF-8\"?>{Environment.NewLine}<urlset xmlns=\"http://www.sitemaps.org/schemas/sitemap/0.9\">{Environment.NewLine}{urls}{Environment.NewLine}</urlset>{Environment.NewLine}"
 
     let robots =
-        $"User-agent: *{Environment.NewLine}Allow: /{Environment.NewLine}Sitemap: {productionOrigin}/sitemap.xml{Environment.NewLine}Sitemap: {productionOrigin}/examples/sitemap.xml{Environment.NewLine}"
+        $"User-agent: *{Environment.NewLine}Allow: /{Environment.NewLine}Sitemap: {productionOrigin}/sitemap.xml{Environment.NewLine}Sitemap: {productionOrigin}/examples/sitemap.xml{Environment.NewLine}Sitemap: {productionOrigin}/examples/specification/sitemap.xml{Environment.NewLine}Sitemap: {productionOrigin}/examples/documentation/sitemap.xml{Environment.NewLine}Sitemap: {productionOrigin}/examples/presentation/sitemap.xml{Environment.NewLine}"
 
     let routes: HttpHandler = choose [
         route "/sitemap.xml" >=> setHttpHeader "Content-Type" "application/xml; charset=utf-8" >=> setBodyFromString sitemap

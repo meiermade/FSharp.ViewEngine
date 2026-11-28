@@ -1,0 +1,58 @@
+namespace Example.Specification.Web.Common
+
+open System
+open Microsoft.AspNetCore.Http
+open Example.UI.Views.ViewData
+open Example.Specification.Web
+open Example.UI.Views.Model
+
+/// HTTP query/form parsing belongs to the host, not the shared views.
+module Request =
+    let queryFromValues (value: string -> string) =
+        let fallback key defaultValue = if value key = "" then defaultValue else value key
+        let nativePreset = value "nativeRange"
+        let useNativePreset = List.contains nativePreset ["7"; "30"; "90"]
+        let date name nativeName =
+            if useNativePreset then ""
+            else fallback nativeName (value name)
+        { Fixtures.query () with
+            search = value "search"
+            accountType = fallback "accountType" "all"
+            filters =
+                (value "filters").Split(',', StringSplitOptions.RemoveEmptyEntries)
+                |> Array.toList |> List.distinct
+                |> List.filter (fun name -> List.contains name ["accountType"; "status"; "account"])
+            sort = fallback "sort" "name"
+            state = value "state"
+            embedded = value "embedded" = "1"
+            workspace = workspaceFromStrings Fixtures.catalog (value "organization") (value "environment") (value "ledger")
+            account = fallback "account" "all"
+            parent = value "parent"
+            range = if useNativePreset then nativePreset else fallback "range" "90"
+            comparison = fallback "comparison" "expected"
+            startDate = date "startDate" "nativeStartDate"
+            endDate = date "endDate" "nativeEndDate"
+            status = fallback "status" "all"
+            transactionPage = (match Int32.TryParse(value "transactionPage") with true, page when page > 0 -> page | _ -> 1)
+            appMode = (value "appMode" = "1" || value "fveAppMode" = "app")
+            specState = value "specState"
+            resource = value "resource"
+            fixture = value "fveFixture" = "product"
+            overlayFrom = (match value "from" with "accounts" -> "accounts" | "transactions" -> "transactions" | _ -> "")
+            returnWorkspace =
+                if value "returnOrganization" = "" then None
+                else Some(workspaceFromStrings Fixtures.catalog (value "returnOrganization") (value "returnEnvironment") (value "returnLedger")) }
+
+    let query (context: HttpContext) = queryFromValues (fun name -> context.Request.Query[name].ToString())
+
+    let submitted (context: HttpContext) (form: IFormCollection) =
+        queryFromValues (fun name ->
+            if name = "accountType" && form.ContainsKey "filterAccountType" then
+                form["filterAccountType"].ToString().Trim()
+            elif form.ContainsKey name then form[name].ToString().Trim()
+            else context.Request.Query[name].ToString())
+
+    let resourceId find (value: string) =
+        match Int32.TryParse value with
+        | true, id when find id |> Option.isSome -> Some id
+        | _ -> None

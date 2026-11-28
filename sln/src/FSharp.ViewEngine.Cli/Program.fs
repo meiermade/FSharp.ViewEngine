@@ -18,6 +18,9 @@ module Cli =
         namespaceOption.Description <- "Namespace root for copied component source. Defaults to the project name."
         let frameworkOption = Option<string>("--framework")
         frameworkOption.Description <- "Target framework for a newly created project: net8.0, net9.0, net10.0, or net11.0 (default). Existing projects keep their target framework."
+        let frontendRoot = Option<string>("--frontend-root")
+        frontendRoot.Description <- "Web asset root relative to fve.json. Defaults to the project directory."
+        initCommand.Add(frontendRoot)
         initCommand.Add(projectArgument)
         initCommand.Add(namespaceOption)
         initCommand.Add(frameworkOption)
@@ -25,25 +28,29 @@ module Cli =
             Commands.init registry output
                 { Project = result.GetRequiredValue projectArgument
                   Namespace = result.GetValue namespaceOption |> Option.ofObj
-                  Framework = result.GetValue frameworkOption |> optionValue "net11.0" })
+                  Framework = result.GetValue frameworkOption |> optionValue "net11.0"
+                  FrontendRoot = result.GetValue frontendRoot |> Option.ofObj })
         root.Add(initCommand)
 
-        let addCommand = Command("add", "Add selected components and their transitive source dependencies.")
-        let componentsArgument = Argument<string array>("components")
-        componentsArgument.Description <- "One or more component names."
-        componentsArgument.Arity <- ArgumentArity.OneOrMore
-        let addConfigOption = Option<string>("--config")
-        addConfigOption.Description <- "Path to fve.json. Defaults to ./fve.json."
-        let overwriteOption = Option<bool>("--overwrite")
-        overwriteOption.Description <- "Explicitly replace conflicting managed source and project entries."
-        addCommand.Add(componentsArgument)
-        addCommand.Add(addConfigOption)
-        addCommand.Add(overwriteOption)
+        let configOption () =
+            let option = Option<string>("--config")
+            option.Description <- "Path to fve.json. Defaults to ./fve.json."
+            option
+
+        let addCommand = Command("add", "Install editable components and their dependencies.")
+        let names = Argument<string array>("names")
+        names.Arity <- ArgumentArity.OneOrMore
+        let config = configOption ()
+        let overwrite = Option<bool>("--overwrite")
+        overwrite.Description <- "Explicitly replace conflicting managed source and project entries."
+        addCommand.Add(names)
+        addCommand.Add(config)
+        addCommand.Add(overwrite)
         addCommand.SetAction(fun result ->
             Commands.add registry output
-                { Config = result.GetValue addConfigOption |> optionValue ConsumerProject.ConfigFileName
-                  Components = result.GetRequiredValue componentsArgument |> Array.toList
-                  Overwrite = result.GetValue overwriteOption })
+                { Config = result.GetValue config |> optionValue ConsumerProject.ConfigFileName
+                  Components = result.GetRequiredValue names |> Array.toList
+                  Overwrite = result.GetValue overwrite })
         root.Add(addCommand)
 
         let diffCommand = Command("diff", "Compare installed source with this tool's embedded registry version.")
@@ -55,18 +62,22 @@ module Cli =
                 { Config = result.GetValue diffConfigOption |> optionValue ConsumerProject.ConfigFileName })
         root.Add(diffCommand)
 
-        let buildCommand = Command("build", "Render the configured F# script and build its CSS and browser bundle.")
-        let buildConfigOption = Option<string>("--config")
-        buildConfigOption.Description <- "Path to fve.json. Defaults to ./fve.json."
-        let openOption = Option<bool>("--open")
-        openOption.Description <- "Open the generated HTML in the default browser after a successful build."
-        buildCommand.Add(buildConfigOption)
-        buildCommand.Add(openOption)
-        buildCommand.SetAction(fun result ->
-            Commands.build registry output
-                { Config = result.GetValue buildConfigOption |> optionValue ConsumerProject.ConfigFileName
-                  Open = result.GetValue openOption })
-        root.Add(buildCommand)
+        let run = Command("run", "Render a standalone F# script with its CSS and JavaScript.")
+        let script = Argument<string>("script")
+        let runConfig = configOption ()
+        run.Add(script)
+        run.Add(runConfig)
+        run.SetAction(fun result ->
+            Commands.run output
+                { Script = result.GetRequiredValue script
+                  Config = result.GetValue runConfig |> optionValue (ConsumerProject.configPath (IO.Path.GetFullPath(result.GetRequiredValue script))) })
+        root.Add(run)
+        for name, watch in ["compile", false; "watch", true] do
+            let command = Command(name, if watch then "Rebuild CSS and JavaScript as sources change." else "Compile CSS and JavaScript for a web host.")
+            let config = configOption ()
+            command.Add(config)
+            command.SetAction(fun result -> Commands.compile output (result.GetValue config |> optionValue ConsumerProject.ConfigFileName) watch)
+            root.Add(command)
         root
 
 module Program =

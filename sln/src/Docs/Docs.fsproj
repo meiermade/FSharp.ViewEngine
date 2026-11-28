@@ -22,6 +22,7 @@
     <Compile Include="Common/SourceRegion.fs" />
     <Compile Include="Common/RecordTable.fs" />
     <Compile Include="Common/Security.fs" />
+    <Compile Include="Common/History.fs" />
     <Compile Include="Common/PreviewUpdate.fs" />
     <Compile Include="Common/Handler.fs" />
     <Compile Include="Common/Registration.fs" />
@@ -172,6 +173,7 @@
   <!-- These are build inputs, not a second set of F# project-tree source items. -->
   <Target Name="EmbedDocumentationSources" BeforeTargets="AssignTargetPaths" Condition="'$(DesignTimeBuild)' != 'true'">
     <ItemGroup>
+    <EmbeddedResource Include="../Example/Example.Presentation/deck.fsx" LogicalName="Docs.PresentationScript.fsx" Visible="false" />
     <EmbeddedResource Include="Components/Shared/LedgerExamples.fs" LogicalName="Docs.ComponentSources.0000.Ledger.fs" Visible="false" />
     <EmbeddedResource Include="Components/Card/View.fs" LogicalName="Docs.BlockSources.000.fs" Visible="false" />
     <EmbeddedResource Include="Components/SectionHeader/View.fs" LogicalName="Docs.BlockSources.001.fs" Visible="false" />

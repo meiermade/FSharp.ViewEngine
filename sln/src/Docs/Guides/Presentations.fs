@@ -1,26 +1,13 @@
 namespace Docs.Pages
 
+open System
+open System.IO
+open System.Text.RegularExpressions
 open Docs.Common
 
 module Presentations =
-    let page =
-        { id = "presentations-guide"
-          path = "/guides/presentations"
-          aliases = []
-          navLabel = "Presentations"
-          category = "Guides"
-          title = "Build a presentation"
-          browserTitle = "Presentations · FSharp.ViewEngine"
-          nodes = [
-            Paragraph [Text "Compose a slide deck from ordinary F# HTML, present it in the browser, and print or save it as a PDF."]
-            Heading {id="setup"; title="Create a deck"; level=2}
-            Paragraph [Text "For a standalone deck, complete the SDK, Node.js and local CLI setup in "; Link("Standalone F# scripts", "/guides/scripts"); Text " first. In a new directory, initialize a script and install Presentation with its dependencies:"]
-            CodeBlock("shell", """dotnet fve init deck.fsx
-dotnet fve add presentation""")
-            Paragraph [Text "Keep the generated managed block at the top of deck.fsx. It pins Core, loads the editable component source, and opens the filename-derived namespace (deck here). The optional --namespace override is only needed for a different source namespace. For an application project, install the same components into its components project and return the deck through your normal "; Link("Giraffe handler", "/guides/giraffe"); Text ". Neither Slide nor Presentation requires a particular web framework."]
-            Heading {id="composition"; title="Compose slides with ordinary F#"; level=2}
-            Paragraph [Text "Replace the starter document below the managed block with the following. Each slide owns its branding and footer; an ordinary function shares those choices without a second configuration API:"]
-            CodeBlock("fsharp", """open System.IO
+    let private deckBody =
+        """open System.IO
 open FSharp.ViewEngine
 open type Html
 
@@ -73,27 +60,59 @@ let document =
         }
     }
 
-File.WriteAllText(Path.Combine(__SOURCE_DIRECTORY__, "deck.html"), Render.toHtmlDocString document)""")
-            Paragraph [Text "SlideHeader groups the title and subtitle, SlideContent owns the body, and SlideFooter and SlideBranding provide slide-local metadata. Presentation numbers slides in source order. Use any ordinary F# composition, encoded HTML, images or components inside those regions. The "; Link("Slide reference", "/components/slide"); Text " documents the parts and variants."]
-            Heading {id="build"; title="Build and open"; level=2}
-            CodeBlock("shell", "dotnet fve build --open")
-            Paragraph [Text "The CLI renders deck.fsx, compiles input.css and bundles the installed browser modules into deck.html, deck.css and deck.js. The generated script stylesheet already scans the local F# and component source; see "; Link("script build setup", "/guides/scripts#styles"); Text " for shared source directories and build configuration. No server, separate npm project or per-deck viewer JavaScript is needed. Use relative paths for local fonts and images, and keep the generated assets beside the HTML when sharing it."]
-            Heading {id="viewing"; title="Present in the browser"; level=2}
-            Paragraph [Text "The normal view is a separated stack with only an Expand action. Each canvas keeps its 16:9 composition between 48rem and 80rem wide; narrow screens pan horizontally rather than shrinking the text. Expand fits one existing slide to the viewport without rebuilding its content. The expanded toolbar provides Previous/Next, position and Restore."]
-            UnorderedList [
-                [Text "Use Left/Right to move between slides, or Home/End for the first/last slide."]
-                [Text "Use Escape or Restore to return to the stack at the current slide."]
-                [Text "Inputs and nested components keep their state while expanding or restoring."]
-                [Text "Without JavaScript, the separated stack and source-order numbering remain readable."] ]
-            Paragraph [Text "Set --fve-slide-cover-background, --fve-slide-cover-text and --fve-slide-cover-muted on the owning region to customize the cover palette. Standard slides inherit the component theme. See "; Link("Theming", "/guides/theming"); Text " for shared palettes, size and appearance choices. The "; Link("Presentation reference", "/components/presentation"); Text " covers the focused viewer contract."]
-            Heading {id="printing"; title="Print or save as PDF"; level=2}
-            OrderedList [
-                [Text "Open the finished HTML in your browser and check every slide in the intended theme."]
-                [Text "Choose Print (Cmd+P on macOS or Ctrl+P on Windows/Linux)."]
-                [Text "Choose Save as PDF or your printer. Keep browser headers and footers off, and enable background graphics if your browser offers that setting."]
-                [Text "Check the preview: one slide per page, with complete titles, content, branding, footers and numbering. Then save or print."] ]
-            Paragraph [Text "The components supply full-bleed 16:9 pages at 1280×720 CSS pixels (960×540 PDF points). Viewer controls, the stack backdrop and surrounding host chrome are omitted; slide colors and the active theme are preserved. A physical printer can fit the pages to its printable paper area. No PowerPoint or separate PDF converter is required."]
-            Paragraph [Text "Printing from the expanded viewer temporarily returns the content to normal document flow and restores the same slide and focus afterward. Print layout also works without JavaScript. Scrolling is only a screen behavior: split overflowing content across slides before printing rather than relying on a scrollable body."]
+File.WriteAllText(Path.Combine(__SOURCE_DIRECTORY__, "deck.html"), Render.toHtmlDocString document)"""
+
+    let private generatedHeader =
+        use stream = typeof<DocPage>.Assembly.GetManifestResourceStream("Docs.PresentationScript.fsx")
+        use reader = new StreamReader(stream)
+        let source = reader.ReadToEnd()
+        let marker = "// fve:components:end"
+        let endOfHeader = source.IndexOf(marker, StringComparison.Ordinal) + marker.Length
+        Regex.Replace(source.Substring(0, endOfHeader), "(?m)^open .*$", "open deck")
+
+    let private deckScript = generatedHeader + "\n\n" + deckBody + "\n"
+
+    let private pdfCommand =
+        [ "\"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome\""
+          "  --headless"
+          "  --no-pdf-header-footer"
+          "  --print-to-pdf=\"$PWD/deck.pdf\""
+          "  \"file://$PWD/deck.html\"" ]
+        |> String.concat " \\\n"
+
+    let page =
+        { id = "presentations-guide"
+          path = "/guides/presentations"
+          aliases = []
+          navLabel = "Presentations"
+          category = "Guides"
+          title = "Build a presentation"
+          browserTitle = "Presentations · FSharp.ViewEngine"
+          nodes = [
+            Paragraph [Text "Compose a slide deck from ordinary F# HTML, present it in the browser, and print or save it as a PDF."]
+            Heading {id="setup"; title="Create a deck"; level=2}
+            Paragraph [Text "Check the "; Link("standalone script prerequisites", "/guides/scripts#prerequisites"); Text ", then create a folder for the deck. Run setup and all later commands from inside it:"]
+            CodeBlock("shell", """mkdir "My Presentation"
+cd "My Presentation"
+dotnet new globaljson --sdk-version 11.0.100 --roll-forward latestFeature
+dotnet new tool-manifest
+dotnet tool install FSharp.ViewEngine.Cli
+dotnet fve init deck.fsx
+dotnet fve add presentation""")
+            Heading {id="composition"; title="Compose slides with ordinary F#"; level=2}
+            Paragraph [Text "The CLI manages the header between the highlighted lines. Write your code below it."]
+            ScriptFile("deck.fsx", deckScript)
+            Paragraph [Text "See the "; Link("Slide reference", "/components/slide"); Text " for slide parts and variants."]
+            Heading {id="build"; title="Run"; level=2}
+            CodeBlock("shell", "dotnet fve run deck.fsx")
+            Paragraph [Text "The command creates these files:"]
+            HighlightedCodeBlock("text", None, "My Presentation/\n├── deck.html\n├── deck.css\n└── deck.js", [ 2 ])
+            Paragraph [Text "Open "; InlineContent.Code "deck.html"; Text " in your browser. To share the deck, zip the whole folder. The recipient can unzip it and open "; InlineContent.Code "deck.html"; Text " in their browser."]
+            Heading {id="printing"; title="Export a PDF"; level=2}
+            Paragraph [Text "After running the deck, run this from the same folder with Google Chrome installed on macOS:"]
+            CodeBlock("shell", pdfCommand)
+            Paragraph [Text "The command writes "; InlineContent.Code "deck.pdf"; Text " with one slide per page. It doesn’t open a browser window or require a server."]
+            Paragraph [Text "You can also use your browser’s "; Strong [Text "Print → Save as PDF"]; Text ". Turn off browser headers and footers and enable background graphics."]
             Heading {id="example"; title="Explore the complete example"; level=2}
-            Paragraph [Text "The "; Link("Geldos product overview", "/examples/presentation"); Text " uses captures of the Geldos application to show its transactions, account hierarchy and balance chart. Its editable source in "; InlineContent.Code "sln/src/Example/Presentation"; Text " shows how a web-hosted page and a standalone script share the same F# deck."]
+            Paragraph [Text "See the "; Link("Geldos product overview", "/examples/presentation"); Text " for a complete deck."]
           ] }

@@ -1,0 +1,86 @@
+namespace Example.Application.Web.Demo
+
+open System
+open System.Security.Cryptography
+open System.Text
+open System.Text.Json
+open Microsoft.AspNetCore.DataProtection
+open Microsoft.AspNetCore.Http
+open Example.Application.Web
+open Ledger.Domain
+open Ledger.Operations
+open Example.UI.Views.Model
+
+/// Protected workspace session state contains fixture deletions and one consumable action result.
+module internal Session =
+    let private protector (services: ServerServices) workspace = services.sessionProtection.CreateProtector("fve-ledger-demo-v1:" + workspaceQuery workspace)
+    let private cookieName (services: ServerServices) workspace =
+        let scope = services.sessionPath + ":" + workspaceQuery workspace
+        "fve-ledger-" + (SHA256.HashData(Encoding.UTF8.GetBytes scope) |> Convert.ToHexString).Substring(0, 20)
+    let private options (services: ServerServices) (context: HttpContext) =
+        CookieOptions(Path = string context.Request.PathBase + services.sessionPath, HttpOnly = true,
+                      SameSite = SameSiteMode.Lax, Secure = context.Request.IsHttps, IsEssential = true)
+    let private resourceName = function SelectionResource.Accounts -> "accounts" | SelectionResource.Transactions -> "transactions"
+    let private notification resource state count =
+        { id = Guid.NewGuid().ToString("N"); resource = resourceName resource; state = state; count = count }
+
+    let private read services (context: HttpContext) workspace =
+        let value = context.Request.Cookies[cookieName services workspace]
+        if String.IsNullOrEmpty value || value.Length > 4096 then initialRecords, None
+        else
+            try
+                use document = JsonDocument.Parse((protector services workspace).Unprotect value)
+                let root = document.RootElement
+                let ids name = root.GetProperty(name: string).EnumerateArray() |> Seq.map (fun item -> item.GetInt32()) |> Set.ofSeq
+                let removedAccounts, removedTransactions = ids "accountIds", ids "transactionIds"
+                let records =
+                    { accounts = accounts |> List.filter (fun row -> not (removedAccounts.Contains row.id))
+                      transactions = transactions |> List.filter (fun row -> not (removedTransactions.Contains row.id)) }
+                let id = root.GetProperty("eventId").GetString()
+                let pending =
+                    if String.IsNullOrEmpty id then None
+                    else Some { id = id; resource = root.GetProperty("resource").GetString()
+                                state = root.GetProperty("state").GetString(); count = root.GetProperty("count").GetInt32() }
+                records, pending
+            with
+            | :? CryptographicException
+            | :? FormatException
+            | :? JsonException
+            | :? InvalidOperationException
+            | :? Collections.Generic.KeyNotFoundException -> initialRecords, None
+
+    let private write services (context: HttpContext) workspace (records: Records) (pending: CollectionNotification option) =
+        if records = initialRecords && pending.IsNone then
+            context.Response.Cookies.Delete(cookieName services workspace, options services context)
+        else
+            let stored =
+                {| accountIds = accounts |> List.filter (fun row -> not (records.accounts |> List.exists (fun item -> item.id = row.id))) |> List.map _.id |> List.toArray
+                   transactionIds = transactions |> List.filter (fun row -> not (records.transactions |> List.exists (fun item -> item.id = row.id))) |> List.map _.id |> List.toArray
+                   eventId = pending |> Option.map _.id |> Option.defaultValue ""
+                   resource = pending |> Option.map _.resource |> Option.defaultValue ""
+                   state = pending |> Option.map _.state |> Option.defaultValue ""
+                   count = pending |> Option.map _.count |> Option.defaultValue 0 |}
+            context.Response.Cookies.Append(cookieName services workspace, (protector services workspace).Protect(JsonSerializer.Serialize stored), options services context)
+
+    let records services context workspace = read services context workspace |> fst
+
+    let apply services context (query: Query) =
+        { query with records = records services context query.workspace |> Projection.records }
+
+    // Consume only in the resulting product collection GET, not its surrounding Specification document.
+    let takeNotification services context (query: Query) resource =
+        let records, pending = read services context query.workspace
+        match pending with
+        | Some item when item.resource = resourceName resource ->
+            write services context query.workspace records None
+            { query with notification = Some item }
+        | _ -> query
+
+    let notify services context (query: Query) resource state =
+        write services context query.workspace (records services context query.workspace) (Some(notification resource state 0))
+
+    let save services context workspace resource (result: DeleteSelectionResponse) =
+        write services context workspace result.records (Some(notification resource "selection-deleted" result.count))
+
+    let reset services context workspace resource =
+        write services context workspace initialRecords (Some(notification resource "selection-reset" 0))

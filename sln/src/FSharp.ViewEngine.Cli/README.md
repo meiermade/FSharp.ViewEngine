@@ -14,14 +14,25 @@ See the [installation guide](https://fve.meiermade.com/components/installation),
 
 New project consumers default to `net11.0`; use `--framework net10.0` for .NET 10. Existing projects retain their target framework. The CLI runs with .NET 10 or 11; older target choices remain available for existing consumers but are no longer actively tested.
 
+For a web app:
+
+```sh
+dotnet fve init Acme.Web.fsproj
+dotnet fve add button link
+npm install
+dotnet fve compile
+```
+
+Edit `fve.json` to select the frontend paths. `init` adds the build dependencies and a generated imports file without replacing the app's CSS or JavaScript. Use `fve watch` in development alongside `dotnet watch`.
+
 Standalone F# scripts are also supported with SDK 10 or 11. Use SDK 11 for new scripts:
 
 ```sh
 dotnet fve init deck.fsx
 dotnet fve add presentation
-dotnet fve build --open
+dotnet fve run deck.fsx
 ```
 
-The CLI maintains a pinned Core `#r`, one dependency-ordered `#load` directive and the configured namespace in the script's managed block. No `.fsproj` or component DLL is required. Authored content outside the block is preserved; edited or missing managed blocks require explicit `--overwrite`. For script consumers, `init` creates an editable `input.css` and matching asset references in the new HTML shell. `build` reads `fve.json`, runs FSI, compiles Tailwind and bundles installed browser modules into adjacent `.html`, `.css` and `.js` outputs. It preserves authored inputs and edited installed components; it does not run `add` or upgrade source. `--config` selects another manifest and `--open` launches the completed HTML. Node.js 20+ and npm are required; the CLI manages pinned frontend tools in a per-user cache (`FVE_BUILD_CACHE` can select another cache root). Application projects continue using `dotnet build`. See the [script guide](https://fve.meiermade.com/guides/scripts) or the [presentation guide](https://fve.meiermade.com/guides/presentations).
+`run` uses the manifest next to the script (or the `--config` you specify) to produce adjacent `.html`, `.css`, and `.js` files. It reads edited installed source as-is. Scripts use pinned Tailwind and esbuild from a local tool cache and don't need their own npm project. See the [script guide](https://fve.meiermade.com/guides/scripts) or the [presentation guide](https://fve.meiermade.com/guides/presentations).
 
 Before updating installed source, use `dotnet fve diff --config path/to/fve.json` to inspect local changes. `fve add --overwrite` explicitly replaces managed source; preserve consumer edits deliberately.

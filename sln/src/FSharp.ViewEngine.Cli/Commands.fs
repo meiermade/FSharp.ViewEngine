@@ -12,7 +12,8 @@ type CommandOutput =
 type InitRequest =
     { Project:string
       Namespace:string option
-      Framework:string }
+      Framework:string
+      FrontendRoot:string option }
 
 [<NoEquality; NoComparison>]
 type AddRequest =
@@ -24,7 +25,7 @@ type AddRequest =
 type DiffRequest = { Config:string }
 
 [<NoEquality; NoComparison>]
-type BuildRequest = { Config:string; Open:bool }
+type RunRequest = { Config:string; Script:string }
 
 [<RequireQualifiedAccess>]
 module Commands =
@@ -40,22 +41,6 @@ module Commands =
         | "net8.0" | "net9.0" | "net10.0" | "net11.0" -> Ok value
         | _ -> Error "--framework must be net8.0, net9.0, net10.0, or net11.0."
 
-    let private installedComponentNames (registry:ComponentRegistry) (configuration:Configuration) =
-        let byName = registry.Components |> Seq.map (fun item -> item.Name, item) |> Map.ofSeq
-        let byFile = Registry.files registry.Components |> Seq.map (fun file -> Path.GetFileName file.FileName, file.Component) |> Map.ofSeq
-        // Existing manifests may track each file as a component. Recover its current owner from the installed file identity, not selector aliases.
-        configuration.Components
-        |> Array.toList
-        |> List.collect (fun name ->
-            match Map.tryFind name byName with
-            | Some item -> if item.Internal then [] else [name]
-            | None ->
-                let owned = configuration.Files |> Array.filter (fun file -> file.Component = name)
-                let owners = owned |> Array.choose (fun file -> Map.tryFind (Path.GetFileName file.Path) byFile)
-                if owned.Length = 0 || owners.Length <> owned.Length then [name]
-                else owners |> Array.filter (fun owner -> not byName[owner].Internal) |> Array.toList)
-        |> List.distinct
-
     let init (registry:ComponentRegistry) (output:CommandOutput) (request:InitRequest) =
         match Validation.projectPath request.Project, framework request.Framework with
         | Error message, _ | _, Error message -> fail output message
@@ -67,12 +52,16 @@ module Commands =
             | Error message, _ | _, Error message -> fail output message
             | Ok validNamespace, Ok () ->
                 let configPath = ConsumerProject.configPath projectPath
+                let script = Path.GetExtension(projectPath).Equals(".fsx", StringComparison.OrdinalIgnoreCase)
+                let frontend = if script then Unchecked.defaultof<FrontendConfiguration> else { Frontend.defaults with Root = request.FrontendRoot |> Option.defaultValue "." }
+                if not script then Frontend.validate root frontend
                 if File.Exists configPath then
                     match ConsumerProject.readConfiguration configPath with
                     | Error message -> fail output message
                     | Ok configuration when
                         String.Equals(Path.GetFullPath(Path.Combine(root, configuration.Project)), projectPath, StringComparison.Ordinal)
                         && String.Equals(configuration.Namespace, validNamespace, StringComparison.Ordinal) ->
+                        if not (isNull (box configuration.Frontend)) then Frontend.initialize root configuration.Frontend configuration.Modules
                         output.Out.WriteLine($"Already initialized {configPath}")
                         0
                     | Ok _ -> fail output $"'{configPath}' already selects a different project or namespace."
@@ -84,15 +73,16 @@ module Commands =
                         if not projectExisted && File.Exists projectPath then File.Delete projectPath
                         fail output message
                     | Ok () ->
-                        if Path.GetExtension(projectPath).Equals(".fsx", StringComparison.OrdinalIgnoreCase) then
-                            ConsumerProject.createScriptStylesheet projectPath
-                        { SchemaVersion = 1
+                        if script then ConsumerProject.createScriptStylesheet projectPath
+                        else Frontend.initialize root frontend [||]
+                        { SchemaVersion = 2
                           RegistryVersion = registry.Version
                           Project = Path.GetFileName projectPath
                           Namespace = validNamespace
                           Components = [||]
                           Files = [||]
-                          Modules = [||] }
+                          Modules = [||]
+                          Frontend = frontend }
                         |> ConsumerProject.writeConfiguration configPath
                         output.Out.WriteLine($"Initialized {projectPath}")
                         output.Out.WriteLine($"Tailwind source: {ConsumerProject.ComponentsDirectory}/**/*.fs")
@@ -104,7 +94,7 @@ module Commands =
         | Error message -> fail output message
         | Ok configuration when request.Components.IsEmpty -> fail output "At least one component is required."
         | Ok configuration ->
-            let requested = installedComponentNames registry configuration @ request.Components |> List.distinct
+            let requested = (Array.toList configuration.Components) @ request.Components |> List.distinct
             let root = Path.GetDirectoryName configPath
             let selection =
                 Registry.resolve registry requested
@@ -112,10 +102,15 @@ module Commands =
                     Registry.files selected
                     |> List.map (fun file -> ConsumerProject.relativeSourcePath file.FileName)
                     |> Validation.consumerPaths root
-                    |> Result.map (fun () -> selected))
+                    |> Result.bind (fun () ->
+                        let modules = Registry.files selected |> List.filter _.Module |> List.map (fun item -> ConsumerProject.relativeSourcePath item.FileName) |> List.toArray
+                        let package =
+                            if isNull (box configuration.Frontend) then Ok ignore
+                            else Frontend.preparePackages root configuration.Frontend false modules
+                        package |> Result.map (fun writePackage -> selected, modules, writePackage)))
             match selection with
             | Error message -> fail output message
-            | Ok selected ->
+            | Ok (selected, modules, writePackage) ->
                 let projectPath = Path.GetFullPath(Path.Combine(root, configuration.Project))
                 if not (File.Exists projectPath) then fail output $"Project '{projectPath}' was not found."
                 else
@@ -194,11 +189,13 @@ module Commands =
                                           RegistryVersion = registry.Version
                                           RegistryChecksum = checksum })
                             let nonComponentFiles = configuration.Files |> Array.filter (fun file -> file.Component.StartsWith("$", StringComparison.Ordinal))
+                            writePackage ()
+                            if not (isNull (box configuration.Frontend)) then Frontend.refreshImports root configuration.Frontend modules
                             { configuration with
                                 RegistryVersion = registry.Version
                                 Components = List.toArray requested
                                 Files = Array.append nonComponentFiles (List.toArray componentFiles)
-                                Modules = Registry.files selected |> List.filter _.Module |> List.map (fun item -> ConsumerProject.relativeSourcePath item.FileName) |> List.toArray }
+                                Modules = modules }
                             |> ConsumerProject.writeConfiguration configPath
                             for name in requested do
                                 if not (Array.contains name configuration.Components) then
@@ -207,26 +204,31 @@ module Commands =
                                 output.Out.WriteLine("All selected components are already installed.")
                             0
 
-    let build (registry:ComponentRegistry) (output:CommandOutput) (request:BuildRequest) =
+    let run (output:CommandOutput) (request:RunRequest) =
         try
             let configPath = Path.GetFullPath request.Config
             match ConsumerProject.readConfiguration configPath with
             | Error message -> fail output message
             | Ok configuration ->
                 let root = Path.GetDirectoryName configPath
-                let modules =
-                    if not (isNull configuration.Modules) then configuration.Modules
-                    else
-                        // Pre-build manifests did not record entry modules. Use only files actually installed.
-                        let known = Registry.files registry.Components |> List.filter _.Module |> List.map (fun file -> Path.GetFileName file.FileName) |> Set.ofList
-                        configuration.Files |> Array.filter (fun file -> Set.contains (Path.GetFileName file.Path) known) |> Array.map _.Path
-                let options =
-                    { ProjectPath = Path.GetFullPath(Path.Combine(root, configuration.Project))
-                      Modules = modules |> Array.map (fun path -> Path.GetFullPath(Path.Combine(root, path)))
-                      Open = request.Open }
-                ScriptBuild.build output.Out options
+                let configured = Path.GetFullPath(Path.Combine(root, configuration.Project))
+                let script = Path.GetFullPath request.Script
+                if configured <> script then fail output "The script does not match the project selected by fve.json."
+                else
+                    ScriptBuild.build output.Out { ProjectPath = script; Modules = configuration.Modules }
+                    0
+        with error -> fail output error.Message
+
+    let compile (output:CommandOutput) config watch =
+        try
+            let path = Path.GetFullPath(config: string)
+            match ConsumerProject.readConfiguration path with
+            | Error message -> fail output message
+            | Ok configuration when isNull (box configuration.Frontend) -> fail output "No web frontend is configured. Use fve run for scripts."
+            | Ok configuration ->
+                Frontend.compile (Path.GetDirectoryName path) configuration.Frontend watch
                 0
-        with exceptionValue -> fail output exceptionValue.Message
+        with error -> fail output error.Message
 
     let diff (registry:ComponentRegistry) (output:CommandOutput) (request:DiffRequest) =
         let configPath = Path.GetFullPath request.Config
@@ -237,7 +239,7 @@ module Commands =
             let current = Registry.files registry.Components |> Seq.map (fun item -> Path.GetFileName item.FileName, item) |> Map.ofSeq
             let mutable different = configuration.RegistryVersion <> registry.Version
             if different then output.Out.WriteLine($"registry {configuration.RegistryVersion} -> {registry.Version}")
-            match Registry.resolve registry (installedComponentNames registry configuration) with
+            match Registry.resolve registry (Array.toList configuration.Components) with
             | Error message ->
                 different <- true
                 output.Out.WriteLine(message)

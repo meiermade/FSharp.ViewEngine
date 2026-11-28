@@ -28,8 +28,11 @@ type private ShellTestDestination =
     | Reports
     | Settings
 
-let private exampleServices = Example.Server.Config.load () |> Example.Server.Services.create
-let private exampleRoutes = Example.Server.Program.routes exampleServices
+let private exampleAppRoutes = Example.Application.Program.routes ()
+let private exampleSpecRoutes = Example.Specification.Program.routes true
+let private exampleDocsRoutes = Example.Documentation.Program.routes ()
+let private examplePresentationRoutes = Example.Presentation.Program.routes ()
+let private exampleRoutes = choose [ exampleAppRoutes; exampleSpecRoutes; exampleDocsRoutes; examplePresentationRoutes ]
 let private getRoutes = choose [ exampleRoutes; Handler.routes ]
 let private postRoutes = choose [ exampleRoutes; Handler.postRoutes ]
 
@@ -1488,11 +1491,11 @@ let tests =
                   Expect.stringContains invalid ($"name=\"{name}\" value=\"{value}\"") "validation retains the public context"
               let valid = fields |> List.map (fun (name, value) -> name, if name = "parentId" then "1" else value)
               let successStatus, destination, _, _, _ = postFormResponse (detail + "/edit") valid
-              Expect.equal successStatus 302 "successful validation closes the editor"
+              Expect.equal successStatus 303 "successful validation closes the editor with a GET redirect"
               Expect.equal (Uri(Uri "https://fve.meiermade.com", destination).AbsolutePath) detail "the detail is the return destination"
               assertContext destination
               let deleteStatus, deleteDestination, _, _, _ = postFormResponse (detail + "/delete") (["action", "delete"] @ publicContext)
-              Expect.equal deleteStatus 302 "blocked deletion redirects with its outcome"
+              Expect.equal deleteStatus 303 "blocked deletion redirects with its outcome"
               assertContext deleteDestination
           }
 
@@ -1779,7 +1782,7 @@ let tests =
                     "/examples/presentation"
                     "/examples/specification"
                     "/examples/application"
-                    "/examples/api-documentation" ]
+                    "/examples/documentation" ]
                   "each cohesive example has its own entry point"
 
               for retired in
@@ -1853,9 +1856,8 @@ let tests =
                             yield "next", Registry.all[index + 1].path ]
 
                   for relation, path in expectedLinks do
-                      Expect.stringContains
-                          pager
-                          ($"rel=\"{relation}\" href=\"{path}\"")
+                      Expect.isTrue
+                          (Regex.IsMatch(pager, $"<a(?=[^>]*\\bhref=\"{Regex.Escape path}\")(?=[^>]*\\brel=\"{relation}\")[^>]*>"))
                           $"{page.path} pager follows the registry"
 
                   Expect.equal (Regex.Matches(pager, "<a ").Count) expectedLinks.Length "no extra pager destination"
@@ -2657,7 +2659,7 @@ after"""
               Expect.equal status 200 "the runnable example is the real profile page"
 
               let initializer = html.IndexOf("window.fveColorMode =", StringComparison.Ordinal)
-              let stylesheet = html.IndexOf("/examples/assets/css/output.css", StringComparison.Ordinal)
+              let stylesheet = html.IndexOf("/examples/css/output.css", StringComparison.Ordinal)
               let entry = html.IndexOf("/examples/js/app.js", StringComparison.Ordinal)
 
               Expect.isTrue
@@ -2772,7 +2774,13 @@ after"""
 
               Expect.equal (Regex.Matches(gallery, "data-example-template=").Count) Examples.templates.Length "every registered example has a gallery card"
 
-              for path in Example.Server.Discovery.paths do
+              let examplePaths =
+                  Example.Application.Discovery.paths
+                  @ (Example.Specification.Specification.View.navigation |> List.map fst)
+                  @ (Example.Documentation.View.navigation |> List.map fst)
+                  @ [ Example.Presentation.View.home ]
+
+              for path in examplePaths do
                   let status, html = routeResponse path
                   Expect.equal status 200 path
                   Expect.stringContains html "data-example-viewer=" "separate template experience"
@@ -2789,13 +2797,13 @@ after"""
 
                   Expect.stringContains
                       html
-                      ("href=\"" + exampleServices.config.sourceUrl + "\"")
+                      "href=\"https://github.com/meiermade/FSharp.ViewEngine"
                       "the top bar links to the real consumer project"
 
-                  Expect.stringContains
-                      html
-                      "src=\"/examples/js/app.js\""
-                      "the example owns its component entry and shared Rocket runtime"
+                  let prefix =
+                      if path.StartsWith("/examples/application") || path.StartsWith("/examples/marketing") then "/examples"
+                      else "/examples/" + (path.Split('/')[2])
+                  Expect.stringContains html $"src=\"{prefix}/js/app.js\"" "the example owns its component entry"
 
                   Expect.isFalse
                       (html.Contains "src=\"/js/datastar.1.0.5.js\"")
@@ -2921,7 +2929,7 @@ after"""
           }
 
           test "Specification frames complete product documents without duplicating review chrome" {
-              for page in Example.Server.Specification.View.workflowPages do
+              for page in Example.Specification.Specification.View.workflowPages do
                   let status, html = routeResponse ("/examples/specification/" + page)
                   Expect.equal status 200 "the owning review page resolves"
                   let fixture = Regex.Match(html, "<iframe[^>]+src=\"([^\"]+)\"")
@@ -3064,7 +3072,7 @@ after"""
           test "Deleted records use protected workspace session state without changing shared fixtures" {
               let status, location, cookies, _ = postForm "/examples/application/transactions?sort=date-asc&search=payment"
                                                     ["action", "delete-selected"; "transactionIds", "201"; "transactionIds", "201"]
-              Expect.equal status 302 "confirmed deletion uses PRG"
+              Expect.equal status 303 "confirmed deletion uses PRG"
               Expect.stringContains cookies "httponly" "session state is not exposed to page scripts"
               Expect.isFalse (cookies.Contains "expires=") "the cookie is browser-session scoped"
               let cookie = cookies.Split(';')[0]
@@ -3190,7 +3198,7 @@ after"""
                       && (state.StartsWith("invalid", StringComparison.Ordinal)
                           || state = "duplicate-name")
 
-                  Expect.equal status (if editorFailure then 200 else 302) path
+                  Expect.equal status (if editorFailure then 200 else 303) path
                   Expect.equal cookies "" "submissions create no session cookies"
 
                   let html =
@@ -3293,7 +3301,7 @@ after"""
                   |> List.map (fun (key, value) -> key, if key = "parentId" then "1" else value)
 
               let successStatus, redirect, _, _, _ = postFormResponse path success
-              Expect.equal successStatus 302 "valid submission returns to the collection"
+              Expect.equal successStatus 303 "valid submission returns to the collection"
               let destination = Uri(Uri "https://fve.meiermade.com", redirect)
 
               Expect.equal
@@ -3330,7 +3338,7 @@ after"""
                   let status, location, cookies, _ =
                       postForm path [ "action", "delete"; "from", "transactions" ]
 
-                  Expect.equal status 302 "an existing record can be deleted"
+                  Expect.equal status 303 "an existing record can be deleted"
                   Expect.stringContains cookies "httponly" "deletion creates protected session state"
                   Expect.stringContains location "state=selection-deleted" "deletion outcome is authoritative"
                   Expect.stringContains location "/examples/application/transactions?" "return to the originating collection"
@@ -3357,7 +3365,7 @@ after"""
                   "deletion has an owning Specification workflow"
 
               Expect.equal
-                  (routeStatus "/examples/api-documentation/delete-transaction")
+                  (routeStatus "/examples/documentation/delete-transaction")
                   200
                   "deletion has an owning API contract"
           }
@@ -3439,16 +3447,20 @@ after"""
 
               Expect.equal
                   (owned.GetName().Name)
-                  "Example.Components"
+                  "Example.UI"
                   "the running example uses installed editable source"
 
-              Expect.equal typeof<Example.Components.Views.Model.Query>.Assembly owned "product view inputs live with the installed consumer controls"
-              Expect.isNotNull (owned.GetType "Example.Components.Views.Product") "the app and Spec use the shared product renderer"
+              Expect.equal typeof<Example.UI.Views.Model.Query>.Assembly owned "product view inputs live with the installed consumer controls"
+              Expect.isNotNull (owned.GetType "Example.UI.Views.Product") "the app and Spec use the shared product renderer"
               let viewDependencies = owned.GetReferencedAssemblies() |> Seq.map _.Name |> Set.ofSeq
-              for forbidden in ["Example.Server"; "Giraffe"; "Microsoft.AspNetCore.Http"] do
-                  Expect.isFalse (viewDependencies.Contains forbidden) "shared product views do not depend on the HTTP host"
+              for forbidden in ["Example.Application"; "Example.Domain"; "Giraffe"; "Microsoft.AspNetCore.Http"] do
+                  Expect.isFalse (viewDependencies.Contains forbidden) "shared views depend on neither the ledger nor the HTTP host"
 
-              for assembly in [ owned; typeof<Example.Server.Common.Navigation.Intent>.Assembly ] do
+              let specDependencies = exampleSpecRoutes.GetType().Assembly.GetReferencedAssemblies() |> Seq.map _.Name |> Set.ofSeq
+              Expect.contains specDependencies "Example.Domain" "Specification renders the actual domain contracts"
+              Expect.isFalse (specDependencies.Contains "Example.Application") "fixture workflows do not depend on the Application host"
+
+              for assembly in [ owned; exampleAppRoutes.GetType().Assembly; exampleSpecRoutes.GetType().Assembly; exampleDocsRoutes.GetType().Assembly; examplePresentationRoutes.GetType().Assembly ] do
                   let dependencies = assembly.GetReferencedAssemblies() |> Seq.map _.Name |> Set.ofSeq
                   Expect.isFalse (dependencies.Contains "Docs") "the example runs without the catalog"
 
@@ -3456,10 +3468,13 @@ after"""
                       (dependencies.Contains "FSharp.ViewEngine.Components")
                       "there is no private catalog component dependency"
 
-              for path in
-                  [ "/examples/application"
-                    "/examples/specification"
-                    "/examples/api-documentation" ] do
+              let hosts =
+                  [ "/examples/application", exampleAppRoutes
+                    "/examples/specification", exampleSpecRoutes
+                    "/examples/documentation", exampleDocsRoutes
+                    "/examples/presentation", examplePresentationRoutes ]
+
+              for path, handler in hosts do
                   let context = DefaultHttpContext()
                   context.Request.Method <- HttpMethods.Get
                   context.Request.Scheme <- "https"
@@ -3468,21 +3483,20 @@ after"""
                   context.Response.Body <- new MemoryStream()
                   let next: HttpFunc = fun current -> task { return Some current }
 
-                  Example.Server.Program.routes exampleServices next context
-                  |> Async.AwaitTask
-                  |> Async.RunSynchronously
-                  |> ignore
+                  for otherPath, otherHandler in hosts do
+                      if otherPath <> path then
+                          let result = otherHandler next context |> Async.AwaitTask |> Async.RunSynchronously
+                          Expect.isNone result $"{otherPath} does not serve {path}"
 
+                  handler next context |> Async.AwaitTask |> Async.RunSynchronously |> ignore
                   Expect.equal context.Response.StatusCode 200 "the standalone route resolves"
                   context.Response.Body.Position <- 0L
                   use reader = new StreamReader(context.Response.Body)
                   let html = reader.ReadToEnd()
                   Expect.stringContains html "id=\"main-content\"" "standalone hosting renders the full template"
 
-                  Expect.stringContains
-                      html
-                      "/examples/js/app.js"
-                      "the standalone host supplies the same component entry"
+                  let prefix = if path = "/examples/application" then "/examples" else path
+                  Expect.stringContains html $"{prefix}/js/app.js" "the standalone host supplies its own component entry"
           }
 
           test "Specification form outcomes preserve exact resource and submitted workspace mode" {
@@ -3501,7 +3515,7 @@ after"""
                     "appMode", "1" ]
 
               let status, location, _, _ = postForm path fields
-              Expect.equal status 302 "native form returns a finite destination"
+              Expect.equal status 303 "native form returns a finite destination"
               let destination = Uri(Uri "https://fve.meiermade.com", location)
 
               Expect.equal
@@ -3574,7 +3588,7 @@ after"""
                   |> List.sumBy (fun (key, value) ->
                       (Uri.EscapeDataString key).Length + 1 + (Uri.EscapeDataString value).Length + 1)
 
-              for length, expected in [ 64000, 302; 64001, 413 ] do
+              for length, expected in [ 64000, 303; 64001, 413 ] do
                   let padded =
                       fields
                       @ [ "padding", String.replicate (length - encodedLength - "padding=".Length) "x" ]
@@ -3645,6 +3659,7 @@ after"""
                   let requiredModule =
                       match selector with
                       | "fsharp-api-reference" -> Some "code-block.js"
+                      | "link" -> Some "link.js"
                       | "radio-group" -> Some "radio.js"
                       | "day-calendar" | "week-calendar" | "button-group" -> Some "scroll-region.js"
                       | "month-calendar" | "year-calendar" -> Some "calendar-selection.js"
@@ -3661,16 +3676,18 @@ after"""
                   match requiredModule with
                   | Some file ->
                       Expect.stringContains (System.Net.WebUtility.HtmlDecode html) $"import '../../Acme.Components/Components/Assets/{file}';" "the component shows its required browser module, including transitive dependencies"
-                      Expect.stringContains html "src/Acme.Web/js/app.js" "the import names the owning entry file"
+                      Expect.stringContains html "generated imports file" "installation explains that imports are generated"
                   | None ->
                       Expect.stringContains html "No additional JavaScript import is required." "components without an extra module say so"
 
                   for repeatedSetup in [ "npm run build:js"; "--bundle"; "script { _type" ] do
                       Expect.isFalse (html.Contains repeatedSetup) "shared build and layout setup stays on Installation"
                   if List.contains selector [ "code-block"; "example"; "fsharp-api-reference" ] then
-                      Expect.stringContains html "CodeBlock.assets None []" "code-producing components include their required head setup"
+                      Expect.stringContains html "The CLI adds Prism to package.json" "code-producing components document bundled highlighting"
                   if selector = "mermaid" then
-                      Expect.stringContains html "Mermaid.assets" "Mermaid shows its actual head setup, not an invented import"
+                      Expect.stringContains html "The CLI adds Mermaid to package.json" "Mermaid is bundled, with no separate head setup"
+                  if selector = "chart" then
+                      Expect.stringContains html "The CLI adds ECharts to package.json" "Chart documents the bundled renderer"
 
               for registration in allComponentPages do
                   let page = ComponentCatalog.tryPage registration.path |> Option.get
@@ -4038,43 +4055,9 @@ after"""
               Expect.stringContains installation "dotnet tool install FSharp.ViewEngine.Cli" "local tool installation"
               Expect.stringContains installation "dotnet fve init" "consumer-owned project initialization"
 
-              for source in
-                  [ "../Acme.Components/Components/**/*.fs"
-                    "../Acme.Components/Components/Assets/**/*.js"
-                    "./**/*.fs" ] do
-                  Expect.stringContains
-                      installation
-                      ($"@source &quot;{source}&quot;")
-                      "Tailwind scans installed F#, component JavaScript and application views relative to the web project"
-
-              Expect.stringContains
-                  installation
-                  "npm install --save-dev tailwindcss@4 @tailwindcss/cli@4 @tailwindcss/typography esbuild"
-                  "Tailwind and JavaScript build tools are installed together"
-
-              Expect.stringContains
-                  installation
-                  "@plugin &quot;@tailwindcss/typography&quot;"
-                  "the installed Typography plugin is enabled"
-
-              Expect.stringContains
-                  installation
-                  "id=\"runtime\""
-                  "the shared installation guide owns browser runtime setup"
-
-              for setup in
-                  [ "Assets/button.js"
-                    "build:css"
-                    "build:js"
-                    "watch:css"
-                    "watch:js"
-                    "/css/output.css"
-                    "/js/app.js"
-                    "ComponentsTheme.attributes" ] do
-                  Expect.stringContains
-                      installation
-                      setup
-                      "default setup covers CSS, JavaScript, development watchers and a themed view"
+              for setup in [ "package.json"; "fve.json"; "generated imports file"; "dotnet fve compile"; "dotnet fve watch";
+                             "/css/output.css"; "/js/app.js"; "ComponentsTheme.attributes" ] do
+                  Expect.stringContains installation setup "the CLI owns browser asset setup, while apps own their entry point"
 
               let button = render Docs.ComponentPages.Button.View.buttonRegistration
 
@@ -4280,15 +4263,11 @@ after"""
 
               Expect.stringContains allHtml "--fve-brand-solid" "consumer theme overrides are documented"
 
-              Expect.stringContains
-                  overview
-                  "rel=\"prev\" href=\"/extensions/tailwind-elements\""
-                  "Components follows integrations"
+              let hasPagerLink (html:string) relation href =
+                  Regex.IsMatch(html, $"<a(?=[^>]*\\bhref=\"{href}\")(?=[^>]*\\brel=\"{relation}\")[^>]*>")
 
-              Expect.stringContains
-                  overview
-                  "rel=\"next\" href=\"/components/installation\""
-                  "overview continues to installation"
+              Expect.isTrue (hasPagerLink overview "prev" "/extensions/tailwind-elements") "Components follows integrations"
+              Expect.isTrue (hasPagerLink overview "next" "/components/installation") "overview continues to installation"
 
               Expect.equal
                   (Docs.Catalog.ComponentRegistry.guideRegistrations |> List.map _.title)
@@ -4296,12 +4275,8 @@ after"""
                   "only component-specific, example-led guides remain"
 
               let theming = render Docs.Guides.ComponentPages.themingRegistration
-              Expect.stringContains theming "rel=\"prev\" href=\"/guides/using-signals\"" "theming follows signals"
-
-              Expect.stringContains
-                  theming
-                  "rel=\"next\" href=\"/guides/presentations\""
-                  "the presentation workflow follows theming in Guides"
+              Expect.isTrue (hasPagerLink theming "prev" "/guides/using-signals") "theming follows signals"
+              Expect.isTrue (hasPagerLink theming "next" "/guides/presentations") "the presentation workflow follows theming in Guides"
 
               Expect.stringContains installation "id=\"updating\"" "installation owns source updates"
 

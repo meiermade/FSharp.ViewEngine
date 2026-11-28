@@ -25,8 +25,10 @@ module View =
             }
         | InlineContent.Link(label, href)
         | InlineContent.Download(label, href) ->
-            a {
+            fveLink {
+                _variant LinkVariant.Plain
                 _href href
+                if href.StartsWith("/examples/", StringComparison.Ordinal) then _native true
                 match content with
                 | InlineContent.Download _ -> _download ""
                 | _ -> ()
@@ -161,6 +163,29 @@ module View =
                 _language language
                 source
             }
+        | DocNode.HighlightedCodeBlock(language, fileName, source, lines) ->
+            fveCodeBlock {
+                _language language
+                for name in Option.toList fileName do _fileName name
+                _highlightLines lines
+                source
+            }
+        | DocNode.ScriptFile(fileName, source) ->
+            let markers =
+                source.Split('\n')
+                |> Array.indexed
+                |> Array.choose (fun (index, line) ->
+                    match line.TrimEnd('\r') with
+                    | "// fve:components:start" | "// fve:components:end" -> Some (index + 1)
+                    | _ -> None)
+                |> Array.toList
+            fveCodeBlock {
+                _language "fsharp"
+                _fileName fileName
+                _download true
+                _highlightLines markers
+                source
+            }
         | DocNode.Example(id, label, language, source, preview) ->
             fveExample {
                 _name id
@@ -232,12 +257,6 @@ module View =
         { DocsAssets.defaults with
             productStylesheets = [ BrowserAssets.stylesheet ]
             datastarScript = Some BrowserAssets.script
-            prismScripts =
-                DocsAssets.defaults.prismScripts
-                @ [ "/js/prism-bash.1.30.0.min.js"
-                    "/js/prism-json.1.30.0.min.js"
-                    "/js/prism-python.1.30.0.min.js"
-                    "/js/prism-typescript.1.30.0.min.js" ]
             additionalHead =
                 [ link {
                       _rel "icon"
@@ -247,10 +266,6 @@ module View =
                   link {
                       _rel "manifest"
                       _href "/site.webmanifest"
-                  }
-                  script {
-                      _src "/js/tailwind-elements-loader.1.0.22.js"
-                      _type "module"
                   } ] }
 
     let private site (sections: NavSection list) search : DocsSite<string> =
@@ -413,6 +428,14 @@ module View =
         let breadcrumbs = Navigation.breadcrumbs sideNavItems site.homeId docsPage.activeId
         let renderMode = appMode |> Option.map Fullscreen |> Option.defaultValue Embedded
         site, sideNavItems, breadcrumbs, renderMode, docsPage
+
+    let pagePatch appMode sections registration docsPage =
+        let site, nav, crumbs, mode, page =
+            prepareResolvedPage appMode sections registration (docsPage |> Option.defaultWith (fun () -> resolvePage registration))
+        fragment {
+            DocsView.navigationRootWithNavigation site crumbs nav mode page
+            DocsView.documentMetadata site page
+        }
 
     let private renderResolvedPage nonce appMode sections registration docsPage =
         let site, sideNavItems, breadcrumbs, renderMode, docsPage =

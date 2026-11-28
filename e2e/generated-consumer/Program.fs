@@ -398,19 +398,6 @@ let codeDocument highlighting =
                 _href "/output.css"
             }
 
-            let prismScripts =
-                if highlighting then
-                    [ "/js/prism.1.30.0.min.js"
-                      "/js/prism-fsharp.1.30.0.min.js"
-                      "/js/prism-python.1.30.0.min.js"
-                      "/js/prism-typescript.1.30.0.min.js"
-                      "/js/prism-bash.1.30.0.min.js"
-                      "/js/prism-sql.1.30.0.min.js" ]
-                else
-                    []
-
-            CodeBlock.assetsWithNonce None prismScripts (Some "generated-code-nonce")
-
             script {
                 _type "module"
                 _src "/js/app.js"

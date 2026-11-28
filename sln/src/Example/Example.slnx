@@ -1,6 +1,8 @@
 <Solution>
-  <Project Path="Example.Application/Example.Application.fsproj" />
-  <Project Path="Example.Components/Example.Components.fsproj" />
+  <Project Path="Example.UI/Example.UI.fsproj" />
+  <Project Path="Example.Specification/Example.Specification.fsproj" />
+  <Project Path="Example.Documentation/Example.Documentation.fsproj" />
+  <Project Path="Example.Presentation/Example.Presentation.fsproj" />
   <Project Path="Example.Domain/Example.Domain.fsproj" />
-  <Project Path="Example.Server/Example.Server.fsproj" />
+  <Project Path="Example.Application/Example.Application.fsproj" />
 </Solution>

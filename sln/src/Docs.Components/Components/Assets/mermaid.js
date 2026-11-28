@@ -2,14 +2,11 @@ import { rocket } from './datastar-rocket.1.0.5.js';
 
 // Mermaid's renderer/configuration are shared; instance DOM and stale-result ownership are not.
 let queue = Promise.resolve(), renderId = 0;
-const diagram = (source, theme) => {
+const diagram = (source, theme, securityLevel) => {
   const render = async () => {
-    const service = window.fsharpDocsMermaid;
-    if (!service) throw new Error('Mermaid assets are unavailable.');
-    await service.ensure();
-    if (!service.hasApi()) throw new Error('Mermaid is unavailable.');
-    window.mermaid.initialize({ startOnLoad: false, theme, securityLevel: service.security || 'antiscript', suppressErrorRendering: true });
-    return window.mermaid.render('fsharp-docs-mermaid-' + ++renderId, source);
+    const { default: mermaid } = await import('./mermaid-renderer.js');
+    mermaid.initialize({ startOnLoad: false, theme, securityLevel, suppressErrorRendering: true });
+    return mermaid.render('fsharp-docs-mermaid-' + ++renderId, source);
   };
   const result = queue.then(render, render); queue = result.catch(() => {}); return result;
 };
@@ -31,11 +28,13 @@ rocket('fve-mermaid', {
     };
     const render = (force = false) => {
       if (disposed || !host.isConnected || !force && !host.checkVisibility()) return;
-      const source = host.dataset.mermaidSource || '', mode = theme(), key = JSON.stringify([source, mode]);
+      const source = host.dataset.mermaidSource || '', mode = theme();
+      const security = host.closest('[data-mermaid-security]')?.dataset.mermaidSecurity || 'antiscript';
+      const key = JSON.stringify([source, mode, security]);
       if (!force && (pending === key || applied?.key === key && applied.markup === host.innerHTML)) return;
       const ticket = ++generation; pending = key;
       status('pending', 'status', 'Rendering diagram…');
-      diagram(source, mode).then(({ svg, bindFunctions }) => {
+      diagram(source, mode, security).then(({ svg, bindFunctions }) => {
         if (disposed || ticket !== generation || !host.isConnected) return;
         host.innerHTML = svg; bindFunctions?.(host); host.dataset.mermaidState = 'rendered'; host.dataset.mermaidRenderedSource = source; host.removeAttribute('aria-busy');
         applied = { key, markup: host.innerHTML };

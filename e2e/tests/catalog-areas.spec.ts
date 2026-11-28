@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright'
 
 const crossBrowser = { tag: '@cross-browser' }
 
-test('flat component catalog supports native navigation and history', crossBrowser, async ({ page }) => {
+test('flat component catalog supports Datastar navigation and history', crossBrowser, async ({ page }) => {
   const errors: string[] = []
   page.on('pageerror', error => errors.push(error.message))
   await page.goto('/components')
@@ -12,10 +12,13 @@ test('flat component catalog supports native navigation and history', crossBrows
     await expect(cards.locator(`a[href="${path}"]`)).toHaveAccessibleName(new RegExp(`^${name} `))
   }
   await expect(cards.locator('a[href="/components/primitives"], a[href="/components/application"], a[href="/docs"]')).toHaveCount(0)
-  const destination = page.waitForResponse(response => response.request().isNavigationRequest() && new URL(response.url()).pathname === '/components/button')
+  const sidebar = await page.locator('#side-nav [data-fve-side-nav-content]').elementHandle()
+  await sidebar!.evaluate(node => { node.setAttribute('data-test-sidebar-identity', 'before-navigation') })
+  const destination = page.waitForResponse(response => response.request().headers()['datastar-request'] === 'true' && new URL(response.url()).pathname === '/components/button')
   await cards.locator('a[href="/components/button"]').click()
-  expect((await destination).headers()['content-type']).toContain('text/html')
+  expect((await destination).headers()['content-type']).toContain('text/event-stream')
   await expect(page.getByRole('heading', { name: 'Button', level: 1, exact: true })).toBeVisible()
+  expect(await sidebar!.evaluate(node => node === document.querySelector('#side-nav [data-fve-side-nav-content]'))).toBe(true)
   await page.goBack()
   await expect(page).toHaveURL('/components')
   await expect(cards.locator('a[href="/components/button"]')).toBeVisible()
@@ -35,7 +38,7 @@ test('search reaches a dedicated component and Examples exposes the Geldos exper
   await page.getByRole('link', { name: 'Examples', exact: true }).click()
   const cards = page.locator('a[data-example-template]')
   await expect(cards).toHaveCount(5)
-  for (const path of ['/examples/marketing', '/examples/presentation', '/examples/application', '/examples/specification', '/examples/api-documentation']) {
+  for (const path of ['/examples/marketing', '/examples/presentation', '/examples/application', '/examples/specification', '/examples/documentation']) {
     await expect(cards.and(page.locator(`a[href="${path}"]`))).toBeVisible()
   }
   const presentation = cards.and(page.locator('a[href="/examples/presentation"]'))

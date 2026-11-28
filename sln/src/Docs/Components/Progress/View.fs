@@ -36,9 +36,23 @@ module View =
         div {
             _class "grid gap-4"
             _attr ("data-signals__root__ifmissing", "{components_progress_pending: false, components_progress_done: false, components_progress_failed: false}")
+            _dataInit "if (!el.progressInitialized) { el.progressInitialized = true; $components_progress_pending = false; $components_progress_done = false; $components_progress_failed = false }"
+            _dataOn (
+                "click",
+                """if (evt.target.closest('#progress-example-trigger') && !$components_progress_pending) {
+                    $components_progress_pending = true;
+                    $components_progress_failed = false;
+                    const request = new AbortController();
+                    const observer = new MutationObserver(() => { if (!el.isConnected) request.abort() });
+                    observer.observe(document.documentElement, { childList: true, subtree: true });
+                    @post('/components/progress/run', { filterSignals: { exclude: /.*/ }, requestCancellation: request, retry: 'never' })
+                      .catch(() => { if (el.isConnected) $components_progress_failed = true })
+                      .finally(() => { observer.disconnect(); if (el.isConnected) $components_progress_pending = false })
+                }"""
+            )
             progressExampleRegion 0
 
-            // The trigger stays mounted while the server patches the progress region.
+            // The surrounding example owns the request, not the button whose state changes.
             fveButton {
                 _id "progress-example-trigger"
                 _class "justify-self-start"
@@ -46,11 +60,6 @@ module View =
                 _variant ButtonVariant.Solid
                 _dataAttr ("disabled", "$components_progress_pending")
                 _dataAttr ("aria-busy", "$components_progress_pending ? 'true' : null")
-
-                _dataOn (
-                    "click",
-                    "if (!$components_progress_pending) { $components_progress_pending = true; $components_progress_failed = false; @post('/components/progress/run', {filterSignals: {exclude: /.*/}, retry: 'never'}).catch(() => { $components_progress_failed = true }).finally(() => { $components_progress_pending = false }) }"
-                )
 
                 span {
                     _dataText

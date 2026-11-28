@@ -32,12 +32,6 @@ module MermaidAttributes =
 /// <category>mermaid</category>
 [<RequireQualifiedAccess>]
 module Mermaid =
-    /// Include once in the document head. The consumer supplies the Mermaid script URL.
-    let assets scriptPath = MermaidAssets.render scriptPath
-
-    /// Authorize initialization and the lazy-loaded runtime with the current document's CSP nonce.
-    let assetsWithNonce scriptPath nonce = MermaidAssets.renderWithNonce scriptPath nonce
-
     let internal render attributes children =
         let source = ComponentContent.plainText "fveMermaid" children
         if String.IsNullOrWhiteSpace source then invalidArg "children" "Mermaid source cannot be empty."

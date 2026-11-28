@@ -4,7 +4,7 @@ import AxeBuilder from '@axe-core/playwright'
 test('example toolbar actions share color and scale while preserving link and menu semantics', async ({ page }) => {
   for (const colorScheme of ['light', 'dark'] as const) {
     await page.emulateMedia({ colorScheme })
-    for (const route of ['application/accounts', 'specification', 'api-documentation']) {
+    for (const route of ['application/accounts', 'specification', 'documentation']) {
       await page.setViewportSize({ width: 1440, height: 900 })
       await page.goto('/examples/' + route)
       const source = page.getByRole('link', { name: 'View example source on GitHub', exact: true })

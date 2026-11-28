@@ -9,9 +9,15 @@ services:
       ASPNETCORE_URLS: http://0.0.0.0:5000
       MOCK_CLOUDFLARE_DOCS_ORIGIN: http://docs:5000
       MOCK_CLOUDFLARE_EXAMPLE_ORIGIN: http://example:5000
+      MOCK_CLOUDFLARE_EXAMPLE_SPEC_ORIGIN: http://example-spec:5000
+      MOCK_CLOUDFLARE_EXAMPLE_DOCS_ORIGIN: http://example-docs:5000
+      MOCK_CLOUDFLARE_EXAMPLE_PRESENTATION_ORIGIN: http://example-presentation:5000
     depends_on:
       - docs
       - example
+      - example-spec
+      - example-docs
+      - example-presentation
     init: true
     ports:
       - 127.0.0.1:${E2E_SERVER_PORT:-5054}:5000
@@ -27,11 +33,35 @@ services:
     init: true
     stop_grace_period: 15s
   example:
-    build:
+    <<: &example
+      init: true
+      stop_grace_period: 15s
+    build: &example-build
       context: ./sln
-      target: example
-    environment:
+      target: example-application
+    environment: &example-env
       ASPNETCORE_URLS: http://0.0.0.0:5000
+      EXAMPLE_DOCS_URL: /examples/documentation
       EXAMPLE_PUBLIC_ORIGIN: http://127.0.0.1:${E2E_SERVER_PORT:-5054}
-    init: true
-    stop_grace_period: 15s
+  example-spec:
+    <<: *example
+    build:
+      <<: *example-build
+      target: example-specification
+    environment:
+      <<: *example-env
+      EXAMPLE_SPEC_CATALOG_DEMO: 'true'
+  example-docs:
+    <<: *example
+    build:
+      <<: *example-build
+      target: example-documentation
+    environment: *example-env
+  example-presentation:
+    <<: *example
+    build:
+      <<: *example-build
+      target: example-presentation
+    environment:
+      <<: *example-env
+      EXAMPLE_APP_URL: /examples/application

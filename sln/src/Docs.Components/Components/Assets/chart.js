@@ -1,7 +1,7 @@
 import { rocket } from './datastar-rocket.1.0.5.js';
 
 let renderer;
-const loadRenderer = () => renderer ??= import('./echarts.6.1.0.esm.min.js').catch(error => {
+const loadRenderer = () => renderer ??= import('./echarts-renderer.js').catch(error => {
   renderer = undefined;
   throw error;
 });

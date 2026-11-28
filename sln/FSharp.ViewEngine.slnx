@@ -14,9 +14,11 @@
     <Project Path="src/Tests/Tests.fsproj" />
   </Folder>
   <Folder Name="/src/Example/">
-    <Project Path="src/Example/Example.Application/Example.Application.fsproj" />
-    <Project Path="src/Example/Example.Components/Example.Components.fsproj" />
+    <Project Path="src/Example/Example.UI/Example.UI.fsproj" />
+    <Project Path="src/Example/Example.Specification/Example.Specification.fsproj" />
+    <Project Path="src/Example/Example.Documentation/Example.Documentation.fsproj" />
+    <Project Path="src/Example/Example.Presentation/Example.Presentation.fsproj" />
     <Project Path="src/Example/Example.Domain/Example.Domain.fsproj" />
-    <Project Path="src/Example/Example.Server/Example.Server.fsproj" />
+    <Project Path="src/Example/Example.Application/Example.Application.fsproj" />
   </Folder>
 </Solution>

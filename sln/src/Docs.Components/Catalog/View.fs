@@ -4,7 +4,6 @@ open FSharp.ViewEngine.Components
 
 open FSharp.ViewEngine
 open System
-open System.Text.Json
 open type Html
 open type Datastar
 
@@ -15,9 +14,6 @@ open type Datastar
 [<NoEquality; NoComparison>]
 type DocsAssets =
     { productStylesheets: string list
-      prismStylesheet: string option
-      prismScripts: string list
-      mermaidScript: string option
       datastarScript: string option
       mermaidSecurityLevel: string
       nonce: string option
@@ -27,12 +23,6 @@ type DocsAssets =
 module DocsAssets =
     let defaults =
         { productStylesheets = [ "/css/compiled.css" ]
-          prismStylesheet = None
-          prismScripts =
-            [ "/js/prism.1.30.0.min.js"
-              "/js/prism-fsharp.1.30.0.min.js"
-              "/js/prism-sql.1.30.0.min.js" ]
-          mermaidScript = Some "/js/mermaid.11.16.1.min.js"
           datastarScript = Some "/js/app.js"
           mermaidSecurityLevel = "antiscript"
           nonce = None
@@ -157,7 +147,6 @@ module private Icons =
     let check = fveIcon { _name IconName.Check; _variant IconVariant.Mini }
 
 module private ViewHelpers =
-    let jsString (value: string) = JsonSerializer.Serialize(value)
 
     let themeStyle theme =
         $"--fve-brand-subtle:{theme.accent100};--fve-brand-solid:{theme.accent700};--fve-brand-hover:{theme.accent900};--fve-brand-active:{theme.accent900};--fve-brand-text:{theme.accent900};--fve-brand-ring:{theme.accent500}"
@@ -543,7 +532,8 @@ module private PagerView =
         let linkAlignment = if isNext then "sm:col-start-2 text-right" else ""
         let directionAlignment = if isNext then "justify-end" else ""
 
-        a {
+        fveLink {
+            _variant LinkVariant.Plain
             _rel relation
             _href link.href
 
@@ -1179,13 +1169,22 @@ module DocsView =
             [
               "window.fveColorMode?.refresh()"
               "window.initializeDocsToc?.()"
-              "window.fsharpDocsFragments?.show(window.location.hash)" ]
+              "window.fsharpDocsFragments?.show(window.location.hash)"
+              "window.fveRenderedPage ??= location.pathname + location.search" ]
             |> String.concat "; "
 
         div {
             _id "docs-navigation-root"
-            _attr ("data-fve-navigation-root", "true")
             _dataInit initialize
+            _dataOn ("popstate", [ "window" ], """
+const pending = window.fvePageRequest;
+pending?.abort();
+if (pending || window.fveRenderedPage !== location.pathname + location.search) {
+  const request = window.fvePageRequest = new AbortController();
+  @get(location.href, { filterSignals: { exclude: /.*/ }, requestCancellation: request, retry: 'never' })
+    .finally(() => { if (window.fvePageRequest === request) delete window.fvePageRequest; });
+}
+            """)
 
             match renderMode with
             | Fullscreen request ->
@@ -1217,117 +1216,10 @@ module DocsView =
                 |> List.tryFind (fun fixture -> Fixture.id fixture = AppMode.frameId request)
                 |> Option.map (fun fixture -> request, fixture)
 
-        let mermaidSecurity = jsString site.assets.mermaidSecurityLevel
-
-        let mermaidScript =
-            site.assets.mermaidScript |> Option.map jsString |> Option.defaultValue "null"
-
-        let prismStylesheet =
-            site.assets.prismStylesheet |> Option.map jsString |> Option.defaultValue "null"
-
-        let prismScripts =
-            site.assets.prismScripts
-            |> List.map jsString
-            |> String.concat ", "
-            |> fun sources -> $"[{sources}]"
-
-        let assetNonce =
-            site.assets.nonce |> Option.map jsString |> Option.defaultValue "null"
-
         let colorMode = ColorModeView.mode site.defaultColorMode
-
-        let mermaidInitialization =
-            """
-window.fsharpDocsMermaid = window.fsharpDocsMermaid ?? {
-  source: __MERMAID_SCRIPT__,
-  nonce: __ASSET_NONCE__,
-  loading: null,
-  loadScript(source) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = source;
-      script.dataset.docsMermaidAsset = 'true';
-      if (this.nonce) script.nonce = this.nonce;
-      script.addEventListener('load', resolve, { once: true });
-      script.addEventListener('error', () => reject(new Error(`Unable to load Mermaid asset: ${source}`)), { once: true });
-      document.head.append(script);
-    });
-  },
-  hasApi() {
-    return typeof window.mermaid?.initialize === 'function' && typeof window.mermaid?.render === 'function';
-  },
-  async ensure() {
-    if (this.hasApi() || !this.source) return;
-    if (!this.loading) this.loading = this.loadScript(this.source);
-    await this.loading;
-  }
-};
-window.fsharpDocsMermaid.security = __SECURITY__;
-            """
-            |> fun source ->
-                source
-                    .Replace("__MERMAID_SCRIPT__", mermaidScript)
-                    .Replace("__ASSET_NONCE__", assetNonce)
-                    .Replace("__SECURITY__", mermaidSecurity)
 
         let navigationScript =
             """
-const markDocsCodeUnloading = () => { window.fsharpDocsCode.unloading = true; };
-window.fsharpDocsCode = window.fsharpDocsCode ?? {
-  stylesheet: __PRISM_STYLESHEET__,
-  scripts: __PRISM_SCRIPTS__,
-  nonce: __ASSET_NONCE__,
-  loading: null,
-  unloading: false,
-  abandonOrReject(resolve, reject, source) {
-    if (this.unloading) resolve();
-    else reject(new Error(`Unable to load Prism asset: ${source}`));
-  },
-  loadStylesheet(source) {
-    const href = new URL(source, document.baseURI).href;
-    const existing = Array.from(document.querySelectorAll('link[rel="stylesheet"]')).find(link => link.href === href);
-    if (existing?.sheet) return Promise.resolve();
-    return new Promise((resolve, reject) => {
-      const link = existing ?? document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = source;
-      link.dataset.docsPrismAsset = 'true';
-      link.addEventListener('load', resolve, { once: true });
-      link.addEventListener('error', () => this.abandonOrReject(resolve, reject, source), { once: true });
-      if (!existing) document.head.append(link);
-    });
-  },
-  loadScript(source) {
-    return new Promise((resolve, reject) => {
-      const script = document.createElement('script');
-      script.src = source;
-      script.dataset.docsPrismAsset = 'true';
-      if (this.nonce) script.nonce = this.nonce;
-      script.addEventListener('load', resolve, { once: true });
-      script.addEventListener('error', () => this.abandonOrReject(resolve, reject, source), { once: true });
-      document.head.append(script);
-    });
-  },
-  async ensure() {
-    if (!this.loading) {
-      this.unloading = false;
-      window.addEventListener('beforeunload', markDocsCodeUnloading);
-      this.loading = (async () => {
-        if (this.stylesheet) await this.loadStylesheet(this.stylesheet);
-        if (this.unloading || window.Prism?.languages?.fsharp) return;
-        window.Prism = window.Prism || {};
-        window.Prism.manual = true;
-        for (const source of this.scripts) {
-          if (this.unloading) return;
-          await this.loadScript(source);
-        }
-      })().finally(() => window.removeEventListener('beforeunload', markDocsCodeUnloading));
-    }
-    await this.loading;
-  }
-};
-window.addEventListener('pagehide', markDocsCodeUnloading);
-window.addEventListener('pageshow', () => { window.fsharpDocsCode.unloading = false; });
 window.fsharpDocsPreviewColorMode = window.fsharpDocsPreviewColorMode ?? {
   resolved() {
     return document.documentElement.classList.contains('dark') ? 'dark' : 'light';
@@ -1427,11 +1319,6 @@ window.fsharpDocsToc = window.fsharpDocsToc ?? {
 window.initializeDocsToc = () => window.fsharpDocsToc.initialize();
 
             """
-            |> fun source ->
-                source
-                    .Replace("__PRISM_STYLESHEET__", prismStylesheet)
-                    .Replace("__PRISM_SCRIPTS__", prismScripts)
-                    .Replace("__ASSET_NONCE__", assetNonce)
 
         let nonceAttribute () =
             match site.assets.nonce with
@@ -1440,6 +1327,7 @@ window.initializeDocsToc = () => window.fsharpDocsToc.initialize();
 
         html {
             _lang "en"
+            _data ("mermaid-security", site.assets.mermaidSecurityLevel)
 
             match site.assets.nonce with
             | Some nonce -> _attr ("data-nonce", nonce)
@@ -1464,27 +1352,11 @@ window.initializeDocsToc = () => window.fsharpDocsToc.initialize();
                 ColorMode.assetsWithNonce $"{site.storageKey}-color-mode" colorMode site.assets.nonce
                 SideNavPreferences.assetsWithNonce site.assets.nonce
 
-                match site.assets.prismStylesheet with
-                | Some stylesheet ->
-                    link {
-                        _rel "stylesheet"
-                        _href stylesheet
-                    }
-                | None -> ()
-
                 for stylesheet in site.assets.productStylesheets do
                     link {
                         _rel "stylesheet"
                         _href stylesheet
                     }
-
-                match site.assets.mermaidScript with
-                | Some _ ->
-                    script {
-                        nonceAttribute ()
-                        raw mermaidInitialization
-                    }
-                | None -> ()
 
                 script {
                     nonceAttribute ()

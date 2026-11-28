@@ -70,7 +70,7 @@ module Catalog =
                   [ fveCodeBlock {
                         _language "shell"
 
-                        "dotnet fve init src/Acme.Components/Acme.Components.fsproj --namespace Acme.Components\ndotnet fve add button input --config src/Acme.Components/fve.json"
+                        "dotnet fve init src/Acme.Components/Acme.Components.fsproj --frontend-root ../Acme.Web\ndotnet fve add button input --config src/Acme.Components/fve.json"
                     }
                     p {
                         "Styles use "
@@ -106,7 +106,8 @@ module Catalog =
                             _class "docs-catalog-grid"
 
                             for item in section.pages do
-                                a {
+                                fveLink {
+                                    _variant LinkVariant.Plain
                                     _href item.path
                                     _class "docs-catalog-card"
                                     strong { item.title }

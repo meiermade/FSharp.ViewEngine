@@ -10,6 +10,7 @@ open FSharp.ViewEngine
 open FSharp.ViewEngine.Components
 open FSharp.ViewEngine.Components.Templates
 open Giraffe
+open Microsoft.AspNetCore.Http
 open Microsoft.Extensions.DependencyInjection
 open StarFederation.Datastar.DependencyInjection
 
@@ -46,6 +47,18 @@ module Response =
 
     let respond document = document |> Render.toHtmlDocString |> htmlString
 
-    let respondWithPage context registration page =
-        View.documentWithPageForAndNonce (Security.nonce context) (appMode context) Registry.navigation registration page
-        |> respond
+    let private pageResponse (context: HttpContext) registration page =
+        context.Response.Headers.Append("Vary", "Datastar-Request")
+        let mode = appMode context
+        if History.requested context then
+            let patch = View.pagePatch mode Registry.navigation registration page |> Render.toString
+            let url = History.urlFor (string context.Request.Path) context
+            History.patchPage patch
+            >=> History.pushPageUrl url "window.fveColorMode?.refresh(); window.initializeDocsToc?.(); if (previous.split('?')[0] !== url.split('?')[0]) { const main = document.getElementById('main-content'); main?.scrollTo(0, 0); requestAnimationFrame(() => main?.focus({ preventScroll: true })); }"
+        else
+            match page with
+            | Some page -> View.documentWithPageForAndNonce (Security.nonce context) mode Registry.navigation registration page |> respond
+            | None -> View.documentForWithNonce (Security.nonce context) mode Registry.navigation registration |> respond
+
+    let respondWithPage context registration page = pageResponse context registration (Some page)
+    let respondFor context registration = pageResponse context registration None

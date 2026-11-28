@@ -14,7 +14,7 @@ async function expectCenteredIcon(control: Locator, width: number) {
 for (const [context, path] of [
   ['catalog', '/components/button'],
   ['Specification', '/examples/specification'],
-  ['API documentation', '/examples/api-documentation'],
+  ['Docs', '/examples/documentation'],
 ]) {
   test(`${context} theme menu retains keyboard selection and focus @cross-browser`, async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 900 })

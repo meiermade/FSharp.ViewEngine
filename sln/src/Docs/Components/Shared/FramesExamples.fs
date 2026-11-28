@@ -26,6 +26,7 @@ module FramesExamples =
 
         fveLink {
             _id ("fve-fixture-" + id + (if expanded then "-restorer" else "-launcher"))
+            _native true
             yield! navigation
             _variant LinkVariant.Outline
             _color Color.Neutral

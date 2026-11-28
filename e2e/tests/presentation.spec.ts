@@ -10,7 +10,7 @@ test('HTML presentations retain their frame, numbering and accessible canvas acr
   ])
   await expect(slides.getByRole('link', { name: 'Try the scenarios' })).toHaveAttribute('href', '/examples/application?account=101&comparison=optimistic')
   await expect(slides.getByRole('link', { name: 'Application demo' })).toHaveAttribute('href', '/examples/application?account=101')
-  await expect(slides.getByRole('link', { name: 'API reference' })).toHaveAttribute('href', '/examples/api-documentation')
+  await expect(slides.getByRole('link', { name: 'API reference' })).toHaveAttribute('href', '/examples/documentation')
   await expect(page.locator('[data-fve-slide-number]')).toHaveText(['01', '02', '03', '04', '05'])
   for (const mode of ['light', 'dark']) {
     await page.evaluate(mode => (window as any).fveColorMode.set(mode), mode)

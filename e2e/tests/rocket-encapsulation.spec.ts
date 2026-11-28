@@ -1,12 +1,11 @@
 import { test, expect } from '@playwright/test'
 
 test('Rocket enhancement keeps caller bindings outside private per-instance state @cross-browser', async ({ page }) => {
-  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: "export * from '/examples/js/datastar-rocket.1.0.5.js';" }))
+  await page.route(/\/js\/app(?:-[A-Z0-9]{8})?\.js$/, route => route.fulfill({ status: 200, contentType: 'text/javascript', body: "import { rocket } from '/examples/js/datastar-rocket.1.0.5.js'; window.defineScopeProbe = rocket;" }))
   await page.goto('/components/card')
-  const bundle = await page.locator('script[type="module"][src^="/js/app"]').getAttribute('src')
-  await page.evaluate(async bundleUrl => {
-    const runtime = await import(bundleUrl!)
-    runtime.rocket('fve-caller-scope-probe', {
+  await page.waitForFunction(() => typeof (window as any).defineScopeProbe === 'function')
+  await page.evaluate(() => {
+    ;(window as any).defineScopeProbe('fve-caller-scope-probe', {
       mode: 'light',
       setup: ({ host, $$, effect, cleanup }: any) => {
         $$('open', false)
@@ -19,7 +18,7 @@ test('Rocket enhancement keeps caller bindings outside private per-instance stat
     const fragment = document.createElement('section')
     fragment.innerHTML = `<fve-caller-scope-probe id="scope-first"><div data-signals__root__ifmissing="{callerDraft: 'Caller draft'}"><input aria-label="Caller draft" data-bind="callerDraft"><button type="button">First instance</button></div></fve-caller-scope-probe><fve-caller-scope-probe id="scope_first"><button type="button">Second instance</button></fve-caller-scope-probe><output aria-label="Outer draft" data-text="$callerDraft"></output>`
     document.querySelector('main')!.prepend(fragment)
-  }, bundle)
+  })
   await expect(page.getByRole('textbox', { name: 'Caller draft', exact: true })).toHaveValue('Caller draft')
   await expect(page.getByLabel('Outer draft', { exact: true })).toHaveText('Caller draft')
   await page.getByRole('button', { name: 'First instance', exact: true }).click()
